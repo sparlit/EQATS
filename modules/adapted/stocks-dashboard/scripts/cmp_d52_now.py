@@ -32,7 +32,7 @@ D = json.loads(gzip.decompress(open("docs/sf_stock_data.bin", "rb").read()))
 META = D["meta"]
 data = D["data"]
 mine = json.load(open("scripts/_mine_d52.json"))
-OUR = {x[0] for x in mine[max(mine)]}  # 2026-06-12, 123 syms
+OUR = {x[0] for x in mine[sorted(mine)[-1]]}  # 2026-06-12, 123 syms
 
 # Trendlyne live list (d52, name) in displayed order
 TL = [
@@ -382,7 +382,9 @@ matched = sorted(TLS & OUR)
 tl_only = [(s, d, nm) for s, d, nm in tl_syms if s not in OUR]
 our_only = sorted(OUR - TLS)
 
-print("TL live=%d names, resolved to %d syms (%d unresolved)" % (len(TL), len(TLS), len(unresolved)))
+print(
+    "TL live=%d names, resolved to %d syms (%d unresolved)" % (len(TL), len(TLS), len(unresolved))
+)
 print("OUR 2026-06-12=%d syms" % len(OUR))
 print("\nMATCH (in both): %d" % len(matched))
 print("  ", ", ".join(matched))

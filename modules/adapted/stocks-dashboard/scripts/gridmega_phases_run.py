@@ -81,7 +81,11 @@ def main():
 
     runner = os.path.join(HERE, "_gridmega_run.js")
     with open(runner, "wb") as out:
-        for part in ("scripts/gridmega_shim.js", "docs/backtest-engine.js", "scripts/grid_search_mega.js"):
+        for part in (
+            "scripts/gridmega_shim.js",
+            "docs/backtest-engine.js",
+            "scripts/grid_search_mega.js",
+        ):
             with open(os.path.join(ROOT, part), "rb") as f:
                 out.write(f.read())
     subprocess.run(["node", "--check", runner], check=True)
@@ -116,12 +120,20 @@ def main():
             )
         with lock:
             state["n"] += 1
-            ok = r.returncode == 0 and os.path.exists(os.path.join(HERE, f"_gridmega_top_{tag}.json"))
+            ok = r.returncode == 0 and os.path.exists(
+                os.path.join(HERE, f"_gridmega_top_{tag}.json")
+            )
             if not ok:
                 state["fail"].append(tag)
             print(
                 "[%2d/%2d] %-42s %s  (%.0f min elapsed)"
-                % (state["n"], len(jobs), tag, "ok" if ok else f"FAILED rc={r.returncode}", (time.time() - t0) / 60),
+                % (
+                    state["n"],
+                    len(jobs),
+                    tag,
+                    "ok" if ok else f"FAILED rc={r.returncode}",
+                    (time.time() - t0) / 60,
+                ),
                 flush=True,
             )
 
@@ -141,7 +153,9 @@ def main():
                 job = q.pop(0)
             work(job)
 
-    threads = [threading.Thread(target=loop, args=(i,), daemon=True) for i in range(min(a.jobs, len(jobs)))]
+    threads = [
+        threading.Thread(target=loop, args=(i,), daemon=True) for i in range(min(a.jobs, len(jobs)))
+    ]
     for t in threads:
         t.start()
     for t in threads:

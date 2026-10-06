@@ -343,9 +343,9 @@ def templates(own_qe):
     cum = "FY" if is_q4 else "YTD"
     head = [(own_qe, "Q"), (q1, "Q"), (q4, "Q")]
     tpls = [
-        [*head, (own_qe, cum), (q4, cum), (prev_fy, "FY")],
-        [*head, (own_qe, cum), (q4, cum)],
-        [*head, (prev_fy, "FY")],
+        head + [(own_qe, cum), (q4, cum), (prev_fy, "FY")],
+        head + [(own_qe, cum), (q4, cum)],
+        head + [(prev_fy, "FY")],
         head,
     ]
     out, seen = [], set()
@@ -389,7 +389,7 @@ def _subseq_matches(hay, needle, start=0, acc=()):
         return
     for j in range(start, len(hay) - len(needle) + 1):
         if hay[j] == needle[0]:
-            yield from _subseq_matches(hay, needle[1:], j + 1, (*acc, j))
+            yield from _subseq_matches(hay, needle[1:], j + 1, acc + (j,))
 
 
 def occurrences(cols):
@@ -415,7 +415,7 @@ def fuzzy_in(hay, needle, thresh=0.86):
     the tiebreaker that stops a standalone page anchoring into the consolidated slot (runbook §44),
     losing it is not acceptable; it has to be matched as fuzzily as the labels are."""
     n = len(needle)
-    for i in range(max(0, len(hay) - n + 3)):
+    for i in range(0, max(0, len(hay) - n + 3)):
         for w in (n - 1, n, n + 1):
             if difflib.SequenceMatcher(None, hay[i : i + w], needle).ratio() >= thresh:
                 return True
@@ -494,7 +494,11 @@ def eps_for(pages, i):
             continue
 
         def pull(vec):
-            return None if vec is None else [None if (r is None or r >= len(vec)) else vec[r] for r in remap]
+            return (
+                None
+                if vec is None
+                else [None if (r is None or r >= len(vec)) else vec[r] for r in remap]
+            )
 
         eps = eps if eps is not None else pull(find_row(rows2, N_EPS))
         paid = paid if paid is not None else pull(find_row(rows2, N_PAIDUP, C_PAIDUP))
@@ -551,7 +555,11 @@ def read_filing(doc, stored_std, stored_con, own_qe):
             if per is None and pat is None:
                 continue
             head = ICR.norm(" ".join(lab for lab, _ in rows[:14])[:700])
-            div = 100.0 if fuzzy_in(head, "rsinlakh", 0.8) else (1.0 if fuzzy_in(head, "rsincrore", 0.8) else None)
+            div = (
+                100.0
+                if fuzzy_in(head, "rsinlakh", 0.8)
+                else (1.0 if fuzzy_in(head, "rsincrore", 0.8) else None)
+            )
             if div is None:
                 continue
             name = "lakh" if div == 100.0 else "crore"
@@ -594,7 +602,10 @@ def read_filing(doc, stored_std, stored_con, own_qe):
                 "series": [
                     dict(
                         {"qe": q, "occ": k, "role": roles.get((q, k))},
-                        **{("pat_after_tax" if nm == "pat_after_tax2" else nm): g(vec, i) for nm, vec in tail.items()},
+                        **{
+                            ("pat_after_tax" if nm == "pat_after_tax2" else nm): g(vec, i)
+                            for nm, vec in tail.items()
+                        },
                     )
                     for i, q, k in occ
                 ],
@@ -687,7 +698,9 @@ def identity(v, a, n, per):
         return "closes|assoc-sign"
     for f in (10.0, 0.1):
         w = v * f
-        if abs(per - (w + (a or 0.0) + nci)) <= 1.0 or (a is not None and abs(per - (w - a + nci)) <= 1.0):
+        if abs(per - (w + (a or 0.0) + nci)) <= 1.0 or (
+            a is not None and abs(per - (w - a + nci)) <= 1.0
+        ):
             return "closes|scale"
     return "fails"
 
@@ -708,7 +721,9 @@ def eps_check(con, i, owners):
     err = abs(implied - owners) / max(abs(owners), 1.0)
     # 0.5% absorbs the EPS row's own rounding to two decimals: one paisa of EPS is ~Rs 1.75cr, so
     # a quarter near Rs 700cr can legitimately differ by ~0.13%
-    return (err <= 0.005), f"EPS {e:.2f} x {sh:.2f} cr sh = {implied:.2f} vs {owners:.2f} ({100 * err:.2f}%)"
+    return (
+        err <= 0.005
+    ), f"EPS {e:.2f} x {sh:.2f} cr sh = {implied:.2f} vs {owners:.2f} ({100 * err:.2f}%)"
 
 
 def eps_arbitrate(con):
@@ -797,7 +812,11 @@ def adjudicate(obs, verbose=True):
                 or (eps_verdict["two_sided"] and eps_verdict["winner"] != "profit_period")
             ):
                 if verbose:
-                    print("  EPS ARBITRATION rejects this filing ({}): {}".format(f["att"][:24], eps_verdict))
+                    print(
+                        "  EPS ARBITRATION rejects this filing ({}): {}".format(
+                            f["att"][:24], eps_verdict
+                        )
+                    )
                 continue
             eps_seen[src] = eps_verdict
             for i, c in enumerate(con["series"]):
@@ -826,7 +845,9 @@ def adjudicate(obs, verbose=True):
                 ok, why = eps_check(con, i, per)
                 if ok is False:
                     if verbose:
-                        print("  EPS drops %s %s occ%d: %s" % (f["att"][:20], c["qe"], c["occ"], why))
+                        print(
+                            "  EPS drops %s %s occ%d: %s" % (f["att"][:20], c["qe"], c["occ"], why)
+                        )
                     continue
                 rec = (src, v, a, n, per, ok, controlled, how)
                 if c.get("role") == "Q":
@@ -857,7 +878,11 @@ def adjudicate(obs, verbose=True):
     page_control = {}
     for q, recs in seen.items():
         for r in recs:
-            if consensus.get(q) is not None and r[4] is not None and abs(consensus[q] - r[4]) <= PAISA:
+            if (
+                consensus.get(q) is not None
+                and r[4] is not None
+                and abs(consensus[q] - r[4]) <= PAISA
+            ):
                 page_control.setdefault(r[0], set()).add(q)
 
     out = {}
@@ -878,7 +903,11 @@ def adjudicate(obs, verbose=True):
             return d
 
         vals_per = tally(
-            lambda r: r[4] if r[4] is not None else (None if r[1] is None else r[1] + (r[2] or 0.0) + (r[3] or 0.0))
+            lambda r: (
+                r[4]
+                if r[4] is not None
+                else (None if r[1] is None else r[1] + (r[2] or 0.0) + (r[3] or 0.0))
+            )
         )
         if not vals_per:
             continue
@@ -890,21 +919,39 @@ def adjudicate(obs, verbose=True):
             "sources": sorted(set(best[1])),
             "n_independent": len(set(best[1])),
             "disagreements": {k: sorted(set(v)) for k, v in vals_per.items() if k != best[0]},
-            "pat_after_tax": (max(pat_only.items(), key=lambda kv: len(set(kv[1])))[0] if pat_only else None),
-            "pat_n": (len(set(max(pat_only.items(), key=lambda kv: len(set(kv[1])))[1])) if pat_only else 0),
-            "assoc": (max(assoc_only.items(), key=lambda kv: len(set(kv[1])))[0] if assoc_only else None),
+            "pat_after_tax": (
+                max(pat_only.items(), key=lambda kv: len(set(kv[1])))[0] if pat_only else None
+            ),
+            "pat_n": (
+                len(set(max(pat_only.items(), key=lambda kv: len(set(kv[1])))[1]))
+                if pat_only
+                else 0
+            ),
+            "assoc": (
+                max(assoc_only.items(), key=lambda kv: len(set(kv[1])))[0] if assoc_only else None
+            ),
             "stored_std": stored_std.get(q),
             "stored_con": stored_con.get(q),
             # which of the agreeing filings carried a passing standalone control, and which
             # columns their EPS row independently confirmed
             "controlled_sources": sorted(
-                {r[0] for r in recs if r[6] and abs((r[4] if r[4] is not None else -1e9) - best[0]) <= PAISA}
+                {
+                    r[0]
+                    for r in recs
+                    if r[6] and abs((r[4] if r[4] is not None else -1e9) - best[0]) <= PAISA
+                }
             ),
             "identity": sorted({r[7] for r in recs}),
             # other quarters on the same page(s) that the corpus independently confirms
-            "page_control": sorted({x for r in recs for x in page_control.get(r[0], set()) if x != q}),
+            "page_control": sorted(
+                {x for r in recs for x in page_control.get(r[0], set()) if x != q}
+            ),
             "eps_confirmed": sorted(
-                {r[0] for r in recs if r[5] is True and r[4] is not None and abs(r[4] - best[0]) <= PAISA}
+                {
+                    r[0]
+                    for r in recs
+                    if r[5] is True and r[4] is not None and abs(r[4] - best[0]) <= PAISA
+                }
             ),
         }
     return out, fy
@@ -936,7 +983,11 @@ def verdicts(res, fy):
         # and Dec-2024's after-tax 1,62,343 comes back as 16234.31. `identity()` already
         # established which variant closes; use it, so the recorded arithmetic actually adds up.
         assoc = r["assoc"]
-        if assoc is not None and "closes|assoc-sign" in r["identity"] and "closes" not in r["identity"]:
+        if (
+            assoc is not None
+            and "closes|assoc-sign" in r["identity"]
+            and "closes" not in r["identity"]
+        ):
             assoc = -assoc
         r["assoc_signed"] = assoc
         before = r["pat_after_tax"]
@@ -970,7 +1021,8 @@ def verdicts(res, fy):
             ok = abs(got - want[0]) <= 1.0  # Rs 1cr absorbs paisa rounding, nothing more
             sq = ok if sq is None else (sq and ok)
             r["sq_detail"].append(
-                "%s: SQ(%d q) %.2f vs printed %.2f -> %s" % (cum_end, len(qs), got, want[0], "OK" if ok else "MISMATCH")
+                "%s: SQ(%d q) %.2f vs printed %.2f -> %s"
+                % (cum_end, len(qs), got, want[0], "OK" if ok else "MISMATCH")
             )
         r["sq_check"] = sq
         r["fy_end"] = fy_end
@@ -990,7 +1042,10 @@ def verdicts(res, fy):
         # about which column is right. Still requires the page's own arithmetic to close and two
         # corroborated neighbours on it.
         one_filing_ok = (
-            r["state"] == "CONVENTN" and anchored and "fails" not in r["identity"] and len(r["page_control"]) >= 2
+            r["state"] == "CONVENTN"
+            and anchored
+            and "fails" not in r["identity"]
+            and len(r["page_control"]) >= 2
         )
         proven = (sq is True or (agreed and anchored) or one_filing_ok) and not r["disagreements"]
         if r["state"] == "OK":
@@ -1055,7 +1110,8 @@ def apply(res, dry=True):
             if row[3] != old:
                 raise SystemExit(
                     "GUARD: %s %d con is %r, expected %r in %s — REFUSING "
-                    "(another writer moved it; re-derive, do not merge)" % (SYM, q, row[3], old, path)
+                    "(another writer moved it; re-derive, do not merge)"
+                    % (SYM, q, row[3], old, path)
                 )
             row[3] = new
         # nothing but the intended con-PAT slots may have changed
@@ -1076,8 +1132,7 @@ def apply(res, dry=True):
                     if a[q][i] != b[q][i] and not (i == 3 and q in {p[0]: 1 for p in plan}):
                         diffs.append("%s %d idx%d" % (sym, q, i))
         if diffs:
-            msg = f"GUARD: unintended changes {diffs[:8]} in {path}"
-            raise SystemExit(msg)
+            raise SystemExit(f"GUARD: unintended changes {diffs[:8]} in {path}")
         json.dump(d, open(path, "w"), separators=(",", ":"))
         print(f"wrote {path}")
 
@@ -1107,7 +1162,9 @@ def apply(res, dry=True):
             + ("  || cumulative closure: " + "; ".join(r["sq_detail"]) if r["sq_detail"] else ""),
         }
     json.dump(led, open(LEDGER, "w"), indent=1, sort_keys=True)
-    json.dump(defects, open(os.path.join(SCRIPTS, "pat_defects.json"), "w"), indent=1, sort_keys=True)
+    json.dump(
+        defects, open(os.path.join(SCRIPTS, "pat_defects.json"), "w"), indent=1, sort_keys=True
+    )
     print("ledgered %d cells -> %s + pat_defects.json" % (len(plan), LEDGER))
     return len(plan)
 
@@ -1121,7 +1178,18 @@ def main():
     verdicts(res, fy)
     print(
         "\n%-10s %10s %10s %10s %10s %3s %3s %3s %-9s %s"
-        % ("QE", "storedSTD", "storedCON", "PAT(a-tax)", "OWNERS", "n", "ctl", "eps", "state", "verdict")
+        % (
+            "QE",
+            "storedSTD",
+            "storedCON",
+            "PAT(a-tax)",
+            "OWNERS",
+            "n",
+            "ctl",
+            "eps",
+            "state",
+            "verdict",
+        )
     )
     for q in sorted(res):
         r = res[q]
@@ -1146,7 +1214,11 @@ def main():
     for k, v in sorted(fy.items()):
         print(
             "  FY%d  pat_after_tax=%s  profit_for_period=%s"
-            % (k, sorted({x[1] for x in v if x[1] is not None}), sorted({x[2] for x in v if x[2] is not None}))
+            % (
+                k,
+                sorted({x[1] for x in v if x[1] is not None}),
+                sorted({x[2] for x in v if x[2] is not None}),
+            )
         )
         qs = [q for q in res if k - 10000 < q <= k]
         if len(qs) == 4:
@@ -1162,7 +1234,9 @@ def main():
                     pats, (f"{sum(pats):.2f}") if all(x is not None for x in pats) else "n/a"
                 )
             )
-    json.dump(res, open(os.path.join(HERE, "_gicre_adjudicated.json"), "w"), indent=1, sort_keys=True)
+    json.dump(
+        res, open(os.path.join(HERE, "_gicre_adjudicated.json"), "w"), indent=1, sort_keys=True
+    )
 
 
 if __name__ == "__main__":

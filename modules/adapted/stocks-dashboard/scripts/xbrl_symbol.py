@@ -56,7 +56,9 @@ def _load():
         return _MAP
     m = {}
     try:  # offline fallback first; the exchange lists override it
-        b = gzip.decompress(open(os.path.join(HERE, "..", "docs", "sf_stock_data.bin"), "rb").read())
+        b = gzip.decompress(
+            open(os.path.join(HERE, "..", "docs", "sf_stock_data.bin"), "rb").read()
+        )
         meta, _ = json.JSONDecoder().raw_decode(b[b.rfind(b'"meta":') + 7 :].decode("utf-8"))
         for s, v in meta.items():
             if isinstance(v, dict) and v.get("isin"):

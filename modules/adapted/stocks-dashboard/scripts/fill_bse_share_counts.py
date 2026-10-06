@@ -79,7 +79,9 @@ MAX_AGE_DAYS = 100  # one quarter's filing season, plus slack
 
 def curl(url):
     r = subprocess.run(
-        ["curl", "-s", "--max-time", "40", "-A", BH.UA, *BH.CURL_ARGS, url], capture_output=True, timeout=60
+        ["curl", "-s", "--max-time", "40", "-A", BH.UA, *BH.CURL_ARGS, url],
+        capture_output=True,
+        timeout=60,
     )
     return r.stdout
 
@@ -99,7 +101,9 @@ def load_ledger():
 def main():
     only = None
     if "--tickers" in sys.argv:
-        only = {t.strip() for t in sys.argv[sys.argv.index("--tickers") + 1].split(",") if t.strip()}
+        only = {
+            t.strip() for t in sys.argv[sys.argv.index("--tickers") + 1].split(",") if t.strip()
+        }
     led = load_ledger()
     fills = led.setdefault("fills", {})
     try:
@@ -121,7 +125,9 @@ def main():
         for t, m in meta.items()
         if t.endswith(".BO")
         and not m.get("mcap")
-        and (series.get(t) or (m.get("lastTrade") or {}).get("p"))  # a series, or BSE's last trade (§145)
+        and (
+            series.get(t) or (m.get("lastTrade") or {}).get("p")
+        )  # a series, or BSE's last trade (§145)
         and (only is None or t in only)
     ]
     fresh = fetched = failed = 0
@@ -142,9 +148,11 @@ def main():
             continue
         try:
             rows = (
-                json.loads(curl(f"https://api.bseindia.com/BseIndiaAPI/api/SHPQNewFormat/w?scripcode={code}")).get(
-                    "Table"
-                )
+                json.loads(
+                    curl(
+                        f"https://api.bseindia.com/BseIndiaAPI/api/SHPQNewFormat/w?scripcode={code}"
+                    )
+                ).get("Table")
                 or []
             )
             rows = [r for r in rows if r.get("XbrlFile")]

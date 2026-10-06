@@ -88,7 +88,6 @@ Run:  python3 -X utf8 scripts/build_market_breadth_pit.py
 import gzip
 import json
 import os
-import sys
 from bisect import bisect_right
 from collections import defaultdict, deque
 
@@ -132,10 +131,13 @@ def roster_key(sym, data, rmap, skip_dvr=True):
 
 def load_snaps(slim, name):
     """Sorted (effectiveDate int, [roster symbols]) for an index name or '__FNO__'."""
-    raw = slim.get("fnoHistory", []) if name == "__FNO__" else slim.get("indicesHistory", {}).get(name, [])
+    raw = (
+        slim.get("fnoHistory", [])
+        if name == "__FNO__"
+        else slim.get("indicesHistory", {}).get(name, [])
+    )
     if not raw:
-        msg = f"no membership snapshots for {name!r} in {SLIM}"
-        raise SystemExit(msg)
+        raise SystemExit(f"no membership snapshots for {name!r} in {SLIM}")
     snaps = sorted((int(s["effectiveDate"].replace("-", "")), list(s["symbols"])) for s in raw)
     return [s[0] for s in snaps], [s[1] for s in snaps]
 
@@ -281,7 +283,10 @@ def build(D, slim, rmap, skip_dvr=True, log=print):
     keep = [i for i in range(n) if acc["n500"]["nObs"][i] >= MIN_OBS_DATE]
     dropped = [dates[i] for i in range(n) if acc["n500"]["nObs"][i] < MIN_OBS_DATE]
     if dropped:
-        log("dropped %d glitch dates (<%d N500 obs): %s" % (len(dropped), MIN_OBS_DATE, dropped[:20]))
+        log(
+            "dropped %d glitch dates (<%d N500 obs): %s"
+            % (len(dropped), MIN_OBS_DATE, dropped[:20])
+        )
 
     def pick(a):
         return [a[i] for i in keep]
@@ -317,7 +322,8 @@ def build(D, slim, rmap, skip_dvr=True, log=print):
         "dropped": dropped,
         "zero_close": zero_close,
         "universes": {
-            k: {kk: u[kk] for kk in ("name", "n", "first", "last", "how", "unresolved")} for k, u in U.items()
+            k: {kk: u[kk] for kk in ("name", "n", "first", "last", "how", "unresolved")}
+            for k, u in U.items()
         },
     }
     return out, stats
@@ -340,7 +346,9 @@ def coverage_report(out, log=print):
                 return sum(A[a][i] for i in idx) / len(idx)
 
             f200 = next((dates[i] for i in idx if A["n200"][i] > 0), None)
-            f90 = next((dates[i] for i in idx if A["nObs"][i] and A["n200"][i] >= 0.9 * A["nObs"][i]), None)
+            f90 = next(
+                (dates[i] for i in idx if A["nObs"][i] and A["n200"][i] >= 0.9 * A["nObs"][i]), None
+            )
             log(
                 "  %d %4d %6.1f %6.1f %5.1f%% %6.1f %5.1f%% %6.1f %5.1f%%  %s  %s"
                 % (
@@ -375,7 +383,9 @@ def main():
     # --- sanity anchors ---
     for key, _ in UNIVERSES:
         A, dts = out[key], out["dates"]
-        pct = [100.0 * A["a200"][i] / A["n200"][i] if A["n200"][i] else None for i in range(len(dts))]
+        pct = [
+            100.0 * A["a200"][i] / A["n200"][i] if A["n200"][i] else None for i in range(len(dts))
+        ]
         valid = [i for i in range(len(dts)) if pct[i] is not None]
         imin = min(valid, key=lambda i: pct[i])
         imax = max(valid, key=lambda i: pct[i])

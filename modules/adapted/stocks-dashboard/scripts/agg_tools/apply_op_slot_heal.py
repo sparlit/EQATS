@@ -86,7 +86,10 @@ LEDGER = os.path.join(SCRIPTS, "op_slot_corrections.json")
 # every key registered for that ledger, so a record that both asserts ebitS is PRESENT and opS_refused
 # is ABSENT would flag its own ebit as RESURRECTED (measured 2026-09-05: 166 false alarms).
 REFUSED = os.path.join(SCRIPTS, "op_slot_refused.json")
-TARGETS = [os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json")]
+TARGETS = [
+    os.path.join(ROOT, "docs", "sf_revop.json"),
+    os.path.join(SCRIPTS, "revop_fundamentals.json"),
+]
 TOL = 0.011
 CONV_TOL = 0.05  # (i)/(ii) 'exact' band: both sides printed at 2dp, one may be crore-rounded
 ROUND_TOL = 0.51  # (ii) 'rounded': MC prints integer depreciation for some companies
@@ -97,7 +100,11 @@ MAX_BAD_RATE = 0.15
 
 def company_checks(sym):
     """-> ((i)-verdict, (ii)-verdict, worst_ii, n_rows). Verdicts: exact | rounded | REFUSE | none."""
-    ident = json.load(open(E._ISIN_CACHE)) if not hasattr(company_checks, "_idc") else company_checks._idc
+    ident = (
+        json.load(open(E._ISIN_CACHE))
+        if not hasattr(company_checks, "_idc")
+        else company_checks._idc
+    )
     if not hasattr(company_checks, "_idc"):
         company_checks._idc = ident
     ident = ident.get(sym)
@@ -122,7 +129,12 @@ def company_checks(sym):
         good = [d for d in diffs if d <= ROUND_TOL]
         bad = [d for d in diffs if d > ROUND_TOL]
         if len(good) < MIN_ROWS:
-            return "none" if not diffs else "REFUSE", (round(max(diffs), 3) if diffs else None), len(good), len(diffs)
+            return (
+                "none" if not diffs else "REFUSE",
+                (round(max(diffs), 3) if diffs else None),
+                len(good),
+                len(diffs),
+            )
         if len(bad) > MAX_BAD or len(bad) / float(len(diffs)) > MAX_BAD_RATE:
             return "REFUSE", round(max(bad), 3), len(good), len(diffs)
         w = max(good)
@@ -180,7 +192,11 @@ def main():
             continue
         row = list(row) + [None] * (9 - len(row))
         old = p["opS_old"]
-        if row[7] is not None and abs(row[7] - old) <= TOL and (row[2] is None or abs(row[2] - old) > TOL):
+        if (
+            row[7] is not None
+            and abs(row[7] - old) <= TOL
+            and (row[2] is None or abs(row[2] - old) > TOL)
+        ):
             why["already-done"] += 1
             continue
         if row[2] is None and row[7] is None:  # nulled+held/NOT-moved on a previous run
@@ -209,10 +225,14 @@ def main():
             ent["ebit_class"] = f"moved:{ci}-convention-match"
         elif ci == "none":
             ent["ebitS"] = old
-            ent["ebit_class"] = "moved:no-2018+-ebit-to-compare (series becomes self-consistent on this definition)"
+            ent["ebit_class"] = (
+                "moved:no-2018+-ebit-to-compare (series becomes self-consistent on this definition)"
+            )
         else:
             ent["ebitS"] = None
-            ent["ebit_class"] = f"NOT-moved:company's XBRL ebit != MC after-dep subtotal on 2018+ rows ({wii})"
+            ent["ebit_class"] = (
+                f"NOT-moved:company's XBRL ebit != MC after-dep subtotal on 2018+ rows ({wii})"
+            )
             ent["ebit_unplaced_value"] = old
         # op
         if p.get("opS_new") is not None:
@@ -230,7 +250,10 @@ def main():
             and p["mc_dep"] >= 0
         ):
             ent["opS"] = round(old + p["mc_dep"], 2)
-            ent["op_class"] = "derived:stored-ebit+MC-dep (company check (ii) %s, worst %s on %d rows)" % (cii, wii, n)
+            ent["op_class"] = (
+                "derived:stored-ebit+MC-dep (company check (ii) %s, worst %s on %d rows)"
+                % (cii, wii, n)
+            )
             ent["precision"] = "site-exact" if cii == "exact" else f"rounded({wii})"
         else:
             ent["opS"] = None
@@ -239,12 +262,19 @@ def main():
                 "held": (
                     "op slot nulled: the stored value is the after-depreciation subtotal, not "
                     "op; no gated or derivable op ({}; company check (i)={} (ii)={}; mc_dep={})".format(
-                        "--derive-op off" if not a.derive_op else "derivation refused", ci, cii, p["mc_dep"]
+                        "--derive-op off" if not a.derive_op else "derivation refused",
+                        ci,
+                        cii,
+                        p["mc_dep"],
                     )
                 ),
             }
             ent["op_class"] = "nulled+held"
-        if ent["opS"] is not None and ent.get("ebitS") is not None and ent["opS"] < ent["ebitS"] - TOL:
+        if (
+            ent["opS"] is not None
+            and ent.get("ebitS") is not None
+            and ent["opS"] < ent["ebitS"] - TOL
+        ):
             why["skip:op<ebit"] += 1
             continue
         ent["evidence"] = (
@@ -300,7 +330,8 @@ def main():
             print(f"ABORT: blast radius violated in {path}: {bad[:5]} {lost[:5]}")
             return 2
         print(
-            "%-32s %s %d cells (slot 2 and/or 7)" % (os.path.basename(path), "patched" if a.apply else "would patch", n)
+            "%-32s %s %d cells (slot 2 and/or 7)"
+            % (os.path.basename(path), "patched" if a.apply else "would patch", n)
         )
         if a.apply:
             json.dump(d, open(path, "w"), separators=(",", ":"))

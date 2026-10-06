@@ -75,7 +75,9 @@ def _post(fn, payload, timeout=40):
 def load_holdings():
     row = _post("pf_feed_get", {"token": HOLD_TOKEN})
     if not row or "z" not in row:
-        sys.exit("holdings row not found — is PF_HOLDINGS_TOKEN right, and has push_holdings.py run?")
+        sys.exit(
+            "holdings row not found — is PF_HOLDINGS_TOKEN right, and has push_holdings.py run?"
+        )
     return json.loads(gzip.decompress(base64.b64decode(row["z"])))
 
 
@@ -85,15 +87,17 @@ def quotes(syms):
         return json.load(r).get("data", {})
 
 
-def month_end_baseline(hold):
-    """Closing prices on the last trading session of LAST month, by symbol.
-
-    Computed once per run: the bin is ~2 MB, and last month's closes only change
-    when the pipeline backfills, which a single run need not chase.
-    """
+def load_series():
+    """The site's EOD price bin, downloaded ONCE per run (~2 MB): last month's closes only change
+    when the pipeline backfills, which a single run need not chase."""
     req = urllib.request.Request(SLIM, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=180) as r:
-        series = json.loads(gzip.decompress(r.read()))["series"]
+        return json.loads(gzip.decompress(r.read()))["series"]
+
+
+def month_end_baseline(series, hold):
+    """Closing prices on the last trading session of LAST month, by symbol — for the holdings of THIS
+    tick (cheap: the bin is already in memory), so a stock bought today has its month-end close too."""
     cut = (datetime.date.today().replace(day=1) - EPOCH).days
     best = None
     for h in hold:
@@ -122,6 +126,11 @@ def compute(doc, base_px):
     value = cost = day = 0.0
     bv = nv = 0.0
     priced = 0
+    today = (
+        datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5, minutes=30)))
+        .date()
+        .isoformat()
+    )
     for h in hold:
         if h.get("live") and h["live"] in q:
             px = q[h["live"]]["ltp"]
@@ -132,6 +141,10 @@ def compute(doc, base_px):
             prev = h.get("manualPrev", px)
         else:
             continue
+        if h.get("date") == today:
+            prev = h[
+                "avg"
+            ]  # bought today: you didn't own it at yesterday's close — today's move is from your buy price (the dashboard's rule)
         value += h["qty"] * px
         cost += h["qty"] * h["avg"]
         day += h["qty"] * (px - prev)
@@ -140,8 +153,7 @@ def compute(doc, base_px):
             bv += h["qty"] * b
             nv += h["qty"] * px
     if not (value > 0 and cost > 0):
-        msg = "refusing to publish a feed with no priced holdings"
-        raise SystemExit(msg)
+        raise SystemExit("refusing to publish a feed with no priced holdings")
 
     day_pct = day / (value - day) * 100
     tot_pct = (value - cost) / cost * 100
@@ -169,8 +181,7 @@ def compute(doc, base_px):
 def push(feed):
     ok = _post("pf_feed_set", {"secret": OWNER, "token": FEED_TOKEN, "payload": feed})
     if ok is not True:
-        msg = f"supabase rejected the feed write: {ok!r}"
-        raise SystemExit(msg)
+        raise SystemExit(f"supabase rejected the feed write: {ok!r}")
 
 
 def main():
@@ -180,16 +191,26 @@ def main():
     loop_min = int(args[args.index("--loop") + 1]) if "--loop" in args else 0
     every = int(args[args.index("--every") + 1]) if "--every" in args else 120
 
+    series = load_series()
     doc = load_holdings()
-    base_px, base_date = month_end_baseline(doc["holdings"])
+    base_px, base_date = month_end_baseline(series, doc["holdings"])
     print(
-        "loaded %d holdings; month-end baseline %s (%d symbols)" % (len(doc["holdings"]), base_date, len(base_px or {}))
+        "loaded %d holdings; month-end baseline %s (%d symbols)"
+        % (len(doc["holdings"]), base_date, len(base_px or {}))
     )
 
     deadline = time.time() + loop_min * 60
     n = 0
     while True:
         try:
+            # Re-read the books EVERY tick (one ~3 KB row): loaded once, a loop started at 09:23 kept pricing
+            # the pre-rebalance holdings all day after the 09:36 books update (1 Oct 2026). A failed re-read
+            # keeps the last good copy.
+            try:
+                doc = load_holdings()
+                base_px, base_date = month_end_baseline(series, doc["holdings"])
+            except (Exception, SystemExit) as e:  # a transient bad read must not end the session
+                print(f"holdings re-read failed (using the last copy): {e}", file=sys.stderr)
             feed = compute(doc, base_px)
             push(feed)
             n += 1

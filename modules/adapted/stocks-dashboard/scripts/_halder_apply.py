@@ -65,7 +65,17 @@ FUND_TWINS = ("docs/sf_fundamentals.json", "scripts/fundamentals.json")
 REVOP_TWINS = ("docs/sf_revop.json", "scripts/revop_fundamentals.json")
 
 # sf_revop cell layout (build_revop.py): [revS, revC, opS, opC, patS, patC, fin, ebitS, ebitC]
-SLOT = {"revS": 0, "revC": 1, "opS": 2, "opC": 3, "patS": 4, "patC": 5, "fin": 6, "ebitS": 7, "ebitC": 8}
+SLOT = {
+    "revS": 0,
+    "revC": 1,
+    "opS": 2,
+    "opC": 3,
+    "patS": 4,
+    "patC": 5,
+    "fin": 6,
+    "ebitS": 7,
+    "ebitC": 8,
+}
 
 
 def load(rel):
@@ -138,11 +148,21 @@ for key in sorted(FILLS):
             else:
                 # A row appearing under us means another writer landed this quarter mid-session.
                 # That is a CORRECTION, not a fill — refuse and let a human adjudicate (§2b).
-                problems.append(f"{rel} {key}: fund row ALREADY EXISTS {existing} — refusing to overwrite a fill")
+                problems.append(
+                    f"{rel} {key}: fund row ALREADY EXISTS {existing} — refusing to overwrite a fill"
+                )
             continue
         rows.append([int(qe), e["npStd"], int(e["ann"]), e["npCon"], int(e["ann"])])
         rows.sort(key=lambda r: r[0])
-        plan.append((rel, key, "fund NEW ROW", None, [int(qe), e["npStd"], int(e["ann"]), e["npCon"], int(e["ann"])]))
+        plan.append(
+            (
+                rel,
+                key,
+                "fund NEW ROW",
+                None,
+                [int(qe), e["npStd"], int(e["ann"]), e["npCon"], int(e["ann"])],
+            )
+        )
         expect[rel].add((sym, qe))
 
     for rel in REVOP_TWINS:
@@ -156,7 +176,9 @@ for key in sorted(FILLS):
             else:
                 # A row appearing under us means another writer landed this quarter mid-session.
                 # That is a CORRECTION, not a fill — refuse and let a human adjudicate (§2b).
-                problems.append(f"{rel} {key}: revop row ALREADY EXISTS {cur} — refusing to overwrite a fill")
+                problems.append(
+                    f"{rel} {key}: revop row ALREADY EXISTS {cur} — refusing to overwrite a fill"
+                )
             continue
         # op/ebit deliberately null (see module docstring); fin=0 — HALDER is not a bank/NBFC.
         d[qe] = [e["revS"], e["revC"], None, None, e["npStd"], e["npCon"], 0, None, None]
@@ -222,7 +244,10 @@ for rel in orig:
     if stray:
         problems.append(f"{rel}: BLAST RADIUS stray diffs {sorted(stray)[:8]}")
 
-print("planned edits: %d   skipped(already-correct): %d   problems: %d" % (len(plan), len(skipped), len(problems)))
+print(
+    "planned edits: %d   skipped(already-correct): %d   problems: %d"
+    % (len(plan), len(skipped), len(problems))
+)
 for p in plan:
     print("  EDIT", p)
 for s in skipped:
@@ -253,7 +278,11 @@ for key, e in FILLS.items():
         "src": e["src"],
         "evidence": " | ".join(e["anchors"]),
     }
-dump("scripts/named_pat_cell_fills.json", pat_led, indent=existing_indent("scripts/named_pat_cell_fills.json"))
+dump(
+    "scripts/named_pat_cell_fills.json",
+    pat_led,
+    indent=existing_indent("scripts/named_pat_cell_fills.json"),
+)
 
 rev_led = load("scripts/named_rev_cell_fills.json")
 for key, e in FILLS.items():
@@ -273,7 +302,11 @@ for key, e in FIX.items():
         "supersedes": {"revS": e["was"]["revS"], "revC": e["was"]["revC"]},
         "evidence": e["defect"] + " PROOF: " + json.dumps(e["decomposition"]),
     }
-dump("scripts/named_rev_cell_fills.json", rev_led, indent=existing_indent("scripts/named_rev_cell_fills.json"))
+dump(
+    "scripts/named_rev_cell_fills.json",
+    rev_led,
+    indent=existing_indent("scripts/named_rev_cell_fills.json"),
+)
 
 rd = load("scripts/rev_defects.json")
 for key, e in FIX.items():

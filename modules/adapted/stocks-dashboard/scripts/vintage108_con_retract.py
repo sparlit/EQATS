@@ -67,8 +67,14 @@ READJ = os.path.join(HERE, "_vintage108_con_readjud.json")
 FUND_LED = os.path.join(HERE, "fund_cell_fix.json")
 REVOP_LED = os.path.join(HERE, "revop_cell_fix.json")
 TARGETS = {
-    "fund": [os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(HERE, "fundamentals.json")],
-    "revop": [os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(HERE, "revop_fundamentals.json")],
+    "fund": [
+        os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+        os.path.join(HERE, "fundamentals.json"),
+    ],
+    "revop": [
+        os.path.join(ROOT, "docs", "sf_revop.json"),
+        os.path.join(HERE, "revop_fundamentals.json"),
+    ],
 }
 TOL = 0.011
 DROP = ("REVERT", "OWNERS BACKS NEITHER", "NO-OWNERS-READER")
@@ -79,7 +85,9 @@ def main():
     readj = json.load(open(READJ, encoding="utf-8"))
     kill = {k for k, v in readj.items() if v[0].startswith(DROP)}
     keep = {k for k, v in readj.items() if k not in kill}
-    print("con heals re-adjudicated: %d | RETRACT %d | keep %d" % (len(readj), len(kill), len(keep)))
+    print(
+        "con heals re-adjudicated: %d | RETRACT %d | keep %d" % (len(readj), len(kill), len(keep))
+    )
 
     # ---- 1. restore the payload cells to their pre-heal value --------------------------
     restored = blocked = absent = 0
@@ -109,7 +117,10 @@ def main():
                     continue
                 row[slot] = was
                 n += 1
-            print("  [%s] %s: %d cells restored to their pre-heal value" % (kind, os.path.basename(path), n))
+            print(
+                "  [%s] %s: %d cells restored to their pre-heal value"
+                % (kind, os.path.basename(path), n)
+            )
             restored = max(restored, n)
             if apply and n:
                 json.dump(d, open(path, "w"), separators=(",", ":"))
@@ -129,7 +140,9 @@ def main():
             k = "{}|{}".format(f.get("sym"), f.get("qe"))
             if f.get("basis") in bkeys and k in kill and "vintage108" in (f.get("found") or ""):
                 v = readj[k]
-                f["retracted_why"] = why + (f"{v[1]} reads {v[2]}, backing the pre-heal {v[3]} over my {v[4]}.")
+                f["retracted_why"] = why + (
+                    f"{v[1]} reads {v[2]}, backing the pre-heal {v[3]} over my {v[4]}."
+                )
                 moved.append(f)
             else:
                 out.append(f)

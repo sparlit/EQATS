@@ -87,7 +87,10 @@ TOL = 0.002
 DATE_RE = re.compile(r"(\d{2})[./-](\d{2})[./-](\d{4})")
 DATE_RE2 = re.compile(r"(\d{1,2})[-\s]([A-Za-z]{3})[-\s,]*(\d{2,4})")
 MON = {
-    m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+    )
 }
 
 
@@ -252,9 +255,11 @@ def main():
             continue
         scale = 1.0
         for s, _l in ((1.0, "crore"), (0.01, "lakh"), (0.1, "million")):
-            q0, v0 = next(
-                (q, v) for q, v in mapped if q != qe and (revop.get(sym) or {}).get(str(q), [None, None])[1] is not None
-            )
+            q0, v0 = [
+                (q, v)
+                for q, v in mapped
+                if q != qe and (revop.get(sym) or {}).get(str(q), [None, None])[1] is not None
+            ][0]
             st = revop[sym][str(q0)][1]
             if abs(v0 * s - st) <= max(0.05, TOL * abs(st)):
                 scale = s
@@ -265,7 +270,10 @@ def main():
             others = [
                 q
                 for q, r in (revop.get(sym) or {}).items()
-                if len(r) > 1 and r[0] not in (None, 0) and r[1] is not None and abs(r[1] - r[0]) > 0.01 * abs(r[0])
+                if len(r) > 1
+                and r[0] not in (None, 0)
+                and r[1] is not None
+                and abs(r[1] - r[0]) > 0.01 * abs(r[0])
             ]
             if others:
                 skips[key] = (
@@ -281,7 +289,10 @@ def main():
             "route": "year-later comparative (§84/§51a)",
         }
         landed += 1
-        print("  %-24s revC %12.2f  (%s)  %s" % (key, val, fills[key]["scale"], proof[0][:60]), flush=True)
+        print(
+            "  %-24s revC %12.2f  (%s)  %s" % (key, val, fills[key]["scale"], proof[0][:60]),
+            flush=True,
+        )
         if i % 25 == 0:
             print("  [%d/%d] landed %d" % (i, len(work), landed), flush=True)
 

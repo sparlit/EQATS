@@ -111,7 +111,12 @@ def validate_cf_cell(read, held, basis, method, src):
     read's own cash identity fails."""
     if (held or {}).get("cfo") is not None or read.get("cfo") is None:
         return None
-    if cf_identity(read.get("cfo"), read.get("cfi"), read.get("cff"), read.get("cf_net"), read.get("cf_fx")) is False:
+    if (
+        cf_identity(
+            read.get("cfo"), read.get("cfi"), read.get("cff"), read.get("cf_net"), read.get("cf_fx")
+        )
+        is False
+    ):
         return None
     cell = {"b": basis, "m": method, "src": src, "v": 1}
     cell.update({f: read[f] for f in CF_FIELDS if read.get(f) is not None})
@@ -136,7 +141,10 @@ def supplement(cell, e):
     if cell.get("cfo") is not None:
         cf_ok = _near(e.get("cfo"), cell.get("cfo"))
     else:
-        cf_ok = cf_identity(e.get("cfo"), e.get("cfi"), e.get("cff"), e.get("cf_net"), e.get("cf_fx")) is True
+        cf_ok = (
+            cf_identity(e.get("cfo"), e.get("cfi"), e.get("cff"), e.get("cf_net"), e.get("cf_fx"))
+            is True
+        )
     allowed = set(e.get("add") or (FIELDS - {"assets", "ppe"})) - {
         "assets",
         "ppe",
@@ -159,7 +167,9 @@ def unit_slip(cell, e):
     if not cell or e.get("src") != cell.get("src") or e.get("basis") != cell.get("b"):
         return None
     common = [
-        f for f in FIELDS if isinstance(cell.get(f), (int, float)) and isinstance(e.get(f), (int, float)) and e[f]
+        f
+        for f in FIELDS
+        if isinstance(cell.get(f), (int, float)) and isinstance(e.get(f), (int, float)) and e[f]
     ]
     if len(common) < 3:
         return None
@@ -174,7 +184,9 @@ def rescale(cell, k):
     old = {f: cell[f] for f in FIELDS if isinstance(cell.get(f), (int, float))}
     for f, v in old.items():
         cell[f] = round(v / k, 4)
-    cell["fix"] = dict(cell.get("fix", {}), unit=k, **{f"{f}_was": v for f, v in old.items() if f == "assets"})
+    cell["fix"] = dict(
+        cell.get("fix", {}), unit=k, **{f"{f}_was": v for f, v in old.items() if f == "assets"}
+    )
 
 
 def _same(a, b):
@@ -194,17 +206,30 @@ def correct(cell, e):
         only ever turned negatives positive, and so wrote GESHIP FY22 / MAHLOG FY21 refunds as payments.
     Never touches a vision cell; requires the same document, basis, and Total Assets within 0.5%.
     The old values stay in the cell under 'fix' (audit trail)."""
-    if not cell or cell.get("m") != "text" or e.get("src") != cell.get("src") or e.get("basis") != cell.get("b"):
+    if (
+        not cell
+        or cell.get("m") != "text"
+        or e.get("src") != cell.get("src")
+        or e.get("basis") != cell.get("b")
+    ):
         return {}
     if not _near(e.get("assets"), cell.get("assets"), 0.005):
         return {}
     fix = {}
-    if cf_identity(e.get("cfo"), e.get("cfi"), e.get("cff"), e.get("cf_net"), e.get("cf_fx")) is True:
+    if (
+        cf_identity(e.get("cfo"), e.get("cfi"), e.get("cff"), e.get("cf_net"), e.get("cf_fx"))
+        is True
+    ):
         for f in ("cfo", "cfi", "cff"):
             if not _same(cell.get(f), e[f]):
                 fix[f] = cell.get(f)
                 cell[f] = e[f]
-    elif cf_identity(cell.get("cfo"), cell.get("cfi"), cell.get("cff"), e.get("cf_net"), e.get("cf_fx")) is False:
+    elif (
+        cf_identity(
+            cell.get("cfo"), cell.get("cfi"), cell.get("cff"), e.get("cf_net"), e.get("cf_fx")
+        )
+        is False
+    ):
         for f in ("cfo", "cfi", "cff"):
             if cell.get(f) is not None and not _same(cell[f], e.get(f)):
                 fix[f] = cell.pop(f)
@@ -221,7 +246,10 @@ def qe_of(e):
     """The ledger key of an entry's year-end: <fy> + its year-end MMDD. Default 31 March; a Dec- or June-year-end
     filer's entries carry "ye": "1231" / "0630" (stock page renderDeep() anchors those companies on that month)."""
     ye = str(e.get("ye") or "0331")
-    return "%d%s" % (int(e["fy"]), ye if re.fullmatch(r"(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])", ye) else "0331")
+    return "%d%s" % (
+        int(e["fy"]),
+        ye if re.fullmatch(r"(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])", ye) else "0331",
+    )
 
 
 def asat_ok(e):
@@ -233,7 +261,9 @@ def asat_ok(e):
     a = e.get("asat")
     if not a:
         return True
-    m = re.search(r"(\d{4})\D(\d{1,2})\D(\d{1,2})", str(a)) or re.search(r"(\d{1,2})\D(\d{1,2})\D(\d{4})", str(a))
+    m = re.search(r"(\d{4})\D(\d{1,2})\D(\d{1,2})", str(a)) or re.search(
+        r"(\d{1,2})\D(\d{1,2})\D(\d{4})", str(a)
+    )
     if not m:
         return True
     g = [int(x) for x in m.groups()]
@@ -299,7 +329,11 @@ def main():
             fx = correct((ledger.get(sym) or {}).get(q), e)
             if fx:
                 fixes.append(
-                    "{} {}:{}".format(sym, q[:4], ",".join(f"{f} {fx[f]}->{ledger[sym][q].get(f)}" for f in sorted(fx)))
+                    "{} {}:{}".format(
+                        sym,
+                        q[:4],
+                        ",".join(f"{f} {fx[f]}->{ledger[sym][q].get(f)}" for f in sorted(fx)),
+                    )
                 )
         for e in (x for x in entries if x.get("role") == "supplement"):
             q = qe_of(e)
@@ -308,7 +342,9 @@ def main():
                 rescale(ledger[sym][q], k)
                 fixes.append(f"{sym} {q[:4]}: unit slip, every field /{k}")
             add = supplement((ledger.get(sym) or {}).get(q), e)
-            (supp if add else supp_rej).append("{} {}{}".format(sym, q[:4], (":" + ",".join(add)) if add else ""))
+            (supp if add else supp_rej).append(
+                "{} {}{}".format(sym, q[:4], (":" + ",".join(add)) if add else "")
+            )
         entries = [x for x in entries if x.get("role") not in ("supplement", "correct")]
         if not entries:
             continue
@@ -321,7 +357,11 @@ def main():
         vq = qe_of(val)
         if vq not in (ledger.get(sym) or {}):
             vc = validate_cf_cell(
-                val, (slice_x(sym).get(vq) or {}).get(val.get("basis")), val.get("basis"), "vision", val.get("src", "")
+                val,
+                (slice_x(sym).get(vq) or {}).get(val.get("basis")),
+                val.get("basis"),
+                "vision",
+                val.get("src", ""),
             )
             if vc:
                 ledger.setdefault(sym, {})[vq] = vc
@@ -339,13 +379,24 @@ def main():
                 continue
             if add_rou and e.get("ppe") is not None:
                 e = dict(e)
-                e["ppe"] = round(e["ppe"] + (e.get("rou") or 0), 4)  # round: 24396.64 not 24396.640000000003
+                e["ppe"] = round(
+                    e["ppe"] + (e.get("rou") or 0), 4
+                )  # round: 24396.64 not 24396.640000000003
             cell = {"b": e.get("basis", "c"), "m": "vision", "src": e.get("src", "")}
             cell.update({f: e[f] for f in FIELDS if e.get(f) is not None})
             if cell.get("assets") is None:
                 continue
-            if cf_identity(e.get("cfo"), e.get("cfi"), e.get("cff"), e.get("cf_net"), e.get("cf_fx")) is False:
-                for f in ("cfo", "cfi", "cff"):  # the statement's own cash identity failed: keep the BS,
+            if (
+                cf_identity(
+                    e.get("cfo"), e.get("cfi"), e.get("cff"), e.get("cf_net"), e.get("cf_fx")
+                )
+                is False
+            ):
+                for f in (
+                    "cfo",
+                    "cfi",
+                    "cff",
+                ):  # the statement's own cash identity failed: keep the BS,
                     cell.pop(f, None)  # never land a cash flow that doesn't add up
                 cfdrop.append("{} {}".format(sym, e.get("fy")))
             ledger.setdefault(sym, {})[qe_of(e)] = cell

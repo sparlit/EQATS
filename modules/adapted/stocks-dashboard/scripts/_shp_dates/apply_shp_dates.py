@@ -152,7 +152,9 @@ def main():
         print(f"  direction        earlier={earlier} later={later}")
         print(f"  15:30-gated      {gated} ({100 * gated / len(decisions):.1f}%)")
         print(f"  revised-fallback {revsrc}")
-        print(f"  lag median {lags[len(lags) // 2]}d  p95 {lags[int(0.95 * len(lags))]}d  max {lags[-1]}d")
+        print(
+            f"  lag median {lags[len(lags) // 2]}d  p95 {lags[int(0.95 * len(lags))]}d  max {lags[-1]}d"
+        )
     json.dump(ledger, open(LEDGER, "w"), indent=0, sort_keys=True)
     print(f"\nledger -> {os.path.relpath(LEDGER, ROOT)} ({len(ledger)} entries)")
 

@@ -78,7 +78,19 @@ CANARY = "https://www.bseindia.com/download/BhavCopy/Equity/EQ_ISINCODE_220523.z
 UA = BH.HEADERS  # honest BSE header set (§181) -- no browser impersonation
 SME = {"M", "MT", "MS"}
 # weekend special sessions (budget Saturdays, muhurat Sundays, DR drills) — the same list fetch_bse_bhav heals
-WEEKEND = {20150228, 20161030, 20191027, 20200201, 20201114, 20231112, 20240120, 20240302, 20240518, 20241101, 20250201}
+WEEKEND = {
+    20150228,
+    20161030,
+    20191027,
+    20200201,
+    20201114,
+    20231112,
+    20240120,
+    20240302,
+    20240518,
+    20241101,
+    20250201,
+}
 NEW_FROM = 20240701  # try the UDiFF name first from here on, the old zip before
 
 
@@ -96,7 +108,10 @@ def get(url):
         if e.code in (403, 429):
             raise Blocked("HTTP %d %s" % (e.code, url))
         raise
-    if b[:200].lstrip().lower().startswith((b"<!doctype", b"<html")) or b"Access Denied" in b[:2000]:
+    if (
+        b[:200].lstrip().lower().startswith((b"<!doctype", b"<html"))
+        or b"Access Denied" in b[:2000]
+    ):
         return "DENIED"
     return b
 
@@ -122,12 +137,16 @@ def fetch(frm, to):
     while d <= end:
         k = int(d.strftime("%Y%m%d"))
         d += datetime.timedelta(days=1)
-        if (datetime.date(k // 10000, k // 100 % 100, k % 100).weekday() >= 5 and k not in WEEKEND) or k in absent:
+        if (
+            datetime.date(k // 10000, k // 100 % 100, k % 100).weekday() >= 5 and k not in WEEKEND
+        ) or k in absent:
             continue
         if any(os.path.exists(os.path.join(CACHE, "%d.%s" % (k, ext))) for ext in ("csv", "zip")):
             continue
         if probe_open():
-            print("PAUSE: BSE api probe logged OPEN — the other session's window starts first. Re-run later.")
+            print(
+                "PAUSE: BSE api probe logged OPEN — the other session's window starts first. Re-run later."
+            )
             break
         dd = datetime.date(k // 10000, k // 100 % 100, k % 100).strftime("%d%m%y")
         order = [("csv", NEW % k), ("zip", OLD % dd), ("ozip", OLDEST % dd)]
@@ -148,8 +167,7 @@ def fetch(frm, to):
             c = get(CANARY)
             time.sleep(2.0)
             if c == "DENIED" or not c:
-                msg = "canary denied too — BSE download host is blocking this client"
-                raise Blocked(msg)
+                raise Blocked("canary denied too — BSE download host is blocking this client")
         if not body:
             absent.add(k)
             skip += 1
@@ -162,7 +180,10 @@ def fetch(frm, to):
             print("  fetched %d files (at %d), %d absent days" % (got, k, len(absent)), flush=True)
             json.dump(sorted(absent), open(MISS, "w"))
     json.dump(sorted(absent), open(MISS, "w"))
-    print("fetch done: +%d files, %d absent days, cache %d files" % (got, len(absent), len(os.listdir(CACHE)) - 1))
+    print(
+        "fetch done: +%d files, %d absent days, cache %d files"
+        % (got, len(absent), len(os.listdir(CACHE)) - 1)
+    )
 
 
 def rows_of(k, path):
@@ -175,7 +196,10 @@ def rows_of(k, path):
     h = [c.strip() for c in rows[0]]
     out = []
     if "SC_CODE" in h:
-        ix = {c: h.index(c) for c in ("SC_CODE", "SC_GROUP", "CLOSE", "PREVCLOSE", "NO_OF_SHRS", "SC_NAME")}
+        ix = {
+            c: h.index(c)
+            for c in ("SC_CODE", "SC_GROUP", "CLOSE", "PREVCLOSE", "NO_OF_SHRS", "SC_NAME")
+        }
         isin_i = h.index("ISIN_CODE") if "ISIN_CODE" in h else None
         td = h.index("TRADING_DATE") if "TRADING_DATE" in h else None
         for r in rows[1:]:
@@ -183,7 +207,12 @@ def rows_of(k, path):
                 continue  # a record broken across lines (newline inside a name): 2 rows in 2020-26, skipped
             if td is not None and len(r) > td and r[td].strip():
                 try:
-                    if int(datetime.datetime.strptime(r[td].strip(), "%d-%b-%y").strftime("%Y%m%d")) != k:
+                    if (
+                        int(
+                            datetime.datetime.strptime(r[td].strip(), "%d-%b-%y").strftime("%Y%m%d")
+                        )
+                        != k
+                    ):
                         return None  # a re-served day: drop the file
                 except ValueError:
                     pass
@@ -241,11 +270,19 @@ def rows_of(k, path):
 def build():
     ser, days, dropped = build_series()
     blob = json.dumps(
-        {"built": datetime.date.today().isoformat(), "days": days, "dropped_reserved": dropped, "series": ser},
+        {
+            "built": datetime.date.today().isoformat(),
+            "days": days,
+            "dropped_reserved": dropped,
+            "series": ser,
+        },
         separators=(",", ":"),
     ).encode()
     open(OUT, "wb").write(gzip.compress(blob, 9))
-    print("build: %d day files (%d re-served dropped), %d scrips ever on SME, %s" % (days, dropped, len(ser), OUT))
+    print(
+        "build: %d day files (%d re-served dropped), %d scrips ever on SME, %s"
+        % (days, dropped, len(ser), OUT)
+    )
 
 
 def build_series(codes=None):
@@ -273,7 +310,9 @@ def build_series(codes=None):
         for code, g, c, _pc, v, isin, tk in rs:
             if (ever is not None and code not in ever) or c <= 0:
                 continue
-            s = ser.setdefault(code, {"d": [], "rc": [], "isd": [], "v": [], "g": [], "isin": isin, "tk": tk})
+            s = ser.setdefault(
+                code, {"d": [], "rc": [], "isd": [], "v": [], "g": [], "isin": isin, "tk": tk}
+            )
             s["d"].append(k)
             s["rc"].append(c)
             s["isd"].append(isin)
@@ -297,7 +336,7 @@ def adjust_series(ser):
     #     and consumers must not measure a return across it until BSE's corporate-action list confirms it.
     SPLITS = (2, 2.5, 4, 5, 10, 20, 25, 50, 100)
     n_split = n_unexpl = 0
-    for s in ser.values():
+    for _code, s in ser.items():
         mult = [1.0] * len(s["d"])
         cum = 1.0
         unexpl = []
@@ -322,7 +361,9 @@ def adjust_series(ser):
         s["splits"] = sorted(splits)
         s["unexpl"] = sorted(unexpl)
         s["first_sme"] = next((d for d, g in zip(s["d"], s["g"], strict=False) if g in SME), None)
-        s["last_sme"] = next((d for d, g in zip(reversed(s["d"]), reversed(s["g"]), strict=False) if g in SME), None)
+        s["last_sme"] = next(
+            (d for d, g in zip(reversed(s["d"]), reversed(s["g"]), strict=False) if g in SME), None
+        )
         del s["isd"], s["g"]
     print(
         "adjust: %d ISIN-confirmed splits applied, %d unexplained one-day drops >30%% flagged (bonus or crash — "
@@ -335,7 +376,11 @@ if __name__ == "__main__":
     a = sys.argv[1:]
     if "--fetch" in a:
         frm = int(a[a.index("--from") + 1]) if "--from" in a else 20200101
-        to = int(a[a.index("--to") + 1]) if "--to" in a else int(datetime.date.today().strftime("%Y%m%d"))
+        to = (
+            int(a[a.index("--to") + 1])
+            if "--to" in a
+            else int(datetime.date.today().strftime("%Y%m%d"))
+        )
         try:
             fetch(frm, to)
         except Blocked as e:

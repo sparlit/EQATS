@@ -52,7 +52,6 @@ import collections
 import gzip
 import json
 import os
-import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WB = os.path.join(HERE, "shp_fill_hist_2010_2016.json.gz")
@@ -106,7 +105,7 @@ def main():
         for route, cell in routes.items():
             fii = cell[1]
             if anc:
-                dist, _aq, ac = anc
+                dist, aq, ac = anc
                 # ⚠ CHECK BOTH LEGS. The first version gated on fii alone and let HDFCBANK
                 # Dec-2015 through with dii 53.51 against a 13.79 anchor — it passed because its
                 # fii was fine. A split error can sit in EITHER leg; gating one is gating neither.

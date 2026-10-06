@@ -243,7 +243,9 @@ for nm in TLREW:
     else:
         unres.append(nm)
 
-print("TL rewind 2026-06-12: %d names -> %d syms (%d unresolved)" % (len(TLREW), len(tl), len(unres)))
+print(
+    "TL rewind 2026-06-12: %d names -> %d syms (%d unresolved)" % (len(TLREW), len(tl), len(unres))
+)
 print("OUR 2026-06-12: %d syms" % len(OUR))
 print("\nMATCH: %d / %d  (%.1f%% of TL)" % (len(tl & OUR), len(tl), 100 * len(tl & OUR) / len(tl)))
 print("\nTL has, OURS missing:", sorted(tl - OUR))

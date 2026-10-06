@@ -52,14 +52,13 @@ Run: python -X utf8 scripts/fetch_actions.py
 import os as _o
 import sys as _s
 
-_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
-import bse_headers as BH  # §181 BSE headers
-import os
-import sys
-import json
-import gzip
-import re
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))  # §181 BSE headers
 import datetime
+import gzip
+import json
+import os
+import re
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import contextlib
@@ -126,7 +125,8 @@ def fetch_nse(f, t):
     }
     url = (
         "https://www.nseindia.com/api/corporates-corporateActions?index=equities"
-        "&from_date=%02d-%02d-%04d&to_date=%02d-%02d-%04d" % (f.day, f.month, f.year, t.day, t.month, t.year)
+        "&from_date=%02d-%02d-%04d&to_date=%02d-%02d-%04d"
+        % (f.day, f.month, f.year, t.day, t.month, t.year)
     )
     j = json.loads(B._get(url, headers=hdr, jar=jar, timeout=90))
     return j if isinstance(j, list) else (j.get("data") or [])
@@ -165,7 +165,10 @@ def fetch_bse(f, t):
         raw = gzip.decompress(raw)
     data = json.loads(raw.decode("utf-8", "replace"))
     rev = {
-        int(v): k for k, v in json.load(open(os.path.join(HERE, "bse_scrips.json"), encoding="utf-8"))["by_id"].items()
+        int(v): k
+        for k, v in json.load(open(os.path.join(HERE, "bse_scrips.json"), encoding="utf-8"))[
+            "by_id"
+        ].items()
     }
     rows, unmapped = [], 0
     for x in data:
@@ -235,7 +238,16 @@ def main():
         px = (meta.get(sym) or {}).get("latest")
         yld = round(amt / px * 100, 2) if (amt and px) else None
         rows.append(
-            [ex, sym, str(r.get("comp") or "").strip(), k, subject, r.get("_recISO") or iso(r.get("recDate")), amt, yld]
+            [
+                ex,
+                sym,
+                str(r.get("comp") or "").strip(),
+                k,
+                subject,
+                r.get("_recISO") or iso(r.get("recDate")),
+                amt,
+                yld,
+            ]
         )
     rows.sort(key=lambda r: (r[0], r[1]))
 
@@ -263,7 +275,12 @@ def main():
         flush=True,
     )
     for r in [r for r in rows if r[0] >= today.isoformat()][:5]:
-        print("  {} {} {} {}{}".format(r[0], r[1], r[4][:40], (f"yield {r[7]:.1f}%") if r[7] else "", ""), flush=True)
+        print(
+            "  {} {} {} {}{}".format(
+                r[0], r[1], r[4][:40], (f"yield {r[7]:.1f}%") if r[7] else "", ""
+            ),
+            flush=True,
+        )
 
 
 if __name__ == "__main__":

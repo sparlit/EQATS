@@ -85,8 +85,12 @@ def resolve_by_series(sym, field="patS"):
     cand = G.FIELD_CANDS[field][0]
     passing = []
     for r in candidates(sym):
-        series, _note = E.quarters({"sc_id": r["sc_id"]}, con=False)
-        hits = [(q, ours[q], series[q][cand]) for q in series if q in ours and series[q].get(cand) is not None]
+        series, note = E.quarters({"sc_id": r["sc_id"]}, con=False)
+        hits = [
+            (q, ours[q], series[q][cand])
+            for q in series
+            if q in ours and series[q].get(cand) is not None
+        ]
         bad = [h for h in hits if G._agree(h[1], h[2]) == "no"]
         ok = len(hits) - len(bad)
         rep["tried"].append(
@@ -103,7 +107,10 @@ def resolve_by_series(sym, field="patS"):
         if ok >= MIN_ANCHORS and (len(bad) / float(len(hits))) <= MAX_BAD_RATE:
             passing.append((r, ok, len(series)))
     if not passing:
-        rep["why"] = "no candidate reproduced %d of our stored quarters with zero disagreements" % MIN_ANCHORS
+        rep["why"] = (
+            "no candidate reproduced %d of our stored quarters with zero disagreements"
+            % MIN_ANCHORS
+        )
         return None, rep
     passing.sort(key=lambda p: -p[1])
     if len(passing) > 1 and passing[0][1] < DOMINANCE * passing[1][1]:
@@ -122,7 +129,8 @@ def resolve_by_series(sym, field="patS"):
         "mc_sym": r["sym"],
         "mc_name": r["name"],
         "note": "MC row %s (%s, %s) reproduces %d of our stored %s quarters for %s with zero "
-        "disagreements; %d periods available" % (r["sc_id"], r["sym"], r["name"], ok, field, sym, n),
+        "disagreements; %d periods available"
+        % (r["sc_id"], r["sym"], r["name"], ok, field, sym, n),
     }
     rep["resolved"] = ident
     return ident, rep
@@ -146,7 +154,13 @@ def main():
             best = max(rep["tried"], key=lambda t: t["anchors"])
             print(
                 "%-12s %-8s %-24s %6d %5d  RESOLVED"
-                % (sym, ident["sc_id"], (ident.get("mc_name") or "")[:24], best["anchors"], best["disagreements"])
+                % (
+                    sym,
+                    ident["sc_id"],
+                    (ident.get("mc_name") or "")[:24],
+                    best["anchors"],
+                    best["disagreements"],
+                )
             )
         else:
             best = max(rep["tried"], key=lambda t: t["anchors"]) if rep["tried"] else None
@@ -164,7 +178,10 @@ def main():
         sys.stdout.flush()
     json.dump(idc, open(E._ISIN_CACHE, "w"), indent=0, sort_keys=True)
     json.dump(out, open(a.out, "w"), indent=1, sort_keys=True)
-    print("\nresolved %d of %d by series reproduction (%.0fs) -> %s" % (n, len(syms), time.time() - t0, a.out))
+    print(
+        "\nresolved %d of %d by series reproduction (%.0fs) -> %s"
+        % (n, len(syms), time.time() - t0, a.out)
+    )
 
 
 if __name__ == "__main__":

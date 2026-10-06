@@ -73,10 +73,22 @@ def main():
         for p in range(1, min(5, n)):
             pix = doc[p].get_pixmap(dpi=150)
             im = np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width, pix.n)
-            im = cv2.cvtColor(im, cv2.COLOR_RGB2BGR) if pix.n == 3 else cv2.cvtColor(im, cv2.COLOR_RGBA2BGR)
+            im = (
+                cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
+                if pix.n == 3
+                else cv2.cvtColor(im, cv2.COLOR_RGBA2BGR)
+            )
             im = cv2.resize(im, (1100, int(im.shape[0] * 1100 / im.shape[1])))
             bar = np.full((26, 1100, 3), 20, np.uint8)
-            cv2.putText(bar, "%s %d page %d" % (sym, qe, p), (6, 19), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            cv2.putText(
+                bar,
+                "%s %d page %d" % (sym, qe, p),
+                (6, 19),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0, 255, 0),
+                2,
+            )
             imgs.append(np.vstack([bar, im, np.full((3, 1100, 3), 120, np.uint8)]))
         if imgs:
             cv2.imwrite(os.path.join(OUT, "%s_%d_tbl.png" % (sym, qe)), np.vstack(imgs))

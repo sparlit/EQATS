@@ -44,7 +44,11 @@ ROOT = os.path.dirname(HERE)
 
 def main():
     argv = sys.argv
-    readsf = argv[argv.index("--reads") + 1] if "--reads" in argv else os.path.join(HERE, "pre2015_reads_d.json")
+    readsf = (
+        argv[argv.index("--reads") + 1]
+        if "--reads" in argv
+        else os.path.join(HERE, "pre2015_reads_d.json")
+    )
     # A bare filename resolves against THIS script's dir, not the caller's cwd.
     # The STEP N driver invokes with cwd=ROOT and passes a plain filename, so
     # without this the file silently "doesn't exist", reads={} and the scan
@@ -58,7 +62,9 @@ def main():
         print(f"YSHIFT-SCAN: ERROR reads file not found: {readsf}")
         sys.exit(1)
     reads = json.load(open(readsf, encoding="utf8"))
-    landed_qes = {sym: {int(qe) for qe in cells} for sym, cells in reads.items()}  # std only, by construction
+    landed_qes = {
+        sym: {int(qe) for qe in cells} for sym, cells in reads.items()
+    }  # std only, by construction
 
     fund = json.load(open(os.path.join(ROOT, "docs", "sf_fundamentals.json"), encoding="utf8"))
     genuine = json.load(open(os.path.join(HERE, "yshift_genuine.json"), encoding="utf8"))
@@ -96,7 +102,10 @@ def main():
             print("  %-14s %d/%d  %-3s  v=%.2f" % (sym, qe, qe + 10000, slot, v))
     else:
         n_cells = sum(len(qes) for qes in landed_qes.values())
-        print("YSHIFT-SCAN: clean (%d landed cells across %d symbols checked)" % (n_cells, len(landed_qes)))
+        print(
+            "YSHIFT-SCAN: clean (%d landed cells across %d symbols checked)"
+            % (n_cells, len(landed_qes))
+        )
 
 
 if __name__ == "__main__":

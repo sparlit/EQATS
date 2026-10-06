@@ -128,7 +128,9 @@ def main():
     try:
         import gzip
 
-        D = json.loads(gzip.open(os.path.join(ROOT, "docs", "dash_slim.bin"), "rb").read().decode("utf-8"))
+        D = json.loads(
+            gzip.open(os.path.join(ROOT, "docs", "dash_slim.bin"), "rb").read().decode("utf-8")
+        )
         for m in (D.get("meta") or {}).values():
             if m.get("symbol"):
                 keys.add(m["symbol"])

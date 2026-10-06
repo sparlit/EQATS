@@ -43,25 +43,30 @@ import re
 import shutil
 import sys
 import tempfile
-import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 C = os.path.expanduser("~/stocks-cache/shp")
 W = os.path.join(C, "ev164q")
-LO, HI = "2015-12-01", "2022-12-31"  # old-form filings only: match_filing refuses 2022-form XBRLs by their members
+LO, HI = (
+    "2015-12-01",
+    "2022-12-31",
+)  # old-form filings only: match_filing refuses 2022-form XBRLs by their members
 _dirs = sorted(
     {d for d in glob.glob(os.path.join(C, "**", "xbrl*"), recursive=True) if os.path.isdir(d)}
     | {os.path.join(C, "ex_xbrl"), os.path.join(C, "fii_session/shp_src/xbrl_bse")}
 )
 os.environ["DII_ROWFIX_CACHES"] = os.pathsep.join(
-    [os.path.join(W, "xbrl_bse")] + [d for d in _dirs if os.path.isdir(d)]
+    [os.path.join(W, "xbrl_bse"), os.path.join(W, "xbrl_nse")]
+    + [d for d in _dirs if os.path.isdir(d)]
 )
 os.environ.setdefault("DII_ROWFIX_WORK", W)
 # bse_all + symbol-keyed links to §180b's code-keyed lists (all_fill/bse_lists_v2) for event symbols bse_all lacks
 os.environ.setdefault(
     "DII_ROWFIX_LISTS",
-    os.path.join(W, "lists_all") if os.path.isdir(os.path.join(W, "lists_all")) else os.path.join(C, "bse_all"),
+    os.path.join(W, "lists_all")
+    if os.path.isdir(os.path.join(W, "lists_all"))
+    else os.path.join(C, "bse_all"),
 )
 os.environ.setdefault("D1_ROWFIX_WORK", W)
 os.environ.setdefault("FII_ROWFIX_WORK", W)
@@ -69,13 +74,20 @@ os.environ.setdefault(
     "DII_ROWFIX_ALLOW_MISSING_LISTS", "1"
 )  # symbols without a list are counted and reported, not guessed
 MON = {
-    m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+    )
 }
 
 
 def date_of(qtr):
     m = re.match(r"(\d{1,2}) (\w{3}) (\d{4})$", str(qtr or "").strip())
-    return "%s-%02d-%02d" % (m.group(3), MON[m.group(2)], int(m.group(1))) if m and m.group(2) in MON else None
+    return (
+        "%s-%02d-%02d" % (m.group(3), MON[m.group(2)], int(m.group(1)))
+        if m and m.group(2) in MON
+        else None
+    )
 
 
 def event_files(bse_rows, lo=LO, hi=HI):
@@ -84,7 +96,9 @@ def event_files(bse_rows, lo=LO, hi=HI):
         d = date_of(r.get("qtr"))
         f = (r.get("XbrlFile") or "").strip()
         if d and f and lo <= d <= hi:
-            by.setdefault(d, []).append(((r.get("filing_date_time") or r.get("revised_date_time") or ""), f))
+            by.setdefault(d, []).append(
+                ((r.get("filing_date_time") or r.get("revised_date_time") or ""), f)
+            )
     return {q: sorted(v) for q, v in by.items()}
 
 
@@ -117,8 +131,18 @@ def classify(out, only=None):
     import _shp_d1_rowfix as D1
 
     D = D1.D
-    ev = json.load(open(os.path.join(HERE, "shp_events.json")))
+    import fetch_shareholding as F
+
+    ev = F.load_events()  # fills (§164r) + re-dates (§164m) applied
     ev = {s: v for s, v in ev.items() if not s.startswith("_") and isinstance(v, dict)}
+    nse = {}  # rows read from a supplied NSE file: their own file
+    for s_, rows in ev.items():
+        for d_, row in rows.items():
+            m = re.search(
+                r"nse:(SHP_\d+_\d+_(\d{14})_WEB\.xml)", str(row[7] if len(row) > 7 else "")
+            )
+            if m:
+                nse.setdefault(s_, {})[d_] = [(m.group(2), m.group(1))]
     code2sym = {}
     for s in ev:
         lp = os.path.join(D.LISTS, s + ".json")
@@ -135,17 +159,29 @@ def classify(out, only=None):
     def files_for(bse_rows, lo=LO, hi=HI):
         by = event_files(bse_rows, lo, hi)
         code = next(
-            ((r.get("XbrlFile") or "").split("_")[0] for r in bse_rows or [] if (r.get("XbrlFile") or "").strip()), None
+            (
+                (r.get("XbrlFile") or "").split("_")[0]
+                for r in bse_rows or []
+                if (r.get("XbrlFile") or "").strip()
+            ),
+            None,
         )
         sym = code2sym.get(code)
-        return near_date_files(by, [d for d in (ev.get(sym) or {}) if lo <= d <= hi]) if sym else by
+        out = near_date_files(by, [d for d in (ev.get(sym) or {}) if lo <= d <= hi]) if sym else by
+        for d_, fl in (nse.get(sym) or {}).items():
+            if lo <= d_ <= hi:
+                out.setdefault(d_, [])
+                out[d_] = fl + [x for x in out[d_] if x not in fl]
+        return out
 
     tmp = tempfile.mkdtemp(prefix="ev164q_")
     os.makedirs(os.path.join(tmp, "scripts"))
     json.dump(
         ev, open(os.path.join(tmp, "scripts", "shp_history.json"), "w")
     )  # the event store stands in for the history
-    shutil.copy2(os.path.join(HERE, "shp_cell_fix.json"), os.path.join(tmp, "scripts", "shp_cell_fix.json"))
+    shutil.copy2(
+        os.path.join(HERE, "shp_cell_fix.json"), os.path.join(tmp, "scripts", "shp_cell_fix.json")
+    )
     D1.REPO = tmp
     D.quarter_files = files_for
     # SCOPE = the population whose QUARTERLY cells went through the same rules: the Nifty 500 roster + every former member
@@ -156,17 +192,21 @@ def classify(out, only=None):
     scope = set(sc["current"]) | set(sc["ex"])
     import fetch_shareholding as F
 
-    fa = getattr(F, "FUND_ALIAS", None) or json.load(open(os.path.join(C, "quantmac", "fund_alias.json")))
+    fa = getattr(F, "FUND_ALIAS", None) or json.load(
+        open(os.path.join(C, "quantmac", "fund_alias.json"))
+    )
     syms = sorted(
         s
         for s, v in ev.items()
-        if any(LO <= d <= HI for d in v) and (not only or s in only) and (s in scope or fa.get(s) in scope)
+        if any(LO <= d <= HI for d in v)
+        and (not only or s in only)
+        and (s in scope or fa.get(s) in scope)
     )
     tag = "ev164q" if not only else "ev164q_one"
     D1.classify(syms, tag, set(syms))  # every event row: first row-level read
     D1.export(tag, out, section="§164q event rows")
     P = json.load(open(out))
-    for v in P.values():
+    for _k, v in P.items():
         v["why"] = (
             v["why"]
             .replace("FORMER Nifty 500 member", "mid-quarter EVENT row, first row-level read")
@@ -181,13 +221,15 @@ def write(path):
     import fetch_shareholding as F
 
     P = json.load(open(path))
-    ev = json.load(open(os.path.join(HERE, "shp_events.json")))
+    ev = F.load_events()
     lp = os.path.join(HERE, "shp_cell_fix.json")
     raw = open(lp, encoding="utf-8").read()
     led = json.loads(raw)
     fix = led.setdefault("fix", {})
     ap = os.path.join(HERE, "_shp_164_audit.json")
-    audit = json.load(open(ap, encoding="utf-8")) if os.path.exists(ap) else {"_doc": [], "cells": {}}
+    audit = (
+        json.load(open(ap, encoding="utf-8")) if os.path.exists(ap) else {"_doc": [], "cells": {}}
+    )
     audit.setdefault("cells", {})
     n_new = n_sup = n_skip = 0
     for k, v in sorted(P.items()):

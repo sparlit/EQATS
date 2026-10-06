@@ -84,7 +84,9 @@ calls = []
 def fake_get(o, u, b=False):
     calls.append(u)
     if "strCat=Result" in u:
-        return json.dumps({"Table": [{"ATTACHMENTNAME": "q1.pdf", "NEWS_DT": "2025-08-13T10:00:00"}]})
+        return json.dumps(
+            {"Table": [{"ATTACHMENTNAME": "q1.pdf", "NEWS_DT": "2025-08-13T10:00:00"}]}
+        )
     if "strCat=Board%20Meeting" in u:
         return json.dumps(
             {
@@ -105,7 +107,10 @@ r = F.result_filings(None, 500680, "20250401", "20250901")
 check(
     "both categories queried (Board Meeting with its Outcome subcategory)",
     any("strCat=Result" in u for u in calls)
-    and any("strCat=Board%20Meeting" in u and "subcategory=Outcome%20of%20Board%20Meeting" in u for u in calls),
+    and any(
+        "strCat=Board%20Meeting" in u and "subcategory=Outcome%20of%20Board%20Meeting" in u
+        for u in calls
+    ),
 )
 check(
     "Result rows first, the Board-Meeting annual added, duplicate attachment collapsed",
@@ -200,7 +205,8 @@ check("locate: BS p1, CF p2", loc is not None and list(loc[1]) == [1] and loc[2]
 p = F.text_read(pdf, loc[1], loc[2])
 check(
     "two-page CF: cfo / cfi / cff / capex / cf_tax all read",
-    (p.get("cfo"), p.get("cfi"), p.get("cff"), p.get("capex"), p.get("cf_tax")) == (90.0, -40.0, -30.0, 35.0, 25.0),
+    (p.get("cfo"), p.get("cfi"), p.get("cff"), p.get("capex"), p.get("cf_tax"))
+    == (90.0, -40.0, -30.0, 35.0, 25.0),
 )
 check(
     "iuad is its own line; intg and cwip unchanged",
@@ -234,12 +240,17 @@ CFB = CFW.replace(
     "Net increase in cash and cash equivalents 32.00",
 )
 pb = F.text_read(mkpdf(YE, BS, CFB), [1], 2)
-check('a "bank balances not considered as cash" line is not taken as the net change', pb.get("cfo") == 100.0)
+check(
+    'a "bank balances not considered as cash" line is not taken as the net change',
+    pb.get("cfo") == 100.0,
+)
 
 
 # ---- 3b. text-layer traps, each copied from a real filing ---------------------------------------
 def cf_of(*lines):
-    pdf = mkpdf(YE, BS, "Statement of Cash Flows for the year ended 31 March 2025\n" + "\n".join(lines))
+    pdf = mkpdf(
+        YE, BS, "Statement of Cash Flows for the year ended 31 March 2025\n" + "\n".join(lines)
+    )
     return F.text_read(pdf, [1], 2)
 
 
@@ -262,7 +273,8 @@ r = cf_of(
     *BASE,
 )
 check(
-    "NATIONALUM FY22: a split in the PRIOR-year column leaves the current-year value readable", r.get("cfi") == -2619.23
+    "NATIONALUM FY22: a split in the PRIOR-year column leaves the current-year value readable",
+    r.get("cfi") == -2619.23,
 )
 r = cf_of(
     "Net cash flow from operating activities (A) 38,402 1,21,200",
@@ -328,14 +340,23 @@ BSN = (
     "(b) Other Equity 1,37, 101.38 1,38,282.87\nTrade payables 50.00 45.00\nTotal equity and liabilities 1000.00 950.00"
 )
 pn = F.text_read(mkpdf(YE, BSN), [1], None)
-check('BPCL FY20: "(Refer Note 2)" is a note reference, never share capital 2.0 -> 1,966.88', pn.get("sc") == 1966.88)
-check('BALMLAWRIE FY21: an OCR split "1,37, 101.38" is rejoined -> 137,101.38, never 1.37', pn.get("oeq") == 137101.38)
+check(
+    'BPCL FY20: "(Refer Note 2)" is a note reference, never share capital 2.0 -> 1,966.88',
+    pn.get("sc") == 1966.88,
+)
+check(
+    'BALMLAWRIE FY21: an OCR split "1,37, 101.38" is rejoined -> 137,101.38, never 1.37',
+    pn.get("oeq") == 137101.38,
+)
 BSN2 = BSN.replace("(Refer Note 2) 1,966.88 1,966.88", "Note 12 1,966.88 1,966.88").replace(
     "1,37, 101.38 1,38,282.87", "1,234, 5,678.90"
 )
 pn2 = F.text_read(mkpdf(YE, BSN2), [1], None)
 check('a number right after the word "Note" is a note, not the value', pn2.get("sc") == 1966.88)
-check('two real columns never merge ("1,234," + "5,678.90" is not a grouped number)', pn2.get("oeq") != 12345678.9)
+check(
+    'two real columns never merge ("1,234," + "5,678.90" is not a grouped number)',
+    pn2.get("oeq") != 12345678.9,
+)
 
 # ---- 3c. income tax is SIGNED by the statement's own arithmetic (+ paid, - net refund; runbook §168j) --------
 r = cf_of(
@@ -366,9 +387,12 @@ r = cf_of(
     *BASE,
 )
 check(
-    "BHEL FY22: payment and refund on separate lines -> their net, -408.88 (a net refund)", r.get("cf_tax") == -408.88
+    "BHEL FY22: payment and refund on separate lines -> their net, -408.88 (a net refund)",
+    r.get("cf_tax") == -408.88,
 )
-r = cf_of("Income tax paid (50.00) (40.00)", "Net cash from operating activities 100.00 90.00", *BASE)
+r = cf_of(
+    "Income tax paid (50.00) (40.00)", "Net cash from operating activities 100.00 90.00", *BASE
+)
 check(
     'no "cash generated from operations" line -> direction unprovable -> tax unread (never a guess)',
     r.get("cf_tax") is None and r.get("cfo") == 100.0,
@@ -379,14 +403,20 @@ r = cf_of(
     "Net cash from operating activities 99.99 89.98",
     *BASE,
 )
-check("a tax line too small to tell paid from refund at the printed precision -> unread", r.get("cf_tax") is None)
+check(
+    "a tax line too small to tell paid from refund at the printed precision -> unread",
+    r.get("cf_tax") is None,
+)
 r = cf_of(
     "Cash generated from operations 1676 1500",
     "Income taxes paid (284) (250)",
     "Net cash from operating activities 1392 1250",
     *BASE,
 )
-check("whole-crore statement (TORNTPHARM-style): 1,676 - 284 = 1,392 -> +284", r.get("cf_tax") == 284.0)
+check(
+    "whole-crore statement (TORNTPHARM-style): 1,676 - 284 = 1,392 -> +284",
+    r.get("cf_tax") == 284.0,
+)
 r = cf_of(
     "NET CASH FROM OPERATING ACTIVITIES (82594) 703380 (102915) 702125",
     "NET CASH FROM INVESTING ACTIVITIES (33251) (50923) (12930) (49668)",
@@ -396,7 +426,10 @@ r = cf_of(
 )
 check(
     "NFL FY22: standalone + consolidated side by side (4 columns) -> cash flow NOT read from text",
-    r.get("cfo") is None and r.get("cfi") is None and r.get("cff") is None and r.get("_cf_layout") == "multi",
+    r.get("cfo") is None
+    and r.get("cfi") is None
+    and r.get("cff") is None
+    and r.get("_cf_layout") == "multi",
 )
 r = cf_of(
     "Net cash from operating activities 515.65 317.00",
@@ -420,7 +453,8 @@ r = cf_of(
 )
 check(
     'APLAPOLLO FY22: a garbled net change "147:<61" is unreadable — the PRIOR year (-28.27) never slides in',
-    (r.get("cfo"), r.get("cfi"), r.get("cff")) == (651.71, -530.13, 26.03) and r.get("_cf_net") is None,
+    (r.get("cfo"), r.get("cfi"), r.get("cff")) == (651.71, -530.13, 26.03)
+    and r.get("_cf_net") is None,
 )
 r = cf_of(
     "Net cash flow from operating activities A 231.45 717.95",
@@ -444,7 +478,8 @@ r = cf_of(
 )
 check(
     'HGS FY22: two lines both called "Net cash generated from operating activities" — the identity picks the post-tax one',
-    (r.get("cfo"), r.get("cfi"), r.get("cff"), r.get("_cf_ok")) == (58949.67, 201153.24, -103315.51, True),
+    (r.get("cfo"), r.get("cfi"), r.get("cff"), r.get("_cf_ok"))
+    == (58949.67, 201153.24, -103315.51, True),
 )
 r = cf_of(
     "Net cash generated from operating activities 34.963 23,980",
@@ -459,7 +494,9 @@ check(
 )
 check(
     'ANANTRAJ FY21: "1, 143.00" (a split 1,143.00) is unreadable, never Rs 1',
-    F.to_num("1,") is None and F.to_num("1,143.00") == 1143.0 and F.to_num("(1,21,200)") == -121200.0,
+    F.to_num("1,") is None
+    and F.to_num("1,143.00") == 1143.0
+    and F.to_num("(1,21,200)") == -121200.0,
 )
 
 
@@ -484,7 +521,10 @@ loc = F.locate(pdf, 2025)
 r = F.text_read(pdf, loc[1], loc[2]) if loc else {}
 check(
     "an OCR-layer balance sheet is flagged (_bs_ocr) and its BS fields are withheld",
-    loc is not None and r.get("_bs_ocr") is True and r.get("assets") is None and r.get("iuad") is None,
+    loc is not None
+    and r.get("_bs_ocr") is True
+    and r.get("assets") is None
+    and r.get("iuad") is None,
 )
 check(
     "...its cash flow is kept only because the cash identity verifies it",
@@ -523,8 +563,22 @@ slice_("TSTB", {"20250331": {"s": {"assets": 1000.0, "ppe": 400.0, "cfo": 91.0}}
 json.dump(
     {
         "TSTC": {
-            "20210331": {"b": "c", "m": "vision", "src": "bse:c.pdf", "assets": 500.0, "ppe": 200.0, "cwip": 3.0},
-            "20220331": {"b": "c", "m": "text", "src": "bse:d.pdf", "assets": 600.0, "ppe": 210.0, "cfo": 80.0},
+            "20210331": {
+                "b": "c",
+                "m": "vision",
+                "src": "bse:c.pdf",
+                "assets": 500.0,
+                "ppe": 200.0,
+                "cwip": 3.0,
+            },
+            "20220331": {
+                "b": "c",
+                "m": "text",
+                "src": "bse:d.pdf",
+                "assets": 600.0,
+                "ppe": 210.0,
+                "cfo": 80.0,
+            },
         }
     },
     open(M.LEDGER, "w"),
@@ -576,9 +630,33 @@ reads = [
         "iuad": 4.0,
         "cwip": 99.0,
     },
-    {"sym": "TSTC", "fy": 2021, "role": "supplement", "basis": "c", "src": "bse:OTHER.pdf", "assets": 500.0, "gw": 1.0},
-    {"sym": "TSTC", "fy": 2021, "role": "supplement", "basis": "c", "src": "bse:c.pdf", "assets": 525.0, "intg": 2.0},
-    {"sym": "TSTC", "fy": 2020, "role": "supplement", "basis": "c", "src": "bse:c.pdf", "assets": 500.0, "iuad": 1.0},
+    {
+        "sym": "TSTC",
+        "fy": 2021,
+        "role": "supplement",
+        "basis": "c",
+        "src": "bse:OTHER.pdf",
+        "assets": 500.0,
+        "gw": 1.0,
+    },
+    {
+        "sym": "TSTC",
+        "fy": 2021,
+        "role": "supplement",
+        "basis": "c",
+        "src": "bse:c.pdf",
+        "assets": 525.0,
+        "intg": 2.0,
+    },
+    {
+        "sym": "TSTC",
+        "fy": 2020,
+        "role": "supplement",
+        "basis": "c",
+        "src": "bse:c.pdf",
+        "assets": 500.0,
+        "iuad": 1.0,
+    },
     # CF supplement: stored cfo matches -> cfi/cff added; the 2021 cell has no cfo -> needs the identity
     {
         "sym": "TSTC",
@@ -629,19 +707,25 @@ b = L.get("TSTB", {})
 check("validate year NOT landed when the slice already holds its CF", "20250331" not in b)
 check(
     "fill whose CF identity fails: BS landed, cfo/cfi/cff dropped",
-    b.get("20220331", {}).get("assets") == 800.0 and all(b["20220331"].get(k) is None for k in ("cfo", "cfi", "cff")),
+    b.get("20220331", {}).get("assets") == 800.0
+    and all(b["20220331"].get(k) is None for k in ("cfo", "cfi", "cff")),
 )
 c = L.get("TSTC", {})
 check(
     "supplement adds iuad, never overwrites cwip, records provenance",
-    c["20210331"].get("iuad") == 4.0 and c["20210331"].get("cwip") == 3.0 and "iuad" in c["20210331"].get("sup", []),
+    c["20210331"].get("iuad") == 4.0
+    and c["20210331"].get("cwip") == 3.0
+    and "iuad" in c["20210331"].get("sup", []),
 )
 check("supplement from a different document is rejected", c["20210331"].get("gw") is None)
-check("supplement whose Total-Assets anchor is off 5% is rejected", c["20210331"].get("intg") is None)
+check(
+    "supplement whose Total-Assets anchor is off 5% is rejected", c["20210331"].get("intg") is None
+)
 check("supplement never creates a cell", "20200331" not in c)
 check(
     "CF supplement: stored CFO matches -> cfi/cff added, cfo kept",
-    (c["20220331"].get("cfo"), c["20220331"].get("cfi"), c["20220331"].get("cff")) == (80.0, -50.0, -20.0),
+    (c["20220331"].get("cfo"), c["20220331"].get("cfi"), c["20220331"].get("cff"))
+    == (80.0, -50.0, -20.0),
 )
 check(
     "CF supplement without a stored CFO needs the identity (60-30-10 != 25 -> rejected)",
@@ -835,7 +919,14 @@ json.dump(
             }
         },
         "NEAR": {
-            "20220331": {"b": "c", "m": "text", "src": "bse:n.pdf", "assets": 23096.09, "sc": 39.96, "oeq": 15000.0}
+            "20220331": {
+                "b": "c",
+                "m": "text",
+                "src": "bse:n.pdf",
+                "assets": 23096.09,
+                "sc": 39.96,
+                "oeq": 15000.0,
+            }
         },
     },
     open(M.LEDGER, "w"),

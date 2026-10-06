@@ -99,7 +99,9 @@ def main():
             sc = nums * 0.1
             if "consolidated" in low:
                 sc += 5
-            if re.search(r"profit.{0,14}(after tax|for the (period|quarter|year))|profit after tax", low):
+            if re.search(
+                r"profit.{0,14}(after tax|for the (period|quarter|year))|profit after tax", low
+            ):
                 sc += 4
             if re.search(r"shareholder", low):
                 sc += 2
@@ -116,7 +118,11 @@ def main():
         dpi = 150 if scanned else 230
         pm = pg.get_pixmap(dpi=dpi, clip=fitz.Rect(0, H * 0.03, W, H * 0.99))
         im = np.frombuffer(pm.samples, np.uint8).reshape(pm.height, pm.width, pm.n)
-        im = cv2.cvtColor(im, cv2.COLOR_RGB2BGR) if pm.n == 3 else cv2.cvtColor(im, cv2.COLOR_RGBA2BGR)
+        im = (
+            cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
+            if pm.n == 3
+            else cv2.cvtColor(im, cv2.COLOR_RGBA2BGR)
+        )
         Wt = 2200
         im = cv2.resize(im, (Wt, int(im.shape[0] * Wt / im.shape[1])))
         bar = np.full((46, Wt, 3), 30, np.uint8)

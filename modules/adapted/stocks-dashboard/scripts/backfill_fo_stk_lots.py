@@ -97,7 +97,11 @@ def main():
     for f in ("corp_actions.json", "corp_actions_hist.json"):
         for s0, v in json.load(open(os.path.join(HERE, f))).get("factors", {}).items():
             for x in v:
-                d0 = "%04d-%02d-%02d" % (int(x[0]) // 10000, int(x[0]) // 100 % 100, int(x[0]) % 100)
+                d0 = "%04d-%02d-%02d" % (
+                    int(x[0]) // 10000,
+                    int(x[0]) // 100 % 100,
+                    int(x[0]) % 100,
+                )
                 if "2012-01-01" < d0 < "2024-07-08" and float(x[1]) > 0:
                     led[F.canon(s0)].append((d0, 1 / float(x[1])))
     by_canon = collections.defaultdict(set)
@@ -174,7 +178,12 @@ def main():
         "| worst",
         sorted(resid, key=lambda x: -abs(x[1]))[:6],
     )
-    print("corporate actions found", sum(len(v) for v in ca.values()), "rejected lot changes", len(rejected))
+    print(
+        "corporate actions found",
+        sum(len(v) for v in ca.values()),
+        "rejected lot changes",
+        len(rejected),
+    )
     # share of contracts in stocks not in F&O today (kept at their own count)
     ref = {F.canon(k) for k in days[max(days)]["ref"]}
     dead = collections.defaultdict(list)
@@ -186,7 +195,9 @@ def main():
         "share of stock-futures contracts in stocks not in F&O today, by year (median %):",
         {y: round(sorted(v)[len(v) // 2], 1) for y, v in sorted(dead.items())},
     )
-    json.dump({"ca": ca, "rejected": rejected}, open(os.path.join(CACHE, "_review.json"), "w"), indent=1)
+    json.dump(
+        {"ca": ca, "rejected": rejected}, open(os.path.join(CACHE, "_review.json"), "w"), indent=1
+    )
     # write shards + state + lfs
     shard_dir = os.path.join(HERE, "_fo_stk_lots")
     os.makedirs(shard_dir, exist_ok=True)
@@ -205,7 +216,11 @@ def main():
     F.apply_stk_lot_factor(fo, days, ca)
     doc = json.load(open(F.OUT_FO))
     rows = [fo[d] for d in sorted(fo)]
-    json.dump({"updated": doc["updated"], "rows": rows}, open(F.OUT_FO, "w", encoding="utf-8"), separators=(",", ":"))
+    json.dump(
+        {"updated": doc["updated"], "rows": rows},
+        open(F.OUT_FO, "w", encoding="utf-8"),
+        separators=(",", ":"),
+    )
     print("wrote", len(by_m), "shards, lfs on", sum(1 for r in rows if "lfs" in r), "rows")
 
 

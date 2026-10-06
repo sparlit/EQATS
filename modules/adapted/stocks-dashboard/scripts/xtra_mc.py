@@ -66,11 +66,9 @@ Run:  python3 scripts/xtra_mc.py [--universe n500|all] [--years 2002-2017] [--po
         [--only SYM,SYM] [--limit N] [--apply]
       Journals to scripts/_xtra_mc_reads.json / _xtra_mc_skips.json; --apply writes the ledger.
 """
-import collections
 import gzip
 import json
 import os
-import re
 import sys
 import time
 
@@ -192,7 +190,11 @@ def build_targets(universe, y0, y1, post2018, ledger, fund):
             have = (ledger.get(sym) or {}).get(str(qe)) or {}
             for b in list(bases):
                 cell = have.get(b)
-                if cell and cell.get("eps_b") is not None and not str(cell.get("src", "")).startswith("mc"):
+                if (
+                    cell
+                    and cell.get("eps_b") is not None
+                    and not str(cell.get("src", "")).startswith("mc")
+                ):
                     bases.pop(b)
             if bases:
                 tg.setdefault(sym, {})[qe] = bases
@@ -226,8 +228,16 @@ def row_identity(series, ours, field):
     if matched < MIN_ROW_ANCHORS:
         return False, "row-anchors %d<%d" % (matched, MIN_ROW_ANCHORS), matched
     if len(bad) / float(matched + len(bad)) > ROW_MAX_BAD or (bad and matched < 6):
-        return False, "row-disagrees %d/%d: %s" % (len(bad), matched + len(bad), "; ".join(bad[:2])), matched
-    return True, "row ok %d anchors, %d far disagreements, worst %.3f" % (matched, len(bad), worst), matched
+        return (
+            False,
+            "row-disagrees %d/%d: %s" % (len(bad), matched + len(bad), "; ".join(bad[:2])),
+            matched,
+        )
+    return (
+        True,
+        "row ok %d anchors, %d far disagreements, worst %.3f" % (matched, len(bad), worst),
+        matched,
+    )
 
 
 def main():
@@ -254,7 +264,10 @@ def main():
         syms = [s for s in syms if s in only]
     if limit:
         syms = syms[:limit]
-    print("targets: %d symbols, %d quarter-cells" % (len(syms), sum(len(targets[s]) for s in syms)), flush=True)
+    print(
+        "targets: %d symbols, %d quarter-cells" % (len(syms), sum(len(targets[s]) for s in syms)),
+        flush=True,
+    )
 
     landed = 0
     t0 = time.time()
@@ -280,7 +293,10 @@ def main():
             for b in bases_needed
         }
         con_differs = any(
-            r[1] is not None and len(r) > 3 and r[3] is not None and abs(r[1] - r[3]) > max(0.06, abs(r[3]) * 0.005)
+            r[1] is not None
+            and len(r) > 3
+            and r[3] is not None
+            and abs(r[1] - r[3]) > max(0.06, abs(r[3]) * 0.005)
             for r in fmap[sym].values()
         )
         # gate R per (basis, field), computed once per symbol
@@ -352,7 +368,9 @@ def main():
                 skips.pop(key, None)
                 reads.setdefault(sym, {}).setdefault(str(qe), {})[b] = {
                     "fields": fields,
-                    "src": "mc:{}:{}".format(ident["sc_id"], "cons_quarterly" if b == "c" else "quarterly"),
+                    "src": "mc:{}:{}".format(
+                        ident["sc_id"], "cons_quarterly" if b == "c" else "quarterly"
+                    ),
                     "chk": {
                         "pat_anchor": pat,
                         "series": g["why"] or "ok %d local" % g["local"],
@@ -365,7 +383,8 @@ def main():
             json.dump(reads, open(READS, "w"), separators=(",", ":"))
             json.dump(skips, open(SKIPS, "w"), indent=0, sort_keys=True)
             print(
-                "  [%d/%d] %d landed, %d skips, %.0fs" % (si, len(syms), landed, len(skips), time.time() - t0),
+                "  [%d/%d] %d landed, %d skips, %.0fs"
+                % (si, len(syms), landed, len(skips), time.time() - t0),
                 flush=True,
             )
     json.dump(reads, open(READS, "w"), separators=(",", ":"))

@@ -49,21 +49,19 @@ import types as _t
 import urllib.error as _ue
 import urllib.request as _ur
 
-import bse_headers  # §181: the repo's honest header set (own UA, Accept-Language, Referer) on every *.bseindia.com urllib request
-
 _UA = "stocks-dashboard-data-fetch/1.0 (+personal research; contact via github dhruvan246)"
 
 
 class _Resp:
-    def __init__(self, code, body):
-        self.status_code = code
-        self.content = body
-        self.text = body.decode("utf-8", "ignore")
+    def __init__(s, code, body):
+        s.status_code = code
+        s.content = body
+        s.text = body.decode("utf-8", "ignore")
 
-    def json(self):
+    def json(s):
         import json as _j
 
-        return _j.loads(self.text)
+        return _j.loads(s.text)
 
 
 def _plain_get(url, headers=None, impersonate=None, timeout=60, **k):
@@ -72,7 +70,10 @@ def _plain_get(url, headers=None, impersonate=None, timeout=60, **k):
     for a in range(3):
         try:
             r = _ur.urlopen(
-                _ur.Request(url, headers={"User-Agent": _UA, "Referer": "https://www.bseindia.com/"}), timeout=timeout
+                _ur.Request(
+                    url, headers={"User-Agent": _UA, "Referer": "https://www.bseindia.com/"}
+                ),
+                timeout=timeout,
             )
             body = r.read()
             _tm.sleep(0.8)
@@ -119,7 +120,10 @@ def d1_delta(r, bd, res, cur, ext_fii, add_prev):
         return 0.0, []
     evs = [str(e) for e in r["ev"] if str(e[0]).startswith("R1")]
     f_named = any(re.search(r"foreign->(fii|public)", e) for e in evs)
-    d_named = any(e.startswith(("['R1-domestic", "('R1-domestic")) or "domestic->" in e for e in evs)
+    d_named = any(
+        e.startswith("['R1-domestic") or e.startswith("('R1-domestic") or "domestic->" in e
+        for e in evs
+    )
     if d_named and not f_named:
         return 0.0, [("D1-not-applied", "every named holder domestic: the rest follows them")]
     left = min(oth, max(0.0, res["dii"] + add_prev - (cur[2] or 0)))
@@ -146,13 +150,156 @@ def d1_delta(r, bd, res, cur, ext_fii, add_prev):
             if ns <= pct + 0.02 and pct - ns > 0.004:
                 rests += pct - ns
                 ev.append(("D1-rest-beside-mixed-holders", e[1], round(pct - ns, 4)))
-        elif e[0] == "R1-domestic-holders":  # a domestic-only ROW inside a block that also names foreign holders
+        elif (
+            e[0] == "R1-domestic-holders"
+        ):  # a domestic-only ROW inside a block that also names foreign holders
             pct = float(e[2])
             ns = named_sum(e[3])
             if ns <= pct + 0.02 and pct - ns > 0.004:
                 rests += pct - ns
                 ev.append(("D1-rest-beside-domestic-row-in-mixed-block", e[1], round(pct - ns, 4)))
     return round(mov + rests, 4), ev
+
+
+# D1 corroboration gate (user 2026-09-28, "Option A ... do this"; runbook §164r batch 5): an unnamed remainder of >= 1 pp moves
+# dii -> fii only when the company's OWN neighbouring filing shows a foreign holding that size — the quarter-end filing before
+# or after (for a mid-quarter event, the quarters around it) holds FII at least halfway to the moved level. Measured: of 130
+# recorded moves >= 1 pp, 13 had no such support (CENTRALBK Jun-2018: an unnamed 9.12 % Other-Institutions block went to FII
+# 0.27 -> 9.39 while Mar / Sep-2018 print 0.21 / 0.35 and Quantmac serves 0.29; PVRINOX Jun-2017 39.68 -> 56.80 between 40.85
+# and 42.31). Without a neighbour on one side the move is not tested. Neighbours come from the REAL store (the §164q runner
+# swaps REPO for its event store).
+D1_GATE_MIN = 1.0
+_REAL_HIST = None
+
+
+def d1_corroborated(sym, qe, fii_after, dd):
+    global _REAL_HIST
+    if _REAL_HIST is None:
+        _REAL_HIST = json.load(open(os.path.join(SCRIPTS, "shp_history.json")))
+    qs = sorted(
+        k
+        for k in (_REAL_HIST.get(sym) or {})
+        if not k.startswith("_") and k[5:] in ("03-31", "06-30", "09-30", "12-31")
+    )
+    prv = [k for k in qs if k < qe]
+    nxt = [k for k in qs if k > qe]
+    if not prv or not nxt:
+        return True, "no neighbour on one side (not tested)"
+    p, n = prv[-1], nxt[0]
+    pv = _REAL_HIST[sym][p][1]
+    nv = _REAL_HIST[sym][n][1]
+    if pv is None or nv is None:
+        return True, "neighbour without FII (not tested)"
+    need = fii_after - 0.5 * dd
+    ok = pv >= need or nv >= need
+    return (
+        ok,
+        f"{p} FII {pv:.2f}, {n} FII {nv:.2f} vs {need:.2f} needed (moved level {fii_after:.2f})",
+    )
+
+
+# §164r batch 7 (user 2026-09-29 'Follow the later label', 37 cells measured and approved): the UNNAMED institutional Any-Other
+# block follows the label the company itself gives a block of the same size (within D1_LABEL_TOL) in a neighbouring filing —
+# walking quarter by quarter (up to 6 hops each way) through filings where the block stays unnamed and the same size. PVRINOX
+# Jun/Sep-2016: 19.07 / 18.32 unnamed, then Dec-2016 'FOREIGN CORPORATE BODIES' 17.89 (Plenty 8.81, Multiples 6.22 ...) -> public,
+# not FII (the 19-point spike and drop was the default rule, not a trade). A company-type / DR / foreign-national label -> public;
+# a domestic-institution label -> DII; a foreign-institution label (or none found) -> FII as before.
+D1_LABEL_TOL = 0.12
+_D1Q = []
+_y, _m = 2015, 12
+while (_y, _m) <= (2022, 6):
+    _D1Q.append("%d-%02d-%02d" % (_y, _m, {3: 31, 6: 30, 9: 30, 12: 31}[_m]))
+    _m += 3
+    if _m > 12:
+        _m = 3
+        _y += 1
+_FORW = re.compile(r"foreign|forign|foriegn|global|overseas|\bfii|\bfpi|\bqfi|sovereign", re.I)
+_DRW = re.compile(r"\bdr\b|depositor|\bgdr|\badr", re.I)
+
+
+def d1_lab_class(L):
+    if _DRW.search(L) or D.LAB_PUB.search(L) or D.noninst_label(L):
+        return "pub"  # §164r batch 11: Bodies Corporate / Government / IEPF ... rows are not FII
+    if D.LAB_FII.search(L) or (_FORW.search(L) and D.DOMLAB.search(L)):
+        return "fii"
+    if D.DOMLAB.search(L):
+        return "dii"
+    return None
+
+
+_D1BLK = {}
+
+
+def _d1_block(sym, qe, byq, ctx):
+    if (sym, qe) in _D1BLK:
+        return _D1BLK[(sym, qe)]
+    out = None
+    for _fd, f in sorted(byq.get(qe) or []):
+        p = D.find_file(f)
+        if not p:
+            continue
+        try:
+            txt = open(p, "rb").read()
+            rows = D.rows_of(txt)
+        except Exception:
+            continue
+        gs = D.groups(rows, "OtherInstitutionsMember") or D.groups(rows, "OtherInstitutions")
+        lab = []
+        unnamed = 0.0
+        if not gs:  # a block filed with no typed rows (PVRINOX Sep-2016): its size is the filing's own block total
+            try:
+                unnamed = D.breakdown(txt).get("OtherInstitutionsMember") or 0.0
+            except Exception:
+                unnamed = 0.0
+        for g in gs:
+            cls = d1_lab_class(g["label"])
+            hs = [(hn, hp) + tuple(ctx.hclass(hn, hp)[:2]) for hp, hn in g["holders"]]
+            if cls is None and not hs:
+                unnamed += g["pct"]
+            lab.append((g["label"], g["pct"], cls, hs))
+        out = (lab, unnamed, f)
+        break
+    _D1BLK[(sym, qe)] = out
+    return out
+
+
+def d1_follow_label(sym, qe, dd, byq, ctx, _depth=0):
+    """-> (class 'pub'|'dii'|'fii', evidence) of the unnamed block from the nearest same-size labelled block, or (None, reason)."""
+    if qe not in _D1Q:
+        return None, "outside the Dec-2015..Jun-2022 form"
+    for step in (1, -1):
+        i = _D1Q.index(qe)
+        hops = 0
+        while 0 <= i + step < len(_D1Q) and hops < 6:
+            i += step
+            hops += 1
+            b = _d1_block(sym, _D1Q[i], byq, ctx)
+            if not b:
+                break
+            lab, unnamed, f = b
+            cand = [x for x in lab if (x[2] or x[3]) and abs(x[1] - dd) <= D1_LABEL_TOL * dd]
+            if not cand and unnamed and abs(unnamed - dd) <= D1_LABEL_TOL * dd:
+                continue  # the same block, still unnamed
+            if cand:
+                x = cand[0]
+                cls = x[2]
+                if not cls:
+                    dests = collections.Counter(
+                        "fii" if h[3] == "fii" else "dii" if h[2] == "domestic" else "pub"
+                        for h in x[3]
+                    )
+                    cls = dests.most_common(1)[0][0]
+                return cls, "{} filing {} labels a {:.2f} block '{}'{}".format(
+                    _D1Q[i],
+                    f,
+                    x[1],
+                    x[0],
+                    (" (" + "; ".join(f"{h[0]} {h[1]:.2f}" for h in x[3][:3]) + ")")
+                    if x[3]
+                    else "",
+                )
+            break
+    return None, "no same-size labelled block within 6 filings either way"
 
 
 def prior_inputs(led, sym, qe, cur, audit158, audit164=None):
@@ -163,6 +310,8 @@ def prior_inputs(led, sym, qe, cur, audit158, audit164=None):
     chain = prior
     depth = 0
     seen164 = False
+    add14 = 0.0
+    seen14 = False
     while chain and depth < 8:
         w = chain.get("why") or ""
         if "§159 row-level FII heal" in w and chain.get("was") and chain.get("cell"):
@@ -178,8 +327,15 @@ def prior_inputs(led, sym, qe, cur, audit158, audit164=None):
             ext_fii += mv159_prev
             if not add_prev:
                 add_prev = float(a.get("add_dii") or 0.0)
+        # §164r batch 14 (FDI-line holders, user 2026-10-04 'yes go with A'): its §164 audit entry carries the non-institution
+        # (R2-FII-type) part of its move as mv159_add - count it, or the cell reads as an inexplicable split (split_unknown)
+        if "§164r batch 14" in w and not seen14 and audit164 is not None:
+            add14 = float((audit164.get(f"{sym}|{qe}") or {}).get("mv159_add") or 0.0)
+            seen14 = True
         chain = chain.get("superseded") if isinstance(chain.get("superseded"), dict) else None
         depth += 1
+    ext_fii += add14
+    mv159_prev += add14
     healed = False
     chain = prior
     depth = 0
@@ -195,9 +351,16 @@ def prior_inputs(led, sym, qe, cur, audit158, audit164=None):
 def classify(syms, tag, ex_set):
     hist = json.load(open(os.path.join(REPO, "scripts", "shp_history.json")))
     led = json.load(open(os.path.join(REPO, "scripts", "shp_cell_fix.json"))).get("fix", {})
-    audit158 = json.load(open(os.path.join(SCRIPTS, "_shp_dii_rowfix_audit.json"))).get("cells") or {}
+    audit158 = (
+        json.load(open(os.path.join(SCRIPTS, "_shp_dii_rowfix_audit.json"))).get("cells") or {}
+    )
     try:
-        audit164 = json.load(open(os.path.join(SCRIPTS, "_shp_164_audit.json"), encoding="utf-8")).get("cells") or {}
+        audit164 = (
+            json.load(open(os.path.join(SCRIPTS, "_shp_164_audit.json"), encoding="utf-8")).get(
+                "cells"
+            )
+            or {}
+        )
     except (OSError, ValueError):
         audit164 = {}
     verdicts = D.load_verdicts()
@@ -226,7 +389,9 @@ def classify(syms, tag, ex_set):
                 if final:
                     st["no_store_row"] += 1
                 continue
-            prior, ext_fii, add_prev, healed, mv159_prev = prior_inputs(led, sym, qe, cur, audit158, audit164)
+            prior, ext_fii, add_prev, healed, mv159_prev = prior_inputs(
+                led, sym, qe, cur, audit158, audit164
+            )
             chosen = D.match_filing(fl, qe, cur, None, ext_fii, healed)
             if not chosen:
                 pk = X.pick_filing(
@@ -238,12 +403,18 @@ def classify(syms, tag, ex_set):
                         st["matched_via_" + pk[4].split("@")[0]] += 1
             if not chosen:
                 if final:
-                    st["not_cached" if not any(D.find_file(f) for fd, f in fl) else "no_matching_filing"] += 1
+                    st[
+                        "not_cached"
+                        if not any(D.find_file(f) for fd, f in fl)
+                        else "no_matching_filing"
+                    ] += 1
                 continue
             f, txt, bd, res = chosen
             r = D.eval_filing(ctx, qe, txt, bd, res, cur, final, None, ext_fii, add_prev)
             if is_ex:
-                X.eval_fii(fctx, qe, txt, bd, res, cur)  # warm the §159 holder memory on both passes
+                X.eval_fii(
+                    fctx, qe, txt, bd, res, cur
+                )  # warm the §159 holder memory on both passes
             if not final:
                 continue
             st["matched"] += 1
@@ -288,7 +459,29 @@ def classify(syms, tag, ex_set):
             if qe >= D1_FROM:
                 dd, dev = d1_delta(r, bd, res, cur, ext_fii, add_prev)
                 dd = min(dd, t_dii)
+                if dd >= D1_GATE_MIN:
+                    ok_g, why_g = d1_corroborated(sym, qe, t_fii + dd, dd)
+                    if not ok_g:
+                        ev.append(("D1-held-uncorroborated", round(dd, 4), why_g))
+                        st["d1_held_uncorroborated"] += 1
+                        dd = 0.0
+                lc = None
                 if dd >= 0.005:
+                    lc, lwhy = d1_follow_label(sym, qe, dd, byq, ctx)
+                    if lc in ("pub", "dii"):
+                        ev.append(("D1-follows-label", round(dd, 4), lc, lwhy))
+                        st["d1_follows_label_" + lc] += 1
+                if dd >= 0.005 and lc == "pub":
+                    t_dii = round(t_dii - dd, 4)
+                    ev += dev
+                    parts.append(
+                        "D1 unnamed remainder follows the company's own neighbouring label -> public"
+                    )
+                elif dd >= 0.005 and lc == "dii":
+                    parts.append(
+                        "D1 unnamed remainder follows the company's own neighbouring label -> DII (stays)"
+                    )
+                elif dd >= 0.005:
                     t_fii = round(t_fii + dd, 4)
                     t_dii = round(t_dii - dd, 4)
                     ev += dev
@@ -319,7 +512,11 @@ def classify(syms, tag, ex_set):
             st["proposed"] += 1
             st["proposed_ex" if is_ex else "proposed_current"] += 1
         if si % 50 == 0:
-            print("  %d/%d %s %s %.0fs" % (si, len(syms), sym, dict(st), time.time() - t0), file=sys.stderr, flush=True)
+            print(
+                "  %d/%d %s %s %.0fs" % (si, len(syms), sym, dict(st), time.time() - t0),
+                file=sys.stderr,
+                flush=True,
+            )
     json.dump(P, open(os.path.join(WORK, f"d1_proposals_{tag}.json"), "w"), indent=0)
     print(f"classify {tag} done", dict(st))
     return P
@@ -357,9 +554,15 @@ def verify(tags):
                 ds.append(b[slot] - a[slot])
         return len(ds), sum(1 for x in ds if abs(x) >= 3)
 
-    for qa, qb in (("2016-03-31", "2016-06-30"), ("2016-06-30", "2016-09-30"), ("2022-06-30", "2022-09-30")):
+    for qa, qb in (
+        ("2016-03-31", "2016-06-30"),
+        ("2016-06-30", "2016-09-30"),
+        ("2022-06-30", "2022-09-30"),
+    ):
         for sl, nm in ((1, "fii"), (2, "dii")):
-            print(f"  {nm} {qa}->{qb} |jump|>=3pp: before {seam(hist, qa, qb, sl)} after {seam(H, qa, qb, sl)}")
+            print(
+                f"  {nm} {qa}->{qb} |jump|>=3pp: before {seam(hist, qa, qb, sl)} after {seam(H, qa, qb, sl)}"
+            )
     json.dump(H, open(os.path.join(WORK, "shp_history_d1.json"), "w"), separators=(",", ":"))
 
 
@@ -417,7 +620,9 @@ if __name__ == "__main__":
         which = sys.argv[2]
         sc = json.load(open(os.path.join(WORK, "exmember_scope.json")))
         ex = set(sc["ex"])
-        syms = sc["current"] if which == "current" else sc["ex"] if which == "ex" else which.split(",")
+        syms = (
+            sc["current"] if which == "current" else sc["ex"] if which == "ex" else which.split(",")
+        )
         classify(syms, which if which in ("current", "ex") else "one", ex)
     elif st == "verify":
         verify(sys.argv[2].split(","))

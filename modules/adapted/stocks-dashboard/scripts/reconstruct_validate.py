@@ -30,8 +30,6 @@ matches every archived checkpoint, no change was missed in that range.
 Run: python -X utf8 reconstruct_validate.py
 """
 import csv
-import gzip
-import io
 import json
 import os
 import time
@@ -100,7 +98,11 @@ try:
     import csv
 
     for r in csv.reader(
-        open(os.path.join(os.path.dirname(HERE), "..", "symchg.csv"), encoding="utf-8", errors="replace")
+        open(
+            os.path.join(os.path.dirname(HERE), "..", "symchg.csv"),
+            encoding="utf-8",
+            errors="replace",
+        )
     ):
         if len(r) >= 3 and r[1].strip() and r[2].strip() and r[1].strip().upper() != "SYMBOL":
             rename[r[1].strip().upper()] = r[2].strip().upper()
@@ -121,15 +123,28 @@ def cset(S):
 
 
 print("\nVALIDATION — reconstructed vs official archived full list (rename-normalised):")
-print("%-12s %8s %8s %9s %8s %8s" % ("archive date", "official", "recon", "match", "off-by", "raw-off"))
+print(
+    "%-12s %8s %8s %9s %8s %8s"
+    % ("archive date", "official", "recon", "match", "off-by", "raw-off")
+)
 for d in sorted(wb):
     off = cset(wb[d])
     rec = cset(members_asof(d))
     rawoff = len(set(wb[d]) ^ members_asof(d))
     inter = off & rec
     offby = len(off ^ rec)
-    print("%-12s %8d %8d %8.1f%% %8d %8d" % (d, len(off), len(rec), 100 * len(inter) / len(off), offby, rawoff))
+    print(
+        "%-12s %8d %8d %8.1f%% %8d %8d"
+        % (d, len(off), len(rec), 100 * len(inter) / len(off), offby, rawoff)
+    )
     if offby:
         print("      official\\recon:", sorted(off - rec)[:14])
         print("      recon\\official:", sorted(rec - off)[:14])
-print("\nChange events used:", len(changelog), "| span", changelog[0]["eff"], "..", changelog[-1]["eff"])
+print(
+    "\nChange events used:",
+    len(changelog),
+    "| span",
+    changelog[0]["eff"],
+    "..",
+    changelog[-1]["eff"],
+)

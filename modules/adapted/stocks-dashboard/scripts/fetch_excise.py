@@ -100,9 +100,11 @@ def row_numbers(page, want, reject=None):
     for k in sorted(rows):
         ws = sorted(rows[k], key=lambda w: w[0])
         toks = [w[4] for w in ws]
-        first_num = next((i for i, t in enumerate(toks) if RE_NUM.fullmatch(t.replace("|", ""))), len(toks))
+        first_num = next(
+            (i for i, t in enumerate(toks) if RE_NUM.fullmatch(t.replace("|", ""))), len(toks)
+        )
         label = " ".join(toks[:first_num])
-        if re.search(want, label, re.IGNORECASE) and not (reject and re.search(reject, label, re.IGNORECASE)):
+        if re.search(want, label, re.I) and not (reject and re.search(reject, label, re.I)):
             vals = _nums([t.replace("|", "") for t in toks[first_num:]])
             if vals:
                 return vals, label
@@ -126,11 +128,19 @@ def match_columns(rev_cells, excise_cells, revop, sym, scale, fetch_qe):
     Dec-2023 AND Sep-2022 — all within tolerance of each other; exactly those three kept missing)."""
     if len(rev_cells) != len(excise_cells):
         return {}
-    qs = [q for q in sorted((revop.get(sym) or {}), reverse=True) if fetch_qe - 10000 <= int(q) <= fetch_qe]
+    qs = [
+        q
+        for q in sorted((revop.get(sym) or {}), reverse=True)
+        if fetch_qe - 10000 <= int(q) <= fetch_qe
+    ]
     out = {}
     for i, rv in enumerate(rev_cells):
         cr = rv * scale
-        hit = [q for q in qs if (g := stored_gross(revop, sym, int(q))) and abs(g - cr) <= max(0.005 * abs(g), 0.02)]
+        hit = [
+            q
+            for q in qs
+            if (g := stored_gross(revop, sym, int(q))) and abs(g - cr) <= max(0.005 * abs(g), 0.02)
+        ]
         if len(hit) == 1 and int(hit[0]) not in out:
             out[int(hit[0])] = (round(cr, 2), round(excise_cells[i] * scale, 2))
     return out
@@ -142,7 +152,9 @@ def main():
     only = None
     for a in sys.argv[1:]:
         if a.startswith("--only"):
-            only = set((a.split("=", 1)[1] if "=" in a else sys.argv[sys.argv.index(a) + 1]).split(","))
+            only = set(
+                (a.split("=", 1)[1] if "=" in a else sys.argv[sys.argv.index(a) + 1]).split(",")
+            )
     led = json.load(open(LEDGER, encoding="utf-8")) if os.path.exists(LEDGER) else {}
 
     revop = json.load(open(REVOP_DOCS, encoding="utf-8"))
@@ -157,7 +169,9 @@ def main():
             if only and sym not in only:
                 continue
             need = [
-                int(q) for q in (revop.get(sym) or {}) if int(q) >= MIN_NET_QE and str(q) not in (led.get(sym) or {})
+                int(q)
+                for q in (revop.get(sym) or {})
+                if int(q) >= MIN_NET_QE and str(q) not in (led.get(sym) or {})
             ]
             if not need:
                 continue
@@ -180,10 +194,14 @@ def main():
                     continue
                 got = {}
                 for p in range(doc.page_count):
-                    tl = doc[p].get_text().lower()  # statements often print headers/name in UPPERCASE
+                    tl = (
+                        doc[p].get_text().lower()
+                    )  # statements often print headers/name in UPPERCASE
                     if ident.lower() not in tl or "excise" not in tl or "evenue from" not in tl:
                         continue
-                    rev_c, _ = row_numbers(doc[p], r"Revenue from Operations", reject=r"Total|Other")
+                    rev_c, _ = row_numbers(
+                        doc[p], r"Revenue from Operations", reject=r"Total|Other"
+                    )
                     exc_c, _ = row_numbers(doc[p], r"Excise")
                     if not rev_c or not exc_c:
                         continue
@@ -194,8 +212,16 @@ def main():
                             break
                 if got:
                     for q2, (g, e) in got.items():
-                        led.setdefault(sym, {})[str(q2)] = {"gross": g, "excise": e, "src": pdfs[0][0]}
-                    print("   {} -> netted {} from {}".format(qe, sorted(got), pdfs[0][0].rsplit("/", 1)[-1][:60]))
+                        led.setdefault(sym, {})[str(q2)] = {
+                            "gross": g,
+                            "excise": e,
+                            "src": pdfs[0][0],
+                        }
+                    print(
+                        "   {} -> netted {} from {}".format(
+                            qe, sorted(got), pdfs[0][0].rsplit("/", 1)[-1][:60]
+                        )
+                    )
                 else:
                     print(f"   {qe} ANCHOR MISS (scanned or unrecognized layout) — left gross")
 
@@ -225,7 +251,9 @@ def main():
                 R[sym][q] = row
         if not dry and ch:
             json.dump(R, open(path, "w", encoding="utf-8"), separators=(",", ":"))
-        print("%-44s slots netted: %d%s" % (os.path.basename(path), ch, " (dry-run)" if dry else ""))
+        print(
+            "%-44s slots netted: %d%s" % (os.path.basename(path), ch, " (dry-run)" if dry else "")
+        )
         changed += ch
     if not dry:
         json.dump(led, open(LEDGER, "w", encoding="utf-8"), indent=1)

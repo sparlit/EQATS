@@ -54,9 +54,13 @@ SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "docs", "sf_stock
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, "_sfsplit")
 os.makedirs(OUT, exist_ok=True)
 
-DEEP_FROM = "2019-01-01"  # recent floor: earliest wave preset (2020-03-31) minus 365d lookback, with margin
+DEEP_FROM = (
+    "2019-01-01"  # recent floor: earliest wave preset (2020-03-31) minus 365d lookback, with margin
+)
 DEEP_CUT = 20190101  # same, as the bin's YYYYMMDD ints
-CAP = 95 * 1024 * 1024  # sf-data force-pushes each part as a single git blob; GitHub hard-caps at 100MB
+CAP = (
+    95 * 1024 * 1024
+)  # sf-data force-pushes each part as a single git blob; GitHub hard-caps at 100MB
 
 
 def slice_sym(o, lo, hi):
@@ -70,13 +74,19 @@ def write_section(name, section, other, meta, fp):
     Feeds every part's payload into `fp` (the content fingerprint). Returns part count."""
     syms = sorted(section.keys())
     sec_gz = gzip.compress(
-        json.dumps({"data": section, "meta": {s: meta[s] for s in syms if s in meta}}, separators=(",", ":")).encode(),
+        json.dumps(
+            {"data": section, "meta": {s: meta[s] for s in syms if s in meta}},
+            separators=(",", ":"),
+        ).encode(),
         6,
     )
     n_parts = max(1, -(-len(sec_gz) // CAP))
     chunk = -(-len(syms) // n_parts)
     groups = [syms[i : i + chunk] for i in range(0, len(syms), chunk)]
-    print("%s section %.1f MB compressed -> %d part(s)" % (name, len(sec_gz) / 1048576, len(groups)), flush=True)
+    print(
+        "%s section %.1f MB compressed -> %d part(s)" % (name, len(sec_gz) / 1048576, len(groups)),
+        flush=True,
+    )
     for part, grp in enumerate(groups, 1):
         obj = dict(other)
         obj["data"] = {s: section[s] for s in grp}
@@ -89,7 +99,8 @@ def write_section(name, section, other, meta, fp):
         raw = gzip.compress(payload, 9, mtime=0)
         if len(raw) > CAP:
             raise SystemExit(
-                "ABORT: sf_%s_%d.bin is %.1f MB (>95MB cap) — part sizing is broken" % (name, part, len(raw) / 1048576)
+                "ABORT: sf_%s_%d.bin is %.1f MB (>95MB cap) — part sizing is broken"
+                % (name, part, len(raw) / 1048576)
             )
         open(os.path.join(OUT, "sf_%s_%d.bin" % (name, part)), "wb").write(raw)
         print("%s %d: %d symbols, %.1f MB" % (name, part, len(grp), len(raw) / 1048576), flush=True)
@@ -105,8 +116,9 @@ def main():
     # exists as its own series. Fail loud so the workflow stops instead of pushing bad data to sf-data.
     et = data.get("ETERNAL")
     if "ZOMATO" in data or not et or len(et.get("d", [])) < 1000:
-        msg = "ABORT: bin looks UN-merged (ZOMATO present or ETERNAL history short) — refusing to publish"
-        raise SystemExit(msg)
+        raise SystemExit(
+            "ABORT: bin looks UN-merged (ZOMATO present or ETERNAL history short) — refusing to publish"
+        )
 
     other = {k: v for k, v in D.items() if k not in ("data", "meta")}
     recent, deep = {}, {}
@@ -147,7 +159,8 @@ def main():
         open(os.path.join(OUT, "sf_meta.json"), "w"),
     )
     print(
-        "split done; end=%s rev=%s deepFrom=%s recent=%d deep=%d" % (D["end"], rev, DEEP_FROM, n_recent, n_deep),
+        "split done; end=%s rev=%s deepFrom=%s recent=%d deep=%d"
+        % (D["end"], rev, DEEP_FROM, n_recent, n_deep),
         flush=True,
     )
 

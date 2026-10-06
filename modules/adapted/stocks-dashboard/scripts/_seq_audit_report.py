@@ -35,7 +35,6 @@ Nothing is auto-corrected: verdicts are written by hand after reading the rows.
 """
 import argparse
 import datetime
-import json
 import os
 import re
 import sys
@@ -76,7 +75,14 @@ def fmt(r, qe):
     elif pq:
         tag = " <<pq=%d" % pq
     att = "att" if r[4] else "NOATT"
-    return "    %s | %-14s | %-22s | %s | %s%s" % (r[0][:16], r[1][:14], r[2][:22], att, r[3][:110], tag)
+    return "    %s | %-14s | %-22s | %s | %s%s" % (
+        r[0][:16],
+        r[1][:14],
+        r[2][:22],
+        att,
+        r[3][:110],
+        tag,
+    )
 
 
 def main():
@@ -102,7 +108,7 @@ def main():
     only = {s.strip().upper() for s in args.only.split(",") if s.strip()}
 
     def gap(k):
-        _sym, qe = k.split("|")
+        sym, qe = k.split("|")
         return (BB.qe_date(int(seq[k]["ann"])) - BB.qe_date(int(qe))).days
 
     keys = sorted((k for k in seq if k in cache), key=gap)
@@ -118,7 +124,10 @@ def main():
         A = int(ent["ann"])
         c = cache[k]
         if c.get("err"):
-            print("SUSPECT %-24s gap=%3dd ann=%d %s  !! cache err: %s" % (k, gap(k), A, ent["src"], c["err"]))
+            print(
+                "SUSPECT %-24s gap=%3dd ann=%d %s  !! cache err: %s"
+                % (k, gap(k), A, ent["src"], c["err"])
+            )
             n_sus += 1
             sus_keys.append(k)
             continue
@@ -127,11 +136,12 @@ def main():
         # Result-category rows that are NOT results: RPT disclosures (Reg 23(9)) ride the
         # 'Financial Results' subcategory (MIDHANI Jun-2020 class), newspaper ads trail the
         # real filing. Neither is evidence the stored date is the results date.
-        NONRES = re.compile(r"related part|reg[a-z]*\.?\s?23\s?\(9\)|newspaper|advertisement", re.IGNORECASE)
+        NONRES = re.compile(r"related part|reg[a-z]*\.?\s?23\s?\(9\)|newspaper|advertisement", re.I)
         result_on_a = [
             r
             for r in on_a
-            if (r[1].strip() == "Result" or r[2].strip().lower() == "financial results") and not NONRES.search(r[3])
+            if (r[1].strip() == "Result" or r[2].strip().lower() == "financial results")
+            and not NONRES.search(r[3])
         ]
         stated_target_before = [
             r
@@ -159,7 +169,10 @@ def main():
         if ok:
             n_ok += 1
             cap = result_on_a[0][3][:80]
-            print("ok      %-24s gap=%3dd ann=%d %-16s | %s | %s" % (k, gap(k), A, ent["src"], result_on_a[0][1], cap))
+            print(
+                "ok      %-24s gap=%3dd ann=%d %-16s | %s | %s"
+                % (k, gap(k), A, ent["src"], result_on_a[0][1], cap)
+            )
             if args.full:
                 for r in rows:
                     print(fmt(r, qe))
@@ -177,7 +190,10 @@ def main():
                 why.append("prev-quarter results ON/AFTER stored")
             if twin:
                 why.append("neighbour qe {} stores the SAME date".format(",".join(twin)))
-            print("SUSPECT %-24s gap=%3dd ann=%d %-16s !! %s" % (k, gap(k), A, ent["src"], "; ".join(why)))
+            print(
+                "SUSPECT %-24s gap=%3dd ann=%d %-16s !! %s"
+                % (k, gap(k), A, ent["src"], "; ".join(why))
+            )
             shown = 0
             for r in rows:
                 d = dint(r[0])

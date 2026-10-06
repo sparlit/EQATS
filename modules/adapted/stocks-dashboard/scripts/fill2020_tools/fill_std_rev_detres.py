@@ -77,7 +77,9 @@ SCRIPS = os.path.join(SCRIPTS, "bse_scrips.json")
 TARGETS = os.path.join(HERE, "_revstd_targets.json")
 LEDGER = os.path.join(SCRIPTS, "std_rev_detres_fills.json")
 
-API = "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w?scrip_cd=%s&qtr=%s"
+API = (
+    "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w?scrip_cd=%s&qtr=%s"
+)
 PAT_ABS, PAT_REL = 2.0, 0.03  # §42 landing rule
 MONTHS = {
     "Jan": 1,

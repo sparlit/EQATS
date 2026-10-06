@@ -102,7 +102,10 @@ def main():
     print("population: %d con by-product cells with an MC owners reading" % len(rows))
     for tag, ix in (("pre-both", 1), ("now (payload)", 2), ("after (ledger)", 3)):
         n = sum(1 for x in rows if agree(x[ix], x[4]))
-        print("   agreement with MC owners, %-15s %4d/%d = %5.1f%%" % (tag, n, len(rows), 100.0 * n / len(rows)))
+        print(
+            "   agreement with MC owners, %-15s %4d/%d = %5.1f%%"
+            % (tag, n, len(rows), 100.0 * n / len(rows))
+        )
 
     for name, bi, ai in (("pre-both -> after", 1, 3), ("now -> after", 2, 3)):
         c, worse = Counter(), []

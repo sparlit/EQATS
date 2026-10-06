@@ -119,7 +119,10 @@ CELLS = [
     ("BATAINDIA", 20180930, "pat", 54.86, 54.86, 55.66, False),
 ]
 # which ledgers speak for which field — a revenue verdict must never be written into the PAT ledger
-FIELD_LEDGERS = {"rev": ["mc_history_fills.json", "mc_quarterly_fills.json"], "pat": ["mc_pat_fills.json"]}
+FIELD_LEDGERS = {
+    "rev": ["mc_history_fills.json", "mc_quarterly_fills.json"],
+    "pat": ["mc_pat_fills.json"],
+}
 TOL = 0.011
 
 
@@ -128,11 +131,19 @@ def main():
     revop = json.load(open(REVOP))
     fund = json.load(open(FUND))
     fmap = {s: {r[0]: r for r in rows} for s, rows in fund.items()}
-    leds = {n: json.load(open(os.path.join(SCRIPTS, n))) for n in LEDGERS if os.path.exists(os.path.join(SCRIPTS, n))}
+    leds = {
+        n: json.load(open(os.path.join(SCRIPTS, n)))
+        for n in LEDGERS
+        if os.path.exists(os.path.join(SCRIPTS, n))
+    }
 
     retracted = lifted = restored = 0
     for sym, qe, field, val, mcc, mcs, fb in CELLS:
-        why = FB_WHY % ("EQUALS", mcc, mcs) if fb else OK_WHY % ("DIFFERS from", mcc, mcs, abs(mcc - mcs))
+        why = (
+            FB_WHY % ("EQUALS", mcc, mcs)
+            if fb
+            else OK_WHY % ("DIFFERS from", mcc, mcs, abs(mcc - mcs))
+        )
         key = "%s|%d|con" % (sym, qe)
         for name in FIELD_LEDGERS[field]:
             led = leds.get(name)
@@ -159,7 +170,9 @@ def main():
                 if cur is None:
                     row[1] = val
                     restored += 1
-                    print("  RESTORED   %-11s %d con rev %s (genuine, was retracted)" % (sym, qe, val))
+                    print(
+                        "  RESTORED   %-11s %d con rev %s (genuine, was retracted)" % (sym, qe, val)
+                    )
                 lifted += 1
         else:
             row = (fmap.get(sym) or {}).get(qe)
@@ -175,7 +188,9 @@ def main():
                     restored += 1
                 lifted += 1
 
-    print("\nretracted %d  |  holds lifted %d  |  values restored %d" % (retracted, lifted, restored))
+    print(
+        "\nretracted %d  |  holds lifted %d  |  values restored %d" % (retracted, lifted, restored)
+    )
     if not apply_it:
         print("(dry run — re-run with --apply)")
         return

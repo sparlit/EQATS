@@ -50,13 +50,15 @@ import _nse_archive_revop as NA  # noqa: E402
 
 PAGES = os.path.join(HERE, "_vintage108_nse_pages")
 R = {
-    "period": re.compile(r"net profit\s*/?\s*\(?loss\)?\s+for the period", re.IGNORECASE),
-    "ordinary": re.compile(r"net profit\s*/?\s*\(?loss\)?\s+from ordinary activities after tax", re.IGNORECASE),
-    "assoc": re.compile(r"share of profit\s*/?\s*\(?loss\)?\s+of associat", re.IGNORECASE),
-    "minority": re.compile(
-        r"^minority interest$|^less\s*:?\s*minority interest|non-controlling interest", re.IGNORECASE
+    "period": re.compile(r"net profit\s*/?\s*\(?loss\)?\s+for the period", re.I),
+    "ordinary": re.compile(
+        r"net profit\s*/?\s*\(?loss\)?\s+from ordinary activities after tax", re.I
     ),
-    "bottom": re.compile(r"net profit\s*/?\s*\(?loss\)?\s+after taxes,? minority", re.IGNORECASE),
+    "assoc": re.compile(r"share of profit\s*/?\s*\(?loss\)?\s+of associat", re.I),
+    "minority": re.compile(
+        r"^minority interest$|^less\s*:?\s*minority interest|non-controlling interest", re.I
+    ),
+    "bottom": re.compile(r"net profit\s*/?\s*\(?loss\)?\s+after taxes,? minority", re.I),
 }
 
 
@@ -104,7 +106,11 @@ def main():
                 cand["P+A-M"] = P + A - M
                 cand["P+A+M"] = P + A + M
                 cand["P-A-M"] = P - A - M
-        hit = [nm for nm, v in cand.items() if v is not None and abs(v - st) <= max(0.35, abs(st) * 0.005)]
+        hit = [
+            nm
+            for nm, v in cand.items()
+            if v is not None and abs(v - st) <= max(0.35, abs(st) * 0.005)
+        ]
         out[k] = {
             "P": P,
             "A": A,

@@ -53,12 +53,14 @@ SLOT = {"rev": (1, 0), "op": (3, 2), "ebit": (8, 7)}
 
 def present(cell, f):
     ci, si = SLOT[f]
-    return bool(cell) and ((len(cell) > ci and cell[ci] is not None) or (len(cell) > si and cell[si] is not None))
+    return bool(cell) and (
+        (len(cell) > ci and cell[ci] is not None) or (len(cell) > si and cell[si] is not None)
+    )
 
 
 def main():
     tab = collections.Counter()
-    per_fmt_names = collections.defaultdict(collections.Counter)
+    per_fmt_names = collections.defaultdict(lambda: collections.Counter())
     disagree = collections.Counter()
     for sym, per in FMT.items():
         rmap = REVOP.get(sym) or {}
@@ -99,7 +101,8 @@ def main():
         tot = y + n
         if f in ("bank", "nbfc", "insurer") and y:
             print(
-                f'  ✗ {f}: {y} of {tot} quarters flagged {f} DO carry ebit — the signal does not imply "no ebit line".'
+                f"  ✗ {f}: {y} of {tot} quarters flagged {f} DO carry ebit — the signal does not "
+                f'imply "no ebit line".'
             )
             bad += 1
         if f == "industrial" and n:

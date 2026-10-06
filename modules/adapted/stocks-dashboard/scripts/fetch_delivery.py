@@ -131,7 +131,9 @@ def main():
 
     # --- walk forward from the last stored session (or seed backward) ---
     if days:
-        start = datetime.date(days[-1] // 10000, days[-1] // 100 % 100, days[-1] % 100) + datetime.timedelta(days=1)
+        start = datetime.date(
+            days[-1] // 10000, days[-1] // 100 % 100, days[-1] % 100
+        ) + datetime.timedelta(days=1)
     else:
         start = today - datetime.timedelta(days=MAX_BACKWALK)
         print("no state — seeding the last ~%d sessions" % KEEP_SESS, flush=True)
@@ -270,7 +272,15 @@ def main():
         )
     print(
         "Wrote %s (%.0f KB, %d spikes over %d sessions) + %s (%.1f MB, %d stocks)"
-        % (OUT, os.path.getsize(OUT) / 1024.0, len(spikes), len(days), HIST, os.path.getsize(HIST) / 1e6, len(stocks)),
+        % (
+            OUT,
+            os.path.getsize(OUT) / 1024.0,
+            len(spikes),
+            len(days),
+            HIST,
+            os.path.getsize(HIST) / 1e6,
+            len(stocks),
+        ),
         flush=True,
     )
     ds = sorted({r[0] for r in spikes}, reverse=True)[:3]
@@ -278,7 +288,11 @@ def main():
         top = [r for r in spikes if r[0] == dd][:3]
         print(
             "  %d: %d spikes | %s"
-            % (dd, sum(1 for r in spikes if r[0] == dd), ", ".join(f"{r[1]} {r[5]:.0f}cr {r[8]:.0f}x" for r in top)),
+            % (
+                dd,
+                sum(1 for r in spikes if r[0] == dd),
+                ", ".join(f"{r[1]} {r[5]:.0f}cr {r[8]:.0f}x" for r in top),
+            ),
             flush=True,
         )
 

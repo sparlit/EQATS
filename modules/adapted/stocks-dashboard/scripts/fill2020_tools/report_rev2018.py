@@ -40,8 +40,7 @@ Writes scripts/fill2020_tools/_report_rev2018.json and prints the summary.
 """
 import json
 import os
-import sys
-from collections import Counter, defaultdict
+from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -67,14 +66,29 @@ def main():
     ledgers = [
         ("nse-xbrl (§54a)", _load(os.path.join(SCRIPTS, "nse_xbrl_rev_fills.json"))),
         ("bse-detres (§42)", _load(os.path.join(SCRIPTS, "std_rev_detres_fills.json"))),
-        ("no-con-filed identity (§54b)", _load(os.path.join(SCRIPTS, "con_nofile_identity_fills.json"))),
+        (
+            "no-con-filed identity (§54b)",
+            _load(os.path.join(SCRIPTS, "con_nofile_identity_fills.json")),
+        ),
         ("moneycontrol quarterly (§81)", _load(os.path.join(SCRIPTS, "mc_quarterly_fills.json"))),
         ("aggregator gate (§81)", _load(os.path.join(SCRIPTS, "agg_cell_fills.json"))),
-        ("screener annual identity (§60d)", _load(os.path.join(SCRIPTS, "annual_derived_fills.json"))),
-        ("hand-read + FY/9M identity (§45)", _load(os.path.join(SCRIPTS, "named_rev_cell_fills_2018.json"))),
+        (
+            "screener annual identity (§60d)",
+            _load(os.path.join(SCRIPTS, "annual_derived_fills.json")),
+        ),
+        (
+            "hand-read + FY/9M identity (§45)",
+            _load(os.path.join(SCRIPTS, "named_rev_cell_fills_2018.json")),
+        ),
         ("VISION rung (§17b)", _load(os.path.join(SCRIPTS, "vision_rung_fills_2018.json"))),
-        ("year-later comparative (§84/§51a)", _load(os.path.join(SCRIPTS, "yearlater_rev_fills_2018.json"))),
-        ("deoverlay/date-column reader (§75/§76)", _load(os.path.join(SCRIPTS, "deoverlay_rev_fills2018.json"))),
+        (
+            "year-later comparative (§84/§51a)",
+            _load(os.path.join(SCRIPTS, "yearlater_rev_fills_2018.json")),
+        ),
+        (
+            "deoverlay/date-column reader (§75/§76)",
+            _load(os.path.join(SCRIPTS, "deoverlay_rev_fills2018.json")),
+        ),
         ("insurer route (§55)", _load(os.path.join(SCRIPTS, "insurer_con_rev_fills.json"))),
         ("§58 announcement-PDF sweep", _load(os.path.join(SCRIPTS, "_revgap_done.json"))),
     ]

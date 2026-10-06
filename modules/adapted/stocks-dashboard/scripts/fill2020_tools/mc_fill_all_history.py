@@ -86,7 +86,11 @@ def band_ok(ours, qe, v):
     vals = sorted(x for _, x in near if x > 0)
     if not vals:
         return True, None
-    med = vals[len(vals) // 2] if len(vals) % 2 else (vals[len(vals) // 2 - 1] + vals[len(vals) // 2]) / 2.0
+    med = (
+        vals[len(vals) // 2]
+        if len(vals) % 2
+        else (vals[len(vals) // 2 - 1] + vals[len(vals) // 2]) / 2.0
+    )
     if med <= 0:
         return True, None
     r = v / med
@@ -111,7 +115,11 @@ def main():
         for basis in ("std", "con"):
             slot = MC.SLOT[basis]
             have = sum(1 for r in qmap.values() if len(r) > slot and r[slot] is not None)
-            gaps = [int(q) for q, r in qmap.items() if len(r) > slot and r[slot] is None and int(q) >= min_qe]
+            gaps = [
+                int(q)
+                for q, r in qmap.items()
+                if len(r) > slot and r[slot] is None and int(q) >= min_qe
+            ]
             if have >= 6 and gaps:
                 work.append((sym, basis, sorted(gaps, reverse=True)))  # NEWEST FIRST
     work.sort(key=lambda t: (-len(t[2]), t[0]))
@@ -163,7 +171,10 @@ def main():
                 continue
             bok, ratio = band_ok(ours, qe, v)
             if not bok:
-                skips[key] = f"§83 band: {v:.2f} is {ratio}x the nearest-6 median — magnitude not proven by the anchor"
+                skips[key] = (
+                    f"§83 band: {v:.2f} is {ratio}x the nearest-6 median — magnitude not proven "
+                    "by the anchor"
+                )
                 continue
             fills[key] = {
                 "rev": round(v, 2),
@@ -171,13 +182,17 @@ def main():
                 "sc_id": code,
                 "type_format": MC.FMT[basis],
                 "neighbour_ratio": ratio,
-                "gate": "%d anchors, %d distant disagreements, none within ±6 quarters" % (len(match), len(bad)),
+                "gate": "%d anchors, %d distant disagreements, none within ±6 quarters"
+                % (len(match), len(bad)),
                 "src": "moneycontrol appfeeds quarterly_results_responsive limit=400",
             }
             read += 1
             got += 1
         if got:
-            print("%-13s %-3s +%-3d cells (%s, %d anchors)" % (sym, basis, got, label, len(ours)), flush=True)
+            print(
+                "%-13s %-3s +%-3d cells (%s, %d anchors)" % (sym, basis, got, label, len(ours)),
+                flush=True,
+            )
         if n % 25 == 0:
             json.dump(fills, open(FILLS, "w"), indent=1, sort_keys=True)
             json.dump(skips, open(SKIPS, "w"), indent=0, sort_keys=True)
@@ -187,7 +202,11 @@ def main():
     json.dump(fills, open(FILLS, "w"), indent=1, sort_keys=True)
     json.dump(skips, open(SKIPS, "w"), indent=0, sort_keys=True)
     json.dump(codes, open(MC.CODES, "w"), indent=1, sort_keys=True)
-    json.dump(sorted("{}|{}".format(*t) for t in retry), open(os.path.join(HERE, "_mc_retry.json"), "w"), indent=1)
+    json.dump(
+        sorted("{}|{}".format(*t) for t in retry),
+        open(os.path.join(HERE, "_mc_retry.json"), "w"),
+        indent=1,
+    )
     print("\nREAD %d cells (%d ledgered)" % (read, len(fills)))
     print("RETRYABLE empty-series pairs (re-run to resolve, NOT 'no data'): %d" % len(retry))
     if not apply_it:

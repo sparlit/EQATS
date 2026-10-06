@@ -79,7 +79,7 @@ ALIAS = json.loads(
     re.search(
         r"^const FUND_ALIAS = (\{.*?\});$",
         open(os.path.join(ROOT, "docs", "backtest-engine.js"), encoding="utf-8").read(),
-        re.MULTILINE,
+        re.M,
     ).group(1)
 )
 cov = json.load(open(GAPS))
@@ -185,7 +185,9 @@ for O, months in sorted(gapmonths.items()):
         "aliasFundRows": len(FUND.get(alias, [])) if alias else 0,
         "aliasFirstAnn": ANN.get(alias) if alias else None,
         "aliasBuysRows": (
-            sum(1 for md in months if ANN.get(alias) and int(md.replace("-", "")) >= ANN[alias]) if alias else 0
+            sum(1 for md in months if ANN.get(alias) and int(md.replace("-", "")) >= ANN[alias])
+            if alias
+            else 0
         ),
     }
 
@@ -195,28 +197,18 @@ VERDICTS = {
     "BILT": {
         "verdict": "RESOLVED -> BALLARPUR",
         "evidence": [
-            (
-                "NSE EQUITY_L, Wayback capture 2006-08-24: 'BILT, Ballarpur Industries Ltd, "
-                "INE294A01011, listed 19-Jul-95' (paid-up 10)"
-            ),
-            (
-                "NSE EQUITY_L, Wayback capture 2010-02-05: 'BALLARPUR, Ballarpur Industries Limited, "
-                "INE294A01037, listed 31-MAR-2008' (face value 2)"
-            ),
-            (
-                "same ISIN issuer INE294A + identical company name; the trailing series differs "
-                "because the face value went 10 -> 2, which is why the bin's FULL-ISIN auto-merge "
-                "never fired and left two keys"
-            ),
+            "NSE EQUITY_L, Wayback capture 2006-08-24: 'BILT, Ballarpur Industries Ltd, "
+            "INE294A01011, listed 19-Jul-95' (paid-up 10)",
+            "NSE EQUITY_L, Wayback capture 2010-02-05: 'BALLARPUR, Ballarpur Industries Limited, "
+            "INE294A01037, listed 31-MAR-2008' (face value 2)",
+            "same ISIN issuer INE294A + identical company name; the trailing series differs "
+            "because the face value went 10 -> 2, which is why the bin's FULL-ISIN auto-merge "
+            "never fired and left two keys",
             "tape: BILT last bar 2008-02-28, BALLARPUR first bar 2008-03-31 = its NSE listing date",
-            (
-                "NSE bhavcopy PREVCLOSE confirmation: BALLARPUR 2008-03-31 prevclose 27.50 == BILT's "
-                "2008-02-28 close 137.50 / 5, exact to the paise"
-            ),
-            (
-                "neither symbol is in today's EQUITY_L and no INE294A symbol trades on NSE now, so "
-                "neither is a recycled ticker (the 30-4c aliveness rule)"
-            ),
+            "NSE bhavcopy PREVCLOSE confirmation: BALLARPUR 2008-03-31 prevclose 27.50 == BILT's "
+            "2008-02-28 close 137.50 / 5, exact to the paise",
+            "neither symbol is in today's EQUITY_L and no INE294A symbol trades on NSE now, so "
+            "neither is a recycled ticker (the 30-4c aliveness rule)",
         ],
         "postDriftRowsBought": 0,
         "why0": "BALLARPUR's first announced quarter is 2008-08-14; BILT's last screenable "
@@ -227,26 +219,19 @@ VERDICTS = {
     "SUNCLAYTON": {
         "verdict": "RESOLVED -> TVSHLTD",
         "evidence": [
-            (
-                "NSE EQUITY_L, Wayback capture 2010-02-05: 'SUNCLAYTON, Sundaram Clayton Limited, "
-                "INE105A01027, listed 20-JUN-2008' (face value 5)"
-            ),
-            ("NSE EQUITY_L live 2026-08-12: 'TVSHLTD, TVS Holdings Limited, INE105A01035, listed 23-OCT-2012'"),
-            (
-                "NSE symbolchange.csv: 'TVS Holdings Limited, SUNCLAYLTD, TVSHLTD, 10-AUG-2023' — the "
-                "chain is SUNCLAYTON -> SUNCLAYLTD -> TVSHLTD; the bin already merged the last hop by "
-                "ISIN, so TVSHLTD is the bin key the map must point at"
-            ),
+            "NSE EQUITY_L, Wayback capture 2010-02-05: 'SUNCLAYTON, Sundaram Clayton Limited, "
+            "INE105A01027, listed 20-JUN-2008' (face value 5)",
+            "NSE EQUITY_L live 2026-08-12: 'TVSHLTD, TVS Holdings Limited, INE105A01035, "
+            "listed 23-OCT-2012'",
+            "NSE symbolchange.csv: 'TVS Holdings Limited, SUNCLAYLTD, TVSHLTD, 10-AUG-2023' — the "
+            "chain is SUNCLAYTON -> SUNCLAYLTD -> TVSHLTD; the bin already merged the last hop by "
+            "ISIN, so TVSHLTD is the bin key the map must point at",
             "same ISIN issuer INE105A",
-            (
-                "NSE bhavcopy PREVCLOSE confirmation: SUNCLAYLTD 2012-10-23 prevclose 185.45 == "
-                "SUNCLAYTON's 2012-09-06 close 185.45, exact, and that row carries INE105A01035"
-            ),
-            (
-                "SUNCLAYTON is absent from today's EQUITY_L: the 2023 demerger's new 'Sundaram Clayton "
-                "Limited' is a different legal entity under a different ISIN, so this is not the "
-                "DVL/DTIL recycled-ticker shape (89)"
-            ),
+            "NSE bhavcopy PREVCLOSE confirmation: SUNCLAYLTD 2012-10-23 prevclose 185.45 == "
+            "SUNCLAYTON's 2012-09-06 close 185.45, exact, and that row carries INE105A01035",
+            "SUNCLAYTON is absent from today's EQUITY_L: the 2023 demerger's new 'Sundaram Clayton "
+            "Limited' is a different legal entity under a different ISIN, so this is not the "
+            "DVL/DTIL recycled-ticker shape (89)",
         ],
         "postDriftRowsBought": 0,
         "why0": "TVSHLTD's first announced quarter is 2015-05-08; SUNCLAYTON's two blocked "
@@ -255,15 +240,11 @@ VERDICTS = {
     "KIRLOSBROS-as-BILT": {
         "verdict": "DISPROVED",
         "evidence": [
-            (
-                "the ONLY company-level candidate pair left in the whole class (1 row, BILT's "
-                "2008-02-29 rebalance) — it survives the coexistence filter because KIRLOSBROS' bin "
-                "series starts 2010-04-20, after BILT's last bar"
-            ),
-            (
-                "ISIN refutes it: BILT is INE294A01011 (NSE 2006-08-24) and KIRLOSBROS is "
-                "INE732A01036 (live bin meta) — different issuers, different companies"
-            ),
+            "the ONLY company-level candidate pair left in the whole class (1 row, BILT's "
+            "2008-02-29 rebalance) — it survives the coexistence filter because KIRLOSBROS' bin "
+            "series starts 2010-04-20, after BILT's last bar",
+            "ISIN refutes it: BILT is INE294A01011 (NSE 2006-08-24) and KIRLOSBROS is "
+            "INE732A01036 (live bin meta) — different issuers, different companies",
             "BILT's real continuation, BALLARPUR (INE294A01037), is independently established",
         ],
     },
@@ -278,7 +259,9 @@ out = {
         "symbols": len(report),
         "noSeriesRows": sum(v["gapMonths"] for v in report.values()),
         "ceilingRows": sum(v["ceilingRows"] for v in report.values()),
-        "companyLevelCandidatePairs": sum(len(v["candidatesCompanyLevel"]) for v in report.values()),
+        "companyLevelCandidatePairs": sum(
+            len(v["candidatesCompanyLevel"]) for v in report.values()
+        ),
         "rowsBoughtByCurrentAliases": sum(v["aliasBuysRows"] for v in report.values()),
     },
     "symbols": report,
@@ -290,7 +273,10 @@ print(
     "%d symbols · %d no-series rebalance rows · ceiling if every alias were perfect: %d"
     % (t["symbols"], t["noSeriesRows"], t["ceilingRows"])
 )
-print("company-level candidate (old,target) pairs that could buy >0 rows: %d" % t["companyLevelCandidatePairs"])
+print(
+    "company-level candidate (old,target) pairs that could buy >0 rows: %d"
+    % t["companyLevelCandidatePairs"]
+)
 for O, v in sorted(report.items()):
     if v["candidatesCompanyLevel"]:
         print("   %-12s %s" % (O, v["candidatesCompanyLevel"]))

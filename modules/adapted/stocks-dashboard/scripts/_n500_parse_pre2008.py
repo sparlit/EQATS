@@ -32,12 +32,13 @@ import re
 
 def clean(c):
     c = re.sub("<[^>]+>", "", c)
-    return c.replace("&nbsp;", " ").replace("&amp;", "&").strip()
+    c = c.replace("&nbsp;", " ").replace("&amp;", "&").strip()
+    return c
 
 
 def parse_htm(path):
     raw = open(path, encoding="utf-8", errors="replace").read()
-    cells = [clean(x) for x in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", raw, re.IGNORECASE | re.DOTALL)]
+    cells = [clean(x) for x in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", raw, re.I | re.S)]
     # find the "Symbol" / "Series" header anchor
     syms = []
     # locate index of a cell that == 'Symbol' followed by 'Series'

@@ -51,7 +51,7 @@ import json
 import os
 import re
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -64,7 +64,10 @@ OUT = os.path.join(HERE, "_class_rev2018.json")
 NA_OUT = os.path.join(SCRIPTS, "no_con_quarterly_2018.json")
 
 MON = {
-    m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+    )
 }
 
 NA_DOC = (
@@ -172,7 +175,8 @@ def _second_reader_refutes(sym, qe, revop):
 def main():
     targets = json.load(open(TARGETS))
     fund = {
-        s: {int(r[0]): (r[1], r[3] if len(r) > 3 else None) for r in rows} for s, rows in json.load(open(FUND)).items()
+        s: {int(r[0]): (r[1], r[3] if len(r) > 3 else None) for r in rows}
+        for s, rows in json.load(open(FUND)).items()
     }
     revop = json.load(open(REVOP))
 
@@ -191,7 +195,9 @@ def main():
             # 2-44% from 2022-03 and never returns — the §55c COPY class, measured. 15 of the 336
             # anchored 2018 revC cells are in this state and should be expected to fail the
             # cross-basis gate rather than counted as reachable.
-            pseudo = ps is not None and pc is not None and abs(pc - ps) <= max(0.05, 0.001 * abs(ps))
+            pseudo = (
+                ps is not None and pc is not None and abs(pc - ps) <= max(0.05, 0.001 * abs(ps))
+            )
             rec = {
                 "anchored": pc is not None,
                 "pseudo_anchored": pseudo,

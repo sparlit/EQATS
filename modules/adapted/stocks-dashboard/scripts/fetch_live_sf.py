@@ -62,8 +62,13 @@ def main():
     print("live meta:", M, flush=True)
     full = None
     if M.get("deepFrom"):
-        parts = [fetch_bin("sf_deep_%d.bin?v=%s" % (i + 1, M["end"])) for i in range(M.get("deep", 0))]
-        parts += [fetch_bin("sf_recent_%d.bin?v=%s" % (i + 1, M["end"])) for i in range(M.get("recent", 1))]
+        parts = [
+            fetch_bin("sf_deep_%d.bin?v=%s" % (i + 1, M["end"])) for i in range(M.get("deep", 0))
+        ]
+        parts += [
+            fetch_bin("sf_recent_%d.bin?v=%s" % (i + 1, M["end"]))
+            for i in range(M.get("recent", 1))
+        ]
         full = {k: v for k, v in parts[-1].items() if k not in ("data", "meta")}
         full["data"], full["meta"] = {}, {}
         for dp in parts:  # deep parts first, so recent arrays APPEND after
@@ -77,7 +82,12 @@ def main():
                 out = {}
                 for k in set(cur) | set(o):
                     a, b = cur.get(k), o.get(k)
-                    if isinstance(a, list) and len(a) == n_cur and isinstance(b, list) and len(b) == n_new:
+                    if (
+                        isinstance(a, list)
+                        and len(a) == n_cur
+                        and isinstance(b, list)
+                        and len(b) == n_new
+                    ):
                         out[k] = a + b
                     else:
                         out[k] = b if b is not None else a
@@ -95,12 +105,14 @@ def main():
     # same sanity gates split_sf_data.py enforces before publishing
     et = full["data"].get("ETERNAL")
     if "ZOMATO" in full["data"] or not et or len(et.get("d", [])) < 1000:
-        msg = "ABORT: merged data looks UN-merged (ZOMATO present / ETERNAL short) — not writing"
-        raise SystemExit(msg)
+        raise SystemExit(
+            "ABORT: merged data looks UN-merged (ZOMATO present / ETERNAL short) — not writing"
+        )
     with gzip.open(DST, "wt", encoding="utf-8", compresslevel=6) as f:
         json.dump(full, f, separators=(",", ":"))
     print(
-        "wrote %s: %d symbols, end=%s (verify vs live meta above)" % (DST, len(full["data"]), full.get("end")),
+        "wrote %s: %d symbols, end=%s (verify vs live meta above)"
+        % (DST, len(full["data"]), full.get("end")),
         flush=True,
     )
 

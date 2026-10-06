@@ -59,7 +59,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
 FUNDP = os.path.join(ROOT, "docs", "sf_fundamentals.json")
-REVOP = (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json"))
+REVOP = (
+    os.path.join(ROOT, "docs", "sf_revop.json"),
+    os.path.join(SCRIPTS, "revop_fundamentals.json"),
+)
 SUSPECTS = os.path.join(SCRIPTS, "_fund_suspect_cells.json")
 FUND_IDX, REVOP_IDX = 3, 5
 
@@ -73,7 +76,9 @@ def main():
             if len(r) > FUND_IDX and r[FUND_IDX] is not None:
                 auth[(sym, r[0])] = r[FUND_IDX]
         vals = [
-            abs(r[FUND_IDX]) for r in rows if len(r) > FUND_IDX and r[FUND_IDX] is not None and abs(r[FUND_IDX]) > 0.01
+            abs(r[FUND_IDX])
+            for r in rows
+            if len(r) > FUND_IDX and r[FUND_IDX] is not None and abs(r[FUND_IDX]) > 0.01
         ]
         if len(vals) >= 6:
             fam[sym] = statistics.median(vals)
@@ -96,7 +101,13 @@ def main():
             m = fam.get(sym)
             if oof(a, m) and not oof(row[REVOP_IDX], m):
                 suspect.append(
-                    {"sym": sym, "qe": int(q), "fund": a, "revop": row[REVOP_IDX], "family_median": round(m, 2)}
+                    {
+                        "sym": sym,
+                        "qe": int(q),
+                        "fund": a,
+                        "revop": row[REVOP_IDX],
+                        "family_median": round(m, 2),
+                    }
                 )
             else:
                 div.append((sym, int(q), a))

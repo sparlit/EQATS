@@ -40,7 +40,6 @@ Run: python -X utf8 build_n500_membership.py
 """
 import csv
 import gzip
-import io
 import json
 import os
 import time
@@ -122,7 +121,8 @@ def main():
             by_eff[eff] = (ts[:8], syms)
         print(f"  {ts[:8]}  OK count={len(syms)}  -> window eff={eff}  SCI={'SCI' in syms}")
     accurate = [
-        {"effectiveDate": eff, "symbols": syms, "src": f"archive:{cap}"} for eff, (cap, syms) in sorted(by_eff.items())
+        {"effectiveDate": eff, "symbols": syms, "src": f"archive:{cap}"}
+        for eff, (cap, syms) in sorted(by_eff.items())
     ]
     print(f"\nAccurate reshuffle windows: {[a['effectiveDate'] for a in accurate]}")
     if not accurate:
@@ -136,7 +136,8 @@ def main():
     old = H.get("Nifty 500", [])
     kept_old = [s for s in old if s["effectiveDate"] < earliest]
     new_n500 = sorted(
-        kept_old + [{"effectiveDate": a["effectiveDate"], "symbols": a["symbols"]} for a in accurate],
+        kept_old
+        + [{"effectiveDate": a["effectiveDate"], "symbols": a["symbols"]} for a in accurate],
         key=lambda s: s["effectiveDate"],
     )
     print(

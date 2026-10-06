@@ -78,12 +78,25 @@ SHEETS = {
     "Nifty PSU Bank": "_niftypsubank_inclexcl_events.json",
     "Nifty MNC": "_niftymnc_inclexcl_events.json",
 }
-STOP = {"ltd", "limited", "the", "company", "co", "corporation", "corp", "india", "of", "and", "inc"}
+STOP = {
+    "ltd",
+    "limited",
+    "the",
+    "company",
+    "co",
+    "corporation",
+    "corp",
+    "india",
+    "of",
+    "and",
+    "inc",
+}
 
 
 def norm(x):
     x = re.sub(r"\(.*?\)", " ", x.lower())
-    return [t for t in re.split(r"[^a-z0-9]+", x) if t and t not in STOP]
+    toks = [t for t in re.split(r"[^a-z0-9]+", x) if t and t not in STOP]
+    return toks
 
 
 def strict_name(x):
@@ -91,7 +104,9 @@ def strict_name(x):
     norm() also drops 'india'/'corporation', which made "Welspun India" (WELSPUNLIV, textiles) equal
     "Welspun Corp" (WELCORP, pipes)."""
     x = re.sub(r"\(.*?\)", " ", x.lower().replace("&", " and "))
-    return "".join(t for t in re.split(r"[^a-z0-9]+", x) if t and t not in {"ltd", "limited", "the"})
+    return "".join(
+        t for t in re.split(r"[^a-z0-9]+", x) if t and t not in {"ltd", "limited", "the"}
+    )
 
 
 def to_iso(v):
@@ -100,8 +115,7 @@ def to_iso(v):
     s = str(v).strip()
     if len(s) == 10 and s[2] == "-" and s[5] == "-":
         return s[6:] + "-" + s[3:5] + "-" + s[:2]
-    msg = f"unparsed date {v!r}"
-    raise SystemExit(msg)
+    raise SystemExit(f"unparsed date {v!r}")
 
 
 def load_bin_names():
@@ -130,9 +144,13 @@ def load_renames():
     ren = {}
     mon = {
         m: i
-        for i, m in enumerate(["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"], 1)
+        for i, m in enumerate(
+            ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"], 1
+        )
     }
-    for r in csv.reader(open(os.path.join(SCRIPTS, "symchg.csv"), encoding="utf-8", errors="replace")):
+    for r in csv.reader(
+        open(os.path.join(SCRIPTS, "symchg.csv"), encoding="utf-8", errors="replace")
+    ):
         if len(r) >= 4 and r[1].strip() and r[2].strip():
             m = re.match(r"(\d{1,2})-([A-Z]{3})-(\d{4})", r[3].strip().upper())
             d = (
@@ -161,10 +179,11 @@ def gen(sheet, out_name, wb, n500, manual, binby, span):
         if len(vals) < 4 or not str(vals[2]).strip():
             continue
         _, dv, name, desc = vals[:4]
-        kind = "inc" if "inclusion" in desc.lower() else "exc" if "exclusion" in desc.lower() else None
+        kind = (
+            "inc" if "inclusion" in desc.lower() else "exc" if "exclusion" in desc.lower() else None
+        )
         if not kind:
-            msg = f"{sheet}: unknown description {desc!r}"
-            raise SystemExit(msg)
+            raise SystemExit(f"{sheet}: unknown description {desc!r}")
         raw.append((to_iso(dv), name.strip(), kind))
     name_map, era_map = n500.get("name_map", {}), n500.get("era_map", {})
     dates_of = collections.defaultdict(list)
@@ -206,7 +225,9 @@ def gen(sheet, out_name, wb, n500, manual, binby, span):
 
     def binexact(n):
         toks = norm(n)
-        if len(toks) < 2 and (not toks or len(toks[0]) < 4):  # one short token ("ABB") is not a name
+        if len(toks) < 2 and (
+            not toks or len(toks[0]) < 4
+        ):  # one short token ("ABB") is not a name
             return None
         keys = binby.get("".join(toks), [])
         if len(keys) != 1:
@@ -245,7 +266,13 @@ def gen(sheet, out_name, wb, n500, manual, binby, span):
             return b, "binexact"
         return None, "unmapped"
 
-    events, used, unmapped, out_map, audit = [], collections.Counter(), collections.OrderedDict(), {}, {}
+    events, used, unmapped, out_map, audit = (
+        [],
+        collections.Counter(),
+        collections.OrderedDict(),
+        {},
+        {},
+    )
     for d, n, k in raw:
         sym, how = sym_for(n, d)
         used[how] += 1

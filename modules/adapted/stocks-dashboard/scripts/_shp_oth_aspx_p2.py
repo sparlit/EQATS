@@ -69,7 +69,7 @@ _lk = threading.Lock()
 
 def fetch_one(sym, qe, code, stored):
     qtrid = A.qtrid_of(qe)
-    html, _cached = A.fetch_page(DIRP, code, qtrid, "New")
+    html, cached = A.fetch_page(DIRP, code, qtrid, "New")
     if not html:
         return {"sym": sym, "qe": qe, "code": code, "absent": "no-page"}
     try:
@@ -81,7 +81,14 @@ def fetch_one(sym, qe, code, stored):
     rows, name = parsed
     if not isinstance(rows, dict):  # parse_new can return (None, name) — a shell page
         return {"sym": sym, "qe": qe, "code": code, "absent": "no-table-rows"}
-    return {"sym": sym, "qe": qe, "code": code, "page_name": name, "stored": stored, "rows": dict(rows.items())}
+    return {
+        "sym": sym,
+        "qe": qe,
+        "code": code,
+        "page_name": name,
+        "stored": stored,
+        "rows": dict(rows.items()),
+    }
 
 
 def main():
@@ -137,7 +144,10 @@ def main():
                 n += 1
                 if n % 200 == 0:
                     fh.flush()
-                    print("  %d/%d (%.1f/s)" % (n, len(todo), n / max(1e-9, time.time() - t0)), flush=True)
+                    print(
+                        "  %d/%d (%.1f/s)" % (n, len(todo), n / max(1e-9, time.time() - t0)),
+                        flush=True,
+                    )
     fh.close()
     print("p2 fetch done: %d" % n)
 
@@ -183,7 +193,10 @@ def p2_adjudicate(write=False):
             oth = 0.0 if abs(anyoth - fpi) <= 0.02 else max(0.0, anyoth - fpi)
         elif anyoth is not None:
             oth = anyoth
-        dom = round((val("mf") or 0.0) + (val("banks") or 0.0) + (val("ins") or 0.0) + (val("vcf") or 0.0), 4)
+        dom = round(
+            (val("mf") or 0.0) + (val("banks") or 0.0) + (val("ins") or 0.0) + (val("vcf") or 0.0),
+            4,
+        )
         if oth < 0.25:
             st["no-material-block"] += 1
             continue
@@ -220,7 +233,10 @@ def p2_adjudicate(write=False):
     print("p2 adjudication:", dict(st))
     if write and n_new:
         json.dump(
-            led, open(os.path.join(HERE, "shp_cell_fix.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False
+            led,
+            open(os.path.join(HERE, "shp_cell_fix.json"), "w", encoding="utf-8"),
+            indent=1,
+            ensure_ascii=False,
         )
         print("wrote shp_cell_fix.json (+%d)" % n_new)
     elif not write:

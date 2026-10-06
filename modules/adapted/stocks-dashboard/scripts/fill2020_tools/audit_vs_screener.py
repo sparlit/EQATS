@@ -130,7 +130,9 @@ def main():
             if not sq:
                 done[key] = {"verdict": "NO-SCREENER"}
                 continue
-            label = next((L for L in ("Sales", "Revenue") if any(L in r for r in sq.values())), None)
+            label = next(
+                (L for L in ("Sales", "Revenue") if any(L in r for r in sq.values())), None
+            )
             if not label:
                 done[key] = {"verdict": "NO-ROW"}
                 continue
@@ -149,7 +151,12 @@ def main():
                     agree.append(qe)
                 else:
                     disagree.append(
-                        {"qe": qe, "ours": v, "screener": t, "diff_pct": round(100.0 * (v - t) / t, 2) if t else None}
+                        {
+                            "qe": qe,
+                            "ours": v,
+                            "screener": t,
+                            "diff_pct": round(100.0 * (v - t) / t, 2) if t else None,
+                        }
                     )
             # ---- ANNUAL ARM: screener's quarterly table only reaches ~13 quarters back, so every
             # cell before ~2023 is invisible to the comparison above. Its ANNUAL P&L goes back 12
@@ -161,14 +168,23 @@ def main():
                 sa = SF.annuals(sym, con=con)
             except Exception:
                 sa = {}
-            alab = next((L for L in ("Sales", "Revenue") if any(L in r for r in sa.values())), None) if sa else None
+            alab = (
+                next((L for L in ("Sales", "Revenue") if any(L in r for r in sa.values())), None)
+                if sa
+                else None
+            )
             if alab:
                 for dk, arow in sa.items():
                     fy = int(dk.replace("-", ""))
                     if fy % 10000 != 331 or fy < 20200331:
                         continue
                     y = fy // 10000
-                    qs = [(y - 1) * 10000 + 630, (y - 1) * 10000 + 930, (y - 1) * 10000 + 1231, y * 10000 + 331]
+                    qs = [
+                        (y - 1) * 10000 + 630,
+                        (y - 1) * 10000 + 930,
+                        (y - 1) * 10000 + 1231,
+                        y * 10000 + 331,
+                    ]
                     vals, circ_fy = [], False
                     for q in qs:
                         r = (revop.get(sym) or {}).get(str(q))
@@ -228,7 +244,8 @@ def main():
     print("   FY totals reproduced   : %d" % okfy)
     print("   FY totals MISMATCHED   : %d  (each localises >=1 bad cell to that year)" % nfy)
     worst = sorted(
-        ((abs(a["diff_pct"] or 0), k, a) for k, v in done.items() for a in (v.get("bad_fy") or [])), reverse=True
+        ((abs(a["diff_pct"] or 0), k, a) for k, v in done.items() for a in (v.get("bad_fy") or [])),
+        reverse=True,
     )[:20]
     for _d, k, a in worst:
         print(

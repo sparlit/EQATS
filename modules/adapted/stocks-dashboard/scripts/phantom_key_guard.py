@@ -72,8 +72,7 @@ ZERO_TOLERANCE = [
     "scripts/revop_fundamentals.json",
 ]
 # Everything else is scanned and ratcheted against the baseline.
-SCANNED = [
-    *ZERO_TOLERANCE,
+SCANNED = ZERO_TOLERANCE + [
     "docs/sf_revop.json",
     "docs/discovery.json",
     "scripts/revop_fundamentals.json",
@@ -180,11 +179,16 @@ def check():
     lines.append("phantom-key guard: FAIL — an HTML-escaped symbol appeared where it must not.")
     for rel, extra in bad:
         lines.append(
-            "  {}  ({})".format(rel, "must stay at ZERO" if rel in ZERO_TOLERANCE else "not in the recorded baseline")
+            "  {}  ({})".format(
+                rel,
+                "must stay at ZERO" if rel in ZERO_TOLERANCE else "not in the recorded baseline",
+            )
         )
         for s_ in extra:
             lines.append("      %-18s  real symbol = %s" % (s_, real_symbol(s_)))
-    lines.append("  Fix the write path (unescape at the SOURCE), never bless it away. Runbook §114.")
+    lines.append(
+        "  Fix the write path (unescape at the SOURCE), never bless it away. Runbook §114."
+    )
     return False, lines
 
 
@@ -204,7 +208,9 @@ def main():
         print(f"phantom-key guard: note — {r} not present, skipped ({e})")
 
     if bless:
-        json.dump({k: v for k, v in found.items() if v}, open(BASELINE, "w"), indent=1, sort_keys=True)
+        json.dump(
+            {k: v for k, v in found.items() if v}, open(BASELINE, "w"), indent=1, sort_keys=True
+        )
         print(
             "phantom-key guard: baseline blessed — %d file(s), %d symbol entries"
             % (len([v for v in found.values() if v]), sum(len(v) for v in found.values()))

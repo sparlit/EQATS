@@ -42,7 +42,10 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 LEDGER = os.path.join(HERE, "fund_cell_fix.json")
-TARGETS = [os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(HERE, "fundamentals.json")]
+TARGETS = [
+    os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+    os.path.join(HERE, "fundamentals.json"),
+]
 SLOT = {"std": 1, "con": 3}
 TOL = 0.005
 
@@ -79,7 +82,10 @@ def main():
             if apply:
                 row[slot] = f["fixed"]
             applied += 1
-        print(f"  [{rel}] to-write {applied} | already-correct {already} | cell-absent {absent} | moved-on {moved}")
+        print(
+            f"  [{rel}] to-write {applied} | already-correct {already} | "
+            f"cell-absent {absent} | moved-on {moved}"
+        )
         if apply and applied:
             json.dump(fund, open(path, "w"), separators=(",", ":"))
             print(f"  wrote {rel}")

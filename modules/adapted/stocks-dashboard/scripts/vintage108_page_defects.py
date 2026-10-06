@@ -91,11 +91,10 @@ def diagnose(seq, stored, stored_rev):
 
     def pick(pat):
         for lab, v in rows:
-            if re.search(pat, lab.strip(), re.IGNORECASE):
+            if re.search(pat, lab.strip(), re.I):
                 return v
-        return None
 
-    pats = [v for lab, v in rows if re.search(r"^net profit", lab.strip(), re.IGNORECASE)]
+    pats = [v for lab, v in rows if re.search(r"^net profit", lab.strip(), re.I)]
     pbt = pick(r"from ordinary activities before tax|profit.*before tax")
     tax = pick(r"^tax expense|^tax$")
     rev = pick(r"total income from operations|net sales")
@@ -107,7 +106,12 @@ def diagnose(seq, stored, stored_rev):
             abs(v) < 1e-9 for v in pats
         ):
             return "net-contradicts-pbt", d
-    if rev and stored_rev and abs(stored_rev) > 1 and (rev / stored_rev > 8 or stored_rev / max(rev, 1e-9) > 8):
+    if (
+        rev
+        and stored_rev
+        and abs(stored_rev) > 1
+        and (rev / stored_rev > 8 or stored_rev / max(rev, 1e-9) > 8)
+    ):
         return "scale-anomaly", d
     return "unnamed", d
 
@@ -128,7 +132,9 @@ def main():
         k = f"{sym}|{qe}"
         v = nse[basis][k]
         asf = v.get("as_filed")
-        second = scan.get(k, {}).get("detres") if basis == "std" else (mccon.get(k) or {}).get("mc_con")
+        second = (
+            scan.get(k, {}).get("detres") if basis == "std" else (mccon.get(k) or {}).get("mc_con")
+        )
         # THIRD reader: MC on the matching basis
         if sym not in cache:
             try:
@@ -170,8 +176,10 @@ def main():
             backs_override = "store"
         else:
             backs_override = None
-        backs = backs_override or (
-            "store"
+        backs = (
+            backs_override
+            if backs_override
+            else "store"
             if page_scaled
             else "store"
             if agree(third, v["stored"]) and not agree(third, asf)
@@ -199,7 +207,9 @@ def main():
             "resolution": (
                 (f"CLOSED — {defect}")
                 if backs_override
-                else (f"CLOSED — store confirmed; the NSE page is off by a factor of {page_scaled:g}")
+                else (
+                    f"CLOSED — store confirmed; the NSE page is off by a factor of {page_scaled:g}"
+                )
                 if page_scaled
                 else "CLOSED — store confirmed, NSE page unusable"
                 if backs in ("store", "both", "no-third-reader")

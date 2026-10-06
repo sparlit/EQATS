@@ -77,28 +77,22 @@ LEDGER = os.path.join(SCRIPTS, "named_rev_cell_fills.json")
 CELLS = {
     ("ANGELONE", "20250331"): (
         1031.35,
-        (
-            "filing 2025-04-17, Rs mn/10: total rev from ops 10,313.46; anchors = same-page PAT "
-            "180.26==stored std, prior PAT cols 301.03/346.02==stored, prior REV cols "
-            "1245.99/1346.99==stored revS"
-        ),
+        "filing 2025-04-17, Rs mn/10: total rev from ops 10,313.46; anchors = same-page PAT "
+        "180.26==stored std, prior PAT cols 301.03/346.02==stored, prior REV cols "
+        "1245.99/1346.99==stored revS",
     ),
     ("ADANIGREEN", "20250331"): (
         6461.00,
-        (
-            "filing 2025-04-28, Rs cr: rev from ops 2+6461+(2); anchors = PAT cols 113/557/(195)"
-            "==stored std Mar25/Dec24/Mar24, total-income identity 6461+314-7==6768, Mar-24 rev col"
-            "==stored revS 7304"
-        ),
+        "filing 2025-04-28, Rs cr: rev from ops 2+6461+(2); anchors = PAT cols 113/557/(195)"
+        "==stored std Mar25/Dec24/Mar24, total-income identity 6461+314-7==6768, Mar-24 rev col"
+        "==stored revS 7304",
     ),
     ("LICI", "20230630"): (
         188749.16,
-        (
-            "filing 2023-08-10, Rs lakh/100: standalone policyholders' Total 1,88,74,915.73; anchored "
-            "on the MAR-2023 column (PAT 13427.81==stored, total income 200185.38 vs stored revS "
-            "200178.83, 0.003%). Jun-23 PAT anchor NOT used: filing says std PAT 9543.71 vs our stored "
-            "9634.98 (== our stored CON) -- suspected std/con mix-up in stored data, flagged not fixed"
-        ),
+        "filing 2023-08-10, Rs lakh/100: standalone policyholders' Total 1,88,74,915.73; anchored "
+        "on the MAR-2023 column (PAT 13427.81==stored, total income 200185.38 vs stored revS "
+        "200178.83, 0.003%). Jun-23 PAT anchor NOT used: filing says std PAT 9543.71 vs our stored "
+        "9634.98 (== our stored CON) -- suspected std/con mix-up in stored data, flagged not fixed",
     ),
 }
 

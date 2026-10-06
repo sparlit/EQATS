@@ -48,7 +48,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FUND = os.path.join(HERE, "..", "docs", "bse_fundamentals.json")
 FAILS = os.path.join(HERE, "_bse_fund_fail.json")
 DONE = os.path.join(HERE, "_bse_fund_done.json")
-VFILLS = os.path.join(HERE, "..", "docs", "vision_fills.json")  # NSE overlay the page applies to empty cells
+VFILLS = os.path.join(
+    HERE, "..", "docs", "vision_fills.json"
+)  # NSE overlay the page applies to empty cells
 QFIX = os.path.join(HERE, "..", "docs", "feed_qe_fix.json")  # "SYM|YYYY-MM-DD" -> real quarter-end
 
 
@@ -58,7 +60,9 @@ def feed_ann():
     March result, a re-submission), which gave every late-filer read ann=0 and could stamp a June read with
     a September re-filing's date (2026-09-27 audit)."""
     try:
-        rows = json.load(open(os.path.join(HERE, "..", "docs", "results_feed.json"), encoding="utf-8"))["rows"]
+        rows = json.load(
+            open(os.path.join(HERE, "..", "docs", "results_feed.json"), encoding="utf-8")
+        )["rows"]
     except Exception:
         return {}
     out = {}
@@ -76,7 +80,11 @@ def feed_ann():
     return out
 
 
-LEGACY = [("jun2026", 20260630), ("mar2026", 20260331), ("jun2025", 20250630)]  # old reader output keys
+LEGACY = [
+    ("jun2026", 20260630),
+    ("mar2026", 20260331),
+    ("jun2025", 20250630),
+]  # old reader output keys
 
 
 def quarters_of(it):
@@ -149,7 +157,12 @@ def reapply_qefix(path):
     json.dump(cur, open(QFIX, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     print(
         "  qefix: re-applied %d of %d into feed_qe_fix.json (%d total) — %s"
-        % (len(add), len(run), len(cur), ", ".join("{}={}".format(*kv) for kv in sorted(add.items())))
+        % (
+            len(add),
+            len(run),
+            len(cur),
+            ", ".join("{}={}".format(*kv) for kv in sorted(add.items())),
+        )
     )
 
 
@@ -216,7 +229,9 @@ def main():
         else:
             scrip = str(it["scrip"])
             # real filing date → reaction computes; only when the feed's newest filing IS this quarter's
-            ann = fann.get((sym, int(cq)), 0)  # the day THIS quarter was declared (0 = not in the feed window)
+            ann = fann.get(
+                (sym, int(cq)), 0
+            )  # the day THIS quarter was declared (0 = not in the feed window)
             cells = px.setdefault(scrip, {})
             added = sum(fill(cells, qe, q, basis, ann=(ann if qe == cq else 0)) for qe, q in qs)
             if not cells:
@@ -232,7 +247,9 @@ def main():
     json.dump(data, open(FUND, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     json.dump(fails, open(FAILS, "w"))
     json.dump(sorted(done), open(DONE, "w"))
-    json.dump(vfills, open(VFILLS, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    json.dump(
+        vfills, open(VFILLS, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":")
+    )
     print("Merged %d BSE-only into bse_fundamentals.json, %d NSE into vision_fills.json" % (nb, nn))
 
 

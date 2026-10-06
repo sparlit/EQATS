@@ -45,6 +45,8 @@ import sys
 import time
 import xml.etree.ElementTree as ET
 
+import _shp_registers as _REG
+
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(SCRIPTS)
 HERE = os.environ.get("DII_ROWFIX_WORK") or os.path.join(SCRIPTS, "_shp_dii_rowfix_work")
@@ -60,7 +62,10 @@ import fetch_shareholding as F
 def breakdown(txt):
     """{member: pct} for every single-explicit-member context (no typed members), scaled to percent."""
     root = ET.fromstring(txt) if isinstance(txt, (str, bytes)) else txt
-    strip = lambda t: t.split("}", 1)[-1]
+
+    def strip(t):
+        return t.split("}", 1)[-1]
+
     ctx = {}
     for c in root.iter():
         if strip(c.tag) != "context":
@@ -93,26 +98,108 @@ def breakdown(txt):
 
 
 MON = {"March": 3, "June": 6, "September": 9, "December": 12}
+# §164r batch 24 (2026-10-05, cell by cell vs Quantmac): filers misspell the category words - BLUESTARCO Jun-2016 'FORIGN MUTUAL FUND',
+# ADANIPOWER Jun-2016 'FORIEGN CORPORATE BODIES', SHRIRAMCIT Jun-2016 'Foreign Port Folio Investor', 'Foreign Portolio Investor' -
+# and the exact-spelling patterns read those rows as UNLABELLED. _FOR / _PFO accept the spellings seen in filings.
+_FOR = r"(?:foreig|forieg|forign|foregin|forein|forigin|foerign|foregn|foreigh)"
+_PFO = r"port\s*-?\s*f?olio"
 LAB_FII = re.compile(
-    r"\bfiis?\b|\bfpis?\b|\bqfi\b|foreig\w* portfolio|foreig\w* instit|foreign bank|foreign venture|qualified foreign|sovereign",
-    re.IGNORECASE,
+    r"\bfiis?\b|\bfpis?\b|\bqfi\b|"
+    + _FOR
+    + r"\w*\s+"
+    + _PFO
+    + r"|"
+    + _FOR
+    + r"\w*\s+instit|"
+    + _FOR
+    + r"\w*\s+bank|"
+    + _FOR
+    + r"\w*\s+venture|qualified\s+(?:"
+    + _FOR
+    + r"|fore\b)|sovereign",
+    re.I,
 )
 LAB_PUB = re.compile(
-    r"overseas corporate|\bocb\b|foreig\w* compan|foreig\w* (corporate )?bod|corporate bodies|foreig\w* national|foreig\w* individual|non.?resident|\bnri\b",
-    re.IGNORECASE,
+    r"overseas corporate|\bocb\b|"
+    + _FOR
+    + r"\w* compan|"
+    + _FOR
+    + r"\w* (corporate )?bod|corporate bodies|"
+    + _FOR
+    + r"\w* nat\w*nals?|"
+    + _FOR
+    + r"\w* individual|non.?resident|\bnris?\b",
+    re.I,
 )
+# §164r batch 11 (user 2026-10-04 'yes fix the label bug'): a non-institution category a company writes on a sub-row of its
+# institutions 'Any Other' block - Bodies Corporate, Central / State Government, IEPF, trusts, clearing members, individuals, HUF,
+# employees, directors, unclaimed / suspense accounts - is company-, government- or person-type: never FII and never DII
+# (Institutions (Domestic)). These had read as UNLABELLED, so D1 / rest-follows moved them into FII: IDFC Jun-2016 'BODIES
+# CORPORATE' 5.44, TNPL Jun-2016 'CENTRALGOVERNMENT /STATE GOVERNMENT' 4.07. (Not added to LAB_PUB: the R2 non-institution loop
+# must keep reading named domestic institutions a company files under 'Bodies Corporate'.)
+_NI_CAT = (
+    r"(?:indian\s+)?bod(?:y|ies)\s*corporates?|corporate\s+bod(?:y|ies)|corporates?"
+    r"|limited\s+liab\w*\s+partnerships?(?:\s*/\s*corporate\s+bod(?:y|ies))?(?:\s*-\s*llps?)?|llps?"
+    r"|central\s*(?:/|and|&)?\s*state\s*gov\w*(?:\s*\(s\))?|centralgovernment\s*/?\s*state\s*government(?:\s*\(s\))?|(?:central|state)\s+gov\w*(?:\s*\(s\))?"
+    r"|government(?:\s+of\s+india)?|govt\.?(?:\s+of\s+india)?|president\s+of\s+india"
+    r"|iepf(?:\s+authority)?|investor\s+education\s+(?:and|&)\s+protection\s+fund(?:\s+authority)?(?:\s*\(mca\))?"
+    r"|trusts?|clearing\s+members?|individuals?(?:\s*-\s*huf)?|huf|hindu\s+undivided\s+famil(?:y|ies)|employees?|directors?(?:\s+(?:and|&)\s+(?:their\s+)?relatives?)?"
+    r"|unclaimed\b.*|suspense\b.*|escrow\b.*"
+    # §164r batch 26 (labels scan 2026-10-05): more company- / person-type categories filers write on institutions sub-rows
+    r"|(?:domestic|indian)\s+(?:compan(?:y|ies)|bod(?:y|ies)\s*corporates?|corporates?)|market\s+makers?|nris?"
+    r"|non[\s-]*resident\s+indians?(?:\s*\((?:non[\s-]*)?repat\w*\))?"
+)
+NONINST_LAB = re.compile(rf"(?:{_NI_CAT})(?:\s*\([^)]*\))?", re.I)
+
+
+def noninst_label(lab):
+    """True when the WHOLE label (after the filer's 'Other / Others / Any Other' prefix) is a non-institution category - never
+    for a holder's name that merely contains such a word ('GOLDMAN SACHS TRUST - ...', 'CITY OF NEW YORK GROUP TRUST',
+    'PACIFIC ASSETS TRUST PLC', 'Employees Retirement plan of Duke University' are foreign institutions)."""
+    core = re.sub(r"^\s*(?:(?:any\s+)?others?\b[\s:\-\u2013]*)+", "", lab or "", flags=re.I).strip(
+        " .:-\u2013"
+    )
+    return (
+        bool(core)
+        and bool(NONINST_LAB.fullmatch(core))
+        and not LAB_FII.search(lab or "")
+        and not DOMLAB.search(lab or "")
+    )
+
+
 FORLAB = re.compile(
-    r"foreig|muscat|s\.?a\.?o\.?g\b|overseas|\bfpi\b|\bfii\b|\bocb\b|non.?resident|\bnri\b|mauritius|singapore|\bpte\b|\bb\.?v\.?\b|\bllc\b|\bl\.?p\.?\b|\binc\b|\bplc\b|\bltd\.? *\((uk|usa|us)\)|university|college|\bsa\b|\bag\b|\bgmbh\b|\bnv\b|luxembourg|cayman|netherlands|\busa\b|\buk\b|japan|korea|hong ?kong|cyprus|delaware|\bsarl\b|\bs\.?a\.?r\.?l\b|holdings? (ii|iii|iv|v)\b|\bpty\b|\bcapital partners\b|\bglobal\b|international|\bsicav\b|\bucits\b|\boeic\b",
-    re.IGNORECASE,
+    r"foreig|forieg|forign|foregin|forein|forigin|foerign|foregn|qualified\s+fore\b|muscat|s\.?a\.?o\.?g\b|overseas|\bfpi\b|\bfii\b|\bocb\b|non.?resident|\bnri\b|mauritius|singapore|\bpte\b|\bb\.?v\.?\b|\bllc\b|\bl\.?p\.?\b|\binc\b|\bplc\b|\bltd\.? *\((uk|usa|us)\)|university|college|\bsa\b|\bag\b|\bgmbh\b|\bnv\b|luxembourg|cayman|netherlands|\busa\b|\buk\b|japan|korea|hong ?kong|cyprus|delaware|\bsarl\b|\bs\.?a\.?r\.?l\b|holdings? (ii|iii|iv|v)\b|\bpty\b|\bcapital partners\b|\bglobal\b|international|\bsicav\b|\bucits\b|\boeic\b",
+    re.I,
 )
 DOMSTRONG = re.compile(
     r"insur|assurance|provident|pension|nps trust|national pension|mutual fund|\bmagnum\b|\blic\b|\blici\b|qualified inst|q[au]+lified|instit\w* buyers?|\bqib",
-    re.IGNORECASE,
+    re.I,
 )
 DOMLAB = re.compile(
     r"insur|assurance|provident|pension|nps trust|national pension|mutual fund|\blic\b|\blici\b|qualified inst|q[au]+lified|instit\w* buyers?|\bqib|\bnbfc|non.?banking|financial institution|\bbank|alternat(e|ive) investment|venture capital|asset reconstruct|general insurance corp",
-    re.IGNORECASE,
+    re.I,
 )
+SOVNAME = re.compile(
+    r"pension fund global|government of (?!india)|monetary authority|\bnorges\b|abu dhabi|\bqatar\b|\bkuwait\b|sovereign",
+    re.I,
+)  # §164s part 7
+# §164s part 10 (user 2026-10-05 "Count none of it"): ONE row that mixes an institution with NRIs / IEPF / non-institutions and gives
+# no split (LTTS Sep-2019 'QUALIFIED INSTITUTIONAL BUYER + NON RESIDENT INDIAN' 1.57) is not a domestic-institution row - none of it is DII
+MIXLAB = re.compile(
+    r"non.?resident|\bnri\b|\bnrn\b|\biepf\b|investor education|non.?indian|\bhuf\b|individual",
+    re.I,
+)
+MIXED_OUT = os.environ.get("DII_MIXED_OUT", "1") == "1"
+# §164s part 10 (user 2026-10-05 "Follow IEX's own label"): a holder the company files under its own foreign-company label inside the
+# Institutions block ('Overseas Corporate Bodies') is not domestic on the strength of OTHER companies' filings alone (IEX 2018-20 'India
+# Business Excellence Fund IIA'); only the company's own 2022-form placement or an official register can make it domestic there
+OWN_LABEL_FIRST = os.environ.get("DII_OWN_LABEL_FIRST", "1") == "1"
+GROUP_OUTSIDE = (
+    os.environ.get("DII_GROUP_OUTSIDE", "1") == "1"
+)  # §164s part 10; env 0 = the earlier attachment
+NAMED_UNPROVEN_OUT = (
+    os.environ.get("DII_NAMED_UNPROVEN_OUT", "1") == "1"
+)  # §164s part 7 (user 2026-10-05); env 0 = the earlier evaluation
 REST_FOLLOWS = True  # §158a/§158b (2026-09-25): with the rule on, a full N500 run proposes 0 on the live store; False = the §158 (2026-09-24) evaluation
 # §164 (FII session, 2026-09-25): "§164 row-level remainder rule" (D1 unnamed Any-Other rest -> fii, ex-member re-reads) and "§164a
 # depository-receipt basis" (pre-2016 re-base of all five slots). These rules re-decide cells this script and _shp_aspx_rowfix.py
@@ -134,7 +221,7 @@ def chain_has(prior, rx=MARK164, depth=12):
     return False
 
 
-INSURER = re.compile(r"insur|assurance|\blic\b|\blici\b|life ins", re.IGNORECASE)
+INSURER = re.compile(r"insur|assurance|\blic\b|\blici\b|life ins", re.I)
 
 
 def qe_of(qtr):
@@ -156,7 +243,10 @@ def find_file(f):
 def rows_of(txt):
     """Typed rows in filer order: [(axis, seq, pct, kind, cat, name)]. Values scaled to percent."""
     root = ET.fromstring(txt)
-    strip = lambda t: t.split("}", 1)[-1]
+
+    def strip(t):
+        return t.split("}", 1)[-1]
+
     ctx = {}
     for c in root.iter():
         if strip(c.tag) != "context":
@@ -201,12 +291,19 @@ def rows_of(txt):
             continue
         seq = int(re.sub(r"\D", "", val) or 0)
         out.append(
-            (ax, seq, v["p"] * (100 if frac else 1), (v.get("kind") or ""), (v.get("cat") or ""), (v.get("name") or ""))
+            (
+                ax,
+                seq,
+                v["p"] * (100 if frac else 1),
+                (v.get("kind") or ""),
+                (v.get("cat") or ""),
+                (v.get("name") or ""),
+            )
         )
     return sorted(out)
 
 
-def groups(rows, axis):
+def groups(rows, axis, total=None):
     """Category rows on one axis with their attached >=1% holders. A holder row carries the filer's own
     category text; it is attached to the category row with the SAME text that has room for it (the nearest
     preceding one first), then to any same-text row, then to the preceding row if it fits, else it forms
@@ -217,9 +314,18 @@ def groups(rows, axis):
         if ax != axis:
             continue
         is_cat = kind.lower().startswith("categ") or (not kind and not name)
+        # §164r batch 10: runs of spaces collapse in the label the rules read (BHARATFIN Sep-2016 'Other Foreign  Bodies Corporates' - two
+        # spaces - missed the company-type pattern and fell through to the FII reading); attachment still compares the raw text
         if is_cat:
             cats.append(
-                {"seq": seq, "pct": p, "label": (cat + " " + name).strip(), "cat": cat, "name": name, "holders": []}
+                {
+                    "seq": seq,
+                    "pct": p,
+                    "label": re.sub(r"\s+", " ", cat + " " + name).strip(),
+                    "cat": cat,
+                    "name": name,
+                    "holders": [],
+                }
             )
         else:
             holders.append((seq, p, name or cat, cat))
@@ -227,6 +333,7 @@ def groups(rows, axis):
     def room(g, p):
         return sum(h[0] for h in g["holders"]) + p <= g["pct"] + 0.02
 
+    outside = [(total - sum(g["pct"] for g in cats)) if total is not None else 0.0]
     for seq, p, name, cat in sorted(holders, key=lambda x: -x[1]):
         same = [g for g in cats if norm(g["cat"]) == norm(cat)]
         prev = [g for g in same if g["seq"] < seq]
@@ -239,6 +346,24 @@ def groups(rows, axis):
         if target is None:
             # no same-text row has room: the holder still belongs to SOME row on this axis (the filer changed
             # its label between the category row and the holder row) — nearest preceding row with room, else next
+            # §164s part 10: when the axis TOTAL the filer reports has room OUTSIDE its category rows for this holder, the holder is
+            # not inside any of them (GABRIEL Sep-2021: categories 4.66 of a 6.19 Any-Other total, 'ICICI Lombard' 1.52 filed under
+            # 'Others' with no such row) - it forms its own group instead of borrowing a different label's row. When the category rows
+            # already add up to the total (CREDITACC / IEX / SRF), every holder sits inside one of them and the borrowing stands.
+            if GROUP_OUTSIDE and total is not None and outside[0] >= p - 0.02:
+                outside[0] -= p
+                target = {
+                    "seq": seq,
+                    "pct": 0.0,
+                    "label": re.sub(r"\s+", " ", cat).strip(),
+                    "cat": cat,
+                    "name": "",
+                    "holders": [],
+                    "orphan": True,
+                }
+                cats.append(target)
+                target["holders"].append((p, name))
+                continue
             before = [g for g in cats if g["seq"] < seq and room(g, p)]
             after = [g for g in cats if g["seq"] > seq and room(g, p)]
             if before:
@@ -246,7 +371,15 @@ def groups(rows, axis):
             elif after:
                 target = after[0]
         if target is None:
-            target = {"seq": seq, "pct": 0.0, "label": cat, "cat": cat, "name": "", "holders": [], "orphan": True}
+            target = {
+                "seq": seq,
+                "pct": 0.0,
+                "label": re.sub(r"\s+", " ", cat).strip(),
+                "cat": cat,
+                "name": "",
+                "holders": [],
+                "orphan": True,
+            }
             cats.append(target)
         target["holders"].append((p, name))
     return sorted([g for g in cats if g["pct"] > 0.0049 or g["holders"]], key=lambda g: g["seq"])
@@ -257,17 +390,20 @@ def norm(n):
 
 
 FORWORD = re.compile(
-    r"foreig|overseas", re.IGNORECASE
-)  # §164j: a label naming a FOREIGN institution ("Foreign Mutual Fund", "Foreign Financial Institutions / Banks", "Bank Foreign") is never a domestic label, whatever domestic keyword it also carries
+    r"for[ei]{0,2}g[nh]|" + _FOR + r"|overseas", re.I
+)  # §164s part 9: also the filers' misspellings (BLUESTARCO Jun-2016 'FORIGN MUTUAL FUND' 0.53, IPCALAB Jun-2017 'Foreigh Mutual Fund' 0.55, 'Foriegn')      # §164j: a label naming a FOREIGN institution ("Foreign Mutual Fund", "Foreign Financial Institutions / Banks", "Bank Foreign") is never a domestic label, whatever domestic keyword it also carries
 
 
 def _load_evidence():
     """§164j (user 2026-09-26: named foreign holders need DOCUMENTARY proof): norm(name) -> entry from scripts/shp_foreign_holder_evidence.json."""
     try:
         e = (
-            json.load(open(os.path.join(REPO, "scripts", "shp_foreign_holder_evidence.json"), encoding="utf-8")).get(
-                "names"
-            )
+            json.load(
+                open(
+                    os.path.join(REPO, "scripts", "shp_foreign_holder_evidence.json"),
+                    encoding="utf-8",
+                )
+            ).get("names")
             or {}
         )
     except (OSError, ValueError):
@@ -296,6 +432,221 @@ def _evidence(n):
     return e
 
 
+_SER = re.compile(r"^(?:[IVX]+|\d+|FII|FPI|FDI|ODI|[A-H])$")
+
+
+def _series(name):
+    return tuple(sorted(t for t in re.split(r"[^A-Z0-9]+", str(name).upper()) if _SER.match(t)))
+
+
+_ABBR = [
+    (r"\bLIMITED\b", "LTD"),
+    (r"\bPRIVATE\b", "PVT"),
+    (r"\bCOMPANY\b", "CO"),
+    (r"\bCORPORATION\b", "CORP"),
+    (r"\bINCORPORATED\b", "INC"),
+]
+
+
+def anorm(name):
+    """norm() after spelling legal-form words one way (LIMITED = LTD, PRIVATE = PVT, COMPANY = CO ...): the same legal name
+    written 'Ltd' by one filer and 'Limited' by another (Morgan Stanley Mauritius Company Ltd / Limited) is one holder."""
+    s = re.sub(r"^\W*[ivx]+\)\s*", "", str(name).upper())
+    for a, b in _ABBR:
+        s = re.sub(a, b, s)
+    return re.sub(r"[^A-Z0-9]", "", s)
+
+
+_AIDX = None
+
+
+def _ev_matches(name):
+    """§164r batch 10: every evidence entry that names the same legal holder - the exact spelling (legal-form words spelled one
+    way), every spelling >= 0.96 alike with the same series markers (batch 7's corpus test), and - for a holder name the filer cut
+    off at ~40 characters - the full names it is the start of. Counts across the matched spellings are summed, as batch 7 did."""
+    global _AIDX
+    if _AIDX is None:
+        _AIDX = {}
+        for k, v in EVIDENCE.items():
+            _AIDX.setdefault(anorm(v.get("name") or k), []).append(v)
+    a = anorm(name)
+    out = list(_AIDX.get(a, []))
+    if len(a) >= 10:
+        ser = _series(name)
+        cut = len(str(name).strip()) >= 38 and len(a) >= 25
+        for k, vs in _AIDX.items():
+            if k == a or k[:8] != a[:8]:
+                continue
+            if (
+                difflib.SequenceMatcher(None, a, k).ratio() >= 0.96
+                and _series(vs[0].get("name", k)) == ser
+            ) or (cut and k.startswith(a)):
+                out += vs
+    return out
+
+
+def _ev_counts(name):
+    vs = _ev_matches(name)
+    if not vs:
+        return None
+    f = sum(v.get("inst_n") or 0 for v in vs)
+    d = sum(v.get("domestic_n") or 0 for v in vs)
+    c = sum(v.get("company_n") or 0 for v in vs)
+    reg = any(v.get("proof") == "sebi-register" for v in vs)
+    return f, d, c, reg
+
+
+def inst_documented(name):
+    """§164r batch 7 (user 2026-09-29 'Documents only') + batch 8 (user 2026-10-04, Quantmac's standard): a holder filed among
+    ordinary shareholders is an institution on another company's filing only with >= 90 % of >= 5 classified listings under
+    Institutions (Foreign), or a registry document (SEBI FPI / FVCI register). Identity: see _ev_matches."""
+    x = _ev_counts(name)
+    if not x:
+        return False
+    f, d, c, reg = x
+    return reg or (f + d + c >= 5 and f >= 0.9 * (f + d + c))
+
+
+def inst_listed(name):
+    """§164r batch 8 scope (user 2026-10-04, option A): the proof a holder needs when the COMPANY ITSELF lists it inside its
+    Institutions block (on a company-type or unlabelled sub-row): the company's own placement plus at least one other filing
+    listing the same legal name under Institutions (Foreign) (never a domestic-dominated name), or a registry document. The strict
+    >= 90 %-of->= 5 proof (inst_documented) is for holders the company lists among ordinary shareholders only - as Quantmac applies
+    it. IEX's Rimco (Mauritius) 4.55 inside IEX's Institutions block: 13 institution listings -> FII."""
+    x = _ev_counts(name)
+    if not x:
+        return False
+    f, d, c, reg = x
+    return reg or (f >= 1 and (d == 0 or f >= 0.9 * (f + d)))
+
+
+# §164r batch 10 (user 2026-10-04 'fix the open items'): a holder the company ITSELF files as a foreign investor in another of its
+# filings - on an FPI / FDI / FVCI row, or on a row it labels FII / FPI / QFI - stays FII in a quarter where the same company lists
+# it on an UNLABELLED institutions row: option A must not make the silent quarters public against the company's own label on both
+# sides (POONAWALLA Jun-2016..Jun-2017: 'QFI - ZEND / INDIUM V / LEAPFROG' on BSE's Dec-2015 holder list, 'QFI-Corporate' from
+# Sep-2017). SymCtx.own_fii reads the symbol's own XBRLs; OWN_FII_EXTRA carries the company marks that only BSE's pre-2016 pages or a
+# spelling variant show (each checked 2026-10-04 on the cached pages / filings).
+OWN_FII_EXTRA = {
+    "POONAWALLA": [
+        "INDIUM V (MAURITIUS) HOLDINGS LIMITED"
+    ],  # 'QFI - INDIUM V (MAURITIUS) HOLDINGS LIMITED', BSE Dec-2015 list
+    "JISLJALEQS": [
+        "MKCP INSTITUTIONAL INVESTOR (MAURITIUS) II LTD"
+    ],  # its 7.93 % fits only the FII (121) / QFI (3 holders) rows of the Jun/Sep-2015 pages
+    "BRITANNIA": ["ARISAG PARTNERS (ASIA)PTE LTD A/C ARISAG"],
+}  # = 'Arisaig Partners (Asia) Pte Ltd A/C Arisaig India Fund', BRITANNIA's own 'Foreign Institutional Investors' row Sep-2016..Jun-2017
+# §164r batch 13 (user 2026-10-04 'yes fix all three'): a holder name the company cut short in ONE filing is read as the full
+# legal name the SAME company prints for the same holding (same share count) in its neighbouring filings, before the evidence
+# test - the short form can collide with a different vehicle's listings. SHILPAMED Mar-2017 'BARING INDIA PRIVATE EQUITY FUND III'
+# 6,000,000 shares (7.4881) = 'BARING INDIA PRIVATE EQUITY FUND III LIMITED' 6,000,000 shares in Dec-2016 and Sep-2017, filed on
+# company-type rows (Foreign / Overseas Corporate Bodies) with no institution listing under that name; the short form's 12
+# institution listings are other companies' FPI rows (e.g. 531213). Checked on the cached filings 2026-10-04.
+OWN_NAME = {
+    "SHILPAMED": {
+        "BARING INDIA PRIVATE EQUITY FUND III": "BARING INDIA PRIVATE EQUITY FUND III LIMITED"
+    },
+    # §164r batch 14: 'Internation Finance Corporation' on PARAGMILK's FDI line (29-Sep-2025 filing) = 'International Finance
+    # Corporation' on its Foreign Companies line Dec-2025..Jun-2026 - the same 5,733,713 shares (checked 2026-10-04)
+    "PARAGMILK": {"INTERNATION FINANCE CORPORATION": "INTERNATIONAL FINANCE CORPORATION"},
+    # §164r batch 14, same share count in the company's adjacent filings (checked 2026-10-04): SMLMAH Mar-2020 'ISUZU MOTORSLIMITED'
+    # 2,170,747 = 'ISUZU MOTORS LIMITED' Dec-2019; SWANCORP Mar/Sep-2018 '2I CAPITAL PCC - Foreign Company' 23,077,000 = '2I CAPITAL PCC'
+    # Dec-2017 / Jun-2018; JSWSTEEL: JFE moved its block to its Dutch subsidiary - 'JFE Steel Corporation' 33,467,580 shares in
+    # Mar-2012, 'JFE Steel International Europe B V' 33,467,580 in Jun-2012 (BSE >1% lists, qtrid 73 / 74)
+    "SMLMAH": {"ISUZU MOTORSLIMITED": "ISUZU MOTORS LIMITED"},
+    "SWANCORP": {"2I CAPITAL PCC - FOREIGN COMPANY": "2I CAPITAL PCC"},
+    "JSWSTEEL": {"JFE STEEL CORPORATION": "JFE STEEL INTERNATIONAL EUROPE B.V."},
+    # §164r batch 19 (2026-10-05): Thai Union Frozen Products PCL renamed itself Thai Union Group PCL in 2015. AVANTIFEED's own
+    # Dec-2015 Table III files 'Foreign Corporate Bodies- Thai Union Fro...' 11,410,210 shares; Dec-2016..Dec-2017 file the same
+    # 11,410,210 shares as 'THAI UNION FROZEN PRODUCTS PUBLIC CO LTD' inside Institutions - Any Other; from Mar-2018 the company
+    # files 'THAI UNION GROUP PUBLIC COMPANY LTD' under 'Overseas Corporate Bodies' and in its 2022 form under Foreign Companies
+    "AVANTIFEED": {
+        "THAI UNION FROZEN PRODUCTS PUBLIC CO LTD": "THAI UNION GROUP PUBLIC COMPANY LIMITED",
+        "THAI UNION FROZEN PRODUCTS PUBLIC COMPANY LIMITED": "THAI UNION GROUP PUBLIC COMPANY LIMITED",
+        "THAI UNION FORZEN PRODUCTS PLC": "THAI UNION GROUP PUBLIC COMPANY LIMITED",
+    },  # Jun-2017's misspelling, same 11,410,210 shares
+    # 2026-10-05: HEXAWARE files T. Rowe Price International Discovery Fund as 'T ROWE PRICE DISCVERY FUND' (Jun-2016, 5,786,515) and
+    # 'T ROWE PRICE INTERNATIONAL DISCVERY FUND' (Dec-2016, 6,213,210 = the 6,213,210 of Sep-2016's correctly spelt row)
+    "HEXAWARE": {
+        "T ROWE PRICE DISCVERY FUND": "T ROWE PRICE INTERNATIONAL DISCOVERY FUND",
+        "T ROWE PRICE INTERNATIONAL DISCVERY FUND": "T ROWE PRICE INTERNATIONAL DISCOVERY FUND",
+    },
+}
+
+
+def own_name(sym, hn):
+    return (OWN_NAME.get(sym) or {}).get(re.sub(r"\s+", " ", str(hn or "")).strip().upper(), hn)
+
+
+OWN_FOR_AX = (
+    "InstitutionsForeignPortfolioInvestor",
+    "ForeignPortfolioInvestor",
+    "ForeignDirectInvestment",
+    "ForeignVentureCapital",
+    "SovereignWealthFunds",
+    "OtherInstitutionsForeign",
+    "InstitutionsForeign",
+    "ForeignInstitutionalInvestors",
+)
+# §164r batch 10: some filers write their category in front of the holder ('Foreign Bodies Corporate- Jomei Investments Limited',
+# ABCAPITAL 2020-22; 'QFI - ZEND ...' on BSE's 2015 lists). The bare name is what the company's own 2022-form row and its other
+# filings carry ('Jomei Investments Limited' on ABCAPITAL's Foreign Direct Investment row from Sep-2022).
+_CATPFX = re.compile(
+    r"^\s*(?:(?:foreign|overseas)\s+(?:bod(?:y|ies)\s+corporates?|corporate\s+bod(?:y|ies)|compan(?:y|ies))|fiis?|fpis?|qfis?|fdi|fvci|ocb)\s*[-\u2013:]\s*",
+    re.I,
+)
+
+
+def _bare_name(name):
+    b = _CATPFX.sub("", str(name or ""), count=1).strip()
+    return b if len(b) >= 3 else str(name or "")
+
+
+def _same_holder(a, b):
+    """Strict legal-name identity (as the evidence test): exact after legal-form normalisation, >= 0.96 alike with the same series
+    markers, or the start of a name cut off at >= 25 characters."""
+    x, y = anorm(a), anorm(b)
+    if not x or not y:
+        return False
+    if x == y:
+        return True
+    if min(len(x), len(y)) >= 25 and (x.startswith(y) or y.startswith(x)):
+        return True
+    return difflib.SequenceMatcher(None, x, y).ratio() >= 0.96 and _series(a) == _series(b)
+
+
+# §164r batch 14 (user 2026-10-04 'yes go with A'): the company's own 'Foreign Direct Investment' line (2022 form, B2 Institutions
+# (Foreign)) in ANY of its filings - not only the FIRST 2022-form filing newmap_for reads - decides that holder in every quarter.
+# Companies moved the same shares between 'Foreign Companies' and the FDI line (JSWSTEEL: JFE Steel 15.00 under Foreign Companies in
+# Sep-2022, on the FDI line from Dec-2022; DELHIVERY 49.78 at Mar-2023; PPLPHARMA: CA Alchemy back to Foreign Companies in Jun-2026),
+# so a first-filing read made FII jump or drop with no trade. Registry scripts/shp_fdi_holders.json: per company, every holder it
+# files on its FDI line, with the first and last such filing (quarter, %, XBRL). Strict identity (_same_holder on the bare name).
+def _load_fdi_reg():
+    try:
+        return (
+            json.load(
+                open(os.path.join(REPO, "scripts", "shp_fdi_holders.json"), encoding="utf-8")
+            ).get("holders")
+            or {}
+        )
+    except (OSError, ValueError):
+        return {}
+
+
+FDI_REG = _load_fdi_reg()
+
+
+def fdi_line(sym, hn):
+    """The registry entry when the company itself files `hn` on its FDI line in some 2022-form filing, else None."""
+    regs = FDI_REG.get(sym)
+    if not regs or not hn:
+        return None
+    hb = _bare_name(own_name(sym, hn))
+    for h in regs:
+        if _same_holder(hb, _bare_name(own_name(sym, h["name"]))):
+            return h
+    return None
+
+
 def _documented_foreign(n, what):
     """A name whose only sign of being foreign is the name itself: FII only with a document on file (GLEIF / another filing's
     foreign-institution row); otherwise unresolved — never foreign by name alone."""
@@ -318,10 +669,14 @@ def holder_class(name, verdicts, newmap, pct=None):
     markers (jurisdiction, plc/llc/pte, 'global', university...) > weak domestic markers (bank, FI, AIF)."""
     n = norm(name)
     newmap = newmap or {}
+    nb = norm(_bare_name(name))
     hit = None
     if n in newmap:
         pr = pick_row(newmap[n], pct)
         hit = (pr, "new-format:" + pr[1])
+    elif nb != n and nb in newmap:
+        pr = pick_row(newmap[nb], pct)
+        hit = (pr, "new-format:" + pr[1])  # §164r batch 10: category-prefixed name
     else:
         best = None
         for k, rows in newmap.items():
@@ -332,9 +687,14 @@ def holder_class(name, verdicts, newmap, pct=None):
         if best:
             hit = (best[1], "new-format~:" + best[1][1])
     if hit:
-        (cls, _src), how = hit
+        (cls, src), how = hit
         if cls == "fii":
             return "foreign", "fii", how
+        # §164s part 9 (rule 4, user 2026-10-04 "use registers"): a holder an official register proves to be an Indian institution
+        # (IRDAI insurer, PFRDA NPS Trust, RBI bank / NBFC) is domestic even when the company's 2022 form files it among
+        # non-institutions - BAJAJCON 2020 'ICICI Lombard General Insurance' 1.40 inside its QIB row had been read as foreign
+        if cls == "public" and _REG.register(name):
+            return "domestic", None, "register:" + _REG.register(name)[:60]
         if cls == "public":
             return "foreign", "public", how
         return "domestic", None, how
@@ -349,12 +709,14 @@ def holder_class(name, verdicts, newmap, pct=None):
             if e.get("class", "foreign") == "foreign"
             else ("domestic", None, "documented:" + e.get("proof", ""))
         )
-    if DOMSTRONG.search(name) and not FORLAB.search(name.replace("International", "").replace("INTERNATIONAL", "")):
+    if DOMSTRONG.search(name) and not FORLAB.search(
+        name.replace("International", "").replace("INTERNATIONAL", "")
+    ):
         return "domestic", None, "regex"
     if DOMSTRONG.search(name) and re.search(
         r"pension fund global|government of|monetary authority|\bsingapore\b|\bnorges\b|abu dhabi|\bqatar\b|\bkuwait\b",
         name,
-        re.IGNORECASE,
+        re.I,
     ):
         return _documented_foreign(n, "sovereign name")
     if DOMSTRONG.search(name):
@@ -383,7 +745,11 @@ def newmap_for(sym, bse_rows):
     FVCI); pick_row chooses the row whose size is closest to the old-form holding, else the largest."""
     cands = sorted(
         [
-            (qe_of(r.get("qtr")), (r.get("XbrlFile") or "").strip(), r.get("filing_date_time") or "")
+            (
+                qe_of(r.get("qtr")),
+                (r.get("XbrlFile") or "").strip(),
+                r.get("filing_date_time") or "",
+            )
             for r in bse_rows
             if qe_of(r.get("qtr")) and qe_of(r.get("qtr")) >= "2022-09-30" and r.get("XbrlFile")
         ]
@@ -472,13 +838,44 @@ class SymCtx:
         self.newfile = None
         self.memory = {}
         self.label_memory = {}
+        self._ownfii = None
+
+    def own_fii(self, hn):
+        """§164r batch 10: True when this company files the same holder as a foreign investor in any of its own filings."""
+        if self._ownfii is None:
+            names = list(OWN_FII_EXTRA.get(self.sym, []))
+            for r in self.bse_rows or []:
+                f = (r.get("XbrlFile") or "").strip()
+                p = find_file(f) if f else None
+                if not p:
+                    continue
+                try:
+                    rr = rows_of(open(p, "rb").read())
+                except Exception:
+                    continue
+                for ax in sorted({x[0] for x in rr}):
+                    fa = any(ax.startswith(a) for a in OWN_FOR_AX)
+                    for g in groups(rr, ax):
+                        if fa or (LAB_FII.search(g["label"]) and not LAB_PUB.search(g["label"])):
+                            names += [n for _, n in g["holders"]]
+            self._ownfii = names
+        hb = _bare_name(hn)
+        return any(_same_holder(hb, _bare_name(n)) for n in self._ownfii)
 
     def hclass(self, hn, pct=None):
+        if fdi_line(self.sym, hn):
+            return (
+                "foreign",
+                "fii",
+                "new-format:ForeignDirectInvestment(any filing)",
+            )  # §164r batch 14; not kept in memory (no fuzzy spread)
         if self.newmap is None:
             self.newmap, self.newfile = newmap_for(self.sym, self.bse_rows)
-        c, dest, src = holder_class(hn, self.verdicts, self.newmap, pct)
+        c, dest, src = holder_class(
+            own_name(self.sym, hn), self.verdicts, self.newmap, pct
+        )  # §164r batch 19: the company's own name for the holder (OWN_NAME) reaches its 2022-form placement too
         n = norm(hn)
-        if src.startswith(("new-format", "documented")) or src == "curated":
+        if src.startswith("new-format") or src == "curated" or src.startswith("documented"):
             self.memory[n] = (c, dest, src)
         elif n in self.memory:
             c, dest, src = self.memory[n]
@@ -505,10 +902,10 @@ def eval_filing(ctx, qe, txt, bd, res, cur, final=True, unres_log=None, ext_fii=
     fii_shift = min(max(fii_shift, 0.0), oth_inst)
     split = "a" if fii_shift <= 0.03 else ("b" if abs(fii_shift - oth_inst) <= 0.03 else "p")
     rows = rows_of(txt)
-    gi = groups(rows, "OtherInstitutions")
-    gn = groups(rows, "OtherNonInstitutions")
+    gi = groups(rows, "OtherInstitutions", bd.get("OtherInstitutionsMember"))
+    gn = groups(rows, "OtherNonInstitutions", bd.get("OtherNonInstitutionsMember"))
     ev = []
-    mv_fii = mv_pub = keep = unres = 0.0
+    mv_fii = mv_pub = keep = unres = unp = 0.0
     overflow = False
     if oth_inst >= 0.005:
         if not gi:
@@ -516,19 +913,28 @@ def eval_filing(ctx, qe, txt, bd, res, cur, final=True, unres_log=None, ext_fii=
             ev.append(("R1-unresolved", "no typed rows", round(oth_inst, 4)))
         for g in gi:
             lab = g["label"]
-            hs = [(hp, hn, *ctx.hclass(hn, hp)) for hp, hn in g["holders"]]
+            hs = [(hp, hn) + ctx.hclass(hn, hp) for hp, hn in g["holders"]]
             lab_kind = (
                 "domestic"
-                if (DOMLAB.search(lab) and not LAB_FII.search(lab) and not FORWORD.search(lab))
+                if (
+                    DOMLAB.search(lab)
+                    and not LAB_FII.search(lab)
+                    and not FORWORD.search(lab)
+                    and not SOVNAME.search(lab)
+                )
                 else "public"
-                if LAB_PUB.search(lab)
+                if (LAB_PUB.search(lab) or noninst_label(lab))
                 else "fii"
                 if (LAB_FII.search(lab) or FORLAB.search(lab))
                 else None
             )
             lab_src = "keyword"
+            if SOVNAME.search(lab) and not g["holders"]:
+                lab_kind = (
+                    None  # §164s part 7: the label is a sovereign fund's NAME, not a category
+                )
             if lab_kind is None and not g["holders"]:
-                ltxt = re.sub(r"^(other|others|any other)\s*", "", lab, flags=re.IGNORECASE).strip()
+                ltxt = re.sub(r"^(other|others|any other)\s*", "", lab, flags=re.I).strip()
                 c, dest, src = ctx.hclass(ltxt, g["pct"]) if ltxt else (None, None, "")
                 if c == "foreign":
                     lab_kind = dest or "fii"
@@ -536,27 +942,68 @@ def eval_filing(ctx, qe, txt, bd, res, cur, final=True, unres_log=None, ext_fii=
                 elif c == "domestic":
                     lab_kind = "domestic"
                     lab_src = "label-as-holder:" + src
+                elif c is None and SOVNAME.search(ltxt):
+                    # §164s part 7: a row whose label IS a sovereign / foreign public fund's name (MHRIL Sep-2016 'Government Pension
+                    # Fund Global' 0.54 - Norway's fund; 'pension' had made it a domestic label) is that named holder, of unknown
+                    # class without a document - it follows the named-holder rules below, never the domestic-label rule
+                    hs = [(g["pct"], ltxt, None, None, "label-as-holder")]
                 elif norm(lab) in ctx.label_memory:
                     lab_kind = ctx.label_memory[norm(lab)]
                     lab_src = "label-memory"
+            hs_pre = hs  # the placements before option A: the unnamed rest below follows THESE (D1), not the option-A outcome
             hs2 = []
             for hp, hn, c, dest, src in hs:
-                inst_tag = bool(
-                    re.search(
-                        r"\((fpi|fii)\)|\bfpi\b|\bfii\b|foreign portfolio|foreign institutional|\bfvci\b|foreign venture|foreign bank|sovereign",
-                        hn,
-                        re.IGNORECASE,
+                inst_tag = (
+                    bool(
+                        re.search(
+                            r"\((fpi|fii|fdi)\)|\bfpi\b|\bfii\b|\bfdi\b|"
+                            + _FOR
+                            + r"\w*\s+direct|"
+                            + _FOR
+                            + r"\w*\s+"
+                            + _PFO
+                            + r"|"
+                            + _FOR
+                            + r"\w*\s+institutional|\bfvci\b|"
+                            + _FOR
+                            + r"\w*\s+venture|"
+                            + _FOR
+                            + r"\w*\s+bank|sovereign",
+                            hn,
+                            re.I,
+                        )
                     )
-                )
+                    or bool(
+                        re.search(r"\b" + _FOR + r"\w*\b", hn, re.I)
+                        and re.search(
+                            r"mutual funds?|financial institutions?|\bbanks?\b|insurance|pension",
+                            hn,
+                            re.I,
+                        )
+                    )
+                )  # §164r batch 10: a line named like a foreign-institution category (BSOFT Mar-2018 'Foreign Mutual Fund' 1.61)
+                # §164r batch 10 (user 2026-10-04 'fix the open items'): option A covers a holder the company lists on an UNLABELLED
+                # institutions sub-row too (lab_kind None) - the curated list / a Mauritius name had kept CDC Group (NH, UJJIVAN),
+                # JP Morgan Mauritius IV (NH), Arcee 'OCB' (TCI) and DEG (JKPAPER) in FII there with no institution listing anywhere
                 if (
-                    c == "foreign"
+                    (c == "foreign" or (c != "domestic" and inst_tag))
                     and not src.startswith("new-format")
                     and src not in ("memory", "memory~")
-                    and lab_kind in ("public", "fii")
+                    and lab_kind in ("public", "fii", None)
                 ):
                     # the label decides an unnamed-type holder; an institution-type holder (FPI/FII tag in its own name, or a
                     # curated FPI fund) is FII whatever the row was called — the 2022 form would list it in B2
-                    dest = "fii" if src == "curated" or inst_tag else lab_kind
+                    # §164r batch 7 (user 2026-09-29 'Documents only'): a curated verdict alone no longer counts — the holder needs an
+                    # institution tag in its own name or another company's filing listing it under Institutions (Foreign)
+                    if (
+                        inst_tag
+                        or inst_listed(own_name(ctx.sym, hn))
+                        or lab_kind is None
+                        and ctx.own_fii(hn)
+                    ):
+                        dest = "fii"  # §164r batch 8 option A: inside the Institutions block the company's own placement + one institution listing
+                    else:
+                        dest = lab_kind or "public"
                 hs2.append((hp, hn, c, dest, src))
             hs = hs2
             # §164j: a named holder that is foreign ONLY by its name and has no document on file (holder_class -> "name-only")
@@ -575,8 +1022,14 @@ def eval_filing(ctx, qe, txt, bd, res, cur, final=True, unres_log=None, ext_fii=
                     mv_pub += lsum
                 else:
                     unres += lsum
+                    unp += lsum
                     ev.append(
-                        ("R1-named-unresolved-kept", lab, round(lsum, 4), "; ".join(f"{h[1]} {h[0]:.2f}" for h in lh))
+                        (
+                            "R1-named-unresolved-kept",
+                            lab,
+                            round(lsum, 4),
+                            "; ".join(f"{h[1]} {h[0]:.2f}" for h in lh),
+                        )
                     )
             fh = [h for h in hs if h[2] == "foreign"]
             dh = [h for h in hs if h[2] == "domestic"]
@@ -586,7 +1039,8 @@ def eval_filing(ctx, qe, txt, bd, res, cur, final=True, unres_log=None, ext_fii=
             contained = sum(h[0] for h in hs) <= g["pct"] + 0.02
             rest = max(0.0, g["pct"] - (sum(h[0] for h in hs) if contained else 0.0))
             desc = "; ".join(
-                "{} {:.2f} {}->{}({})".format(h[1], h[0], h[2] or "?", h[3] or "-", h[4] or "-") for h in hs
+                "{} {:.2f} {}->{}({})".format(h[1], h[0], h[2] or "?", h[3] or "-", h[4] or "-")
+                for h in hs
             )
             if lab_kind == "domestic":
                 mv_pub += named_f_pub
@@ -617,6 +1071,21 @@ def eval_filing(ctx, qe, txt, bd, res, cur, final=True, unres_log=None, ext_fii=
                     )
                 )
             elif lab_kind == "public":
+                if OWN_LABEL_FIRST:
+                    weak = [
+                        h for h in dh if str(h[4]).startswith("documented") and FORWORD.search(lab)
+                    ]
+                    if weak:
+                        named_d -= sum(h[0] for h in weak)
+                        named_f_pub += sum(h[0] for h in weak)
+                        ev.append(
+                            (
+                                "R1-own-label-first",
+                                lab,
+                                round(sum(h[0] for h in weak), 4),
+                                "; ".join(f"{h[1]} {h[0]:.2f} ({h[4]})" for h in weak),
+                            )
+                        )
                 mv_pub += named_f_pub + rest
                 mv_fii += named_f_fii
                 keep += named_d
@@ -630,39 +1099,47 @@ def eval_filing(ctx, qe, txt, bd, res, cur, final=True, unres_log=None, ext_fii=
                         lab_src,
                     )
                 )
-            elif fh and not dh:
-                rest_dest = "public" if all(h[3] == "public" for h in fh) else "fii"
-                ctx.label_memory.setdefault(norm(lab), rest_dest)
-                mv_pub += named_f_pub + (rest if rest_dest == "public" else 0.0)
-                mv_fii += named_f_fii + (rest if rest_dest == "fii" else 0.0)
-                ev.append(
-                    (
-                        "R1-foreign-holders",
-                        lab,
-                        round(g["pct"], 4),
-                        "public={:.2f} fii={:.2f}".format(
-                            named_f_pub + (rest if rest_dest == "public" else 0.0),
-                            named_f_fii + (rest if rest_dest == "fii" else 0.0),
-                        ),
-                        desc,
-                    )
-                )
-            elif dh and not fh:
-                keep += g["pct"] if contained else named_d + g["pct"]
-                ev.append(("R1-domestic-holders", lab, round(g["pct"], 4), desc))
-                ctx.label_memory.setdefault(norm(lab), "domestic")
-            elif fh and dh:
-                mv_pub += named_f_pub
-                mv_fii += named_f_fii
-                keep += named_d + rest
-                ev.append(
-                    ("R1-mixed", lab, round(g["pct"], 4), f"public={named_f_pub:.2f} fii={named_f_fii:.2f}", desc)
-                )
             else:
-                unres += g["pct"]
-                ev.append(("R1-unresolved", lab, round(g["pct"], 4), desc, lab_src))
-                if g["pct"] >= 0.5 and final and unres_log is not None:
-                    unres_log.append((ctx.sym, qe, lab, round(g["pct"], 2), [h[1] for h in hs]))
+                if fh and not dh:
+                    fh_pre = [h for h in hs_pre if h[2] == "foreign"]
+                    rest_dest = "public" if all(h[3] == "public" for h in fh_pre) else "fii"
+                    ctx.label_memory.setdefault(norm(lab), rest_dest)
+                    mv_pub += named_f_pub + (rest if rest_dest == "public" else 0.0)
+                    mv_fii += named_f_fii + (rest if rest_dest == "fii" else 0.0)
+                    ev.append(
+                        (
+                            "R1-foreign-holders",
+                            lab,
+                            round(g["pct"], 4),
+                            "public={:.2f} fii={:.2f}".format(
+                                named_f_pub + (rest if rest_dest == "public" else 0.0),
+                                named_f_fii + (rest if rest_dest == "fii" else 0.0),
+                            ),
+                            desc,
+                        )
+                    )
+                elif dh and not fh:
+                    keep += g["pct"] if contained else named_d + g["pct"]
+                    ev.append(("R1-domestic-holders", lab, round(g["pct"], 4), desc))
+                    ctx.label_memory.setdefault(norm(lab), "domestic")
+                elif fh and dh:
+                    mv_pub += named_f_pub
+                    mv_fii += named_f_fii
+                    keep += named_d + rest
+                    ev.append(
+                        (
+                            "R1-mixed",
+                            lab,
+                            round(g["pct"], 4),
+                            f"public={named_f_pub:.2f} fii={named_f_fii:.2f}",
+                            desc,
+                        )
+                    )
+                else:
+                    unres += g["pct"]
+                    ev.append(("R1-unresolved", lab, round(g["pct"], 4), desc, lab_src))
+                    if g["pct"] >= 0.5 and final and unres_log is not None:
+                        unres_log.append((ctx.sym, qe, lab, round(g["pct"], 2), [h[1] for h in hs]))
         rem = oth_inst - (mv_fii + mv_pub + keep + unres)
         # §158a rest-follows (user 2026-09-25 "fix the remaining 86 cells too"): a filing whose >=1% holders form orphan
         # groups (no category row on the axis) left the unnamed rest of the block uncovered. When every CLASSIFIED named
@@ -682,6 +1159,7 @@ def eval_filing(ctx, qe, txt, bd, res, cur, final=True, unres_log=None, ext_fii=
             ev.append(("R1-overflow", round(tot, 2), round(oth_inst, 2)))
             mv_fii = mv_pub = keep = 0.0
             unres = oth_inst
+            unp = 0.0
     add_dii = add_ins = 0.0
     for g in gn:
         lab = g["label"]
@@ -689,23 +1167,40 @@ def eval_filing(ctx, qe, txt, bd, res, cur, final=True, unres_log=None, ext_fii=
             not DOMLAB.search(lab) or FORWORD.search(lab)
         ):
             continue
-        hs = [(hp, hn, *ctx.hclass(hn, hp)) for hp, hn in g["holders"]] if g["holders"] else []
-        dh = [h for h in hs if h[2] == "domestic" and (DOMLAB.search(h[1]) or h[4].startswith("new-format"))]
+        hs = [(hp, hn) + ctx.hclass(hn, hp) for hp, hn in g["holders"]] if g["holders"] else []
+        dh = [
+            h
+            for h in hs
+            if h[2] == "domestic" and (DOMLAB.search(h[1]) or h[4].startswith("new-format"))
+        ]
         fh = [h for h in hs if h[2] == "foreign"]
         contained = sum(h[0] for h in hs) <= g["pct"] + 0.02
-        if DOMLAB.search(lab) and not re.search(r"trust", lab, re.IGNORECASE):
+        if (
+            DOMLAB.search(lab)
+            and not re.search(r"trust", lab, re.I)
+            and not (MIXED_OUT and MIXLAB.search(lab))
+        ):
             take = g["pct"] - (sum(h[0] for h in fh) if contained else 0.0)
             if not contained:
                 take += sum(h[0] for h in dh)
             if take > 0.005:
                 add_dii += take
                 add_ins += sum(h[0] for h in dh if INSURER.search(h[1]))
-                ev.append(("R2-label", lab, round(take, 4), "; ".join(f"{h[1]} {h[0]:.2f}" for h in hs)))
+                ev.append(
+                    ("R2-label", lab, round(take, 4), "; ".join(f"{h[1]} {h[0]:.2f}" for h in hs))
+                )
         elif dh:
             take = sum(h[0] for h in dh)
             add_dii += take
             add_ins += sum(h[0] for h in dh if INSURER.search(h[1]))
-            ev.append(("R2-named", lab, round(take, 4), "; ".join(f"{h[1]} {h[0]:.2f}({h[4]})" for h in dh)))
+            ev.append(
+                (
+                    "R2-named",
+                    lab,
+                    round(take, 4),
+                    "; ".join(f"{h[1]} {h[0]:.2f}({h[4]})" for h in dh),
+                )
+            )
     nbfc = bd.get("NBFCsRegisteredWithRbiMember") or 0.0
     if nbfc >= 0.005:
         add_dii += nbfc
@@ -717,8 +1212,20 @@ def eval_filing(ctx, qe, txt, bd, res, cur, final=True, unres_log=None, ext_fii=
     left = min(oth_inst, max(0.0, res["dii"] + add_prev - (cur[2] or 0)))
     u_out = min(unres, max(0.0, left - (mv_fii + mv_pub)))
     u_fii = min(u_out, max(0.0, fii_shift - mv_fii))
-    u_out - u_fii
+    u_pub = u_out - u_fii
     u_dii = unres - u_out
+    # §164s part 7 (user 2026-10-05 'Take them out'): DII counts only holders shown to be Indian. A NAMED holder of unknown
+    # class (no new-form placement, no curated verdict, no register / filing document - holder_class -> None) that the store
+    # holds in dii leaves dii for public ("neither"); FII takes it only with a foreign document (the FII session's rules).
+    # UJJIVAN Sep-2019: Alena Pvt Ltd 8.88 + Elevar Equity Mauritius 1.66 + CX Partners Fund 1 2.14 -> dii 27.23 -> 14.55.
+    unp_out = min(unp, u_dii) if NAMED_UNPROVEN_OUT else 0.0
+    if unp_out > 0.004:
+        u_dii -= unp_out
+        unres -= unp_out
+        u_pub += unp_out
+        ev.append(("R1-named-unproven-out-of-dii", round(unp_out, 4)))
+    else:
+        unp_out = 0.0
     t_dii = dom_only + keep + u_dii + add_dii
     t_fii = res["fii"] + mv_fii + u_fii + ext_fii
     return {
@@ -793,7 +1300,10 @@ def match_filing(fl, qe, cur, stats=None, ext_fii=0.0, healed=False):
 
 AUDIT = {}
 try:
-    AUDIT = json.load(open(os.path.join(REPO, "scripts", "_shp_dii_rowfix_audit.json"))).get("cells") or {}
+    AUDIT = (
+        json.load(open(os.path.join(REPO, "scripts", "_shp_dii_rowfix_audit.json"))).get("cells")
+        or {}
+    )
 except Exception:
     AUDIT = {}
 
@@ -864,7 +1374,9 @@ def classify(limit=0, start=0, only=None, verbose=False):
                 if "\u00a7158 row-level DII heal" in (chain.get("why") or ""):
                     add_prev = float((AUDIT.get(f"{sym}|{qe}") or {}).get("add_dii") or 0.0)
                     break
-                chain = chain.get("superseded") if isinstance(chain.get("superseded"), dict) else None
+                chain = (
+                    chain.get("superseded") if isinstance(chain.get("superseded"), dict) else None
+                )
                 depth += 1
             healed = False
             chain = prior
@@ -873,7 +1385,9 @@ def classify(limit=0, start=0, only=None, verbose=False):
                 if F.VALUE_HEAL_MARK.search(str(chain.get("why") or "")):
                     healed = True
                     break
-                chain = chain.get("superseded") if isinstance(chain.get("superseded"), dict) else None
+                chain = (
+                    chain.get("superseded") if isinstance(chain.get("superseded"), dict) else None
+                )
                 depth += 1
             chosen = match_filing(fl, qe, cur, stats if final else None, ext_fii, healed)
             if not chosen:
@@ -882,7 +1396,9 @@ def classify(limit=0, start=0, only=None, verbose=False):
                         stats["not_cached"] += 1
                     else:
                         stats["no_matching_filing"] += 1
-                        verbose and print(f"  {qe} NO MATCHING FILING stored={cur[:3]} files={[x[1] for x in fl]}")
+                        verbose and print(
+                            f"  {qe} NO MATCHING FILING stored={cur[:3]} files={[x[1] for x in fl]}"
+                        )
                 continue
             f, txt, bd, res = chosen
             r = eval_filing(ctx, qe, txt, bd, res, cur, final, unres_log, ext_fii, add_prev)
@@ -944,7 +1460,10 @@ def classify(limit=0, start=0, only=None, verbose=False):
             }
             stats["proposed"] += 1
         if si % 50 == 0:
-            print("  %d/%d %s %s %.0fs" % (si, len(syms), sym, dict(stats), time.time() - t0), file=sys.stderr)
+            print(
+                "  %d/%d %s %s %.0fs" % (si, len(syms), sym, dict(stats), time.time() - t0),
+                file=sys.stderr,
+            )
         if limit and si >= limit:
             break
     outp = "proposals_one.json" if only else "proposals.json"
@@ -969,13 +1488,20 @@ def revfix():
             continue
         stats["rev_rows"] += 1
         # (i) same raw fii/dii as the original -> same healed values
-        if abs(float(rc[1]) - float(v["was"][1])) <= 0.0100001 and abs(float(rc[2]) - float(v["was"][2])) <= 0.0100001:
+        if (
+            abs(float(rc[1]) - float(v["was"][1])) <= 0.0100001
+            and abs(float(rc[2]) - float(v["was"][2])) <= 0.0100001
+        ):
             new = list(rc)
             new[1] = v["cell"][1]
             new[2] = v["cell"][2]
             if rc[4] is not None and v["cell"][4] is not None and v["was"][4] is not None:
                 new[4] = round(float(rc[4]) + (float(v["cell"][4]) - float(v["was"][4])), 4)
-            out[k] = {"was": rc, "cell": new, "how": "same raw fii/dii as the original -> original's healed values"}
+            out[k] = {
+                "was": rc,
+                "cell": new,
+                "how": "same raw fii/dii as the original -> original's healed values",
+            }
             stats["same_raw"] += 1
             continue
         # (ii) different numbers -> evaluate the re-filing's own document
@@ -984,7 +1510,9 @@ def revfix():
         bse_rows = d.get("Table") if isinstance(d, dict) else d
         fl = quarter_files(bse_rows).get(qe, [])
         ctx = SymCtx(sym, bse_rows, verdicts)
-        chosen = match_filing([x for x in fl if x[1] != v["file"]], qe, rc) or match_filing(fl, qe, rc)
+        chosen = match_filing([x for x in fl if x[1] != v["file"]], qe, rc) or match_filing(
+            fl, qe, rc
+        )
         if not chosen:
             out[k] = {"was": rc, "how": "NO MATCHING DOCUMENT for the re-filing row (left as is)"}
             stats["no_doc"] += 1
@@ -1070,7 +1598,11 @@ def verify():
     print("Sep-2022 seam after ", after)
     for d, s, a, b in top:
         print("   %-12s %7.2f -> %7.2f (%+.2f)" % (s, a, b, d))
-    for qa, qb in (("2016-03-31", "2016-06-30"), ("2016-06-30", "2016-09-30"), ("2021-12-31", "2022-03-31")):
+    for qa, qb in (
+        ("2016-03-31", "2016-06-30"),
+        ("2016-06-30", "2016-09-30"),
+        ("2021-12-31", "2022-03-31"),
+    ):
         b0, _ = seam_stats(hist, syms, qa, qb)
         a0, t0 = seam_stats(H, syms, qa, qb)
         print(f"{qa}->{qb} before {b0} after {a0}")
@@ -1097,7 +1629,9 @@ def write(stamp=None):
     raw = open(path, encoding="utf-8").read()
     led = json.loads(raw)
     fix = led.setdefault("fix", {})
-    ascii_only = "\\u00" in raw  # the file's own style: json.dump(ensure_ascii=True) escapes every non-ASCII char
+    ascii_only = (
+        "\\u00" in raw
+    )  # the file's own style: json.dump(ensure_ascii=True) escapes every non-ASCII char
     hist = json.load(open(os.path.join(REPO, "scripts", "shp_history.json")))
     n_new = n_sup = n_skip = 0
     audit = {
@@ -1126,12 +1660,21 @@ def write(stamp=None):
                 " ".join(str(x) for x in e)
                 for e in sorted(
                     v["ev"],
-                    key=lambda e: 0 if e[0] in ("R1-rest-follows-foreign-holders", "R1-uncovered-remainder") else 1,
+                    key=lambda e: (
+                        0
+                        if e[0] in ("R1-rest-follows-foreign-holders", "R1-uncovered-remainder")
+                        else 1
+                    ),
                 )
             )[:900]
             + ". Evidence: _shp_dii_rowfix_audit.json"
         )
-        ent = {"cell": list(v["cell"]), "was": list(cur), "src": "bsexbrl:{}".format(v["file"]), "why": why}
+        ent = {
+            "cell": list(v["cell"]),
+            "was": list(cur),
+            "src": "bsexbrl:{}".format(v["file"]),
+            "why": why,
+        }
         prior = (fix.get(sym) or {}).get(qe)
         if prior:
             if not F._cell_eq(cur, prior.get("cell")):
@@ -1176,14 +1719,21 @@ def write(stamp=None):
             if not rc or [round(float(x), 4) for x in rc[:5] if x is not None] != [
                 round(float(x), 4) for x in v["was"][:5] if x is not None
             ]:
-                audit["revisions"][k] = {"how": "sidecar row moved since revfix — left as is", "row": rc}
+                audit["revisions"][k] = {
+                    "how": "sidecar row moved since revfix — left as is",
+                    "row": rc,
+                }
                 continue
             new = list(rc)
             new[1] = v["cell"][1]
             new[2] = v["cell"][2]
             new[4] = v["cell"][4]
             if len(new) > 7 and isinstance(new[7], str) and "§158" not in new[7]:
-                new[7] = new[7] + " §158 heal:" + ("inherited" if v["how"].startswith("same raw") else "re-read")
+                new[7] = (
+                    new[7]
+                    + " §158 heal:"
+                    + ("inherited" if v["how"].startswith("same raw") else "re-read")
+                )
             revs[sym][qe] = new
             n_rev += 1
             audit["revisions"][k] = {"how": v["how"], "was": rc, "cell": new}

@@ -52,8 +52,14 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
-FUND = (os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(SCRIPTS, "fundamentals.json"))
-REVOP = (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json"))
+FUND = (
+    os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+    os.path.join(SCRIPTS, "fundamentals.json"),
+)
+REVOP = (
+    os.path.join(ROOT, "docs", "sf_revop.json"),
+    os.path.join(SCRIPTS, "revop_fundamentals.json"),
+)
 LEDGER = os.path.join(SCRIPTS, "owners_basis_heals.json")
 FUND_IDX, REVOP_IDX = 3, 5
 
@@ -61,9 +67,21 @@ FUND_IDX, REVOP_IDX = 3, 5
 FIX = {
     "ATUL": {
         20220331: (136.56, 0.30, 136.26, 136.58, "held the TOTAL"),
-        20221231: (102.88, -2.22, 105.10, 136.87, "held 136.87, which is neither basis for this quarter"),
+        20221231: (
+            102.88,
+            -2.22,
+            105.10,
+            136.87,
+            "held 136.87, which is neither basis for this quarter",
+        ),
         20230331: (92.21, -1.35, 93.56, 92.21, "held the TOTAL"),
-        20240331: (58.79, 0.38, 58.41, 74.90, "held 74.90, which is neither basis for this quarter"),
+        20240331: (
+            58.79,
+            0.38,
+            58.41,
+            74.90,
+            "held 74.90, which is neither basis for this quarter",
+        ),
     },
     "SADBHAV": {
         20190630: (-30.05, -21.98, -8.07, -30.05, "held the TOTAL"),
@@ -87,7 +105,10 @@ IDENTITIES = [
 
 def main():
     dry = "--apply" not in sys.argv
-    print("%-9s %-10s %9s %8s %9s %9s  %s" % ("sym", "quarter", "period", "nci", "owners", "stored", "note"))
+    print(
+        "%-9s %-10s %9s %8s %9s %9s  %s"
+        % ("sym", "quarter", "period", "nci", "owners", "stored", "note")
+    )
     for sym in FIX:
         for qe in sorted(FIX[sym]):
             p, n, o, was, note = FIX[sym][qe]
@@ -98,7 +119,9 @@ def main():
     for name, parts, total, tol in IDENTITIES:
         s = sum(parts)
         ok = abs(s - total) <= tol
-        print("  %-24s %10.2f vs printed %10.2f  %s" % (name, s, total, "OK" if ok else "*** BROKEN"))
+        print(
+            "  %-24s %10.2f vs printed %10.2f  %s" % (name, s, total, "OK" if ok else "*** BROKEN")
+        )
         if not ok:
             sys.exit("identity broken -- refusing to write")
 
@@ -125,7 +148,10 @@ def main():
                     # owners value is document-anchored either way, so revop is overwritten and its
                     # prior value recorded rather than trusted.
                     if not keyed and cur is not None and abs(cur - was) > 0.005:
-                        sys.exit("GUARD %s %d in %s: %s, expected %s" % (sym, qe, os.path.basename(path), cur, was))
+                        sys.exit(
+                            "GUARD %s %d in %s: %s, expected %s"
+                            % (sym, qe, os.path.basename(path), cur, was)
+                        )
                     PRIOR.setdefault("%s|%d" % (sym, qe), {})[os.path.basename(path)] = cur
                     row[idx] = o
                     n += 1

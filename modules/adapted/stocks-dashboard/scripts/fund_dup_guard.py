@@ -164,7 +164,7 @@ def sort_rows(fund):
     duplicate rows for one quarter keep their relative order. Returns the count of symbols that
     were out of order."""
     n = 0
-    for rows in fund.values():
+    for _sym, rows in fund.items():
         if not isinstance(rows, list) or len(rows) < 2:
             continue
         keys = [r[0] for r in rows if isinstance(r, list) and r]
@@ -198,7 +198,12 @@ def load_allow(path=ALLOW):
 def offenders(fund, allow=None):
     """-> sorted ["SYM|QE", ...] duplicates that are NOT on the allowlist."""
     allow = load_allow() if allow is None else allow
-    return sorted(f"{sym}|{qe}" for sym, d in find_dups(fund).items() for qe in d if f"{sym}|{qe}" not in allow)
+    return sorted(
+        f"{sym}|{qe}"
+        for sym, d in find_dups(fund).items()
+        for qe in d
+        if f"{sym}|{qe}" not in allow
+    )
 
 
 def assert_ok(fund, where="sf_fundamentals"):

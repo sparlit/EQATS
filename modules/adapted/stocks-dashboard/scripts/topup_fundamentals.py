@@ -75,7 +75,11 @@ def fetch_integrated(sym, jar):
         rows = json.loads(
             bf._get(
                 url,
-                headers={"User-Agent": bf.UA, "Accept": "application/json", "Referer": "https://www.nseindia.com/"},
+                headers={
+                    "User-Agent": bf.UA,
+                    "Accept": "application/json",
+                    "Referer": "https://www.nseindia.com/",
+                },
                 jar=jar,
                 timeout=30,
             )
@@ -105,7 +109,11 @@ def fetch_integrated(sym, jar):
             if os.path.exists(cf) and os.path.getsize(cf) > 500:
                 xml = open(cf, encoding="utf-8").read()
             else:
-                xml = bf._get(xb, headers={"User-Agent": bf.UA, "Referer": "https://www.nseindia.com/"}, timeout=45)
+                xml = bf._get(
+                    xb,
+                    headers={"User-Agent": bf.UA, "Referer": "https://www.nseindia.com/"},
+                    timeout=45,
+                )
                 open(cf, "w", encoding="utf-8").write(xml)
                 time.sleep(0.1)
         except Exception:

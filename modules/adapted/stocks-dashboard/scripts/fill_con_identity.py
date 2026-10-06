@@ -58,10 +58,16 @@ SLOT_CON = {"rev": 1, "op": 3, "ebit": 8}
 def iso_qe(s):
     M = {
         m: i
-        for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+        for i, m in enumerate(
+            ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+        )
     }
     mm = re.match(r"(\d{1,2})-([A-Za-z]{3})-(\d{4})", (s or "").strip())
-    return "%04d%02d%02d" % (int(mm.group(3)), M[mm.group(2).title()], int(mm.group(1))) if mm else None
+    return (
+        "%04d%02d%02d" % (int(mm.group(3)), M[mm.group(2).title()], int(mm.group(1)))
+        if mm
+        else None
+    )
 
 
 def list_rows(sym):
@@ -96,7 +102,11 @@ def main():
             q = iso_qe(r.get("toDate"))
             if not q:
                 continue
-            (con_qes if str(r.get("consolidated", "")).strip().lower() == "consolidated" else std_qes).add(q)
+            (
+                con_qes
+                if str(r.get("consolidated", "")).strip().lower() == "consolidated"
+                else std_qes
+            ).add(q)
         first_con = min(con_qes) if con_qes else None
         fmap = {str(q[0]): q for q in FUND.get(sym, [])}
         rmap = REVOP.get(sym, {})

@@ -68,7 +68,10 @@ os.makedirs(CACHE, exist_ok=True)
 OUT = os.path.join(HERE, "fundamentals.json")
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 MONTHS = {
-    m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+    )
 }
 
 
@@ -159,11 +162,16 @@ def xbrl_profit(xml, basis_hint=None):
     omits the nature tag — integrated filings file each basis as a SEPARATE filing.
     """
     nat = {}
-    for m in re.finditer(r'NatureOfReportStandaloneConsolidated contextRef="([^"]+)"[^>]*>([^<]+)<', xml):
+    for m in re.finditer(
+        r'NatureOfReportStandaloneConsolidated contextRef="([^"]+)"[^>]*>([^<]+)<', xml
+    ):
         nat[m.group(1)] = m.group(2).strip().lower()
     hint = (basis_hint or "").lower()
     plp = {}
-    for m in re.finditer(r'<in-(?:bse-fin|capmkt):ProfitLossFor(?:The)?Period contextRef="([^"]+)"[^>]*>([^<]+)<', xml):
+    for m in re.finditer(
+        r'<in-(?:bse-fin|capmkt):ProfitLossFor(?:The)?Period contextRef="([^"]+)"[^>]*>([^<]+)<',
+        xml,
+    ):
         if m.group(1) not in plp:
             plp[m.group(1)] = round(float(m.group(2)) / 1e7, 2)  # rupees -> crore
     # INSURERS (IRDAI integrated-filing LI/GI XBRL, 2025+) tag PAT differently — read it so the
@@ -174,7 +182,9 @@ def xbrl_profit(xml, basis_hint=None):
     # bank ...AfterTaxesMinorityInterest variants).
     if not plp:
         for t in ("ProfitLossAfterTaxAndExtraordinaryItems", "ProfitLossAfterTax"):
-            for m in re.finditer(r"<in-(?:bse-fin|capmkt):" + t + r' contextRef="([^"]+)"[^>]*>([^<]+)<', xml):
+            for m in re.finditer(
+                r"<in-(?:bse-fin|capmkt):" + t + r' contextRef="([^"]+)"[^>]*>([^<]+)<', xml
+            ):
                 if m.group(1) not in plp:
                     with contextlib.suppress(Exception):
                         plp[m.group(1)] = round(float(m.group(2)) / 1e7, 2)
@@ -182,7 +192,8 @@ def xbrl_profit(xml, basis_hint=None):
                 break
     attr = {}  # owners' share (consolidated only)
     for m in re.finditer(
-        r'<in-(?:bse-fin|capmkt):ProfitOrLossAttributableToOwnersOfParent contextRef="([^"]+)"[^>]*>([^<]+)<', xml
+        r'<in-(?:bse-fin|capmkt):ProfitOrLossAttributableToOwnersOfParent contextRef="([^"]+)"[^>]*>([^<]+)<',
+        xml,
     ):
         if m.group(1) not in attr:
             with contextlib.suppress(Exception):
@@ -218,15 +229,23 @@ def xbrl_profit(xml, basis_hint=None):
         "BasicEarningsLossPerShareFromContinuingOperations",
         "BasicEarningsLossPerShare",
     ):
-        for m in re.finditer(r"<in-(?:bse-fin|capmkt):" + t + r' contextRef="([^"]+)"[^>]*>([^<]+)<', xml):
+        for m in re.finditer(
+            r"<in-(?:bse-fin|capmkt):" + t + r' contextRef="([^"]+)"[^>]*>([^<]+)<', xml
+        ):
             if m.group(1) not in eps:
                 with contextlib.suppress(Exception):
                     eps[m.group(1)] = float(m.group(2))
         if eps:
             break
     shares = None
-    mp = re.search(r'<in-(?:bse-fin|capmkt):PaidUpValueOfEquityShareCapital contextRef="[^"]+"[^>]*>([^<]+)<', xml)
-    mf = re.search(r'<in-(?:bse-fin|capmkt):FaceValueOfEquityShareCapital contextRef="[^"]+"[^>]*>([^<]+)<', xml)
+    mp = re.search(
+        r'<in-(?:bse-fin|capmkt):PaidUpValueOfEquityShareCapital contextRef="[^"]+"[^>]*>([^<]+)<',
+        xml,
+    )
+    mf = re.search(
+        r'<in-(?:bse-fin|capmkt):FaceValueOfEquityShareCapital contextRef="[^"]+"[^>]*>([^<]+)<',
+        xml,
+    )
     try:
         if mp and mf and float(mf.group(1)) > 0:
             shares = float(mp.group(1)) / float(mf.group(1))
@@ -287,7 +306,9 @@ def integrated_profit(xml, con=False):
     pipeline is update_fundamentals -> xbrl_profit, which EPS-anchors against swapped
     owners/NCI tags (GLENMARK Q4FY26). If this path is ever revived, port that guard."""
     if con:
-        m = re.search(r'ProfitOrLossAttributableToOwnersOfParent contextRef="OneD"[^>]*>([-0-9.eE+]+)<', xml)
+        m = re.search(
+            r'ProfitOrLossAttributableToOwnersOfParent contextRef="OneD"[^>]*>([-0-9.eE+]+)<', xml
+        )
         if m:
             try:
                 v = round(float(m.group(1)) / 1e7, 2)
@@ -308,8 +329,13 @@ def integrated_profit(xml, con=False):
             except Exception:
                 pass
     m = re.search(r'ProfitLossFor(?:The)?Period contextRef="OneD"[^>]*>([-0-9.eE+]+)<', xml)
-    if not m:  # insurers: general -> ProfitLossAfterTax; life -> ProfitLossAfterTaxAndExtraordinaryItems
-        m = re.search(r'ProfitLossAfterTax(?:AndExtraordinaryItems)? contextRef="OneD"[^>]*>([-0-9.eE+]+)<', xml)
+    if (
+        not m
+    ):  # insurers: general -> ProfitLossAfterTax; life -> ProfitLossAfterTaxAndExtraordinaryItems
+        m = re.search(
+            r'ProfitLossAfterTax(?:AndExtraordinaryItems)? contextRef="OneD"[^>]*>([-0-9.eE+]+)<',
+            xml,
+        )
     try:
         return round(float(m.group(1)) / 1e7, 2) if m else None
     except Exception:
@@ -326,7 +352,11 @@ def fetch_integrated(sym, jar, skip=()):
         rows = json.loads(
             _get(
                 url,
-                headers={"User-Agent": UA, "Accept": "application/json", "Referer": "https://www.nseindia.com/"},
+                headers={
+                    "User-Agent": UA,
+                    "Accept": "application/json",
+                    "Referer": "https://www.nseindia.com/",
+                },
                 jar=jar,
                 timeout=30,
             )
@@ -354,7 +384,11 @@ def fetch_integrated(sym, jar, skip=()):
             if os.path.exists(cf) and os.path.getsize(cf) > 500:
                 xml = open(cf, encoding="utf-8").read()
             else:
-                xml = _get(xb, headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"}, timeout=45)
+                xml = _get(
+                    xb,
+                    headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"},
+                    timeout=45,
+                )
                 open(cf, "w", encoding="utf-8").write(xml)
                 time.sleep(0.1)
         except Exception:
@@ -420,7 +454,11 @@ def fetch_symbol(sym, jar):
             if "governance" in (r.get("type", "") or "").lower():
                 continue  # integrated Governance filing has no P&L
             byq.setdefault(qe, []).append(
-                {"ann": iso(r.get(ann_key)) or "99999999", "xbrl": xb, "basis": r.get("consolidated", "")}
+                {
+                    "ann": iso(r.get(ann_key)) or "99999999",
+                    "xbrl": xb,
+                    "basis": r.get("consolidated", ""),
+                }
             )
 
     try:
@@ -467,7 +505,9 @@ def fetch_symbol(sym, jar):
                     xml = open(cf, encoding="utf-8").read()
                 else:
                     xml = _get(
-                        f["xbrl"], headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"}, timeout=30
+                        f["xbrl"],
+                        headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"},
+                        timeout=30,
                     )
                     open(cf, "w", encoding="utf-8").write(xml)
                     time.sleep(0.15)
@@ -530,7 +570,9 @@ def load_sf_universe():
 
 def main():
     args = sys.argv[1:]
-    REFRESH = any(a.lower() == "refresh" for a in args)  # also top up recent quarters of already-built symbols
+    REFRESH = any(
+        a.lower() == "refresh" for a in args
+    )  # also top up recent quarters of already-built symbols
     args = [a for a in args if a.lower() != "refresh"]
     if args and args[0].lower() in ("sf", "all", "survivorship"):
         syms = load_sf_universe()
@@ -575,7 +617,9 @@ def main():
     docs = os.path.join(os.path.dirname(HERE), "docs", "sf_fundamentals.json")
 
     def flush():
-        fund_dup_guard.sort_rows(data)  # rows must stay sorted by quarter-end (engine scans backwards);
+        fund_dup_guard.sort_rows(
+            data
+        )  # rows must stay sorted by quarter-end (engine scans backwards);
         # `data` is loaded from an existing store that another writer
         # may have left out of order. Idempotent. (audit 2026-09-01)
         fund_dup_guard.assert_ok(data, "build_fundamentals")
@@ -615,7 +659,9 @@ def main():
                     flush()
     flush()
 
-    if REFRESH:  # top up recent quarters for every already-built symbol (cheap: only fetches NEW quarters)
+    if (
+        REFRESH
+    ):  # top up recent quarters for every already-built symbol (cheap: only fetches NEW quarters)
         existing = list(data.keys())
         print("  refresh: topping up %d existing symbols with recent quarters" % len(existing))
 
@@ -647,7 +693,10 @@ def main():
                         data[sym] = new
                     if rdone % 100 == 0 or rdone == len(existing):
                         flush()
-                        print("    refreshed %d/%d (%d got newer quarters)" % (rdone, len(existing), upd))
+                        print(
+                            "    refreshed %d/%d (%d got newer quarters)"
+                            % (rdone, len(existing), upd)
+                        )
         flush()
         print("  refresh complete: %d symbols got newer quarters" % upd)
 

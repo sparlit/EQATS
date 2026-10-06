@@ -41,7 +41,9 @@ R = os.path.dirname(H)
 D = json.loads(gzip.decompress(open(os.path.join(R, "docs", "sf_stock_data.bin"), "rb").read()))
 DATA, META = D["data"], D["meta"]
 FUND = json.load(open(os.path.join(R, "docs", "sf_fundamentals.json")))
-HIST = json.load(open(os.path.join(H, "indices_history.json")))["Nifty 500"]  # authoritative (build_membership_v2)
+HIST = json.load(open(os.path.join(H, "indices_history.json")))[
+    "Nifty 500"
+]  # authoritative (build_membership_v2)
 
 
 def od(y):
@@ -61,7 +63,11 @@ def le(o, t):
 
 
 def members(dstr):
-    snap = max((h for h in HIST if h["effectiveDate"] <= dstr), key=lambda h: h["effectiveDate"], default=None)
+    snap = max(
+        (h for h in HIST if h["effectiveDate"] <= dstr),
+        key=lambda h: h["effectiveDate"],
+        default=None,
+    )
     return set(snap["symbols"]) if snap else set()
 
 
@@ -70,7 +76,10 @@ def prof(s, di):
     if not arr:
         return None, None
     for npi, ai in ((3, 4), (1, 2)):
-        cur = next((q for q in reversed(arr) if q[npi] is not None and q[ai] is not None and q[ai] <= di), None)
+        cur = next(
+            (q for q in reversed(arr) if q[npi] is not None and q[ai] is not None and q[ai] <= di),
+            None,
+        )
         if not cur:
             continue
         be = cur[0] - 10000
@@ -111,8 +120,10 @@ def factors(s, asof):
                 break
             ph = c[k] * (1000 + hb[k]) / 1000 if hb else c[k]
             pl = c[k] * (1000 - lb[k]) / 1000 if lb else c[k]
-            hi = max(hi, ph)
-            low = min(low, pl)
+            if ph > hi:
+                hi = ph
+            if pl < low:
+                low = pl
     if hi <= 0 or low <= 0:
         return None
     return p, hi, low, (hi - p) / hi * 100, (p - low) / low * 100
@@ -137,7 +148,12 @@ def main():
             print("  d52<=10:    {:.2f}  -> {}".format(d52, "PASS" if d52 <= 10 else "FAIL"))
             print("  d52low>=100: {:.2f} -> {}".format(d52low, "PASS" if d52low >= 100 else "FAIL"))
         py, det = prof(sym, endymd)
-        print("  profitYoY>0:", (round(py, 1) if isinstance(py, (int, float)) else py), "| cur/base:", det)
+        print(
+            "  profitYoY>0:",
+            (round(py, 1) if isinstance(py, (int, float)) else py),
+            "| cur/base:",
+            det,
+        )
         return
     q = []
     for s in mem:

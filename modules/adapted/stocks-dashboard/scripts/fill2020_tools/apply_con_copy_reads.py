@@ -50,8 +50,14 @@ SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
 JOURNAL = os.path.join(SCRIPTS, "con_copy_heals.json")
 REVIEW = os.path.join(SCRIPTS, "_std_slot_holds_con.json")
-REVOP = (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json"))
-FUND = (os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(SCRIPTS, "fundamentals.json"))
+REVOP = (
+    os.path.join(ROOT, "docs", "sf_revop.json"),
+    os.path.join(SCRIPTS, "revop_fundamentals.json"),
+)
+FUND = (
+    os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+    os.path.join(SCRIPTS, "fundamentals.json"),
+)
 REVC, PATC_REVOP, PATC_FUND = 1, 5, 3
 
 
@@ -68,7 +74,10 @@ def main():
             continue
         (mirror if same(v["value"], v["was"]) else fix)[k] = v
 
-    print("CON-slot corrections: %d | STANDALONE-slot mirror defects (reported only): %d\n" % (len(fix), len(mirror)))
+    print(
+        "CON-slot corrections: %d | STANDALONE-slot mirror defects (reported only): %d\n"
+        % (len(fix), len(mirror))
+    )
     journal = {}
 
     for path in REVOP:
@@ -123,7 +132,8 @@ def main():
             "row": v["row"],
             "confirm": v["confirm"],
             "screener": v["screener"],
-            "reason": "con slot held a copy of standalone; value read from the filing's own consolidated page",
+            "reason": "con slot held a copy of standalone; value read from the filing's "
+            "own consolidated page",
             "applied": "2026-08-09",
         }
     print("\nMIRROR (standalone slot holds the consolidated value -- runbook §59, NOT touched):")

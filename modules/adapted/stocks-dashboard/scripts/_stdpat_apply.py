@@ -105,14 +105,20 @@ for k, e in sorted(V["fund_fix"].items()):
             skipped.append("{} {} already {}".format(rel, k, e["now"]))
             continue
         if not close(row[1], e["was"]) and not close(row[1], e["now"]):
-            problems.append("{} {}: GUARD FAILED npStd now {} expected {}".format(rel, k, row[1], e["was"]))
+            problems.append(
+                "{} {}: GUARD FAILED npStd now {} expected {}".format(rel, k, row[1], e["was"])
+            )
             continue
         if not close(row[1], e["now"]):
             row[1] = e["now"]
             plan.append((rel, k, "npStd", e["was"], e["now"]))
         if "ann_now" in e and row[2] != e["ann_now"]:
             if row[2] != e["ann_was"]:
-                problems.append("{} {}: ANN GUARD FAILED now {} expected {}".format(rel, k, row[2], e["ann_was"]))
+                problems.append(
+                    "{} {}: ANN GUARD FAILED now {} expected {}".format(
+                        rel, k, row[2], e["ann_was"]
+                    )
+                )
                 continue
             row[2] = e["ann_now"]
             plan.append((rel, k, "annStd", e["ann_was"], e["ann_now"]))
@@ -127,7 +133,9 @@ for k, e in sorted(V["fund_fix"].items()):
             continue
         if cur is not None and not close(cur, e["was"]):
             problems.append(
-                "{} {}: MIRROR GUARD FAILED patS now {} expected {} or {}".format(rel, k, cur, e["was"], e["now"])
+                "{} {}: MIRROR GUARD FAILED patS now {} expected {} or {}".format(
+                    rel, k, cur, e["was"], e["now"]
+                )
             )
             continue
         cell[4] = e["now"]
@@ -140,7 +148,9 @@ for k, e in sorted(V["mirror_fix"].items()):
     # assert the authoritative file already carries the verdict value
     frow = fund_row(work[FUND_TWINS[0]], sym, qe)
     if frow is None or not close(frow[1], e["now"]):
-        problems.append("{}: fund does not hold verdict value {} (has {})".format(k, e["now"], frow and frow[1]))
+        problems.append(
+            "{}: fund does not hold verdict value {} (has {})".format(k, e["now"], frow and frow[1])
+        )
         continue
     for rel in REVOP_TWINS:
         cell = revop_cell(work[rel], rel, sym, qe)
@@ -152,7 +162,9 @@ for k, e in sorted(V["mirror_fix"].items()):
             skipped.append("{} {} already {}".format(rel, k, e["now"]))
             continue
         if cur is not None and not close(cur, e["was"]):
-            problems.append("{} {}: GUARD FAILED patS now {} expected {}".format(rel, k, cur, e["was"]))
+            problems.append(
+                "{} {}: GUARD FAILED patS now {} expected {}".format(rel, k, cur, e["was"])
+            )
             continue
         cell[4] = e["now"]
         plan.append((rel, k, "patS", cur, e["now"]))
@@ -172,14 +184,20 @@ for k, e in sorted(V["con_fix"].items()):
             skipped.append(f"{rel} {k} con already {tgt}")
             continue
         if not close(cur, e["was"]):
-            problems.append("{} {}: CON GUARD FAILED npCon now {} expected {}".format(rel, k, cur, e["was"]))
+            problems.append(
+                "{} {}: CON GUARD FAILED npCon now {} expected {}".format(rel, k, cur, e["was"])
+            )
             continue
         row[3] = tgt
         if tgt is None:
             row[4] = None
         elif "ann_now" in e:  # revision moved the board-filing date
             if row[4] not in (e["ann_was"], e["ann_now"]):
-                problems.append("{} {}: CON ANN GUARD FAILED now {} expected {}".format(rel, k, row[4], e["ann_was"]))
+                problems.append(
+                    "{} {}: CON ANN GUARD FAILED now {} expected {}".format(
+                        rel, k, row[4], e["ann_was"]
+                    )
+                )
                 continue
             row[4] = e["ann_now"]
         plan.append((rel, k, "npCon", e["was"], tgt))
@@ -199,7 +217,11 @@ for k, e in sorted(V["con_fix"].items()):
         if (tgt is None and cur is None) or close(cur, tgt):
             continue
         if cur is not None and not close(cur, e["was"]):
-            problems.append("{} {}: CON MIRROR GUARD FAILED patC now {} expected {}".format(rel, k, cur, e["was"]))
+            problems.append(
+                "{} {}: CON MIRROR GUARD FAILED patC now {} expected {}".format(
+                    rel, k, cur, e["was"]
+                )
+            )
             continue
         cell[5] = tgt
         plan.append((rel, k, "patC", cur, tgt))
@@ -233,7 +255,10 @@ for rel in orig:
     if stray:
         problems.append(f"{rel}: BLAST RADIUS stray diffs {sorted(stray)[:8]}")
 
-print("planned edits: %d   skipped(already-correct): %d   problems: %d" % (len(plan), len(skipped), len(problems)))
+print(
+    "planned edits: %d   skipped(already-correct): %d   problems: %d"
+    % (len(plan), len(skipped), len(problems))
+)
 for p in plan:
     print("  EDIT", p)
 for s in skipped[:10]:
@@ -285,7 +310,11 @@ mh.setdefault(
 )
 for sec in ("fund_fix", "mirror_fix"):
     for k, e in V[sec].items():
-        mh[k] = {"patS": e["now"], "was_mirror": (e["was"] if sec == "mirror_fix" else None), "verdict": sec}
+        mh[k] = {
+            "patS": e["now"],
+            "was_mirror": (e["was"] if sec == "mirror_fix" else None),
+            "verdict": sec,
+        }
 with open(mh_path, "w", encoding="utf-8") as _fh:
     json.dump(mh, _fh, indent=1, sort_keys=True)
     _fh.write("\n")

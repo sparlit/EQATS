@@ -69,7 +69,17 @@ IDX = {
 def _get(url):
     for _ in range(2):
         r = subprocess.run(
-            ["curl", "-sL", "-A", UA, "-H", "Referer: https://www.nseindia.com/", "--max-time", "45", url],
+            [
+                "curl",
+                "-sL",
+                "-A",
+                UA,
+                "-H",
+                "Referer: https://www.nseindia.com/",
+                "--max-time",
+                "45",
+                url,
+            ],
             capture_output=True,
             timeout=70,
         )
@@ -115,10 +125,16 @@ def min_expected(dt):
 
 def fno_on(dt):
     ymd = dt.strftime("%Y%m%d")
-    udiff = f"https://nsearchives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{ymd}_F_0000.csv.zip"
+    udiff = (
+        f"https://nsearchives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{ymd}_F_0000.csv.zip"
+    )
     mon = dt.strftime("%b").upper()
     old = f"https://nsearchives.nseindia.com/content/historical/DERIVATIVES/{dt.year}/{mon}/fo{dt.strftime('%d')}{mon}{dt.year}bhav.csv.zip"
-    order = [(udiff, "udiff"), (old, "old")] if dt >= datetime.date(2024, 7, 1) else [(old, "old"), (udiff, "udiff")]
+    order = (
+        [(udiff, "udiff"), (old, "old")]
+        if dt >= datetime.date(2024, 7, 1)
+        else [(old, "old"), (udiff, "udiff")]
+    )
     for url, kind in order:
         data = _get(url)
         if not data:
@@ -134,7 +150,7 @@ def fno_on(dt):
 
 def last_trading_snapshot(y, m):
     last = calendar.monthrange(y, m)[1]
-    for back in range(7):
+    for back in range(0, 7):
         dt = datetime.date(y, m, last) - datetime.timedelta(days=back)
         if dt > datetime.date.today():
             continue
@@ -153,7 +169,9 @@ while (y, m) <= (today.year, today.month):
     eff, syms = last_trading_snapshot(y, m)
     if syms:
         snaps.append((eff, syms))
-        print(f"  {y}-{m:02d}: {eff} -> {len(syms)} F&O stocks  (IDFC={'IDFC' in syms}, GVT&D={'GVT&D' in syms})")
+        print(
+            f"  {y}-{m:02d}: {eff} -> {len(syms)} F&O stocks  (IDFC={'IDFC' in syms}, GVT&D={'GVT&D' in syms})"
+        )
     else:
         print(f"  {y}-{m:02d}: no bhavcopy found — skip")
     m += 1
@@ -175,7 +193,9 @@ kept = [s for s in existing if s["effectiveDate"] < KEEP]
 new = kept + deduped
 new.sort(key=lambda s: s["effectiveDate"])
 HIST.write_text(json.dumps(new, separators=(",", ":")))
-print(f"\nfno_history.json: {len(kept)} kept (<{KEEP}) + {len(deduped)} rebuilt >={START_Y} = {len(new)} total")
+print(
+    f"\nfno_history.json: {len(kept)} kept (<{KEEP}) + {len(deduped)} rebuilt >={START_Y} = {len(new)} total"
+)
 
 D = json.loads(gzip.decompress(BIN.read_bytes()))
 D["fnoHistory"] = new

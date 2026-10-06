@@ -116,7 +116,9 @@ def main():
     args = ap.parse_args()
     only = {s.strip().upper() for s in args.only.split(",") if s.strip()}
 
-    prices = json.loads(gzip.decompress(open(os.path.join(DOCS, "bse_prices.bin"), "rb").read()))["px"]
+    prices = json.loads(gzip.decompress(open(os.path.join(DOCS, "bse_prices.bin"), "rb").read()))[
+        "px"
+    ]
     univ = {str(r[0]): r for r in json.load(open(os.path.join(DOCS, "bse_universe.json")))["rows"]}
     by_id = json.load(open(os.path.join(HERE, "bse_scrips.json")))["by_id"]  # SYM -> scripcode
     code2sym = {str(v): k for k, v in by_id.items()}
@@ -130,7 +132,11 @@ def main():
         prices,
         code2sym,
         args.min_days,
-        {k: v["isin"] for k, v in (sf.get("meta") or {}).items() if isinstance(v, dict) and v.get("isin")},
+        {
+            k: v["isin"]
+            for k, v in (sf.get("meta") or {}).items()
+            if isinstance(v, dict) and v.get("isin")
+        },
     )
     del sf
 
@@ -166,7 +172,7 @@ def main():
         if v and len(v) == len(d):
             o["v"] = v
         if dv and len(dv) == len(d):
-            o["dv"] = [round(x * 10) for x in dv]
+            o["dv"] = [int(round(x * 10)) for x in dv]
         # row: [scrip, sym, name, isin, group, faceval, mcap, sector]
         name = row[2] if len(row) > 2 and row[2] else sym
         sector = row[7] if len(row) > 7 and row[7] else ""

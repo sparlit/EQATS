@@ -64,7 +64,12 @@ def near(a, b, abs_t=0.35, rel_t=0.006):
 
 def prevq(qe):
     y, md = qe // 10000, qe % 10000
-    return {331: (y - 1) * 10000 + 1231, 630: y * 10000 + 331, 930: y * 10000 + 630, 1231: y * 10000 + 930}[md]
+    return {
+        331: (y - 1) * 10000 + 1231,
+        630: y * 10000 + 331,
+        930: y * 10000 + 630,
+        1231: y * 10000 + 930,
+    }[md]
 
 
 def anchor_cols(row, scale, qe, ann, fund, sym):
@@ -120,7 +125,9 @@ def quarter_of(ann):
 
 def main():
     reads = json.load(open(READS, encoding="utf-8")) if os.path.exists(READS) else {}
-    fund = json.load(open(os.path.join(os.path.dirname(HERE), "docs", "sf_fundamentals.json"), encoding="utf-8"))
+    fund = json.load(
+        open(os.path.join(os.path.dirname(HERE), "docs", "sf_fundamentals.json"), encoding="utf-8")
+    )
     SCALEF = {"crore": 1.0, "lakh": 0.01, "million": 0.1, "thousand": 1e-4}
     sel = json.load(open(DECL, encoding="utf-8"))
     comp = json.load(open(COMP, encoding="utf-8")) if os.path.exists(COMP) else {}
@@ -140,8 +147,13 @@ def main():
         ev = {"store": [], "heal": []}  # plus "_anchored": hits landing in a KNOWN other column
         for fn, d in sorted(r.items()):
             for h in d.get("hits", []):
-                if h["kind"] in ("owners", "owners~ocr", "owners=tot-nci") and h["block"] in ("profit", "?"):
-                    anc = anchor_cols(h["row"], SCALEF[h["scale"]], int(f["qe"]), d.get("ann"), fund, f["sym"])
+                if h["kind"] in ("owners", "owners~ocr", "owners=tot-nci") and h["block"] in (
+                    "profit",
+                    "?",
+                ):
+                    anc = anchor_cols(
+                        h["row"], SCALEF[h["scale"]], int(f["qe"]), d.get("ann"), fund, f["sym"]
+                    )
                     # ★ A HIT IN AN ANCHORED COLUMN IS A COINCIDENCE, NOT THE ANSWER. TV18BRDCST's
                     # Jun-2018 filing prints owners [-1248, -298, -1199, 862] lakh and 8.62 looks
                     # like the store's 8.39 — but the first three columns reproduce our Jun-2018,
@@ -172,9 +184,15 @@ def main():
         tot = {"store": [], "heal": []}
         for fn, d in sorted(r.items()):
             for h in d.get("hits", []):
-                if h["kind"] == "total" and h["block"] in ("profit", "?"):
+                if h["kind"] in ("total",) and h["block"] in ("profit", "?"):
                     tot[h["cand"]].append(
-                        {"doc": fn, "win": d.get("win"), "page": h["page"], "label": h["label"], "row": h["row"]}
+                        {
+                            "doc": fn,
+                            "win": d.get("win"),
+                            "page": h["page"],
+                            "label": h["label"],
+                            "row": h["row"],
+                        }
                     )
         a = adj.get(k, {})
         mc = a.get("mc") or {}
@@ -244,7 +262,12 @@ def main():
             )
         )
         if verb and x["sym"] == verb:
-            for nm in ("owners_hits_store", "owners_hits_heal", "total_hits_store", "total_hits_heal"):
+            for nm in (
+                "owners_hits_store",
+                "owners_hits_heal",
+                "total_hits_store",
+                "total_hits_heal",
+            ):
                 for h in x[nm]:
                     print("        %-18s %s" % (nm, json.dumps(h)))
 

@@ -81,46 +81,79 @@ def main():
     if not rows:
         print("[season-coverage] empty feed — nothing to check.")
         return
-    # live quarter = the newest quarter anyone has filed for
-    live_qe = max(r[3] for r in rows if isinstance(r[3], int))
+    # live quarter = the calendar quarter (runbook §218a: it opens on its first IST day, as on the results page),
+    # or a newer one somebody filed for. The PREVIOUS quarter is checked too: its late filers keep arriving for
+    # weeks after the new quarter opens, and watching only the newest one let a 52-declared / 34-parsed Jun gap
+    # read "OK" the day two Sep microcaps filed (§218b).
+    import sys as _sys
 
-    # who has FILED for the live quarter (declared) and who we've PARSED (PAT present)
-    declared_all = {r[0] for r in rows if r[3] == live_qe}
-    parsed_all = set()
-    for s, frows in fund.items():
-        for r in frows:
-            if r[0] == live_qe and (r[1] is not None or r[3] is not None):
-                parsed_all.add(s)
-                break
+    _sys.path.insert(0, HERE)
+    from build_quarterly_results import ist_today, last_ended_qe, prev_qe
 
-    report = {}
-    total_missing = set()
-    for index, snaps in indices.items():
-        if not isinstance(snaps, list) or not snaps:
-            continue
-        members = snap_as_of(snaps, iso(live_qe), rename)
-        if not members:
-            continue
-        declared = members & declared_all
-        parsed = members & parsed_all
-        missing = sorted(declared - parsed)
-        report[index] = {"declared": len(declared), "parsed": len(parsed), "missing": missing}
-        total_missing |= set(missing)
+    live_qe = max(
+        [last_ended_qe(ist_today())]
+        + [
+            r[3]
+            for r in rows
+            if isinstance(r[3], int)
+            and r[3] % 10000 in (331, 630, 930, 1231)
+            and r[3] < int(ist_today().strftime("%Y%m%d"))
+        ]
+    )
 
+    def check(qe):
+        declared_all = {r[0] for r in rows if r[3] == qe}
+        parsed_all = set()
+        for s, frows in fund.items():
+            for r in frows:
+                if r[0] == qe and (r[1] is not None or r[3] is not None):
+                    parsed_all.add(s)
+                    break
+        report, total_missing = {}, set()
+        for index, snaps in indices.items():
+            if not isinstance(snaps, list) or not snaps:
+                continue
+            members = snap_as_of(snaps, iso(qe), rename)
+            if not members:
+                continue
+            declared = members & declared_all
+            parsed = members & parsed_all
+            missing = sorted(declared - parsed)
+            report[index] = {"declared": len(declared), "parsed": len(parsed), "missing": missing}
+            total_missing |= set(missing)
+        return report, total_missing
+
+    report, total_missing = check(live_qe)
+    pq = prev_qe(live_qe)
+    preport, pmissing = check(pq)
     json.dump(
-        {"generated": int(time.time()), "qe": live_qe, "indexes": report},
+        {
+            "generated": int(time.time()),
+            "qe": live_qe,
+            "indexes": report,
+            "prev": {"qe": pq, "indexes": preport},
+        },
         open(OUT, "w", encoding="utf-8"),
         ensure_ascii=False,
         separators=(",", ":"),
     )
 
     # ---- CI-visible report ----
-    print(f"[season-coverage] live quarter {iso(live_qe)}")
-    gaps = {k: v for k, v in report.items() if v["missing"]}
-    if not gaps:
-        print("[season-coverage] OK — every index's declared filings are parsed into the chart.")
-    else:
-        print("[season-coverage] GAP — declared-but-unparsed members (chart undercounts until filled):")
+    for qe, rep, tot in ((live_qe, report, total_missing), (pq, preport, pmissing)):
+        print(
+            "[season-coverage] quarter {}{}".format(
+                iso(qe), " (live)" if qe == live_qe else " (previous — late filers)"
+            )
+        )
+        gaps = {k: v for k, v in rep.items() if v["missing"]}
+        if not gaps:
+            print(
+                "[season-coverage] OK — every index's declared filings are parsed into the chart."
+            )
+            continue
+        print(
+            "[season-coverage] GAP — declared-but-unparsed members (chart undercounts until filled):"
+        )
         for k in sorted(gaps, key=lambda k: -len(gaps[k]["missing"])):
             v = gaps[k]
             print(
@@ -128,7 +161,7 @@ def main():
                 % (k, v["declared"], v["parsed"], ", ".join(v["missing"]))
             )
         print(
-            "[season-coverage] union of missing names (%d): %s" % (len(total_missing), ", ".join(sorted(total_missing)))
+            "[season-coverage] union of missing names (%d): %s" % (len(tot), ", ".join(sorted(tot)))
         )
     print(f"[season-coverage] wrote {os.path.normpath(OUT)}")
 

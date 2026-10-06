@@ -49,7 +49,8 @@ OUT = os.path.join(os.path.dirname(__file__), "fo_spot.json")
 
 def fetch(sym_yh):
     url = (
-        f"https://query1.finance.yahoo.com/v8/finance/chart/{sym_yh}?period1=1420070400&period2=9999999999&interval=1d"
+        f"https://query1.finance.yahoo.com/v8/finance/chart/{sym_yh}"
+        "?period1=1420070400&period2=9999999999&interval=1d"
     )
     r = cr.get(url, impersonate="chrome", timeout=60)  # plain urllib gets 429'd
     d = r.json()
@@ -62,7 +63,11 @@ def fetch(sym_yh):
     for t, c in zip(ts, closes, strict=False):
         if c is None:
             continue
-        iso = dt.datetime.fromtimestamp(t, dt.timezone(dt.timedelta(hours=5, minutes=30))).date().isoformat()
+        iso = (
+            dt.datetime.fromtimestamp(t, dt.timezone(dt.timedelta(hours=5, minutes=30)))
+            .date()
+            .isoformat()
+        )
         out[iso] = round(float(c), 2)
     return out
 

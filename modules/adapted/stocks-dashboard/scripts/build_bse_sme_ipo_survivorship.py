@@ -120,7 +120,11 @@ def main():
 
     def at_or_after(s, k):
         i = bisect.bisect_left(s["d"], k)
-        return (s["d"][i], s["c"][i]) if i < len(s["d"]) and dd(k, s["d"][i]) <= MAX_GAP else (None, None)
+        return (
+            (s["d"][i], s["c"][i])
+            if i < len(s["d"]) and dd(k, s["d"][i]) <= MAX_GAP
+            else (None, None)
+        )
 
     def before(s, k):
         i = bisect.bisect_left(s["d"], k) - 1
@@ -187,14 +191,20 @@ def main():
         for x in sts:
             j = I(x["join"])
             l = I(x["leave"]) if x["leave"] else None
-            _jd, jp = at_or_after(s, j)
+            jd, jp = at_or_after(s, j)
             if l:
                 ed, ep = before(s, l)
             else:
                 _ed, ep = s["d"][-1], s["c"][-1]
             r = (ep / jp - 1) if (jp and ep) else None
             st_out.append(
-                [x["join"], x["leave"], rnd(jp), rnd(ep) if l else None, rnd(r * 100, 1) if r is not None else None]
+                [
+                    x["join"],
+                    x["leave"],
+                    rnd(jp),
+                    rnd(ep) if l else None,
+                    rnd(r * 100, 1) if r is not None else None,
+                ]
             )
             if r is None:
                 ok = False
@@ -214,15 +224,25 @@ def main():
                 peak = c_ if peak is None or c_ > peak else peak
                 mdd = min(mdd, c_ / peak - 1)
         ret_in = comp - 1 if ok else None
-        cagr = ((1 + ret_in) ** (365.0 / days) - 1) if (ret_in is not None and days >= 365 and ret_in > -1) else None
+        cagr = (
+            ((1 + ret_in) ** (365.0 / days) - 1)
+            if (ret_in is not None and days >= 365 and ret_in > -1)
+            else None
+        )
         jp0 = st_out[0][2]
         lastD, lastPx = s["d"][-1], s["c"][-1]
         exitPx = st_out[-1][3]
         status = "in" if last_open else ("dead" if dd(lastD, data_end) > 30 else "out")
         idx_in = icomp - 1 if iok else None
-        rel = ((1 + ret_in) / (1 + idx_in) - 1) if (ret_in is not None and idx_in is not None) else None
+        rel = (
+            ((1 + ret_in) / (1 + idx_in) - 1)
+            if (ret_in is not None and idx_in is not None)
+            else None
+        )
         note = ""
-        une = [S(a) for a, _ in s.get("unexpl", []) if I(first) <= a and (last is None or a < I(last))]
+        une = [
+            S(a) for a, _ in s.get("unexpl", []) if I(first) <= a and (last is None or a < I(last))
+        ]
         if une:
             note = "one-day fall >30% on {} (bonus or crash, unconfirmed) — returns across it understated".format(
                 ", ".join(une[:3])
@@ -287,7 +307,16 @@ def main():
         json.dump(doc, f, separators=(",", ":"), ensure_ascii=False)
     print(
         "survivorship: %d rows (in %d, out %d, dead %d, untraced %d) data to %s → %s (%d bytes)"
-        % (len(rows), n["in"], n["out"], n["dead"], n["untraced"], S(data_end), OUT, os.path.getsize(OUT))
+        % (
+            len(rows),
+            n["in"],
+            n["out"],
+            n["dead"],
+            n["untraced"],
+            S(data_end),
+            OUT,
+            os.path.getsize(OUT),
+        )
     )
 
 

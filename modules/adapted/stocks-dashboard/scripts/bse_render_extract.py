@@ -36,7 +36,6 @@ import datetime
 import json
 import os
 import re
-import sys
 import time
 from collections import defaultdict
 
@@ -66,8 +65,10 @@ VP = os.path.join(HERE, "_vpdf")
 os.makedirs(VP, exist_ok=True)
 
 NUM = re.compile(r"^\(?-?[\d,]+\.?\d*\)?$")
-OWN = re.compile(r"(owners|equity holders) of the (parent|company|holding)", re.IGNORECASE)
-PFT = re.compile(r"(net\s+)?profit\s*/?\s*\(?\s*loss\)?\s*(after tax\s*)?for the (period|year|quarter)", re.IGNORECASE)
+OWN = re.compile(r"(owners|equity holders) of the (parent|company|holding)", re.I)
+PFT = re.compile(
+    r"(net\s+)?profit\s*/?\s*\(?\s*loss\)?\s*(after tax\s*)?for the (period|year|quarter)", re.I
+)
 
 
 def detect_div(doc):
@@ -90,7 +91,11 @@ def to_val(w):
 
 
 def row_nums(cells):
-    return [to_val(w) for x, w in sorted(cells) if NUM.match(w.replace(",", "")) and to_val(w) is not None]
+    return [
+        to_val(w)
+        for x, w in sorted(cells)
+        if NUM.match(w.replace(",", "")) and to_val(w) is not None
+    ]
 
 
 def extract(pdf):
@@ -146,9 +151,7 @@ def plausible(v, cp, cn):
     lo, hi = min(ns), max(ns)
     if abs(v) < max(lo * 0.2, 0.5):
         return False
-    if abs(v) > hi * 5 + 5:
-        return False
-    return True
+    return not abs(v) > hi * 5 + 5
 
 
 def d(x):
@@ -167,7 +170,7 @@ def fetch_for(sym, qe, o):
     cands = [(a, att) for a, att in fl if a and 12 <= (d(a) - d(qe)).days <= 150]
     if not cands:
         return None
-    _a, att = min(cands)
+    a, att = sorted(cands)[0]
     for base in ("AttachHis", "AttachLive"):
         try:
             dd = V.get(o, f"https://www.bseindia.com/xml-data/corpfiling/{base}/{att}", b=True)
@@ -209,7 +212,7 @@ def main():
                 print("  %-11s %d NOFILE" % (sym, qe), flush=True)
             else:
                 try:
-                    val, _div = extract(pdf)
+                    val, div = extract(pdf)
                 except Exception:
                     val = None
                 if val is None:
@@ -218,7 +221,10 @@ def main():
                 else:
                     st = "FILL" if plausible(val, cp, cn) else "MANUAL"
                     out.append([sym, qe, val, None, st, cp, cn])
-                    print("  %-11s %d  %s  val=%s  nbrs %s/%s" % (sym, qe, st, val, cp, cn), flush=True)
+                    print(
+                        "  %-11s %d  %s  val=%s  nbrs %s/%s" % (sym, qe, st, val, cp, cn),
+                        flush=True,
+                    )
         except Exception as e:
             out.append([sym, qe, None, None, "ERR", cp, cn])
             print("  %-11s %d ERR %s" % (sym, qe, str(e)[:40]), flush=True)

@@ -58,7 +58,6 @@ import json
 import os
 import re
 import sys
-from collections import defaultdict
 
 import fitz
 
@@ -76,23 +75,25 @@ SCALES = (("crore", 1.0), ("lakh", 0.01), ("million", 0.1), ("thousand", 1e-4))
 R_OWN = re.compile(
     r"(own\s*ers?|equity\s*holders?|share\s*holders?)\s+of\s+(the\s+)?"
     r"(parent|company|group|corporation)",
-    re.IGNORECASE,
+    re.I,
 )
-R_NCI = re.compile(r"non[\s\-]*controlling\s*interest|minority\s*interest", re.IGNORECASE)
-R_ATTR = re.compile(r"attributable\s+to", re.IGNORECASE)
-R_COMP = re.compile(r"comprehensive", re.IGNORECASE)
+R_NCI = re.compile(r"non[\s\-]*controlling\s*interest|minority\s*interest", re.I)
+R_ATTR = re.compile(r"attributable\s+to", re.I)
+R_COMP = re.compile(r"comprehensive", re.I)
 R_TOT = re.compile(
     r"(net\s+)?(profit|loss)\s*/?\s*\(?(loss|profit)?\)?\s*"
     r"(for|after)\s+the\s+(period|quarter|year)|profit\s*/?\s*\(?loss\)?\s+after\s+tax"
     r"|profit\s+after\s+tax",
-    re.IGNORECASE,
+    re.I,
 )
-R_ASSO = re.compile(r"share\s+of\s+(net\s+)?(profit|loss)", re.IGNORECASE)
-R_EPS = re.compile(r"earning[s]?\s+per|\beps\b|face\s+value|paid[\s\-]*up", re.IGNORECASE)
-R_BAL = re.compile(r"^\s*(total\s+)?equity\b|other\s+equity|reserves|net\s+worth|share\s+capital", re.IGNORECASE)
+R_ASSO = re.compile(r"share\s+of\s+(net\s+)?(profit|loss)", re.I)
+R_EPS = re.compile(r"earning[s]?\s+per|\beps\b|face\s+value|paid[\s\-]*up", re.I)
+R_BAL = re.compile(
+    r"^\s*(total\s+)?equity\b|other\s+equity|reserves|net\s+worth|share\s+capital", re.I
+)
 # de-spaced variants for PDFs that break words mid-token
-D_OWN = re.compile(r"(owners?|equityholders?|shareholders?)of(the)?(parent|company|group)", re.IGNORECASE)
-D_NCI = re.compile(r"non-?controllinginterest|minorityinterest", re.IGNORECASE)
+D_OWN = re.compile(r"(owners?|equityholders?|shareholders?)of(the)?(parent|company|group)", re.I)
+D_NCI = re.compile(r"non-?controllinginterest|minorityinterest", re.I)
 
 # ★ THESE PDFS ARE OFTEN OCR OVER A SCAN, AND OCR MANGLES THE LABEL, NOT THE NUMBER.
 # GODREJPROP's Mar-2018 statement carries "Equity hOIdera of Parart" where the filing prints
@@ -118,7 +119,12 @@ CANON_EQTY = (
     "networth",
     "sharecapital",
 )
-CANON_NCI = ("noncontrollinginterests", "noncontrollinginterest", "minorityinterest", "minorityinterests")
+CANON_NCI = (
+    "noncontrollinginterests",
+    "noncontrollinginterest",
+    "minorityinterest",
+    "minorityinterests",
+)
 
 
 def fuzzy_has(label, phrases, thresh=0.78):  # 0.78: "Equity hOIdera of Parart" scores
@@ -138,7 +144,7 @@ def fuzzy_has(label, phrases, thresh=0.78):  # 0.78: "Equity hOIdera of Parart" 
     for ph in phrases:
         p2 = ph.translate(FOLD).replace("rn", "m")
         n = len(p2)
-        for i in range(max(1, len(t) - n + 4)):
+        for i in range(0, max(1, len(t) - n + 4)):
             w = t[i : i + n]
             if not w:
                 break
@@ -149,13 +155,13 @@ def fuzzy_has(label, phrases, thresh=0.78):  # 0.78: "Equity hOIdera of Parart" 
 
 
 R_UNITS = (
-    (re.compile(r"(crores?|crs?\b|\bcr\b)", re.IGNORECASE), "crore"),
-    (re.compile(r"(lakhs?|lacs?)", re.IGNORECASE), "lakh"),
-    (re.compile(r"(millions?|\bmn\b)", re.IGNORECASE), "million"),
-    (re.compile(r"(thousands?|'?000)", re.IGNORECASE), "thousand"),
+    (re.compile(r"(crores?|crs?\b|\bcr\b)", re.I), "crore"),
+    (re.compile(r"(lakhs?|lacs?)", re.I), "lakh"),
+    (re.compile(r"(millions?|\bmn\b)", re.I), "million"),
+    (re.compile(r"(thousands?|'?000)", re.I), "thousand"),
 )
-R_CONS = re.compile(r"consolidated", re.IGNORECASE)
-R_STAL = re.compile(r"standalone|unconsolidated", re.IGNORECASE)
+R_CONS = re.compile(r"consolidated", re.I)
+R_STAL = re.compile(r"standalone|unconsolidated", re.I)
 
 
 def tv(w):
@@ -296,7 +302,7 @@ def read_doc(path, cands, near_abs=0.35, near_rel=0.006):
                 # Comprehensive Income for the period" immediately above "Net Profit attributable
                 # to :", and that made the profit split read as the OCI split.
                 head = lab
-                if re.match(r"^attributable\b", lab.strip(), re.IGNORECASE) and i:
+                if re.match(r"^attributable\b", lab.strip(), re.I) and i:
                     head = rows[i - 1][1] + " " + lab
                 attr = (bool(R_COMP.search(head)), i)
             if not nums:
@@ -341,7 +347,10 @@ def read_doc(path, cands, near_abs=0.35, near_rel=0.006):
                                         "block": block,
                                         "basis": basis,
                                         "label": f"({last_total[0][:40]}) MINUS ({lab[:34]})",
-                                        "row": [round(a - b, 4) for a, b in zip(last_total[1], nums, strict=False)][:8],
+                                        "row": [
+                                            round(a - b, 4)
+                                            for a, b in zip(last_total[1], nums, strict=False)
+                                        ][:8],
                                         "page_unit": unm,
                                         "unit_phrase": (uph or "")[:60],
                                     }
@@ -398,7 +407,7 @@ def main():
             m["docs"].update(vv.get("docs", {}))
     sel = json.load(open(DECL, encoding="utf-8"))
     cand = {}
-    for v in sel.values():
+    for _k, v in sel.items():
         if v["fix"]["basis"] == "con":
             cand["{}|{}".format(v["fix"]["sym"], v["fix"]["qe"])] = {
                 "store": v["fix"]["was"],
@@ -428,7 +437,9 @@ def main():
             got[fn] = r
         ns = sum(1 for d in got.values() for h in d.get("hits", []) if h["cand"] == "store")
         nh = sum(1 for d in got.values() for h in d.get("hits", []) if h["cand"] == "heal")
-        print("  %-22s docs=%d  store-hits=%-3d heal-hits=%-3d" % (key, len(got), ns, nh), flush=True)
+        print(
+            "  %-22s docs=%d  store-hits=%-3d heal-hits=%-3d" % (key, len(got), ns, nh), flush=True
+        )
         json.dump(out, open(OUT, "w"), indent=1)
     json.dump(out, open(OUT, "w"), indent=1)
     print("DONE %d cells" % len(out))

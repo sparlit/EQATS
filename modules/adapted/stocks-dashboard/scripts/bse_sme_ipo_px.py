@@ -62,9 +62,15 @@ START = 20200101
 def member_codes():
     codes = set()
     with contextlib.suppress(FileNotFoundError):
-        codes |= {s["code"] for s in json.load(open(os.path.join(DOCS, "bse_sme_ipo", "stints.json")))["stints"]}
+        codes |= {
+            s["code"]
+            for s in json.load(open(os.path.join(DOCS, "bse_sme_ipo", "stints.json")))["stints"]
+        }
     with contextlib.suppress(FileNotFoundError):
-        codes |= {m["code"] for m in json.load(open(os.path.join(DOCS, "bse_sme_ipo", "members.json")))["members"]}
+        codes |= {
+            m["code"]
+            for m in json.load(open(os.path.join(DOCS, "bse_sme_ipo", "members.json")))["members"]
+        }
     return codes
 
 
@@ -161,7 +167,9 @@ def update(max_days=40):
     frm = datetime.datetime.strptime(str(end), "%Y%m%d").date() + datetime.timedelta(1)
     to = datetime.date.today()
     if (to - frm).days > max_days:
-        sys.exit("ledger ends %d — more than %d days behind; rebuild locally instead" % (end, max_days))
+        sys.exit(
+            "ledger ends %d — more than %d days behind; rebuild locally instead" % (end, max_days)
+        )
     tmp = tempfile.mkdtemp(prefix="bsebhav_")
     BB.CACHE = tmp
     BB.MISS = os.path.join(tmp, "_absent.json")  # fetch() reads these module globals

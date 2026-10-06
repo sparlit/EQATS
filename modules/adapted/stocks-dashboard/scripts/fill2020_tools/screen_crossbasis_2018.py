@@ -54,11 +54,16 @@ Q2018 = [20180331, 20180630, 20180930, 20181231]
 
 
 def main():
-    qes = {int(q) for q in sys.argv[sys.argv.index("--qe") + 1].split(",")} if "--qe" in sys.argv else set(Q2018)
+    qes = (
+        {int(q) for q in sys.argv[sys.argv.index("--qe") + 1].split(",")}
+        if "--qe" in sys.argv
+        else set(Q2018)
+    )
     targets = json.load(open(TARGETS))
     revop = json.load(open(REVOP))
     fund = {
-        s: {int(r[0]): (r[1], r[3] if len(r) > 3 else None) for r in rows} for s, rows in json.load(open(FUND)).items()
+        s: {int(r[0]): (r[1], r[3] if len(r) > 3 else None) for r in rows}
+        for s, rows in json.load(open(FUND)).items()
     }
 
     hits, clean = [], 0

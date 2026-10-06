@@ -75,7 +75,9 @@ def _arg(flag):
 
 
 def _sidecar(explicit, man_path, name):
-    path = explicit or (os.path.join(os.path.dirname(os.path.abspath(man_path)), name) if man_path else None)
+    path = explicit or (
+        os.path.join(os.path.dirname(os.path.abspath(man_path)), name) if man_path else None
+    )
     return json.load(open(path, encoding="utf-8")) if path and os.path.exists(path) else []
 
 
@@ -83,12 +85,22 @@ def main():
     out_path = sys.argv[1]
     man_path = _arg("--manifest")
     out = json.load(open(out_path, encoding="utf-8"))
-    manifest = json.load(open(man_path, encoding="utf-8")) if man_path and os.path.exists(man_path) else []
+    manifest = (
+        json.load(open(man_path, encoding="utf-8")) if man_path and os.path.exists(man_path) else []
+    )
     man = {str(m["scrip"]): m for m in manifest}  # frm/oldest/floor per scrip
-    empty = [e for e in _sidecar(_arg("--empty"), man_path, "empty.json") if str(e["scrip"]) not in man]
-    unfet = [e for e in _sidecar(_arg("--unfetched"), man_path, "unfetched.json") if str(e["scrip"]) not in man]
+    empty = [
+        e for e in _sidecar(_arg("--empty"), man_path, "empty.json") if str(e["scrip"]) not in man
+    ]
+    unfet = [
+        e
+        for e in _sidecar(_arg("--unfetched"), man_path, "unfetched.json")
+        if str(e["scrip"]) not in man
+    ]
 
-    data = json.loads(open(bf.OUT, encoding="utf-8").read()) if os.path.exists(bf.OUT) else {"px": {}}
+    data = (
+        json.loads(open(bf.OUT, encoding="utf-8").read()) if os.path.exists(bf.OUT) else {"px": {}}
+    )
     px = data.setdefault("px", {})
     hist = json.load(open(HIST)) if os.path.exists(HIST) else {}
     today_i = int(datetime.date.today().strftime("%Y%m%d"))
@@ -109,7 +121,9 @@ def main():
             if not (str(qe).isdigit() and len(str(qe)) == 8):
                 continue
             qei = int(qe)
-            if not (floor <= qei < oldest and qei <= today_i):  # older than stored, above floor, sane
+            if not (
+                floor <= qei < oldest and qei <= today_i
+            ):  # older than stored, above floor, sane
                 continue
             if str(qe) in cur:  # fill-only
                 continue
@@ -178,7 +192,13 @@ def main():
             step_past(scrip, m, h.get("fails", 0) + 1)
             n_uf_step += 1
         else:
-            h.update(oldest=int(m["oldest"]), fails=h.get("fails", 0), done=False, ufails=uf, urun=m.get("run"))
+            h.update(
+                oldest=int(m["oldest"]),
+                fails=h.get("fails", 0),
+                done=False,
+                ufails=uf,
+                urun=m.get("run"),
+            )
             hist[scrip] = h
 
     ist = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
@@ -188,7 +208,16 @@ def main():
     print(
         "merge_bse_hist: %d scrips read, +%d historical quarters across %d scrips | %d empty window(s) "
         "stepped past | %d unfetchable counted (%d stepped past at %d) | %d skipped by guard"
-        % (len(man), sum(len(v) for v in landed.values()), len(landed), n_empty, n_uf, n_uf_step, MAX_UFAIL, guarded)
+        % (
+            len(man),
+            sum(len(v) for v in landed.values()),
+            len(landed),
+            n_empty,
+            n_uf,
+            n_uf_step,
+            MAX_UFAIL,
+            guarded,
+        )
     )
 
 

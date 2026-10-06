@@ -31,7 +31,6 @@ Writes nothing live — just _reattr_diffs.json + a printed summary so the chang
 
 Run: python -X utf8 reattr_diff.py
 """
-import collections
 import json
 import os
 import re
@@ -60,13 +59,20 @@ def main():
     for sym in syms:
         done += 1
         if done % 250 == 0:
-            print("  ...%d/%d scanned, %d changed quarters so far" % (done, len(syms), len(diffs)), flush=True)
+            print(
+                "  ...%d/%d scanned, %d changed quarters so far" % (done, len(syms), len(diffs)),
+                flush=True,
+            )
         url = f"https://www.nseindia.com/api/integrated-filing-results?index=equities&symbol={B.urllib.parse.quote(sym)}&period=Quarterly"
         try:
             rows = json.loads(
                 B._get(
                     url,
-                    headers={"User-Agent": B.UA, "Accept": "application/json", "Referer": "https://www.nseindia.com/"},
+                    headers={
+                        "User-Agent": B.UA,
+                        "Accept": "application/json",
+                        "Referer": "https://www.nseindia.com/",
+                    },
                     jar=jar,
                     timeout=25,
                 )
@@ -89,7 +95,11 @@ def main():
                 if os.path.exists(cf) and os.path.getsize(cf) > 500:
                     xml = open(cf, encoding="utf-8").read()
                 else:
-                    xml = B._get(xb, headers={"User-Agent": B.UA, "Referer": "https://www.nseindia.com/"}, timeout=40)
+                    xml = B._get(
+                        xb,
+                        headers={"User-Agent": B.UA, "Referer": "https://www.nseindia.com/"},
+                        timeout=40,
+                    )
                     open(cf, "w", encoding="utf-8").write(xml)
             except Exception:
                 continue

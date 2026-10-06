@@ -75,7 +75,9 @@ SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
 sys.path.insert(0, SCRIPTS)
 
-_spec = importlib.util.spec_from_file_location("nar", os.path.join(SCRIPTS, "_nse_archive_revop.py"))
+_spec = importlib.util.spec_from_file_location(
+    "nar", os.path.join(SCRIPTS, "_nse_archive_revop.py")
+)
 NAR = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(NAR)  # reuse aliases/get_detail/parse_detail/pick
 # NAR.get() reads a module-global JAR that NAR.main() normally creates; importing the module
@@ -92,12 +94,12 @@ MIRROR = os.path.join(SCRIPTS, "fundamentals.json")
 EPS_TOL, FY_ABS, FY_REL = 0.06, 3.0, 0.03
 STD_ABS, STD_REL = 0.05, 0.005  # GATE S' tolerance
 
-R_OWN = re.compile(r"net profit.*after\s+taxe?s?.*minority\s+interest", re.IGNORECASE)
-R_PERIOD = re.compile(r"net profit\s*/?\s*\(?\s*loss\s*\)?\s*for the period", re.IGNORECASE)
-R_MINORITY = re.compile(r"^minority interest", re.IGNORECASE)
-R_EQCAP = re.compile(r"paid-?up equity share capital", re.IGNORECASE)
-R_FV = re.compile(r"face value", re.IGNORECASE)
-R_BASIC = re.compile(r"^\(?a\)?\s*basic", re.IGNORECASE)
+R_OWN = re.compile(r"net profit.*after\s+taxe?s?.*minority\s+interest", re.I)
+R_PERIOD = re.compile(r"net profit\s*/?\s*\(?\s*loss\s*\)?\s*for the period", re.I)
+R_MINORITY = re.compile(r"^minority interest", re.I)
+R_EQCAP = re.compile(r"paid-?up equity share capital", re.I)
+R_FV = re.compile(r"face value", re.I)
+R_BASIC = re.compile(r"^\(?a\)?\s*basic", re.I)
 # PRE-2011 ARCHIVE TEMPLATE (measured on the MPHASIS Mar-2008 and GMRINFRA Sep-2010 pages,
 # 2026-09-02, CON-GAP PRE-2020 campaign). The labels differ from both later templates:
 #   "Net Profit (+) / Loss (-) for the period"               = the period row (before MI/associates)
@@ -106,13 +108,13 @@ R_BASIC = re.compile(r"^\(?a\)?\s*basic", re.IGNORECASE)
 # GMRINFRA Sep-2010 prints 42.53 - (-25.98) - (-2.61) = 71.12 on that last row exactly. In the
 # Ind-AS-era template (§53e) the "Consolidated Net Profit" row merely DUPLICATES the period row, so
 # it is trusted only when it reproduces the deduction identity or when no MI/associates row exists.
-R_PERIOD_OLD = re.compile(r"^net profit\s*\(\+\)\s*/\s*loss\s*\(-\)\s*for the period", re.IGNORECASE)
-R_CONNET = re.compile(r"^consolidated net profit.*for the period", re.IGNORECASE)
-R_ASSOC = re.compile(r"^shares? of\b.*associates", re.IGNORECASE)
+R_PERIOD_OLD = re.compile(r"^net profit\s*\(\+\)\s*/\s*loss\s*\(-\)\s*for the period", re.I)
+R_CONNET = re.compile(r"^consolidated net profit.*for the period", re.I)
+R_ASSOC = re.compile(r"^shares? of\b.*associates", re.I)
 # the old template prints "Basic EPS before/after Extraordinary items (in Rs.)" with no "(a)"
 # serial, which R_BASIC (written for "(a) Basic") never matched -> every 2005-2010 page read as
 # "eps-inputs-missing". Both spellings are candidates; the recon still has to land within 6%.
-R_BASIC_OLD = re.compile(r"^basic\s+eps\b", re.IGNORECASE)
+R_BASIC_OLD = re.compile(r"^basic\s+eps\b", re.I)
 IDENT_ABS, IDENT_REL = 0.02, 0.002  # on-page identity tolerance (print rounding)
 
 
@@ -140,7 +142,9 @@ def owners_pat(rows, want_con):
         # consolidated row when the rows printed BETWEEN the two close the identity exactly; the
         # EPS gate still has to reconcile to the figure chosen (ABAN: 0.1425*8.7033/0.02 = 62.01).
         labs = [lab.strip() for lab, _ in rows]
-        ip = next((i for i, l in enumerate(labs) if R_PERIOD.search(l) or R_PERIOD_OLD.search(l)), None)
+        ip = next(
+            (i for i, l in enumerate(labs) if R_PERIOD.search(l) or R_PERIOD_OLD.search(l)), None
+        )
         ic = next((i for i, l in enumerate(labs) if R_CONNET.search(l)), None)
         if ip is not None and ic is not None and ic > ip + 1:
             mid = [v for _, v in rows[ip + 1 : ic]]
@@ -170,7 +174,10 @@ def owners_pat(rows, want_con):
         return ident, "deduction-identity(§53e)"
     if connet is None:
         return None, "no-owners-row-but-minority-present"
-    return None, f"owners-identity-unresolved(per {per:.2f} mi {mi} assoc {assoc} connet {connet:.2f})"
+    return (
+        None,
+        f"owners-identity-unresolved(per {per:.2f} mi {mi} assoc {assoc} connet {connet:.2f})",
+    )
 
 
 def qe_of(s):
@@ -179,7 +186,9 @@ def qe_of(s):
 
 def read_page(link, sym, qe, want_con):
     """Fetch + validate one detail page. Returns (pat, meta, rows) or (None, reason, None)."""
-    path = os.path.join(CACHE, "con_%s_%d_%s.html" % (sym.replace("&", "_"), qe, "c" if want_con else "s"))
+    path = os.path.join(
+        CACHE, "con_%s_%d_%s.html" % (sym.replace("&", "_"), qe, "c" if want_con else "s")
+    )
     try:
         html = NAR.get_detail(link, sym, path)
     except Exception as ex:
@@ -198,12 +207,14 @@ def read_page(link, sym, qe, want_con):
         return None, "period-mismatch:{}".format(meta.get("Period Ended")), None
     # aliases() returns the OTHER era spellings, not the symbol itself -- omitting sym rejected
     # every page whose Symbol was simply the current one (BALLARPUR "mismatched" itself).
-    if (meta.get("Symbol") or "").upper() not in {a.upper() for a in ([sym, *NAR.aliases(sym)])}:
+    if (meta.get("Symbol") or "").upper() not in {a.upper() for a in ([sym] + NAR.aliases(sym))}:
         return None, "symbol-mismatch:{}".format(meta.get("Symbol")), None
     # CUMULATIVE PAGES ARE YEAR-TO-DATE, NOT THE QUARTER. parse_detail does not surface this field,
     # so read it from the body: a Q2/Q3/Q4 cumulative row would land a 6/9/12-month figure as a
     # quarter. (PRE2015 STEP N carries the same check.)
-    m = re.search(r"Cumulative\s*/\s*Non-?Cumulative\s*\|?\s*(Non-?Cumulative|Cumulative)", html, re.IGNORECASE)
+    m = re.search(
+        r"Cumulative\s*/\s*Non-?Cumulative\s*\|?\s*(Non-?Cumulative|Cumulative)", html, re.I
+    )
     if m and m.group(1).lower().replace("-", "").startswith("cumulative"):
         return None, "cumulative-page(YTD not quarter)", None
     pat, mode = owners_pat(rows, want_con)
@@ -267,7 +278,9 @@ def eps_gate(pat, rows):
         if best is None or err < best[0]:
             best = (err, recon, lab.strip())
     err, recon, lab = best
-    return (err <= EPS_TOL), f"eps {err * 100:.1f}% (recon {recon:.2f} vs {pat:.2f}; row '{lab[:45]}')"
+    return (
+        err <= EPS_TOL
+    ), f"eps {err * 100:.1f}% (recon {recon:.2f} vs {pat:.2f}; row '{lab[:45]}')"
 
 
 def main():
@@ -289,7 +302,7 @@ def main():
     only = set(args[args.index("--only") + 1].split(",")) if "--only" in args else None
     if not os.path.exists(inv_path):
         print(f"no inventory yet -- run the discovery sweep first ({inv_path})")
-        return None
+        return
     inv = json.load(open(inv_path))
     fund = json.load(open(DOCS))
     targets = json.load(open(tgt_path))
@@ -343,7 +356,11 @@ def main():
             if spat is not None:
                 d = abs(spat - stored_std)
                 good = d <= max(STD_ABS, abs(stored_std) * STD_REL)
-                gates.append("S':{} std_page={:.2f} stored={:.2f}".format("PASS" if good else "FAIL", spat, stored_std))
+                gates.append(
+                    "S':{} std_page={:.2f} stored={:.2f}".format(
+                        "PASS" if good else "FAIL", spat, stored_std
+                    )
+                )
                 passed = passed or good
                 # A FAILING S' is a HARD BLOCK, not merely an unpassed gate. It means this page
                 # family disagrees with a value we already hold for the same company-quarter --
@@ -398,19 +415,23 @@ def main():
             reads["%s|%d" % (sym, qe)] = rec
             ok += 1
             print(
-                "  OK   %-12s %d  con=%-10.2f std=%-10s | %s" % (sym, qe, pat, stored_std, " ; ".join(gates)),
+                "  OK   %-12s %d  con=%-10.2f std=%-10s | %s"
+                % (sym, qe, pat, stored_std, " ; ".join(gates)),
                 flush=True,
             )
         else:
             rec["skip"] = blocked or "no-gate-passed"
             reads["%s|%d" % (sym, qe)] = rec
             skip += 1
-            print("  SKIP %-12s %d  %s | %s" % (sym, qe, blocked or "no gate passed", " ; ".join(gates)), flush=True)
+            print(
+                "  SKIP %-12s %d  %s | %s"
+                % (sym, qe, blocked or "no gate passed", " ; ".join(gates)),
+                flush=True,
+            )
         if (i + 1) % 10 == 0:
             json.dump(reads, open(READS, "w"), indent=0, sort_keys=True)
     json.dump(reads, open(READS, "w"), indent=0, sort_keys=True)
     print("\nlanded %d | skipped %d  -> %s" % (ok, skip, os.path.basename(READS)))
-    return None
 
 
 def filed_int(s, qe):

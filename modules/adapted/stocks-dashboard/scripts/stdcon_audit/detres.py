@@ -44,13 +44,14 @@ _s.path.append(_o.path.dirname(_o.path.dirname(_o.path.abspath(__file__))))
 import bse_headers as BH  # §181 BSE headers (append: never shadow local modules)
 import json
 import os
-import sys
 import time
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
-API = "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w?scrip_cd=%s&qtr=%s"
+API = (
+    "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w?scrip_cd=%s&qtr=%s"
+)
 MONTHS = {
     "Jan": 1,
     "Feb": 2,
@@ -137,7 +138,9 @@ def read(scrip, qe):
             if _num(f, "Net Sales/Revenue From Operations", "Total Income") is not None
             else None
         ),
-        "eps": _num(f, "Basic EPS for continuing operation", "Basic for discontinued & continuing operation"),
+        "eps": _num(
+            f, "Basic EPS for continuing operation", "Basic for discontinued & continuing operation"
+        ),
         "span_ok": ok,
         "span": span,
         "end": e,

@@ -110,7 +110,9 @@ def main():
         stored_con = (fmap.get(sym, {}).get(qe) or [None] * 4)[3]
         want = rec.get("anchor_pat_con_stored")
         if want is not None and (stored_con is None or abs(stored_con - want) > 0.01):
-            print(f"REFUSE {key} — stored con PAT is now {stored_con}, the ledger anchored on {want}")
+            print(
+                f"REFUSE {key} — stored con PAT is now {stored_con}, the ledger anchored on {want}"
+            )
             continue
         for field, slot in SLOT.items():
             v = rec.get(field)

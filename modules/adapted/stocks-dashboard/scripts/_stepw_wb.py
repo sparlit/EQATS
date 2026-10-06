@@ -82,7 +82,7 @@ def cdx(
             out = [dict(zip(hdr, row, strict=False)) for row in rows[1:]]
             json.dump(out, open(cp, "w", encoding="utf-8"))
             return out
-        except Exception as e:
+        except Exception as e:  # noqa
             last = str(e)[:80]
             time.sleep(20 * (attempt + 1))
     print(f"  !! cdx fail {url} :: {last}", flush=True)
@@ -114,7 +114,7 @@ def wb_fetch(ts, original, fresh=False):
                 open(cp, "w", encoding="utf-8", errors="replace").write(t)
                 return t
             last = f"http {r.status_code}"
-        except Exception as e:
+        except Exception as e:  # noqa
             last = str(e)[:80]
         if attempt == 0:
             time.sleep(2)

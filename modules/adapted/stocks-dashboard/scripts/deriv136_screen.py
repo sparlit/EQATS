@@ -74,7 +74,7 @@ def main():
         if only and sym not in only:
             continue
         k = "%s|%d|%s" % (sym, qe, basis)
-        if k in out and out[k].get("verdict") != "mc-error":
+        if k in out and out[k].get("verdict") not in ("mc-error",):
             continue
         rrow = (revop.get(sym) or {}).get(str(qe))
         slot = 0 if basis == "std" else 1
@@ -112,7 +112,11 @@ def main():
                         except Exception:
                             fy = {}
                         y = qe // 10000
-                        nine = [(y - 1) * 10000 + 630, (y - 1) * 10000 + 930, (y - 1) * 10000 + 1231]
+                        nine = [
+                            (y - 1) * 10000 + 630,
+                            (y - 1) * 10000 + 930,
+                            (y - 1) * 10000 + 1231,
+                        ]
                         n9 = sum((qs.get(q) or {}).get("rev_ops") or 0 for q in nine)
                         fyv = fy.get("rev_ops") if isinstance(fy, dict) else None
                         if fyv and n9:

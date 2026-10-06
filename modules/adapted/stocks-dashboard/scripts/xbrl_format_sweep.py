@@ -74,9 +74,15 @@ os.makedirs(CACHE, exist_ok=True)
 OUT_FMT = os.path.join(HERE, "xbrl_filer_format.json")
 OUT_REF = os.path.join(HERE, "_xbrl_format_refusals.json")
 
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+)
 LIST_PAGE = "https://www.nseindia.com/companies-listing/corporate-filings-financial-results"
-API = "https://www.nseindia.com/api/corporates-financial-results?index=equities&symbol=%s&period=Quarterly"
+API = (
+    "https://www.nseindia.com/api/corporates-financial-results"
+    "?index=equities&symbol=%s&period=Quarterly"
+)
 PAUSE = 1.6  # be polite; the whole sweep is ~127 calls
 SHORT_LIST = 8  # fewer rows than this for a name we hold many quarters for = suspicious
 
@@ -84,7 +90,9 @@ JAR = None
 
 
 def _get(url, hdr=None):
-    req = urllib.request.Request(url, headers=hdr or {"User-Agent": UA, "Accept": "*/*", "Referer": LIST_PAGE})
+    req = urllib.request.Request(
+        url, headers=hdr or {"User-Agent": UA, "Accept": "*/*", "Referer": LIST_PAGE}
+    )
     op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(JAR))
     r = op.open(req, timeout=30)
     d = r.read()
@@ -127,15 +135,21 @@ def iso_qe(s):
     """'31-Dec-2024' -> 20241231"""
     M = {
         m: i
-        for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+        for i, m in enumerate(
+            ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+        )
     }
     m = re.match(r"(\d{1,2})-([A-Za-z]{3})-(\d{4})", (s or "").strip())
-    return int("%04d%02d%02d" % (int(m.group(3)), M[m.group(2).title()], int(m.group(1)))) if m else None
+    return (
+        int("%04d%02d%02d" % (int(m.group(3)), M[m.group(2).title()], int(m.group(1))))
+        if m
+        else None
+    )
 
 
 def fund_alias():
     src = open(os.path.join(DOCS, "backtest-engine.js")).read()
-    m = re.search(r"FUND_ALIAS\s*=\s*(\{.*?\})\s*;", src, re.DOTALL)
+    m = re.search(r"FUND_ALIAS\s*=\s*(\{.*?\})\s*;", src, re.S)
     if not m:
         return {}
     return json.loads(re.sub(r"(\w+)\s*:", r'"\1":', m.group(1)).replace("'", '"'))
@@ -200,7 +214,10 @@ def main():
                 open(cf, "w"),
             )
             n = len(got or [])
-            print(f"  {i:3d}/{len(syms)} {s:14s} rows={n:4d}{'  ERR ' + err if err and not n else ''}", flush=True)
+            print(
+                f"  {i:3d}/{len(syms)} {s:14s} rows={n:4d}{'  ERR ' + err if err and not n else ''}",
+                flush=True,
+            )
             time.sleep(PAUSE)
 
     # ---------------- build outputs from cache ----------------
@@ -244,7 +261,9 @@ def main():
             qe = iso_qe(r.get("toDate"))
             if not qe:
                 continue
-            basis = "con" if str(r.get("consolidated", "")).strip().lower() == "consolidated" else "std"
+            basis = (
+                "con" if str(r.get("consolidated", "")).strip().lower() == "consolidated" else "std"
+            )
             pre = prefix_of(r.get("xbrl"))
             bf = (r.get("bank") or "").strip().upper()
             per.setdefault(str(qe), {})[basis] = {
@@ -287,7 +306,9 @@ def main():
         print(f"UNRESOLVED / SUSPECT: {len(refusals)}")
         for r in refusals:
             extra = f" rows={r.get('rows')}" if "rows" in r else ""
-            print(f"   {r['symbol']:14s} {r['why']:12s} held={r.get('quarters_we_hold', '?')}{extra}")
+            print(
+                f"   {r['symbol']:14s} {r['why']:12s} held={r.get('quarters_we_hold', '?')}{extra}"
+            )
     print(f"\nwrote {OUT_FMT}\nwrote {OUT_REF}")
     return 0
 

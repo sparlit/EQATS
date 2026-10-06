@@ -78,7 +78,9 @@ def main():
         "pool, exactly as the sweep will run.",
     )
     ap.add_argument("--out", default="/tmp/era_calib_op.json")
-    ap.add_argument("--e2-pat", action="store_true", help="E2 vintage test on PAT (see agg_era_gate)")
+    ap.add_argument(
+        "--e2-pat", action="store_true", help="E2 vintage test on PAT (see agg_era_gate)"
+    )
     a = ap.parse_args()
     if a.e2_pat:
         EG.E2_VINTAGE_FOR_OP = "pat_total"

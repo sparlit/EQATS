@@ -142,7 +142,10 @@ SCALE = [
 ]
 
 # ------------------------------------------------- pat_defects (wrong VALUE, not a power of ten)
-_SRC_1902 = "BSE ann 20190213 attachment 8d2a6723-bd49-4a31-a7c7-ae000b54bf67.pdf p2 (standalone, figures in raw INR)"
+_SRC_1902 = (
+    "BSE ann 20190213 attachment 8d2a6723-bd49-4a31-a7c7-ae000b54bf67.pdf p2 "
+    "(standalone, figures in raw INR)"
+)
 _SRC_2408 = (
     "BSE ann 20240812 attachment 6e593734-9a61-4248-98e2-5d6af072768f.pdf "
     "(p5 standalone / p8 consolidated, 'INR in Lakh')"

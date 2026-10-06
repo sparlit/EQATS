@@ -53,7 +53,9 @@ URLS = [
 def cdx(u):
     api = f"http://web.archive.org/cdx/search/cdx?url={u}&output=json&collapse=digest&fl=timestamp,original,statuscode"
     try:
-        rows = json.loads(urllib.request.urlopen(urllib.request.Request(api, headers=UA), timeout=90).read())
+        rows = json.loads(
+            urllib.request.urlopen(urllib.request.Request(api, headers=UA), timeout=90).read()
+        )
         return rows[1:] if rows else []
     except Exception as e:
         print("  cdx fail %-50s %s" % (u, str(e)[:30]))

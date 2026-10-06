@@ -55,7 +55,9 @@ import os
 import statistics
 import sys
 
-TREE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root of THIS checkout
+TREE = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)  # repo root of THIS checkout
 OURS = ["revS", "revC", "patS", "patC"]
 # scale candidates: site prints crore(1), million(/10), lakh(/100), thousand, or raw rupees
 SCALES = [
@@ -208,7 +210,11 @@ def main():
                 continue
             results = []
             for field in OURS:
-                pairs = [(o["rows"][label], o["mine"].get(field)) for o in support if o["mine"].get(field) is not None]
+                pairs = [
+                    (o["rows"][label], o["mine"].get(field))
+                    for o in support
+                    if o["mine"].get(field) is not None
+                ]
                 if len(pairs) < max(3, 0.3 * len(support)):
                     continue
                 for sname, mult in SCALES:
@@ -244,7 +250,9 @@ def main():
                 "basis_as_labelled": basis,
                 "company_class": cls,
                 **top,
-                "runner_up": {k: runner[k] for k in ("field", "scale", "hold_pct")} if runner else None,
+                "runner_up": {k: runner[k] for k in ("field", "scale", "hold_pct")}
+                if runner
+                else None,
             }
             if top["hold_pct"] >= a.hold_min:
                 card["map"].setdefault(f"{basis}|{cls}", {})[label] = entry
@@ -252,10 +260,20 @@ def main():
                 # T-B fingerprint: a consistent one-sided bias is a DEFINITION difference,
                 # not noise -- e.g. site prints total PAT where we store owners-attributable.
                 if top["median_rel_bias"] is not None and abs(top["median_rel_bias"]) > 0.002:
-                    flag = "  <-- one-sided bias %.3f%% (T-B definition? investigate)" % (100 * top["median_rel_bias"])
+                    flag = "  <-- one-sided bias %.3f%% (T-B definition? investigate)" % (
+                        100 * top["median_rel_bias"]
+                    )
                 print(
                     "  %-34s -> %-5s x%-8s hold %5.1f%% (n=%d) medΔ=%.3f%s"
-                    % (label, top["field"], top["scale"], top["hold_pct"], top["n"], top["median_abs_delta"], flag)
+                    % (
+                        label,
+                        top["field"],
+                        top["scale"],
+                        top["hold_pct"],
+                        top["n"],
+                        top["median_abs_delta"],
+                        flag,
+                    )
                 )
             else:
                 card["rejected"].append(entry)

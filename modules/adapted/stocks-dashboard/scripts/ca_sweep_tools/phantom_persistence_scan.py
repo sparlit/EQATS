@@ -85,14 +85,16 @@ def rclose(sym, names, ymd):
     return None
 
 
-cand = [s for s in steps if s["ymd"] >= 20020102 and not s.get("quant") and abs(s["applied"] - 1) > 0.03]
+cand = [
+    s for s in steps if s["ymd"] >= 20020102 and not s.get("quant") and abs(s["applied"] - 1) > 0.03
+]
 print("candidate applied steps (2002+, non-quant, |f-1|>0.03):", len(cand), flush=True)
 
 out = []
 t = 0
 for s in cand:
     sym, ymd, f = s["sym"], s["ymd"], s["applied"]
-    names = [sym, *sorted(alias_of.get(sym, ()))]
+    names = [sym] + sorted(alias_of.get(sym, ()))
     d0 = datetime.date(ymd // 10000, ymd // 100 % 100, ymd % 100)
     ex = rclose(sym, names, ymd)
     pre = None
@@ -157,5 +159,15 @@ print("top 60 PHANTOM by turnover:")
 for r in ph[:60]:
     print(
         "  %-11s %d applied=%.3f %s raw_step=%s persist=%s pre=%s ex=%s  %s"
-        % (r["sym"], r["ymd"], r["applied"], r["dir"], r["raw_step"], r["persist"], r["pre"], r["ex"], r["name"][:22])
+        % (
+            r["sym"],
+            r["ymd"],
+            r["applied"],
+            r["dir"],
+            r["raw_step"],
+            r["persist"],
+            r["pre"],
+            r["ex"],
+            r["name"][:22],
+        )
     )

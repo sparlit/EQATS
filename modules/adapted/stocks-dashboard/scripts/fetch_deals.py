@@ -155,7 +155,9 @@ def main():
     for kind, fn in (("B", "bulk.csv"), ("K", "block.csv")):
         try:
             t = B._get(
-                "https://nsearchives.nseindia.com/content/equities/" + fn, headers={"User-Agent": B.UA}, timeout=60
+                "https://nsearchives.nseindia.com/content/equities/" + fn,
+                headers={"User-Agent": B.UA},
+                timeout=60,
             )
             recs = list(csv.DictReader(io.StringIO(t)))
             add(rows, recs, kind, "archives " + fn)
@@ -171,7 +173,12 @@ def main():
             "Referer": "https://www.nseindia.com/market-data/large-deals",
         }
         j = json.loads(
-            B._get("https://www.nseindia.com/api/snapshot-capital-market-largedeal", headers=hdr, jar=jar, timeout=60)
+            B._get(
+                "https://www.nseindia.com/api/snapshot-capital-market-largedeal",
+                headers=hdr,
+                jar=jar,
+                timeout=60,
+            )
         )
         add(rows, j.get("BULK_DEALS_DATA") or [], "B", "snapshot bulk")
         add(rows, j.get("BLOCK_DEALS_DATA") or [], "K", "snapshot block")
@@ -192,14 +199,20 @@ def main():
                     (today - datetime.timedelta(days=WINDOW_DAYS - 1)).strftime("%d-%m-%Y"),
                     today.strftime("%d-%m-%Y"),
                 ),
-                headers={"Referer": "https://www.nseindia.com/report-detail/display-bulk-and-block-deals"},
+                headers={
+                    "Referer": "https://www.nseindia.com/report-detail/display-bulk-and-block-deals"
+                },
                 timeout=45,
             )
             if r.status_code == 200:
                 add(rows, (r.json().get("data") or []), kind, "historical " + ep)
                 ok_sources += 1
             else:
-                print("  historical %s: HTTP %d (expected while Akamai-blocked)" % (ep, r.status_code), flush=True)
+                print(
+                    "  historical %s: HTTP %d (expected while Akamai-blocked)"
+                    % (ep, r.status_code),
+                    flush=True,
+                )
     except ImportError:
         pass
     except Exception as ex:
@@ -221,15 +234,25 @@ def main():
         print("ALL sources failed and no previous file — nothing to write", flush=True)
         sys.exit(1)
     if ok_sources == 0:
-        print("ALL sources failed — keeping the previous file untouched (visible red run)", flush=True)
+        print(
+            "ALL sources failed — keeping the previous file untouched (visible red run)", flush=True
+        )
         sys.exit(1)
     if old_n and len(rows) < 0.6 * old_n:
-        print("REFUSING to write: merged %d rows < 60%% of previous %d" % (len(rows), old_n), flush=True)
+        print(
+            "REFUSING to write: merged %d rows < 60%% of previous %d" % (len(rows), old_n),
+            flush=True,
+        )
         sys.exit(1)
 
     allr = sorted(rows.values(), key=lambda r: (r[0], r[2], r[1], r[4]), reverse=True)
     ist = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=5, minutes=30)
-    out = {"updated": ist.strftime("%Y-%m-%d %H:%M"), "from": lo, "to": today.isoformat(), "rows": allr}
+    out = {
+        "updated": ist.strftime("%Y-%m-%d %H:%M"),
+        "from": lo,
+        "to": today.isoformat(),
+        "rows": allr,
+    }
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, separators=(",", ":"), ensure_ascii=False)
     days = sorted({r[0] for r in allr})

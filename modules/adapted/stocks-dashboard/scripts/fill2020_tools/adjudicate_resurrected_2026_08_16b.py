@@ -209,7 +209,9 @@ def main():
             if e.get(vkey) != expect:
                 # the guard compares this stored value against the payload; if it moved, the
                 # adjudication above was written against a different number and must be re-done.
-                print(f"  !! {fname} {key} — ledger {vkey}={e.get(vkey)!r}, expected {expect!r}; NOT lifting")
+                print(
+                    f"  !! {fname} {key} — ledger {vkey}={e.get(vkey)!r}, expected {expect!r}; NOT lifting"
+                )
                 continue
             if "held" not in e:
                 print(f"  == {fname} {key} — already lifted")

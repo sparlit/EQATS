@@ -69,7 +69,9 @@ INDEX_URLS = {
 
 def fetch_csv(slug):
     url = f"https://archives.nseindia.com/content/indices/ind_{slug}list.csv"
-    r = subprocess.run(["curl", "-s", "--max-time", "12", "-A", UA, url], capture_output=True, timeout=15)
+    r = subprocess.run(
+        ["curl", "-s", "--max-time", "12", "-A", UA, url], capture_output=True, timeout=15
+    )
     if not r.stdout:
         return []
     if r.stdout[:3] == b"<!D" or r.stdout[:5] == b"<html":

@@ -43,7 +43,10 @@ AG._MC_IDS_PATH = os.path.join(HERE, "_vintage109_mc_ids_scratch.json")
 AG._get = lambda host, url, pace, site, key, **kw: AG._cached(site, key, 10**9)
 PAGES = os.path.join(HERE, "_vintage108_nse_pages")
 MON = {
-    m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+    )
 }
 
 
@@ -110,7 +113,11 @@ def main():
     # ---- 3. the target must not be a power-of-ten step off the store (unit trap, §74)
     for r in heals:
         t, s = r["nse_pat"], r["stored"]
-        if t and s and any(abs(s / t - p) <= 0.02 * p for p in (0.001, 0.01, 0.1, 10.0, 100.0, 1000.0)):
+        if (
+            t
+            and s
+            and any(abs(s / t - p) <= 0.02 * p for p in (0.001, 0.01, 0.1, 10.0, 100.0, 1000.0))
+        ):
             fails["target-is-a-power-of-ten-step"] += 1
             r["_chk_scale"] = "store/target = %.4f" % (s / t)
 

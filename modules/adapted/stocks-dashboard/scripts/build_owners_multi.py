@@ -98,7 +98,12 @@ def qa(a):
 
 def pq(qe):
     y, md = qe // 10000, qe % 10000
-    return {331: (y - 1) * 10000 + 1231, 630: y * 10000 + 331, 930: y * 10000 + 630, 1231: y * 10000 + 930}.get(md, 0)
+    return {
+        331: (y - 1) * 10000 + 1231,
+        630: y * 10000 + 331,
+        930: y * 10000 + 630,
+        1231: y * 10000 + 930,
+    }.get(md, 0)
 
 
 def tv(w):
@@ -150,7 +155,10 @@ def owners_row(pdf):
         low = doc[p].get_text().lower()
         if "consolidated" in low:
             con = True
-        elif re.search(r"standalone\s+(statement|financial|results)", low) and "consolidated" not in low:
+        elif (
+            re.search(r"standalone\s+(statement|financial|results)", low)
+            and "consolidated" not in low
+        ):
             con = False
         if not con:
             continue
@@ -161,7 +169,10 @@ def owners_row(pdf):
             cells = sorted(rows[y])
             lab = " ".join(w for _, w in cells if not NUM.match(w.replace(",", "")))
             l = lab.lower()
-            if re.search(r"(owners|equity ?holders) of the (parent|company)", l) and "comprehensive" not in l:
+            if (
+                re.search(r"(owners|equity ?holders) of the (parent|company)", l)
+                and "comprehensive" not in l
+            ):
                 nums = [tv(w) for _, w in cells if NUM.match(w.replace(",", ""))]
                 nums = [v for v in nums if v is not None]
                 if len(nums) >= 2:
@@ -184,7 +195,7 @@ def main():
         for lo, hi in WINS:
             fl = datebound(code, lo, hi)
             if fl:
-                ann, att = min(fl)
+                ann, att = sorted(fl)[0]
                 if ann not in anns:
                     fn = os.path.join(cache, "%d.pdf" % ann)
                     if not os.path.exists(fn):

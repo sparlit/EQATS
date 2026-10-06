@@ -38,7 +38,6 @@ import bisect
 import datetime
 import gzip
 import json
-import math
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -107,7 +106,7 @@ def backtest(survivors_only):
         # monthly rebalance
         yl = ymd(shift(md, LOOKBACK_D).isoformat())
         cands = []
-        for sym in DATA:
+        for sym, _s in DATA.items():
             if survivors_only and not META[sym]["alive"]:
                 continue
             p = price(sym, y)
@@ -124,7 +123,9 @@ def backtest(survivors_only):
         for _, sym, p in picks:
             units[sym] = per / p
     final = eq[-1]
-    yrs = (datetime.datetime.strptime(END, "%Y-%m-%d") - datetime.datetime.strptime(START, "%Y-%m-%d")).days / 365.25
+    yrs = (
+        datetime.datetime.strptime(END, "%Y-%m-%d") - datetime.datetime.strptime(START, "%Y-%m-%d")
+    ).days / 365.25
     cagr = (final / cap) ** (1 / yrs) - 1
     peak = -1
     mdd = 0
@@ -150,4 +151,6 @@ print("%-28s %14s %9s %9s" % ("", "Final (Rs1L)", "CAGR", "Max DD"))
 print("%-28s %14s %8.1f%% %8.1f%%" % ("(A) SURVIVORSHIP-FREE", format(fA, ",.0f"), cA, dA))
 print("%-28s %14s %8.1f%% %8.1f%%" % ("(B) survivors-only (biased)", format(fB, ",.0f"), cB, dB))
 print()
-print(f"Bias inflation in CAGR (B - A): {cB - cA:+.1f} pp   |   DD understated by: {dA - dB:+.1f} pp")
+print(
+    f"Bias inflation in CAGR (B - A): {cB - cA:+.1f} pp   |   DD understated by: {dA - dB:+.1f} pp"
+)

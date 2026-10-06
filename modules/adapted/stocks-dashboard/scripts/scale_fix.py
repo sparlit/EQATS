@@ -56,7 +56,10 @@ ROOT = os.path.dirname(HERE)
 LEDGER = os.path.join(HERE, "scale_fix.json")
 
 # sf_revop row: [revStd, revCon, opStd, opCon, patStd, patCon, fin, ebitStd, ebitCon]
-SLOTS = {"std": {"rev": 0, "op": 2, "pat": 4, "ebit": 7}, "con": {"rev": 1, "op": 3, "pat": 5, "ebit": 8}}
+SLOTS = {
+    "std": {"rev": 0, "op": 2, "pat": 4, "ebit": 7},
+    "con": {"rev": 1, "op": 3, "pat": 5, "ebit": 8},
+}
 # fundamentals row: [qe, npStd, annStd, npCon, annCon]
 NPIDX = {"std": 1, "con": 3}
 
@@ -94,7 +97,9 @@ def eps_factor(fname):
     0.01. The one exception is GICL 20250930, whose EPS 61000 is scaled with everything else."""
     global _BY_FILE_EPS
     if _BY_FILE_EPS is None:
-        _BY_FILE_EPS = {e["file"]: 10.0 ** e["k"] for e in load() if e.get("file") and e.get("eps_scaled")}
+        _BY_FILE_EPS = {
+            e["file"]: 10.0 ** e["k"] for e in load() if e.get("file") and e.get("eps_scaled")
+        }
     return _BY_FILE_EPS.get(os.path.basename(fname))
 
 
@@ -120,7 +125,9 @@ def factor_cell(sym, qe, basis):
     global _BY_CELL
     if _BY_CELL is None:
         _BY_CELL = {
-            (e["sym"].upper(), str(e["qe"]), e["basis"]): 10.0 ** e["k"] for e in load() if not e.get("parse_only")
+            (e["sym"].upper(), str(e["qe"]), e["basis"]): 10.0 ** e["k"]
+            for e in load()
+            if not e.get("parse_only")
         }
     return _BY_CELL.get((str(sym).upper(), str(qe), basis))
 
@@ -148,7 +155,9 @@ def _fix_revop(path, fixes):
             want = e["was_revop"].get(name)
             if want is None:
                 continue
-            if _close(row[slot], want) or (row[slot] is None and name in fill):  # still scaled / emptied -> repair
+            if _close(row[slot], want) or (
+                row[slot] is None and name in fill
+            ):  # still scaled / emptied -> repair
                 row[slot] = round(want / 10.0 ** e["k"], 2)
                 n += 1
         data[e["sym"]][e["qe"]] = row
@@ -174,7 +183,9 @@ def _fix_fund(path, fixes):
     # 0.02 tolerance, wrote 25.45 into npCon first (2026-09-23)
     owned = {(e["sym"], e["qe"], e["basis"]) for e in fixes}
     for e in fixes:
-        scaled = [v for v in (e.get("was_fund"), e.get("was_revop", {}).get("pat")) if v is not None]
+        scaled = [
+            v for v in (e.get("was_fund"), e.get("was_revop", {}).get("pat")) if v is not None
+        ]
         if not scaled:
             continue
         for row in data.get(e["sym"], []):
@@ -292,11 +303,17 @@ def apply_xtra(cache=None, dry=False):
                     st[k] = v
                     n += 1
         fields += n
-        print("  %-10s %s %s 1e%-2d %3d field(s) re-asserted" % (new["sym"], new["qe"], e["basis"], e["k"], n))
+        print(
+            "  %-10s %s %s 1e%-2d %3d field(s) re-asserted"
+            % (new["sym"], new["qe"], e["basis"], e["k"], n)
+        )
     if not dry and fields:
         blob = json.dumps(data, separators=(",", ":")).encode("utf-8")
         open(gz, "wb").write(gzip.compress(blob, 9))
-    print("%d field(s) re-asserted%s; %d entr(ies) had no cached filing" % (fields, " (DRY)" if dry else "", missing))
+    print(
+        "%d field(s) re-asserted%s; %d entr(ies) had no cached filing"
+        % (fields, " (DRY)" if dry else "", missing)
+    )
 
 
 def apply_live():

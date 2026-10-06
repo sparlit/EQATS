@@ -116,13 +116,19 @@ for sym in sorted(INSURERS):
     if sym not in fund or sym not in revop:
         rejected[sym] = "not in datasets"
         continue
-    clean = [(qe, s, c) for qe, (s, c) in fund[sym].items() if s is not None and c is not None and qe not in COPY_QES]
+    clean = [
+        (qe, s, c)
+        for qe, (s, c) in fund[sym].items()
+        if s is not None and c is not None and qe not in COPY_QES
+    ]
     if len(clean) < MIN_CLEAN:
         rejected[sym] = f"only {len(clean)} copy-free quarters (<{MIN_CLEAN})"
         continue
     bad = [qe for qe, s, c in clean if s != c]
     if bad:
-        rejected[sym] = f"con differs from std in {len(bad)}/{len(clean)} copy-free quarters -> real consolidation"
+        rejected[sym] = (
+            f"con differs from std in {len(bad)}/{len(clean)} copy-free quarters -> real consolidation"
+        )
         continue
     conflict = None
     for qe_s, row in revop[sym].items():
@@ -148,13 +154,17 @@ for _, _, _, n, _ in fills:
     by_field[n] += 1
 
 print("=" * 74)
-print("{} — no-sub consolidated derivation (group={})".format("APPLY" if APPLY else "DRY RUN", GROUP))
+print(
+    "{} — no-sub consolidated derivation (group={})".format("APPLY" if APPLY else "DRY RUN", GROUP)
+)
 print("=" * 74)
 summary = ", ".join("%s(%dq)" % (s, v["copy_free_quarters"]) for s, v in proven.items())
 print("PROVEN : %d  %s" % (len(proven), summary))
 for s, why in rejected.items():
     print(f"  reject {s:12s} {why}")
-print(f"\ncells to fill: {len(fills)}  " + "  ".join(f"{k}={v}" for k, v in sorted(by_field.items())))
+print(
+    f"\ncells to fill: {len(fills)}  " + "  ".join(f"{k}={v}" for k, v in sorted(by_field.items()))
+)
 
 if not APPLY:
     print("\n(dry run — nothing written)")

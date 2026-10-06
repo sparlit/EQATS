@@ -40,9 +40,9 @@ FUND = os.path.join(os.path.dirname(HERE), "docs", "sf_fundamentals.json")
 
 NOSUB = re.compile(
     r"(company|bank|corporation)\s+(does not have|do not have|has no|have no|did not have)\s+(any\s+)?(a\s+)?subsidiar",
-    re.IGNORECASE,
+    re.I,
 )
-NOSUB2 = re.compile(r"no\s+subsidiar(y|ies)\s*[/,]\s*(associate|joint|jv)", re.IGNORECASE)
+NOSUB2 = re.compile(r"no\s+subsidiar(y|ies)\s*[/,]\s*(associate|joint|jv)", re.I)
 
 COMPANIES = [
     "AUBANK",
@@ -89,7 +89,9 @@ def main():
                 nosub = bool(NOSUB.search(flat) or NOSUB2.search(flat))
                 if nosub:
                     comp_has = True
-            rep[sym].append({"qe": qe, "nosub": nosub, "std": std, "con": con, "pdf": os.path.exists(p)})
+            rep[sym].append(
+                {"qe": qe, "nosub": nosub, "std": std, "con": con, "pdf": os.path.exists(p)}
+            )
         rep[sym + "_any_nosub"] = comp_has
     for sym in COMPANIES:
         anyns = rep[sym + "_any_nosub"]

@@ -56,10 +56,14 @@ def fetch_rows(sym, basis):
     import re
 
     slug = urllib.parse.quote(sym, safe="")
-    t = SP.get("https://www.screener.in/company/{}/{}".format(slug, "consolidated/" if basis == "con" else ""))
+    t = SP.get(
+        "https://www.screener.in/company/{}/{}".format(
+            slug, "consolidated/" if basis == "con" else ""
+        )
+    )
     if t == "429":
         return "429"
-    m = re.search(r'id="quarters".*?</section>', t, re.DOTALL)
+    m = re.search(r'id="quarters".*?</section>', t, re.S)
     if not m:
         return None
     sec = m.group(0)
@@ -113,13 +117,17 @@ def main():
                     skips.append(f"{sym} {basis} {q}: missing cell (np={np_page} sales={sv})")
                     continue
                 if abs(np_page - stored) > max(0.03 * abs(stored), 2.0):
-                    skips.append(f"{sym} {basis} {q}: ANCHOR FAIL page-np={np_page} stored={stored}")
+                    skips.append(
+                        f"{sym} {basis} {q}: ANCHOR FAIL page-np={np_page} stored={stored}"
+                    )
                     continue
                 got.setdefault(q, {})[basis] = {"rev": sv, "np_page": np_page, "np_stored": stored}
         if got:
             store[sym] = got
             json.dump(store, open(OUTF, "w"), indent=0)
-        print("%-12s staged %d quarter-cells" % (sym, sum(len(v) for v in got.values())), flush=True)
+        print(
+            "%-12s staged %d quarter-cells" % (sym, sum(len(v) for v in got.values())), flush=True
+        )
     json.dump(store, open(OUTF, "w"), indent=0)
     print("\n== SKIPS (%d) ==" % len(skips))
     for s in skips:

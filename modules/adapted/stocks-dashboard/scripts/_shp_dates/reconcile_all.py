@@ -193,14 +193,18 @@ def main():
     print(f"\n  ledger = {len(heals)} staleness heals + {len(gatesh)} gate shifts = {len(ledger)}")
     if heals:
         d = sorted(v["days_earlier"] for v in heals.values())
-        b = collections.Counter("2-6" if x <= 6 else "7-30" if x <= 30 else "31-90" if x <= 90 else "90+" for x in d)
+        b = collections.Counter(
+            "2-6" if x <= 6 else "7-30" if x <= 30 else "31-90" if x <= 90 else "90+" for x in d
+        )
         print(
             f"\n  corrections {len(ledger)}: median {d[len(d) // 2]}d earlier, p95 {d[int(0.95 * len(d))]}d, max {d[-1]}d"
         )
         print(f"  buckets {dict(b)}")
         worst = sorted(heals.items(), key=lambda kv: -kv[1]["days_earlier"])[:8]
         for k, v in worst:
-            print(f"    {k:24s} {v['was']} -> {v['sub']}  ({v['days_earlier']}d earlier)  ts {v['ts'][:19]}")
+            print(
+                f"    {k:24s} {v['was']} -> {v['sub']}  ({v['days_earlier']}d earlier)  ts {v['ts'][:19]}"
+            )
     json.dump(ledger, open(LEDGER, "w"), indent=0, sort_keys=True)
     print(f"\nledger -> {os.path.relpath(LEDGER, ROOT)} ({len(ledger)})")
 

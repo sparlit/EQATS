@@ -69,7 +69,7 @@ ANN_URL = (
 RESULT_STRONG = re.compile(
     r"financial result|reg(ulation)?\.?\s*33|33\s*\(3\)|outcome of (the )?board"
     r"|unaudited|audited.*result|standalone|consolidated",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -95,8 +95,7 @@ def result_filings(op, code, from_ymd, to_ymd, status=None):
         try:
             d = json.loads(B.get(op, ANN_URL % (page, from_ymd, to_ymd, code)))
             if not isinstance(d, dict) or "Table" not in d:
-                msg = "not a BSE listing object"
-                raise ValueError(msg)
+                raise ValueError("not a BSE listing object")
             tab = d.get("Table") or []
         except Exception:
             ok = False
@@ -109,14 +108,23 @@ def result_filings(op, code, from_ymd, to_ymd, status=None):
             hd = str(r.get("HEADLINE") or "")
             att = r.get("ATTACHMENTNAME")
             if att:
-                out.append((str(r.get("NEWS_DT") or "")[:10], att, hd, 0 if RESULT_STRONG.search(hd) else 1))
+                out.append(
+                    (
+                        str(r.get("NEWS_DT") or "")[:10],
+                        att,
+                        hd,
+                        0 if RESULT_STRONG.search(hd) else 1,
+                    )
+                )
         if len(tab) < 50:
             break
         page += 1
         time.sleep(0.12)
     if status is not None:
         status["ok"] = ok
-    out.sort(key=lambda x: (x[3], -(int(x[0].replace("-", "")) if x[0] else 0)))  # strong+newest first
+    out.sort(
+        key=lambda x: (x[3], -(int(x[0].replace("-", "")) if x[0] else 0))
+    )  # strong+newest first
     return out
 
 
@@ -183,7 +191,12 @@ def read_filing(op, att, name, deadline, floor, oldest, today_i):
         if ident and qe and pat is not None:
             break
     if ident and qe and unit and pat is not None and floor <= qe < oldest and qe <= today_i:
-        out[qe] = (qe, round(rev * unit, 2) if rev is not None else None, round(pat * unit, 2), basis)
+        out[qe] = (
+            qe,
+            round(rev * unit, 2) if rev is not None else None,
+            round(pat * unit, 2),
+            basis,
+        )
     # vision: read every period column (Claude in the cloud routine; no-op without a key)
     if not (deadline and time.time() > deadline):
         try:
@@ -225,20 +238,24 @@ def main():
     max_filings = argv("--max-filings", int, 3)  # vision reads a filing's comparatives too
     floor = argv("--floor", int, 20200101)
     min_mcap = argv("--min-mcap", float, 0.0)
-    only = set(sys.argv[sys.argv.index("--scrips") + 1].split(",")) if "--scrips" in sys.argv else None
+    only = (
+        set(sys.argv[sys.argv.index("--scrips") + 1].split(",")) if "--scrips" in sys.argv else None
+    )
     today_i = int(datetime.date.today().strftime("%Y%m%d"))
     t_start = time.time()
 
     univ = json.load(open(bf.UNIV, encoding="utf-8"))["rows"]
     univ.sort(key=lambda r: r[6] or 0, reverse=True)  # biggest mcap first
-    data = json.loads(open(bf.OUT, encoding="utf-8").read()) if os.path.exists(bf.OUT) else {"px": {}}
+    data = (
+        json.loads(open(bf.OUT, encoding="utf-8").read()) if os.path.exists(bf.OUT) else {"px": {}}
+    )
     hist = json.load(open(HIST)) if os.path.exists(HIST) else {}
     op = B.session()
     time.sleep(1)
 
     spent = added_total = 0
     for r in univ:
-        code, tkr, name, _isin, _grp, _fv, mc, _sec = r
+        code, tkr, name, isin, grp, fv, mc, sec = r
         code = str(code)
         if only is not None:
             if code not in only and tkr not in only:
@@ -264,7 +281,8 @@ def main():
         od = datetime.date(oldest // 10000, oldest // 100 % 100, oldest % 100)
         to_ymd = (od - datetime.timedelta(days=1)).strftime("%Y%m%d")
         from_d = max(
-            datetime.date(floor // 10000, floor // 100 % 100, floor % 100), od - datetime.timedelta(days=WIN_DAYS)
+            datetime.date(floor // 10000, floor // 100 % 100, floor % 100),
+            od - datetime.timedelta(days=WIN_DAYS),
         )
         from_ymd = from_d.strftime("%Y%m%d")
         deadline = time.time() + 150
@@ -306,11 +324,16 @@ def main():
             fails += 1
         done = newoldest <= floor + 300 or from_i <= floor or fails >= MAX_FAIL
         hist[code] = {"oldest": newoldest, "fails": fails, "done": bool(done)}
-        print("  %s %-12s oldest %s→%s  +%d qtrs%s" % (code, tkr, oldest, newoldest, added, "  DONE" if done else ""))
+        print(
+            "  %s %-12s oldest %s→%s  +%d qtrs%s"
+            % (code, tkr, oldest, newoldest, added, "  DONE" if done else "")
+        )
         if spent % 8 == 0:
             ist = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
             data["updated"] = ist.strftime("%Y-%m-%d %H:%M IST")
-            json.dump(data, open(bf.OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+            json.dump(
+                data, open(bf.OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":")
+            )
             json.dump(hist, open(HIST, "w"))
             time.sleep(0.2)
 
@@ -318,7 +341,10 @@ def main():
     data["updated"] = ist.strftime("%Y-%m-%d %H:%M IST")
     json.dump(data, open(bf.OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     json.dump(hist, open(HIST, "w"))
-    print("WROTE %s: %d scrips this run, +%d historical quarters" % (os.path.normpath(bf.OUT), spent, added_total))
+    print(
+        "WROTE %s: %d scrips this run, +%d historical quarters"
+        % (os.path.normpath(bf.OUT), spent, added_total)
+    )
 
 
 if __name__ == "__main__":

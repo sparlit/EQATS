@@ -78,8 +78,10 @@ def hl(s, dint):
     while k >= 0 and a[k] >= lo:
         ph = c[k] * (1000 + hb[k]) / 1000 if hb else c[k]
         pl = c[k] * (1000 - lb[k]) / 1000 if lb else c[k]
-        hi = max(hi, ph)
-        low = min(low, pl)
+        if ph > hi:
+            hi = ph
+        if pl < low:
+            low = pl
         k -= 1
     return hi, low
 
@@ -107,7 +109,9 @@ def metrics(s, dint):
             if not cur:
                 continue
             bq = cur[0] - 10000
-            base = next((q for q in arr if q[0] == bq and len(q) > npi and q[npi] is not None), None)
+            base = next(
+                (q for q in arr if q[0] == bq and len(q) > npi and q[npi] is not None), None
+            )
             if not base or base[npi] == 0:
                 continue
             yo = (cur[npi] - base[npi]) / abs(base[npi]) * 100
@@ -142,7 +146,9 @@ def faily(s, dint, M):
             if not cur:
                 continue
             bq = cur[0] - 10000
-            base = next((q for q in arr if q[0] == bq and len(q) > npi and q[npi] is not None), None)
+            base = next(
+                (q for q in arr if q[0] == bq and len(q) > npi and q[npi] is not None), None
+            )
             if not base or base[npi] == 0:
                 continue
             yo = (cur[npi] - base[npi]) / abs(base[npi]) * 100
@@ -174,7 +180,10 @@ for d in sorted(mine.keys()):
     extra = [x for x in ours if x not in tl.get(d, [])]
     if not miss and not extra:
         continue
-    print("=== %s  (TL-SF=%d ours=%d match=%d)" % (d, len(sf), len(ours), len([x for x in sf if x in ours])))
+    print(
+        "=== %s  (TL-SF=%d ours=%d match=%d)"
+        % (d, len(sf), len(ours), len([x for x in sf if x in ours]))
+    )
     for m in miss:
         print("   MISS  %-11s -> %s" % (m, faily(m, dint, M)))
     for e in extra:

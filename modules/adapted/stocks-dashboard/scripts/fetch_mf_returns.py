@@ -53,15 +53,14 @@ import re
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "scripts" / "mutual_funds.json"
 
 if not OUT.exists():
-    msg = f"Seed file {OUT} not found — cannot determine fund universe."
-    raise SystemExit(msg)
+    raise SystemExit(f"Seed file {OUT} not found — cannot determine fund universe.")
 
 existing = json.loads(OUT.read_text(encoding="utf-8"))
 OLD = {r["code"]: r for r in existing}
@@ -90,7 +89,13 @@ def plan_of(name):
 
 def is_segregated(n):
     n = n.lower()
-    return "segregat" in n or "seg." in n or "portfolio" in n or "side pocket" in n or "side-pocket" in n
+    return (
+        "segregat" in n
+        or "seg." in n
+        or "portfolio" in n
+        or "side pocket" in n
+        or "side-pocket" in n
+    )
 
 
 def clean_short(name):
@@ -134,7 +139,9 @@ def discover_amfi():
     except Exception:
         try:
             r = subprocess.run(
-                ["curl", "-s", "--max-time", "60", "-A", "Mozilla/5.0", url], capture_output=True, timeout=70
+                ["curl", "-s", "--max-time", "60", "-A", "Mozilla/5.0", url],
+                capture_output=True,
+                timeout=70,
             )
             txt = r.stdout.decode("utf-8", errors="ignore")
         except Exception:
@@ -262,7 +269,9 @@ def _get(code, attempts=5):
     for i in range(attempts):
         try:
             r = subprocess.run(
-                ["curl", "-s", "--max-time", "25", f"https://api.mfapi.in/mf/{code}"], capture_output=True, timeout=30
+                ["curl", "-s", "--max-time", "25", f"https://api.mfapi.in/mf/{code}"],
+                capture_output=True,
+                timeout=30,
             )
             d = json.loads(r.stdout.decode("utf-8", errors="ignore"))
             if d.get("status") == "SUCCESS" and d.get("data"):
@@ -316,7 +325,9 @@ def fetch_one(scheme):
         inc_total = (nav_latest - nav_inc) / nav_inc * 100
         # Don't annualize for funds under 1 year old — annualizing a sub-year
         # return wildly exaggerates it (SEBI shows absolute returns for <1yr).
-        inc_cagr = ((nav_latest / nav_inc) ** (1 / inc_years) - 1) * 100 if inc_years >= 1.0 else inc_total
+        inc_cagr = (
+            ((nav_latest / nav_inc) ** (1 / inc_years) - 1) * 100 if inc_years >= 1.0 else inc_total
+        )
 
         # Returns at each lookback
         returns = {}
@@ -472,7 +483,7 @@ for code, (dd, nn) in series.items():
     deltas = [arr[0]]
     for k in range(1, len(arr)):
         deltas.append(arr[k] - arr[k - 1])
-    packed[code] = [s, *deltas]
+    packed[code] = [s] + deltas
 hraw = json.dumps({"dates": axis, "data": packed}, separators=(",", ":")).encode()
 hgz = gzip.compress(hraw, compresslevel=9)
 HISTB64.write_text(base64.b64encode(hgz).decode(), encoding="utf-8")
@@ -499,7 +510,9 @@ slim = [
     }
     for r in results
 ]
-(ROOT / "docs" / "mf_funds.json").write_text(json.dumps(slim, separators=(",", ":")), encoding="utf-8")
+(ROOT / "docs" / "mf_funds.json").write_text(
+    json.dumps(slim, separators=(",", ":")), encoding="utf-8"
+)
 
 # Re-inject the synthetic "Gold (INR, since 2006)" instrument into the backtest
 # data so the Rotation tools keep gold history after every refresh. Never let a

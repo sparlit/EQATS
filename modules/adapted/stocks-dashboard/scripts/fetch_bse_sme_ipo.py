@@ -51,7 +51,7 @@ import os as _o
 import sys as _s
 
 _s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
-import bse_headers
+import bse_headers  # noqa: F401  §181
 import os
 import sys
 import json
@@ -78,12 +78,14 @@ def get_json(path, tries=4):
         try:
             with urllib.request.urlopen(API + path, timeout=90) as r:
                 body = r.read()
-            return json.loads(body)
-        except Exception as e:  # a 403/HTML body is a request problem (§181) — retry spaced, then fail loud
+            j = json.loads(body)
+            return j
+        except (
+            Exception
+        ) as e:  # a 403/HTML body is a request problem (§181) — retry spaced, then fail loud
             last = e
             time.sleep(5 * (i + 1))
-    msg = f"BSE {path} failed: {last!r}"
-    raise RuntimeError(msg)
+    raise RuntimeError(f"BSE {path} failed: {last!r}")
 
 
 def load(p, default):
@@ -108,16 +110,27 @@ def dump(p, obj, compact=False):
 def fetch_level(full):
     cur = load(OUT_LEVEL, {"px": {}})
     px = dict(cur.get("px") or {})
-    to = dict(cur.get("to") or {})  # BSE's daily turnover of the constituents (₹ cr) — the membership check
+    to = dict(
+        cur.get("to") or {}
+    )  # BSE's daily turnover of the constituents (₹ cr) — the membership check
     vol = dict(cur.get("vol") or {})  # shares traded (crore) — same use
     today = datetime.date.today()
-    start = BASE if (full or not px) else datetime.date.fromisoformat(max(px)) - datetime.timedelta(days=15)
+    start = (
+        BASE
+        if (full or not px)
+        else datetime.date.fromisoformat(max(px)) - datetime.timedelta(days=15)
+    )
     got = 0
     y = start
     while y <= today:
         end = min(datetime.date(y.year + 3, 12, 31), today)
         q = urllib.parse.urlencode(
-            {"fmdt": y.strftime("%d/%m/%Y"), "index": "SMEIPO", "period": "D", "todt": end.strftime("%d/%m/%Y")}
+            {
+                "fmdt": y.strftime("%d/%m/%Y"),
+                "index": "SMEIPO",
+                "period": "D",
+                "todt": end.strftime("%d/%m/%Y"),
+            }
         )
         rows = (get_json("/IndexArchDailyPAR/w?" + q) or {}).get("Table") or []
         for r in rows:
@@ -154,8 +167,7 @@ def fetch_members():
         raise SystemExit("member list has %d rows — refusing to write" % len(rows))
     dates = {(r.get("Date") or "")[:10] for r in rows}
     if len(dates) != 1:
-        msg = f"member list carries several dates {sorted(dates)} — refusing"
-        raise SystemExit(msg)
+        raise SystemExit(f"member list carries several dates {sorted(dates)} — refusing")
     asof = dates.pop()
     # scrip code -> our BSE key (bse_universe rows: [code, scrip_id, name, isin, group, fv, mcap, industry])
     code2id = {}
@@ -181,7 +193,11 @@ def fetch_members():
 
     prev = load(OUT_MEM, None)
     if prev and prev.get("asof", "") > asof:
-        print("members: BSE list dated {} is OLDER than stored {} — ignored".format(asof, prev["asof"]))
+        print(
+            "members: BSE list dated {} is OLDER than stored {} — ignored".format(
+                asof, prev["asof"]
+            )
+        )
         return
     dump(os.path.join(SNAPS, asof + ".json"), {"asof": asof, "rows": rows})
     chg = load(OUT_CHG, {"events": []})
@@ -189,17 +205,32 @@ def fetch_members():
         old = {m["code"]: m for m in prev["members"]}
         new = {m["code"]: m for m in mem}
         ev = [
-            {"date": asof, "action": "add", "code": c, "name": new[c]["name"], "isin": new[c]["isin"]}
+            {
+                "date": asof,
+                "action": "add",
+                "code": c,
+                "name": new[c]["name"],
+                "isin": new[c]["isin"],
+            }
             for c in sorted(set(new) - set(old))
         ]
         ev += [
-            {"date": asof, "action": "remove", "code": c, "name": old[c]["name"], "isin": old[c]["isin"]}
+            {
+                "date": asof,
+                "action": "remove",
+                "code": c,
+                "name": old[c]["name"],
+                "isin": old[c]["isin"],
+            }
             for c in sorted(set(old) - set(new))
         ]
         if ev:
             chg["events"].extend(ev)
             chg["events"].sort(key=lambda e: (e["date"], e["action"], e["code"]))
-        print("members: %s -> %s  +%d / -%d" % (prev["asof"], asof, len(set(new) - set(old)), len(set(old) - set(new))))
+        print(
+            "members: %s -> %s  +%d / -%d"
+            % (prev["asof"], asof, len(set(new) - set(old)), len(set(old) - set(new)))
+        )
     dump(OUT_CHG, chg)
     dump(
         OUT_MEM,
@@ -210,7 +241,10 @@ def fetch_members():
             "members": mem,
         },
     )
-    print("members: %d as of %s (%d mapped to a BSE key)" % (len(mem), asof, sum(1 for m in mem if m["sym"])))
+    print(
+        "members: %d as of %s (%d mapped to a BSE key)"
+        % (len(mem), asof, sum(1 for m in mem if m["sym"]))
+    )
     # point-in-time history (docs/bse_sme_ipo/history.json, built 2020→ by build_bse_sme_ipo_pit.py): from here on BSE's
     # own captured list IS the record — append a snapshot dated by the list whenever the member set changes
     hp = os.path.join(DIR, "history.json")

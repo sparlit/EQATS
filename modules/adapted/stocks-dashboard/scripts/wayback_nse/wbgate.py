@@ -63,7 +63,11 @@ def judge(sym, raw):
     if p.get("pat_cr") is None:
         return (
             None,
-            ("G4b no Net Profit row (BANKING template, schema unread)" if p.get("bank") else "G4b no Net Profit row"),
+            (
+                "G4b no Net Profit row (BANKING template, schema unread)"
+                if p.get("bank")
+                else "G4b no Net Profit row"
+            ),
             p,
         )
     fv = face_of(raw)
@@ -71,7 +75,11 @@ def judge(sym, raw):
     pu = p["paidup"]
     eps = p["eps"]
     if not (fv and pu and pu > 0 and eps is not None and np_ is not None and eps != 0):
-        return None, "G5 EPS identity not testable (EPS/face/paid-up missing or EPS printed 0.00)", p
+        return (
+            None,
+            "G5 EPS identity not testable (EPS/face/paid-up missing or EPS printed 0.00)",
+            p,
+        )
     imp = np_ * fv / pu
     if abs(imp - eps) > max(0.05, 0.03 * max(abs(eps), abs(imp))):
         return None, f"G5 EPS identity fails: printed {eps}, NP*FV/PU = {imp:.2f}", p

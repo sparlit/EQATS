@@ -35,7 +35,6 @@ RUN: python3 scripts/vintage109_invariant.py [--after]
 import json
 import os
 import sys
-from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -118,7 +117,9 @@ def main():
             % (tag, n, 100.0 * ok / max(n, 1), len(bad))
         )
         touched = [b for b in bad if b[4]]
-        print("               of the disagreements, %d are cells THIS CAMPAIGN moved" % len(touched))
+        print(
+            "               of the disagreements, %d are cells THIS CAMPAIGN moved" % len(touched)
+        )
         for b in touched[:15]:
             print("                  %-13s %-9s store=%-11s detres=%s" % (b[0], b[1], b[2], b[3]))
 

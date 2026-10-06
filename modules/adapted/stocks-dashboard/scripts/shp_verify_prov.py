@@ -113,7 +113,7 @@ def build(pin):
             route = prov.setdefault(sym, {}).setdefault(qe, "nse-live")
             counts[route] += 1
         for qe in list(prov[sym]):  # ledger cell that never landed in history
-            if qe not in qes:
+            if qe not in HIST[sym]:
                 del prov[sym][qe]
 
     return {"_meta": {"pin": pin, "echoes": ECHOES, "counts": dict(counts)}, "prov": prov}, counts

@@ -70,7 +70,7 @@ DECISION = re.compile(
     r"launch(?:es|ed)?|allocat(?:es|ed|ion)|notifie[sd]|award(?:s|ed)|signs? (?:an? )?(?:contract|agreement|mou)|"
     r"clears?|tender|invites bids|policy|scheme|mission|outlay|budget|procurement|indigenis|"
     r"production linked incentive|\bpli\b|viability gap|capital outlay|contract worth)\b",
-    re.IGNORECASE,
+    re.I,
 )
 # and must not be one of the daily rituals
 NOISE = re.compile(
@@ -78,7 +78,7 @@ NOISE = re.compile(
     r"film award|exhibition|webinar|workshop|seminar|swachhata|cleanliness|yoga day|walkathon|"
     r"photo caption|clarification|fact check|rashtrapati|visits|meets|inaugurat(?:es|ed) an? (?:exhibition|event)|"
     r"address(?:es|ed) (?:the )?(?:gathering|students)|quiz|essay|poster|pledge|anniversar)\b",
-    re.IGNORECASE,
+    re.I,
 )
 # Retrospectives quote big numbers about decisions taken years ago. 2026-09-24: "Coal Distribution Over
 # the Years: From Allocation to Auction" (Rs 7,500 cr in the body) was kept because "Allocation" is a
@@ -88,13 +88,13 @@ BACKGROUNDER = re.compile(
     r"(?:a )?look (?:back )?at|journey (?:of|from)|story of|(?:a )?decade of|\d+ years of|"
     r"milestones?|achievements? (?:of|in|under)|background note|from \w+ to \w+:|"
     r"transforming|transformation of|then and now|retrospect)\b",
-    re.IGNORECASE,
+    re.I,
 )
 
 # NOTE: 'lakh cr' and 'lakh crore' must be tried BEFORE plain 'cr' or 'Rs 1.39 lakh cr' reads as Rs 1.39 cr
 AMT = re.compile(
     r"(?:rs\.?|inr|₹|rupees)\s*([\d,]+(?:\.\d+)?)\s*(lakh\s+crores?|lakh\s+cr\b|crores?|cr\b|lakhs?|billion|bn\b|trillion)",
-    re.IGNORECASE,
+    re.I,
 )
 MULT = {
     "lakh crore": 100000,
@@ -116,7 +116,7 @@ MANDATE = re.compile(
     r"make in india (?:category|procurement)|emergency procurement|domestic content requirement|"
     r"\balmm\b|approved list of models|quality control order|anti-dumping|safeguard duty|"
     r"minimum import price|production linked incentive|\bpli\b)\b",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -130,8 +130,7 @@ def get(url, timeout=60, retries=3):
         except Exception as e:
             last = e
             time.sleep(1.5 * (i + 1))
-    msg = f"GET failed {url}: {last}"
-    raise RuntimeError(msg)
+    raise RuntimeError(f"GET failed {url}: {last}")
 
 
 def amount_hit(text):
@@ -139,7 +138,9 @@ def amount_hit(text):
     best, hit = None, None
     for m in AMT.finditer(text or ""):
         try:
-            v = float(m.group(1).replace(",", "")) * MULT.get(re.sub(r"\s+", " ", m.group(2).lower().strip()), 0)
+            v = float(m.group(1).replace(",", "")) * MULT.get(
+                re.sub(r"\s+", " ", m.group(2).lower().strip()), 0
+            )
         except Exception:
             continue
         if v and (best is None or v > best):
@@ -157,13 +158,13 @@ def listing():
     page = get(LIST)
     out = []
     # split on the ministry headings so each link inherits the ministry above it
-    parts = re.split(r"<h3[^>]*>(.*?)</h3>", page, flags=re.DOTALL)
+    parts = re.split(r"<h3[^>]*>(.*?)</h3>", page, flags=re.S)
     cur = ""
     for i, chunk in enumerate(parts):
         if i % 2 == 1:
             cur = html.unescape(re.sub(r"<[^>]+>", "", chunk)).strip()
             continue
-        for m in re.finditer(r"<a[^>]*PRID=(\d+)[^>]*>(.*?)</a>", chunk, re.DOTALL):
+        for m in re.finditer(r"<a[^>]*PRID=(\d+)[^>]*>(.*?)</a>", chunk, re.S):
             title = html.unescape(re.sub(r"<[^>]+>", "", m.group(2))).strip()
             if title:
                 out.append((m.group(1), cur, re.sub(r"\s+", " ", title)))
@@ -175,8 +176,12 @@ def body_text(prid):
         b = get(BODY % prid, timeout=45, retries=2)
     except Exception:
         return ""
-    b = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", b, flags=re.DOTALL | re.IGNORECASE)
-    m = re.search(r'<div[^>]*class="[^"]*innner-page-main-about-us-content-right-part[^"]*"[^>]*>(.*)', b, re.DOTALL)
+    b = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", b, flags=re.S | re.I)
+    m = re.search(
+        r'<div[^>]*class="[^"]*innner-page-main-about-us-content-right-part[^"]*"[^>]*>(.*)',
+        b,
+        re.S,
+    )
     b = m.group(1) if m else b
     t = html.unescape(re.sub(r"<[^>]+>", " ", b))
     return re.sub(r"\s+", " ", t)[:6000]
@@ -184,12 +189,21 @@ def body_text(prid):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--min-cr", type=float, default=1000.0, help="rupee outlay below which a release is noise")
-    ap.add_argument("--max-bodies", type=int, default=25, help="how many candidate releases to open in full")
+    ap.add_argument(
+        "--min-cr", type=float, default=1000.0, help="rupee outlay below which a release is noise"
+    )
+    ap.add_argument(
+        "--max-bodies", type=int, default=25, help="how many candidate releases to open in full"
+    )
     a = ap.parse_args()
 
     tm = json.load(open(os.path.join(DOCS, "theme_map.json")))
-    themes = {k: (v, re.compile(v["keywords"], re.IGNORECASE)) for k, v in tm["themes"].items()}
+    # A keyword must START a word: bare 'port' matched 'support' (every MSP release was tagged shipbuilding on
+    # 2026-09-30) and 'hal' matched 'shall'. Suffixes stay open so 'railway' still finds 'railways'; a keyword
+    # that must also END a word carries its own \\b in theme_map.json (ports?\\b, hal\\b).
+    themes = {
+        k: (v, re.compile(r"\b(?:" + v["keywords"] + ")", re.I)) for k, v in tm["themes"].items()
+    }
 
     try:
         rels = listing()
@@ -210,7 +224,14 @@ def main():
     stamp = ist.stamp()
     kept, unmapped, opened = [], [], 0
     dropped = {"noise": 0, "backgrounder": 0, "no decision verb": 0, "no theme": 0, "too small": 0}
+    seen_titles = set()
     for prid, ministry, title in rels:
+        # PIB posts one decision under several ministries with the same title (Cabinet + MNRE): keep the first.
+        tkey = re.sub(r"\s+", " ", title).strip().lower()
+        if tkey in seen_titles:
+            dropped["duplicate"] = dropped.get("duplicate", 0) + 1
+            continue
+        seen_titles.add(tkey)
         if NOISE.search(title):
             dropped["noise"] += 1
             continue
@@ -227,7 +248,9 @@ def main():
         if opened < a.max_bodies and (not hit or amt is None):
             text = title + " " + body_text(prid)
             opened += 1
-            hit = [k for k, (v, rx) in themes.items() if rx.search(text)] or hit
+            # the title names the programme; the body is read for the amount and, only when the title named no
+            # sector, for the sector. Body-wide matching tagged GEC-III 'solar' from the phrase "non-solar hour".
+            hit = hit or [k for k, (v, rx) in themes.items() if rx.search(text)]
             if amt is None:
                 amt, amt_text = amount_hit(text)
                 amt_in = "body" if amt is not None else None
@@ -280,7 +303,9 @@ def main():
                 "outlay_cr": amt,
                 "mandate": bool(mandate),
                 "why": why,
-                "small_caps": [c for c in uniq if c.get("mcap_cr") and 200 <= c["mcap_cr"] <= 7500][:15],
+                "small_caps": [c for c in uniq if c.get("mcap_cr") and 200 <= c["mcap_cr"] <= 7500][
+                    :15
+                ],
                 "companies": uniq[:30],
             }
         )
@@ -303,9 +328,16 @@ def main():
     for r in unmapped:
         print(f"  [UNMAPPED Rs {r['outlay_cr'] or 0:,.0f} cr] {r['title'][:90]}")
     for r in kept:
-        amt = f"Rs {r['outlay_cr']:,.0f} cr" if r["outlay_cr"] else ("mandate" if r["mandate"] else "-")
+        amt = (
+            f"Rs {r['outlay_cr']:,.0f} cr"
+            if r["outlay_cr"]
+            else ("mandate" if r["mandate"] else "-")
+        )
         print(f"  [{amt}] {r['ministry'][:28]:28s} {r['title'][:80]}")
-        print(f"      themes {r['themes']} | small caps: " + ", ".join(c["symbol"] for c in r["small_caps"][:10]))
+        print(
+            f"      themes {r['themes']} | small caps: "
+            + ", ".join(c["symbol"] for c in r["small_caps"][:10])
+        )
 
 
 if __name__ == "__main__":

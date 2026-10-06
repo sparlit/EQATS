@@ -90,7 +90,9 @@ SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
 sys.path.insert(0, SCRIPTS)
 
-_spec = importlib.util.spec_from_file_location("nar", os.path.join(SCRIPTS, "_nse_archive_revop.py"))
+_spec = importlib.util.spec_from_file_location(
+    "nar", os.path.join(SCRIPTS, "_nse_archive_revop.py")
+)
 NAR = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(NAR)
 NAR.JAR = NAR.BF.nse_jar()
@@ -108,17 +110,17 @@ MIRROR = os.path.join(SCRIPTS, "fundamentals.json")
 EPS_TOL = 0.06
 STD_ABS, STD_REL = 0.05, 0.005  # GATE S' / GATE I tolerance
 
-R_OWN = re.compile(r"net profit.*after\s+taxe?s?.*minority\s+interest", re.IGNORECASE)
-R_CONFINAL = re.compile(r"^consolidated net profit\s*/?\s*\(?loss\)?\s*for the period", re.IGNORECASE)
-R_PERIOD = re.compile(r"^net profit\s*/?\s*\(?\s*loss\s*\)?\s*for the period", re.IGNORECASE)
-R_MINORITY = re.compile(r"^minority interest", re.IGNORECASE)
-R_ASSOC = re.compile(r"share of profit.*associat", re.IGNORECASE)
-R_EQCAP = re.compile(r"paid-?up equity share capital", re.IGNORECASE)
-R_FV = re.compile(r"face value", re.IGNORECASE)
+R_OWN = re.compile(r"net profit.*after\s+taxe?s?.*minority\s+interest", re.I)
+R_CONFINAL = re.compile(r"^consolidated net profit\s*/?\s*\(?loss\)?\s*for the period", re.I)
+R_PERIOD = re.compile(r"^net profit\s*/?\s*\(?\s*loss\s*\)?\s*for the period", re.I)
+R_MINORITY = re.compile(r"^minority interest", re.I)
+R_ASSOC = re.compile(r"share of profit.*associat", re.I)
+R_EQCAP = re.compile(r"paid-?up equity share capital", re.I)
+R_FV = re.compile(r"face value", re.I)
 # every EPS row the archive prints: the old template's "(a) Basic" under
 # "Earnings Per Share (before/after extraordinary items)", and the Ind-AS template's
 # "Basic EPS for continuing / discontinued / continued and discontinued operations".
-R_EPS_ANY = re.compile(r"^\(?a\)?[\.\)\s]*basic\b|^basic\s+eps\b|^basic\b.*earnings? per", re.IGNORECASE)
+R_EPS_ANY = re.compile(r"^\(?a\)?[\.\)\s]*basic\b|^basic\s+eps\b|^basic\b.*earnings? per", re.I)
 
 
 _LIST = {}
@@ -135,7 +137,11 @@ def _list_rows(sym):
 
 
 def rows_matching(rows, pat):
-    return [(lab, v) for lab, v in rows if pat.search(lab.strip()) or pat.search(NAR.ROWNUM.sub("", lab.strip()))]
+    return [
+        (lab, v)
+        for lab, v in rows
+        if pat.search(lab.strip()) or pat.search(NAR.ROWNUM.sub("", lab.strip()))
+    ]
 
 
 def near(a, b):
@@ -166,9 +172,11 @@ def validate_page(html, meta, sym, qe, want_con):
         return "basis=%s" % (basis or "?")
     if NAR.iso_qe(meta.get("Period Ended", "")) != qe:
         return "period={}".format(meta.get("Period Ended"))
-    if (meta.get("Symbol") or "").upper() not in {a.upper() for a in ([sym, *NAR.aliases(sym)])}:
+    if (meta.get("Symbol") or "").upper() not in {a.upper() for a in ([sym] + NAR.aliases(sym))}:
         return "symbol={}".format(meta.get("Symbol"))
-    m = re.search(r"Cumulative\s*/\s*Non-?Cumulative\s*\|?\s*(Non-?Cumulative|Cumulative)", html, re.IGNORECASE)
+    m = re.search(
+        r"Cumulative\s*/\s*Non-?Cumulative\s*\|?\s*(Non-?Cumulative|Cumulative)", html, re.I
+    )
     if m and m.group(1).lower().replace("-", "").startswith("cumulative"):
         return "cumulative-page(YTD not quarter)"
     return None
@@ -181,7 +189,13 @@ def owners_of(rows):
     per = NAR.pick(rows, R_PERIOD)
     mi = NAR.pick(rows, R_MINORITY)
     asc = NAR.pick(rows, R_ASSOC)
-    parts = {"owners_row": own, "consolidated_final_row": fin, "period": per, "minority": mi, "associates": asc}
+    parts = {
+        "owners_row": own,
+        "consolidated_final_row": fin,
+        "period": per,
+        "minority": mi,
+        "associates": asc,
+    }
     if own is not None:
         return own, "owners-row", parts
     # A "Consolidated Net Profit/Loss for the period" that DIFFERS from the period row is the
@@ -214,7 +228,9 @@ def eps_gate(pat, rows):
             best = (err, lab.strip()[:44], recon)
     if best is None:
         return None, "eps-all-zero"
-    return (best[0] <= EPS_TOL), f"eps {best[0] * 100:.1f}% via {best[1]!r} (recon {best[2]:.2f} vs {pat:.2f})"
+    return (
+        best[0] <= EPS_TOL
+    ), f"eps {best[0] * 100:.1f}% via {best[1]!r} (recon {best[2]:.2f} vs {pat:.2f})"
 
 
 # ------------------------------------------------- GATE C / GATE F (rescue pair)
@@ -274,7 +290,12 @@ def fy_of(qe):
 def fy_identity(sym, qe, value, fund, inv, pending):
     """GATE F: the fiscal year's four con quarters must sum to the AUDITED con annual."""
     fy = fy_of(qe)
-    quarters = [(fy - 1) * 10000 + 630, (fy - 1) * 10000 + 930, (fy - 1) * 10000 + 1231, fy * 10000 + 331]
+    quarters = [
+        (fy - 1) * 10000 + 630,
+        (fy - 1) * 10000 + 930,
+        (fy - 1) * 10000 + 1231,
+        fy * 10000 + 331,
+    ]
     stored = {r[0]: (r[3] if len(r) > 3 else None) for r in fund.get(sym, [])}
     parts, missing = [], []
     for q in quarters:
@@ -367,7 +388,11 @@ def calibrate(limit):
         if abs(minus - plus) <= 2 * tol:  # variants indistinguishable -> proves nothing
             tie += 1
             continue
-        hit = "minus" if abs(minus - stored) <= tol else ("plus" if abs(plus - stored) <= tol else "neither")
+        hit = (
+            "minus"
+            if abs(minus - stored) <= tol
+            else ("plus" if abs(plus - stored) <= tol else "neither")
+        )
         if hit == "minus":
             sep_ok += 1
         elif hit == "plus":
@@ -390,14 +415,26 @@ def calibrate(limit):
         )
         print(
             "  %-12s %d  stored=%-11.2f per=%-11.2f mi=%-9.2f asc=%-9.2f  -asc=%-11.2f +asc=%-11.2f  %s  %s"
-            % (sym, qe, stored, per, mi, asc, minus, plus, hit, "old" if own is not None else "indas"),
+            % (
+                sym,
+                qe,
+                stored,
+                per,
+                mi,
+                asc,
+                minus,
+                plus,
+                hit,
+                "old" if own is not None else "indas",
+            ),
             flush=True,
         )
     json.dump(out, open(CALIB, "w"), indent=1, sort_keys=True)
     tot = sep_ok + sep_bad
     print("\nSEPARABLE cases (sign of `associates` actually tested): %d" % tot)
     print(
-        "  period - minority - associates  == stored con : %d  (%.1f%%)" % (sep_ok, 100.0 * sep_ok / tot if tot else 0)
+        "  period - minority - associates  == stored con : %d  (%.1f%%)"
+        % (sep_ok, 100.0 * sep_ok / tot if tot else 0)
     )
     print("  period - minority + associates  == stored con : %d" % sep_bad)
     print("  near-ties skipped: %d | unusable/other: %d" % (tie, other))
@@ -487,14 +524,21 @@ def main():
         n = int(args[i + 1]) if len(args) > i + 1 and args[i + 1].isdigit() else 0
         return calibrate(n)
     only = set(args[args.index("--only") + 1].split(",")) if "--only" in args else None
-    classes = set((args[args.index("--classes") + 1]).split(",")) if "--classes" in args else {"owners", "eps"}
+    classes = (
+        set((args[args.index("--classes") + 1]).split(","))
+        if "--classes" in args
+        else {"owners", "eps"}
+    )
     inv = json.load(open(INV))
     fund = json.load(open(DOCS))
     reads = json.load(open(READS)) if os.path.exists(READS) else {}
     os.makedirs(CACHE, exist_ok=True)
 
     work = targets(only, classes)
-    print("re-attempting %d refusals (classes: %s)\n" % (len(work), ",".join(sorted(classes))), flush=True)
+    print(
+        "re-attempting %d refusals (classes: %s)\n" % (len(work), ",".join(sorted(classes))),
+        flush=True,
+    )
     ok = skip = 0
     deferred = []
     for sym, qe, cls, _old in work:
@@ -541,12 +585,16 @@ def main():
             ident = parts["period"] - parts["minority"] - (parts["associates"] or 0.0)
             good = near(ident, parts["owners_row"])
             gates.append(
-                "I:{} owners_row={:.2f} identity={:.2f}".format("PASS" if good else "FAIL", parts["owners_row"], ident)
+                "I:{} owners_row={:.2f} identity={:.2f}".format(
+                    "PASS" if good else "FAIL", parts["owners_row"], ident
+                )
             )
             if good:
                 passes += 1
             else:
-                blocked = "identity-vs-owners-row mismatch ({:.2f} vs {:.2f})".format(parts["owners_row"], ident)
+                blocked = "identity-vs-owners-row mismatch ({:.2f} vs {:.2f})".format(
+                    parts["owners_row"], ident
+                )
         # GATE S'
         sl = std_link(sym, qe)
         if stored_std is not None and sl:
@@ -563,7 +611,9 @@ def main():
                     else:
                         good = near(spat, stored_std)
                         gates.append(
-                            "S':{} std_page={:.2f} stored={:.2f}".format("PASS" if good else "FAIL", spat, stored_std)
+                            "S':{} std_page={:.2f} stored={:.2f}".format(
+                                "PASS" if good else "FAIL", spat, stored_std
+                            )
                         )
                         if good:
                             passes += 1
@@ -581,11 +631,15 @@ def main():
                                 gates.append(f"S'':REVISION {rev}")
                                 passes += 1
                             else:
-                                blocked = blocked or (f"S'-mismatch (std page {spat:.2f} vs stored {stored_std:.2f})")
+                                blocked = blocked or (
+                                    f"S'-mismatch (std page {spat:.2f} vs stored {stored_std:.2f})"
+                                )
             except Exception as ex:
                 gates.append(f"S':unavailable(fetch:{type(ex).__name__})")
         else:
-            gates.append("S':unavailable(no-std-link)" if not sl else "S':unavailable(no-stored-std)")
+            gates.append(
+                "S':unavailable(no-std-link)" if not sl else "S':unavailable(no-stored-std)"
+            )
         # GATE E, and -- only if it fails -- the GATE C control that decides whether that failure
         # is evidence about THIS read or just how the filer computes EPS.
         eg, note = eps_gate(pat, rows)
@@ -617,17 +671,23 @@ def main():
         if needs_fy and not blocked:
             deferred.append((sym, qe, rec, passes))
             print(
-                "  DEFER %-11s %d  con=%-11.2f awaiting FY identity | %s" % (sym, qe, pat, " ; ".join(gates)),
+                "  DEFER %-11s %d  con=%-11.2f awaiting FY identity | %s"
+                % (sym, qe, pat, " ; ".join(gates)),
                 flush=True,
             )
             continue
         if blocked or passes == 0:
             rec["skip"] = blocked or "no-gate-passed"
             skip += 1
-            print("  SKIP %-12s %d  %s | %s" % (sym, qe, rec["skip"], " ; ".join(gates)), flush=True)
+            print(
+                "  SKIP %-12s %d  %s | %s" % (sym, qe, rec["skip"], " ; ".join(gates)), flush=True
+            )
         else:
             ok += 1
-            print("  OK   %-12s %d  con=%-11.2f (%s) | %s" % (sym, qe, pat, src, " ; ".join(gates)), flush=True)
+            print(
+                "  OK   %-12s %d  con=%-11.2f (%s) | %s" % (sym, qe, pat, src, " ; ".join(gates)),
+                flush=True,
+            )
         reads[key] = rec
 
     # SECOND PASS -- GATE F for the cells whose EPS gate was ruled non-dispositive. `pending`
@@ -643,7 +703,8 @@ def main():
         if fok:
             ok += 1
             print(
-                "  OK   %-12s %d  con=%-11.2f (%s) | %s" % (sym, qe, rec["con"], rec["src"], " ; ".join(rec["gates"])),
+                "  OK   %-12s %d  con=%-11.2f (%s) | %s"
+                % (sym, qe, rec["con"], rec["src"], " ; ".join(rec["gates"])),
                 flush=True,
             )
         else:
@@ -654,7 +715,6 @@ def main():
 
     json.dump(reads, open(READS, "w"), indent=1, sort_keys=True)
     print("\nlanded %d | skipped %d -> %s" % (ok, skip, os.path.basename(READS)))
-    return None
 
 
 def apply_reads():

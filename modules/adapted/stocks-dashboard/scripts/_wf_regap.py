@@ -26,9 +26,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 (balanced agent partition: big insurers isolated, then non-insurers packed by std-weight).
 Run between chunks so already-filled cells drop out. Usage: python -X utf8 _wf_regap.py
 """
-import functools
 import json
-import operator
 
 data = json.load(open("../docs/sf_fundamentals.json"))
 union = set(json.load(open("_full_union_2024.json")))
@@ -54,9 +52,17 @@ INSURERS = {
 #  IOB: 8 con cells 2020Q1-2021 — bank consolidates associate(Odisha Gramya)+JV, so con!=std (no-sub
 #    identity invalid), and IOB filed NO consolidated results before FY22. Structurally unrecoverable.
 #  SAGILITY: NSE-listed Nov-2024; pre-listing quarters only in IPO prospectus (restated, unanchorable).
-EXCLUDE = {"HEXT", "PIRAMALFIN", "IOB", "SAGILITY"}  # HDFCLIFE done 2026-06-21 (original-PIT 365.29/328.79)
+EXCLUDE = {
+    "HEXT",
+    "PIRAMALFIN",
+    "IOB",
+    "SAGILITY",
+}  # HDFCLIFE done 2026-06-21 (original-PIT 365.29/328.79)
 QES = [
-    y * 10000 + md for y in range(2020, 2027) for md in (331, 630, 930, 1231) if 20200331 <= y * 10000 + md <= 20260331
+    y * 10000 + md
+    for y in range(2020, 2027)
+    for md in (331, 630, 930, 1231)
+    if 20200331 <= y * 10000 + md <= 20260331
 ]
 
 
@@ -79,7 +85,9 @@ for sym in union:
     # gaps for ACTIVE names are the daily cron's job, not this historical backfill.
     span = [q for q in QES if qmin <= q <= qmax]
     g = []
-    series = {str(x[0]): [x[1], x[3] if len(x) > 3 else None] for x in rec if 20180101 <= x[0] <= 20260331}
+    series = {
+        str(x[0]): [x[1], x[3] if len(x) > 3 else None] for x in rec if 20180101 <= x[0] <= 20260331
+    }
     for q in span:
         r = rowof(rec, q)
         miss = []
@@ -122,10 +130,14 @@ bins = []
 for s in ["HDFCLIFE", "ICICIPRULI", "GICRE", "NIACL"]:
     if s in gaps:
         bins.append([s])
-tiny = [s for s in ("LICI", "MFSL", "SBILIFE", "ICICIGI", "STARHEALTH", "GODIGIT", "NIVABUPA") if s in gaps]
+tiny = [
+    s
+    for s in ("LICI", "MFSL", "SBILIFE", "ICICIGI", "STARHEALTH", "GODIGIT", "NIVABUPA")
+    if s in gaps
+]
 if tiny:
     bins.append(tiny)
-done = set(functools.reduce(operator.iadd, bins, []))
+done = set(sum(bins, []))
 rest = sorted([s for s in gaps if s not in done], key=lambda s: -work(s))
 TARGET = 8.0
 cur = []
@@ -141,6 +153,11 @@ for s in rest:
 if cur:
     bins.append(cur)
 json.dump(bins, open("_wf_bins.json", "w"))
-print("bins(agents):", len(bins), "| insurer bins:", [i for i, b in enumerate(bins) if any(x in INSURERS for x in b)])
+print(
+    "bins(agents):",
+    len(bins),
+    "| insurer bins:",
+    [i for i, b in enumerate(bins) if any(x in INSURERS for x in b)],
+)
 for i, b in enumerate(bins):
     print("  bin%2d (%.1f): %s" % (i, sum(work(x) for x in b), b))

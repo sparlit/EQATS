@@ -191,7 +191,9 @@ def main():
             % (sym, qe, val, rev_cr, anchor, pat_cr)
         )
 
-    print("\nholds lifted %d  |  payload cells changed 0 (every value was already correct)" % lifted)
+    print(
+        "\nholds lifted %d  |  payload cells changed 0 (every value was already correct)" % lifted
+    )
     if not apply_it:
         print("(dry run — re-run with --apply)")
         return

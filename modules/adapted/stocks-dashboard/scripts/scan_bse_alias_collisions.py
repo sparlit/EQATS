@@ -100,7 +100,9 @@ def live_tape_meta():
     cp = os.path.join(CACHE, "tape_meta.json")
     if os.path.exists(cp) and time.time() - os.path.getmtime(cp) < 86400:
         return _j(cp)
-    M = json.loads(urllib.request.urlopen(SF_BASE + "sf_meta.json?t=%d" % time.time(), timeout=60).read())
+    M = json.loads(
+        urllib.request.urlopen(SF_BASE + "sf_meta.json?t=%d" % time.time(), timeout=60).read()
+    )
     names = ["sf_deep_%d.bin" % (i + 1) for i in range(M.get("deep", 0))] + [
         "sf_recent_%d.bin" % (i + 1) for i in range(M.get("recent", 1))
     ]
@@ -128,12 +130,14 @@ def norm_name(s):
 def scan(tape):
     rmap = _j(os.path.join(HERE, "_rename_map.json"))
     js = open(os.path.join(ROOT, "docs", "backtest-engine.js"), encoding="utf-8").read()
-    fa = json.loads(re.search(r"^const FUND_ALIAS = (\{.*?\});$", js, re.MULTILINE).group(1))
+    fa = json.loads(re.search(r"^const FUND_ALIAS = (\{.*?\});$", js, re.M).group(1))
     bs = _j(os.path.join(HERE, "bse_scrips.json"))
     code2isin = {str(c): i for i, c in bs["by_isin"].items()}
     univ = {str(r[0]): r for r in _j(os.path.join(ROOT, "docs", "bse_universe.json"))["rows"]}
     sym2code = {r[1]: c for c, r in univ.items()}  # the dashboard's own ticker -> scrip
-    dash = json.loads(gzip.decompress(open(os.path.join(ROOT, "docs", "stock_data.bin"), "rb").read()))["meta"]
+    dash = json.loads(
+        gzip.decompress(open(os.path.join(ROOT, "docs", "stock_data.bin"), "rb").read())
+    )["meta"]
     master = {}
     mp = os.path.join(HERE, "_bse_master_all.json")
     if os.path.exists(mp):
@@ -166,7 +170,9 @@ def scan(tape):
         for r in master.get(t, []):
             if tm.get("name") and norm_name(r["Scrip_Name"]) == norm_name(tm["name"]):
                 src.setdefault(r["ISIN_NUMBER"], []).append(
-                    "BSE master {} {} ({}; name = tape name)".format(r["SCRIP_CD"], r["Scrip_Name"], r["Status"])
+                    "BSE master {} {} ({}; name = tape name)".format(
+                        r["SCRIP_CD"], r["Scrip_Name"], r["Status"]
+                    )
                 )
         return src
 
@@ -174,7 +180,9 @@ def scan(tape):
     for old, t in fa.items():
         pairs.setdefault(old, {"target": t, "fund_alias": True, "rename_map": False})
     for old in rmap:
-        e = pairs.setdefault(old, {"target": chain(old, rmap), "fund_alias": False, "rename_map": True})
+        e = pairs.setdefault(
+            old, {"target": chain(old, rmap), "fund_alias": False, "rename_map": True}
+        )
         e["rename_map"] = True
     rows = {}
     for old, e in sorted(pairs.items()):
@@ -229,7 +237,9 @@ def main():
         )
     gone = sorted(set(have) - {o for o, r in rows.items() if r["verdict"] == "collision"})
     if gone:
-        print(f"recorded but no longer measured as a collision (review by hand, never auto-removed): {gone}")
+        print(
+            f"recorded but no longer measured as a collision (review by hand, never auto-removed): {gone}"
+        )
     if "--write" in sys.argv and new:
         for o, r in new.items():
             r = dict(r)

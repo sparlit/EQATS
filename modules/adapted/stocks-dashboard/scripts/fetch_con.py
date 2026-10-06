@@ -103,7 +103,10 @@ def targets():
         lst.sort(
             key=lambda sq: (
                 -sq[1],
-                -max(abs(C.conval(sq[0], C.prevq(sq[1])) or 0), abs(C.conval(sq[0], sq[1] - 10000) or 0)),
+                -max(
+                    abs(C.conval(sq[0], C.prevq(sq[1])) or 0),
+                    abs(C.conval(sq[0], sq[1] - 10000) or 0),
+                ),
             )
         )
         out += lst
@@ -166,7 +169,10 @@ def main():
             print("  ...%d tried, %d consolidated PDFs fetched" % (tried, got), flush=True)
     json.dump(log, open(LOG, "w"))
     open(HB, "w").write(str(int(time.time())))
-    print("FETCH DONE. tried %d, fetched %d consolidated PDFs (ready for vision)." % (tried, got), flush=True)
+    print(
+        "FETCH DONE. tried %d, fetched %d consolidated PDFs (ready for vision)." % (tried, got),
+        flush=True,
+    )
 
 
 if __name__ == "__main__":

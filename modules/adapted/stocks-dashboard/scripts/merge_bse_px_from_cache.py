@@ -37,8 +37,6 @@ stored (scrip, date) and refuses to write unless the closes agree.
 
 Run: python3 -X utf8 scripts/merge_bse_px_from_cache.py [--store PATH] [--check-only]
 """
-import gzip
-import json
 import os
 import sys
 
@@ -94,7 +92,10 @@ def main():
         % (days_used, agree, differ, ex, added)
     )
     if differ > max(10, agree * 0.001):
-        print("REFUSED: cache disagrees with the store on %d overlapping closes — not writing" % differ)
+        print(
+            "REFUSED: cache disagrees with the store on %d overlapping closes — not writing"
+            % differ
+        )
         sys.exit(2)
     if "--check-only" not in a and added:
         F.save_prices(data)

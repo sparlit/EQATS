@@ -71,7 +71,10 @@ ALIAS = {
     "NIFTY INDIA CONSUMPTION": "NIFTY CONSUMPTION",
 }
 MONTHS = {
-    m: i + 1 for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
+    m: i + 1
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    )
 }
 
 

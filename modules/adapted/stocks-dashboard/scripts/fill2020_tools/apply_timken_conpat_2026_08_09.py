@@ -62,8 +62,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
 JOURNAL = os.path.join(SCRIPTS, "con_copy_heals.json")
-REVOP = (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json"))
-FUND = (os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(SCRIPTS, "fundamentals.json"))
+REVOP = (
+    os.path.join(ROOT, "docs", "sf_revop.json"),
+    os.path.join(SCRIPTS, "revop_fundamentals.json"),
+)
+FUND = (
+    os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+    os.path.join(SCRIPTS, "fundamentals.json"),
+)
 PATC_REVOP, PATC_FUND = 5, 3
 
 CELLS = {
@@ -116,7 +122,11 @@ def main():
                 print("  %-26s %-42s already %s" % (key, os.path.basename(path), c["now"]))
                 continue
             if cur is None or abs(cur - c["was"]) > 0.005:
-                sys.exit("GUARD: {} in {} is {}, expected the old value {} -- ABORT".format(key, path, cur, c["was"]))
+                sys.exit(
+                    "GUARD: {} in {} is {}, expected the old value {} -- ABORT".format(
+                        key, path, cur, c["was"]
+                    )
+                )
             row[PATC_FUND] = c["now"]
             touched.append((path, key, cur, c["now"]))
             print("  %-26s %-42s %s -> %s" % (key, os.path.basename(path), cur, c["now"]))

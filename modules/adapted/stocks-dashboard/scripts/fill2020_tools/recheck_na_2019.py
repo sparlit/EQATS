@@ -120,9 +120,9 @@ def main():
         if pc is not None or ev:
             v = dict(v)
             v["retracted"] = RETRACT_NOTE
-            v["e6_contradiction"] = ([(f"stored con PAT for this very quarter: {pc}")] if pc is not None else []) + ev[
-                :3
-            ]
+            v["e6_contradiction"] = (
+                [(f"stored con PAT for this very quarter: {pc}")] if pc is not None else []
+            ) + ev[:3]
             v["status"] = "OPEN - real gap, not not-applicable"
             retracted.append((k, v))
         else:
@@ -131,7 +131,10 @@ def main():
             kept.append((k, v))
 
     weak = audit_refuted(doc, fund, revop)
-    print("2019 na cells: %d   survive E6: %d   RETRACTED: %d" % (len(cells), len(kept), len(retracted)))
+    print(
+        "2019 na cells: %d   survive E6: %d   RETRACTED: %d"
+        % (len(cells), len(kept), len(retracted))
+    )
     print(
         "sibling session's 26 refutations re-tested under E6's materially-different bound: "
         "%d WEAK (refuted only on con==std copies) -> %s" % (len(weak), ", ".join(weak) or "none")
@@ -147,7 +150,8 @@ def main():
         "row, and for these companies our own store holds a materially different consolidated "
         "figure in the same pre-first-con era, so the index's silence is measured-incomplete. "
         "Those cells are OPEN gaps, not not-applicable. No value was ever written for any record "
-        "in this file, and no tool consumes it, so the correction is to the CLAIM only." % (len(retracted), len(cells))
+        "in this file, and no tool consumes it, so the correction is to the CLAIM only."
+        % (len(retracted), len(cells))
     )
     doc["cells"] = sorted(kept + retracted)
     doc["_counts"] = {"total": len(cells), "not_applicable": len(kept), "retracted": len(retracted)}

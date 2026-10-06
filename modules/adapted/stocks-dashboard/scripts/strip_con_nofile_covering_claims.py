@@ -83,7 +83,9 @@ def main():
             if f"{sym}|{qe}" not in retr:
                 # An empty cell with NO retraction record is an unexplained loss, not a retraction.
                 # Restoring or stripping it would both be guesses, so refuse and name it.
-                print(f"  !! {sym} {qe} empty but NOT in con_copy_retractions — leaving it, needs a human")
+                print(
+                    f"  !! {sym} {qe} empty but NOT in con_copy_retractions — leaving it, needs a human"
+                )
                 skipped += 1
                 continue
             for k in SLOTS:
@@ -94,7 +96,10 @@ def main():
                 "the payload no longer holds. Record: scripts/con_copy_retractions.json "
                 "key {}|{}. The E1/E2/E3 identity evidence above is kept as the record "
                 "of why the fill was originally made.".format(
-                    retr[f"{sym}|{qe}"].get("class", "?"), retr[f"{sym}|{qe}"].get("floor", "?"), sym, qe
+                    retr[f"{sym}|{qe}"].get("class", "?"),
+                    retr[f"{sym}|{qe}"].get("floor", "?"),
+                    sym,
+                    qe,
                 )
             )
             stripped += 1

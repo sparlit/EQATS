@@ -135,7 +135,12 @@ def read_page(raw, sym):
 
 def prev_qe(qe):
     y, md = qe // 10000, qe % 10000
-    return {331: (y - 1) * 10000 + 1231, 630: y * 10000 + 331, 930: y * 10000 + 630, 1231: y * 10000 + 930}[md]
+    return {
+        331: (y - 1) * 10000 + 1231,
+        630: y * 10000 + 331,
+        930: y * 10000 + 630,
+        1231: y * 10000 + 930,
+    }[md]
 
 
 def stage(cells, orig, idx, fund, fetch=False, aliases=None):
@@ -226,7 +231,12 @@ def stage(cells, orig, idx, fund, fetch=False, aliases=None):
                     bad = "leg ending %d: %s" % (cur, cr["refuse"])
                     break
                 if cr["to"] != cur or cr["from"] < r["from"] or cr["from"] > cur:
-                    bad = "leg period %d..%d does not nest in %d..%d" % (cr["from"], cr["to"], r["from"], r["to"])
+                    bad = "leg period %d..%d does not nest in %d..%d" % (
+                        cr["from"],
+                        cr["to"],
+                        r["from"],
+                        r["to"],
+                    )
                     break
                 if cr["months"] != 3 and not cr["cumulative"]:
                     bad = "leg %dm not declared Cumulative" % cr["months"]
@@ -260,7 +270,9 @@ def stage(cells, orig, idx, fund, fetch=False, aliases=None):
                 "months": sum(c[1]["months"] for c in chain),
             }
             if pr["months"] != (r["months"] - 3):
-                why.append("%s: chain covers %dm, expected %dm" % (k, pr["months"], r["months"] - 3))
+                why.append(
+                    "%s: chain covers %dm, expected %dm" % (k, pr["months"], r["months"] - 3)
+                )
                 continue
             dpat = round(r["pat"] - pr["pat"], 4)
             if abs(dpat - stored) > TOL:
@@ -282,8 +294,20 @@ def stage(cells, orig, idx, fund, fetch=False, aliases=None):
                 "rev_label": r["rev_label"],
                 "scale": r["scale"],
                 "period": "%d..%d (%s) %s  MINUS  %d..%d (%s) %s"
-                % (r["from"], r["to"], r["role"], r["type"], pr["from"], pr["to"], pr["role"], pr["type"]),
-                "legs": {"cum": {"rev": r["rev"], "pat": r["pat"]}, "prev": {"rev": pr["rev"], "pat": pr["pat"]}},
+                % (
+                    r["from"],
+                    r["to"],
+                    r["role"],
+                    r["type"],
+                    pr["from"],
+                    pr["to"],
+                    pr["role"],
+                    pr["type"],
+                ),
+                "legs": {
+                    "cum": {"rev": r["rev"], "pat": r["pat"]},
+                    "prev": {"rev": pr["rev"], "pat": pr["pat"]},
+                },
                 "wayback": [ts, url],
                 "wayback_prev": [list(c[0]) for c in chain],
             }
@@ -329,7 +353,10 @@ def evidence(p):
                 ", ".join(f"web.archive.org/{l[0]}" for l in p["wayback_prev"]),
             )
         )
-    return base + "Reader + hold-out (445/0): scripts/wayback_nse/wb_rev.py. rev-parity campaign 2026-09-05."
+    return (
+        base
+        + "Reader + hold-out (445/0): scripts/wayback_nse/wb_rev.py. rev-parity campaign 2026-09-05."
+    )
 
 
 def emit(props, stamp):
@@ -390,7 +417,8 @@ def calib():
                 excl.add((a, int(b)))
     for k, v in json.load(open(os.path.join(SCRIPTS, "vision_rev_fills.json"))).items():
         if "|" in k and any(
-            w in json.dumps(v).lower() for w in ("moneycontrol", "screener", "trendlyne", "tickertape")
+            w in json.dumps(v).lower()
+            for w in ("moneycontrol", "screener", "trendlyne", "tickertape")
         ):
             a, b = k.split("|")[:2]
             excl.add((a, int(b)))
@@ -439,7 +467,7 @@ def main():
         import time
 
         emit(props, av[av.index("--stamp") + 1] if "--stamp" in av else time.strftime("%Y-%m-%d"))
-        return None
+        return
     cells = json.load(open(av[av.index("--cells") + 1]))
     orig = json.load(open(av[av.index("--orig") + 1])) if "--orig" in av else {}
     idx = json.load(open(os.path.join(HERE, "_wb_index.json")))
@@ -477,7 +505,6 @@ def main():
     out = av[av.index("--out") + 1] if "--out" in av else os.path.join(HERE, "_wb_rev_props.json")
     json.dump({"proposals": props, "refusals": refs}, open(out, "w"), indent=1, sort_keys=True)
     print("->", out)
-    return None
 
 
 if __name__ == "__main__":

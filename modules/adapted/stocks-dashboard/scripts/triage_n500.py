@@ -42,7 +42,7 @@ FUND = os.path.join(os.path.dirname(HERE), "docs", "sf_fundamentals.json")
 
 PROF = re.compile(
     r"(profit|loss)\b.{0,45}(for the (period|quarter|year)|after tax|attributable|before tax)|net profit|profit/\(loss\)",
-    re.IGNORECASE,
+    re.I,
 )
 NUMW = re.compile(r"^\(?-?[\d,]+\.\d\d\)?$")
 
@@ -111,7 +111,14 @@ def main():
             if "profit" not in low:
                 continue
             if not any(
-                k in low for k in ["quarter ended", "period ended", "year ended", "months ended", "particulars"]
+                k in low
+                for k in [
+                    "quarter ended",
+                    "period ended",
+                    "year ended",
+                    "months ended",
+                    "particulars",
+                ]
             ):
                 continue
             H = pg.rect.height

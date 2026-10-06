@@ -59,8 +59,14 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
-FUND = (os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(SCRIPTS, "fundamentals.json"))
-REVOP = (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json"))
+FUND = (
+    os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+    os.path.join(SCRIPTS, "fundamentals.json"),
+)
+REVOP = (
+    os.path.join(ROOT, "docs", "sf_revop.json"),
+    os.path.join(SCRIPTS, "revop_fundamentals.json"),
+)
 LEDGER = os.path.join(SCRIPTS, "owners_basis_heals.json")
 FUND_IDX, REVOP_IDX = 3, 5
 
@@ -75,7 +81,13 @@ FIX = {
         "fundamentals held the TOTAL; revop held +24.32, sign-flipped",
     ),
     ("RENUKA", 20201231): (-141.1, 0.1, -141.2, -141.1, "fundamentals held the period"),
-    ("RENUKA", 20210331): (-44.9, -0.9, -44.0, -44.9, "fundamentals held the period; needed to close FY21"),
+    ("RENUKA", 20210331): (
+        -44.9,
+        -0.9,
+        -44.0,
+        -44.9,
+        "fundamentals held the period; needed to close FY21",
+    ),
 }
 IDENTITIES = [
     ("ATUL H1FY26 owners", [179.24, 127.77], 307.01, 0.02),
@@ -85,7 +97,10 @@ IDENTITIES = [
 
 def main():
     dry = "--apply" not in sys.argv
-    print("%-9s %-10s %9s %8s %9s %9s  %s" % ("sym", "quarter", "period", "nci", "owners", "stored", "note"))
+    print(
+        "%-9s %-10s %9s %8s %9s %9s  %s"
+        % ("sym", "quarter", "period", "nci", "owners", "stored", "note")
+    )
     for (sym, qe), (p, nc, o, was, note) in sorted(FIX.items()):
         print("%-9s %-10d %9.2f %8.2f %9.2f %9.2f  %s" % (sym, qe, p, nc, o, was, note))
         if abs((p - nc) - o) > 0.06:
@@ -105,7 +120,9 @@ def main():
             d = json.load(open(path, encoding="utf-8"))
             for (sym, qe), (p, nc, o, was, note) in FIX.items():
                 row = (
-                    (d.get(sym) or {}).get(str(qe)) if keyed else next((r for r in d.get(sym, []) if r[0] == qe), None)
+                    (d.get(sym) or {}).get(str(qe))
+                    if keyed
+                    else next((r for r in d.get(sym, []) if r[0] == qe), None)
                 )
                 if not row or len(row) <= idx:
                     continue
@@ -113,7 +130,10 @@ def main():
                 if cur is not None and abs(cur - o) < 0.005:
                     continue
                 if not keyed and cur is not None and abs(cur - was) > 0.005:
-                    sys.exit("GUARD %s %d in %s: %s expected %s" % (sym, qe, os.path.basename(path), cur, was))
+                    sys.exit(
+                        "GUARD %s %d in %s: %s expected %s"
+                        % (sym, qe, os.path.basename(path), cur, was)
+                    )
                 prior.setdefault("%s|%d" % (sym, qe), {})[os.path.basename(path)] = cur
                 row[idx] = o
                 n += 1

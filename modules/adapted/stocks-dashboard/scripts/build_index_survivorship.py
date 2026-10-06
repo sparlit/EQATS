@@ -134,8 +134,25 @@ INDEXES = {
     "niftyoilgas": ("Nifty Oil & Gas", None, "NIFTY OIL AND GAS"),
     "niftypsubank": ("Nifty PSU Bank", None, "NIFTY PSU BANK"),
     "niftymnc": ("Nifty MNC", None, "NIFTY MNC"),
+    "niftysmeemerge": ("Nifty SME Emerge", "nifty_sme_emerge.json", None),
 }
-DEFAULT = ["nifty500", "nifty50", "niftybank"]  # the member-bearing indices index-chart.html serves
+DEFAULT = [
+    "nifty500",
+    "nifty50",
+    "niftybank",
+    "niftysmeemerge",
+]  # the member-bearing indices index-chart.html serves
+# Indices whose point-in-time membership is NOT in indicesHistory (built from their own source, never merged into
+# scripts/indices_history.json whose ~30 builders expect the main-board universe): slug -> (docs/ path, member note)
+OWN_HISTORY = {
+    "niftysmeemerge": (
+        "nse_sme_emerge/history.json",
+        "Membership: NSE Indices\u2019 own press releases \u2014 every quarterly review and every one-off exclusion "
+        "since 2019 \u2014 walked back from NSE\u2019s official constituent list, with ticker renames folded to "
+        "today\u2019s symbol; checked against NSE\u2019s archived official list of 3 Aug 2023 (147 of 147). "
+        "Record starts 1 Jan 2020.",
+    ),
+}
 
 COLS = [
     "sym",
@@ -242,9 +259,11 @@ def max_drawdown(cs, i0, i1):
     peak, worst = cs[i0], 0.0
     for k in range(i0, i1 + 1):
         c = cs[k]
-        peak = max(peak, c)
+        if c > peak:
+            peak = c
         dd = c / peak - 1
-        worst = min(worst, dd)
+        if dd < worst:
+            worst = dd
     return worst * 100
 
 
@@ -317,19 +336,26 @@ def stints_from_snapshots(snaps):
 
 def build_index(slug, D, slim, rmap, sect, log=print):
     name, daily_file, monthly_key = INDEXES[slug]
-    raw = slim.get("indicesHistory", {}).get(name, [])
+    own = OWN_HISTORY.get(slug)
+    if own:
+        with open(os.path.join(ROOT, "docs", own[0]), encoding="utf-8") as f:
+            raw = json.load(f).get(name, [])
+    else:
+        raw = slim.get("indicesHistory", {}).get(name, [])
     if not raw:
-        msg = f"no membership snapshots for {name!r} in {SLIM}"
-        raise SystemExit(msg)
+        raise SystemExit(f"no membership snapshots for {name!r} in {SLIM}")
     data, meta = D["data"], D.get("meta", {})
     data_end = to_int(D["end"])
     snaps = sorted(
-        (to_int(s["effectiveDate"]), {x for x in s["symbols"] if not str(x).upper().startswith("DUMMY")}) for s in raw
+        (
+            to_int(s["effectiveDate"]),
+            {x for x in s["symbols"] if not str(x).upper().startswith("DUMMY")},
+        )
+        for s in raw
     )
     in_force = [s for s in snaps if s[0] <= data_end]
     if not in_force:
-        msg = "every {} snapshot is dated after the bin end {}".format(name, D["end"])
-        raise SystemExit(msg)
+        raise SystemExit("every {} snapshot is dated after the bin end {}".format(name, D["end"]))
     roster_asof, today_set = in_force[-1]
     # a later-dated snapshot is an ANNOUNCED reshuffle -- but only one that actually changes the
     # roster is worth reporting (NSE re-anchors an unchanged list at every half-year too)
@@ -338,6 +364,14 @@ def build_index(slug, D, slim, rmap, sect, log=print):
 
     ids, ils, idx_prov = load_index_levels(daily_file, monthly_key)
     smeta = slim.get("meta", {})
+    # own-history indices: NSE's official list names each CURRENT member's industry (the SME rows' dash meta only says
+    # "NSE-SME" / "Unknown") — used as the sector column; past members keep what the metadata has
+    own_ind = {}
+    if own:
+        mp = os.path.join(ROOT, "docs", os.path.dirname(own[0]), "members.json")
+        if os.path.exists(mp):
+            with open(mp, encoding="utf-8") as f:
+                own_ind = {m["sym"]: m.get("industry") for m in json.load(f).get("members", [])}
     per_name = stints_from_snapshots(snaps)
 
     # group roster names by resolved bin key (two old names -> one series = one row)
@@ -345,7 +379,7 @@ def build_index(slug, D, slim, rmap, sect, log=print):
     for nm, sts in per_name.items():
         key, how = roster_key(nm, data, rmap)
         how_tot[how] = how_tot.get(how, 0) + 1
-        gk = key or nm
+        gk = key if key else nm
         g = groups.setdefault(gk, {"key": key, "names": [], "stints": []})
         g["names"].append(nm)
         g["stints"].extend(sts)
@@ -359,7 +393,9 @@ def build_index(slug, D, slim, rmap, sect, log=print):
         merged = []
         for s in sts:
             if merged and merged[-1]["leave"] is not None and s["join"] <= merged[-1]["leave"]:
-                if s["leave"] is None or (merged[-1]["leave"] is not None and s["leave"] > merged[-1]["leave"]):
+                if s["leave"] is None or (
+                    merged[-1]["leave"] is not None and s["leave"] > merged[-1]["leave"]
+                ):
                     merged[-1]["leave"] = s["leave"]
                 continue
             merged.append(dict(s))
@@ -412,7 +448,11 @@ def build_index(slug, D, slim, rmap, sect, log=print):
             end = l if l is not None else data_end
             days += max(0, days_between(j, end))
             ji = bar_on_or_after(ds, cs, j) if ds else None
-            xi = (bar_before(ds, cs, l) if l is not None else (len(cs) - 1 if cs else None)) if ds else None
+            xi = (
+                (bar_before(ds, cs, l) if l is not None else (len(cs) - 1 if cs else None))
+                if ds
+                else None
+            )
             jp = cs[ji] if ji is not None else None
             xp = cs[xi] if xi is not None else None
             if jp is not None and first_join_px is None:
@@ -423,7 +463,9 @@ def build_index(slug, D, slim, rmap, sect, log=print):
             if r is not None:
                 growth *= 1 + r / 100
             elif l is not None or jp is None:
-                growth = None if growth is None else growth  # keep; a window with no price simply does not compound
+                growth = (
+                    None if growth is None else growth
+                )  # keep; a window with no price simply does not compound
             dd = max_drawdown(cs, ji, xi)
             if dd is not None and (worst_dd is None or dd < worst_dd):
                 worst_dd = dd
@@ -435,17 +477,33 @@ def build_index(slug, D, slim, rmap, sect, log=print):
             st_out.append([to_iso(j), to_iso(l) if l is not None else None, r2(jp), r2(xp), r2(r)])
         ret_in = (growth - 1) * 100 if first_join_px is not None else None
         yrs = days / 365.25
-        cagr = ((growth ** (1 / yrs)) - 1) * 100 if (ret_in is not None and yrs >= 1 and growth > 0) else None
+        cagr = (
+            ((growth ** (1 / yrs)) - 1) * 100
+            if (ret_in is not None and yrs >= 1 and growth > 0)
+            else None
+        )
         idx_in = (idx_growth - 1) * 100 if idx_ok else None
         rel = (
-            ((1 + ret_in / 100) / (1 + idx_in / 100) - 1) * 100 if (ret_in is not None and idx_in is not None) else None
+            ((1 + ret_in / 100) / (1 + idx_in / 100) - 1) * 100
+            if (ret_in is not None and idx_in is not None)
+            else None
         )
         rows.append(
             [
                 gk,
                 m.get("name") or sm.get("name") or gk,
-                sm.get("sector") or sc.get("macro") or None,
-                sc.get("industry") or sm.get("industry") or m.get("ind") or None,
+                own_ind.get(gk)
+                or (None if sm.get("sector") == "NSE-SME" else sm.get("sector"))
+                or sc.get("macro")
+                or None,
+                next(
+                    (
+                        v
+                        for v in (sc.get("industry"), sm.get("industry"), m.get("ind"))
+                        if v and not (own and v == "Unknown")
+                    ),
+                    None,
+                ),
                 m.get("isin"),
                 r2(sm.get("mcap")) if sm.get("mcap") else None,
                 status,
@@ -485,12 +543,22 @@ def build_index(slug, D, slim, rmap, sect, log=print):
         "nDead": n_dead,
         "nUntraced": n_untraced,
         "idxSeries": idx_prov,
-        "source": "membership: dash_slim.bin indicesHistory[%s] (%d snapshots %s..%s); prices: sf bin adjusted closes to %s; "
+        "source": "membership: %s[%s] (%d snapshots %s..%s); prices: sf bin adjusted closes to %s; "
         "roster names resolved %s"
-        % (name, len(snaps), to_iso(snaps[0][0]), to_iso(snaps[-1][0]), D["end"], json.dumps(how_tot, sort_keys=True)),
+        % (
+            ("docs/" + own[0]) if own else "dash_slim.bin indicesHistory",
+            name,
+            len(snaps),
+            to_iso(snaps[0][0]),
+            to_iso(snaps[-1][0]),
+            D["end"],
+            json.dumps(how_tot, sort_keys=True),
+        ),
         "cols": COLS,
         "rows": rows,
     }
+    if own:
+        out["memberNote"] = own[1]
     log(
         "%s: %d rows (in %d, out %d, dead %d, untraced %d) from %d snapshots; roster in force %s; upcoming %s; names %s"
         % (
@@ -515,8 +583,7 @@ def main(argv):
         want = list(INDEXES)
     bad = [w for w in want if w not in INDEXES]
     if bad:
-        msg = "unknown index slug(s) {} -- known: {}".format(bad, ", ".join(INDEXES))
-        raise SystemExit(msg)
+        raise SystemExit("unknown index slug(s) {} -- known: {}".format(bad, ", ".join(INDEXES)))
     D = json.loads(gzip.decompress(open(BIN, "rb").read()))
     slim = json.loads(gzip.decompress(open(SLIM, "rb").read()))
     rmap = json.load(open(RMAP, encoding="utf-8"))

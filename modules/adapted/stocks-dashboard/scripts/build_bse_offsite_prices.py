@@ -75,19 +75,26 @@ def main():
                 if r.get("ISIN"):
                     nse.add(r["ISIN"].strip())
     nse_iss = {i[:7] for i in nse if is_equity(i)}
-    store = json.loads(gzip.decompress(open(os.path.join(HERE, "..", "docs", "bse_prices.bin"), "rb").read()))["px"]
+    store = json.loads(
+        gzip.decompress(open(os.path.join(HERE, "..", "docs", "bse_prices.bin"), "rb").read())
+    )["px"]
     ser, days, _ = BB.build_series("ALL")
     pick = {
         c: s
         for c, s in ser.items()
-        if is_equity(s.get("isin") or "") and c not in store and s["isin"] not in nse and s["isin"][:7] not in nse_iss
+        if is_equity(s.get("isin") or "")
+        and c not in store
+        and s["isin"] not in nse
+        and s["isin"][:7] not in nse_iss
     }
     rows = BP.ohlc_rows(set(pick))
     out = {}
     for c, s in sorted(pick.items()):
         R = rows[c]
         bars = [
-            [d] + [round(x, 2) for x in R[d][:4]] + [int(R[d][4]), round(R[d][5], 2)] for d in sorted(R) if R[d][3] > 0
+            [d] + [round(x, 2) for x in R[d][:4]] + [int(R[d][4]), round(R[d][5], 2)]
+            for d in sorted(R)
+            if R[d][3] > 0
         ]
         if not bars:
             continue
@@ -111,7 +118,9 @@ def main():
     p = arg("--out") or OUT
     with gzip.open(p, "wt", encoding="utf-8") as fh:
         json.dump(blob, fh, separators=(",", ":"))
-    recent = sum(1 for v in out.values() if v["last"] >= cache_end - 300)  # traded within ~3 months of cache end
+    recent = sum(
+        1 for v in out.values() if v["last"] >= cache_end - 300
+    )  # traded within ~3 months of cache end
     print(
         "offsite: %d scrips, %d bars, %d traded in the last ~3 months of the cache (to %d) -> %s"
         % (len(out), sum(len(v["bars"]) for v in out.values()), recent, cache_end, p)

@@ -121,7 +121,11 @@ def val(s):
 
 def main():
     argv = sys.argv
-    gapf = argv[argv.index("--gaps") + 1] if "--gaps" in argv else os.path.join(HERE, "_gaps_n500_stdfill.json")
+    gapf = (
+        argv[argv.index("--gaps") + 1]
+        if "--gaps" in argv
+        else os.path.join(HERE, "_gaps_n500_stdfill.json")
+    )
     only = set(argv[argv.index("--only") + 1].split(",")) if "--only" in argv else None
     gaps = json.load(open(gapf))
     fund = json.load(open(os.path.join(ROOT, "docs", "sf_fundamentals.json")))
@@ -166,7 +170,7 @@ def main():
             except Exception:
                 continue
             hit = True
-            pairs, _cells = raw_pairs(html)
+            pairs, cells = raw_pairs(html)
             lut = {}
             for lab, v in pairs:
                 lut.setdefault(lab, v)
@@ -178,7 +182,9 @@ def main():
             if val(lut[revlab]) is not None:
                 skips[key] = f"revenue row carries a number ({lut[revlab]}) - not this class"
                 break
-            pat = next((val(lut[l]) for l in PAT_LABELS if l in lut and val(lut[l]) is not None), None)
+            pat = next(
+                (val(lut[l]) for l in PAT_LABELS if l in lut and val(lut[l]) is not None), None
+            )
             if pat is None:
                 skips[key] = "no readable PAT row"
                 break
@@ -187,7 +193,9 @@ def main():
                 break
             live = [l for l in OPERATING if l in lut and val(lut[l]) not in (None, 0.0)]
             if live:
-                skips[key] = f"dash revenue but operating lines carry numbers {live} - needs a human read"
+                skips[key] = (
+                    f"dash revenue but operating lines carry numbers {live} - needs a human read"
+                )
                 break
             out.setdefault(sym, {})[str(qe)] = {
                 "rev": 0.0,
@@ -203,7 +211,11 @@ def main():
                 ),
             }
             nfill += 1
-            print("%-12s %d std -> rev 0.00 (nil dash; PAT %.4f vs %s)" % (sym, qe, pat / unit, stored), flush=True)
+            print(
+                "%-12s %d std -> rev 0.00 (nil dash; PAT %.4f vs %s)"
+                % (sym, qe, pat / unit, stored),
+                flush=True,
+            )
             break
         if not hit and key not in skips:
             skips[key] = "no std archive row for this quarter"

@@ -92,6 +92,8 @@ INPUTS  (local caches — gitignored; run on the Mac after new SME half-year res
   here, and the builder still re-validates their revenue).
 
 Run: python3 scripts/build_row_periods.py [--dry]
+Then: python3 scripts/fill_sme_halfyear_pnl.py [--apply] — the newly proven half-years get their P&L detail and op / EBIT
+      from the filing whose first column is the half (runbook §213).
 """
 import argparse
 import gzip
@@ -116,12 +118,16 @@ TAGS = (
     "ScripCode",
 )
 RE_TAG = {k: re.compile(rf"<[\w-]+:{k}(?:\s[^>]*)?>\s*([^<]*?)\s*<") for k in TAGS}
-RE_REV = {c: re.compile(rf'<[\w-]+:RevenueFromOperations contextRef="{c}"[^>]*>([^<]*)<') for c in ("OneD", "FourD")}
-RE_PAT = {
-    c: re.compile(rf'<[\w-]+:ProfitLossFor(?:The)?Period contextRef="{c}"[^>]*>([^<]*)<') for c in ("OneD", "FourD")
+RE_REV = {
+    c: re.compile(rf'<[\w-]+:RevenueFromOperations contextRef="{c}"[^>]*>([^<]*)<')
+    for c in ("OneD", "FourD")
 }
-RE_END = re.compile(r'<xbrli:context id="OneD">.*?<xbrli:endDate>([\d-]+)<', re.DOTALL)
-RE_ONE = re.compile(r'<xbrli:context id="OneD">(.*?)</xbrli:context>', re.DOTALL)
+RE_PAT = {
+    c: re.compile(rf'<[\w-]+:ProfitLossFor(?:The)?Period contextRef="{c}"[^>]*>([^<]*)<')
+    for c in ("OneD", "FourD")
+}
+RE_END = re.compile(r'<xbrli:context id="OneD">.*?<xbrli:endDate>([\d-]+)<', re.S)
+RE_ONE = re.compile(r'<xbrli:context id="OneD">(.*?)</xbrli:context>', re.S)
 # profit for the period: IndAS total / owners' share, old-format (NONINDAS) after-minority / before-minority
 PAT_TAGS = (
     "ProfitLossForPeriod",
@@ -130,7 +136,9 @@ PAT_TAGS = (
     "ProfitLossForPeriodBeforeMinorityInterest",
 )
 RE_PATS = {
-    (t, c): re.compile(rf'<[\w-]+:{t} contextRef="{c}"[^>]*>([^<]*)<') for t in PAT_TAGS for c in ("OneD", "FourD")
+    (t, c): re.compile(rf'<[\w-]+:{t} contextRef="{c}"[^>]*>([^<]*)<')
+    for t in PAT_TAGS
+    for c in ("OneD", "FourD")
 }
 
 
@@ -174,13 +182,17 @@ def parse(path):
         "f": os.path.basename(path),
         "qe": int(end.replace("-", "")),
         "rq": h["ReportingQuarter"] or "",
-        "b": "c" if (h["NatureOfReportStandaloneConsolidated"] or "").lower().startswith("consol") else "s",
+        "b": "c"
+        if (h["NatureOfReportStandaloneConsolidated"] or "").lower().startswith("consol")
+        else "s",
         "sym": (h["Symbol"] or "").upper(),
         "isin": h["ISIN"] or "",
         "code": h["ScripCode"] or "",
         "one": crore(RE_REV["OneD"].search(s)),
         "four": crore(RE_REV["FourD"].search(s)),
-        "raw": {c: (rupees(RE_REV[c].search(s)), rupees(RE_PAT[c].search(s))) for c in ("OneD", "FourD")},
+        "raw": {
+            c: (rupees(RE_REV[c].search(s)), rupees(RE_PAT[c].search(s))) for c in ("OneD", "FourD")
+        },
         "start": h["DateOfStartOfReportingPeriod"] or "",
         "ostart": ostart.group(1) if ostart else "",
         "oend": oend.group(1) if oend else "",
@@ -222,14 +234,76 @@ def pf_ok(qe, cell):
         p = pf.get("pat") or [None, None, None]
         if not (len(p) == 3 and all(p) and same_sum(p[0] + p[1], p[2])):
             return False
-    if how == "fy" and not (0 < h1 < fy and (pf.get("m1") is None or same_row(pf["m1"], fy) or pf["m1"] == 0)):
+    if how == "fy" and not (
+        0 < h1 < fy and (pf.get("m1") is None or same_row(pf["m1"], fy) or pf["m1"] == 0)
+    ):
         return False
     return same_row(rev, h1 if qe % 10000 == 930 else h2)
 
 
+def page_resolver(fin_dir):
+    """Whose published page a results filing (parse()'s facts) belongs to — ONE rule for every reader of these files: this
+    builder proves row lengths with it, fill_sme_halfyear_pnl.py (runbook §213) fills the proven half-years' detail with
+    it. §203: a filing reaches a page only when ISIN says it is that company.
+    Returns (resolve, code2tk, have): resolve(x, kind) -> (page symbol, None) or (None, the ticker a §203 guard kept the
+    filing off, if any); kind is "nse" (NSE file: its own symbol) or "bse" (BSE file: its scrip code)."""
+    rmap = json.load(open(os.path.join(HERE, "_rename_map.json"), encoding="utf-8"))
+
+    def norm(s):
+        seen = set()
+        while s in rmap and s not in seen and rmap[s] != s:
+            seen.add(s)
+            s = rmap[s]
+        return s
+
+    code2tk = {
+        str(v): k
+        for k, v in json.load(open(os.path.join(HERE, "bse_scrips.json"), encoding="utf-8"))[
+            "by_id"
+        ].items()
+    }
+    have = {f[:-5] for f in os.listdir(fin_dir) if f.endswith(".json")}
+    sys.path.insert(0, HERE)
+    import bse_resolve  # §203: a filing marks a page's rows only when ISIN says it is that company
+    from build_stock_fin import nse_tape_isin, slug
+
+    tape_isin = nse_tape_isin()
+    bse_resolve.identities(tape_isin)
+    isin2sym = {}
+    for s_, i_ in tape_isin.items():
+        isin2sym.setdefault(i_, s_)
+
+    def resolve(x, kind):
+        sym = blocked_sym = None
+        if kind == "bse":
+            sym = code2tk.get(x["code"])
+            if sym and bse_resolve.bse_blocked_under(sym, x["isin"], x["code"]):
+                blocked_sym, sym = sym, None  # ZEAL's page is Zeal Global (NSE SME), not BSE 539963
+        elif x["sym"] and x["sym"] not in ("NA", "NOTLISTED", "-"):
+            sym = norm(x["sym"])
+            if bse_resolve.nse_blocked_under(sym, x["isin"]):
+                blocked_sym, sym = (
+                    sym,
+                    None,
+                )  # KEL's page is Kotia (BSE); this is Kundan Edifice's NSE filing
+        if (not sym or slug(sym) not in have) and x["isin"]:
+            sym = isin2sym.get(
+                x["isin"], sym
+            )  # the listing of the same ISIN, if the tape knows one
+            if sym and sym == blocked_sym:
+                sym = None
+        if not sym or slug(sym) not in have:
+            return None, blocked_sym
+        return sym, None
+
+    return resolve, code2tk, have
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sme-cache", default=os.environ.get("SME_CACHE") or os.path.join(HERE, "_xbrl_cache_sme"))
+    ap.add_argument(
+        "--sme-cache", default=os.environ.get("SME_CACHE") or os.path.join(HERE, "_xbrl_cache_sme")
+    )
     ap.add_argument("--bse-dir", default=os.path.expanduser("~/stocks-cache/bse_sme_xbrl"))
     ap.add_argument("--fin", default=os.path.join(ROOT, "docs", "fin"))
     ap.add_argument("--out", default=OUT)
@@ -247,53 +321,25 @@ def main():
             if not f.startswith(("list_", ".")) and not f.endswith(".json")
         ]
     if not any(k == "nse" for _, k in paths):
-        sys.exit("ABORT: no NSE SME XBRL files to read (set --sme-cache / SME_CACHE) — refusing to rewrite the list")
+        sys.exit(
+            "ABORT: no NSE SME XBRL files to read (set --sme-cache / SME_CACHE) — refusing to rewrite the list"
+        )
     with ProcessPoolExecutor(8) as ex:
         facts = list(ex.map(parse, [p for p, _ in paths], chunksize=64))
     scanned = {os.path.basename(p) for p, _ in paths}
 
     # filing -> the symbol its page is published under
-    rmap = json.load(open(os.path.join(HERE, "_rename_map.json"), encoding="utf-8"))
+    resolve, code2tk, have = page_resolver(a.fin)
+    import bse_resolve
+    from build_stock_fin import slug
 
-    def norm(s):
-        seen = set()
-        while s in rmap and s not in seen and rmap[s] != s:
-            seen.add(s)
-            s = rmap[s]
-        return s
-
-    code2tk = {
-        str(v): k for k, v in json.load(open(os.path.join(HERE, "bse_scrips.json"), encoding="utf-8"))["by_id"].items()
-    }
-    have = {f[:-5] for f in os.listdir(a.fin) if f.endswith(".json")}
-    sys.path.insert(0, HERE)
-    import bse_resolve  # §203: a filing marks a page's rows only when ISIN says it is that company
-    from build_stock_fin import nse_tape_isin, slug
-
-    tape_isin = nse_tape_isin()
-    bse_resolve.identities(tape_isin)
-    isin2sym = {}
-    for s_, i_ in tape_isin.items():
-        isin2sym.setdefault(i_, s_)
     files = defaultdict(list)  # (sym, qe) -> [fact]
     unmatched = other_co = 0
     for (p, kind), x in zip(paths, facts, strict=False):
         if not x:
             continue
-        sym = blocked_sym = None
-        if kind == "bse":
-            sym = code2tk.get(x["code"])
-            if sym and bse_resolve.bse_blocked_under(sym, x["isin"], x["code"]):
-                blocked_sym, sym = sym, None  # ZEAL's page is Zeal Global (NSE SME), not BSE 539963
-        elif x["sym"] and x["sym"] not in ("NA", "NOTLISTED", "-"):
-            sym = norm(x["sym"])
-            if bse_resolve.nse_blocked_under(sym, x["isin"]):
-                blocked_sym, sym = sym, None  # KEL's page is Kotia (BSE); this is Kundan Edifice's NSE filing
-        if (not sym or slug(sym) not in have) and x["isin"]:
-            sym = isin2sym.get(x["isin"], sym)  # the listing of the same ISIN, if the tape knows one
-            if sym and sym == blocked_sym:
-                sym = None
-        if not sym or slug(sym) not in have:
+        sym, blocked_sym = resolve(x, kind)
+        if sym is None:
             if blocked_sym:
                 other_co += 1
             else:
@@ -305,7 +351,9 @@ def main():
     for sym in sorted({s for s, _ in files}):
         F = json.load(open(os.path.join(a.fin, slug(sym) + ".json"), encoding="utf-8"))
         rv = F.get("revop") or {}
-        fundrows = {r[0]: r for r in (F.get("fund") or [])}  # [qEnd, patStd, annStd, patCon, annCon]
+        fundrows = {
+            r[0]: r for r in (F.get("fund") or [])
+        }  # [qEnd, patStd, annStd, patCon, annCon]
 
         def spat(q, b, fundrows=fundrows):
             r = fundrows.get(q)
@@ -321,7 +369,12 @@ def main():
         ):
             sep, mar = (y - 1) * 10000 + 930, y * 10000 + 331
             S, M = files.get((sym, sep), []), files.get((sym, mar), [])
-            h1s = [(f[k], f, c) for f in S for k, c in (("one", "OneD"), ("four", "FourD")) if f[k] is not None]
+            h1s = [
+                (f[k], f, c)
+                for f in S
+                for k, c in (("one", "OneD"), ("four", "FourD"))
+                if f[k] is not None
+            ]
             pairs = [
                 (h1, f1, m)
                 for m in M
@@ -341,7 +394,9 @@ def main():
                     if len(rv.get(str(q)) or ()) > i and rv[str(q)][i] is not None
                 }
                 if any(q % 10000 in (630, 1231) for q in vals) and any(
-                    same_sum(sum(vals.values()), m["four"]) for m in M if m["b"] == b and m["four"] is not None
+                    same_sum(sum(vals.values()), m["four"])
+                    for m in M
+                    if m["b"] == b and m["four"] is not None
                 ):
                     veto.add(b)
             for qe in (sep, mar):
@@ -362,7 +417,9 @@ def main():
                             m_ = 6
                             ev |= {hit[0][0]["f"], hit[0][1]["f"]}
                     else:
-                        hit = [(f1, m) for h1, f1, m in pairs if m["b"] == b and same_row(v, m["one"])]
+                        hit = [
+                            (f1, m) for h1, f1, m in pairs if m["b"] == b and same_row(v, m["one"])
+                        ]
                         if hit:
                             m_ = 6
                             ev |= {hit[0][0]["f"], hit[0][1]["f"]}
@@ -411,12 +468,18 @@ def main():
                             cands = [
                                 (m, "four")
                                 for m in M
-                                if m["b"] == b and v is not None and m["four"] is not None and same_row(v, m["four"])
+                                if m["b"] == b
+                                and v is not None
+                                and m["four"] is not None
+                                and same_row(v, m["four"])
                             ]
                         p = spat(qe, b)
                         mk["p" + b] = (
                             p
-                            if (p is not None and any(same_row(p, x) for f_, c in cands for x in f_["p" + c]))
+                            if (
+                                p is not None
+                                and any(same_row(p, x) for f_, c in cands for x in f_["p" + c])
+                            )
                             else None
                         )
         # QUARTERS INSIDE A HALF-YEAR YEAR (§198): a filer of Q1 + H1 + Q3 + H2 (QMSMEDI). The Dec row is Oct-Dec when
@@ -441,12 +504,20 @@ def main():
                     h1 = e6[b]  # the proven Apr-Sep revenue on this basis (None: not on file)
                     ok = None
                     for f in files.get((sym, qe), []):
-                        if f["b"] != b or f["one"] is None or not same_row(v, f["one"]) or h1 is None or v < 0:
+                        if (
+                            f["b"] != b
+                            or f["one"] is None
+                            or not same_row(v, f["one"])
+                            or h1 is None
+                            or v < 0
+                        ):
                             continue
                         if qe == jun:
                             y0 = "%d-" % (y - 1)
                             if not (
-                                f["start"] == y0 + "04-01" and f["ostart"] == y0 + "04-01" and f["oend"] == y0 + "06-30"
+                                f["start"] == y0 + "04-01"
+                                and f["ostart"] == y0 + "04-01"
+                                and f["oend"] == y0 + "06-30"
                             ):
                                 continue
                             if f["four"] is not None and not same_row(f["four"], f["one"]):
@@ -467,11 +538,22 @@ def main():
                         proof[b] = ok
                         ev.add(ok["f"])
                 if got and all(m_ == 3 for m_ in got.values()):
-                    mk = {"m": 3, "s": row[0], "c": row[1] if len(row) > 1 else None, "f": sorted(ev | set(e6["f"]))}
+                    mk = {
+                        "m": 3,
+                        "s": row[0],
+                        "c": row[1] if len(row) > 1 else None,
+                        "f": sorted(ev | set(e6["f"])),
+                    }
                     for b in ("s", "c"):
                         p, f = spat(qe, b), proof.get(b)
-                        good = p is not None and f is not None and any(same_row(p, x) for x in f["pone"])
-                        if good and qe == dec:  # H1 profit (itself proven) + Q3 profit == the nine-month profit
+                        good = (
+                            p is not None
+                            and f is not None
+                            and any(same_row(p, x) for x in f["pone"])
+                        )
+                        if (
+                            good and qe == dec
+                        ):  # H1 profit (itself proven) + Q3 profit == the nine-month profit
                             ph1 = e6.get("p" + b)
                             good = ph1 is not None and any(same_sum(ph1 + p, x) for x in f["pfour"])
                         mk["p" + b] = p if good else None
@@ -485,7 +567,9 @@ def main():
     # other basis is empty or the same figure, and the basis's rows of the year do not already tile it as quarters.
     n_pf = 0
     fund_all = None
-    bf = json.load(open(os.path.join(ROOT, "docs", "bse_fundamentals.json"), encoding="utf-8")).get("px", {})
+    bf = json.load(open(os.path.join(ROOT, "docs", "bse_fundamentals.json"), encoding="utf-8")).get(
+        "px", {}
+    )
     for code, cells in sorted(bf.items()):
         sym = code2tk.get(str(code))
         if (
@@ -497,25 +581,45 @@ def main():
             continue
         rv = None
         for qe, c in sorted(cells.items()):
-            if not (str(qe).isdigit() and isinstance(c, dict) and c.get("h") == 1 and pf_ok(int(qe), c)):
+            if not (
+                str(qe).isdigit() and isinstance(c, dict) and c.get("h") == 1 and pf_ok(int(qe), c)
+            ):
                 continue
             if qe in out.get(sym, {}):
                 continue  # the files already decided this row
             if rv is None:
-                rv = json.load(open(os.path.join(a.fin, slug(sym) + ".json"), encoding="utf-8")).get("revop") or {}
+                rv = (
+                    json.load(open(os.path.join(a.fin, slug(sym) + ".json"), encoding="utf-8")).get(
+                        "revop"
+                    )
+                    or {}
+                )
             row = rv.get(qe) or []
             i = 1 if c.get("basis") == "C" else 0
-            v, other = (row[i] if len(row) > i else None), (row[1 - i] if len(row) > 1 - i else None)
-            if v is None or not same_row(v, c["rev"]) or (other is not None and not same_row(other, v)):
+            v, other = (
+                (row[i] if len(row) > i else None),
+                (row[1 - i] if len(row) > 1 - i else None),
+            )
+            if (
+                v is None
+                or not same_row(v, c["rev"])
+                or (other is not None and not same_row(other, v))
+            ):
                 continue
             y = int(qe) // 10000 + (1 if int(qe) % 10000 == 930 else 0)
             qs = [
-                str(q) for q in ((y - 1) * 10000 + 630, (y - 1) * 10000 + 930, (y - 1) * 10000 + 1231, y * 10000 + 331)
+                str(q)
+                for q in (
+                    (y - 1) * 10000 + 630,
+                    (y - 1) * 10000 + 930,
+                    (y - 1) * 10000 + 1231,
+                    y * 10000 + 331,
+                )
             ]
             vals = [rv[q][i] for q in qs if len(rv.get(q) or ()) > i and rv[q][i] is not None]
-            if any(len(rv.get(q) or ()) > i and rv[q][i] is not None for q in (qs[0], qs[2])) and same_sum(
-                sum(vals), c["pf"]["fy"]
-            ):
+            if any(
+                len(rv.get(q) or ()) > i and rv[q][i] is not None for q in (qs[0], qs[2])
+            ) and same_sum(sum(vals), c["pf"]["fy"]):
                 continue  # quarters already tile the year (the file rule's veto)
             e_ = {
                 "m": 6,
@@ -533,7 +637,10 @@ def main():
                 fund_all[sym] = {
                     r[0]: r
                     for r in (
-                        json.load(open(os.path.join(a.fin, slug(sym) + ".json"), encoding="utf-8")).get("fund") or []
+                        json.load(
+                            open(os.path.join(a.fin, slug(sym) + ".json"), encoding="utf-8")
+                        ).get("fund")
+                        or []
                     )
                 }
             fr = fund_all[sym].get(int(qe)) or [None] * 5
@@ -556,15 +663,118 @@ def main():
             n_rows += 1
             n_pf += 1
 
+    # NSE SME half-years proven from result PDFs (scripts/nse_sme_pdf_proofs.json, runbook §210a): re-check the year the
+    # proof carries (h1 + h2 = fy), then mark the row when the slice publishes exactly the proven half on that basis, the
+    # other basis is empty or the same figure, and the year's quarters do not already tile it — the "bse-pf" rules.
+    n_pdf = 0
+    pp_path = os.path.join(HERE, "nse_sme_pdf_proofs.json")
+    PP = (
+        {
+            k: v
+            for k, v in json.load(open(pp_path, encoding="utf-8")).items()
+            if not k.startswith("_")
+        }
+        if os.path.exists(pp_path)
+        else {}
+    )
+    for sym, qs in sorted(PP.items()):
+        if slug(sym) not in have:
+            continue
+        F_ = json.load(open(os.path.join(a.fin, slug(sym) + ".json"), encoding="utf-8"))
+        rv, frows = F_.get("revop") or {}, {r[0]: r for r in (F_.get("fund") or [])}
+        for qe, bases in sorted(qs.items()):
+            if qe in out.get(sym, {}):
+                continue
+            for b, pr in sorted(bases.items()):
+                r3, p3 = pr.get("rev") or [], pr.get("pat") or []
+                if len(r3) != 3 or None in r3 or not same_sum(r3[0] + r3[1], r3[2]):
+                    continue
+                half = r3[0] if int(qe) % 10000 == 930 else r3[1]
+                i = 1 if b == "c" else 0
+                row = rv.get(qe) or []
+                v, other = (
+                    (row[i] if len(row) > i else None),
+                    (row[1 - i] if len(row) > 1 - i else None),
+                )
+                ob = (
+                    bases.get("s" if b == "c" else "c") or {}
+                )  # the other basis: empty, the same figure, or
+                o3 = ob.get("rev") or []  # its OWN proven half (PULZ files both)
+                o_ok = (
+                    other is None
+                    or same_row(other, v)
+                    or (
+                        len(o3) == 3
+                        and None not in o3
+                        and same_sum(o3[0] + o3[1], o3[2])
+                        and same_row(other, o3[0] if int(qe) % 10000 == 930 else o3[1])
+                    )
+                )
+                if v is None or not same_row(v, half) or not o_ok:
+                    continue
+                y = int(qe) // 10000 + (1 if int(qe) % 10000 == 930 else 0)
+                if any(
+                    len(rv.get(str(q)) or ()) > i and rv[str(q)][i] is not None
+                    for q in ((y - 1) * 10000 + 630, (y - 1) * 10000 + 1231)
+                ):
+                    continue  # a quarterly year: its Sep / Mar rows are quarters
+                e_ = {
+                    "m": 6,
+                    "s": row[0] if row else None,
+                    "c": row[1] if len(row) > 1 else None,
+                    "f": [pr.get("f")],
+                    "src": "nse-pdf",
+                }
+                fr = frows.get(int(qe)) or [None] * 5
+                pv, po = fr[3 if i == 1 else 1], fr[1 if i == 1 else 3]
+                ph = (
+                    (p3[0] if int(qe) % 10000 == 930 else p3[1])
+                    if len(p3) == 3 and None not in p3
+                    else None
+                )
+                op3 = ob.get("pat") or []
+                po_ok = (
+                    po is None
+                    or same_row(po, pv if pv is not None else po)
+                    or (
+                        len(op3) == 3
+                        and None not in op3
+                        and same_sum(op3[0] + op3[1], op3[2])
+                        and same_row(po, op3[0] if int(qe) % 10000 == 930 else op3[1])
+                    )
+                )
+                ok_ = (
+                    ph is not None
+                    and same_sum(p3[0] + p3[1], p3[2])
+                    and pv is not None
+                    and same_row(pv, ph)
+                    and po_ok
+                )
+                e_["p" + ("c" if i == 1 else "s")] = pv if ok_ else None
+                e_["p" + ("s" if i == 1 else "c")] = po if ok_ else None
+                out.setdefault(sym, {})[qe] = e_
+                n_rows += 1
+                n_pdf += 1
+                break
+    print("NSE SME result-PDF proofs: %d rows marked" % n_pdf)
+
     # carry forward entries this run could not re-check (their evidence files were not scanned); "bse-pf" entries are
     # re-derived from docs/bse_fundamentals.json every run, so one that no longer proves is dropped, not carried
     old = {}
     if os.path.exists(a.out):
-        old = {k: v for k, v in json.load(open(a.out, encoding="utf-8")).items() if not k.startswith("_")}
+        old = {
+            k: v
+            for k, v in json.load(open(a.out, encoding="utf-8")).items()
+            if not k.startswith("_")
+        }
     kept = 0
     for sym, qs in old.items():
         for qe, e in qs.items():
-            if qe not in out.get(sym, {}) and not (set(e.get("f") or ()) & scanned) and e.get("src") != "bse-pf":
+            if (
+                qe not in out.get(sym, {})
+                and not (set(e.get("f") or ()) & scanned)
+                and e.get("src") not in ("bse-pf", "nse-pdf")
+            ):
                 out.setdefault(sym, {})[qe] = e
                 kept += 1
     added = sum(1 for s in out for q in out[s] if q not in old.get(s, {}))
@@ -596,7 +806,7 @@ def main():
         "_note": "Result rows proven to cover 3, 6 or 12 months (runbook §191, §194, §198) — built by "
         "scripts/build_row_periods.py; never edit by hand. {SYM: {qEnd: {m: months, s/c: the revenue "
         "proven, ps/pc: the profit proven (null = none or contradicted), f: evidence filings, "
-        "src: 'bse-pf' when proven by a BSE h=1 cell's arithmetic}}}"
+        "src: 'bse-pf' when proven by a BSE h=1 cell's arithmetic, 'nse-pdf' by a result PDF's year (§210a)}}}"
     }
     doc.update({s: dict(sorted(out[s].items())) for s in sorted(out)})
     with open(a.out, "w", encoding="utf-8") as fh:

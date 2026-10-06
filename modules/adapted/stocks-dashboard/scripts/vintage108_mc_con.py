@@ -135,7 +135,12 @@ def main():
         rec["owners_src"], rec["mc_con_total"] = (mc_src if mc is not None else None), mc_tot
         if mc is None:
             rec["verdict"] = "no-mc-quarter" if con else "no-mc-id"
-        elif mc_src == "MC pat_own" and mcs is not None and mc_tot is not None and abs(mc_tot - mcs) < 0.011:
+        elif (
+            mc_src == "MC pat_own"
+            and mcs is not None
+            and mc_tot is not None
+            and abs(mc_tot - mcs) < 0.011
+        ):
             rec["verdict"] = "mc-con-is-std-fallback"  # §85 — absence, not agreement
         else:
             a, st = v.get("as_filed"), v["stored"]

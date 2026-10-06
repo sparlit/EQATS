@@ -90,7 +90,7 @@ for path in (WT + "docs/sf_fundamentals.json", SCR + "fundamentals.json"):
     o = json.load(open(path))
     rows = o["J&KBANK"]
     for qe, con, note in CHANGES:
-        r = next(x for x in rows if x[0] == qe)
+        r = [x for x in rows if x[0] == qe][0]
         r[3] = con
         r[4] = ANN
     json.dump(o, open(path, "w"), separators=(",", ":"))

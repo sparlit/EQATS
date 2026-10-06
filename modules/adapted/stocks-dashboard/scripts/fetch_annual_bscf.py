@@ -74,8 +74,14 @@ import fitz  # PyMuPDF
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import contextlib
 
-from merge_annual_bscf import cf_identity, slice_x, validate_cf_cell  # one definition each (fetch + merge)
-from merge_annual_bscf import gate_ok as merge_gate  # (ok, add_rou) — the landing gate, one definition
+from merge_annual_bscf import (  # one definition each (fetch + merge)
+    cf_identity,
+    slice_x,
+    validate_cf_cell,
+)
+from merge_annual_bscf import (
+    gate_ok as merge_gate,  # (ok, add_rou) — the landing gate, one definition
+)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS = os.path.join(HERE, "..", "docs")
@@ -88,7 +94,9 @@ UA = BH.UA  # honest BSE identity (§181) -- no browser impersonation
 
 # ---- queue-advance cooldowns (so the --limit walk moves past attempted-but-unfilled symbols) --
 TTRY_COOLDOWN_DAYS = 7  # a token-free text gate-fail is not re-attempted by main() for this long
-VNIL_COOLDOWN_DAYS = 30  # a prep that can't even RENDER a symbol's pages waits this long (x n) before retry
+VNIL_COOLDOWN_DAYS = (
+    30  # a prep that can't even RENDER a symbol's pages waits this long (x n) before retry
+)
 
 
 def _today():
@@ -110,12 +118,16 @@ def _fresh(datestr, days):
 def session():
     o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
     with contextlib.suppress(Exception):
-        o.open(urllib.request.Request("https://www.bseindia.com/", headers=BH.HEADERS), timeout=30).read()
+        o.open(
+            urllib.request.Request("https://www.bseindia.com/", headers=BH.HEADERS), timeout=30
+        ).read()
     return o
 
 
 _LAST_CALL = [0.0]
-MIN_GAP = float(os.environ.get("BSE_MIN_GAP", "2.0"))  # seconds between ANY two BSE requests (<=0.5/s, agreed
+MIN_GAP = float(
+    os.environ.get("BSE_MIN_GAP", "2.0")
+)  # seconds between ANY two BSE requests (<=0.5/s, agreed
 
 
 # with the parallel BSE session after the 2026-09-23 block)
@@ -177,7 +189,8 @@ def result_filings(o, code, frm, to, pages=6):
         for pg in range(1, pages + 1):
             u = (
                 "https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=%d&strCat=%s"
-                "&strPrevDate=%s&strScrip=%d&strSearch=P&strToDate=%s&strType=C%s" % (pg, cat, frm, code, to, sub)
+                "&strPrevDate=%s&strScrip=%d&strSearch=P&strToDate=%s&strType=C%s"
+                % (pg, cat, frm, code, to, sub)
             )
             try:
                 rows = json.loads(get(o, u)).get("Table", [])
@@ -185,7 +198,10 @@ def result_filings(o, code, frm, to, pages=6):
                 if e.code in (403, 429):
                     # BSE BLOCKED this client (measured 2026-09-23 after ~2k symbols: every call 403).
                     # Never let it read as "no filings" — that silently gate-failed ~310 symbols (§148).
-                    raise BseBlocked("BSE HTTP %d on AnnSubCategoryGetData (%s)" % (e.code, cat.replace("%20", " ")))
+                    raise BseBlocked(
+                        "BSE HTTP %d on AnnSubCategoryGetData (%s)"
+                        % (e.code, cat.replace("%20", " "))
+                    )
                 break
             except Exception:
                 break
@@ -229,7 +245,7 @@ def download(o, att):
 # ---- number + line parsing -------------------------------------------------------------------
 def to_num(tok):
     t = tok.strip()
-    neg = t.startswith(("(", "-"))
+    neg = t.startswith("(") or t.startswith("-")
     m = re.search(r"\d[\d,]*(?:\.\d+)?", t)  # numeric core, tolerating trailing junk (606,084.)
     if not m:
         return None
@@ -249,7 +265,9 @@ def to_num(tok):
     return -v if neg else v
 
 
-ISNUM = re.compile(r"^[\(\-]?\d[\d,]*(?:\.\d+)?[\).,;:!]*%?$")  # numeric with tolerated trailing junk
+ISNUM = re.compile(
+    r"^[\(\-]?\d[\d,]*(?:\.\d+)?[\).,;:!]*%?$"
+)  # numeric with tolerated trailing junk
 
 
 def rows_of(page):
@@ -257,7 +275,9 @@ def rows_of(page):
     return [(label, [v for _, v in toks]) for label, toks in rows_tok(page)]
 
 
-_GARBLED = re.compile(r"^[^A-Za-z]*\d[^A-Za-z]*\d[^A-Za-z]*$")  # 2+ digits, no letters: a figure the OCR mangled
+_GARBLED = re.compile(
+    r"^[^A-Za-z]*\d[^A-Za-z]*\d[^A-Za-z]*$"
+)  # 2+ digits, no letters: a figure the OCR mangled
 
 
 def rows_tok(page, garbled_as_none=False):
@@ -329,11 +349,11 @@ def _right_of_label(x, toks):
     return bool(words) and x > max(words)
 
 
-DASH = re.compile(r"^[-\u2013\u2014]{1,3}$|^nil$", re.IGNORECASE)
-NOTE_HDR = re.compile(r"^notes?\.?$|^note\s*no\.?$", re.IGNORECASE)
-NOTE_REF = re.compile(r"^\d{1,2}(?:\.\d{1,2})?[a-z]?$", re.IGNORECASE)
-NOTE_INLINE = re.compile(r"^\d{1,2}(?:\.\d{1,2})?[a-z]?\)$", re.IGNORECASE)  # "2)" closing "(Refer Note 2)"
-NOTE_WORD = re.compile(r"\bnotes?\b", re.IGNORECASE)
+DASH = re.compile(r"^[-\u2013\u2014]{1,3}$|^nil$", re.I)
+NOTE_HDR = re.compile(r"^notes?\.?$|^note\s*no\.?$", re.I)
+NOTE_REF = re.compile(r"^\d{1,2}(?:\.\d{1,2})?[a-z]?$", re.I)
+NOTE_INLINE = re.compile(r"^\d{1,2}(?:\.\d{1,2})?[a-z]?\)$", re.I)  # "2)" closing "(Refer Note 2)"
+NOTE_WORD = re.compile(r"\bnotes?\b", re.I)
 
 # An OCR'd figure split after a comma: "1,37, 101.38" / "2,32, 786.59" / "2, 12,366.62" (BALMLAWRIE FY21 other
 # equity stored 1.37, LMW FY23 2.32, EPIGRAL FY23 1.02 \u2014 the first piece). Rejoined only when the result is a
@@ -363,15 +383,17 @@ def parse_rows(rows, specs_one, specs_sum):
     out = {}
     for field, rx, sign in specs_one:
         for label, nums in rows:
-            if re.search(rx, label, re.IGNORECASE) and nums:
-                if nums[0] is not None:  # blank current-year cell = not stated (never the prior year)
+            if re.search(rx, label, re.I) and nums:
+                if (
+                    nums[0] is not None
+                ):  # blank current-year cell = not stated (never the prior year)
                     out[field] = round(sign * nums[0], 2)
                 break
     for field, rx in specs_sum:
         tot = 0.0
         seen = False
         for label, nums in rows:
-            if re.search(rx, label, re.IGNORECASE) and nums and nums[0] is not None:
+            if re.search(rx, label, re.I) and nums and nums[0] is not None:
                 tot += abs(nums[0])
                 seen = True
         if seen:
@@ -381,7 +403,7 @@ def parse_rows(rows, specs_one, specs_sum):
     if "assets" in {f: 1 for f, _, _ in specs_one} and out.get("assets") is None:
         for label, nums in rows:
             if (
-                re.search(r"total[\s\-\u2013:.]{0,6}equity\s+and\s+liabilit", label, re.IGNORECASE)
+                re.search(r"total[\s\-\u2013:.]{0,6}equity\s+and\s+liabilit", label, re.I)
                 and nums
                 and nums[0] is not None
             ):
@@ -404,7 +426,11 @@ BS_ONE = [  # (field, label regex, sign) — first matching line wins
     # its OWN line — the page adds it to CWIP (Screener's convention); never folded into intg / cwip
     ("iuad", r"intangible\s+assets?\s+under\s+development\b", 1),
     # Screener's Fixed Assets includes investment property (§148c); 'under construction/development' is CWIP-like
-    ("invprop", r"^\s*(?:\([a-z]+\)\s*)?investment\s+propert(?:y|ies)\b(?!.*(?:under|construction|development))", 1),
+    (
+        "invprop",
+        r"^\s*(?:\([a-z]+\)\s*)?investment\s+propert(?:y|ies)\b(?!.*(?:under|construction|development))",
+        1,
+    ),
     ("invnt", r"^\s*(?:\([a-z]\)\s*)?inventories\b", 1),
 ]
 BS_SUM = [  # (field, label regex) — SUM the first-col of every matching line (non-current + current)
@@ -429,24 +455,24 @@ CF_ONE = [
     ),
     ("cfi", r"net\s+cash[^\n]{0,50}?investing\s+activit", 1),
     ("cff", r"net\s+cash[^\n]{0,50}?financing\s+activit", 1),
-    ("cf_tax", r"(?:income\s+)?tax(?:es)?\s+paid\b|direct\s+taxes\s+paid", 1),  # signed by _tax_direction (§168j)
+    (
+        "cf_tax",
+        r"(?:income\s+)?tax(?:es)?\s+paid\b|direct\s+taxes\s+paid",
+        1,
+    ),  # signed by _tax_direction (§168j)
     (
         "capex",
-        (
-            r"(?:purchases?|acquisitions?|payments?\s+(?:for|towards)|additions?\s+to|(?:capital\s+)?expenditure\s+on)\b"
-            r"[^\n]{0,30}?(?:property,?\s*plant|fixed\s+assets|\btangible\s+assets|\bppe\b)"
-        ),
+        r"(?:purchases?|acquisitions?|payments?\s+(?:for|towards)|additions?\s+to|(?:capital\s+)?expenditure\s+on)\b"
+        r"[^\n]{0,30}?(?:property,?\s*plant|fixed\s+assets|\btangible\s+assets|\bppe\b)",
         1,
     ),  # abs() in _cf_parse
     # the net change in cash — "Net increase/(decrease) in cash ..." or a bare "D. DECREASE IN CASH ..."
     # (HEROMOTOCO FY22); never the investing line for bank balances "not considered as cash"
     (
         "_cf_net",
-        (
-            r"^\s*(?:[a-z]\.?\s+|\([a-z]\)\s*)?(?:net\s+)?[()/\sa-z]{0,30}?(?:increase|decrease|change)\)?"
-            r"[()/\sa-z]{0,20}?\bin\s+cash\s+(?:and|&)\s+cash\s+equivalents?"
-            r"(?![^\n]*(?:not\s+considered|other\s+than|bank\s+balance))"
-        ),
+        r"^\s*(?:[a-z]\.?\s+|\([a-z]\)\s*)?(?:net\s+)?[()/\sa-z]{0,30}?(?:increase|decrease|change)\)?"
+        r"[()/\sa-z]{0,20}?\bin\s+cash\s+(?:and|&)\s+cash\s+equivalents?"
+        r"(?![^\n]*(?:not\s+considered|other\s+than|bank\s+balance))",
         1,
     ),
 ]
@@ -455,11 +481,13 @@ CF_ONE = [
 CF_FX = re.compile(
     r"(?:effects?|impact)\s+of\b[^\n]{0,60}?(?:exchange|currenc)[^\n]{0,60}?cash"
     r"|(?:exchange|currency)\s+(?:rate\s+)?(?:differences?|fluctuations?|translation)[^\n]{0,60}?cash\s+(?:and|&)\s+cash",
-    re.IGNORECASE,
+    re.I,
 )
 
 _BARE_INT = re.compile(r"^\(?-?\d{1,3}\)?[.,;:]?$")  # "2", "(8)", "103" — no grouping, no decimals
-_SPLIT_TAIL = re.compile(r"^\(?-?\d{3}(?:\.\d+)?\)?[.,;:]?$")  # "103", "403.70": the rest of a split figure
+_SPLIT_TAIL = re.compile(
+    r"^\(?-?\d{3}(?:\.\d+)?\)?[.,;:]?$"
+)  # "103", "403.70": the rest of a split figure
 
 # Income tax in the cash flow is stored SIGNED in the exchange-data (XBRL) convention: + paid, - net refund.
 # The direction comes from the statement's own arithmetic, never its label or brackets (runbook §168j):
@@ -469,18 +497,20 @@ CF_GEN = re.compile(
     r"cash\s+(?:flows?\s+)?(?:generated|used|\(used\s+in\)|inflow|outflow|from)[^\n]{0,60}?(?:operations?\b|operating\s+activit)"
     r"|(?:post|after)\s+working\s+capital|operating\s+(?:profit|cash\s*flow)[^\n]{0,40}?(?:after|post)\s+(?:working|changes)"
     r"|operating\s+activit[^\n]{0,20}?before\s+(?:income[\s\-]*)?tax",
-    re.IGNORECASE,
+    re.I,
 )
 CF_TAXLINE = re.compile(
     r"tax(?:es)?\b[^\n]{0,30}?(?:paid|refund|received)|(?:paid|refund(?:ed)?|received)[^\n]{0,20}?\btax"
     r"|direct\s+tax(?:es)?|income[\s\-]*tax(?:es)?\s*(?:\(net\)|,?\s*net\b)|tax(?:es)?\s*\(net\)",
-    re.IGNORECASE,
+    re.I,
 )
 CF_TAXNOT = re.compile(
     r"before\s+(?:income[\s\-]*)?tax|tax\s+expense|deferred|provision\s+for\s+tax|tax\s+deducted|dividend",
-    re.IGNORECASE,
+    re.I,
 )
-_NETLINE = re.compile(r"^\s*(?:\(?[a-e]\)?[.:]?\s+)?net\b(?![^\n]*before\s+(?:income[\s\-]*)?tax)", re.IGNORECASE)
+_NETLINE = re.compile(
+    r"^\s*(?:\(?[a-e]\)?[.:]?\s+)?net\b(?![^\n]*before\s+(?:income[\s\-]*)?tax)", re.I
+)
 
 
 def _tax_direction(fixed, rows, cfo):
@@ -492,7 +522,7 @@ def _tax_direction(fixed, rows, cfo):
     cannot be confused at the statement's printed precision. Anything else: None, never a guess."""
     if cfo is None:
         return None
-    rx_cfo = re.compile(CF_ONE[0][1], re.IGNORECASE)
+    rx_cfo = re.compile(CF_ONE[0][1], re.I)
     for ic, (lab, n) in enumerate(fixed):
         if not (rx_cfo.search(lab) and n and n[0] is not None and abs(n[0] - cfo) < 0.005):
             continue
@@ -516,7 +546,7 @@ def _tax_direction(fixed, rows, cfo):
             return None
         T = sum(fixed[i][1][0] for i in taxes)
         S = cfo - fixed[io][1][0] - sum(fixed[i][1][0] for i in others)
-        toks = [toks[0][0] for i in [io, ic, *taxes, *others] for toks in [rows[i][1]] if toks]
+        toks = [toks[0][0] for i in [io, ic] + taxes + others for toks in [rows[i][1]] if toks]
         res = 1.0 if all("." not in t for t in toks) else 0.01
         tol = res * 0.5 * (2 + len(taxes) + len(others)) + 1e-9  # half a printed unit per term
         if abs(T) <= 2 * tol or abs(abs(S) - abs(T)) > tol:
@@ -584,7 +614,9 @@ def _cf_parse(rows):
         # candidate line per total; accept only a UNIQUE triple that closes the identity.
         rx = {k: rxx for k, rxx, _ in CF_ONE if k in ("cfo", "cfi", "cff")}
         cand = {
-            k: [n[0] for lab, n in fixed if n and n[0] is not None and re.search(rx[k], lab, re.IGNORECASE)][:3]
+            k: [n[0] for lab, n in fixed if n and n[0] is not None and re.search(rx[k], lab, re.I)][
+                :3
+            ]
             for k in rx
         }
         sols = {
@@ -592,7 +624,7 @@ def _cf_parse(rows):
             for x in cand["cfo"]
             for y in cand["cfi"]
             for z in cand["cff"]
-            for f in [None, *fxs]
+            for f in [None] + fxs
             if cf_identity(x, y, z, net, f)
         }
         if len(sols) == 1:
@@ -613,28 +645,32 @@ def _cf_parse(rows):
     return cf
 
 
-BS_PAGE = re.compile(r"(balance sheet|assets and liabilities|statement of assets)", re.IGNORECASE)
-BS_REAL = re.compile(r"(total\s+equity|equity\s+share\s+capital|other\s+equity)", re.IGNORECASE)  # equity marker
+BS_PAGE = re.compile(r"(balance sheet|assets and liabilities|statement of assets)", re.I)
+BS_REAL = re.compile(
+    r"(total\s+equity|equity\s+share\s+capital|other\s+equity)", re.I
+)  # equity marker
 BS_ASSET = re.compile(
-    r"total[\s\-–—:.]{0,4}assets", re.IGNORECASE
+    r"total[\s\-–—:.]{0,4}assets", re.I
 )  # the real BS foots to a Total Assets line; a P&L results page / notes page does not
 BS_LIAB = re.compile(
-    r"trade\s+payables|total[\s\-–—:.]{0,4}equity\s+and\s+liabilit", re.IGNORECASE
+    r"trade\s+payables|total[\s\-–—:.]{0,4}equity\s+and\s+liabilit", re.I
 )  # POSITIVE liabilities-side marker: a real BS/statement-of-assets-and-liabilities always has it; a P&L results page, a notes page, or a per-segment "assets & liabilities" schedule does NOT (so this excludes the decoys without over-excluding a real BS page that merely shares a page with segment text)
-CF_PAGE = re.compile(r"cash\s*flow", re.IGNORECASE)
-CF_REAL = re.compile(r"operating\s+activit|investing\s+activit|financing\s+activit", re.IGNORECASE)
-CONSOL = re.compile(r"consolidated", re.IGNORECASE)
-STANDAL = re.compile(r"standalone", re.IGNORECASE)
+CF_PAGE = re.compile(r"cash\s*flow", re.I)
+CF_REAL = re.compile(r"operating\s+activit|investing\s+activit|financing\s+activit", re.I)
+CONSOL = re.compile(r"consolidated", re.I)
+STANDAL = re.compile(r"standalone", re.I)
 # RELAXED markers — used ONLY by locate()'s second pass, after the strict rules above found no
 # consolidated BS. Measured misses of the strict ones (2026-09-26, 40 failing filings): BEL prints
 # "Assets & Liabilities"; ANANTRAJ "Total of equity and liabilities"; ASTRAL/BEL put the title +
 # Total Assets on one page and "Trade payables" + the "Total equity and liabilities" footing on the
 # NEXT, untitled page, so no single page carries all three strict markers.
-BS_PAGE2 = re.compile(r"balance\s*sheet|assets\s*(?:and|&)\s*liabilities|statement\s+of\s+assets", re.IGNORECASE)
+BS_PAGE2 = re.compile(
+    r"balance\s*sheet|assets\s*(?:and|&)\s*liabilities|statement\s+of\s+assets", re.I
+)
 BS_FOOT = re.compile(
-    r"total[\s\-–—:.]{0,4}(?:of\s+)?equity\s*(?:and|&)\s*liabilit", re.IGNORECASE
+    r"total[\s\-–—:.]{0,4}(?:of\s+)?equity\s*(?:and|&)\s*liabilit", re.I
 )  # the liabilities-side FOOTING line
-BS_LIAB2 = re.compile(r"trade\s*payables?|" + BS_FOOT.pattern, re.IGNORECASE)
+BS_LIAB2 = re.compile(r"trade\s*payables?|" + BS_FOOT.pattern, re.I)
 
 
 def _relaxed_bs(texts):
@@ -655,7 +691,9 @@ def _relaxed_bs(texts):
     for i in range(n):
         pages = None
         if title[i] and liab[i] and tot[i]:
-            pages = [i - 1, i] if (not asset[i] and i > 0 and asset[i - 1] and not liab[i - 1]) else [i]
+            pages = (
+                [i - 1, i] if (not asset[i] and i > 0 and asset[i - 1] and not liab[i - 1]) else [i]
+            )
         elif title[i] and tot[i] and not liab[i] and i + 1 < n and foot[i + 1]:
             pages = [i, i + 1]
         elif title[i] and foot[i] and not tot[i] and i > 0 and asset[i - 1]:
@@ -678,11 +716,11 @@ def _relaxed_bs(texts):
 CF_DONE = re.compile(
     r"net\s+cash[^\n]{0,60}financing\s+activit|net\s+(?:increase|decrease|\(decrease\)|change)[^\n]{0,50}cash"
     r"|cash\s+and\s+cash\s+equivalents?\s+at\s+(?:the\s+)?(?:end|close)",
-    re.IGNORECASE,
+    re.I,
 )
-CF_SECT = re.compile(r"(?:financing|investing)\s+activit", re.IGNORECASE)
-CF_TITLE = re.compile(r"cash\s*flow\s+statement|statement\s+of\s+cash\s*flows?", re.IGNORECASE)
-CF_OPS = re.compile(r"operating\s+activit", re.IGNORECASE)
+CF_SECT = re.compile(r"(?:financing|investing)\s+activit", re.I)
+CF_TITLE = re.compile(r"cash\s*flow\s+statement|statement\s+of\s+cash\s*flows?", re.I)
+CF_OPS = re.compile(r"operating\s+activit", re.I)
 
 
 def cf_span(texts, i):
@@ -712,20 +750,18 @@ def fy_end_hit(text, want_year):
     '31.03.2024' / '31/03/2024' / '31-03-2024' (2- or 4-digit year, any of . / - separators)."""
     yr = str(want_year)
     yy = yr[-2:]
-    if re.search(r"\b31\s*(?:st|nd|rd|th)?\s+march[,\s]+" + yr + r"\b", text, re.IGNORECASE):
+    if re.search(r"\b31\s*(?:st|nd|rd|th)?\s+march[,\s]+" + yr + r"\b", text, re.I):
         return True
-    if re.search(r"\bmarch\s+31\s*(?:st|nd|rd|th)?\s*,?\s*" + yr + r"\b", text, re.IGNORECASE):
+    if re.search(r"\bmarch\s+31\s*(?:st|nd|rd|th)?\s*,?\s*" + yr + r"\b", text, re.I):
         return True
-    if re.search(r"\bended\s+march[,\s]+" + yr + r"\b", text, re.IGNORECASE):
+    if re.search(r"\bended\s+march[,\s]+" + yr + r"\b", text, re.I):
         return True
     ns = re.sub(r"\s+", "", text)
     # numeric dd?mm?yyyy — 4-digit first (word-boundary via negative-lookahead so 2020 != 2024),
     # then 2-digit '31.03.24' (also guarded so it can't match inside '31.03.2024').
     if re.search(r"31[./-]0?3[./-]" + yr + r"(?!\d)", ns):
         return True
-    if re.search(r"31[./-]0?3[./-]" + yy + r"(?!\d)", ns):
-        return True
-    return False
+    return bool(re.search(r"31[./-]0?3[./-]" + yy + r"(?!\d)", ns))
 
 
 def locate(pdf, want_year, want_basis=None):
@@ -788,8 +824,14 @@ def locate(pdf, want_year, want_basis=None):
                 return j
         return None
 
-    cf_c = cf_con if cf_con is not None else (_after(bs_con, STANDAL) if bs_std is not None else cf_std)
-    cf_s = cf_std if cf_std is not None else (_after(bs_std, CONSOL) if bs_con is not None else cf_con)
+    cf_c = (
+        cf_con
+        if cf_con is not None
+        else (_after(bs_con, STANDAL) if bs_std is not None else cf_std)
+    )
+    cf_s = (
+        cf_std if cf_std is not None else (_after(bs_std, CONSOL) if bs_con is not None else cf_con)
+    )
     strict = None
     if want_basis == "s" and bs_std is not None:
         strict = ("s", bs_pages(bs_std), cf_s)
@@ -806,7 +848,11 @@ def locate(pdf, want_year, want_basis=None):
     R = _relaxed_bs(texts)
     if strict is not None:
         if want_basis != "s" and R["bs_con"] is not None:
-            return "c", R["bs_con"], R["cf_con"]  # CF on the SAME basis or none — never mix bases in a cell
+            return (
+                "c",
+                R["bs_con"],
+                R["cf_con"],
+            )  # CF on the SAME basis or none — never mix bases in a cell
         return strict
     if want_basis == "s" and R["bs_std"] is not None:
         return "s", R["bs_std"], R["cf_std"]
@@ -825,19 +871,23 @@ def _as_list(x):
 # The text path used to land the printed number as crore, so every lakh / million filer read
 # 10x-100x off and gate-failed (CMSINFO FY25: read 31,199.24 = Rs mn vs key 3,119.92 cr).
 UNIT_PATS = [
-    (100.0, re.compile(r"\b(?:in\s+)?(?:rs\.?|inr|₹|rupees)?\s*(?:in\s+)?(?:lakhs?|lacs?)\b", re.IGNORECASE)),
-    (10.0, re.compile(r"\b(?:in\s+)?(?:rs\.?|inr|₹|rupees)?\s*(?:in\s+)?(?:millions?|mn)\b", re.IGNORECASE)),
-    (1e4, re.compile(r"\b(?:rs\.?|inr|₹|rupees)?\s*in\s+(?:thousands?|\'?000s?)\b", re.IGNORECASE)),
+    (
+        100.0,
+        re.compile(r"\b(?:in\s+)?(?:rs\.?|inr|₹|rupees)?\s*(?:in\s+)?(?:lakhs?|lacs?)\b", re.I),
+    ),
+    (10.0, re.compile(r"\b(?:in\s+)?(?:rs\.?|inr|₹|rupees)?\s*(?:in\s+)?(?:millions?|mn)\b", re.I)),
+    (1e4, re.compile(r"\b(?:rs\.?|inr|₹|rupees)?\s*in\s+(?:thousands?|\'?000s?)\b", re.I)),
     (
         1.0,
         re.compile(
             r"\b(?:in\s+)?(?:rs\.?|inr|₹|rupees)?\s*(?:in\s+)?(?:crores?|crs?\.?)\b(?!\s*(?:shares|equity))",
-            re.IGNORECASE,
+            re.I,
         ),
     ),
 ]
 UNIT_CTX = re.compile(
-    r"(?:amount|figures|rs\.?|inr|₹|rupees)[^\n]{0,25}\bin\b|\(\s*(?:rs\.?|inr|₹|rupees)?\s*in\b", re.IGNORECASE
+    r"(?:amount|figures|rs\.?|inr|₹|rupees)[^\n]{0,25}\bin\b|\(\s*(?:rs\.?|inr|₹|rupees)?\s*in\b",
+    re.I,
 )
 
 
@@ -886,7 +936,10 @@ CF_KEYS = ("cfo", "cfi", "cff", "capex", "cf_tax")
 
 
 def scale_read(p, k):
-    return {kk: (round(v / k, 2) if (kk in MONEY_KEYS and isinstance(v, (int, float))) else v) for kk, v in p.items()}
+    return {
+        kk: (round(v / k, 2) if (kk in MONEY_KEYS and isinstance(v, (int, float))) else v)
+        for kk, v in p.items()
+    }
 
 
 def scale_text(p, k):
@@ -894,7 +947,11 @@ def scale_text(p, k):
     stated unit (else k); '_' helper keys dropped."""
     cfk = p.get("_cf_unit") or k
     return {
-        kk: (round(v / (cfk if kk in CF_KEYS else k), 2) if (kk in MONEY_KEYS and isinstance(v, (int, float))) else v)
+        kk: (
+            round(v / (cfk if kk in CF_KEYS else k), 2)
+            if (kk in MONEY_KEYS and isinstance(v, (int, float)))
+            else v
+        )
         for kk, v in p.items()
         if not kk.startswith("_")
     }
@@ -917,7 +974,10 @@ def page_is_ocr(page):
         return False
     inv = sum(1 for k in txt if k == "ignore-text")
     pa = (page.rect.width * page.rect.height) or 1.0
-    img = sum((b[2] - b[0]) * (b[3] - b[1]) for k, b in log if k in ("fill-image", "fill-imgmask")) / pa
+    img = (
+        sum((b[2] - b[0]) * (b[3] - b[1]) for k, b in log if k in ("fill-image", "fill-imgmask"))
+        / pa
+    )
     return inv / len(txt) > 0.5 or img >= 0.9
 
 
@@ -950,7 +1010,9 @@ def text_read(pdf, bs_pi, cf_pi, allow_ocr=False):
         toks = rows_tok(doc[pi])
         bs_rows += toks
         bs_ocr = bs_ocr or page_is_ocr(doc[pi])
-        for k, v in parse_rows([(lab, [v for _, v in t]) for lab, t in toks], BS_ONE, BS_SUM).items():
+        for k, v in parse_rows(
+            [(lab, [v for _, v in t]) for lab, t in toks], BS_ONE, BS_SUM
+        ).items():
             fields.setdefault(k, v)  # first page (assets side) wins any shared key
     bs_layout = "multi" if _mode_cols(bs_rows) >= 3 else "single"
     if bs_layout == "multi" or (bs_ocr and not allow_ocr):
@@ -974,7 +1036,9 @@ def text_read(pdf, bs_pi, cf_pi, allow_ocr=False):
         fields["_cf_ocr"] = cf_ocr
         fields.update({k: v for k, v in cf.items() if not k.startswith("_")})
         fields["_cf_ok"] = cf.get("_cf_ok")  # True / False / None: the cash identity's verdict
-        fields["_cf_layout"] = cf.get("_cf_layout")  # 'single' / 'multi' (side-by-side bases: not read)
+        fields["_cf_layout"] = cf.get(
+            "_cf_layout"
+        )  # 'single' / 'multi' (side-by-side bases: not read)
         fields["_cf_net"] = cf.get("_cf_net")  # the printed net change in cash (raw) ...
         fields["_cf_fx"] = cf.get("_cf_fx")  # ... and the FX-effect line that closed the identity
         cf_unit = detect_unit("\n".join(doc[pi].get_text() for pi in span))
@@ -987,7 +1051,9 @@ def text_read(pdf, bs_pi, cf_pi, allow_ocr=False):
 def unit_candidates(p):
     """Divisors to try: the stated unit alone when the page states one, else crore/million/lakh —
     the holdout gate (<=1% on Total Assets AND PP&E) can accept at most one of them."""
-    return [p["_unit"]] if p.get("_unit") else [1.0, 10.0, 100.0, 1e4, 1e7]  # crore, mn, lakh, '000, Rs
+    return (
+        [p["_unit"]] if p.get("_unit") else [1.0, 10.0, 100.0, 1e4, 1e7]
+    )  # crore, mn, lakh, '000, Rs
 
 
 def render(pdf, pi, dpi=200):
@@ -1035,7 +1101,12 @@ def _schema():
     props = {f: {"type": ["number", "null"]} for f in _FIELDS}
     props["ok"] = {"type": "boolean"}
     props["basis"] = {"type": "string", "enum": ["C", "S"]}
-    return {"type": "object", "additionalProperties": False, "properties": props, "required": ["ok", "basis", *_FIELDS]}
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": props,
+        "required": ["ok", "basis"] + _FIELDS,
+    }
 
 
 _VPROMPT = (
@@ -1077,7 +1148,11 @@ def vision_read(pdf, bs_pi, cf_pi, name, want_year):
     content = [
         {
             "type": "image",
-            "source": {"type": "base64", "media_type": "image/png", "data": base64.standard_b64encode(p).decode()},
+            "source": {
+                "type": "base64",
+                "media_type": "image/png",
+                "data": base64.standard_b64encode(p).decode(),
+            },
         }
         for p in pngs
     ]
@@ -1098,7 +1173,12 @@ def vision_read(pdf, bs_pi, cf_pi, name, want_year):
         return None
     b = "c" if d.get("basis") == "C" else "s"
     got = {f: d[f] for f in _FIELDS if d.get(f) is not None}
-    if cf_identity(got.get("cfo"), got.get("cfi"), got.get("cff"), got.get("cf_net"), got.get("cf_fx")) is False:
+    if (
+        cf_identity(
+            got.get("cfo"), got.get("cfi"), got.get("cff"), got.get("cf_net"), got.get("cf_fx")
+        )
+        is False
+    ):
         for k in ("cfo", "cfi", "cff"):
             got.pop(k, None)  # the statement's own cash identity failed: a misread
     got.pop("cf_net", None)
@@ -1133,9 +1213,9 @@ def key_basis(x, qe):
 # size (fills: consolidation only ADDS subsidiary assets, so the largest Total Assets IS the
 # consolidated one). Used in prep only. (locate() runs its strict markers first; its relaxed second
 # pass only fires when those find no consolidated BS — see _relaxed_bs.)
-_TA_RX = re.compile(r"^\s*total\s+assets\b", re.IGNORECASE)
-_PPE_RX = re.compile(r"property,?\s*plant\s+and\s+equipment\b(?!.*expenditure)", re.IGNORECASE)
-_ROU_RX = re.compile(r"right[\-\s]*of[\-\s]*use\s+asset", re.IGNORECASE)
+_TA_RX = re.compile(r"^\s*total\s+assets\b", re.I)
+_PPE_RX = re.compile(r"property,?\s*plant\s+and\s+equipment\b(?!.*expenditure)", re.I)
+_ROU_RX = re.compile(r"right[\-\s]*of[\-\s]*use\s+asset", re.I)
 
 
 def _page_total_assets(page):
@@ -1326,7 +1406,10 @@ def prep(outdir, limit, only):
                         _loc_ok = (
                             _lta is not None
                             and _ka
-                            and any(abs(_lta * s - _ka) / abs(_ka) <= 0.02 for s in (1.0, 0.1, 0.01, 1e-7))
+                            and any(
+                                abs(_lta * s - _ka) / abs(_ka) <= 0.02
+                                for s in (1.0, 0.1, 0.01, 1e-7)
+                            )
                         )
                         if not _loc_ok:
                             _np = bs_pages_for_key(_d, _tx, held[val_fy])
@@ -1343,7 +1426,9 @@ def prep(outdir, limit, only):
                 except Exception:
                     pass
                 pngs = []
-                for j, pi in enumerate(_as_list(bs_pi)):  # 1 page, or a 2-page [assets, liabilities] split
+                for j, pi in enumerate(
+                    _as_list(bs_pi)
+                ):  # 1 page, or a 2-page [assets, liabilities] split
                     fn = "%s_%d_bs%s.png" % (sym, fy, "" if j == 0 else str(j + 1))
                     open(os.path.join(outdir, fn), "wb").write(render(pdf, pi))
                     pngs.append(fn)
@@ -1353,7 +1438,14 @@ def prep(outdir, limit, only):
                     cf_fn = "%s_%d_cf%s.png" % (sym, fy, "" if j == 0 else str(j + 1))
                     open(os.path.join(outdir, cf_fn), "wb").write(render(pdf, pi))
                     pngs.append(cf_fn)
-                e = {"sym": sym, "fy": fy, "role": role, "basis": b, "pngs": pngs, "src": "bse:" + att}
+                e = {
+                    "sym": sym,
+                    "fy": fy,
+                    "role": role,
+                    "basis": b,
+                    "pngs": pngs,
+                    "src": "bse:" + att,
+                }
                 if role == "validate":
                     e["key"] = {f: held[val_fy].get(f) for f in ("assets", "ppe", "eq", "borr")}
                 entries.append(e)
@@ -1385,7 +1477,11 @@ def main():
     if "--prep" in args:
         outdir = args[args.index("--prep") + 1]
         limit = int(args[args.index("--limit") + 1]) if "--limit" in args else None
-        only = {s.strip().upper() for s in args[args.index("--only") + 1].split(",")} if "--only" in args else None
+        only = (
+            {s.strip().upper() for s in args[args.index("--only") + 1].split(",")}
+            if "--only" in args
+            else None
+        )
         prep(outdir, limit, only)
         return
     only = None
@@ -1421,7 +1517,10 @@ def main():
         if limit and processed >= limit:
             break
         if max_min and time.time() - t0 > max_min * 60:
-            print("time budget %.0f min reached after %d symbols — stopping; progress is saved" % (max_min, processed))
+            print(
+                "time budget %.0f min reached after %d symbols — stopping; progress is saved"
+                % (max_min, processed)
+            )
             break
         code = byid.get(sym)
         if not code:
@@ -1430,12 +1529,20 @@ def main():
             gv = gate.get(sym)
             if gv and (gv.get("verdict") == "trusted" or gv.get("vtry")):
                 continue  # settled; a text-only gate-fail is retried once a vision key exists
-            if gv and gv.get("verdict") == "no-xbrl-year-to-validate" and not held_bs(slice_x(sym), "20260331"):
+            if (
+                gv
+                and gv.get("verdict") == "no-xbrl-year-to-validate"
+                and not held_bs(slice_x(sym), "20260331")
+            ):
                 continue  # still nothing to validate on (FY26 counts — §148e)
             # queue-advance: don't re-chew a symbol the token-free pass just tried, or one prep
             # can't render. Without this the --limit window re-attempts the same head every run
             # and never reaches the tail (the 2026-09 jam). Skips expire (TTRY/VNIL cooldowns).
-            if gv and not os.environ.get("ANTHROPIC_API_KEY") and _fresh(gv.get("ttry"), TTRY_COOLDOWN_DAYS):
+            if (
+                gv
+                and not os.environ.get("ANTHROPIC_API_KEY")
+                and _fresh(gv.get("ttry"), TTRY_COOLDOWN_DAYS)
+            ):
                 continue
             if (
                 gv
@@ -1447,8 +1554,14 @@ def main():
         # which FYs do we already hold (validation) vs miss (fill)?
         held = {fy: held_bs(x, "%d0331" % fy) for fy in FYS}
         held = {fy: k for fy, k in held.items() if k}
-        miss = [fy for fy in FYS if "%d0331" % fy not in [q for q in x if held_bs(x, q)] and fy not in held]
-        if not held and not held_bs(x, "20260331"):  # FY2026 is a validation year too (below): a filer whose
+        miss = [
+            fy
+            for fy in FYS
+            if "%d0331" % fy not in [q for q in x if held_bs(x, q)] and fy not in held
+        ]
+        if not held and not held_bs(
+            x, "20260331"
+        ):  # FY2026 is a validation year too (below): a filer whose
             # only XBRL balance sheet is FY26 (130 of the 865 queued, e.g. INA — SME years on BSE only) was refused here
             gate.setdefault(sym, {}).update({"verdict": "no-xbrl-year-to-validate"})
             json.dump(gate, open(GATE_REPORT, "w"), separators=(",", ":"), sort_keys=True)
@@ -1489,7 +1602,9 @@ def main():
                 b, bs_pi, cf_pi = loc
                 p = text_read(pdf, bs_pi, cf_pi)
                 for k in unit_candidates(p):
-                    ok, add_rou = merge_gate(scale_read(p, k), vheld[vfy])  # ROU-aware, zero-PP&E aware
+                    ok, add_rou = merge_gate(
+                        scale_read(p, k), vheld[vfy]
+                    )  # ROU-aware, zero-PP&E aware
                     if ok:
                         trusted, basis, method, unit, val_fy = True, b, "text", k, vfy
                         val_assets = scale_read(p, k).get("assets")
@@ -1504,7 +1619,9 @@ def main():
                     break
             if trusted:
                 break
-        entry = gate.setdefault(sym, {})  # UPDATE, don't replace: carry over vnil/na marks prep wrote
+        entry = gate.setdefault(
+            sym, {}
+        )  # UPDATE, don't replace: carry over vnil/na marks prep wrote
         entry.update(
             {
                 "verdict": "trusted" if trusted else "gate-failed",
@@ -1550,14 +1667,20 @@ def main():
                     p = scale_text(p, k)
                     p["u"] = u_src
                     if add_rou and p.get("ppe") is not None:
-                        p["ppe"] = round(p["ppe"] + (p.get("rou") or 0), 2)  # the convention the gate proved
+                        p["ppe"] = round(
+                            p["ppe"] + (p.get("rou") or 0), 2
+                        )  # the convention the gate proved
                     p.pop("rou", None)  # not a ledger field (merge_annual_bscf FIELDS)
                     # an INHERITED unit is only safe when the year sits within 7x of the validated
                     # year's Total Assets — a wrong unit is off by exactly 10x / 100x (§148)
                     # EVERY fill year must sit within 7x of the validated year's Total Assets — a stated
                     # unit is no guarantee (9 first-pass cells read a note number / sub-total as Total
                     # Assets: AARTISURF FY22 0.4 vs 402 cr, GIPCL FY20 0.03 vs 4,487; §148)
-                    if not val_assets or p.get("assets") is None or not (1 / 7 <= p["assets"] / val_assets <= 7):
+                    if (
+                        not val_assets
+                        or p.get("assets") is None
+                        or not (1 / 7 <= p["assets"] / val_assets <= 7)
+                    ):
                         continue
                 else:
                     v = vision_read(pdf, bs_pi, cf_pi, sym, fy)
@@ -1575,17 +1698,23 @@ def main():
         #    flow (PFIZER FY25): a CF-only cell (v=1). Never its BS fields — those are XBRL's.
         vq = "%d0331" % val_fy
         if val_cf is not None and vq not in (ledger.get(sym) or {}):
-            vc = validate_cf_cell(val_cf, (x.get(vq) or {}).get(basis), basis, method, "bse:" + val_src)
+            vc = validate_cf_cell(
+                val_cf, (x.get(vq) or {}).get(basis), basis, method, "bse:" + val_src
+            )
             if vc:
                 got[vq] = vc
         if got:
             ledger.setdefault(sym, {}).update(got)
             json.dump(ledger, open(LEDGER, "w"), separators=(",", ":"), sort_keys=True)
         processed += 1
-        print("%-11s trusted(%s,%s) basis=%s  filled %d FYs: %s" % (sym, val_fy, method, basis, len(got), sorted(got)))
+        print(
+            "%-11s trusted(%s,%s) basis=%s  filled %d FYs: %s"
+            % (sym, val_fy, method, basis, len(got), sorted(got))
+        )
     n = sum(len(v) for k, v in ledger.items())
     print(
-        "DONE. ledger: %d symbols, %d symbol-years. gate report: %s" % (len(ledger), n, os.path.basename(GATE_REPORT))
+        "DONE. ledger: %d symbols, %d symbol-years. gate report: %s"
+        % (len(ledger), n, os.path.basename(GATE_REPORT))
     )
 
 

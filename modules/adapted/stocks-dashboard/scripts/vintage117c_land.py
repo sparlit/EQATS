@@ -42,11 +42,31 @@ R = []  # revop_cell_fix
 
 
 def fund(sym, qe, basis, was, fixed, why):
-    F.append({"sym": sym, "qe": str(qe), "basis": basis, "was": was, "fixed": fixed, "why": why, "found": FOUND})
+    F.append(
+        {
+            "sym": sym,
+            "qe": str(qe),
+            "basis": basis,
+            "was": was,
+            "fixed": fixed,
+            "why": why,
+            "found": FOUND,
+        }
+    )
 
 
 def revop(sym, qe, basis, was, fixed, why):
-    R.append({"sym": sym, "qe": str(qe), "basis": basis, "was": was, "fixed": fixed, "why": why, "found": FOUND})
+    R.append(
+        {
+            "sym": sym,
+            "qe": str(qe),
+            "basis": basis,
+            "was": was,
+            "fixed": fixed,
+            "why": why,
+            "found": FOUND,
+        }
+    )
 
 
 W_AMTEK = (
@@ -64,7 +84,14 @@ W_AMTEK = (
 )
 fund("AMTEKAUTO", 20170630, "std", -862.52, -889.58, W_AMTEK)
 revop("AMTEKAUTO", 20170630, "std", 462.26, 424.64, W_AMTEK)
-revop("AMTEKAUTO", 20170630, "pat_std", -862.52, -889.58, "§70 mirror of the fund_cell_fix heal. " + W_AMTEK)
+revop(
+    "AMTEKAUTO",
+    20170630,
+    "pat_std",
+    -862.52,
+    -889.58,
+    "§70 mirror of the fund_cell_fix heal. " + W_AMTEK,
+)
 
 W_ABREL = (
     "ABREL Jun-2022 std PAT — store 63.69 matches NO vintage: the original filing "
@@ -75,7 +102,9 @@ W_ABREL = (
     "its src note but left it as within-tolerance). Healed to the as-filed print."
 )
 fund("ABREL", 20220630, "std", 63.69, 63.09, W_ABREL)
-revop("ABREL", 20220630, "pat_std", 63.69, 63.09, "§70 mirror of the fund_cell_fix heal. " + W_ABREL)
+revop(
+    "ABREL", 20220630, "pat_std", 63.69, 63.09, "§70 mirror of the fund_cell_fix heal. " + W_ABREL
+)
 
 W_IIB1 = (
     "INDUSINDBK Sep-2022 std — CON value in the STD slot (§59 class, not a vintage): the "
@@ -87,7 +116,14 @@ W_IIB1 = (
     "AND live 2026-08-30 — silent endpoint gap), so detres+MC+provenance carry the heal."
 )
 fund("INDUSINDBK", 20220930, "std", 1805.22, 1786.72, W_IIB1)
-revop("INDUSINDBK", 20220930, "pat_std", 1805.22, 1786.72, "§70 mirror of the fund_cell_fix heal. " + W_IIB1)
+revop(
+    "INDUSINDBK",
+    20220930,
+    "pat_std",
+    1805.22,
+    1786.72,
+    "§70 mirror of the fund_cell_fix heal. " + W_IIB1,
+)
 revop("INDUSINDBK", 20220930, "op_std", 3544.36, 3519.66, W_IIB1)
 
 W_IIB2 = (
@@ -98,7 +134,14 @@ W_IIB2 = (
     "already hold the std as-filed values (verified vs detres)."
 )
 fund("INDUSINDBK", 20230331, "std", 2043.36, 2040.51, W_IIB2)
-revop("INDUSINDBK", 20230331, "pat_std", 2043.36, 2040.51, "§70 mirror of the fund_cell_fix heal. " + W_IIB2)
+revop(
+    "INDUSINDBK",
+    20230331,
+    "pat_std",
+    2043.36,
+    2040.51,
+    "§70 mirror of the fund_cell_fix heal. " + W_IIB2,
+)
 
 W_SOBHA = (
     "SOBHA Jun-2018 std op — the vision fill computed op from the Jun-2019 filing's "

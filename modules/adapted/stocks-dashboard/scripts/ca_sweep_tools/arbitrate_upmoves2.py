@@ -100,7 +100,11 @@ for u in ups:
     pre_list = [c for (y, c, o) in s if y < ymd]
     post_list = [c for (y, c, o) in s if y > ymd]
     pre = pre_list[-1] if pre_list else None
-    post = median(post_list[1:6]) if len(post_list) >= 6 else (median(post_list) if post_list else None)
+    post = (
+        median(post_list[1:6])
+        if len(post_list) >= 6
+        else (median(post_list) if post_list else None)
+    )
     raw_step = (ex / pre) if (ex and pre) else None
     persist = (post / ex) if (ex and post) else None
     near_f = (0.88 <= (raw_step / f) <= 1.12) if raw_step else False
@@ -110,11 +114,20 @@ for u in ups:
     if raw_step is None:
         verdict, note = "MANUAL", "no adjacent raw closes"
     elif near_f and persist is not None and 0.80 <= persist <= 1.25:
-        verdict, note = "REAL-BASIS-CHANGE", f"raw re-based x{raw_step:.2f} and held (persist {persist:.2f})"
+        verdict, note = (
+            "REAL-BASIS-CHANGE",
+            f"raw re-based x{raw_step:.2f} and held (persist {persist:.2f})",
+        )
     elif near_1 and f >= 1.8:
-        verdict, note = "PHANTOM-UP", f"raw barely moved (x{raw_step:.3f}) but bake applied x{f:.2f}"
+        verdict, note = (
+            "PHANTOM-UP",
+            f"raw barely moved (x{raw_step:.3f}) but bake applied x{f:.2f}",
+        )
     elif near_f and reverts:
-        verdict, note = "GLITCH-REVERTS", f"raw jumped x{raw_step:.2f} then snapped back (persist {persist:.2f})"
+        verdict, note = (
+            "GLITCH-REVERTS",
+            f"raw jumped x{raw_step:.2f} then snapped back (persist {persist:.2f})",
+        )
     else:
         verdict, note = (
             "MANUAL",
@@ -136,7 +149,11 @@ for u in ups:
             "name": m.get("name", ""),
             "turnover": u.get("turnover"),
             "note": note,
-            "bars_before": (data[sym]["d"].index(ymd) if ymd in data[sym]["d"] else bisect_left(data[sym]["d"], ymd)),
+            "bars_before": (
+                data[sym]["d"].index(ymd)
+                if ymd in data[sym]["d"]
+                else bisect_left(data[sym]["d"], ymd)
+            ),
         }
     )
 

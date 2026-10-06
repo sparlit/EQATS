@@ -141,7 +141,7 @@ def find_anchor_columns(words, target, scale):
     return hits
 
 
-R_REVLINE = re.compile(r"revenue from operation|net sales|income from operation", re.IGNORECASE)
+R_REVLINE = re.compile(r"revenue from operation|net sales|income from operation", re.I)
 
 
 def revenue_y(pg):
@@ -155,7 +155,7 @@ def revenue_y(pg):
     for ln in pg.get_text("dict")["blocks"]:
         for l in ln.get("lines", []):
             s = "".join(sp["text"] for sp in l.get("spans", []))
-            if R_REVLINE.search(s) and not re.search(r"other operating|total income", s, re.IGNORECASE):
+            if R_REVLINE.search(s) and not re.search(r"other operating|total income", s, re.I):
                 return l["bbox"][1], l["bbox"][3]
     return None
 
@@ -170,7 +170,7 @@ def try_pdf(path, qe, stored_pat):
             txt = pg.get_text()
             if len(txt.strip()) < 40:
                 continue
-            if not re.search(r"standalone|unconsolidated", txt, re.IGNORECASE):
+            if not re.search(r"standalone|unconsolidated", txt, re.I):
                 continue
             ry = revenue_y(pg)
             if ry is None:
@@ -188,7 +188,11 @@ def try_pdf(path, qe, stored_pat):
                             v = tonum(w)
                             if v is None or v / sc <= 0:
                                 continue
-                            return round(v / sc, 2), "page %d, %s scale, PAT anchor %.2f" % (pno + 1, sname, stored_pat)
+                            return round(v / sc, 2), "page %d, %s scale, PAT anchor %.2f" % (
+                                pno + 1,
+                                sname,
+                                stored_pat,
+                            )
         return None, "no anchored standalone column"
     finally:
         doc.close()

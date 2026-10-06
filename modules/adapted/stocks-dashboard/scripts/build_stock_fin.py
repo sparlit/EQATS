@@ -56,6 +56,7 @@ WHAT IT REPLACES
          built by build_xbrl_extra.py): {qEnd: {s:{...}, c:{...}}} — EPS, interest/
          depreciation/tax/exceptional, balance sheet, cash flow (+cf_d period days),
          segments, bank NPA/CET1/ROA, audited flag. ₹ crore / ₹ per share / %.
+         pm = 6: the cell's P&L lines are a PROVEN half-year's (runbook §213).
   pd     {qEnd: 3|6|12} — result rows whose length the filings PROVE: 6 (or 12) for a
          half-year (an SME half-yearly filer's Sep row is Apr-Sep, its Mar row Oct-Mar),
          3 for a quarter inside a year that also holds a half-year (a filer of Q1 + H1 +
@@ -98,14 +99,20 @@ REVOP_J = os.path.join(DOCS, "sf_revop.json")
 SHP_J = os.path.join(DOCS, "shareholding.json")
 SHPH_J = os.path.join(HERE, "shp_history.json")
 GOV_J = os.path.join(DOCS, "shp_gov.json")  # Government holding sidecar {SYM:{QE:[gov%,sub]}}
-REVS_J = os.path.join(HERE, "shp_revisions.json")  # §142k re-filings {SYM:{QE:[prom,fii,dii,mf,ins,revDate,nsh,src]}}
+REVS_J = os.path.join(
+    HERE, "shp_revisions.json"
+)  # §142k re-filings {SYM:{QE:[prom,fii,dii,mf,ins,revDate,nsh,src]}}
 XTRA_J = os.path.join(HERE, "xbrl_extra.json")  # local build output…
 XTRA_GZ = XTRA_J + ".gz"  # …the committed copy CI reads
 RENAME = os.path.join(HERE, "_rename_map.json")
 BSEFUND_J = os.path.join(DOCS, "bse_fundamentals.json")  # BSE-ONLY rev/PAT, keyed by scripcode
 BSESCRIP_J = os.path.join(HERE, "bse_scrips.json")  # {by_id:{SYM:scripcode}} → sym lookup
-ROWP_J = os.path.join(HERE, "row_periods.json")  # rows proven to cover 6/12 months (build_row_periods.py)
-COLLIDE_J = os.path.join(DOCS, "bse_alias_collisions.json")  # BSE tickers the NSE rename aliases must not touch (§197)
+ROWP_J = os.path.join(
+    HERE, "row_periods.json"
+)  # rows proven to cover 6/12 months (build_row_periods.py)
+COLLIDE_J = os.path.join(
+    DOCS, "bse_alias_collisions.json"
+)  # BSE tickers the NSE rename aliases must not touch (§197)
 
 # per-quarter detail fields the PAGE consumes — the rest of the ledger stays local-only
 XTRA_KEEP = {
@@ -159,7 +166,8 @@ XTRA_KEEP = {
     "int_exp",
     "aud",
     "qual",
-}
+    "pm",
+}  # 6 = the cell's P&L lines cover a PROVEN half-year (fill_sme_halfyear_pnl.py, runbook §213)
 
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
 
@@ -198,13 +206,17 @@ def main():
     )
     args = ap.parse_args()
     out_dir = args.out
-    months_path = args.months or os.path.join(os.path.dirname(os.path.abspath(out_dir)), "fund_months.json")
+    months_path = args.months or os.path.join(
+        os.path.dirname(os.path.abspath(out_dir)), "fund_months.json"
+    )
 
     fund = load(FUND_J, "net profit")
     revop = load(REVOP_J, "revenue/margins")
     rowp = {
         k: v
-        for k, v in load(ROWP_J, "half-year row marks (SME half-years will read as quarters)").items()
+        for k, v in load(
+            ROWP_J, "half-year row marks (SME half-years will read as quarters)"
+        ).items()
         if not k.startswith("_")
     }
     shpj = load(SHP_J, "shareholding")
@@ -226,7 +238,10 @@ def main():
     if not fund and not revop:
         sys.exit("ABORT: neither sf_fundamentals.json nor sf_revop.json could be read")
     if fund and len(fund) < 2000:
-        sys.exit("ABORT: sf_fundamentals.json has only %d symbols — refusing to publish truncated slices" % len(fund))
+        sys.exit(
+            "ABORT: sf_fundamentals.json has only %d symbols — refusing to publish truncated slices"
+            % len(fund)
+        )
 
     shp_q = shpj.get("quarters") or []
     shp_rows = {r[0]: r for r in (shpj.get("rows") or []) if r}
@@ -236,7 +251,7 @@ def main():
     for sym, qmap in shph.items():
         if sym.startswith("_") or not isinstance(qmap, dict):
             continue
-        rows = [[qe, *list((qmap[qe] or [])[:7])] for qe in sorted(qmap)]
+        rows = [[qe] + list((qmap[qe] or [])[:7]) for qe in sorted(qmap)]
         # §142k: the page shows a quarter's LATEST re-filing — the same overlay docs/shareholding.json applies
         # (re-filing's five percentages, the original's date and holder count). The row also carries
         # [8] the re-filing's date and [9] the original five, so a Rewind before that date shows the original.
@@ -247,7 +262,10 @@ def main():
             if not (isinstance(rc, list) and len(rc) > 5 and len(c) >= 6 and rc[5]):
                 continue
             try:
-                if all(abs(float(x) - float(y)) <= 0.0100001 for x, y in zip(rc[:5], c[:5], strict=False)):
+                if all(
+                    abs(float(x) - float(y)) <= 0.0100001
+                    for x, y in zip(rc[:5], c[:5], strict=False)
+                ):
                     continue  # same numbers re-published: nothing to show
             except (TypeError, ValueError):
                 continue
@@ -267,7 +285,20 @@ def main():
             raw = open(src, "rb").read()
             if src.endswith(".gz"):
                 raw = gzip.decompress(raw)
-            for sym, qs in json.loads(raw).items():
+            xall = json.loads(raw)
+            # §214a F3: serve-time re-assert of the proven single cells (filer XBRL slips), so a ledger copy
+            # from before a heal cannot put the slip back on the page
+            try:
+                if HERE not in sys.path:
+                    sys.path.insert(0, HERE)
+                import xtra_cell_fix
+
+                nc = xtra_cell_fix.reassert(xall)
+                if nc:
+                    print("xtra_cell_fix: re-asserted %d cells at serve time" % nc)
+            except Exception as e:  # a broken fix ledger must never drop the whole detail
+                print(f"::warning::xtra_cell_fix not applied at serve time ({e})")
+            for sym, qs in xall.items():
                 keep = {}
                 for qe, cell in qs.items():
                     kc = {}
@@ -283,7 +314,9 @@ def main():
                     xtra[sym] = keep
             print("deep XBRL detail: %d symbols (from %s)" % (len(xtra), os.path.basename(src)))
         except Exception as e:
-            print(f"WARN: could not read {os.path.basename(src)} ({e}) — deep detail absent from every slice")
+            print(
+                f"WARN: could not read {os.path.basename(src)} ({e}) — deep detail absent from every slice"
+            )
     else:
         print("WARN: xbrl_extra.json[.gz] missing — deep detail absent from every slice")
 
@@ -386,7 +419,12 @@ def main():
                 if d.get("url"):
                     e["u"] = d["url"]
                 docs[att] = e
-            kpi[L["sym"]] = {"fy": L.get("fy_end_month", 3), "u": L.get("updated"), "m": mets, "docs": docs}
+            kpi[L["sym"]] = {
+                "fy": L.get("fy_end_month", 3),
+                "u": L.get("updated"),
+                "m": mets,
+                "docs": docs,
+            }
         print("insights (kpi): %d symbols" % len(kpi))
 
     aliases = {}
@@ -394,7 +432,9 @@ def main():
         try:
             aliases = json.load(open(RENAME, encoding="utf-8"))
         except Exception as e:
-            print(f"WARN: could not read _rename_map.json ({e}) — renamed tickers will show no financials")
+            print(
+                f"WARN: could not read _rename_map.json ({e}) — renamed tickers will show no financials"
+            )
     # §197: a BSE-only ticker that is also a FORMER NSE ticker of another company (WORTH = Worth Investment on BSE,
     # WORTH -> WORTHPERI on NSE) is the BSE company on this site. The NSE alias stays true for the NSE namespace but
     # is never applied to it here: no fallback to the other company's rows, and no folding into its page as a former.
@@ -444,10 +484,14 @@ def main():
                 owners.setdefault(slug(s_), set()).add(s_)
             bse_shp_keys = {}
             try:
-                with gzip.open(os.path.join(HERE, "shp_fill_allstocks.json.gz"), "rt", encoding="utf-8") as fh_:
+                with gzip.open(
+                    os.path.join(HERE, "shp_fill_allstocks.json.gz"), "rt", encoding="utf-8"
+                ) as fh_:
                     bse_shp_keys = json.load(fh_).get("_bse_keys") or {}
             except Exception as e:
-                print(f"WARN: shp_fill_allstocks.json.gz unreadable ({e}) — BSE-only SHP keys not exempted")
+                print(
+                    f"WARN: shp_fill_allstocks.json.gz unreadable ({e}) — BSE-only SHP keys not exempted"
+                )
             for code, qmap in bfin.items():
                 if not isinstance(qmap, dict):
                     continue
@@ -474,7 +518,9 @@ def main():
                         bse_shp_keys.get(sym) == str(code) and owners.get(slug(sym), set()) <= {sym}
                     ):
                         targets.append(sym)  # brand-new BSE-only slice (the original behaviour)
-                for s_ in sorted(isin2nse.get(isin, ())):  # the NSE listing of the same ISIN (a BSE->NSE migrant
+                for s_ in sorted(
+                    isin2nse.get(isin, ())
+                ):  # the NSE listing of the same ISIN (a BSE->NSE migrant
                     if s_ not in targets:  # whose BSE quarters sit under its scripcode)
                         targets.append(s_)
                 for tsym in targets:
@@ -490,8 +536,12 @@ def main():
                         ann = cell.get("ann") or None  # 0 → unknown announce date
                         con = cell.get("basis") == "C"
                         qei = int(qe)
-                        if pat is not None and qei not in have:  # fund: [qEnd, npStd, annStd, npCon, annCon]
-                            frows.append([qei, None, None, pat, ann] if con else [qei, pat, ann, None, None])
+                        if (
+                            pat is not None and qei not in have
+                        ):  # fund: [qEnd, npStd, annStd, npCon, annCon]
+                            frows.append(
+                                [qei, None, None, pat, ann] if con else [qei, pat, ann, None, None]
+                            )
                             added += 1
                         # revop: [revStd, revCon, opStd, opCon, patStd, patCon, fin, ebitStd, ebitCon]
                         cur = rvt.get(qe)
@@ -528,7 +578,9 @@ def main():
                 % (len(not_this_page), ", ".join(sorted(not_this_page)[:12]))
             )
         except Exception as e:
-            print(f"WARN: could not fold bse_fundamentals.json ({e}) — BSE-only names get no fin slice")
+            print(
+                f"WARN: could not fold bse_fundamentals.json ({e}) — BSE-only names get no fin slice"
+            )
 
     # every symbol that has data, plus each old name that resolves into one
     syms = set(fund) | set(revop) | set(shp_rows) | set(hist_rows)
@@ -549,6 +601,9 @@ def main():
     # detail gaps). Quarters of every former symbol that resolves (rename chain) to this one are now merged in
     # FILL-ONLY — own data always wins. Guard: a former key that filed ANY quarter this symbol also filed was a
     # concurrently listed company (merger partner, not a rename) and is never merged.
+    # §220c: ... unless every shared quarter carries the SAME numbers — the same company's filing stored under both keys
+    # (HEXT holds 23 of HEXAWARE's 2015-20 quarters, identical or rounded: 120.0 vs 119.63; CURAA 2 of CURATECH's), so
+    # the old guard kept their other 57 / 11 quarters off the page. Two companies filing the same quarter disagree.
     def _chain(s0):
         seen_ = set()
         while s0 in aliases and s0 not in seen_ and aliases[s0] != s0:
@@ -565,10 +620,31 @@ def main():
     def fq(s0):
         return {r[0] for r in (fund.get(s0) or [])}
 
+    def _agree(
+        a, b
+    ):  # one company's figure stored twice (or rounded to 1 decimal) — 1%, floor Rs 0.05 cr
+        return abs(a - b) <= max(0.01 * max(abs(a), abs(b)), 0.05)
+
+    def _same_filings(
+        o, n
+    ):  # every shared quarter that both keys valued on a common basis agrees (§220c)
+        ro = {r[0]: r for r in (fund.get(o) or [])}
+        rn = {r[0]: r for r in (fund.get(n) or [])}
+        seen_any = False
+        for q in set(ro) & set(rn):
+            for i in (1, 3):
+                a = ro[q][i] if len(ro[q]) > i else None
+                b = rn[q][i] if len(rn[q]) > i else None
+                if a is not None and b is not None:
+                    seen_any = True
+                    if not _agree(a, b):
+                        return False
+        return seen_any
+
     ok_formers = {}
     for new_, olds in formers.items():
         mine = fq(new_)
-        ok_formers[new_] = sorted(o for o in olds if not (fq(o) & mine))
+        ok_formers[new_] = sorted(o for o in olds if not (fq(o) & mine) or _same_filings(o, new_))
 
     def merged(src, sym, kind):
         base = resolve(src, sym)
@@ -620,7 +696,11 @@ def main():
         fq = {str(x[0]): x for x in (f or [])}
         for qe, e in (resolve(rowp, sym) or {}).items():
             row = (r or {}).get(qe) or []
-            if row and same(row[0], e.get("s")) and same(row[1] if len(row) > 1 else None, e.get("c")):
+            if (
+                row
+                and same(row[0], e.get("s"))
+                and same(row[1] if len(row) > 1 else None, e.get("c"))
+            ):
                 pd[qe] = e["m"]
                 # §198: the row's PROFIT counts for that length only while every profit stored on it is the proven one
                 fr = fq.get(qe) or [None] * 5
@@ -665,7 +745,15 @@ def main():
     print(
         "fin slices: %d symbols (%d with profit, %d with revenue, %d with SHP, %d with SHP history), "
         "%.1f MB raw, avg %.1f KB"
-        % (written, len(fund), len(revop), len(shp_rows), len(hist_rows), total / 1e6, total / max(written, 1) / 1024)
+        % (
+            written,
+            len(fund),
+            len(revop),
+            len(shp_rows),
+            len(hist_rows),
+            total / 1e6,
+            total / max(written, 1) / 1024,
+        )
     )
     print(
         "row periods (half-year / full-year rows, §191): %d rows on %d slices; %d marks dropped because the row's "
@@ -685,7 +773,12 @@ def main():
         fh.write(blob + "\n")
     print(
         "fund_months.json: %d symbols, %d rows (%d with profit not proven) -> %s"
-        % (len(months), sum(len(v) for v in months.values()), pp_off, os.path.relpath(months_path, ROOT))
+        % (
+            len(months),
+            sum(len(v) for v in months.values()),
+            pp_off,
+            os.path.relpath(months_path, ROOT),
+        )
     )
 
 

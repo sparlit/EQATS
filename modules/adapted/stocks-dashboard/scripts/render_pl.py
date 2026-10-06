@@ -38,7 +38,6 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fetch_insurers as FI
 import fitz
-from owners_total_verify import classify, label_of, line_groups, row_numbers
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -46,9 +45,9 @@ LOOSE = "--loose" in sys.argv
 scrips = json.load(open(os.path.join(HERE, "bse_scrips.json")))["by_id"]
 fund = json.load(open(os.path.join(ROOT, "docs", "sf_fundamentals.json")))
 
-CON = re.compile(r"consolidat", re.IGNORECASE)
-ATTR = re.compile(r"attributable|non[- ·]?controlling|minorit|owners of|equity ?holder", re.IGNORECASE)
-PROFIT = re.compile(r"profit.{0,25}(period|year|after tax)|total comprehensive", re.IGNORECASE)
+CON = re.compile(r"consolidat", re.I)
+ATTR = re.compile(r"attributable|non[- ·]?controlling|minorit|owners of|equity ?holder", re.I)
+PROFIT = re.compile(r"profit.{0,25}(period|year|after tax)|total comprehensive", re.I)
 DEC = re.compile(r"\(?\d[\d,]*\.\d\d")
 
 
@@ -113,7 +112,14 @@ def find_and_render(o, sym, qe, outdir, dpi=230):
             pix.save(fn)
             rendered.append((p, score, fn))
         if rendered:
-            return {"sym": sym, "qe": qe, "stored": stored, "ann": annd, "att": att, "pages": rendered}
+            return {
+                "sym": sym,
+                "qe": qe,
+                "stored": stored,
+                "ann": annd,
+                "att": att,
+                "pages": rendered,
+            }
     return {"sym": sym, "qe": qe, "stored": stored, "err": "no-attribution-page"}
 
 

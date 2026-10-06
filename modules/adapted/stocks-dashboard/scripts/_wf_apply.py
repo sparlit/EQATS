@@ -79,7 +79,10 @@ def neighbors(s, q, idx):
     # collect same-basis values within ±5 quarters by index distance
     arr = sorted(rec(s), key=lambda x: x[0])
     qs = [x[0] for x in arr]
-    i = qs.index(int(q)) if int(q) in qs else min(range(len(qs)), key=lambda k: abs(qs[k] - int(q))) if qs else None
+    if int(q) in qs:
+        i = qs.index(int(q))
+    else:
+        i = min(range(len(qs)), key=lambda k: abs(qs[k] - int(q))) if qs else None
     if i is None:
         return vals
     for k in range(max(0, i - 5), min(len(arr), i + 6)):
@@ -110,7 +113,11 @@ for x in res:
     # con==std consistency: if con fill and std known, and anchor implies no-sub/con==std, value must ~= std
     if basis == "con":
         std = ser(s, q, 1)
-        nosub = bool(re.search(r"no[- ]?sub|con==std|con=std|no subsidiary|identity|standalone", anchor, re.IGNORECASE))
+        nosub = bool(
+            re.search(
+                r"no[- ]?sub|con==std|con=std|no subsidiary|identity|standalone", anchor, re.I
+            )
+        )
         if std is not None and nosub and abs((v or 0) - std) > 0.05:
             reasons.append(f"nosub-claim but value {v:.2f} != std {std:.2f}")
         if std is not None and not nosub and abs((v or 0) - std) <= 0.01:
@@ -118,7 +125,12 @@ for x in res:
     # magnitude sanity vs neighbors (same basis) -- SKIP for con==std identity copies
     # (a con value that exactly equals an already-stored, NSE-sourced std is validated by the std's
     #  own provenance; magnitude vs neighbors gives false positives across growth jumps/mergers).
-    std_exact = basis == "con" and ser(s, q, 1) is not None and v is not None and abs(v - ser(s, q, 1)) <= 0.01
+    std_exact = (
+        basis == "con"
+        and ser(s, q, 1) is not None
+        and v is not None
+        and abs(v - ser(s, q, 1)) <= 0.01
+    )
     nb = [] if std_exact else neighbors(s, q, idx)
     if not nb and basis == "con" and not std_exact:
         nb = neighbors(s, q, 1)  # fall back to std neighbors
@@ -170,7 +182,17 @@ if APPLY and PASS:
         print("applied", n, "->", p)
     # save flagged for review
     json.dump(
-        [{"sym": f[0], "qe": f[1], "basis": f[2], "value_cr": f[3], "confidence": f[4], "reason": f[5]} for f in FLAG],
+        [
+            {
+                "sym": f[0],
+                "qe": f[1],
+                "basis": f[2],
+                "value_cr": f[3],
+                "confidence": f[4],
+                "reason": f[5],
+            }
+            for f in FLAG
+        ],
         open(os.path.join(HERE, "_wf_flagged.json"), "w"),
         indent=0,
     )

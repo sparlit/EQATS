@@ -139,7 +139,10 @@ EV = (
 
 # ---- twins: revop -------------------------------------------------------------------------
 n_rev = 0
-for path in (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCR, "revop_fundamentals.json")):
+for path in (
+    os.path.join(ROOT, "docs", "sf_revop.json"),
+    os.path.join(SCR, "revop_fundamentals.json"),
+):
     o = load(path)
     rows = o[S]
     for qe, slot, was, now in REVOP:
@@ -152,7 +155,10 @@ for path in (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCR, "rev
     save(path, o)
 # ---- twins: fund --------------------------------------------------------------------------
 n_pat = 0
-for path in (os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(SCR, "fundamentals.json")):
+for path in (
+    os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+    os.path.join(SCR, "fundamentals.json"),
+):
     o = load(path)
     for qe, idx, was, now in FUND:
         row = [r for r in o[S] if r[0] == qe]
@@ -193,7 +199,8 @@ for qe, slot, was, now in REVOP:
             "was": was,
             "when": WHEN,
             "src": "BSE 500285 " + SRC[qe],
-            "evidence": EV + " rev_con convention = TOTAL revenue from operations (a+b), not the a-line.",
+            "evidence": EV
+            + " rev_con convention = TOTAL revenue from operations (a+b), not the a-line.",
         }
     if slot == 5:
         led["%s|%d|con" % (S, qe)] = {

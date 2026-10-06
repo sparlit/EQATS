@@ -51,7 +51,11 @@ def load_bin():
     # FROZEN slim snapshot (weekly bars pre-2018, §103) — point this at the live release asset
     # (build_coverage_matrix.js caches it at $TMPDIR/sf_stock_data_live.bin) for any real sweep.
     D = json.loads(
-        gzip.decompress(open(os.environ.get("MTO_BIN") or os.path.join(ROOT, "docs", "sf_stock_data.bin"), "rb").read())
+        gzip.decompress(
+            open(
+                os.environ.get("MTO_BIN") or os.path.join(ROOT, "docs", "sf_stock_data.bin"), "rb"
+            ).read()
+        )
     )
     data = D["data"]
     pos = {}  # sym -> {ymd:int -> idx}
@@ -246,7 +250,13 @@ def main():
         flush=True,
     )
     print("unmatched MTO symbols (top 15):", unmatched.most_common(15), flush=True)
-    print("unmatched total rows:", sum(unmatched.values()), "distinct syms:", len(unmatched), flush=True)
+    print(
+        "unmatched total rows:",
+        sum(unmatched.values()),
+        "distinct syms:",
+        len(unmatched),
+        flush=True,
+    )
     print("\nnew cells per year:")
     for y in sorted(add_year):
         print(" ", y, add_year[y])
@@ -254,7 +264,10 @@ def main():
 
     json.dump(dict(fills.items()), open(os.path.join(SP, "new_fills.json"), "w"))
     json.dump(wrong_cells, open(os.path.join(SP, "wrong_cells.json"), "w"))
-    print("wrote new_fills.json + wrong_cells.json (merge stage separate — inspect controls first)", flush=True)
+    print(
+        "wrote new_fills.json + wrong_cells.json (merge stage separate — inspect controls first)",
+        flush=True,
+    )
 
 
 if __name__ == "__main__":

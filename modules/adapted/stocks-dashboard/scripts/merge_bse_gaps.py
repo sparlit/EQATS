@@ -73,9 +73,7 @@ def plausible(v, prev, nxt):
     if abs(v) > hi * 4 + 5:  # wild over-read
         return False
     # sign: v must share sign with at least one neighbor (allow tiny neighbors)
-    if not any((v >= 0) == (x >= 0) or abs(x) < 1 for x in ns):
-        return False
-    return True
+    return any((v >= 0) == (x >= 0) or abs(x) < 1 for x in ns)
 
 
 def main():
@@ -114,18 +112,45 @@ def main():
             if std_ok and hot(std, sp, sn):
                 std_ok = False
             if con_ok or std_ok:
-                fill.append((sym, qe, std if std_ok else None, con if con_ok else None, r[3], std, con, csup, cp, cn))
+                fill.append(
+                    (
+                        sym,
+                        qe,
+                        std if std_ok else None,
+                        con if con_ok else None,
+                        r[3],
+                        std,
+                        con,
+                        csup,
+                        cp,
+                        cn,
+                    )
+                )
             else:
                 vision.append((sym, qe, std, con, csup, cp, cn))
-    print("AUTO-FILL (passed gate): %d   VISION-NEEDED: %d   NO-BSE-DATA: %d" % (len(fill), len(vision), len(nodata)))
+    print(
+        "AUTO-FILL (passed gate): %d   VISION-NEEDED: %d   NO-BSE-DATA: %d"
+        % (len(fill), len(vision), len(nodata))
+    )
     print("\n-- AUTO-FILL sample --")
     for f in fill[:30]:
-        print("  %-12s %d  std=%s con=%s  (csup=%s, conNbrs %s/%s)" % (f[0], f[1], f[2], f[3], f[7], f[8], f[9]))
+        print(
+            "  %-12s %d  std=%s con=%s  (csup=%s, conNbrs %s/%s)"
+            % (f[0], f[1], f[2], f[3], f[7], f[8], f[9])
+        )
     print("\n-- VISION-NEEDED sample --")
     for v in vision[:30]:
-        print("  %-12s %d  bse std=%s con=%s csup=%s  conNbrs %s/%s" % (v[0], v[1], v[2], v[3], v[4], v[5], v[6]))
-    json.dump([(s, q, std, con) for s, q, std, con, *_ in fill], open(os.path.join(HERE, "_bse_fill.json"), "w"))
-    json.dump([(s, q) for s, q, *_ in vision], open(os.path.join(HERE, "_bse_vision_queue.json"), "w"))
+        print(
+            "  %-12s %d  bse std=%s con=%s csup=%s  conNbrs %s/%s"
+            % (v[0], v[1], v[2], v[3], v[4], v[5], v[6])
+        )
+    json.dump(
+        [(s, q, std, con) for s, q, std, con, *_ in fill],
+        open(os.path.join(HERE, "_bse_fill.json"), "w"),
+    )
+    json.dump(
+        [(s, q) for s, q, *_ in vision], open(os.path.join(HERE, "_bse_vision_queue.json"), "w")
+    )
     json.dump([(s, q) for s, q, *_ in nodata], open(os.path.join(HERE, "_bse_nodata.json"), "w"))
 
     if apply:

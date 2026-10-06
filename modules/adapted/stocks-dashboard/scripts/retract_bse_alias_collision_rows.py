@@ -64,10 +64,24 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 LEDGER = os.path.join(ROOT, "docs", "bse_alias_collisions.json")
 OUT = os.path.join(HERE, "bse_alias_collision_retractions.json")
-FUND_STORES = [os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(HERE, "fundamentals.json")]
-REVOP_STORES = [os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(HERE, "revop_fundamentals.json")]
+FUND_STORES = [
+    os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+    os.path.join(HERE, "fundamentals.json"),
+]
+REVOP_STORES = [
+    os.path.join(ROOT, "docs", "sf_revop.json"),
+    os.path.join(HERE, "revop_fundamentals.json"),
+]
 XTRA = os.path.join(HERE, "xbrl_extra.json.gz")
-AGREE_IDX = (0, 1, 2, 3, 4, 7, 8)  # revop slots that must agree; 5 = PAT mirror (never rendered), 6 = fin flag
+AGREE_IDX = (
+    0,
+    1,
+    2,
+    3,
+    4,
+    7,
+    8,
+)  # revop slots that must agree; 5 = PAT mirror (never rendered), 6 = fin flag
 FILL_IDX = (0, 1, 2, 3, 4, 7, 8)
 
 
@@ -87,7 +101,9 @@ def _same(a, b):
 
 def agrees(a, b):
     """Every slot in AGREE_IDX that both rows carry is equal, and they share at least one."""
-    shared = [i for i in AGREE_IDX if i < len(a) and i < len(b) and a[i] is not None and b[i] is not None]
+    shared = [
+        i for i in AGREE_IDX if i < len(a) and i < len(b) and a[i] is not None and b[i] is not None
+    ]
     return bool(shared) and all(_same(a[i], b[i]) for i in shared)
 
 
@@ -103,7 +119,11 @@ def rekey_ledgers(coll, proven, run):
     import verify_fills_live as V
 
     names = sorted(
-        {l[0] for reg in (V.LEDGERS, getattr(V, "BASIS_KEYED", []), getattr(V, "NESTED", [])) for l in reg}
+        {
+            l[0]
+            for reg in (V.LEDGERS, getattr(V, "BASIS_KEYED", []), getattr(V, "NESTED", []))
+            for l in reg
+        }
         | {"stdpat_adjud_verdicts.json"}
     )
     out = {}
@@ -152,16 +172,26 @@ def rekey_ledgers(coll, proven, run):
                             d[tgt][q] = d[old].pop(q)
                             if isinstance(d[tgt][q], dict):
                                 d[tgt][q]["rekeyed"] = note(old, c)
-                            log_.append({"key": f"{old}/{q}", "to": f"{tgt}/{q}", "action": "re-keyed"})
-                        elif isinstance(d[old][q], dict) and not (d[old][q].get("skip") and d[old][q].get("rekeyed")):
+                            log_.append(
+                                {"key": f"{old}/{q}", "to": f"{tgt}/{q}", "action": "re-keyed"}
+                            )
+                        elif isinstance(d[old][q], dict) and not (
+                            d[old][q].get("skip") and d[old][q].get("rekeyed")
+                        ):
                             d[old][q]["skip"] = True
                             d[old][q]["rekeyed"] = note(old, c) + " (target already journals it)"
-                            log_.append({"key": f"{old}/{q}", "action": "skip (target entry exists)"})
+                            log_.append(
+                                {"key": f"{old}/{q}", "action": "skip (target entry exists)"}
+                            )
                     if not d[old]:
                         d.pop(old)
-            if isinstance(d.get(old), dict) and all(isinstance(e, dict) and e.get("skip") for e in d[old].values()):
+            if isinstance(d.get(old), dict) and all(
+                isinstance(e, dict) and e.get("skip") for e in d[old].values()
+            ):
                 pass  # only skipped entries left: nothing to do
-            for cont in [d] + [v for v in d.values() if isinstance(v, dict)]:  # "SYM|QE…" keys, top level or one down
+            for cont in [d] + [
+                v for v in d.values() if isinstance(v, dict)
+            ]:  # "SYM|QE…" keys, top level or one down
                 for k in [k for k in cont if isinstance(k, str) and k.startswith(old + "|")]:
                     move(cont, k, tgt + k[len(old) :], old, c, log_)
         if log_:
@@ -188,15 +218,21 @@ def main():
     fund = {p: _load(p) for p in FUND_STORES}
     revop = {p: _load(p) for p in REVOP_STORES}
     xtra = _load(XTRA)
-    log = _load(OUT) if os.path.exists(OUT) else {"_README": __doc__.split("\n\n")[0].strip(), "runs": []}
+    log = (
+        _load(OUT)
+        if os.path.exists(OUT)
+        else {"_README": __doc__.split("\n\n")[0].strip(), "runs": []}
+    )
     run = {"at": time.strftime("%Y-%m-%d %H:%M"), "keys": {}}
     changed = set()
 
     for old, c in sorted(coll.items()):
         tgt = c["target"]
-        present = [os.path.relpath(p, ROOT) for p, d in list(fund.items()) + list(revop.items()) if d.get(old)] + (
-            ["scripts/xbrl_extra.json.gz"] if xtra.get(old) else []
-        )
+        present = [
+            os.path.relpath(p, ROOT)
+            for p, d in list(fund.items()) + list(revop.items())
+            if d.get(old)
+        ] + (["scripts/xbrl_extra.json.gz"] if xtra.get(old) else [])
         if not present:
             continue
         # ---- 1. proof, on the served stores ------------------------------------------------------------------
@@ -206,7 +242,9 @@ def main():
             if (served_rv.get(tgt) or {}).get(q) and agrees(r, served_rv[tgt][q])
         ]
         tf = {r[0]: r for r in served_fd.get(tgt) or []}
-        hits += [str(r[0]) for r in served_fd.get(old) or [] if r[0] in tf and _same(r[1], tf[r[0]][1])]
+        hits += [
+            str(r[0]) for r in served_fd.get(old) or [] if r[0] in tf and _same(r[1], tf[r[0]][1])
+        ]
         own = bse_px.get(str(c["bse_code"])) or {}
         clash = [
             q
@@ -216,7 +254,8 @@ def main():
         clash += [
             str(r[0])
             for r in served_fd.get(old) or []
-            if own.get(str(r[0])) and (_same(own[str(r[0])].get("pat"), r[1]) or _same(own[str(r[0])].get("pat"), r[3]))
+            if own.get(str(r[0]))
+            and (_same(own[str(r[0])].get("pat"), r[1]) or _same(own[str(r[0])].get("pat"), r[3]))
         ]
         if not hits or clash:
             print(
@@ -231,7 +270,13 @@ def main():
             }
             continue
         rec = run["keys"].setdefault(
-            old, {"target": tgt, "proof_quarters": sorted(set(hits))[:8], "proof_count": len(set(hits)), "stores": {}}
+            old,
+            {
+                "target": tgt,
+                "proof_quarters": sorted(set(hits))[:8],
+                "proof_count": len(set(hits)),
+                "stores": {},
+            },
         )
         corroborated = {
             q
@@ -267,11 +312,14 @@ def main():
                         {
                             "q": q,
                             "row": r,
-                            "action": "moved (target lacked the quarter here; agrees with the served target row)",
+                            "action": "moved (target lacked the quarter here; "
+                            "agrees with the served target row)",
                         }
                     )
                 elif cur is not None and agrees(r, cur):
-                    filled = [i for i in FILL_IDX if i < len(r) and r[i] is not None and cur[i] is None]
+                    filled = [
+                        i for i in FILL_IDX if i < len(r) and r[i] is not None and cur[i] is None
+                    ]
                     if filled:
                         cur = list(cur)
                         for i in filled:
@@ -287,7 +335,13 @@ def main():
                         }
                     )
                 else:
-                    out.append({"q": q, "row": r, "action": f"dropped (disagrees with the target row {cur})"})
+                    out.append(
+                        {
+                            "q": q,
+                            "row": r,
+                            "action": f"dropped (disagrees with the target row {cur})",
+                        }
+                    )
             if not t:
                 d.pop(tgt, None)
             rec["stores"][os.path.relpath(p, ROOT)] = out
@@ -299,7 +353,11 @@ def main():
             for q, cell in sorted(cells.items()):
                 if q not in corroborated:
                     out.append(
-                        {"q": q, "cell": cell, "action": "dropped (no served headline ties this filing to the target)"}
+                        {
+                            "q": q,
+                            "cell": cell,
+                            "action": "dropped (no served headline ties this filing to the target)",
+                        }
                     )
                     continue
                 # a basis block is ONE filing's detail: move whole blocks the target lacks, never blend two filings
@@ -315,7 +373,9 @@ def main():
                         "cell": cell,
                         "action": "moved basis {}".format(",".join(added))
                         if added
-                        else "dropped (target holds this quarter's {} detail)".format(",".join(sorted(cell))),
+                        else "dropped (target holds this quarter's {} detail)".format(
+                            ",".join(sorted(cell))
+                        ),
                     }
                 )
             if not t:
@@ -323,7 +383,12 @@ def main():
             rec["stores"]["scripts/xbrl_extra.json.gz"] = out
             changed.add(XTRA)
         n = {s: len(v) for s, v in rec["stores"].items()}
-        mv = sum(1 for v in rec["stores"].values() for e in v if e["action"].startswith(("moved", "merged, filled")))
+        mv = sum(
+            1
+            for v in rec["stores"].values()
+            for e in v
+            if e["action"].startswith(("moved", "merged, filled"))
+        )
         print(
             "%-10s -> %-10s proven by %d quarter(s); rows per store %s; %d moved/merged into %s, rest dropped"
             % (old, tgt, rec["proof_count"], n, mv, tgt)
@@ -352,7 +417,9 @@ def main():
         json.dump(log, fh, indent=1, ensure_ascii=False)
         fh.write("\n")
     print(
-        "wrote {} + {}".format(", ".join(os.path.relpath(p, ROOT) for p in sorted(changed)), os.path.relpath(OUT, ROOT))
+        "wrote {} + {}".format(
+            ", ".join(os.path.relpath(p, ROOT) for p in sorted(changed)), os.path.relpath(OUT, ROOT)
+        )
     )
     return 0
 

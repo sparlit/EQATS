@@ -82,7 +82,9 @@ def symbol_changes():
     nxt, names = {}, {}
     for r in csv.reader(io.StringIO(txt)):
         cells = [c.strip() for c in r]
-        di = next((i for i, c in enumerate(cells) if re.match(r"^\d{1,2}-[A-Za-z]{3}-\d{4}$", c)), None)
+        di = next(
+            (i for i, c in enumerate(cells) if re.match(r"^\d{1,2}-[A-Za-z]{3}-\d{4}$", c)), None
+        )
         if di is None or di < 2:
             continue
         old, new = cells[di - 2].upper(), cells[di - 1].upper()
@@ -111,7 +113,9 @@ def main():
     a = ap.parse_args()
 
     reach = json.load(open(a.reach if os.path.isabs(a.reach) else os.path.join(HERE, a.reach)))
-    unres = sorted([s for s, v in reach.items() if not v.get("resolved")], key=lambda s: -reach[s]["gaps"])
+    unres = sorted(
+        [s for s, v in reach.items() if not v.get("resolved")], key=lambda s: -reach[s]["gaps"]
+    )
     nxt, names = symbol_changes()
     print("NSE symbolchange: %d old->new pairs, %d names\n" % (len(nxt), len(names)))
     if not nxt:
@@ -134,9 +138,8 @@ def main():
                     "via": "nse-symbolchange",
                     "isin": hit.get("isin"),
                     "mc_sym": cur,
-                    "note": "NSE symbolchange {} -> {}; MC exact-symbol match on the current name".format(
-                        " -> ".join([sym, *chain]), cur
-                    ),
+                    "note": "NSE symbolchange {} -> {}; MC exact-symbol match on the current "
+                    "name".format(" -> ".join([sym] + chain), cur),
                 }
         if ident is None:  # last try: the company NAME
             nm = names.get(sym) or names.get(cur)
@@ -148,11 +151,13 @@ def main():
                             "via": "nse-name",
                             "isin": r["isin"],
                             "mc_sym": r["sym"],
-                            "note": "NSE symbolchange name {!r}; MC row's own symbol is {}".format(nm, r["sym"]),
+                            "note": "NSE symbolchange name {!r}; MC row's own symbol is {}".format(
+                                nm, r["sym"]
+                            ),
                         }
                         break
         if ident:
-            series, _note = E.quarters(ident, con=False)
+            series, note = E.quarters(ident, con=False)
             rec.update(
                 {
                     "resolved": True,
@@ -163,7 +168,9 @@ def main():
                 }
             )
             idc[sym] = ident
-            print("%-12s %-14s %-8s %-6d %s" % (sym, cur, ident["sc_id"], len(series), ident["via"]))
+            print(
+                "%-12s %-14s %-8s %-6d %s" % (sym, cur, ident["sc_id"], len(series), ident["via"])
+            )
         else:
             rec["resolved"] = False
             rec["why"] = (
@@ -171,7 +178,10 @@ def main():
                 if cur == sym
                 else (f"renamed to {cur} but MC has no exact match for it either")
             )
-            print("%-12s %-14s %-8s %-6s %s" % (sym, cur if cur != sym else "-", "-", "-", rec["why"][:52]))
+            print(
+                "%-12s %-14s %-8s %-6s %s"
+                % (sym, cur if cur != sym else "-", "-", "-", rec["why"][:52])
+            )
         out[sym] = rec
         sys.stdout.flush()
 

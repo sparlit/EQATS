@@ -81,11 +81,11 @@ import bse_headers as BH  # §181 BSE headers
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-import fund_dup_guard  # ONE row per (sym, quarter-end)
-
 try:
     import bse_text  # §58 text-layer reader (labelled PAT row, unit-aware)
-except ModuleNotFoundError as _e:  # bse_text imports bse_vision -> numpy/cv2, absent from the CI image;
+except (
+    ModuleNotFoundError
+) as _e:  # bse_text imports bse_vision -> numpy/cv2, absent from the CI image;
     import types  # parse_pdf/rows_by_y/data_after_label/detect_unit need neither
 
     sys.modules["bse_vision"] = types.ModuleType("bse_vision")
@@ -102,14 +102,18 @@ SRC_FUND = os.path.join(HERE, "fundamentals.json")
 MARK = os.path.join(ROOT, "docs", ".fund_updated")
 ROSTERS = os.path.join(HERE, "indices_history.json")
 SCRIPS = os.path.join(HERE, "bse_scrips.json")
-QR = os.path.join(ROOT, "docs", "quarterly_results.json")  # company names for the vision identity guard
+QR = os.path.join(
+    ROOT, "docs", "quarterly_results.json"
+)  # company names for the vision identity guard
 LEDGER = os.path.join(HERE, "bse_result_fills.json")
 PENDING = os.path.join(HERE, "_missing_quarter_pending.json")
 SKIPS = os.path.join(HERE, "_missing_quarter_skips.json")
 MANUAL = os.path.join(
     HERE, "manual_result_reads.json"
 )  # human/vision reads: [{sym,qe,att,filed,std:[cur,prev,yago],con:[...]|null,by,note}] — applied ONLY if they anchor
-PDFCACHE = os.path.join(HERE, "_revgap_pdfcache")  # shared with backfill_revop_gaps: each attachment downloaded once
+PDFCACHE = os.path.join(
+    HERE, "_revgap_pdfcache"
+)  # shared with backfill_revop_gaps: each attachment downloaded once
 
 MIN_LAG_DAYS = 10  # nobody files inside the first 10 days after a quarter-end
 RECHECK_DAYS = 3  # re-ask BSE for a still-unfiled name every 3 days
@@ -182,10 +186,11 @@ def _http(url, binary=False):
     import urllib.request
 
     try:
-        body = urllib.request.urlopen(urllib.request.Request(url, headers=BH.HEADERS), timeout=90).read()
+        body = urllib.request.urlopen(
+            urllib.request.Request(url, headers=BH.HEADERS), timeout=90
+        ).read()
     except Exception as e:
-        msg = f"bse fetch failed: {str(e)[:120]}"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"bse fetch failed: {str(e)[:120]}")
     return body if binary else body.decode("utf-8", "replace")
 
 
@@ -195,12 +200,19 @@ def bse_result_filings(code, lo, hi):
     for page in (1, 2, 3):
         url = (
             "https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=%d&strCat=-1"
-            "&strPrevDate=%s&strScrip=%s&strSearch=P&strToDate=%s&strType=C&subcategory=-1" % (page, lo, code, hi)
+            "&strPrevDate=%s&strScrip=%s&strSearch=P&strToDate=%s&strType=C&subcategory=-1"
+            % (page, lo, code, hi)
         )
         rows = json.loads(_http(url)).get("Table") or []
         for r in rows:
             if FI.is_result_filing(r) and r.get("ATTACHMENTNAME"):
-                out.append((r.get("DT_TM") or r.get("NEWS_DT") or "", r["ATTACHMENTNAME"], r.get("NEWSSUB") or ""))
+                out.append(
+                    (
+                        r.get("DT_TM") or r.get("NEWS_DT") or "",
+                        r["ATTACHMENTNAME"],
+                        r.get("NEWSSUB") or "",
+                    )
+                )
         if len(rows) < 50:
             break
         time.sleep(0.4)
@@ -263,12 +275,12 @@ def anchor_ok(read_vals, fund, sym, qe, basis):
 PAT_LABEL = re.compile(
     r"^\s*(\d+[\.\)]?\s*)?(net\s*)?profit\s*(/\s*\(?loss\)?)?\s*(\(after\s*tax\)\s*)?"
     r"(for\s*the\s*(period|quarter|year)|after\s*tax)",
-    re.IGNORECASE,
+    re.I,
 )
 PAT_EXCL = re.compile(
     r"before\s*tax|comprehensive|per\s*share|attributable\s*to\s*non|non[-\s]*controlling|share\s*of|"
     r"discontinu|exceptional|margin|segment|associate",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -295,7 +307,7 @@ def tolerant_rows(pdf):
             con_ctx = True
         elif re.search(r"standalone\s+(statement|financial|results|un)", low):
             con_ctx = False
-        for cells in bse_text.rows_by_y(pg).values():
+        for _k, cells in bse_text.rows_by_y(pg).items():
             txt = " ".join(w for _, w in cells)
             if PAT_LABEL.search(txt) and not PAT_EXCL.search(txt):
                 nums = bse_text.data_after_label(cells)
@@ -318,7 +330,7 @@ def text_read(pdf, ann_yyyymmdd):
         res = bse_text.parse_pdf(pdf, ann_yyyymmdd)  # (std, con, qe_txt) | None (scanned)
     except Exception as e:
         print(f"   bse_text error: {str(e)[:100]}")
-    std_v, con_v, qe_txt = res or (None, None, None)
+    std_v, con_v, qe_txt = res if res else (None, None, None)
     n_rows = None
     if not std_v or std_v[0] is None:
         s2, c2, n_rows = tolerant_rows(pdf)
@@ -334,7 +346,11 @@ def text_read(pdf, ann_yyyymmdd):
         std_v, con_v = con_v, None
     if not std_v or std_v[0] is None:
         return None
-    return std_v, con_v, (qe_txt // 100 if qe_txt else None)  # month granularity: bse_text stamps day 31
+    return (
+        std_v,
+        con_v,
+        (qe_txt // 100 if qe_txt else None),
+    )  # month granularity: bse_text stamps day 31
 
 
 def vision_read(pdf, sym, name, qe):
@@ -348,7 +364,9 @@ def vision_read(pdf, sym, name, qe):
         return None, "could not render P&L pages"
 
     def lab(q):
-        return "quarter ended {}".format(datetime.date(q // 10000, q // 100 % 100, q % 100).strftime("%d %b %Y"))
+        return "quarter ended {}".format(
+            datetime.date(q // 10000, q // 100 % 100, q % 100).strftime("%d %b %Y")
+        )
 
     v = GV.read_corp_results(name or sym, lab(qe), lab(prev_q(qe)), lab(year_ago(qe)), pngs)
     if not v or not v.get("ok") or not v.get("company_matches"):
@@ -385,6 +403,20 @@ def main():
     if a.only:
         roster = {x.strip().upper() for x in a.only.split(",") if x.strip()}
     quarters = [a.quarter] if a.quarter else quarter_ends_before(today, 2)
+    if not a.quarter:
+        # §218b: early filers exist (HIIL filed Sep-2026 three days after quarter-end), so the newest ended quarter is
+        # also targeted inside its first MIN_LAG_DAYS — on top of the two lagged ones, never instead of them.
+        newest = (
+            max(
+                qe
+                for qe in (yyyymmdd(today) // 10000 * 10000 + md for md in (331, 630, 930, 1231))
+                if qe < int(tstr)
+            )
+            if int(tstr) % 10000 > 331
+            else (int(tstr) // 10000 - 1) * 10000 + 1231
+        )
+        if newest not in quarters:
+            quarters = [newest] + quarters
     ledger = load_json(LEDGER, [])
     pending = load_json(PENDING, {})
     skips = load_json(SKIPS, {})
@@ -430,8 +462,13 @@ def main():
                         )
                         healed += 1
                 if healed:
-                    ok = AI.rpc("sw_kv_set", {"secret": AI.WRITE, "k": "INSURER_INBOX", "payload": box})
-                    print("insurer-inbox self-heal: %d entry(ies) re-opened (kv write %s)" % (healed, ok))
+                    ok = AI.rpc(
+                        "sw_kv_set", {"secret": AI.WRITE, "k": "INSURER_INBOX", "payload": box}
+                    )
+                    print(
+                        "insurer-inbox self-heal: %d entry(ies) re-opened (kv write %s)"
+                        % (healed, ok)
+                    )
         except Exception as e:
             print(f"insurer-inbox self-heal skipped: {str(e)[:80]}")
     # ---- manual anchored reads (scripts/manual_result_reads.json): a human read of an image-only filing.
@@ -445,7 +482,10 @@ def main():
             continue
         k = (m.get("sym"), int(m.get("qe") or 0))
         cur = _seen.get(k)
-        if cur is None or (not (cur.get("applied") or cur.get("rejected")) and (m.get("applied") or m.get("rejected"))):
+        if cur is None or (
+            not (cur.get("applied") or cur.get("rejected"))
+            and (m.get("applied") or m.get("rejected"))
+        ):
             _seen[k] = m
     manual = list(_seen.values())
     for m in manual:
@@ -463,7 +503,9 @@ def main():
             m["rejected"] = det_s
             print("  MANUAL REJECT %s %d: %s" % (sym, qe, det_s))
             continue
-        ok_c, det_c = anchor_ok(con_v, fund, sym, qe, "con") if con_v else (False, "no consolidated read")
+        ok_c, det_c = (
+            anchor_ok(con_v, fund, sym, qe, "con") if con_v else (False, "no consolidated read")
+        )
         ann = gated_ann(m.get("filed") or "")
         if not ann:
             m["rejected"] = "bad filed timestamp"
@@ -511,7 +553,9 @@ def main():
             % (sym, qe, row[1], entry["con"], ann, entry["method"], det_s, det_c)
         )
     for qe in quarters:
-        lo = yyyymmdd(datetime.date(qe // 10000, qe // 100 % 100, qe % 100) + datetime.timedelta(days=1))
+        lo = yyyymmdd(
+            datetime.date(qe // 10000, qe // 100 % 100, qe % 100) + datetime.timedelta(days=1)
+        )
         for sym in sorted(roster):
             if stored(fund, sym, qe, "std") is not None:
                 continue
@@ -576,7 +620,11 @@ def main():
                 if not ok_s:
                     last_reason = det_s
                     continue
-                ok_c, det_c = anchor_ok(con_v, fund, sym, qe, "con") if con_v else (False, "no consolidated in filing")
+                ok_c, det_c = (
+                    anchor_ok(con_v, fund, sym, qe, "con")
+                    if con_v
+                    else (False, "no consolidated in filing")
+                )
                 rows = fund.setdefault(sym, [])
                 row = next((r for r in rows if r[0] == qe), None)
                 if row is None:

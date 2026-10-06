@@ -188,7 +188,10 @@ def main():
     supp = [b for b in bad if "%s|%d|%s" % (b["sym"], b["qe"], b["field"]) in known]
     bad = [b for b in bad if "%s|%d|%s" % (b["sym"], b["qe"], b["field"]) not in known]
 
-    print("companies scanned: %d | cells testable (ours con==std, screener has both): %d" % (n, checked))
+    print(
+        "companies scanned: %d | cells testable (ours con==std, screener has both): %d"
+        % (n, checked)
+    )
     if supp:
         print(
             "suppressed %d cell(s) already adjudicated and REVERTED (see con_copy_heals.json) -- "
@@ -196,8 +199,14 @@ def main():
         )
         for b in supp:
             print("   %s %d %s" % (b["sym"], b["qe"], b["field"]))
-    print("CON SLOT HOLDS STD: %d cells across %d companies\n" % (len(bad), len({b["sym"] for b in bad})))
-    print("%-12s %-10s %-6s %11s %11s %11s" % ("sym", "quarter", "field", "ours", "scr con", "scr std"))
+    print(
+        "CON SLOT HOLDS STD: %d cells across %d companies\n"
+        % (len(bad), len({b["sym"] for b in bad}))
+    )
+    print(
+        "%-12s %-10s %-6s %11s %11s %11s"
+        % ("sym", "quarter", "field", "ours", "scr con", "scr std")
+    )
     for b in sorted(bad, key=lambda z: -abs(z["screener_con"] - z["screener_std"])):
         print(
             "%-12s %-10d %-6s %11.2f %11.1f %11.1f"

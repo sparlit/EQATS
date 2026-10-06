@@ -233,7 +233,10 @@ def main():
         idx = (
             json.loads(
                 B._get(
-                    "https://www.nseindia.com/api/corporates-pit-gg?index=equities", headers=hdr, jar=jar, timeout=90
+                    "https://www.nseindia.com/api/corporates-pit-gg?index=equities",
+                    headers=hdr,
+                    jar=jar,
+                    timeout=90,
                 )
             ).get("data")
             or []
@@ -274,12 +277,17 @@ def main():
             errs += 1  # not marked seen — retried next run
             time.sleep(1)
         if done and done % 200 == 0:
-            print("  ...%d filings parsed (%d rows fresh, %d errs)" % (done, fresh, errs), flush=True)
+            print(
+                "  ...%d filings parsed (%d rows fresh, %d errs)" % (done, fresh, errs), flush=True
+            )
         time.sleep(SLEEP_XBRL)
     print("processed %d new filings (%d errors), %d fresh rows" % (done, errs, fresh), flush=True)
 
     if old_rows and len(rows) < 0.6 * len(old_rows):
-        print("REFUSING to write: merged %d < 60%% of previous %d" % (len(rows), len(old_rows)), flush=True)
+        print(
+            "REFUSING to write: merged %d < 60%% of previous %d" % (len(rows), len(old_rows)),
+            flush=True,
+        )
         sys.exit(1)
 
     seen = {s for s in seen if s in live_ids}  # trim to the index's own rolling window

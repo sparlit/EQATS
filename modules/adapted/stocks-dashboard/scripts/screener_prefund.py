@@ -70,13 +70,17 @@ def qe_of(label):
 
 def _row(sec, label):
     m = re.search(
-        r'<td[^>]*class="text"[^>]*>\s*(?:<button[^>]*>)?\s*' + re.escape(label) + r".*?</td>(.*?)</tr>", sec, re.DOTALL
+        r'<td[^>]*class="text"[^>]*>\s*(?:<button[^>]*>)?\s*'
+        + re.escape(label)
+        + r".*?</td>(.*?)</tr>",
+        sec,
+        re.S,
     )
     if not m:
         return []
     return [
         html.unescape(re.sub(r"<[^>]+>", "", c)).strip().replace(",", "")
-        for c in re.findall(r"<td[^>]*>(.*?)</td>", m.group(1), re.DOTALL)
+        for c in re.findall(r"<td[^>]*>(.*?)</td>", m.group(1), re.S)
     ]
 
 
@@ -89,10 +93,14 @@ def _num(v):
 
 def fetch(sym, basis):
     """{qe: np} for a basis, with implausible (|np| >> sales) quarters dropped. '429' if rate-limited."""
-    t = get("https://www.screener.in/company/{}/{}".format(sym, "consolidated/" if basis == "con" else ""))
+    t = get(
+        "https://www.screener.in/company/{}/{}".format(
+            sym, "consolidated/" if basis == "con" else ""
+        )
+    )
     if t == "429":
         return "429"
-    m = re.search(r'id="quarters".*?</section>', t, re.DOTALL)
+    m = re.search(r'id="quarters".*?</section>', t, re.S)
     if not m:
         return None
     sec = m.group(0)
@@ -145,7 +153,9 @@ def main():
             continue
         store[sym] = res
         json.dump(store, open(OUTF, "w"), indent=0)
-        print("%-12s std:%d con:%d quarters" % (sym, len(res.get("std", {})), len(res.get("con", {}))))
+        print(
+            "%-12s std:%d con:%d quarters" % (sym, len(res.get("std", {})), len(res.get("con", {})))
+        )
     print("staged %d symbols -> screener_pre.json (std + con)" % len(store))
 
 

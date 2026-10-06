@@ -98,7 +98,10 @@ def main():
                 pop.append((sym, r[0]))
     random.Random(a.seed).shuffle(pop)
     pop = pop[: a.sample]
-    print("hold-out population: %d cells (<= %d) on %d companies\n" % (len(pop), a.to, len({s for s, _ in pop})))
+    print(
+        "hold-out population: %d cells (<= %d) on %d companies\n"
+        % (len(pop), a.to, len({s for s, _ in pop}))
+    )
 
     results = {}
     for label, neigh in (("E2 strict (target+prev+next)", True), ("E2b target FY only", False)):
@@ -171,7 +174,10 @@ def main():
     EG.NEIGHBOUR_FY_REQUIRED = True
 
     json.dump(
-        {"population": len(pop), "era_ceiling": a.to, "settings": results}, open(a.out, "w"), indent=1, sort_keys=True
+        {"population": len(pop), "era_ceiling": a.to, "settings": results},
+        open(a.out, "w"),
+        indent=1,
+        sort_keys=True,
     )
     print(f"\nwrote {a.out}")
 

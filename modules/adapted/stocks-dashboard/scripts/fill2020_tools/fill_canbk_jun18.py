@@ -80,7 +80,7 @@ ANCHOR = (
 
 for path in (WT + "docs/sf_fundamentals.json", SCR + "fundamentals.json"):
     o = json.load(open(path))
-    r = next(x for x in o["CANBK"] if x[0] == QE)
+    r = [x for x in o["CANBK"] if x[0] == QE][0]
     assert r[3] is None, f"CANBK {QE} con already holds {r[3]!r}"
     r[3] = CON
     r[4] = ANN
@@ -97,7 +97,14 @@ for path in (WT + "docs/sf_revop.json", SCR + "revop_fundamentals.json"):
 
 p = SCR + "conpat_filing_fills.json"
 led = json.load(open(p))
-led["CANBK|%d|con" % QE] = {"con": CON, "annCon": ANN, "when": WHEN, "basis": "con", "src": SRC, "evidence": ANCHOR}
+led["CANBK|%d|con" % QE] = {
+    "con": CON,
+    "annCon": ANN,
+    "when": WHEN,
+    "basis": "con",
+    "src": SRC,
+    "evidence": ANCHOR,
+}
 led["CANBK|%d|con_rev" % QE] = {"rev_con": REV_CON, "when": WHEN, "src": SRC, "evidence": ANCHOR}
 json.dump(led, open(p, "w"), indent=1)
 

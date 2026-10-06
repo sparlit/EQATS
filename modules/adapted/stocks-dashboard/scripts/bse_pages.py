@@ -44,9 +44,12 @@ OCR = V.OCR
 OUT = os.path.join(V.VP, "pages")
 os.makedirs(OUT, exist_ok=True)
 ISNUM = re.compile(r"\(?-?[\d,]+(?:\.\d+)?\)?$")
-CON_HDR = re.compile(r"consolidated\s+(statement|financial|results|segment|unaudited|audited|profit)", re.IGNORECASE)
+CON_HDR = re.compile(
+    r"consolidated\s+(statement|financial|results|segment|unaudited|audited|profit)", re.I
+)
 STD_HDR = re.compile(
-    r"(standalone|unconsolidated)\s+(statement|financial|results|segment|unaudited|audited|profit)", re.IGNORECASE
+    r"(standalone|unconsolidated)\s+(statement|financial|results|segment|unaudited|audited|profit)",
+    re.I,
 )
 
 
@@ -69,7 +72,11 @@ def row_crop(pg, c, pm):
     clip = fitz.Rect(pg.rect.x0, ry - H * 0.05, pg.rect.x1, ry + H * 0.03)
     pix = pg.get_pixmap(dpi=300, clip=clip)
     img = np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width, pix.n)
-    return cv2.cvtColor(img, cv2.COLOR_RGB2BGR) if pix.n == 3 else cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
+    return (
+        cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        if pix.n == 3
+        else cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
+    )
 
 
 def crop_both(pdf, expect, ann):
@@ -89,7 +96,10 @@ def crop_both(pdf, expect, ann):
             continue
         if not res:
             continue
-        boxes = [{"t": t, "x": sum(p[0] for p in b) / 4, "y": sum(p[1] for p in b) / 4} for b, t, sc in res]
+        boxes = [
+            {"t": t, "x": sum(p[0] for p in b) / 4, "y": sum(p[1] for p in b) / 4}
+            for b, t, sc in res
+        ]
         flat = " ".join(b["t"] for b in boxes).lower()
         flatns = flat.replace(" ", "")
         if expect in flatns:
@@ -109,15 +119,17 @@ def crop_both(pdf, expect, ann):
             for c in [
                 b
                 for b in boxes
-                if re.search(pat, b["t"], re.IGNORECASE)
-                and not re.search(r"before tax|comprehensive|exceptional|operating", b["t"], re.IGNORECASE)
+                if re.search(pat, b["t"], re.I)
+                and not re.search(r"before tax|comprehensive|exceptional|operating", b["t"], re.I)
             ]:
                 if (
                     len(
                         [
                             b
                             for b in boxes
-                            if abs(b["y"] - c["y"]) < 14 and b["x"] > c["x"] + 5 and ISNUM.match(b["t"].strip())
+                            if abs(b["y"] - c["y"]) < 14
+                            and b["x"] > c["x"] + 5
+                            and ISNUM.match(b["t"].strip())
                         ]
                     )
                     >= 3
@@ -186,11 +198,17 @@ def main():
                 fn = "%s_%d_%s.png" % (sym, qe, tag)
                 cv2.imwrite(
                     os.path.join(OUT, fn),
-                    V.label_strip(img, "%s  qe=%d  %s  unit=%s  (filed %d)" % (sym, qe, tag.upper(), unit, ann)),
+                    V.label_strip(
+                        img,
+                        "%s  qe=%d  %s  unit=%s  (filed %d)" % (sym, qe, tag.upper(), unit, ann),
+                    ),
                 )
                 rec[tag] = fn
         idx.append(rec)
-        print("  qe=%d std=%s con=%s" % (qe, rec["std"] is not None, rec["con"] is not None), flush=True)
+        print(
+            "  qe=%d std=%s con=%s" % (qe, rec["std"] is not None, rec["con"] is not None),
+            flush=True,
+        )
     json.dump(idx, open(os.path.join(OUT, f"{sym}.json"), "w"), indent=0)
     print("DONE %s: %d quarters" % (sym, len(idx)), flush=True)
 

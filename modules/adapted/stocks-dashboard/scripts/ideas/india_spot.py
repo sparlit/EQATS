@@ -69,7 +69,9 @@ HIST = os.path.join(DOCS, "india_spot_history.csv")
 # Older prints recovered from archives (e.g. dated snapshots of a source page). Kept apart from HIST so a
 # recorded print and a recovered one never blur: columns date,source,series,price,unit,via - `via` says where
 # the price was read. A recorded print outranks a recovered one on the same date.
-BACKFILL = os.path.join(DOCS, "india_backfill.csv.gz")  # gzipped: 6 MB of text, rewritten only by india_backfill.py
+BACKFILL = os.path.join(
+    DOCS, "india_backfill.csv.gz"
+)  # gzipped: 6 MB of text, rewritten only by india_backfill.py
 # Recorded rows later found wrong are never deleted from HIST: they are listed here with the reason and skipped
 # when the history is built. columns date,source,series,price,unit,reason (runbook 144a-v).
 RETRACTED = os.path.join(DOCS, "india_retracted.csv")
@@ -82,7 +84,10 @@ HIST_JSON = os.path.join(DOCS, "india_history.json.gz")
 
 
 MON = {
-    m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1
+    )
 }
 
 
@@ -116,7 +121,11 @@ def in_force(path, ledger_path):
     retracted one (IBJA's 22-Sep fix: first stamped wrong, then recorded right) was hidden too."""
     if not os.path.exists(path):
         return []
-    opener = (lambda p: gzip.open(p, "rt", newline="")) if path.endswith(".gz") else (lambda p: open(p, newline=""))
+    opener = (
+        (lambda p: gzip.open(p, "rt", newline=""))
+        if path.endswith(".gz")
+        else (lambda p: open(p, newline=""))
+    )
     left = {}
     if os.path.exists(ledger_path):
         for r in csv.DictReader(open(ledger_path)):
@@ -134,17 +143,21 @@ def in_force(path, ledger_path):
 
 def series_key(r):
     """The one name a print goes by - in the CSV, the history file, signals.json and the page."""
-    return " | ".join(str(r.get(k)) for k in ("city", "market", "name", "grade", "slug") if r.get(k))
+    return " | ".join(
+        str(r.get(k)) for k in ("city", "market", "name", "grade", "slug") if r.get(k)
+    )
 
 
 import os as _o
 import sys as _s
 
 _s.path.insert(0, _o.path.dirname(_o.path.dirname(_o.path.abspath(__file__))))
-import bse_headers  # noqa: E402 — BSE hosts (NMDC filings) get the honest header set, replacing UA below (§190)
-
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
-HDR = {"User-Agent": UA, "Accept": "text/html,application/json,*/*", "Accept-Language": "en-IN,en;q=0.9"}
+HDR = {
+    "User-Agent": UA,
+    "Accept": "text/html,application/json,*/*",
+    "Accept-Language": "en-IN,en;q=0.9",
+}
 LAX = ssl.create_default_context()
 LAX.check_hostname = False
 LAX.verify_mode = ssl.CERT_NONE
@@ -222,18 +235,19 @@ def get(url, timeout=45, ctx=None, binary=False, retries=2):
     last = None
     for i in range(retries):
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers=HDR), timeout=timeout, context=ctx) as f:
+            with urllib.request.urlopen(
+                urllib.request.Request(url, headers=HDR), timeout=timeout, context=ctx
+            ) as f:
                 b = f.read()
                 return b if binary else b.decode("utf-8", "ignore")
         except Exception as e:
             last = e
             time.sleep(1 + i)
-    msg = f"{url}: {last}"
-    raise RuntimeError(msg)
+    raise RuntimeError(f"{url}: {last}")
 
 
 def plain(txt):
-    p = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", txt, flags=re.DOTALL)
+    p = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", txt, flags=re.S)
     p = re.sub(r"<[^>]+>", " ", p)
     return re.sub(r"\s+", " ", html.unescape(p))
 
@@ -264,9 +278,13 @@ def src_metalbook():
             o = json.loads(m.replace("\x00", '\\"'))
             pid = o["_id"]
             city = (o.get("location") or pid.get("location") or "").strip()
-            name = re.sub(r"\s+", " ", f"{pid.get('product_name', '')} {pid.get('grade') or ''}").strip()
+            name = re.sub(
+                r"\s+", " ", f"{pid.get('product_name', '')} {pid.get('grade') or ''}"
+            ).strip()
             per_t = float(o["price_per_ton"])
-            when = datetime.datetime.utcfromtimestamp(o["price_date"] / 1000) + datetime.timedelta(hours=5, minutes=30)
+            when = datetime.datetime.utcfromtimestamp(o["price_date"] / 1000) + datetime.timedelta(
+                hours=5, minutes=30
+            )
         except (ValueError, KeyError, TypeError):
             continue
         if not city or not name or (city, name) in seen:
@@ -287,8 +305,7 @@ def src_metalbook():
             }
         )
     if len(rows) < 20:
-        msg = f"metalbook price records parsed only {len(rows)} rows"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"metalbook price records parsed only {len(rows)} rows")
     return {
         "source": "MetalBook (metalbook.com) price records, data from SteelMint",
         "url": "https://www.metalbook.com/",
@@ -330,8 +347,7 @@ def src_ibja():
         hits = [d for d, v in ch["gold 999"] if v == g["pm"]]
         date = hits[-1] if hits else None
     if len(rows) < 5:
-        msg = "ibja parsed too few rows"
-        raise RuntimeError(msg)
+        raise RuntimeError("ibja parsed too few rows")
     return {
         "source": "IBJA (ibjarates.com) daily AM/PM fix",
         "url": "https://ibjarates.com/",
@@ -367,16 +383,22 @@ def src_rubber():
     h = get("https://rubberboard.gov.in/public", ctx=LAX)
     rows = []
     for loc, name in (("loc1", "Kottayam"), ("loc2", "Kochi"), ("loc3", "Agartala")):
-        m = re.search(rf'id="{loc}".*?<table.*?</table>', h, re.DOTALL)
+        m = re.search(rf'id="{loc}".*?<table.*?</table>', h, re.S)
         if not m:
             continue
         for grade, inr, usd in re.findall(
             r"(RSS4|RSS5|ISNR20|Latex\(60%\))</i></td>.*?<i[^>]*>([\d.]+)</i></td>.*?<i[^>]*>([\d.]+)</i>",
             m.group(0),
-            re.DOTALL,
+            re.S,
         ):
             rows.append(
-                {"market": name, "name": grade, "price": num(inr), "unit": "Rs/100kg", "usd_per_100kg": num(usd)}
+                {
+                    "market": name,
+                    "name": grade,
+                    "price": num(inr),
+                    "unit": "Rs/100kg",
+                    "usd_per_100kg": num(usd),
+                }
             )
     # The price date is the one labelled right above the tables ('Domestic market on 22-09-2026, per 100 kg').
     # The FIRST date on the page is a news item ('03-09-2026- ...'), which is what this used to read, so the
@@ -384,8 +406,7 @@ def src_rubber():
     i = h.find('id="loc1"')
     ds = re.findall(r"(\d{2}-\d{2}-20\d\d)", plain(h[max(0, i - 3000) : i])) if i > 0 else []
     if len(rows) < 3:
-        msg = "rubber board parsed too few rows"
-        raise RuntimeError(msg)
+        raise RuntimeError("rubber board parsed too few rows")
     return {
         "source": "Rubber Board of India (rubberboard.gov.in)",
         "url": "https://rubberboard.gov.in/public",
@@ -405,11 +426,23 @@ def src_sugar():
         r"\b(Delhi|Kanpur|Kolhapur|Kolkata|Muzaffarnagar|Ahmedabad|Bengaluru|Chennai|Mumbai|Hyderabad|Pune|Nagpur|Indore|Jaipur|Lucknow|Patna)\s+([SM]/\d+)\s+([\d,]+\.\d+)\s+(-?[\d,]+\.\d+)",
         seg,
     ):
-        rows.append({"city": city, "grade": grade, "price": num(rate), "unit": "Rs/quintal", "chg_1d": num(chg)})
+        rows.append(
+            {
+                "city": city,
+                "grade": grade,
+                "price": num(rate),
+                "unit": "Rs/quintal",
+                "chg_1d": num(chg),
+            }
+        )
     if len(rows) < 4:
-        msg = "chinimandi parsed too few rows"
-        raise RuntimeError(msg)
-    return {"source": "Chinimandi sugar spot rates", "url": "https://www.chinimandi.com/", "date": stamp, "rows": rows}
+        raise RuntimeError("chinimandi parsed too few rows")
+    return {
+        "source": "Chinimandi sugar spot rates",
+        "url": "https://www.chinimandi.com/",
+        "date": stamp,
+        "rows": rows,
+    }
 
 
 def src_fuel():
@@ -421,8 +454,7 @@ def src_fuel():
         h,
     )
     if not links:
-        msg = "no PPAC daily price PDF link on the home page"
-        raise RuntimeError(msg)
+        raise RuntimeError("no PPAC daily price PDF link on the home page")
     b = get(links[0], binary=True)
     d = fitz.open(stream=b, filetype="pdf")
     t = re.sub(r"\s+", " ", d[0].get_text())
@@ -498,8 +530,7 @@ def src_te(slugs):
             except Exception as e:
                 errs.append(f"{slug}: {str(e)[:60]}")
     if len(rows) < 10:
-        msg = f"trading economics parsed only {len(rows)} ({errs[:3]})"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"trading economics parsed only {len(rows)} ({errs[:3]})")
     return {
         "source": "Trading Economics (tradingeconomics.com) commodity pages",
         "url": "https://tradingeconomics.com/commodities",
@@ -522,7 +553,7 @@ NMDC_ANN = (
     "&strScrip=" + NMDC_SCRIP + "&strSearch=P&strToDate=%s&strType=C&subcategory=-1"
 )
 NMDC_ATT = "https://www.bseindia.com/xml-data/corpfiling/AttachLive/%s"
-NMDC_PAT = re.compile(r"price[s]?\s+of\s+iron\s+ore", re.IGNORECASE)
+NMDC_PAT = re.compile(r"price[s]?\s+of\s+iron\s+ore", re.I)
 # Bump when nmdc_parse/nmdc_wef change: every stored letter read by an older parser is read again ONCE, so a
 # parser fix reaches the rows already on file instead of only the next month's letter.
 #   2 = four-digit price + 'Baila' grades   3 = w.e.f. nearest the filing, no '20206'   4 = OCR-split basis
@@ -567,16 +598,18 @@ def nmdc_wef(text, fallback):
     t = re.sub(r"\s+", " ", text or "")
     wef = r"w\.?\s*e\.?\s*f\.?\s*:?\s*"
     cands = []
-    for m in re.finditer(wef + r"(\d{1,2})\s*[./-]\s*(\d{1,2})\s*[./-]\s*(\d{4}|\d{2})(?!\d)", t, re.IGNORECASE):
+    for m in re.finditer(
+        wef + r"(\d{1,2})\s*[./-]\s*(\d{1,2})\s*[./-]\s*(\d{4}|\d{2})(?!\d)", t, re.I
+    ):
         y = int(m.group(3))
         cands.append((y + 2000 if y < 100 else y, int(m.group(2)), int(m.group(1))))
     for m in re.finditer(
-        wef + r"(\d{1,2})\s*(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\.?,?\s+(\d{4})(?!\d)", t, re.IGNORECASE
+        wef + r"(\d{1,2})\s*(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\.?,?\s+(\d{4})(?!\d)", t, re.I
     ):
         if MONTHS.get(m.group(2).lower()):
             cands.append((int(m.group(3)), MONTHS[m.group(2).lower()], int(m.group(1))))
     for m in re.finditer(
-        wef + r"([A-Za-z]{3,9})\.?\s+(\d{1,2})\s*(?:st|nd|rd|th)?,?\s+(\d{4})(?!\d)", t, re.IGNORECASE
+        wef + r"([A-Za-z]{3,9})\.?\s+(\d{1,2})\s*(?:st|nd|rd|th)?,?\s+(\d{4})(?!\d)", t, re.I
     ):
         if MONTHS.get(m.group(1).lower()):
             cands.append((int(m.group(3)), MONTHS[m.group(1).lower()], int(m.group(2))))
@@ -594,7 +627,10 @@ def nmdc_wef(text, fallback):
         return fallback, "no w.e.f. date in the letter; filing date used"
     best = min(ok, key=lambda x: abs((x - f).days))
     if abs((best - f).days) > 60:
-        return fallback, f"w.e.f. {best} is {abs((best - f).days)} days from the filing; filing date used"
+        return (
+            fallback,
+            f"w.e.f. {best} is {abs((best - f).days)} days from the filing; filing date used",
+        )
     return best.isoformat(), ""
 
 
@@ -612,9 +648,10 @@ def nmdc_parse(text, subject, filing_date):
         # The number needs four digits: the OCR of the scans breaks '3,100' into '3, 100', and matching a
         # bare three-digit run there silently produced a price of Rs 100 a tonne.
         m = re.search(
-            rx + r"[^\n]{0,60}?(?:₹|Rs\.?|INR|@)\s*(\d{1,2}[,\s]{0,2}\d{3})\s*/?\s*-?\s*(?:per|PER)\s*(?:ton|mt|wmt)",
+            rx
+            + r"[^\n]{0,60}?(?:₹|Rs\.?|INR|@)\s*(\d{1,2}[,\s]{0,2}\d{3})\s*/?\s*-?\s*(?:per|PER)\s*(?:ton|mt|wmt)",
             body,
-            re.IGNORECASE,
+            re.I,
         )
         out[key] = float(re.sub(r"[^\d]", "", m.group(1))) if m else None
     basis = None
@@ -624,11 +661,13 @@ def nmdc_parse(text, subject, filing_date):
     def w(word):
         return r"\s?".join(word)
 
-    if re.search(w("inclusive") + r"\s+of\s+Royalty|" + w("including") + r"\s+Royalty", body, re.IGNORECASE):
+    if re.search(w("inclusive") + r"\s+of\s+Royalty|" + w("including") + r"\s+Royalty", body, re.I):
         basis = "includes royalty, DMF and NMET"
-    elif re.search(w("exclusive") + r"\s+of\s+Royalty|" + w("excluding") + r"\s+Royalty", body, re.IGNORECASE):
+    elif re.search(
+        w("exclusive") + r"\s+of\s+Royalty|" + w("excluding") + r"\s+Royalty", body, re.I
+    ):
         basis = "excludes royalty, DMF and NMET"
-    note = re.search(r"(Note\s*:.{0,260}?)(?:Please take note|Thanking you|$)", body, re.IGNORECASE)
+    note = re.search(r"(Note\s*:.{0,260}?)(?:Please take note|Thanking you|$)", body, re.I)
     wef, wef_note = nmdc_wef(subject + " " + body, filing_date)
     return {
         "wef": wef,
@@ -648,9 +687,11 @@ def nmdc_filings(d_from, d_to):
     out = {}
     for page in (1, 2):
         rows = (
-            json.loads(bse._get(NMDC_ANN % (page, d_from.strftime("%Y%m%d"), d_to.strftime("%Y%m%d")), sleep=0.4)).get(
-                "Table"
-            )
+            json.loads(
+                bse._get(
+                    NMDC_ANN % (page, d_from.strftime("%Y%m%d"), d_to.strftime("%Y%m%d")), sleep=0.4
+                )
+            ).get("Table")
             or []
         )
         for r in rows:
@@ -683,13 +724,23 @@ def nmdc_read(f):
     try:
         data = bse.get_attachment(NMDC_ATT % f["att"], timeout=90)
         if data[:4] != b"%PDF":
-            return dict(f, lump=None, fines=None, basis=None, note="", wef=f["date"], error="attachment is not a PDF")
+            return dict(
+                f,
+                lump=None,
+                fines=None,
+                basis=None,
+                note="",
+                wef=f["date"],
+                error="attachment is not a PDF",
+            )
         import fitz
 
         doc = fitz.open(stream=data, filetype="pdf")
         txt = "\n".join(doc[i].get_text() for i in range(min(3, len(doc))))
     except Exception as e:
-        return dict(f, lump=None, fines=None, basis=None, note="", wef=f["date"], error=str(e)[:110])
+        return dict(
+            f, lump=None, fines=None, basis=None, note="", wef=f["date"], error=str(e)[:110]
+        )
     rec = dict(f, **nmdc_parse(txt, f["subject"], f["date"]), parser=NMDC_PARSER)
     if rec["lump"] is None and rec["fines"] is None:
         rec["error"] = "PDF has no readable price line (older filings are scans with no text layer)"
@@ -720,13 +771,20 @@ def src_nmdc(days=200, since=None):
             win_err += 1
             print(f"nmdc: window {a}..{b} failed ({str(e)[:70]})")
     if win_err == len(wins) and not hist:
-        msg = f"every BSE window failed ({win_err})"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"every BSE window failed ({win_err})")
 
     def implausible(r):
         # a price letter announces the price in force now; a w.e.f. far from the filing date is a misread
         try:
-            return abs((datetime.date.fromisoformat(r["wef"]) - datetime.date.fromisoformat(r["date"])).days) > 60
+            return (
+                abs(
+                    (
+                        datetime.date.fromisoformat(r["wef"])
+                        - datetime.date.fromisoformat(r["date"])
+                    ).days
+                )
+                > 60
+            )
         except (KeyError, TypeError, ValueError):
             return True
 
@@ -734,8 +792,14 @@ def src_nmdc(days=200, since=None):
         return (r.get("parser") or 0) < NMDC_PARSER
 
     for r in list(hist.values()):
-        if (r.get("lump") is not None or r.get("fines") is not None) and (implausible(r) or stale(r)) and r.get("att"):
-            seen.setdefault(r["date"], {"date": r["date"], "att": r["att"], "subject": r.get("subject", "")})
+        if (
+            (r.get("lump") is not None or r.get("fines") is not None)
+            and (implausible(r) or stale(r))
+            and r.get("att")
+        ):
+            seen.setdefault(
+                r["date"], {"date": r["date"], "att": r["att"], "subject": r.get("subject", "")}
+            )
     added, unread = 0, 0
     for f in sorted(seen.values(), key=lambda r: r["date"]):
         prev = hist.get(f["date"])
@@ -775,7 +839,11 @@ def src_nmdc(days=200, since=None):
         ]
         if diff:
             o["refiling_differs"] = f"re-filing of {r['date']} states " + ", ".join(diff)
-    priced = [r for r in rows_h if (r.get("lump") is not None or r.get("fines") is not None) and not r.get("dup_of")]
+    priced = [
+        r
+        for r in rows_h
+        if (r.get("lump") is not None or r.get("fines") is not None) and not r.get("dup_of")
+    ]
     json.dump(
         {
             "built": ist.stamp(),
@@ -793,9 +861,10 @@ def src_nmdc(days=200, since=None):
         ensure_ascii=False,
     )
     if not priced:
-        msg = "no NMDC price filing could be read"
-        raise RuntimeError(msg)
-    priced.sort(key=lambda r: r["wef"])  # by the date the price took effect, not the date it was filed
+        raise RuntimeError("no NMDC price filing could be read")
+    priced.sort(
+        key=lambda r: r["wef"]
+    )  # by the date the price took effect, not the date it was filed
     last = priced[-1]
     rows = []
     for key, _rx, name in NMDC_GRADES:
@@ -816,7 +885,9 @@ def src_nmdc(days=200, since=None):
                 "chg_rev": round(100 * (last[key] / prev_v - 1), 2) if prev_v else None,
                 "prev": prev_v,
                 "prev_date": before[-1]["wef"] if before else None,
-                "history": sorted([r["wef"], r[key], r.get("basis")] for r in priced if r.get(key) is not None),
+                "history": sorted(
+                    [r["wef"], r[key], r.get("basis")] for r in priced if r.get(key) is not None
+                ),
             }
         )
     # Every BSE window can fail while the committed history still yields rows. That is NOT a clean
@@ -870,8 +941,7 @@ def src_minsteel():
             }
         )
     if not rows:
-        msg = "minsteel_mumbai.json holds no series"
-        raise RuntimeError(msg)
+        raise RuntimeError("minsteel_mumbai.json holds no series")
     return {
         "source": "Ministry of Steel monthly report (steel.gov.in): Mumbai retail price incl. GST",
         "url": "https://steel.gov.in/monthly-summary",
@@ -924,10 +994,14 @@ def build_history(sources):
                 "p": series,
                 "via": via[0] if len(set(via)) == 1 else via,  # one label, or one per point
                 "stats": hist_stats(series, step=bool(r.get("step"))) if len(series) >= 2 else None,
-                "recorded_from": next((x[0] for x, v in zip(series, via, strict=False) if v == "recorded"), None),
+                "recorded_from": next(
+                    (x[0] for x, v in zip(series, via, strict=False) if v == "recorded"), None
+                ),
                 "archived": sum(1 for v in via if str(v).lower().startswith("wayback")),
             }
-    blob = json.dumps({"built": ist.stamp(), "series": out}, separators=(",", ":"), ensure_ascii=False).encode()
+    blob = json.dumps(
+        {"built": ist.stamp(), "series": out}, separators=(",", ":"), ensure_ascii=False
+    ).encode()
     with open(HIST_JSON, "wb") as fh:
         with gzip.GzipFile(fileobj=fh, mode="wb", mtime=0) as gz:  # mtime=0: same data, same bytes
             gz.write(blob)
@@ -939,8 +1013,17 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-te", action="store_true")
     ap.add_argument("--te-only", action="store_true")
-    ap.add_argument("--nmdc-days", type=int, default=200, help="how far back to look for unread NMDC price filings")
-    ap.add_argument("--nmdc-since", default="", help="YYYY-MM-DD: sweep NMDC filings from here (one-off backfill)")
+    ap.add_argument(
+        "--nmdc-days",
+        type=int,
+        default=200,
+        help="how far back to look for unread NMDC price filings",
+    )
+    ap.add_argument(
+        "--nmdc-since",
+        default="",
+        help="YYYY-MM-DD: sweep NMDC filings from here (one-off backfill)",
+    )
     a = ap.parse_args()
     old = {}
     if os.path.exists(OUT):
@@ -976,10 +1059,16 @@ def main():
             res["fetched"] = ist.stamp()
             sources[key] = res
             status[key] = f"ok, {len(res['rows'])} rows"
-            if res.get("degraded"):  # rows came back, but not from a live read - never report that as "ok" alone
+            if res.get(
+                "degraded"
+            ):  # rows came back, but not from a live read - never report that as "ok" alone
                 status[key] += " - DEGRADED: " + res["degraded"]
         except Exception as e:
-            status[key] = f"FAILED ({str(e)[:90]}) - previous rows kept" if key in old else f"FAILED ({str(e)[:90]})"
+            status[key] = (
+                f"FAILED ({str(e)[:90]}) - previous rows kept"
+                if key in old
+                else f"FAILED ({str(e)[:90]})"
+            )
     if not sources:
         raise SystemExit("nothing fetched and nothing to keep: " + json.dumps(status))
     # history: one row per series per day, so 1w/1m changes can be computed later for sources with no history of their own
@@ -987,7 +1076,9 @@ def main():
     # A print is recorded under the date its SOURCE states (MetalBook prices each item on its own day, often
     # a week back; Rubber Board's page can lag a fortnight). Stamping the run date instead made a flat line of
     # fake daily points out of one unchanged print. No stated date, or one in the future: the run date, marked.
-    seen = {(r["date"], r["source"], r["series"]) for r in in_force(HIST, RETRACTED)}  # a retracted row is not a record
+    seen = {
+        (r["date"], r["source"], r["series"]) for r in in_force(HIST, RETRACTED)
+    }  # a retracted row is not a record
     new = 0
     with open(HIST, "a", newline="") as f:
         w = csv.writer(f)

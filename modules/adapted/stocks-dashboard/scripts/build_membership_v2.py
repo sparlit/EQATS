@@ -44,7 +44,6 @@ Run: python -X utf8 build_membership_v2.py
 import csv
 import datetime
 import gzip
-import itertools
 import json
 import os
 import re
@@ -87,13 +86,20 @@ SLUGS = {  # index display name -> NSE current-list slug — ALL 27 tracked inde
 
 # ---------- renames (old -> new, with the date the NEW symbol started) ----------
 MON = {
-    m: i for i, m in enumerate(["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"], 1)
+    m: i
+    for i, m in enumerate(
+        ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"], 1
+    )
 }
 
 
 def dmy_iso(s):
     m = re.match(r"(\d{1,2})-([A-Z]{3})-(\d{4})", s.strip().upper())
-    return f"{int(m.group(3)):04d}-{MON[m.group(2)]:02d}-{int(m.group(1)):02d}" if m and m.group(2) in MON else None
+    return (
+        f"{int(m.group(3)):04d}-{MON[m.group(2)]:02d}-{int(m.group(1)):02d}"
+        if m and m.group(2) in MON
+        else None
+    )
 
 
 def load_renames():
@@ -132,7 +138,9 @@ def load_renames():
 def resolve_supplement_dates(ren):
     """date of a rename ~= first trading day of the NEW symbol in the SF data."""
     try:
-        D = json.loads(gzip.decompress(open(os.path.join(ROOT, "docs", "sf_stock_data.bin"), "rb").read()))
+        D = json.loads(
+            gzip.decompress(open(os.path.join(ROOT, "docs", "sf_stock_data.bin"), "rb").read())
+        )
         first = {sym: str(o["d"][0]) for sym, o in D["data"].items() if o["d"]}
         for old, (new, d) in list(ren.items()):
             if d is None:
@@ -195,7 +203,9 @@ def get(url, tries=5):
     last = None
     for _ in range(tries):
         try:
-            return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60).read()
+            return urllib.request.urlopen(
+                urllib.request.Request(url, headers=UA), timeout=60
+            ).read()
         except Exception as e:
             last = e
             time.sleep(3)
@@ -268,7 +278,7 @@ def reanchor_segments(snaps, checkpoints, events):
     cps = sorted(d for d in checkpoints if d in snaps)
     ev = merge_same_eff(events)
     rewritten = 0
-    for a, b in itertools.pairwise(cps):
+    for a, b in zip(cps, cps[1:], strict=False):
         window = [c for c in ev if a < c["eff"] <= b]
         if not window:
             continue
@@ -305,7 +315,7 @@ def checkpoint_continuity(snaps, checkpoints, events):
     dates = sorted(snaps)
     ev = merge_same_eff(events)
     added = 0
-    for a, b in itertools.pairwise(cps):
+    for a, b in zip(cps, cps[1:], strict=False):
         both = snaps[a] & snaps[b]
         gone = set()
         for c in ev:
@@ -340,6 +350,27 @@ def validate_n500(snaps, wb):
     return worst
 
 
+# ARCHIVED-LIST CORRECTIONS (2026-10-04, quantmac round 3). A Wayback capture can carry a list OLDER than its capture
+# date: _wb_n500_snaps.json's "2010-01-02" agrees with every NSE register change through 22-Oct-2009 but not with the
+# 22-Dec-2009 swap — IISL press release ind_prs16122009 (16-Dec-2009): "the ex-date for Zandu Pharmaceutical Ltd and Emami
+# Ltd. is 22 December, 2009 ... S&P CNX 500 Index: the following company is being excluded: Zandu Pharmaceutical Ltd. /
+# included: 3i Infotech Ltd.", effective 22-Dec-2009 (NSE's IndexInclExcl register the same; its 21-Dec correction
+# touches only CNX FMCG). Pinned as captured, the list kept Zandu and — via register_inc_is_live — refused 3i Infotech
+# at every later Moneycontrol checkpoint, so 3IINFOTECH was missing 22-Dec-2009 -> 29-Aug-2011.
+WB_PIN_FIXES = {
+    "2010-01-02": {"add": ["3IINFOTECH"], "drop": ["ZANDUPHARM"], "src": "ind_prs16122009"}
+}
+# STALE MONEYCONTROL NAMES (2026-10-04, quantmac round 3) that the register scrub cannot see because NSE's register
+# files the company under another name. Dropped from every MC checkpoint dated AFTER the date given:
+#  AJMERA = Shree Precoated Steels renamed (NSE bhavcopy: AJMERA's first PREVCLOSE, 16-Jun-2009, = SPSL's last close
+#    46.75, 8-May-2009). The register EXCLUDES "Shree Precoated Steels Ltd." 11-May-2009 and never includes Ajmera; NSE's
+#    archived list of 2010-01-02 has no AJMERA. Moneycontrol kept listing it 2009-09-25 .. 2011-08-04.
+#  DALBHARAT on the 2011 MC pages: the register EXCLUDES "Dalmia Bharat Sugar and Industries Ltd." 24-Sep-2010 (with DB
+#    Realty in) and records no Dalmia inclusion until "Dalmia Bharat Ltd." on 1-Apr-2016. Kept, the 2011 pins carried the
+#    name back (ERA_OVERRIDES -> DALMIACEM) and held Dalmia as a 501st member 24-Sep-2010 -> 26-Jan-2011.
+MC_STALE = {"AJMERA": "2009-05-11", "DALBHARAT": "2010-09-24"}
+
+
 def load_inclexcl_register(fname="_n500_inclexcl_events.json"):
     """NSE's own dated inclusion/exclusion register (IndexInclExcl.xls -> Nifty 500 sheet,
     parsed by scripts/_staleness_fix/gen_inclexcl_events.py). 1,765 mapped events, 1998-2020.
@@ -364,7 +395,9 @@ def load_inclexcl_register(fname="_n500_inclexcl_events.json"):
     for d, s, k in reg["events"]:
         s = canon(s)
         by_sym.setdefault(s, []).append((d, k))
-        e = by_date.setdefault(d, {"eff": d, "included": [], "excluded": [], "src": "IndexInclExcl"})
+        e = by_date.setdefault(
+            d, {"eff": d, "included": [], "excluded": [], "src": "IndexInclExcl"}
+        )
         e["included" if k == "inc" else "excluded"].append(s)
     for s in by_sym:
         by_sym[s].sort()
@@ -402,7 +435,9 @@ def merge_register_events(idx, events, reg_events):
             inc = [s for s in ev["included"] if not _cl_has(s, "inc", ev["eff"])]
             exc = [s for s in ev["excluded"] if not _cl_has(s, "exc", ev["eff"])]
             if inc or exc:
-                out.append({"eff": ev["eff"], "included": inc, "excluded": exc, "src": "IndexInclExcl-gap"})
+                out.append(
+                    {"eff": ev["eff"], "included": inc, "excluded": exc, "src": "IndexInclExcl-gap"}
+                )
                 added_gap += 1
                 for s in inc:
                     print(f"  {idx}: register fills changelog HOLE: +{s} eff {ev['eff']}")
@@ -467,13 +502,21 @@ def pin_report(idx, walk, checkpoints, key=None):
         for k in dates:
             if k <= d:
                 best = k
-        rec = {key(x, d) for x in walk[best] if not str(x).upper().startswith("DUMMY")} if best else set()
+        rec = (
+            {key(x, d) for x in walk[best] if not str(x).upper().startswith("DUMMY")}
+            if best
+            else set()
+        )
         off = {key(canon(x), d) for x in checkpoints[d] if not str(x).upper().startswith("DUMMY")}
         diff = off ^ rec
         tot += len(diff)
         print(
             f"  {idx} pin {d}: walk {len(rec)} vs official {len(off)} — off-by {len(diff)}"
-            + (f" (walk-only {sorted(rec - off)}, official-only {sorted(off - rec)})" if diff else "")
+            + (
+                f" (walk-only {sorted(rec - off)}, official-only {sorted(off - rec)})"
+                if diff
+                else ""
+            )
         )
     return tot
 
@@ -503,10 +546,14 @@ def drop_prepublished_pins(idx, walk, checkpoints, events, days=7, lag=90):
         nxt = [
             c
             for c in ev
-            if d < c["eff"] <= (datetime.date.fromisoformat(d) + datetime.timedelta(days=days)).isoformat()
+            if d
+            < c["eff"]
+            <= (datetime.date.fromisoformat(d) + datetime.timedelta(days=days)).isoformat()
         ]
         if nxt and nxt[0]["eff"] in walk and walk[nxt[0]["eff"]] == off:
-            print(f"  {idx} pin {d}: pre-published list (equals the roster effective {nxt[0]['eff']}) — not pinned")
+            print(
+                f"  {idx} pin {d}: pre-published list (equals the roster effective {nxt[0]['eff']}) — not pinned"
+            )
             continue
         # LAGGING capture (2026-09-23, runbook §141e) — the mirror case: a capture taken weeks AFTER a dated
         # notice that still EQUALS the roster in force just BEFORE it, while the NEXT archived list agrees
@@ -555,7 +602,10 @@ def register_inc_is_live(reg_by_sym, sym, iso_date, official):
             last_inc = d
     if last_inc is None:
         return False
-    return all(not (last_inc < od <= iso_date and sym not in members) for od, members in official.items())
+    for od, members in official.items():
+        if last_inc < od <= iso_date and sym not in members:
+            return False
+    return True
 
 
 def register_state(reg_by_sym, sym, iso_date):
@@ -572,6 +622,10 @@ def register_state(reg_by_sym, sym, iso_date):
 def main():
     changelog = json.load(open(os.path.join(HERE, "_changelog.json")))
     wb = json.load(open(os.path.join(HERE, "_wb_n500_snaps.json")))
+    for _d, _fx in WB_PIN_FIXES.items():
+        if _d in wb:
+            wb[_d] = sorted((set(wb[_d]) - set(_fx["drop"])) | set(_fx["add"]))
+            print(f"  archived list {_d} corrected ({_fx['src']}): +{_fx['add']} -{_fx['drop']}")
     REG_BY_SYM, REG_EVENTS = load_inclexcl_register()
     # Other sheets of the same NSE register, one ledger per index (runbook §141a/§141b). Each index
     # listed here merges its register events into the walk exactly like the Nifty 500 block below.
@@ -608,7 +662,9 @@ def main():
         _off = {}
     OFFICIAL = {}
     for _tier, _snaps in _off.items():
-        OFFICIAL[_tier] = {(f"{d[:4]}-{d[4:6]}-{d[6:8]}"): set(v) for d, v in _snaps.items() if d != "LIVE"}
+        OFFICIAL[_tier] = {
+            (f"{d[:4]}-{d[4:6]}-{d[6:8]}"): set(v) for d, v in _snaps.items() if d != "LIVE"
+        }
     # STALE CAPTURES (2026-09-23, runbook §141d): a mirror can keep serving an old constituent file —
     # Wayback's 2026-09-08 MidSmallcap 400 capture is byte-identical to the 2023-08-12 one although the
     # changelog records 382 membership changes between them, and pinning it dragged the September 2026
@@ -620,7 +676,9 @@ def main():
             for _a in _ds[:_i]:
                 if _a in _pins and _b in _pins and _pins[_a] == _pins[_b]:
                     _n = sum(
-                        len(c["included"]) + len(c["excluded"]) for c in changelog.get(_tier, []) if _a < c["eff"] <= _b
+                        len(c["included"]) + len(c["excluded"])
+                        for c in changelog.get(_tier, [])
+                        if _a < c["eff"] <= _b
                     )
                     if _n >= 3:
                         print(
@@ -698,7 +756,9 @@ def main():
     import gzip as _gz2
 
     try:
-        _sfd = json.loads(_gz2.decompress(open(os.path.join(ROOT, "docs", "sf_stock_data.bin"), "rb").read()))["data"]
+        _sfd = json.loads(
+            _gz2.decompress(open(os.path.join(ROOT, "docs", "sf_stock_data.bin"), "rb").read())
+        )["data"]
         _first = {k: str(o["d"][0]) for k, o in _sfd.items() if o.get("d")}
         _last = {k: str(o["d"][-1]) for k, o in _sfd.items() if o.get("d")}
         del _sfd
@@ -720,7 +780,9 @@ def main():
     import datetime as _dt
 
     def _plus_days(ymd, n):
-        return (_dt.date(int(ymd[:4]), int(ymd[4:6]), int(ymd[6:8])) + _dt.timedelta(days=n)).strftime("%Y%m%d")
+        return (
+            _dt.date(int(ymd[:4]), int(ymd[4:6]), int(ymd[6:8])) + _dt.timedelta(days=n)
+        ).strftime("%Y%m%d")
 
     _era_hits = {}
 
@@ -730,7 +792,11 @@ def main():
         dint = iso_date.replace("-", "")
         if cur in _first and _first[cur] <= dint:
             return cur  # current key trades on/before date
-        cands = [o for o in _REV.get(cur, []) if o in _first and _first[o] <= dint <= _plus_days(_last[o], 45)]
+        cands = [
+            o
+            for o in _REV.get(cur, [])
+            if o in _first and _first[o] <= dint <= _plus_days(_last[o], 45)
+        ]
         if not cands:
             return cur
         best = max(cands, key=lambda o: _last[o])  # the tape alive closest to the date
@@ -759,7 +825,9 @@ def main():
 
     for idx, slug in SLUGS.items():
         events = [c for c in changelog.get(idx, []) if not c.get("hole_fill")]
-        supp = [c for c in changelog.get(idx, []) if c.get("hole_fill")]  # §141e: added after the register
+        supp = [
+            c for c in changelog.get(idx, []) if c.get("hole_fill")
+        ]  # §141e: added after the register
         if not events:
             print(f"{idx}: no change events — left as-is")
             continue
@@ -782,22 +850,32 @@ def main():
                         cl_keys.add((canon(s), "exc", c["eff"]))
 
                 def _cl_has(sym, kind, eff):
-                    lo = (datetime.date.fromisoformat(eff) - datetime.timedelta(days=10)).isoformat()
-                    hi = (datetime.date.fromisoformat(eff) + datetime.timedelta(days=10)).isoformat()
-                    return any(k[0] == canon(sym) and k[1] == kind and lo <= k[2] <= hi for k in cl_keys)
+                    lo = (
+                        datetime.date.fromisoformat(eff) - datetime.timedelta(days=10)
+                    ).isoformat()
+                    hi = (
+                        datetime.date.fromisoformat(eff) + datetime.timedelta(days=10)
+                    ).isoformat()
+                    return any(
+                        k[0] == canon(sym) and k[1] == kind and lo <= k[2] <= hi for k in cl_keys
+                    )
 
                 added_pre = added_gap = 0
                 for ev in REG_EVENTS:
                     if ev["eff"] < first_cl:
-                        events = [*events, ev]
+                        events = events + [ev]
                         added_pre += 1
                     else:
                         inc = [s for s in ev["included"] if not _cl_has(s, "inc", ev["eff"])]
                         exc = [s for s in ev["excluded"] if not _cl_has(s, "exc", ev["eff"])]
                         if inc or exc:
-                            events = [
-                                *events,
-                                {"eff": ev["eff"], "included": inc, "excluded": exc, "src": "IndexInclExcl-gap"},
+                            events = events + [
+                                {
+                                    "eff": ev["eff"],
+                                    "included": inc,
+                                    "excluded": exc,
+                                    "src": "IndexInclExcl-gap",
+                                }
                             ]
                             added_gap += 1
                             for s in inc:
@@ -823,7 +901,11 @@ def main():
                 for _d, _v in json.load(open(os.path.join(HERE, "_mc_n500_snaps.json"))).items():
                     _keep, _drop = set(), []
                     for _s in _v:
-                        if register_state(REG_BY_SYM, canon(_s), _d) == "exc":
+                        # judge the ERA identity (ERA_OVERRIDES: MC's "Shree Precoated" code SHPRE is SPSL before 2009-10-15 —
+                        # its 2009-05-29 page still listed SPSL, excluded 2009-05-11) — and drop the MC_STALE names
+                        if (_s in MC_STALE and _d > MC_STALE[_s]) or register_state(
+                            REG_BY_SYM, canon(era_fix(_s, _d)), _d
+                        ) == "exc":
                             _drop.append(_s)
                         else:
                             _keep.add(_s)
@@ -835,9 +917,12 @@ def main():
                     _cands = {
                         s
                         for s in REG_BY_SYM
-                        if register_state(REG_BY_SYM, s, _d) == "inc" and s not in {canon(x) for x in _keep}
+                        if register_state(REG_BY_SYM, s, _d) == "inc"
+                        and s not in {canon(x) for x in _keep}
                     }
-                    _joins = {s for s in _cands if register_inc_is_live(REG_BY_SYM, s, _d, _wb_canon)}
+                    _joins = {
+                        s for s in _cands if register_inc_is_live(REG_BY_SYM, s, _d, _wb_canon)
+                    }
                     _stale_joins += len(_cands - _joins)
                     if _joins:
                         _added += len(_joins)
@@ -877,7 +962,9 @@ def main():
         # company, TIINDIA before 2017-11-02 = old Tube Investments). Rewritten only at output, the event
         # still counted under the new key, so the old company's entry and exit landed in two identities and
         # each half walked back for years (Midcap 50 2013: inc FEL / exc FRETAIL). Idempotent.
-        events = _era_events(fill_holes(idx, events, supp))  # no-op where the sub-index branch already filled
+        events = _era_events(
+            fill_holes(idx, events, supp)
+        )  # no-op where the sub-index branch already filled
         if cps:
             cps = {d: {era_fix(x, d) for x in S} for d, S in cps.items()}
         _tr = os.environ.get("MEMBERSHIP_TRACE", "")  # debug: "Nifty Smallcap 100:PCBL,RBA"
@@ -892,7 +979,9 @@ def main():
                 for _k in ("included", "excluded"):
                     for _x in _c[_k]:
                         if _hit(_x):
-                            print(f"  TRACE {idx}: {_c['eff']} {_k[:3]} {_x} (canon {canon(_x)}) src={_c.get('src')}")
+                            print(
+                                f"  TRACE {idx}: {_c['eff']} {_k[:3]} {_x} (canon {canon(_x)}) src={_c.get('src')}"
+                            )
             for _d, _S in sorted((cps or {}).items()):
                 print(f"  TRACE {idx}: pin {_d} has {[x for x in _S if _hit(x)]}")
         snaps = reconstruct(anchor, events, cps)
@@ -902,7 +991,9 @@ def main():
         # them risks pushing a 50-name tier over its size check.
         if idx == "Nifty 500":
             nr = reanchor_segments(snaps, cps, events)
-            print(f"  segment re-anchor: {nr} between-pin snapshots re-derived from their later pin")
+            print(
+                f"  segment re-anchor: {nr} between-pin snapshots re-derived from their later pin"
+            )
             n = checkpoint_continuity(snaps, cps, events)
             print(f"  continuity repair: restored {n} member-slots between pinned checkpoints")
         elif cps:
@@ -910,15 +1001,16 @@ def main():
             # snapshot is derived from the LATER pin through that window's events only, so a missing
             # event costs its own window, not every earlier year. (checkpoint_continuity stays N500-only.)
             nr = reanchor_segments(snaps, cps, events)
-            print(f"  {idx}: segment re-anchor: {nr} between-pin snapshots re-derived from their later pin")
+            print(
+                f"  {idx}: segment re-anchor: {nr} between-pin snapshots re-derived from their later pin"
+            )
         if idx == "Nifty 500":
             worst = validate_n500(snaps, wb)
             if worst < 99.0:  # SAFETY GATE: never overwrite good membership with a degraded rebuild
-                msg = (
+                raise SystemExit(
                     f"ABORT: Nifty500 validation {worst:.1f}% < 99% — refusing to write "
                     "(likely a missing input or NSE fetch issue); keeping committed data."
                 )
-                raise SystemExit(msg)
         # era-correct symbols per snapshot date so they match that period's bhavcopy series
         new_snaps = [
             {"effectiveDate": d, "symbols": sorted({emit(s, d) for s in S})}
@@ -929,7 +1021,9 @@ def main():
             print(
                 f"  era-aware emission: {len(_era_hits)} current->old key redirects on Nifty 500 "
                 f"({sum(v[0] for v in _era_hits.values())} member-slots); e.g. "
-                + "; ".join(f"{k} {v[1][:7]}..{v[2][:7]}" for k, v in sorted(_era_hits.items())[:12])
+                + "; ".join(
+                    f"{k} {v[1][:7]}..{v[2][:7]}" for k, v in sorted(_era_hits.items())[:12]
+                )
             )
         new_snaps.sort(key=lambda x: x["effectiveDate"])
         earliest = new_snaps[0]["effectiveDate"]
@@ -952,7 +1046,9 @@ def main():
     import gzip as _gz
 
     try:
-        _sf = json.loads(_gz.decompress(open(os.path.join(ROOT, "docs", "sf_stock_data.bin"), "rb").read()))["data"]
+        _sf = json.loads(
+            _gz.decompress(open(os.path.join(ROOT, "docs", "sf_stock_data.bin"), "rb").read())
+        )["data"]
     except Exception as _e:
         _sf = None
         print("  PHANTOM FLOOR skipped (no sf_stock_data.bin):", _e)
@@ -978,12 +1074,18 @@ def main():
                 keep = []
                 for sym in snap["symbols"]:
                     ft = first_trade.get(sym)
-                    if ft is not None and ft > dint and (not early or ft >= "20110101"):  # not yet trading => phantom
+                    if (
+                        ft is not None and ft > dint and (not early or ft >= "20110101")
+                    ):  # not yet trading => phantom
                         dropped.setdefault(sym, []).append(h_idx + " " + snap["effectiveDate"])
                     else:
                         keep.append(sym)
                 snap["symbols"] = keep
-        json.dump(dict(sorted(dropped.items())), open(os.path.join(HERE, "_phantom_dropped.json"), "w"), indent=0)
+        json.dump(
+            dict(sorted(dropped.items())),
+            open(os.path.join(HERE, "_phantom_dropped.json"), "w"),
+            indent=0,
+        )
         print(
             "  PHANTOM FLOOR (listing): dropped %d pre-listing rows across %d stocks, all indices (see _phantom_dropped.json)"
             % (sum(len(v) for v in dropped.values()), len(dropped))
@@ -1004,7 +1106,10 @@ def main():
 
     def _derive(name, fn, basis):
         # Official archived CSVs are ground truth — pin them exact; derive only between.
-        offd = {d: sorted({canon(x) for x in v}) for d, v in OFFICIAL.get(name, {}).items()}
+        # §220c: pinned through emit() — canon() AND era_key(), like every other snapshot — so a roster name maps to the
+        # ticker whose tape trades on that date. canon() alone put HEXT / SWANDEF (no bars until 2025 / 2024) into the
+        # 2018-19 official Smallcap 250 / MidSmallcap 400 lists in place of HEXAWARE / RNAVAL, which traded then.
+        offd = {d: sorted({emit(x, d) for x in v}) for d, v in OFFICIAL.get(name, {}).items()}
         dates = sorted({s["effectiveDate"] for bi in basis for s in H.get(bi, [])} | set(offd))
         out = []
         for d in dates:
@@ -1028,7 +1133,9 @@ def main():
             )
 
     _derive(
-        "Nifty MidSmallcap 400", lambda d: _asof("Nifty 500", d) - _asof("Nifty 100", d), ["Nifty 500", "Nifty 100"]
+        "Nifty MidSmallcap 400",
+        lambda d: _asof("Nifty 500", d) - _asof("Nifty 100", d),
+        ["Nifty 500", "Nifty 100"],
     )
     _derive(
         "Nifty Smallcap 250",
@@ -1067,7 +1174,9 @@ def main():
     if json.dumps(D["indicesHistory"], separators=(",", ":")) == old_ih:
         print(f"{binp}: indicesHistory unchanged — not rewritten")
     else:
-        open(binp, "wb").write(gzip.compress(json.dumps(D, separators=(",", ":")).encode(), 6, mtime=0))
+        open(binp, "wb").write(
+            gzip.compress(json.dumps(D, separators=(",", ":")).encode(), 6, mtime=0)
+        )
         print(f"Wrote {binp} ({os.path.getsize(binp) / 1048576:.1f} MB)")
 
     # spot checks

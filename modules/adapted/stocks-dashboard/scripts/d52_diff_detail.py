@@ -74,7 +74,8 @@ def d52(s, dn):
     k = i
     while k >= 0 and a[k] >= lo:
         ph = c[k] * (1000 + hb[k]) / 1000 if hb else c[k]
-        hi = max(hi, ph)
+        if ph > hi:
+            hi = ph
         k -= 1
     return None if hi <= 0 else (hi - c[i]) / hi * 100
 
@@ -83,14 +84,12 @@ def firstseen(s):
     for sn in snaps:
         if s in sn["symbols"]:
             return sn["effectiveDate"]
-    return None
 
 
 def lastseen(s):
     for sn in reversed(snaps):
         if s in sn["symbols"]:
             return sn["effectiveDate"]
-    return None
 
 
 def nm(s):
@@ -134,24 +133,37 @@ for ds in sorted(mine):
         else:
             rejoin += 1
     rows.append((ds, len(ours), len(tl), len(oo), len(ot)))
-    out.write("==== %s  ours=%d TL=%d  (only-ours=%d, only-TL=%d) ====\n" % (ds, len(ours), len(tl), len(oo), len(ot)))
+    out.write(
+        "==== %s  ours=%d TL=%d  (only-ours=%d, only-TL=%d) ====\n"
+        % (ds, len(ours), len(tl), len(oo), len(ot))
+    )
     out.write(" only-ours (member then, dropped since):\n")
     for s in oo:
-        out.write("   %-11s %-30s d52=%.1f  leftIndexAfter=%s\n" % (s, nm(s)[:30], d52(s, dn), lastseen(s)))
+        out.write(
+            "   %-11s %-30s d52=%.1f  leftIndexAfter=%s\n"
+            % (s, nm(s)[:30], d52(s, dn), lastseen(s))
+        )
     out.write(" only-TL (current member, not a member then):\n")
     for s in ot:
-        out.write("   %-11s %-30s d52=%.1f  joined=%s\n" % (s, nm(s)[:30], d52(s, dn), joined_after(s, ds)))
+        out.write(
+            "   %-11s %-30s d52=%.1f  joined=%s\n"
+            % (s, nm(s)[:30], d52(s, dn), joined_after(s, ds))
+        )
     out.write("\n")
 out.close()
 print("per-month counts:")
 print(" ".join("%s:%d/%d" % (r[0][2:], r[3], r[4]) for r in rows))
 print("\nTOTAL differences: only-ours=%d, only-TL=%d" % (tot_o, tot_t))
-print("only-TL split: new-entrants(IPO/first-add after date)=%d, rejoined-after=%d" % (newent, rejoin))
+print(
+    "only-TL split: new-entrants(IPO/first-add after date)=%d, rejoined-after=%d" % (newent, rejoin)
+)
 print("ANOMALIES (diff NOT explained by membership):", anom)
 print("\nTop 15 recurring ONLY-OURS (ex-members our PIT recovers, TL Rewind loses):")
 for s, c in cOurs.most_common(15):
     print("   %-11s %-30s %d months  (lastInIndex=%s)" % (s, nm(s)[:30], c, lastseen(s)))
-print("\nTop 15 recurring ONLY-TL (current members TL back-projects onto dates before they joined):")
+print(
+    "\nTop 15 recurring ONLY-TL (current members TL back-projects onto dates before they joined):"
+)
 for s, c in cTL.most_common(15):
     print("   %-11s %-30s %d months  (joined=%s)" % (s, nm(s)[:30], c, firstseen(s)))
 print("\nFull per-month detail -> scripts/_d52_diff_detail.txt")

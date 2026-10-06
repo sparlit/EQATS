@@ -104,7 +104,10 @@ def main():
         )
 
     vetoed = {k: v for k, v in fys.items() if v["state"] != "PASS"}
-    L.append("\n## GATED OUT after passing the quarterly gate — restated financial year (%d)\n" % len(vetoed))
+    L.append(
+        "\n## GATED OUT after passing the quarterly gate — restated financial year (%d)\n"
+        % len(vetoed)
+    )
     L.append(
         "These are NOT absences. The quarterly series matched ours on 27-40 anchors; the "
         "site's own four quarters then failed to sum to its own annual for the target FY or "
@@ -132,13 +135,14 @@ def main():
             ].append((k, r))
         elif gate_of(r):
             others[
-                "NEEDS-CROSSCHECK (a site HAD the quarter; its series does not reproduce ours — {})".format(
-                    "/".join(sorted({g.split(":")[1] for g in gate_of(r)}))
-                )
+                "NEEDS-CROSSCHECK (a site HAD the quarter; its series does not reproduce ours — "
+                "{})".format("/".join(sorted({g.split(":")[1] for g in gate_of(r)})))
             ].append((k, r))
         else:
             others[
-                "not-found-via:{} (no site holds this quarter for this basis)".format(",".join(raw["sites"]))
+                "not-found-via:{} (no site holds this quarter for this basis)".format(
+                    ",".join(raw["sites"])
+                )
             ].append((k, r))
     for bucket in sorted(others):
         rows = others[bucket]
@@ -156,7 +160,9 @@ def main():
     for s in raw.get("suspects", []):
         key = (s["sym"], s["qe"], s["field"])
         sus.setdefault(key, []).append(s)
-    L.append("\n## SUSPECT cells of OURS surfaced in passing (%d) — reported, NOT patched\n" % len(sus))
+    L.append(
+        "\n## SUSPECT cells of OURS surfaced in passing (%d) — reported, NOT patched\n" % len(sus)
+    )
     L.append(
         "§61a mode 6: a site reproduces our series everywhere except here. The indictment is "
         "against us. Correcting a stored value is the §2b procedure with its own evidence, "
@@ -178,7 +184,10 @@ def main():
         )
 
     open(a.md, "w", encoding="utf-8").write("\n".join(L) + "\n")
-    print("wrote %s  (filled %d, restated-veto %d, suspects %d)" % (a.md, len(kept), len(vetoed), len(sus)))
+    print(
+        "wrote %s  (filled %d, restated-veto %d, suspects %d)"
+        % (a.md, len(kept), len(vetoed), len(sus))
+    )
 
 
 if __name__ == "__main__":

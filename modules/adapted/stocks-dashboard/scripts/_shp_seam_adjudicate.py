@@ -34,7 +34,6 @@ import argparse
 import gzip
 import json
 import os
-import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LEDGER = os.path.join(HERE, "shp_fill_hist_2010_2016.json.gz")
@@ -59,12 +58,15 @@ def main():
                 continue
             if cur is None:
                 done["absent"] += 1
-                print("  %-11s %s  %-14s cell not in ledger (already applied or never landed)" % (sym, qe, act))
+                print(
+                    "  %-11s %s  %-14s cell not in ledger (already applied or never landed)"
+                    % (sym, qe, act)
+                )
                 continue
             if act == "replace":
                 w = list(r["with"])
                 # preserve the provenance slot shape: [prom,fii,dii,mf,ins,sub,nsh,src]
-                fills[sym][qe] = [*w, None, "bse_late_xbrl:adjudicated-vs-jun2016-anchor"]
+                fills[sym][qe] = w + [None, "bse_late_xbrl:adjudicated-vs-jun2016-anchor"]
                 done["replace"] += 1
             elif act == "patch_promoter":
                 c = list(cur)

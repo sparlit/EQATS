@@ -61,9 +61,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS = os.path.join(HERE, "..", "docs")
 OUT = os.path.join(DOCS, "ipos.json")
 SLIM = os.path.join(DOCS, "dash_slim.bin")
-WORKER = (
-    "https://stocksworld-quotes.dhruvan2510.workers.dev"  # live NSE quotes (Yahoo feed) — same source the page uses
-)
+WORKER = "https://stocksworld-quotes.dhruvan2510.workers.dev"  # live NSE quotes (Yahoo feed) — same source the page uses
 LISTED_DAYS = 180
 MIN_PAST = 100
 MON = {
@@ -130,7 +128,11 @@ def worker_quotes(syms):
             grp = pending[i : i + 30]
             try:
                 url = WORKER + "/?symbols=" + urllib.parse.quote(",".join(grp), safe="")
-                j = json.loads(B._get(url, headers={"User-Agent": B.UA, "Accept": "application/json"}, timeout=30))
+                j = json.loads(
+                    B._get(
+                        url, headers={"User-Agent": B.UA, "Accept": "application/json"}, timeout=30
+                    )
+                )
                 for k, v in ((j or {}).get("data") or {}).items():
                     ltp = to_num(v.get("ltp"))
                     if ltp is not None:
@@ -157,7 +159,11 @@ def main():
         print("current FAILED:", e, flush=True)
     try:
         past = (
-            get(jar, "public-past-issues", "https://www.nseindia.com/market-data/new-stock-exchange-listings-recent")
+            get(
+                jar,
+                "public-past-issues",
+                "https://www.nseindia.com/market-data/new-stock-exchange-listings-recent",
+            )
             or []
         )
     except Exception as e:
@@ -203,7 +209,10 @@ def main():
     listed = []
     if past is not None:
         if len(past) < MIN_PAST:
-            print("past-issues suspiciously small (%d) — keeping the previous file" % len(past), flush=True)
+            print(
+                "past-issues suspiciously small (%d) — keeping the previous file" % len(past),
+                flush=True,
+            )
             sys.exit(1)
         lo = (datetime.date.today() - datetime.timedelta(days=LISTED_DAYS)).isoformat()
         for r in past:
@@ -242,7 +251,9 @@ def main():
                 if r[5] is None and live.get(r[0]) is not None:
                     r[5] = live[r[0]]
                     n += 1
-            print("filled %d/%d missing listed prices from live feed" % (n, len(missing)), flush=True)
+            print(
+                "filled %d/%d missing listed prices from live feed" % (n, len(missing)), flush=True
+            )
 
     ist = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=5, minutes=30)
     out = {"updated": ist.strftime("%Y-%m-%d %H:%M"), "upcoming": upcoming, "listed": listed}

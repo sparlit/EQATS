@@ -47,7 +47,23 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 OUT = os.path.join(ROOT, "docs", "sf_stock_data.bin")
 MARK = os.path.join(ROOT, "docs", ".sf_updated")
-RELEASE_URL = "https://github.com/dhruvan246/stocks-dashboard/releases/download/data/sf_stock_data.bin"
+# Adjusted prices keep PX_DP decimals (runbook §179f, 2026-10-05). At 2 decimals an adjusted old price of a few rupees loses up to
+# 1.6% per paisa and every later re-scale re-rounds it: quantmac round 4 traced 4,474 of our cells to exactly that. Raw NSE
+# prices still arrive with 2 decimals; only the multiplications that convert history onto today's share basis use PX_DP.
+# Below Rs 1 they keep PX_DP_SUB1 (user, 2026-10-06): at Rs 0.09-0.44 four decimals still cut up to 0.05% per price — 12 quantmac
+# cells (BAJAUTOFIN 2009-10, MVL 2012, VIVIDHA 2015) sat 0.05-0.09 points off NSE's own rows. _pxr() is the one rounding rule.
+PX_DP = 4
+PX_DP_SUB1 = 6
+
+
+def _pxr(x):
+    """an adjusted price, rounded: 4 decimals from Rs 1 up, 6 below Rs 1 (runbook §179f)"""
+    return round(x, PX_DP_SUB1 if -1 < x < 1 else PX_DP)
+
+
+RELEASE_URL = (
+    "https://github.com/dhruvan246/stocks-dashboard/releases/download/data/sf_stock_data.bin"
+)
 
 sys.path.insert(0, HERE)
 # build_sf_data's module-level code parses sys.argv[1:] as its own START/DAILY_FROM dates — hide our
@@ -177,7 +193,8 @@ def load_base():
     for attempt in range(3):
         try:
             raw = urllib.request.urlopen(
-                urllib.request.Request(RELEASE_URL, headers={"User-Agent": "Mozilla/5.0"}), timeout=180
+                urllib.request.Request(RELEASE_URL, headers={"User-Agent": "Mozilla/5.0"}),
+                timeout=180,
             ).read()
             print("Base: release asset (%.1f MB)" % (len(raw) / 1048576))
             return json.loads(gzip.decompress(raw))
@@ -185,8 +202,9 @@ def load_base():
             last = e
             print("Base: release fetch attempt %d failed (%s)" % (attempt + 1, e))
             time.sleep(10)
-    msg = f"ABORT: could not fetch the merged release-asset base after 3 tries ({last}) — refusing to build from the un-merged in-repo copy"
-    raise SystemExit(msg)
+    raise SystemExit(
+        f"ABORT: could not fetch the merged release-asset base after 3 tries ({last}) — refusing to build from the un-merged in-repo copy"
+    )
 
 
 def _open_confirms(e, j, applied_f, off):
@@ -371,7 +389,9 @@ def self_heal(data, CA_OFF, NOADJ, end_ymd, jar, window_days=28):
     # would strand a record published more than four weeks late.
     for sym, dd in UNCONFIRMED.items():
         for ex, fac in (CA_OFF.get(sym) or {}).items():
-            if any(abs(od(ex) - od(int(u))) <= 3 for u in dd) and not any(e[0] == sym and e[1] == ex for e in events):
+            if any(abs(od(ex) - od(int(u))) <= 3 for u in dd) and not any(
+                e[0] == sym and e[1] == ex for e in events
+            ):
                 events.append((sym, ex, fac, False))
 
     # Ledger DEMERGERS (scripts/demerger_adj.json): reconciled every run regardless of age
@@ -423,8 +443,12 @@ def self_heal(data, CA_OFF, NOADJ, end_ymd, jar, window_days=28):
                 v = daycache[ymd].get(_a)
                 if v is not None:
                     break
-        if v is None:  # CI runners get blocked/rate-limited fetching NSE's archive -> fall back to the
-            v = (_RAW.get(sym) or {}).get(str(ymd))  # committed raw ex-date prices so self_heal still works
+        if (
+            v is None
+        ):  # CI runners get blocked/rate-limited fetching NSE's archive -> fall back to the
+            v = (_RAW.get(sym) or {}).get(
+                str(ymd)
+            )  # committed raw ex-date prices so self_heal still works
         if v is None:  # a parked UNCONFIRMED move carries its own raw prev/ex closes (§161)
             for u, rec in (UNCONFIRMED.get(sym) or {}).items():
                 if int(u) == ymd:
@@ -443,7 +467,9 @@ def self_heal(data, CA_OFF, NOADJ, end_ymd, jar, window_days=28):
         if not e or not e.get("d"):
             continue
         ds = e["d"]
-        j = next((k for k in range(len(ds)) if ds[k] >= ex), None)  # drop day = first day on/after ex
+        j = next(
+            (k for k in range(len(ds)) if ds[k] >= ex), None
+        )  # drop day = first day on/after ex
         if j is None or j < 1:
             continue
         c = e["c"]
@@ -490,7 +516,9 @@ def self_heal(data, CA_OFF, NOADJ, end_ymd, jar, window_days=28):
         # real drop (same reconciliation guard — so combined split+bonus, ex-date moves and misparses
         # resolve to inference just like the rebuild, instead of being force-overridden).
         if dem is not None:
-            correct_f = dem[0]  # demerger: scale out the SPOS open-gap (value moved to the spin-off)
+            correct_f = dem[
+                0
+            ]  # demerger: scale out the SPOS open-gap (value moved to the spin-off)
         elif off is not None and 0.75 <= raw_ratio / off <= 1.30:
             correct_f = off
         elif off is not None and _open_confirms(e, j, applied_f, off):
@@ -530,11 +558,13 @@ def self_heal(data, CA_OFF, NOADJ, end_ymd, jar, window_days=28):
         if abs(corr - 1) > tol:  # baked-in treatment disagrees with the rebuild's -> fix
             for key in ("c", "h", "l", "op", "vw"):
                 if key in e:
-                    e[key] = [round(x * corr, 2) for x in e[key][:j]] + e[key][j:]
+                    e[key] = [_pxr(x * corr) for x in e[key][:j]] + e[key][j:]
             kind = (
                 (f"demerger f={correct_f:.4f}")
                 if dem is not None
-                else ("demerger:keep-drop" if correct_f == 1.0 else f"split/bonus f={correct_f:.4f}")
+                else (
+                    "demerger:keep-drop" if correct_f == 1.0 else f"split/bonus f={correct_f:.4f}"
+                )
             )
             print(
                 "  SELF-HEAL %s ex %d: was f=%.4f -> %s  (rescaled %d pre-ex points x%.4f)"
@@ -578,7 +608,12 @@ MANUAL_RIGHTS = [
     ("PNBHOUSING", 20230405, 0.8282, 0.8563),  # Rights 29:54 @ 275, cum 540.90 -> TERP 448.00
     ("SOBHA", 20240619, 0.9733, 0.9347),  # Rights 6:47 @ 1651, cum 2159.70 -> TERP 2102.11
     ("UPL", 20241126, 0.9592, 0.9705),  # Rights 1:8  @ 360,  cum 568.55 -> TERP 545.38
-    ("M&MFIN", 20250514, 0.9731, 1.0131),  # Rights 1:8  @ 194,  cum 256.30 -> TERP 249.42 (2nd rights)
+    (
+        "M&MFIN",
+        20250514,
+        0.9731,
+        1.0131,
+    ),  # Rights 1:8  @ 194,  cum 256.30 -> TERP 249.42 (2nd rights)
     ("ADANIENT", 20251117, 0.9695, 0.9782),  # Rights 3:25 @ 1800, cum 2516.80 -> TERP 2440.00
     # --- 2026-09-26 (DATA_RUNBOOK §169): RESIDUAL corrections against the factor the bin ALREADY bakes (M&MFIN
     # precedent). Target = textbook TERP from NSE's own record (issue = face value + premium; cum = NSE close the
@@ -618,7 +653,10 @@ except Exception as _e:
 try:
     RIGHTS_ADJ = {
         (x[0], int(x[1])): (float(x[2]), float(x[3]))
-        for x in (json.load(open(os.path.join(ROOT, "scripts", "rights_adj.json"))) or {}).get("rows") or []
+        for x in (json.load(open(os.path.join(ROOT, "scripts", "rights_adj.json"))) or {}).get(
+            "rows"
+        )
+        or []
     }
 except Exception as _e:
     RIGHTS_ADJ = {}
@@ -631,12 +669,32 @@ if RIGHTS_ADJ:
     _ra_by = {}
     for _s, _b in RIGHTS_ADJ:
         _ra_by.setdefault(_s, []).append(_ord(_b))
-    _kept = [r for r in MANUAL_RIGHTS if not any(abs(_ord(int(r[1])) - b) <= 30 for b in _ra_by.get(r[0], ()))]
+    _kept = [
+        r
+        for r in MANUAL_RIGHTS
+        if not any(abs(_ord(int(r[1])) - b) <= 30 for b in _ra_by.get(r[0], ()))
+    ]
     print(
         "  rights_adj.json: %d bar targets; %d MANUAL_RIGHTS/rights_terp rows superseded"
         % (len(RIGHTS_ADJ), len(MANUAL_RIGHTS) - len(_kept))
     )
     MANUAL_RIGHTS = _kept
+# §179d (2026-09-29): split/bonus factors whose BAKED step is wrong or missing, as bar-exact targets in the same reconcile
+# (scripts/ca_bar_targets.json): promoter-excluded bonuses (OMAXE / AJRINFRA 2013 — the nominal ratio went to the public only),
+# JMFINANCIL 2008 (inferred 1/20; NSE: FV split 10->1 + bonus 3:2 = 1/25), GDL 2007 and GODREJIND 2015 (never applied; the latter
+# is below self_heal's 2% gate). Merged AFTER the MANUAL_RIGHTS supersede above, which stays about rights rows only.
+try:
+    _cbt = {
+        (x[0], int(x[1])): (float(x[2]), float(x[3]))
+        for x in (json.load(open(os.path.join(ROOT, "scripts", "ca_bar_targets.json"))) or {}).get(
+            "rows"
+        )
+        or []
+    }
+    RIGHTS_ADJ.update(_cbt)
+    print("  ca_bar_targets.json: %d split/bonus bar targets" % len(_cbt))
+except Exception as _e:
+    print(f"  (ca_bar_targets.json not loaded: {_e})")
 
 # --- DEMERGER price adjustment (2026-08-03). A demerger is not a loss — holders receive the
 # spin-off's shares — but the raw tape keeps the ex-date value separation as a price fall, so every
@@ -681,7 +739,10 @@ def flatten_demerger_exdays(data):
             continue
         sym, ex = x["sym"], int(x["ex"])
         if (sym, ex) not in MANUAL_DEMERGERS:
-            print("::warning::§170 flatten: %s %d has no demerger_adj.json row — ex-day bar left as traded" % (sym, ex))
+            print(
+                "::warning::§170 flatten: %s %d has no demerger_adj.json row — ex-day bar left as traded"
+                % (sym, ex)
+            )
             continue
         e = data.get(sym)
         ds = e.get("d") if e else None
@@ -689,7 +750,10 @@ def flatten_demerger_exdays(data):
             continue
         j = next((k for k in range(len(ds)) if ds[k] >= ex), None)
         if j is None or ds[j] != ex:
-            print("::warning::§170 flatten: %s has no bar on its ex-day %d — nothing flattened" % (sym, ex))
+            print(
+                "::warning::§170 flatten: %s has no bar on its ex-day %d — nothing flattened"
+                % (sym, ex)
+            )
             continue
         c = e["c"][j]
         changed = False
@@ -719,17 +783,23 @@ def apply_manual_rights(data):
         if abs(cur - raw_drop) < abs(cur - raw_drop / factor):  # still ~raw drop -> not yet applied
             for key in ("c", "h", "l", "op", "vw"):
                 if key in e:
-                    e[key] = [round(x * factor, 2) for x in e[key][:j]] + e[key][j:]
+                    e[key] = [_pxr(x * factor) for x in e[key][:j]] + e[key][j:]
             n += 1
-            print("  MANUAL-RIGHTS %s ex %d x%.4f (%d pre-ex points -> Trendlyne parity)" % (sym, ex, factor, j))
+            print(
+                "  MANUAL-RIGHTS %s ex %d x%.4f (%d pre-ex points -> Trendlyne parity)"
+                % (sym, ex, factor, j)
+            )
     return n
 
 
 def reconcile_rights(data):
     """§173: converge every rights_adj.json bar to its target. applied = NSE raw ratio / stored ratio at the EXACT bar
     (a row whose date is not a bar is reported, never guessed onto a neighbour); corr = target / applied; rescale the
-    pre-bar history when |corr-1| exceeds the 2-decimal rounding floor (max 0.15%, 0.011/price). Sub-Rs0.25 boundaries
-    are skipped (rounding noise, §self_heal quantization guard). Idempotent: a converged bar reads corr ~ 1."""
+    pre-bar history when |corr-1| exceeds the 2-decimal rounding floor (max 0.02%, 0.011/price). Sub-Rs0.25 boundaries
+    are skipped (rounding noise, §self_heal quantization guard). Idempotent: a converged bar reads corr ~ 1.
+    §179d (2026-09-29): the absolute floor was 0.15% — it left 10 rows 0.05-0.14% off their textbook target for good
+    (SHRIRAMFIN 2020 baked 0.9730 vs 0.9744, PVRINOX, BHARTIARTL 2021, INDHOTEL 2021, BAJAJFINSV 2012, DHANI 2018 never applied
+    at 0.999) and could never apply a sub-0.15% event (GODREJIND 2015 1:1250). 0.011/price still covers 2-decimal rounding."""
     n = 0
     for (sym, bar), (target, raw) in sorted(RIGHTS_ADJ.items(), key=lambda kv: kv[0][1]):
         e = data.get(sym)
@@ -738,17 +808,19 @@ def reconcile_rights(data):
             continue
         j = next((k for k in range(len(ds)) if ds[k] >= bar), None)
         if j is None or j < 1 or ds[j] != bar:
-            print("::warning::§173 rights_adj %s %d: no bar on that date — row skipped" % (sym, bar))
+            print(
+                "::warning::§173 rights_adj %s %d: no bar on that date — row skipped" % (sym, bar)
+            )
             continue
         c = e["c"]
         if min(c[j], c[j - 1]) < 0.25:
             continue
         applied = raw / (c[j] / c[j - 1])
         corr = target / applied
-        if abs(corr - 1) > max(0.0015, 0.011 / min(c[j], c[j - 1])):
+        if abs(corr - 1) > max(0.0002, 0.011 / min(c[j], c[j - 1])):
             for key in ("c", "h", "l", "op", "vw"):
                 if key in e:
-                    e[key] = [round(x * corr, 2) for x in e[key][:j]] + e[key][j:]
+                    e[key] = [_pxr(x * corr) for x in e[key][:j]] + e[key][j:]
             n += 1
             print(
                 "  RIGHTS-RECONCILE %s %d: baked %.4f -> target %.4f (%d pre-bar points x%.4f)"
@@ -766,7 +838,8 @@ def reconcile_rights(data):
 # refetch) and idempotent by the apply_manual_rights test. See scripts/ca_open_arbitrated.json.
 try:
     CA_ARBITRATED = [
-        tuple(x[:4]) for x in json.load(open(os.path.join(ROOT, "scripts", "ca_open_arbitrated.json")))["events"]
+        tuple(x[:4])
+        for x in json.load(open(os.path.join(ROOT, "scripts", "ca_open_arbitrated.json")))["events"]
     ]
 except Exception as _e:
     CA_ARBITRATED = []
@@ -801,7 +874,7 @@ def apply_ca_arbitrated(data):
         if abs(cur - raw_drop) < abs(cur - raw_drop / factor):  # still ~raw drop -> not yet applied
             for key in ("c", "h", "l", "op", "vw"):
                 if key in e:
-                    e[key] = [round(x * factor, 2) for x in e[key][:j]] + e[key][j:]
+                    e[key] = [_pxr(x * factor) for x in e[key][:j]] + e[key][j:]
             n += 1
             print(
                 "  CA-OPEN-ARB %s ex %d x%.6f (%d pre-ex points; ratio %.6f -> %.6f)"
@@ -1012,7 +1085,9 @@ def insert_weekend_sessions(data, j, old2new=None):
         ins = skip = 0
         for r in rows:
             osym, c, _p, t = r[0], r[1], r[2], r[3]
-            sym = _survivor(osym, ymd)  # merged-away / era ticker -> the survivor series LIVE at the session
+            sym = _survivor(
+                osym, ymd
+            )  # merged-away / era ticker -> the survivor series LIVE at the session
             h = r[4] if len(r) > 4 else c
             l = r[5] if len(r) > 5 else c
             o_ = r[6] if len(r) > 6 else c
@@ -1020,7 +1095,11 @@ def insert_weekend_sessions(data, j, old2new=None):
             dlv = r[8] if len(r) > 8 else 0
             vw = r[9] if len(r) > 9 else 0
             e = data.get(sym)
-            if not e or not e.get("d") or any(k not in e for k in ("c", "t", "h", "l", "op", "v", "dv", "vw")):
+            if (
+                not e
+                or not e.get("d")
+                or any(k not in e for k in ("c", "t", "h", "l", "op", "v", "dv", "vw"))
+            ):
                 skip += 1
                 continue  # unknown symbol — nothing to anchor to
             ds = e["d"]
@@ -1051,17 +1130,17 @@ def insert_weekend_sessions(data, j, old2new=None):
                 skip += 1
                 continue
             f = e["c"][i - 1] / raw_prev  # CA-adjustment level at the insertion point
-            adj_c = round(c * f, 2)
+            adj_c = _pxr(c * f)
             # implausible day move vs the neighbour = ex-date-on-session edge or bad anchor -> leave out
             # floor 0.001 (was 0.01): two 1:10 splits are exactly 0.01 and a rights term pushes BAJFINANCE
             # pre-2016 to 0.0097 — the old floor rejected it on five §106b sessions (§106h)
             if not (0.001 < f < 100) or not (0.6 <= adj_c / e["c"][i - 1] <= 1.6):
                 skip += 1
                 continue
-            hi = round(max(h, c) * f, 2)
-            lo_ = round((min(l, c) if l > 0 else c) * f, 2)
-            opx = round(o_ * f, 2) if o_ > 0 else adj_c
-            vwx = round(vw * f, 2) if vw > 0 else adj_c
+            hi = _pxr(max(h, c) * f)
+            lo_ = _pxr((min(l, c) if l > 0 else c) * f)
+            opx = _pxr(o_ * f) if o_ > 0 else adj_c
+            vwx = _pxr(vw * f) if vw > 0 else adj_c
             e["d"].insert(i, ymd)
             e["c"].insert(i, adj_c)
             e["t"].insert(i, round(t, 1))
@@ -1108,9 +1187,16 @@ def apply_bar_inserts(data, cal=None):
         sym, ymd = r["sym"], int(r["ymd"])
         e = data.get(sym)
         if cal is not None and off_calendar([ymd], cal):  # §89f splice guard — see off_calendar()
-            print("  BAR-INSERT %s %d: not a session on the market calendar — left out, never emitted" % (sym, ymd))
+            print(
+                "  BAR-INSERT %s %d: not a session on the market calendar — left out, never emitted"
+                % (sym, ymd)
+            )
             continue
-        if not e or not e.get("d") or any(k not in e for k in ("c", "t", "h", "l", "op", "v", "dv", "vw")):
+        if (
+            not e
+            or not e.get("d")
+            or any(k not in e for k in ("c", "t", "h", "l", "op", "v", "dv", "vw"))
+        ):
             print("  BAR-INSERT %s %d: series absent — left out" % (sym, ymd))
             continue
         ds = e["d"]
@@ -1124,16 +1210,17 @@ def apply_bar_inserts(data, cal=None):
             print("  BAR-INSERT %s %d: anchor bar %d not in series — left out" % (sym, ymd, aymd))
             continue
         f = e["c"][ai] / float(a["c"])
-        c = round(float(r["c"]) * f, 2)
+        c = _pxr(float(r["c"]) * f)
         if not (0.001 < f < 100) or not (0.6 <= c / e["c"][ai] <= 1.6):
             print(
-                "  BAR-INSERT %s %d: implausible (f=%.5f, close/anchor %.3f) — left out" % (sym, ymd, f, c / e["c"][ai])
+                "  BAR-INSERT %s %d: implausible (f=%.5f, close/anchor %.3f) — left out"
+                % (sym, ymd, f, c / e["c"][ai])
             )
             continue
-        h = round(max(float(r["h"]), float(r["c"])) * f, 2)
-        l = round((min(float(r["l"]), float(r["c"])) if float(r["l"]) > 0 else float(r["c"])) * f, 2)
-        o = round(float(r["o"]) * f, 2) if float(r.get("o") or 0) > 0 else c
-        vw = round(float(r["vw"]) * f, 2) if float(r.get("vw") or 0) > 0 else c
+        h = _pxr(max(float(r["h"]), float(r["c"])) * f)
+        l = _pxr((min(float(r["l"]), float(r["c"])) if float(r["l"]) > 0 else float(r["c"])) * f)
+        o = _pxr(float(r["o"]) * f) if float(r.get("o") or 0) > 0 else c
+        vw = _pxr(float(r["vw"]) * f) if float(r.get("vw") or 0) > 0 else c
         e["d"].insert(i, ymd)
         e["c"].insert(i, c)
         e["t"].insert(i, round(float(r["tl"]), 1))
@@ -1144,7 +1231,9 @@ def apply_bar_inserts(data, cal=None):
         e["dv"].insert(i, round(float(r.get("dv") or 0), 2))
         e["vw"].insert(i, vw)
         ins += 1
-        print("  BAR-INSERT %s %d: inserted (f=%.5f, close %.2f, anchor %d)" % (sym, ymd, f, c, aymd))
+        print(
+            "  BAR-INSERT %s %d: inserted (f=%.5f, close %.2f, anchor %d)" % (sym, ymd, f, c, aymd)
+        )
     return ins
 
 
@@ -1185,7 +1274,9 @@ def normalize_turnover_units(data):
     splice (BZ backfill / weekend sessions wrote lacs bars into old-format days — 9,845 of them in
     2019) and is left alone. That test is RELATIVE, so it too cannot re-fire once a day converts.
     """
-    LACS_MED_CUT = 0.01  # a DAY's median r: ~1-3 on a rupee day, ~1e-5 on a lacs day (empty band between)
+    LACS_MED_CUT = (
+        0.01  # a DAY's median r: ~1-3 on a rupee day, ~1e-5 on a lacs day (empty band between)
+    )
     STRAY_RATIO = 1e4  # a bar this far BELOW its day's median is already-lacs (unit gap is 1e5)
 
     samples = {}  # ymd -> [r, ...]
@@ -1274,7 +1365,9 @@ def session_calendar(data, lo, hi, floor=SESSION_FLOOR):
         for i in range(1, len(ds)):
             if lo <= ds[i] <= hi and c[i] == c[i - 1]:
                 rep[ds[i]] += 1
-    copied = sorted(d for d, n in cnt.items() if n >= floor and lo <= d <= hi and rep[d] >= PHANTOM_REPEAT * n)
+    copied = sorted(
+        d for d, n in cnt.items() if n >= floor and lo <= d <= hi and rep[d] >= PHANTOM_REPEAT * n
+    )
     cal = {d for d, n in cnt.items() if n >= floor} - set(copied)
     if copied:
         print(
@@ -1313,7 +1406,10 @@ def phantom_date_audit(data, lo, hi, floor=SESSION_FLOOR):
             cnt.update(ds)
     bad = sorted(d for d, n in cnt.items() if lo <= d <= hi and n < floor)
     if not bad:
-        print("Phantom-date audit: clean — every date in %d..%d has >= %d symbol-bars." % (lo, hi, floor))
+        print(
+            "Phantom-date audit: clean — every date in %d..%d has >= %d symbol-bars."
+            % (lo, hi, floor)
+        )
         return 0
     who = collections.defaultdict(list)
     badset = set(bad)
@@ -1327,13 +1423,16 @@ def phantom_date_audit(data, lo, hi, floor=SESSION_FLOOR):
         print("  PHANTOM-DATE %d: %d bar(s) — %s" % (d, cnt[d], ", ".join(sorted(who[d])[:20])))
     print(
         "::warning::Phantom-date audit: %d date(s) in %d..%d carry fewer than %d symbol-bars — "
-        "see the PHANTOM-DATE lines; heal via the emitting ledger (DATA_RUNBOOK §89f)" % (len(bad), lo, hi, floor)
+        "see the PHANTOM-DATE lines; heal via the emitting ledger (DATA_RUNBOOK §89f)"
+        % (len(bad), lo, hi, floor)
     )
     return len(bad)
 
 
 PHANTOM_SESSIONS = os.path.join(HERE, "sf_phantom_sessions.json")
-PHANTOM_REPEAT = 0.90  # phantom-session signature (heal_price_series.CARRY_FLOOR): share of a date's bars that
+PHANTOM_REPEAT = (
+    0.90  # phantom-session signature (heal_price_series.CARRY_FLOOR): share of a date's bars that
+)
 # repeat each symbol's previous close — real sessions 2-6%, the ten ledger dates 93-100%
 # (measured 2026-09-25 over the live bin)
 _BAR_KEYS = ("d", "c", "t", "h", "l", "op", "v", "dv", "vw")
@@ -1347,7 +1446,9 @@ def _phantom_session_dates():
     except FileNotFoundError:
         return set()
     except Exception as ex:
-        print(f"::warning::sf_phantom_sessions.json unreadable ({ex}) — phantom-session drop SKIPPED")
+        print(
+            f"::warning::sf_phantom_sessions.json unreadable ({ex}) — phantom-session drop SKIPPED"
+        )
         return set()
 
 
@@ -1360,7 +1461,9 @@ def _phantom_symbol_dates():
     except FileNotFoundError:
         return {}
     except Exception as ex:
-        print(f"::warning::sf_phantom_sessions.json symbol_dates unreadable ({ex}) — per-symbol drop SKIPPED")
+        print(
+            f"::warning::sf_phantom_sessions.json symbol_dates unreadable ({ex}) — per-symbol drop SKIPPED"
+        )
         return {}
 
 
@@ -1403,7 +1506,11 @@ def drop_phantom_sessions(data):
     if per_date:
         print(
             "Phantom sessions (§167): dropped %d bar(s) on %d exchange-holiday date(s): %s"
-            % (sum(per_date.values()), len(per_date), ", ".join("%d(%d)" % (d, per_date[d]) for d in sorted(per_date)))
+            % (
+                sum(per_date.values()),
+                len(per_date),
+                ", ".join("%d(%d)" % (d, per_date[d]) for d in sorted(per_date)),
+            )
         )
     if sym_dropped:
         print(
@@ -1440,7 +1547,9 @@ def phantom_session_audit(data, lo, hi, floor=SESSION_FLOOR):
                 cnt[d] += 1
                 if c[i] == c[i - 1]:
                     rep[d] += 1
-    bad = sorted(d for d, n in cnt.items() if n >= floor and d not in known and rep[d] >= PHANTOM_REPEAT * n)
+    bad = sorted(
+        d for d, n in cnt.items() if n >= floor and d not in known and rep[d] >= PHANTOM_REPEAT * n
+    )
     if not bad:
         print(
             "Phantom-session audit: clean — no date in %d..%d with >= %d bars repeats the previous close on "
@@ -1493,7 +1602,9 @@ def insert_sme_history(data, meta, cal=None):
     bp = os.path.join(HERE, "bse_sme_prepend.json.gz")
     if os.path.exists(bp):
         try:
-            for k2, v2 in (json.load(gzip.open(bp, "rt", encoding="utf-8")).get("prepend") or {}).items():
+            for k2, v2 in (
+                json.load(gzip.open(bp, "rt", encoding="utf-8")).get("prepend") or {}
+            ).items():
                 led.setdefault("prepend", {}).setdefault(k2, v2)
         except Exception as ex:
             print(f"  bse_sme_prepend ledger unreadable ({ex}) — skipped")
@@ -1586,7 +1697,7 @@ def insert_sme_history(data, meta, cal=None):
         for i, k in enumerate(KEYS):
             vals = [b[i] for b in bars]
             if k in ("c", "h", "l", "op", "vw") and abs(s - 1.0) > 1e-9:
-                vals = [round(x * s, 2) for x in vals]
+                vals = [_pxr(x * s) for x in vals]
             e[k][pos:pos] = vals
         if pos:
             print(
@@ -1678,7 +1789,7 @@ def insert_bz_history(data, cal=None):
                 lo = bisect.bisect_right(ds, int(b.get("from") or 0))
                 for key in ("c", "h", "l", "op", "vw"):
                     if key in e:
-                        e[key][lo : j + 1] = [round(x * pre, 2) for x in e[key][lo : j + 1]]
+                        e[key][lo : j + 1] = [_pxr(x * pre) for x in e[key][lo : j + 1]]
                 scaled += 1
                 print(
                     "  BZ-BACKFILL %s: undid a phantom corporate action x%.4f on bars %d..%d"
@@ -1736,7 +1847,11 @@ def apply_bz_scale_fix(data):
         ds, c = e["d"], e["c"]
         w = fx["witness"]
         ia, ib = bisect.bisect_left(ds, w["a"]), bisect.bisect_left(ds, w["b"])
-        if not (ia < len(ds) and ds[ia] == w["a"] and ib < len(ds) and ds[ib] == w["b"]) or not c[ia] or not c[ib]:
+        if (
+            not (ia < len(ds) and ds[ia] == w["a"] and ib < len(ds) and ds[ib] == w["b"])
+            or not c[ia]
+            or not c[ib]
+        ):
             print("  BZ-SCALE-FIX %s: witness bars %d/%d absent — skipped" % (sym, w["a"], w["b"]))
             continue
         cur = c[ib] / c[ia]
@@ -1753,7 +1868,7 @@ def apply_bz_scale_fix(data):
             lo, hi = bisect.bisect_left(ds, seg["lo"]), bisect.bisect_right(ds, seg["hi"])
             for key in ("c", "h", "l", "op", "vw"):
                 if key in e:
-                    e[key][lo:hi] = [round(x * seg["f"], 2) for x in e[key][lo:hi]]
+                    e[key][lo:hi] = [_pxr(x * seg["f"]) for x in e[key][lo:hi]]
             print(
                 "  BZ-SCALE-FIX %s: bars %d..%d x%.6f"
                 % (sym, ds[lo] if lo < len(ds) else 0, ds[hi - 1] if hi else 0, seg["f"])
@@ -1850,8 +1965,11 @@ def apply_series_surgery(data, meta, cal=None):
             )
             if ok:
                 for key in ("c", "h", "l", "op", "vw"):
-                    e[key][:i0] = [round(x * pre, 2) for x in e[key][:i0]]
-                print("  SURGERY %s: pre-%d history rescaled x%.6f onto the official CA level" % (sym, frm, pre))
+                    e[key][:i0] = [_pxr(x * pre) for x in e[key][:i0]]
+                print(
+                    "  SURGERY %s: pre-%d history rescaled x%.6f onto the official CA level"
+                    % (sym, frm, pre)
+                )
             else:
                 print(
                     f"  SURGERY {sym}: pre-anchor {anc} no longer matches — prescale skipped "
@@ -1928,12 +2046,21 @@ def prune_unconfirmed(data, CA_OFF, NOADJ):
     def _od(y):
         return datetime.date(y // 10000, y // 100 % 100, y % 100).toordinal()
 
-    def _applied(sym, ex, rec):  # factor the bin now bakes across this boundary (raw ratio / adjusted ratio)
+    def _applied(
+        sym, ex, rec
+    ):  # factor the bin now bakes across this boundary (raw ratio / adjusted ratio)
         e_ = data.get(sym) or {}
         ds_ = e_.get("d") or []
         cs_ = e_.get("c") or []
         k = next((i for i in range(len(ds_)) if ds_[i] >= ex), None)
-        if k is None or k < 1 or not cs_[k - 1] or not cs_[k] or not rec.get("prev") or not rec.get("close"):
+        if (
+            k is None
+            or k < 1
+            or not cs_[k - 1]
+            or not cs_[k]
+            or not rec.get("prev")
+            or not rec.get("close")
+        ):
             return None
         return (rec["close"] / rec["prev"]) / (cs_[k] / cs_[k - 1])
 
@@ -1949,12 +2076,17 @@ def prune_unconfirmed(data, CA_OFF, NOADJ):
             def near(dates):
                 return any(abs(_od(int(x)) - _od(ex)) <= 3 for x in dates)
 
-            offs = [f_ for x, f_ in (CA_OFF.get(sym) or {}).items() if abs(_od(int(x)) - _od(ex)) <= 3]
+            offs = [
+                f_ for x, f_ in (CA_OFF.get(sym) or {}).items() if abs(_od(int(x)) - _od(ex)) <= 3
+            ]
             ap = _applied(sym, ex, rec) if offs else None
-            official_done = bool(offs) and ap is not None and any(abs(ap / f_ - 1) <= 0.02 for f_ in offs)
+            official_done = (
+                bool(offs) and ap is not None and any(abs(ap / f_ - 1) <= 0.02 for f_ in offs)
+            )
             if official_done or near(NOADJ.get(sym) or ()) or near(crash.get(sym, ())):
                 print(
-                    "  UNCONFIRMED %s %d resolved by an official/verified record — removed from the queue" % (sym, ex)
+                    "  UNCONFIRMED %s %d resolved by an official/verified record — removed from the queue"
+                    % (sym, ex)
                 )
                 del UNCONFIRMED[sym][u]
                 n += 1
@@ -2011,7 +2143,9 @@ def main():
     # it's a rename (same security) -> migrate the history onto the new ticker instead of starting a
     # fresh, truncated series (which would break 52w hi/lo etc. for ~a year). Same logic the full
     # build uses; this keeps future renames continuous between rebuilds.
-    isin2sym = {meta[s]["isin"]: s for s in data if isinstance(meta.get(s), dict) and meta[s].get("isin")}
+    isin2sym = {
+        meta[s]["isin"]: s for s in data if isinstance(meta.get(s), dict) and meta[s].get("isin")
+    }
     # One-time format migration: old bins store per-mil offsets (hb/lb/ob/vw) + delivery x10; the
     # new format stores EXACT h/l/op/vw + delivery %. Convert on load so this updater works on either
     # (a freshly-rebuilt exact bin already has 'h' and is skipped).
@@ -2023,10 +2157,10 @@ def main():
             lb = e.get("lb", [0] * n)
             ob = e.get("ob", [0] * n)
             vwo = e.get("vw", [0] * n)
-            e["h"] = [round(c[i] * (1000 + hb[i]) / 1000, 2) for i in range(n)]
-            e["l"] = [round(c[i] * (1000 - lb[i]) / 1000, 2) for i in range(n)]
-            e["op"] = [round(c[i] * (1000 + ob[i]) / 1000, 2) for i in range(n)]
-            e["vw"] = [round(c[i] * (1000 + vwo[i]) / 1000, 2) for i in range(n)]
+            e["h"] = [_pxr(c[i] * (1000 + hb[i]) / 1000) for i in range(n)]
+            e["l"] = [_pxr(c[i] * (1000 - lb[i]) / 1000) for i in range(n)]
+            e["op"] = [_pxr(c[i] * (1000 + ob[i]) / 1000) for i in range(n)]
+            e["vw"] = [_pxr(c[i] * (1000 + vwo[i]) / 1000) for i in range(n)]
             e["dv"] = [round(x / 10, 2) for x in e.get("dv", [])]
             for kk in ("hb", "lb", "ob"):
                 e.pop(kk, None)
@@ -2361,7 +2495,7 @@ def main():
                 for f in ("d", "c", "t", "h", "l", "op", "v", "dv", "vw"):
                     if f in oo and f in on:
                         if adj != 1.0 and f in ("c", "h", "l", "op", "vw"):
-                            on[f] = [round(oo[f][i] * adj, 2) for i in idx] + on[f]
+                            on[f] = [_pxr(oo[f][i] * adj) for i in idx] + on[f]
                         else:
                             on[f] = [oo[f][i] for i in idx] + on[f]
                 # "inlife" (§207): an official split/bonus of the NEW key dated INSIDE the old fragment's life. NSE files a
@@ -2370,7 +2504,9 @@ def main():
                 # on/after the ex-date, official factor, NSE raw close of the bar before, NSE raw close of that bar]; the
                 # history before the bar is rescaled so the baked factor (raw ratio / stored ratio, reconcile_rights' test)
                 # reads the official one. Runs once, inside the merge; to the 2-decimal rounding floor.
-                for bar, fac, rprev, rbar in (spec.get("inlife") or []) if isinstance(spec, dict) else []:
+                for bar, fac, rprev, rbar in (
+                    (spec.get("inlife") or []) if isinstance(spec, dict) else []
+                ):
                     ds_ = on["d"]
                     j = next((k for k in range(len(ds_)) if ds_[k] >= bar), None)
                     if j is None or j < 1 or ds_[j] != bar or not on["c"][j] or not on["c"][j - 1]:
@@ -2384,7 +2520,7 @@ def main():
                     if abs(corr - 1) > max(0.0015, 0.011 / min(on["c"][j], on["c"][j - 1])):
                         for f in ("c", "h", "l", "op", "vw"):
                             if f in on:
-                                on[f] = [round(x * corr, 2) for x in on[f][:j]] + on[f][j:]
+                                on[f] = [_pxr(x * corr) for x in on[f][:j]] + on[f][j:]
                         print(
                             "  MANUAL RENAME MERGE %s -> %s: in-life official factor at %d: baked %.4f -> %.4f "
                             "(%d earlier bars x%.6f)" % (old, new, bar, baked, fac, j, corr)
@@ -2414,7 +2550,10 @@ def main():
                 data.pop(old, None)
                 meta.pop(old, None)
                 merged += 1
-                print("  MANUAL RENAME MERGE %s -> %s (%d pts prepended, adj=%.4f)" % (old, new, len(idx), adj))
+                print(
+                    "  MANUAL RENAME MERGE %s -> %s (%d pts prepended, adj=%.4f)"
+                    % (old, new, len(idx), adj)
+                )
     # §200 META HEAL for merges that already ran: the first §200 run copied each fragment's placeholder name (the old
     # ticker) onto its successor, so AURIGROW / GTECJAINX / SONAMLTD read "GODHA" / "KEERTI" / "SONAMCLOCK", and the
     # carried ISIN was the SM-era one where NSE has since minted a new series (face-value change, same issuer). Once the
@@ -2451,10 +2590,21 @@ def main():
     #  KALYANI: a key the day loop appended (name = ticker); the register names it Kalyani Commercials.
     META_FIX = {
         "FOCUS": (
-            {"name": "Focus Business Solution Ltd", "ind": "Information Technology", "isin": "INE593W01010"},
-            {"name": "Focus Lighting and Fixtures Limited", "ind": "Uncategorized", "isin": "INE593W01028"},
+            {
+                "name": "Focus Business Solution Ltd",
+                "ind": "Information Technology",
+                "isin": "INE593W01010",
+            },
+            {
+                "name": "Focus Lighting and Fixtures Limited",
+                "ind": "Uncategorized",
+                "isin": "INE593W01028",
+            },
         ),
-        "KALYANI": ({"name": "KALYANI", "isin": None}, {"name": "Kalyani Commercials Limited", "isin": "INE610E01010"}),
+        "KALYANI": (
+            {"name": "KALYANI", "isin": None},
+            {"name": "Kalyani Commercials Limited", "isin": "INE610E01010"},
+        ),
     }
     for sym, (was, want) in META_FIX.items():
         m_ = meta.get(sym)
@@ -2485,11 +2635,17 @@ def main():
     bzf = apply_bz_scale_fix(
         data
     )  # §165e: scale fixes for BZ blocks already spliced in (ledger edits can't reach them)
-    sm = insert_sme_history(data, meta, cal=cal)  # NSE SME-platform history (create + main-board prepends, §145)
-    sg = apply_series_surgery(data, meta, cal=cal)  # wrong-company stitch repair (DVL/DTIL, §89) — before the
+    sm = insert_sme_history(
+        data, meta, cal=cal
+    )  # NSE SME-platform history (create + main-board prepends, §145)
+    sg = apply_series_surgery(
+        data, meta, cal=cal
+    )  # wrong-company stitch repair (DVL/DTIL, §89) — before the
     # day loop so appends land on the repaired series
     mr = apply_manual_rights(data)  # hand-verified per-stock rights adjustments to match Trendlyne
-    ra = reconcile_rights(data)  # §173: Nifty-500 rights at their textbook TERP, bar-exact (supersedes the rows above)
+    ra = reconcile_rights(
+        data
+    )  # §173: Nifty-500 rights at their textbook TERP, bar-exact (supersedes the rows above)
     if ra:
         print("Rights (§173): %d bar(s) reconciled to their textbook TERP." % ra)
     ao = apply_ca_arbitrated(
@@ -2549,7 +2705,13 @@ def main():
             if e is None:
                 isin = r[11] if len(r) > 11 and r[11] else ""
                 old = isin2sym.get(isin) if isin else None
-                if old and old in data and old != sym and data[old]["d"] and data[old]["d"][-1] < ymd:
+                if (
+                    old
+                    and old in data
+                    and old != sym
+                    and data[old]["d"]
+                    and data[old]["d"][-1] < ymd
+                ):
                     # same ISIN as an existing older series -> ticker RENAME: migrate the history
                     data[sym] = data.pop(old)
                     meta[sym] = meta.pop(old) if old in meta else {}
@@ -2589,11 +2751,13 @@ def main():
             (c / prev_raw) if prev_raw else 1.0
             off = (CA_OFF.get(sym) or {}).get(ymd)  # OFFICIAL split/bonus factor for this ex-date
             nd = NOADJ.get(sym)  # official demerger/scheme ex-dates
-            f = ingest_factor(day, sym, ymd, e["d"][-1], prev_raw, c, o_, off, nd, today.isoformat())
+            f = ingest_factor(
+                day, sym, ymd, e["d"][-1], prev_raw, c, o_, off, nd, today.isoformat()
+            )
             if f != 1.0:  # corporate action: re-anchor history (prices scale by f; dv % does not)
                 for key in ("c", "h", "l", "op", "vw"):
                     if key in e:
-                        e[key] = [round(x * f, 2) for x in e[key]]
+                        e[key] = [_pxr(x * f) for x in e[key]]
                 print(
                     "  {}: {} corporate action f={}{} (history re-anchored)".format(
                         day, sym, f, " [official]" if off is not None and f == off else ""
@@ -2634,7 +2798,9 @@ def main():
             "divided out) and await verification in scripts/unconfirmed_ca.json: %s"
             % (
                 sum(len(v) for v in UNCONFIRMED.values()),
-                ", ".join(f"{s}@{u}" for s in sorted(UNCONFIRMED) for u in sorted(UNCONFIRMED[s]))[:900],
+                ", ".join(f"{s}@{u}" for s in sorted(UNCONFIRMED) for u in sorted(UNCONFIRMED[s]))[
+                    :900
+                ],
             )
         )
 
@@ -2670,7 +2836,9 @@ def main():
     # so a symbol that comes back to life takes its live classification straight back. Idempotent:
     # a converged file reports 0.
     try:
-        _fills = (json.load(open(os.path.join(HERE, "industry_fills.json"))) or {}).get("fills") or {}
+        _fills = (json.load(open(os.path.join(HERE, "industry_fills.json"))) or {}).get(
+            "fills"
+        ) or {}
     except Exception as e:
         _fills = {}
         print(f"  (industry_fills unavailable: {e})")
@@ -2696,7 +2864,9 @@ def main():
     # §89f tripwire — after EVERY heal and append, so it also sees bars this run emitted. Non-fatal;
     # names the symbols so the emitting ledger is one grep away (never edit the bin to fix it).
     phantom_date_audit(data, _cal_lo, int(D["end"].replace("-", "")))
-    phantom_session_audit(data, _cal_lo, int(D["end"].replace("-", "")))  # §167: the dense twin of the above
+    phantom_session_audit(
+        data, _cal_lo, int(D["end"].replace("-", ""))
+    )  # §167: the dense twin of the above
 
     # ALWAYS rewrite the freshly-loaded MERGED base to disk — even on a no-op run — so the split/publish
     # step never reads the stale, UN-merged in-repo copy (frozen at an old `end`, still carrying
@@ -2736,7 +2906,11 @@ def main():
     # tiny version marker — committed daily, lets the browser cache the big bin in IndexedDB
     # keyed to this `end` and skip re-downloading 80 MB until the data actually changes.
     json.dump({"end": D["end"]}, open(os.path.join(ROOT, "docs", "sf_meta.json"), "w"))
-    print("Wrote {} ({:.2f} MB) + docs/sf_meta.json, end={}".format(OUT, len(blob) / 1048576, D["end"]))
+    print(
+        "Wrote {} ({:.2f} MB) + docs/sf_meta.json, end={}".format(
+            OUT, len(blob) / 1048576, D["end"]
+        )
+    )
 
 
 if __name__ == "__main__":

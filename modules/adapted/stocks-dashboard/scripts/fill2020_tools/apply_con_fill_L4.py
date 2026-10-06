@@ -133,7 +133,8 @@ def main():
                 mirror_note = (
                     "scripts/fundamentals.json has no row for this quarter (that mirror "
                     "starts at %s for this symbol); docs payload written, cell guarded by "
-                    "the conpat_filing_fills registration in verify_fills_live.py" % (have[0] if have else "n/a")
+                    "the conpat_filing_fills registration in verify_fills_live.py"
+                    % (have[0] if have else "n/a")
                 )
                 continue
             rows.append((label, row))
@@ -141,7 +142,9 @@ def main():
             continue
         clash = [(l, r[3]) for l, r in rows if r[3] is not None and abs(r[3] - con) > TOL]
         if clash:
-            blocked.append((key, f"con slot already holds {clash[0][1]} (not {con}) in {clash[0][0]}"))
+            blocked.append(
+                (key, f"con slot already holds {clash[0][1]} (not {con}) in {clash[0][0]}")
+            )
             continue
         if all(r[3] is not None for _, r in rows):
             skipped.append((key, f"con already == {con}"))
@@ -160,7 +163,10 @@ def main():
         # older quarter point-in-time-visible and, with no row behind it, the symbol DROPS OUT of
         # revCon for that date. Create the row, carrying `fin` from the symbol's own siblings.
         if c.get("rev_con") is not None or c.get("op_con") is not None:
-            for label, store in (("docs/sf_revop.json", rd), ("scripts/revop_fundamentals.json", rs)):
+            for label, store in (
+                ("docs/sf_revop.json", rd),
+                ("scripts/revop_fundamentals.json", rs),
+            ):
                 qs = store.get(sym)
                 if qs is None or str(qe) in qs:
                     continue
@@ -170,7 +176,10 @@ def main():
                     continue
                 fin = sib[0][6]
                 qs[str(qe)] = [None, None, None, None, None, None, fin, None, None]
-                print("  ROW  %-12s %d  %s created (fin=%s from this symbol's own rows)" % (sym, qe, label, fin))
+                print(
+                    "  ROW  %-12s %d  %s created (fin=%s from this symbol's own rows)"
+                    % (sym, qe, label, fin)
+                )
 
         # ---- revenue / operating-profit twins (optional)
         for field, slot, tag in (("rev_con", 1, "rev"), ("op_con", 3, "op")):
@@ -179,14 +188,19 @@ def main():
                 continue
             v = round(float(v), 2)
             ok = True
-            for label, store in (("docs/sf_revop.json", rd), ("scripts/revop_fundamentals.json", rs)):
+            for label, store in (
+                ("docs/sf_revop.json", rd),
+                ("scripts/revop_fundamentals.json", rs),
+            ):
                 row = (store.get(sym) or {}).get(str(qe))
                 if row is None or len(row) <= slot:
                     blocked.append((key, f"{label} has no revop row/slot for {field}"))
                     ok = False
                     break
                 if row[slot] is not None and abs(row[slot] - v) > TOL:
-                    blocked.append((key, "%s slot %d already holds %s (not %s)" % (label, slot, row[slot], v)))
+                    blocked.append(
+                        (key, "%s slot %d already holds %s (not %s)" % (label, slot, row[slot], v))
+                    )
                     ok = False
                     break
             if not ok:
@@ -218,7 +232,9 @@ def main():
                     row[5] = con
                 print("  MIR  %-12s %d  %s patC slot 5 = %s" % (sym, qe, label, con))
             elif abs(row[5] - con) > TOL:
-                blocked.append((key, f"{label} patC mirror holds {row[5]} (not {con}) — left alone"))
+                blocked.append(
+                    (key, f"{label} patC mirror holds {row[5]} (not {con}) — left alone")
+                )
 
         # ---- provenance (the exact tokens verify_fills_live.py registers)
         rec = {
@@ -257,12 +273,14 @@ def main():
             and abs(live_rev[1] - round(float(c["rev_con"]), 2)) <= TOL
         )
         if c.get("rev_con") is not None and not rev_landed:
-            rec["rev_con_read_not_stored"] = "{} — read from the same statement but NOT written: {}".format(
-                c["rev_con"],
-                "no sf_revop row exists for this quarter"
-                if not live_rev
-                else f"sf_revop already holds {live_rev[1]} (a different vintage); a backfill never "
-                "overwrites a stored value",
+            rec["rev_con_read_not_stored"] = (
+                "{} — read from the same statement but NOT written: {}".format(
+                    c["rev_con"],
+                    "no sf_revop row exists for this quarter"
+                    if not live_rev
+                    else f"sf_revop already holds {live_rev[1]} (a different vintage); a backfill never "
+                    "overwrites a stored value",
+                )
             )
         if rev_landed:
             prov.setdefault(
@@ -321,7 +339,9 @@ def main():
     json.dump(rs, open(rev_s, "w"), separators=(",", ":"))
     json.dump(prov, open(prov_p, "w"), indent=1, sort_keys=True)
     json.dump(pin, open(pin_p, "w"), indent=1, sort_keys=True)
-    json.dump(skips, open(skip_p, "w"), indent=1)  # this ledger is pretty-printed on disk; keep it that way
+    json.dump(
+        skips, open(skip_p, "w"), indent=1
+    )  # this ledger is pretty-printed on disk; keep it that way
     print("\nWROTE 7 files.")
     return 0
 

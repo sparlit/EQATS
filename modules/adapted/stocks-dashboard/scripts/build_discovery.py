@@ -46,7 +46,6 @@ import html
 import json
 import os
 import re
-import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS = os.path.join(HERE, "..", "docs")
@@ -102,7 +101,12 @@ classif = json.load(open(dp("sector_classification.json"), encoding="utf-8"))
 META = {}  # SYM -> {name, mcap, latest, d52}
 for k, m in (slim.get("meta") or {}).items():
     sym = str(m.get("symbol") or k.split(".")[0]).upper()
-    META[sym] = {"name": m.get("name") or sym, "mcap": m.get("mcap"), "latest": m.get("latest"), "d52": m.get("d52")}
+    META[sym] = {
+        "name": m.get("name") or sym,
+        "mcap": m.get("mcap"),
+        "latest": m.get("latest"),
+        "d52": m.get("d52"),
+    }
 
 
 def nameof(sym, fallback=""):
@@ -116,13 +120,13 @@ ANN_BUCKETS = [
         "orders",
         "Order Wins",
         "Companies announcing new orders / contract wins in the last month.",
-        re.compile(r"orders?/contracts|order\(s\)\/contract", re.IGNORECASE),
+        re.compile(r"orders?/contracts|order\(s\)\/contract", re.I),
     ),
     (
         "capex",
         "Capacity & New Products",
         "Commercial production started, capacity added or new products launched.",
-        re.compile(r"commercial production|capacity addition|product launch|new line", re.IGNORECASE),
+        re.compile(r"commercial production|capacity addition|product launch|new line", re.I),
     ),
     (
         "ma",
@@ -130,7 +134,7 @@ ANN_BUCKETS = [
         "Acquisitions, mergers, joint ventures, MOUs and strategic tie-ups.",
         re.compile(
             r"acquisition|amalgamation|merger|demerger|scheme of arrangement|memorandum of understanding|agreements|tie ?up",
-            re.IGNORECASE,
+            re.I,
         ),
     ),
     (
@@ -139,39 +143,44 @@ ANN_BUCKETS = [
         "Preferential issues, QIPs, rights issues and other capital raises.",
         re.compile(
             r"preferential issue|qualified institution|rights issue|fccb|issue of securities|allotment of securities|fund raising|offer for sale",
-            re.IGNORECASE,
+            re.I,
         ),
     ),
     (
         "openoffer",
         "Open Offers",
         "Open offers triggered by takeovers / stake purchases.",
-        re.compile(r"open offer", re.IGNORECASE),
+        re.compile(r"open offer", re.I),
     ),
-    ("buyback", "Buybacks", "Share buyback announcements and updates.", re.compile(r"buy ?back", re.IGNORECASE)),
+    (
+        "buyback",
+        "Buybacks",
+        "Share buyback announcements and updates.",
+        re.compile(r"buy ?back", re.I),
+    ),
     (
         "reward",
         "Dividends, Bonus & Splits",
         "Dividends declared, bonus issues and stock splits.",
-        re.compile(r"^dividend|bonus|stock split|sub-?division", re.IGNORECASE),
+        re.compile(r"^dividend|bonus|stock split|sub-?division", re.I),
     ),
     (
         "rating",
         "Credit Rating Updates",
         "Rating upgrades, downgrades, reaffirmations and watch actions.",
-        re.compile(r"credit rating", re.IGNORECASE),
+        re.compile(r"credit rating", re.I),
     ),
     (
         "meet",
         "Investor Meets",
         "Analyst / institutional investor meets, con-calls and presentations.",
-        re.compile(r"investor meet|analyst|investor presentation|con\.? call", re.IGNORECASE),
+        re.compile(r"investor meet|analyst|investor presentation|con\.? call", re.I),
     ),
     (
         "spurt",
         "Volume & Price Spurts",
         "Exchange surveillance: unusual volume or price movement clarifications.",
-        re.compile(r"spurt in volume|price movement", re.IGNORECASE),
+        re.compile(r"spurt in volume|price movement", re.I),
     ),
     (
         "redflag",
@@ -179,7 +188,7 @@ ANN_BUCKETS = [
         "Insolvency, defaults, fraud, regulatory action, auditor exits, trading suspensions.",
         re.compile(
             r"insolvency|default|fraud|arrest|action\(s\)|statutory auditor|suspension of trading|penalt|one time settlement",
-            re.IGNORECASE,
+            re.I,
         ),
     ),
 ]
@@ -254,7 +263,11 @@ def build_orders_bucket(per, t):
                 remark += " · " + (
                     f"{ratio:.1f}× annual sales"
                     if ratio >= 1
-                    else ("%d%% of annual sales" % round(ratio * 100) if ratio >= 0.01 else "<1% of annual sales")
+                    else (
+                        "%d%% of annual sales" % round(ratio * 100)
+                        if ratio >= 0.01
+                        else "<1% of annual sales"
+                    )
                 )
         else:
             cap = s["cap"] or ""
@@ -279,7 +292,9 @@ def build_orders_bucket(per, t):
 # ------------------------------------------- 2) results buckets (computed, per quarter)
 def prev_qe(qe):
     y, m = qe // 10000, (qe // 100) % 100
-    return {3: (y - 1) * 10000 + 331, 6: y * 10000 + 331, 9: y * 10000 + 630, 12: y * 10000 + 930}[m]  # unused
+    return {3: (y - 1) * 10000 + 331, 6: y * 10000 + 331, 9: y * 10000 + 630, 12: y * 10000 + 930}[
+        m
+    ]  # unused
 
 
 def yoy_qe(qe):
@@ -304,7 +319,7 @@ def qlabel(qe):
 
 def build_results_buckets():
     qes = set()
-    for qmap in revop.values():
+    for _s, qmap in revop.items():
         for q in qmap:
             qes.add(int(q))
     qes = sorted((q for q in qes if q >= FIRST_RES_QE), reverse=True)
@@ -328,7 +343,12 @@ def build_results_buckets():
                 continue
             patY = (pat - patA) / abs(patA) * 100
             revY = (rev - revA) / abs(revA) * 100 if (rev is not None and revA) else None
-            if pat >= RES_MIN_PAT and patY >= 25 and (revY is None or revY >= 10) and (revY is not None or patY >= 40):
+            if (
+                pat >= RES_MIN_PAT
+                and patY >= 25
+                and (revY is None or revY >= 10)
+                and (revY is not None or patY >= 40)
+            ):
                 rows.append(
                     [
                         sym,
@@ -509,7 +529,12 @@ THEMES = [
     ("hosp", "Hospitals & Diagnostics", r"hospital|diagnostic|healthcare service", ""),
     ("hotel", "Hotels & Travel", r"hotel|resort|tour|travel|airline|aviation", ""),
     ("it", "IT Services & Software", r"software|it enabled|computers - |internet & catalogue", ""),
-    ("realty", "Realty & Building", r"realty|residential|commercial projects|cement|building products", ""),
+    (
+        "realty",
+        "Realty & Building",
+        r"realty|residential|commercial projects|cement|building products",
+        "",
+    ),
     ("logi", "Shipping & Logistics", r"shipping|logistics|\bport\b|marine", ""),
     (
         "pharma",
@@ -535,7 +560,7 @@ THEMES = [
 def build_sector_buckets():
     out = []
     for key, t, rx_s, seeds_s in THEMES:
-        rx, seeds = re.compile(rx_s, re.IGNORECASE), set(seeds_s.split())
+        rx, seeds = re.compile(rx_s, re.I), set(seeds_s.split())
         rows = []
         for k, c in classif.items():
             sym = k.split(".")[0].upper()
@@ -544,11 +569,24 @@ def build_sector_buckets():
                 continue
             blob = " ".join(str(c.get(f) or "") for f in ("igroup", "industry", "subgroup"))
             if sym in seeds or rx.search(blob):
-                rows.append([sym, m["name"], round(m["mcap"], 1), round(m.get("d52") or 0, 1), c.get("subgroup") or ""])
+                rows.append(
+                    [
+                        sym,
+                        m["name"],
+                        round(m["mcap"], 1),
+                        round(m.get("d52") or 0, 1),
+                        c.get("subgroup") or "",
+                    ]
+                )
         # seeded symbols with no classification entry still belong in the theme
         for sym in seeds:
             m = META.get(sym)
-            if m and m.get("mcap") and m["mcap"] >= MCAP_FLOOR and not any(r[0] == sym for r in rows):
+            if (
+                m
+                and m.get("mcap")
+                and m["mcap"] >= MCAP_FLOOR
+                and not any(r[0] == sym for r in rows)
+            ):
                 rows.append([sym, m["name"], round(m["mcap"], 1), round(m.get("d52") or 0, 1), ""])
         rows.sort(key=lambda x: -x[2])
         rows = rows[:80]
@@ -582,7 +620,9 @@ def build_deal_buckets():
         for r in drows:
             if r[0] < lo:
                 continue
-            a = agg.setdefault(r[2], {"name": r[3], "buy": 0.0, "sell": 0.0, "buyers": {}, "last": ""})
+            a = agg.setdefault(
+                r[2], {"name": r[3], "buy": 0.0, "sell": 0.0, "buyers": {}, "last": ""}
+            )
             v = r[6] * r[7] / 1e7
             if r[5] == "B":
                 a["buy"] += v
@@ -590,7 +630,8 @@ def build_deal_buckets():
                 a["buyers"][c] = a["buyers"].get(c, 0.0) + v
             else:
                 a["sell"] += v
-            a["last"] = max(a["last"], r[0])
+            if r[0] > a["last"]:
+                a["last"] = r[0]
         rows = []
         for sym, a in agg.items():
             if a["buy"] < minbuy:
@@ -650,7 +691,8 @@ def build_insider_buckets():
                 a["ppl"][p] = a["ppl"].get(p, 0.0) + v
             else:
                 a["sell"] += v
-            a["last"] = max(a["last"], r[0])
+            if r[0] > a["last"]:
+                a["last"] = r[0]
         rows = []
         for sym, a in agg.items():
             if a["buy"] < minbuy:
@@ -703,13 +745,17 @@ def build_spike_buckets():
         a = agg.setdefault(r[1], {"name": r[2], "n": 0, "cr": 0.0, "best": 0.0, "last": 0})
         a["n"] += 1
         a["cr"] += r[5]
-        a["best"] = max(a["best"], r[8])
-        a["last"] = max(a["last"], r[0])
+        if r[8] > a["best"]:
+            a["best"] = r[8]
+        if r[0] > a["last"]:
+            a["last"] = r[0]
 
     def fmt(ymd):
         return "%04d-%02d-%02d" % (ymd // 10000, ymd // 100 % 100, ymd % 100)
 
-    rows = [[s, a["name"], a["n"], round(a["cr"], 1), a["best"], fmt(a["last"])] for s, a in agg.items()]
+    rows = [
+        [s, a["name"], a["n"], round(a["cr"], 1), a["best"], fmt(a["last"])] for s, a in agg.items()
+    ]
     rows.sort(key=lambda x: (-x[2], -x[3]))
     rows = rows[:100]
     return (
@@ -731,7 +777,7 @@ def build_spike_buckets():
 # ---------------------------------------------------------------- assemble
 def main():
     res = build_results_buckets()
-    [b for b in res if not b["k"].startswith("res") or (res and b["k"] == res[0]["k"])]
+    [b for b in res if not b["k"].startswith("res") or res and b["k"] in (res[0]["k"],)]
     deal = build_insider_buckets() + build_deal_buckets() + build_spike_buckets()
     groups = (
         [
@@ -747,7 +793,12 @@ def main():
     )
     ist = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=5, minutes=30)
     out = {"updated": ist.strftime("%Y-%m-%d %H:%M IST"), "groups": groups}
-    json.dump(out, open(dp("discovery.json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    json.dump(
+        out,
+        open(dp("discovery.json"), "w", encoding="utf-8"),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
     nb = sum(len(g["buckets"]) for g in groups)
     print(
         "WROTE docs/discovery.json: %d groups, %d buckets, %.2f MB"

@@ -60,7 +60,10 @@ XC = os.path.join(HERE, "_xbrl_cache")
 os.makedirs(XC, exist_ok=True)
 
 MON = {
-    m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+    )
 }
 
 
@@ -135,7 +138,13 @@ def main():
                 lists[sym] = NA.list_rows(sym)
             except Exception:
                 lists[sym] = None
-        rec = {"sym": sym, "qe": qe, "basis": basis, "fill_rev": t.get("rev"), "fill_op": t.get("op")}
+        rec = {
+            "sym": sym,
+            "qe": qe,
+            "basis": basis,
+            "fill_rev": t.get("rev"),
+            "fill_op": t.get("op"),
+        }
         rrow = (revop.get(sym) or {}).get(str(qe))
         frow = next((r for r in fund.get(sym, []) if r and r[0] == qe), None)
         ri, oi_, pi = (0, 2, 1) if basis == "std" else (1, 3, 3)
@@ -147,10 +156,15 @@ def main():
             out[k] = rec
             continue
         want = "Consolidated" if basis == "con" else "Non-Consolidated"
-        rows = [r for r in lists[sym] if (r.get("consolidated") or "") == want and fdt(r.get("toDate")) == qe]
+        rows = [
+            r
+            for r in lists[sym]
+            if (r.get("consolidated") or "") == want and fdt(r.get("toDate")) == qe
+        ]
         rows.sort(
             key=lambda r: (
-                fdt((r.get("filingDate") or "").split()[0] if r.get("filingDate") else "") or 99999999,
+                fdt((r.get("filingDate") or "").split()[0] if r.get("filingDate") else "")
+                or 99999999,
                 str(r.get("seqNumber") or ""),
             )
         )
@@ -187,10 +201,20 @@ def main():
             time.sleep(1.0)
             continue
         hint = first.get("consolidated")
-        rs, os_, _es, rc, oc, _ec, fin = BR.xbrl_revop(xml, hint)
+        rs, os_, es, rc, oc, ec, fin = BR.xbrl_revop(xml, hint)
         nps, npc = BF.xbrl_profit(xml, hint)
-        x = {"rev": rs, "op": os_, "pat": nps} if basis == "std" else {"rev": rc, "op": oc, "pat": npc}
-        rec["xbrl"] = {"rev": x["rev"], "op": x["op"], "pat": x["pat"], "fin": fin, "seq": first.get("seqNumber")}
+        x = (
+            {"rev": rs, "op": os_, "pat": nps}
+            if basis == "std"
+            else {"rev": rc, "op": oc, "pat": npc}
+        )
+        rec["xbrl"] = {
+            "rev": x["rev"],
+            "op": x["op"],
+            "pat": x["pat"],
+            "fin": fin,
+            "seq": first.get("seqNumber"),
+        }
         verdicts = {}
         for slot in ("rev", "op", "pat"):
             stored = rec[f"live_{slot}"]
@@ -210,7 +234,16 @@ def main():
         out[k] = rec
         print(
             "%-14s %d %s  n_rows=%d  rev:%-14s op:%-14s pat:%-14s -> %s"
-            % (sym, qe, basis, len(rows), verdicts["rev"], verdicts["op"], verdicts["pat"], rec["verdict"]),
+            % (
+                sym,
+                qe,
+                basis,
+                len(rows),
+                verdicts["rev"],
+                verdicts["op"],
+                verdicts["pat"],
+                rec["verdict"],
+            ),
             flush=True,
         )
         json.dump(out, open(OUT, "w", encoding="utf-8"), indent=1)

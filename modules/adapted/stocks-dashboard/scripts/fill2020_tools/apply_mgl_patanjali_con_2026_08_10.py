@@ -167,11 +167,16 @@ def main():
             if row is None:
                 sys.exit(f"GUARD {sym} {qe} missing in {os.path.basename(path)}")
             if not close(row[idx], old):
-                sys.exit(f"GUARD {sym} {qe} {slot} in {os.path.basename(path)}: found {row[idx]!r} expected {old!r}")
+                sys.exit(
+                    f"GUARD {sym} {qe} {slot} in {os.path.basename(path)}: found {row[idx]!r} expected {old!r}"
+                )
             if not close(row[idx], new):
                 row[idx] = new
                 touched += 1
-        print("%s: %d cells %s" % (os.path.basename(path), touched, "would change" if dry else "written"))
+        print(
+            "%s: %d cells %s"
+            % (os.path.basename(path), touched, "would change" if dry else "written")
+        )
         if not dry:
             json.dump(d, open(path, "w"), separators=(",", ":"))
 

@@ -60,7 +60,9 @@ import ist
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS = os.path.join(HERE, "..", "..", "docs", "ideas")
 LIQ_MIN_TURNOVER = 25e5  # Rs 25 lakh median daily turnover over the window
-NSE_PDF = "https://nsearchives.nseindia.com/corporate/"  # the prefix docs/announcements.json rows omit
+NSE_PDF = (
+    "https://nsearchives.nseindia.com/corporate/"  # the prefix docs/announcements.json rows omit
+)
 
 
 def nse_announcements(asof, by_scrip):
@@ -77,7 +79,7 @@ def nse_announcements(asof, by_scrip):
     day, rows, total = asof.isoformat(), [], 0
     for r in d.get("rows") or []:
         try:
-            sym, _name, dt, cat, desc, pdf = r[:6]
+            sym, name, dt, cat, desc, pdf = r[:6]
         except (TypeError, ValueError):
             continue
         if not str(dt).startswith(day):
@@ -106,56 +108,56 @@ CATS = [
         "ORDER",
         re.compile(
             r"\b(order|orders|contract|loi|letter of intent|work order|purchase order|tender|awarded|bagged|supply agreement|rate contract)\b",
-            re.IGNORECASE,
+            re.I,
         ),
     ),
     (
         "CAPEX",
         re.compile(
             r"\b(capex|capacity|expansion|new plant|commercial production|commencement of (commercial )?production|land|greenfield|brownfield|unit ii|phase ii|installed capacity|commissioning)\b",
-            re.IGNORECASE,
+            re.I,
         ),
     ),
     (
         "RATING",
         re.compile(
             r"\b(credit rating|crisil|icra|care ratings|india ratings|infomerics|acuite|brickwork|rating (action|reaffirm|upgrade|assigned))\b",
-            re.IGNORECASE,
+            re.I,
         ),
     ),
     (
         "RESULT",
         re.compile(
             r"\b(financial results?|results for the (quarter|half|year)|unaudited|audited results|outcome of board meeting)\b",
-            re.IGNORECASE,
+            re.I,
         ),
     ),
     (
         "FUNDRAISE",
         re.compile(
             r"\b(preferential|qip|qualified institutions?|rights issue|warrants|fund ?raising|raise (of )?funds|private placement)\b",
-            re.IGNORECASE,
+            re.I,
         ),
     ),
-    ("CORPACT", re.compile(r"\b(bonus|stock split|sub-?division|buy ?back|dividend)\b", re.IGNORECASE)),
+    ("CORPACT", re.compile(r"\b(bonus|stock split|sub-?division|buy ?back|dividend)\b", re.I)),
     (
         "DISCLOSE",
         re.compile(
             r"\b(investor presentation|presentation|earnings call|concall|conference call|transcript|audio recording|press release|media release|analyst|investor meet)\b",
-            re.IGNORECASE,
+            re.I,
         ),
     ),
     (
         "DEAL",
         re.compile(
             r"\b(acquisition|acquire|joint venture|jv|mou|memorandum of understanding|incorporation of (a )?(wholly owned )?subsidiary|stake)\b",
-            re.IGNORECASE,
+            re.I,
         ),
     ),
 ]
 NOISE = re.compile(
     r"\b(closure of trading window|trading window|agm|egm|postal ballot|book closure|record date|change in directorate|resignation|appointment of|esop|espp|allotment of esop|compliance certificate|reg\.? ?74|regulation 74|newspaper (publication|advertisement)|loss of share certificate|duplicate share|investor complaints|reconciliation of share capital|scrutinizer|voting results|clarification on price|spurt in volume|change in management|cessation|kmp|senior management)\b",
-    re.IGNORECASE,
+    re.I,
 )
 WEIGHT = {
     "ORDER": 4,
@@ -173,7 +175,7 @@ WEIGHT = {
 
 STRONG_SUB = re.compile(
     r"credit rating|investor presentation|press release|outcome of board meeting|financial results|earnings call|transcript",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -183,10 +185,10 @@ def classify(row, company=""):
     subj = re.sub(r"^.*? - \d{6} - ", "", (row.get("NEWSSUB") or "").strip())
     text = f"{subj} | {row.get('HEADLINE') or ''} | {row.get('SUBCATNAME') or ''} | {row.get('CATEGORYNAME') or ''}"
     if company:
-        core = re.sub(r"\b(ltd|limited|india|the)\b\.?", "", company, flags=re.IGNORECASE).strip()
+        core = re.sub(r"\b(ltd|limited|india|the)\b\.?", "", company, flags=re.I).strip()
         if len(core) >= 4:
-            text = re.sub(re.escape(core), " ", text, flags=re.IGNORECASE)
-        text = re.sub(re.escape(company), " ", text, flags=re.IGNORECASE)
+            text = re.sub(re.escape(core), " ", text, flags=re.I)
+        text = re.sub(re.escape(company), " ", text, flags=re.I)
     if NOISE.search(text) and not STRONG_SUB.search(row.get("SUBCATNAME") or ""):
         return []
     return [c for c, rx in CATS if rx.search(text)]
@@ -202,7 +204,7 @@ def features(scrip, series):
     last = series[-1]
     med_vol = statistics.median(vols[:-1]) if len(vols) > 1 else 0
     med_turn = statistics.median(turns) if turns else 0
-    return {
+    f = {
         "close": last["close"],
         "ret_1d": round((last["close"] / series[-2]["close"] - 1) * 100, 1)
         if len(series) > 1 and series[-2]["close"]
@@ -218,6 +220,7 @@ def features(scrip, series):
         "days": len(closes),
         "liquid": med_turn >= LIQ_MIN_TURNOVER,
     }
+    return f
 
 
 def heal_names():
@@ -243,7 +246,10 @@ def heal_names():
         if n:
             json.dump(d, open(fn, "w"), separators=(",", ":"))
             healed.append(f"{os.path.basename(fn)} {n}")
-    print('scan: earlier scan files with BSE\'s "-$" name marker cleaned (runbook 204):', ", ".join(healed) or "none")
+    print(
+        'scan: earlier scan files with BSE\'s "-$" name marker cleaned (runbook 204):',
+        ", ".join(healed) or "none",
+    )
 
 
 def run(date, days):
@@ -253,8 +259,7 @@ def run(date, days):
     by_scrip = {u["scrip"]: u for u in uni}
     tdays = bse.trading_days_back(days, end=date)
     if not tdays:
-        msg = "no bhavcopy found"
-        raise SystemExit(msg)
+        raise SystemExit("no bhavcopy found")
     asof = tdays[0]
     hist = collections.defaultdict(list)
     for d in sorted(tdays):
@@ -266,6 +271,14 @@ def run(date, days):
     # which it was: on 2026-09-24 the feed 403'd all run and every candidate's empty filing list was
     # UNKNOWN, not empty. The page and the run log both need to be able to say so.
     ann_blocked = bse.last_announcements_partial
+    # And a list that loaded fine can still be less than the day: stopped short of the count BSE itself
+    # reports (the 2,000-row page guard did that on 2026-09-25: 2,000 read of 2,084, runbook 144f), or
+    # read on the day itself, before the evening's filings. Record both so neither reads as the day.
+    ann_capped, ann_reported, ann_read_at = (
+        bse.last_announcements_capped,
+        bse.last_announcements_reported,
+        bse.last_announcements_read_at,
+    )
     ann_source, ann_total = "bse", len(ann)
     if ann_blocked:
         nse_rows, ann_total, ann_source = nse_announcements(asof, by_scrip)
@@ -273,6 +286,11 @@ def run(date, days):
             f"announcements: BSE feed blocked -> {len(nse_rows)} universe rows of {ann_total} that day from {ann_source}"
         )
         ann = nse_rows
+        ann_capped, ann_reported, ann_read_at = (
+            False,
+            None,
+            None,
+        )  # they describe BSE's list, which is not used
     ann_by = collections.defaultdict(list)
     for a in ann:
         s = str(a.get("SCRIP_CD") or "").strip()
@@ -335,6 +353,9 @@ def run(date, days):
         "announcements_in_universe": sum(len(v) for v in ann_by.values()),
         "announcements_blocked": ann_blocked,
         "announcements_source": ann_source,
+        "announcements_reported": ann_reported,
+        "announcements_capped": ann_capped,
+        "announcements_read_at": ann_read_at,
         "candidates": len(cands),
         "rows_with_signals": len(kept),
         "rows": kept,
@@ -344,7 +365,9 @@ def run(date, days):
     json.dump(out, open(fn, "w"), separators=(",", ":"))
     print(
         f"scan {asof}: window {len(tdays)}d from {min(tdays)} | universe {len(rows)} | announcements {ann_total} total"
-        f"{' (BSE FEED BLOCKED - ' + ann_source + '; this count is a floor, not the day)' if ann_blocked else ''}, "
+        f"{' (BSE FEED BLOCKED - ' + ann_source + '; this count is a floor, not the day)' if ann_blocked else ''}"
+        f"{f' of {ann_reported} BSE reports (CAPPED - the read stopped short; this count is a floor, not the day)' if ann_capped else ''}"
+        f"{f' (BSE count {ann_reported}, read {ann_read_at})' if not ann_blocked and not ann_capped else ''}, "
         f"{out['announcements_in_universe']} classified in universe | candidates {len(cands)} -> {fn}"
     )
     for r in cands[:25]:

@@ -102,22 +102,24 @@ LIFE = {"HDFCLIFE", "ICICIPRULI", "SBILIFE", "LICI"}
 GENERAL = {"NIACL", "GICRE", "ICICIGI", "STARHEALTH", "GODIGIT", "NIVABUPA"}
 SCALES = (("lakh", 100.0), ("crore", 1.0), ("million", 10.0), ("thousand", 10000.0))
 
-R_NETPREM = re.compile(r"^net premium income", re.IGNORECASE)
-R_PREMEARNED = re.compile(r"^premium earned\s*\(?net\)?|^net premium earned", re.IGNORECASE)
-R_PH_INV = re.compile(r"^income from investments?\s*:?\s*\(net\)", re.IGNORECASE)  # ICICIPRULI prints a colon
+R_NETPREM = re.compile(r"^net premium income", re.I)
+R_PREMEARNED = re.compile(r"^premium earned\s*\(?net\)?|^net premium earned", re.I)
+R_PH_INV = re.compile(
+    r"^income from investments?\s*:?\s*\(net\)", re.I
+)  # ICICIPRULI prints a colon
 # 2023-24 life packs print the shareholders' leg as "(a) Investment Income (net)2" — the (a)
 # prefix and (net)N suffix made the leg contribute a silent ZERO (the §55 failure class; the A5
 # control caught it reading ~1% under stored on every 2023-24 HDFCLIFE/LICI quarter, 2026-08-10).
 R_SH_INV = re.compile(
     r"^(?:\([a-z]\)\s*)?investment income(?:\s*\(net\)\s*\d?)?\s*$"
     r"|^(?:\([a-z]\)\s*)?income from investments?\s*$",
-    re.IGNORECASE,
+    re.I,
 )
 R_PAT = re.compile(
     r"^profit\s*/?\s*\(?loss\)?\s*after tax and extraordinary items"
     r"|^profit after tax and extraordinary"
     r"|^profit\s*/?\s*\(?loss\)?\s*after tax\b",
-    re.IGNORECASE,
+    re.I,
 )
 NUMRE = re.compile(r"^\(?-?[\d,]+\.?\d*\)?$")
 
@@ -185,7 +187,7 @@ def num(tok):
     return -v if neg else v
 
 
-SERIAL = re.compile(r"^\(?[0-9]{1,2}\)?$|^\([a-z]\)$|^[ivx]{1,4}\.?$", re.IGNORECASE)
+SERIAL = re.compile(r"^\(?[0-9]{1,2}\)?$|^\([a-z]\)$|^[ivx]{1,4}\.?$", re.I)
 DASHES = {"-", "–", "—", "−"}
 COL_TOL = 14.0  # points; figure columns in these packs sit well over 30pt apart
 
@@ -238,7 +240,9 @@ def _raw_rows(page, ocr=False):
         # A figure cell is a number OR a nil dash. Everything to the LEFT of the last text token
         # is label furniture (row serials, "- Shareholders'" bullets); everything to the right of
         # it is a figure. Splitting on that boundary is what makes a dash safe to keep.
-        last_text_x = max([x0 for x0, x1, w in toks if num(w) is None and w not in DASHES], default=-1e9)
+        last_text_x = max(
+            [x0 for x0, x1, w in toks if num(w) is None and w not in DASHES], default=-1e9
+        )
         label = [w for x0, x1, w in toks if num(w) is None and w not in DASHES]
         vals = []
         for x0, x1, w in toks:
@@ -295,7 +299,7 @@ def page_rows(page, ocr=False):
 
 # a leading enumerator to strip before matching: "(a)", "(iv)", "12." — never a bare short word.
 # (_nse_archive_revop learned this the hard way: a looser pattern ate the "Net " of "Net Profit".)
-ENUM = re.compile(r"^\((?:[a-z]|[ivx]{1,4}|\d{1,2})\)\s*|^\d{1,2}\.\s+", re.IGNORECASE)
+ENUM = re.compile(r"^\((?:[a-z]|[ivx]{1,4}|\d{1,2})\)\s*|^\d{1,2}\.\s+", re.I)
 
 
 def pick_row(rows, pat, after=-1):
@@ -312,19 +316,19 @@ def pick_row(rows, pat, after=-1):
     return None
 
 
-R_SHARE_HEAD = re.compile(r"shareholders[’'`\s]*\s*(a/?c|account)", re.IGNORECASE)
+R_SHARE_HEAD = re.compile(r"shareholders[’'`\s]*\s*(a/?c|account)", re.I)
 # The one line printed in BOTH halves of the statement: the policyholders' surplus transferred out
 # is the shareholders' transfer in. When the two halves sit on different pages (the 2025 format,
 # and some 2023-24 packs), matching this vector proves the two pages' columns are the same periods
 # in the same order — without it, joining pages would be a guess.
-R_TRANSFER_OUT = re.compile(r"transferred to shareholders", re.IGNORECASE)
-R_TRANSFER_IN = re.compile(r"transfer from policyholders", re.IGNORECASE)
+R_TRANSFER_OUT = re.compile(r"transferred to shareholders", re.I)
+R_TRANSFER_IN = re.compile(r"transfer from policyholders", re.I)
 # General insurers print the profit tail on the page AFTER the revenue rows, and their
 # owners-attributable consolidated profit is never printed as one number — runbook §3. It is
 # PAT + minority(signed) + share of associates, which is exactly what our stored con PAT holds.
-R_MINORITY = re.compile(r"profit attributable to minority|minority interest|non.?controlling", re.IGNORECASE)
-R_ASSOCIATE = re.compile(r"share of profit.*associate|associate enterprises", re.IGNORECASE)
-R_CARRIED = re.compile(r"profit\s*/?\s*\(?loss\)?\s*carried to balance sheet", re.IGNORECASE)
+R_MINORITY = re.compile(r"profit attributable to minority|minority interest|non.?controlling", re.I)
+R_ASSOCIATE = re.compile(r"share of profit.*associate|associate enterprises", re.I)
+R_CARRIED = re.compile(r"profit\s*/?\s*\(?loss\)?\s*carried to balance sheet", re.I)
 
 
 def align(tout, tin):
@@ -366,7 +370,10 @@ def reindex(vec, shift):
 # available directly: read it, and pick the column whose date IS the quarter being filled.
 # ---------------------------------------------------------------------------------------------
 _MONTHS = {
-    m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1
+    )
 }
 # Header dates come in every shape a filer can imagine, and OCR strips the spaces:
 #   (30/06/2023) · 31.03.2024 · March31,2024 · 31stMarch2024
@@ -476,9 +483,9 @@ def declared_basis(rows):
     # general insurers put the statement title below a registration/circular preamble, so the
     # header scan has to reach further than the first few rows
     head = " ".join(lab for lab, _ in rows[:12])[:600]
-    if re.search(r"consolidat", head, re.IGNORECASE):
+    if re.search(r"consolidat", head, re.I):
         return "con"
-    if re.search(r"standalone|stand\s*alone", head, re.IGNORECASE):
+    if re.search(r"standalone|stand\s*alone", head, re.I):
         return "std"
     return None
 
@@ -558,12 +565,17 @@ def read_doc(doc, life, ocr=False):
                 if carried:  # when the filing prints it, it must agree — a free second check
                     n = min(len(owners_b), len(carried))
                     if any(
-                        owners_b[k2] is not None and carried[k2] is not None and abs(owners_b[k2] - carried[k2]) > 1.0
+                        owners_b[k2] is not None
+                        and carried[k2] is not None
+                        and abs(owners_b[k2] - carried[k2]) > 1.0
                         for k2 in range(n)
                     ):
                         continue
                 mapping = map_columns(cols_a, cols_b)
-                owners = [None if mapping[i2] is None else at(owners_b, mapping[i2]) for i2 in range(len(cols_a))]
+                owners = [
+                    None if mapping[i2] is None else at(owners_b, mapping[i2])
+                    for i2 in range(len(cols_a))
+                ]
                 out.append(
                     (
                         pno,
@@ -745,7 +757,9 @@ def main():
                     if att in seen_att:
                         continue  # already read under the narrow window
                     seen_att.add(att)
-                    p = os.path.join(PDFCACHE, "%s_%d_%s" % (sym, qe, re.sub(r"[^A-Za-z0-9.]", "_", att)))
+                    p = os.path.join(
+                        PDFCACHE, "%s_%d_%s" % (sym, qe, re.sub(r"[^A-Za-z0-9.]", "_", att))
+                    )
                     if os.path.exists(p) and os.path.getsize(p) > 5000:
                         pdf = open(p, "rb").read()
                     else:
@@ -780,7 +794,9 @@ def main():
                             used_ocr = True
 
                     def best_for(basis):
-                        stored = (fmap.get(sym, {}).get(qe) or [None, None, None, None])[1 if basis == "std" else 3]
+                        stored = (fmap.get(sym, {}).get(qe) or [None, None, None, None])[
+                            1 if basis == "std" else 3
+                        ]
                         if stored is None:
                             return None
                         hits = []
@@ -790,11 +806,22 @@ def main():
                                 continue
                             s = solve(pd, stored)
                             if s:
-                                hits.append((0 if pd.get("decl") == basis else 1, abs(s[3] - stored), pno, s))
+                                hits.append(
+                                    (
+                                        0 if pd.get("decl") == basis else 1,
+                                        abs(s[3] - stored),
+                                        pno,
+                                        s,
+                                    )
+                                )
                         if not hits:
                             return None
                         hits.sort()
-                        return hits[0][2], hits[0][3], ("declared" if hits[0][0] == 0 else "undeclared")
+                        return (
+                            hits[0][2],
+                            hits[0][3],
+                            ("declared" if hits[0][0] == 0 else "undeclared"),
+                        )
 
                     # A5 — this filing must first reproduce the standalone revenue we already store
                     ctrl_stored = ((revop.get(sym) or {}).get(str(qe)) or [None])[0]
@@ -819,21 +846,28 @@ def main():
                         # into the con slot (runbook §44, the ISEC bug).
                         if basis == "con" and ctrl and b[0] == ctrl[0]:
                             skips["%s|%d|con" % (sym, qe)] = (
-                                "same page (p%d) served both bases — refusing to duplicate, runbook §44" % b[0]
+                                "same page (p%d) served both bases — refusing to duplicate, runbook §44"
+                                % b[0]
                             )
                             continue
-                        got.setdefault(basis, (b[0], b[1], att, adate, b[2], round(ctrl[1][0], 2) if ctrl else None))
+                        got.setdefault(
+                            basis,
+                            (b[0], b[1], att, adate, b[2], round(ctrl[1][0], 2) if ctrl else None),
+                        )
                     if len(got) == len(need):
                         break
                 if len(got) == len(need):
                     break  # narrow window sufficed — skip the wide pass
             if not seen_att:
-                skips["%s|%d|list" % (sym, qe)] = f"no result filing in {lo}..{hi} after 3 tries on fresh sessions"
+                skips["%s|%d|list" % (sym, qe)] = (
+                    f"no result filing in {lo}..{hi} after 3 tries on fresh sessions"
+                )
                 continue
             # A3 — distinct page per basis
             if len(got) == 2 and got["std"][0] == got["con"][0]:
                 skips["%s|%d|both" % (sym, qe)] = (
-                    "one page satisfied BOTH bases (p%d) — refusing to duplicate it, runbook §44" % got["std"][0]
+                    "one page satisfied BOTH bases (p%d) — refusing to "
+                    "duplicate it, runbook §44" % got["std"][0]
                 )
                 got = {}
             for basis, (pno, s, att, adate, how, ctrl_rev) in got.items():

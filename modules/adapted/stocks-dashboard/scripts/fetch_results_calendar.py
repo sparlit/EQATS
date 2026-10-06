@@ -60,7 +60,9 @@ MON = {
     "nov": 11,
     "dec": 12,
 }
-RESULT_RE = re.compile(r"financial\s+result|quarterly\s+result|un[- ]?audited.*result|audited.*result", re.IGNORECASE)
+RESULT_RE = re.compile(
+    r"financial\s+result|quarterly\s+result|un[- ]?audited.*result|audited.*result", re.I
+)
 
 
 def ddmmyyyy(d):
@@ -85,7 +87,9 @@ def parse_date(s):
 
 
 def main():
-    today = (datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).date()  # IST, not the runner's UTC
+    today = (
+        datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
+    ).date()  # IST, not the runner's UTC
     lo, hi = today - datetime.timedelta(days=RC_BACK), today + datetime.timedelta(days=RC_FWD)
     jar = B.nse_jar()
     hdr = {
@@ -121,7 +125,12 @@ def main():
         sys.exit(1)
 
     ist = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
-    out = {"updated": ist.strftime("%Y-%m-%d %H:%M IST"), "from": lo.isoformat(), "to": hi.isoformat(), "rows": allrows}
+    out = {
+        "updated": ist.strftime("%Y-%m-%d %H:%M IST"),
+        "from": lo.isoformat(),
+        "to": hi.isoformat(),
+        "rows": allrows,
+    }
     json.dump(out, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     print("WROTE %s: %d result events %s..%s" % (os.path.normpath(OUT), len(allrows), lo, hi))
 

@@ -82,7 +82,9 @@ _UA = BH.UA  # honest BSE identity (§181) -- no browser impersonation
 def bse_session():
     o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
     with contextlib.suppress(Exception):
-        o.open(urllib.request.Request("https://www.bseindia.com/", headers=BH.HEADERS), timeout=30).read()
+        o.open(
+            urllib.request.Request("https://www.bseindia.com/", headers=BH.HEADERS), timeout=30
+        ).read()
     return o
 
 
@@ -123,26 +125,26 @@ _RESULT_VETO = re.compile(
     r"(xbrl|investor|press release|presentation|earnings call|transcript"
     r"|intimation|newspaper|analyst|audio|postal|agm|dividend|annual report"
     r"|allotment|scrutiniz)",
-    re.IGNORECASE,
+    re.I,
 )
 _RESULT_HIT = re.compile(
     r"(financial result|outcome of board meeting|board meeting outcome"
     r"|(?:un)?audited.*result)",
-    re.IGNORECASE,
+    re.I,
 )
 
 # --- P&L row parsing ---
 _NUM = re.compile(r"^\(?-?[\d,]+\.?\d*\)?$")
-_OWN = re.compile(r"(owners|equity ?holders|equityholders|attributab)", re.IGNORECASE)
+_OWN = re.compile(r"(owners|equity ?holders|equityholders|attributab)", re.I)
 # Lenient: "profit ... after tax" / "profit ... for the period" with anything (bounded) in between, so
 # OCR-mangled labels like "Profit I (loss) after tax" (the "/" read as "I") still match. "before tax" is
 # vetoed by _BAD_ROW first, so this won't grab pre-tax rows.
-_PAT_ROW = re.compile(r"profit.{0,25}after tax|profit.{0,22}for the (period|quarter|year)", re.IGNORECASE)
+_PAT_ROW = re.compile(r"profit.{0,25}after tax|profit.{0,22}for the (period|quarter|year)", re.I)
 _BAD_ROW = re.compile(
     r"before tax|comprehensive|segment|exceptional|carried to|balance sheet|margin"
     r"|operating|per share|earnings per|eps|ratio|nominal|paid.?up|dividend"
     r"|non-controlling|minority|reserve",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -174,7 +176,12 @@ def qe_from_ann(a):
 
 def prevq(qe):
     y, md = qe // 10000, qe % 10000
-    return {331: (y - 1) * 10000 + 1231, 630: y * 10000 + 331, 930: y * 10000 + 630, 1231: y * 10000 + 930}[md]
+    return {
+        331: (y - 1) * 10000 + 1231,
+        630: y * 10000 + 331,
+        930: y * 10000 + 630,
+        1231: y * 10000 + 930,
+    }[md]
 
 
 def conval(fund, sym, qe):
@@ -221,7 +228,9 @@ def datebound(o, code, lo, hi, with_headline=False):
                 if with_headline:
                     txt = txt + " | " + (r.get("HEADLINE", "") or "")
                     if (r.get("SUBCATNAME", "") or "").strip().lower() == "financial results":
-                        txt += " [[FR]]"  # BSE filed it under Financial Results (see backfill resolve)
+                        txt += (
+                            " [[FR]]"  # BSE filed it under Financial Results (see backfill resolve)
+                        )
                 out.append((int(a) if a else 0, r["ATTACHMENTNAME"], txt))
         if len(rows) < 50:
             break
@@ -253,11 +262,11 @@ def fetch_pdf(o, att):
 
 # ---- NSE fallback (LIC's BSE board-outcome attachment is only a cover letter) ----
 _NSE = {"s": None}
-_NSE_GOOD = re.compile(r"financial result|integrated filing|outcome of board", re.IGNORECASE)
+_NSE_GOOD = re.compile(r"financial result|integrated filing|outcome of board", re.I)
 _NSE_BAD = re.compile(
     r"newspaper|analyst|investor (presentation|meet)|intimation|schedule|transcript"
     r"|press release",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -407,8 +416,13 @@ def _profit_rows(words):
         nums = [v for v in nums if v is not None]
         if len(nums) < 3:
             ly = sum(w[1] for w in ln) / len(ln)  # label baseline
-            lx = max((w[2] for w in cells if not _isnum(w)), default=cells[0][0])  # right edge of the TEXT label
-            band = sorted([w for w in numw if abs((w[1] + w[3]) / 2 - ly) <= 8 and w[0] > lx - 2], key=lambda w: w[0])
+            lx = max(
+                (w[2] for w in cells if not _isnum(w)), default=cells[0][0]
+            )  # right edge of the TEXT label
+            band = sorted(
+                [w for w in numw if abs((w[1] + w[3]) / 2 - ly) <= 8 and w[0] > lx - 2],
+                key=lambda w: w[0],
+            )
             nums = [v for v in (_tv(w[4]) for w in band) if v is not None]
         if len(nums) < 3:
             continue
@@ -419,7 +433,7 @@ def _profit_rows(words):
 _PL_PAGE_HINT = re.compile(
     r"shareholder|profit.{0,25}after tax|profit and loss account|profit & loss"
     r"|revenue account|premium (earned|income)",
-    re.IGNORECASE,
+    re.I,
 )
 _DEC2 = re.compile(r"\d[\d,]*\.\d\d")
 
@@ -460,7 +474,9 @@ def rows_from_pdf(pdf, ident_tokens, ocr=False):
             and ocr_used < OCR_CAP
             and (
                 not t.strip()  # fully-image page
-                or (_PL_PAGE_HINT.search(t) and len(_DEC2.findall(t)) < 6)  # P&L-hint page, figures in an image
+                or (
+                    _PL_PAGE_HINT.search(t) and len(_DEC2.findall(t)) < 6
+                )  # P&L-hint page, figures in an image
             )
         )
         if do_ocr:
@@ -495,7 +511,12 @@ def double_anchor(nums, cprev, cyago):
         c = [v / div for v in nums]
         for i in range(1, len(c) - 1):
             if close(c[i], cprev) and close(c[i + 1], cyago):
-                return {"cur": round(c[i - 1], 2), "prev": round(c[i], 2), "yago": round(c[i + 1], 2), "div": div}
+                return {
+                    "cur": round(c[i - 1], 2),
+                    "prev": round(c[i], 2),
+                    "yago": round(c[i + 1], 2),
+                    "div": div,
+                }
     return None
 
 
@@ -507,7 +528,15 @@ def anchor_series(rows, cprev, cyago, prefer_con, require_con=False):
 
     def rank(r):
         iscon, isown, _ = r
-        return 0 if (iscon == prefer_con and isown) else 1 if iscon == prefer_con else 2 if isown else 3
+        return (
+            0
+            if (iscon == prefer_con and isown)
+            else 1
+            if iscon == prefer_con
+            else 2
+            if isown
+            else 3
+        )
 
     for _iscon, _isown, nums in sorted(pool, key=rank):
         a = double_anchor(nums, cprev, cyago)
@@ -567,7 +596,11 @@ def render_pl_pngs(pdf, ident_tokens):
     full = " ".join(texts)
     if ident_tokens and full.strip() and not any(t.upper() in full.upper() for t in ident_tokens):
         return None
-    pages = [p for p in range(N) if _PL_PAGE_HINT.search(texts[p]) or (not texts[p].strip() and doc[p].get_images())]
+    pages = [
+        p
+        for p in range(N)
+        if _PL_PAGE_HINT.search(texts[p]) or (not texts[p].strip() and doc[p].get_images())
+    ]
     if not pages:
         return None
     if len(pages) > 6:  # even spread across the P&L/image pages
@@ -647,7 +680,9 @@ def extract(pdf, cfg, docs, sym, qe):
         # (it would have anchored above, and _has_consolidated would be True), nor for insurers whose con
         # genuinely diverges from std (_con_tracks_std excludes them).
         if cfg["sub"] and _con_tracks_std(docs, sym, qe) and not _has_consolidated(pdf):
-            s = anchor_series(rows, stdval(docs, sym, prevq(qe)), stdval(docs, sym, qe - 10000), prefer_con=False)
+            s = anchor_series(
+                rows, stdval(docs, sym, prevq(qe)), stdval(docs, sym, qe - 10000), prefer_con=False
+            )
             if s:
                 return {
                     "cur_con": s["cur"],
@@ -662,7 +697,9 @@ def extract(pdf, cfg, docs, sym, qe):
     if not cfg["sub"]:
         out["cur_std"] = a["cur"]
     else:
-        s = anchor_series(rows, stdval(docs, sym, prevq(qe)), stdval(docs, sym, qe - 10000), prefer_con=False)
+        s = anchor_series(
+            rows, stdval(docs, sym, prevq(qe)), stdval(docs, sym, qe - 10000), prefer_con=False
+        )
         if s:
             out["cur_std"] = s["cur"]
     return out
@@ -714,7 +751,9 @@ def process(sym, targets, o, docs, src, verify=False):
                     picked = (annd, r)
                     break
         if not picked:
-            results.append({"sym": sym, "qe": qe, "status": "no-filing" if not seen else "unanchored"})
+            results.append(
+                {"sym": sym, "qe": qe, "status": "no-filing" if not seen else "unanchored"}
+            )
             continue
 
         annd, r = picked
@@ -748,7 +787,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--months", type=int, default=5, help="discovery window (months back)")
     ap.add_argument("--only", default="", help="comma list of symbols to restrict to")
-    ap.add_argument("--verify", type=int, default=0, help="re-read this quarter-end (YYYYMMDD), compare, NO write")
+    ap.add_argument(
+        "--verify",
+        type=int,
+        default=0,
+        help="re-read this quarter-end (YYYYMMDD), compare, NO write",
+    )
     args = ap.parse_args()
 
     global scrips
@@ -769,7 +813,7 @@ def main():
 
         today = datetime.date.today()
         recent_qes = []
-        for k in range(args.months + 3):
+        for k in range(0, args.months + 3):
             m = today.month - k
             y = today.year
             while m <= 0:
@@ -808,7 +852,11 @@ def main():
                 rc = r.get("cur_con")
                 match = (
                     "match"
-                    if (rc is not None and stored is not None and abs(rc - stored) <= max(abs(stored) * 0.01, 1.0))
+                    if (
+                        rc is not None
+                        and stored is not None
+                        and abs(rc - stored) <= max(abs(stored) * 0.01, 1.0)
+                    )
                     else "DIFF"
                 )
                 print(

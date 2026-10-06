@@ -60,7 +60,9 @@ from datetime import date
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPS = os.path.join(HERE, "bse_scrips.json")
-CACHE = os.environ.get("HC_DOC_CACHE") or os.path.join(os.path.expanduser("~"), ".cache", "kpi_docs")
+CACHE = os.environ.get("HC_DOC_CACHE") or os.path.join(
+    os.path.expanduser("~"), ".cache", "kpi_docs"
+)
 LEDGER_DIR = os.path.join(HERE, "headcount")
 
 HDR = {
@@ -79,7 +81,9 @@ def _get(url, timeout=60, binary=False):
     if wait > 0:
         time.sleep(wait)
     PACE["last"] = time.time()
-    req = urllib.request.Request(url, headers=BH.HEADERS if BH.is_bse(url) else HDR)  # honest BSE set (§181)
+    req = urllib.request.Request(
+        url, headers=BH.HEADERS if BH.is_bse(url) else HDR
+    )  # honest BSE set (§181)
     r = urllib.request.urlopen(req, timeout=timeout)
     raw = r.read()
     if r.headers.get("Content-Encoding") == "gzip":
@@ -121,7 +125,12 @@ def annual_reports(sym):
     j = None
     for attempt in range(3):  # the BSE list endpoint drops connections intermittently — retry
         try:
-            j = json.loads(_get("https://api.bseindia.com/BseIndiaAPI/api/AnnualReport_New/w?scripcode=%d" % code))
+            j = json.loads(
+                _get(
+                    "https://api.bseindia.com/BseIndiaAPI/api/AnnualReport_New/w?scripcode=%d"
+                    % code
+                )
+            )
             break
         except Exception as ex:
             if attempt == 2:
@@ -203,14 +212,16 @@ def _int(s):
 
 
 NUM = re.compile(r"\d[\d,]{1,}")
-FY_WORD = re.compile(r"^\(?(20\d{2})[-–/](\d{2})\)?[#*^~$≠°+@]?$")  # one FY-token word: 2025-26 / 2019-20
-LABEL_WORD = re.compile(r"employee|manpower|head\s?count|work\s?force|headcount", re.IGNORECASE)
+FY_WORD = re.compile(
+    r"^\(?(20\d{2})[-–/](\d{2})\)?[#*^~$≠°+@]?$"
+)  # one FY-token word: 2025-26 / 2019-20
+LABEL_WORD = re.compile(r"employee|manpower|head\s?count|work\s?force|headcount", re.I)
 # labels that name a NON-count employee metric — never a headcount row
 LABEL_BAD = re.compile(
     r"cost|benefit|expense|welfare|remuneration|ratio|turnover|attrition|"
     r"per\s|productivity|revenue|profit|salar|wages|₹|crore|lakh|million|%|"
     r"trained|training|hours|added|hired|separation",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -247,7 +258,7 @@ def extract_review(doc):
             rows[round((w[1] + w[3]) / 2.0 / 3.0)].append(w)  # bucket by y-centre (~3px)
         # FY header row = the row with the most FY-token words (>=4 → a review table, not prose)
         hdr = None
-        for ws in rows.values():
+        for _yb, ws in rows.items():
             cols = [((w[0] + w[2]) / 2.0, _fy_of(w[4])) for w in ws]
             cols = [(x, fy) for x, fy in cols if fy and 2005 <= fy <= date.today().year + 1]
             if len(cols) >= 4 and (hdr is None or len(cols) > len(hdr)):
@@ -255,7 +266,7 @@ def extract_review(doc):
         if not hdr:
             continue
         # employee-count rows: leftmost cells name an employee metric, numeric cells to the right
-        for ws in rows.values():
+        for _yb, ws in rows.items():
             ws = sorted(ws, key=lambda w: w[0])
             label = " ".join(w[4] for w in ws[:5])
             if not LABEL_WORD.search(label) or LABEL_BAD.search(label):
@@ -270,10 +281,10 @@ def extract_review(doc):
                 got.setdefault(fy, n)  # first (leftmost) wins per column
             if len(got) >= 3 and (best is None or len(got) > len(best[0])):
                 best = (got, pno + 1, re.sub(r"\s+", " ", label).strip()[:40])
-    return best or ({}, None, "")
+    return best if best else ({}, None, "")
 
 
-BRSR_ANCHOR = re.compile(r"Employees\s+and\s+workers", re.IGNORECASE)
+BRSR_ANCHOR = re.compile(r"Employees\s+and\s+workers", re.I)
 # STRICT adjacency (Total-A  Male-No  Male-%  Female-No, optionally an Others col after) — only the
 # real table row prints numbers right after the label, so this rejects layout-separated stray digits
 # (years, question numbers). Column LETTER is flexible ([A-H]) because a filer with an "Others" gender
@@ -285,17 +296,21 @@ _ROW = _N + r"\s+" + _N + r"\s+[\d.]+\s*%?\s+" + _N
 # (?<!than ) so the "Permanent" inside "Other than Permanent" never matches a permanent row — else a
 # dash in "Permanent (F) -" lets the regex fall through to "Other than Permanent (G) 63,297" and read
 # contractual workers as permanent, inflating on-roll (Bharti Airtel: 14,322 → 77,619).
-BRSR_PERM = re.compile(r"(?<!than )Permanent\s*\(\s*" + _L + r"\s*\)\s+" + _ROW, re.IGNORECASE)
-BRSR_OTHER = re.compile(r"Other\s+than\s+[Pp]ermanent\s*\(\s*" + _L + r"\s*\)\s+" + _N, re.IGNORECASE)
-BRSR_TOTE = re.compile(r"Total\s+employees\s*\(\s*" + _L + r"\s*\+\s*" + _L + r"\s*\)\s+" + _ROW, re.IGNORECASE)
-BRSR_WPERM = re.compile(r"(?<!than )Permanent\s*\(\s*" + _L + r"\s*\)\s+" + _N, re.IGNORECASE)
-BRSR_WTOT = re.compile(r"Total\s+workers\s*\(\s*" + _L + r"\s*\+\s*" + _L + r"\s*\)\s+" + _N, re.IGNORECASE)
+BRSR_PERM = re.compile(r"(?<!than )Permanent\s*\(\s*" + _L + r"\s*\)\s+" + _ROW, re.I)
+BRSR_OTHER = re.compile(r"Other\s+than\s+[Pp]ermanent\s*\(\s*" + _L + r"\s*\)\s+" + _N, re.I)
+BRSR_TOTE = re.compile(
+    r"Total\s+employees\s*\(\s*" + _L + r"\s*\+\s*" + _L + r"\s*\)\s+" + _ROW, re.I
+)
+BRSR_WPERM = re.compile(r"(?<!than )Permanent\s*\(\s*" + _L + r"\s*\)\s+" + _N, re.I)
+BRSR_WTOT = re.compile(r"Total\s+workers\s*\(\s*" + _L + r"\s*\+\s*" + _L + r"\s*\)\s+" + _N, re.I)
 
 
 def _parse_brsr_zone(zone):
     """Parse one 'Employees and workers' table region → record, or None if the strict rows aren't there."""
     te = BRSR_TOTE.search(zone)
-    pe = BRSR_PERM.search(zone[: te.start()] if te else zone)  # employee-permanent row (before total)
+    pe = BRSR_PERM.search(
+        zone[: te.start()] if te else zone
+    )  # employee-permanent row (before total)
     if not (te or pe):
         return None
     rec = {}
@@ -307,7 +322,12 @@ def _parse_brsr_zone(zone):
     if te:
         rec["emp_total"] = _int(te.group(1))
         m, f = _int(te.group(2)), _int(te.group(3))
-        if m and f and rec["emp_total"] and abs((m + f) - rec["emp_total"]) <= max(3, rec["emp_total"] * 0.02):
+        if (
+            m
+            and f
+            and rec["emp_total"]
+            and abs((m + f) - rec["emp_total"]) <= max(3, rec["emp_total"] * 0.02)
+        ):
             rec["male"], rec["female"] = m, f
     elif rec.get("emp_perm") is not None:
         rec["emp_total"] = rec["emp_perm"] + (rec.get("emp_other") or 0)
@@ -315,7 +335,7 @@ def _parse_brsr_zone(zone):
     # 'differently-abled employees and workers' sub-table (whose Permanent(D) would otherwise be
     # mis-read as permanent workers, inflating on-roll for pure-services filers). Bound tightly.
     wzone = zone[te.end() :] if te else ""
-    cut = re.search(r"differently|disabilit|disabled", wzone, re.IGNORECASE)
+    cut = re.search(r"differently|disabilit|disabled", wzone, re.I)
     wzone = wzone[: cut.start()] if cut else wzone[:400]
     wt = BRSR_WTOT.search(wzone)
     if wt:
@@ -340,7 +360,7 @@ def _parse_brsr_zone(zone):
 # The differently-abled sub-table's heading starts "Differently abled employees…"; the MAIN table's
 # standard heading is "Employees and workers (including differently abled)" — so only a "differently"
 # NOT preceded by "including " marks the sub-table.
-_SUBTABLE = re.compile(r"(?<!including )(?<!including\n)differently|disabilit|disabled", re.IGNORECASE)
+_SUBTABLE = re.compile(r"(?<!including )(?<!including\n)differently|disabilit|disabled", re.I)
 
 
 def extract_brsr(pages):
@@ -351,7 +371,10 @@ def extract_brsr(pages):
     sub-table excluded by its heading) the main workforce table has the largest total."""
     cands = []
     for pno, txt in pages:
-        seeds = sorted({m.start() for m in BRSR_TOTE.finditer(txt)} | {m.start() for m in BRSR_PERM.finditer(txt)})
+        seeds = sorted(
+            {m.start() for m in BRSR_TOTE.finditer(txt)}
+            | {m.start() for m in BRSR_PERM.finditer(txt)}
+        )
         last = -10_000
         for s in seeds:
             if s - last < 400:  # same table, already seeded
@@ -380,32 +403,35 @@ PRE2023 = [
         "perm_rolls",
         re.compile(
             r"(\d[\d,]{2,})\s+permanent\s+employees\b[^.]{0,50}?(?:on\s+the\s+rolls|as\s+(?:on|at|of)|were|there\s+were)",
-            re.IGNORECASE,
+            re.I,
         ),
     ),
     (
         "perm_rolls",
-        re.compile(r"(?:there\s+were|were|had|employed)\s+(\d[\d,]{2,})\s+permanent\s+employees", re.IGNORECASE),
+        re.compile(
+            r"(?:there\s+were|were|had|employed)\s+(\d[\d,]{2,})\s+permanent\s+employees", re.I
+        ),
     ),
     (
         "num_perm",
         re.compile(
             r"(?:number|no\.?|strength)\s+of\s+permanent\s+employees[^.\d]{0,45}?(?:was|were|is|are|stood\s+at|of|:)\s*(\d[\d,]{2,})",
-            re.IGNORECASE,
+            re.I,
         ),
     ),
-    ("on_rolls", re.compile(r"(\d[\d,]{2,})\s+employees\s+(?:were\s+)?on\s+the\s+rolls", re.IGNORECASE)),
+    ("on_rolls", re.compile(r"(\d[\d,]{2,})\s+employees\s+(?:were\s+)?on\s+the\s+rolls", re.I)),
     (
         "on_rolls",
         re.compile(
             r"employees\s+on\s+the\s+rolls\s+of\s+the\s+company[^.\d]{0,45}?(?:was|were|is|are|stood\s+at|:)\s*(\d[\d,]{2,})",
-            re.IGNORECASE,
+            re.I,
         ),
     ),
     (
         "strength",
         re.compile(
-            r"employee\s+strength[^.\d]{0,45}?(?:was|were|is|of|at|stood\s+at|:)\s*(\d[\d,]{2,})", re.IGNORECASE
+            r"employee\s+strength[^.\d]{0,45}?(?:was|were|is|of|at|stood\s+at|:)\s*(\d[\d,]{2,})",
+            re.I,
         ),
     ),
     # NB: bare "total number of employees ... N" is NOT here — it hits demographic breakdown tables
@@ -463,7 +489,11 @@ def process(sym, want_fys, max_reports=3, verbose=True):
         # 1) multi-year review — one filing → many FYs, BUT table orientation varies too much for a
         # safe geometric parse (transposed 20-yr tables misalign). Disabled until the LLM route reads
         # it; we never emit a guessed cell. Pre-2023 years come from the Board's-Report line (s197).
-        rev, rpage, _note = ({}, None, "")  # extract_review(doc) — enable only behind the LLM reader
+        rev, rpage, _note = (
+            {},
+            None,
+            "",
+        )  # extract_review(doc) — enable only behind the LLM reader
         doc.close()
         for fy, n in rev.items():
             if fy not in led["fy"]:
@@ -492,12 +522,16 @@ def process(sym, want_fys, max_reports=3, verbose=True):
             detail["total_incl_workers"] = total_incl or None
             cur = led["fy"].get(a["fy"])
             if cur and cur.get("basis") == "review":
-                cur["brsr"] = detail  # keep consistent review series; record BRSR for reconciliation
+                cur["brsr"] = (
+                    detail  # keep consistent review series; record BRSR for reconciliation
+                )
             else:
                 # headline = permanent on-roll (emp_perm+wrk_perm) — the basis that reconciles to the
                 # company's own "Number of Employees"; total_workforce (incl contractual) is the toggle
                 led["fy"][a["fy"]] = {
-                    "count": brsr.get("onroll_perm") or brsr.get("emp_total") or brsr.get("emp_perm"),
+                    "count": brsr.get("onroll_perm")
+                    or brsr.get("emp_total")
+                    or brsr.get("emp_perm"),
                     "total_workforce": detail["total_incl_workers"],
                     "basis": "brsr",
                     "brsr": detail,
@@ -534,15 +568,21 @@ def main():
 
     ap = argparse.ArgumentParser()
     ap.add_argument("syms", nargs="*")
-    ap.add_argument("--universe", action="store_true", help="sweep the whole survivorship-free N500")
-    ap.add_argument("--skip-existing", action="store_true", help="skip symbols whose ledger already exists")
+    ap.add_argument(
+        "--universe", action="store_true", help="sweep the whole survivorship-free N500"
+    )
+    ap.add_argument(
+        "--skip-existing", action="store_true", help="skip symbols whose ledger already exists"
+    )
     ap.add_argument(
         "--refresh-latest",
         action="store_true",
         help="yearly refresh: only symbols whose ledger lacks the newest fiscal year (default target: "
         "this calendar year from June, else last year); ADDS that year, never overwrites",
     )
-    ap.add_argument("--target-fy", type=int, default=0, help="with --refresh-latest: the FY-end year to fill")
+    ap.add_argument(
+        "--target-fy", type=int, default=0, help="with --refresh-latest: the FY-end year to fill"
+    )
     ap.add_argument("--limit", type=int, default=0, help="cap number of symbols this run")
     ap.add_argument("--since-fy", type=int, default=2020, help="fill FY-end years >= this")
     ap.add_argument("--max-reports", type=int, default=3)
@@ -604,7 +644,10 @@ def main():
                     b.get("male"),
                     b.get("female"),
                 )
-            print("     FY%d: %-8s [%s%s p%s]%s" % (y, c["count"], c.get("basis"), "", c["src"]["page"], extra))
+            print(
+                "     FY%d: %-8s [%s%s p%s]%s"
+                % (y, c["count"], c.get("basis"), "", c["src"]["page"], extra)
+            )
         if a.save or a.universe:
             path = os.path.join(LEDGER_DIR, s + ".json")
             if a.refresh_latest and os.path.exists(path):
@@ -617,7 +660,10 @@ def main():
                     old["fy"][str(y)] = led["fy"][y]
                 old.setdefault("reports_read", []).extend(led.get("reports_read", []))
                 json.dump(old, open(path, "w"), indent=1, default=str)
-                print(f"     merged: added FY{added}" if added else "     merged: nothing new", flush=True)
+                print(
+                    f"     merged: added FY{added}" if added else "     merged: nothing new",
+                    flush=True,
+                )
             else:
                 json.dump(led, open(path, "w"), indent=1, default=str)
 

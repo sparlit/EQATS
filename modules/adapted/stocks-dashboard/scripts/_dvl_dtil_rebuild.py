@@ -138,7 +138,10 @@ def build():
             common = [r for r in rows if r[0] in prev_close]
             same = sum(1 for r in common if abs(prev_close[r[0]] - r[1]) < 0.005)
             if len(common) > 500 and same / len(common) > 0.99:
-                print("  %s: re-served prior session (%d/%d closes identical) — skipped" % (d, same, len(common)))
+                print(
+                    "  %s: re-served prior session (%d/%d closes identical) — skipped"
+                    % (d, same, len(common))
+                )
                 continue
         prev_sig = sig
         prev_close = {r[0]: r[1] for r in rows}
@@ -210,7 +213,10 @@ def build():
             if t is not None:
                 stat[y] = (ok_ + (1 if t == b[6] else 0), tot_ + 1)
         bad_years = {y: s for y, s in stat.items() if s[1] and s[0] / s[1] < 0.97}
-        print(f"{tgt} volume identity vs MTO by year:", {y: "%d/%d" % s for y, s in sorted(stat.items())})
+        print(
+            f"{tgt} volume identity vs MTO by year:",
+            {y: "%d/%d" % s for y, s in sorted(stat.items())},
+        )
         if bad_years:
             fails.append(f"{tgt} volume identity <97% in {bad_years}")
 
@@ -218,7 +224,18 @@ def build():
     dvl_bin = bin_dump["DVL"]
     pos = {d: i for i, d in enumerate(dvl_bin["d"])}
     k_samples = []
-    for ymd in (20080602, 20090601, 20101201, 20110601, 20120601, 20130603, 20140602, 20141215, 20150116, 20150119):
+    for ymd in (
+        20080602,
+        20090601,
+        20101201,
+        20110601,
+        20120601,
+        20130603,
+        20140602,
+        20141215,
+        20150116,
+        20150119,
+    ):
         d_ = datetime.date(ymd // 10000, ymd // 100 % 100, ymd % 100)
         rows = B.fetch_day(d_, B.jar()) or []
         raw = {r[0]: r[1] for r in rows}
@@ -260,7 +277,17 @@ def build():
             if i is None:
                 continue
             tot += 1
-            cur = [e["d"][i], e["c"][i], e["t"][i], e["h"][i], e["l"][i], e["op"][i], e["v"][i], e["dv"][i], e["vw"][i]]
+            cur = [
+                e["d"][i],
+                e["c"][i],
+                e["t"][i],
+                e["h"][i],
+                e["l"][i],
+                e["op"][i],
+                e["v"][i],
+                e["dv"][i],
+                e["vw"][i],
+            ]
             if cur == b:
                 eq += 1
             elif len(diffs) < 5:
@@ -294,18 +321,33 @@ def build():
     #    WEEKEND_SESSIONS list); anything else is the §89f re-serve class. Listed for the human
     #    eye here — apply_series_surgery's market-calendar gate is the hard stop at splice time.
     for tgt in ("DVL", "DTIL"):
-        wk = [b[0] for b in ser[tgt] if datetime.date(b[0] // 10000, b[0] // 100 % 100, b[0] % 100).weekday() >= 5]
-        print("{} weekend-dated bars (each must be a confirmed special session): {}".format(tgt, wk or "none"))
+        wk = [
+            b[0]
+            for b in ser[tgt]
+            if datetime.date(b[0] // 10000, b[0] // 100 % 100, b[0] % 100).weekday() >= 5
+        ]
+        print(
+            "{} weekend-dated bars (each must be a confirmed special session): {}".format(
+                tgt, wk or "none"
+            )
+        )
 
     if fails:
-        raise SystemExit("VALIDATION FAILED — ledger NOT written:\n  " + "\n  ".join(map(str, fails)))
+        raise SystemExit(
+            "VALIDATION FAILED — ledger NOT written:\n  " + "\n  ".join(map(str, fails))
+        )
 
     out = {
         "built": datetime.date.today().isoformat(),
         "note": "DVL/DTIL recycled-ticker stitch repair — DATA_RUNBOOK §89 (DTIL 2015+ is a "
         "different company than the DTIL->DPTL->DPL->DVL chain)",
         "replace": {
-            "DVL": {"from": 20150120, "bars": ser["DVL"], "pre": pre, "pre_anchor": {"ymd": 20150119, "c": anchor_c}}
+            "DVL": {
+                "from": 20150120,
+                "bars": ser["DVL"],
+                "pre": pre,
+                "pre_anchor": {"ymd": 20150119, "c": anchor_c},
+            }
         },
         "create": {
             "DTIL": {

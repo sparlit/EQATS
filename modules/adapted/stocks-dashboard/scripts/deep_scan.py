@@ -34,7 +34,6 @@ import sys
 import bse_text as T
 import bse_vision as V
 import fitz
-import numpy as np
 
 SC = json.load(open("bse_scrips.json"))["by_id"]
 OUT = "_deepgap"
@@ -79,7 +78,9 @@ def main():
             pdf = None
             for base in ("AttachHis", "AttachLive"):
                 try:
-                    d = V.get(o, f"https://www.bseindia.com/xml-data/corpfiling/{base}/{att}", b=True)
+                    d = V.get(
+                        o, f"https://www.bseindia.com/xml-data/corpfiling/{base}/{att}", b=True
+                    )
                     if d[:4] == b"%PDF":
                         pdf = d
                         break

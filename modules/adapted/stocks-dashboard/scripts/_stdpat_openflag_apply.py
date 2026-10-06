@@ -117,7 +117,9 @@ def patch(section, fund_idx, revop_idx, label):
                 continue
             if not close(row[fund_idx], e["was"]):
                 problems.append(
-                    "{} {}: GUARD FAILED {} now {} expected {}".format(rel, k, label, row[fund_idx], e["was"])
+                    "{} {}: GUARD FAILED {} now {} expected {}".format(
+                        rel, k, label, row[fund_idx], e["was"]
+                    )
                 )
                 continue
             row[fund_idx] = e["now"]
@@ -132,7 +134,8 @@ def patch(section, fund_idx, revop_idx, label):
                 continue
             if cur is not None and not close(cur, e["was"]):
                 problems.append(
-                    "%s %s: MIRROR GUARD FAILED idx%d now %s expected %s" % (rel, k, revop_idx, cur, e["was"])
+                    "%s %s: MIRROR GUARD FAILED idx%d now %s expected %s"
+                    % (rel, k, revop_idx, cur, e["was"])
                 )
                 continue
             cell[revop_idx] = e["now"]
@@ -155,7 +158,9 @@ for k, e in sorted(V.get("ann_fix", {}).items()):
             skipped.append("{} {} ann already {}".format(rel, k, e["ann_now"]))
             continue
         if row[2] != e["ann_was"]:
-            problems.append("{} {}: ANN GUARD FAILED now {} expected {}".format(rel, k, row[2], e["ann_was"]))
+            problems.append(
+                "{} {}: ANN GUARD FAILED now {} expected {}".format(rel, k, row[2], e["ann_was"])
+            )
             continue
         if e["ann_now"] <= int(qe):
             problems.append(f"{rel} {k}: impossible pair ann<=qe")
@@ -192,7 +197,10 @@ for rel in orig:
     if stray:
         problems.append(f"{rel}: BLAST RADIUS stray diffs {sorted(stray)[:8]}")
 
-print("planned edits: %d   skipped(already-correct): %d   problems: %d" % (len(plan), len(skipped), len(problems)))
+print(
+    "planned edits: %d   skipped(already-correct): %d   problems: %d"
+    % (len(plan), len(skipped), len(problems))
+)
 for p in plan:
     print("  EDIT", p)
 for s in skipped:

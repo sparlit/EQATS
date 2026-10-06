@@ -103,7 +103,10 @@ def main():
     if mine.get("updated") and mine["updated"] > (cur.get("updated") or ""):
         cur["updated"] = mine["updated"]
     json.dump(cur, open(tgt_p, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-    print("union_bse_fundamentals: +%d cells from the job; %d differing cells kept as current" % (added, kept))
+    print(
+        "union_bse_fundamentals: +%d cells from the job; %d differing cells kept as current"
+        % (added, kept)
+    )
 
 
 if __name__ == "__main__":
