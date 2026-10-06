@@ -43,7 +43,7 @@ import sqlite3
 import sys
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 EVPOLY_DIR = os.path.abspath(os.path.join(ROOT, ".."))
@@ -104,7 +104,10 @@ def table_has_column(conn: sqlite3.Connection, table_name: str, column_name: str
     if not table_exists(conn, table_name):
         return False
     rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
-    return any(str(row["name"] or "").strip().lower() == column_name.strip().lower() for row in rows)
+    for row in rows:
+        if str(row["name"] or "").strip().lower() == column_name.strip().lower():
+            return True
+    return False
 
 
 @dataclass
@@ -162,7 +165,9 @@ def _strategy_base_rows(
     return out
 
 
-def _submit_storm_groups(conn: sqlite3.Connection, strategy_id: str, from_ts_ms: int, fresh_from_ts_ms: int) -> int:
+def _submit_storm_groups(
+    conn: sqlite3.Connection, strategy_id: str, from_ts_ms: int, fresh_from_ts_ms: int
+) -> int:
     value = conn.execute(
         """
         SELECT COALESCE(COUNT(*), 0) FROM (
@@ -220,7 +225,9 @@ def _integrity_summary(conn: sqlite3.Connection, from_ts_ms: int) -> tuple[int, 
     return int(duplicate_snapshot_rows[0] or 0), invalid_count
 
 
-def _fill_parity(conn: sqlite3.Connection, from_ts_ms: int, include_legacy_default: bool) -> dict[str, Any]:
+def _fill_parity(
+    conn: sqlite3.Connection, from_ts_ms: int, include_legacy_default: bool
+) -> dict[str, Any]:
     if not table_exists(conn, "pending_orders"):
         return {
             "filled_orders": 0,
@@ -233,7 +240,9 @@ def _fill_parity(conn: sqlite3.Connection, from_ts_ms: int, include_legacy_defau
             "usd_gap_ratio": 0.0,
         }
     pending_fill_ts_col = (
-        "filled_at_ms" if table_has_column(conn, "pending_orders", "filled_at_ms") else "updated_at_ms"
+        "filled_at_ms"
+        if table_has_column(conn, "pending_orders", "filled_at_ms")
+        else "updated_at_ms"
     )
     fill_source_table = "fills_v2" if table_exists(conn, "fills_v2") else "trade_events"
     if fill_source_table == "fills_v2":
@@ -301,7 +310,9 @@ def _fill_parity(conn: sqlite3.Connection, from_ts_ms: int, include_legacy_defau
     }
 
 
-def _settlement_drift(conn: sqlite3.Connection, from_ts_ms: int, include_legacy_default: bool) -> dict[str, Any]:
+def _settlement_drift(
+    conn: sqlite3.Connection, from_ts_ms: int, include_legacy_default: bool
+) -> dict[str, Any]:
     if not table_exists(conn, "settlements_v2"):
         return {
             "settled_rows": 0,
@@ -364,7 +375,9 @@ def _settlement_drift(conn: sqlite3.Connection, from_ts_ms: int, include_legacy_
     }
 
 
-def _snapshot_coverage(conn: sqlite3.Connection, from_ts_ms: int, strategy_id: str) -> dict[str, Any]:
+def _snapshot_coverage(
+    conn: sqlite3.Connection, from_ts_ms: int, strategy_id: str
+) -> dict[str, Any]:
     if not table_exists(conn, "strategy_feature_snapshots_v1"):
         return {
             "strategy_id": strategy_id,
@@ -517,7 +530,11 @@ def main() -> int:
                 passed=has_snapshots,
                 metric={"exists": has_snapshots},
                 threshold={"required": True},
-                reason=("required snapshot table present" if has_snapshots else "required snapshot table missing"),
+                reason=(
+                    "required snapshot table present"
+                    if has_snapshots
+                    else "required snapshot table missing"
+                ),
             )
         )
         checks.append(
@@ -567,7 +584,9 @@ def main() -> int:
         )
 
         for strategy_id, row in sorted(strategy_rows.items()):
-            storm_groups = _submit_storm_groups(conn, strategy_id, strategy_from_ts_ms, storm_fresh_from_ts_ms)
+            storm_groups = _submit_storm_groups(
+                conn, strategy_id, strategy_from_ts_ms, storm_fresh_from_ts_ms
+            )
             failed_ratio = float(row["entry_failed_ratio_pct"])
             checks.append(
                 GateResult(
@@ -640,7 +659,9 @@ def main() -> int:
                 name="integrity.invalid_transition_rejections",
                 passed=invalid_transitions <= args.max_invalid_transition_rejections,
                 metric={"invalid_transition_rejections": invalid_transitions},
-                threshold={"max_invalid_transition_rejections": args.max_invalid_transition_rejections},
+                threshold={
+                    "max_invalid_transition_rejections": args.max_invalid_transition_rejections
+                },
                 reason=(
                     "invalid transition rejections within threshold"
                     if invalid_transitions <= args.max_invalid_transition_rejections
@@ -664,7 +685,11 @@ def main() -> int:
                     "max_fill_gap_ratio": args.max_fill_gap_ratio,
                     "max_fill_gap_usd": args.max_fill_gap_usd,
                 },
-                reason=("entry fill parity within threshold" if fill_ok else "entry fill parity gap above threshold"),
+                reason=(
+                    "entry fill parity within threshold"
+                    if fill_ok
+                    else "entry fill parity gap above threshold"
+                ),
             )
         )
 

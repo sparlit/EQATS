@@ -43,13 +43,11 @@ import os
 import sqlite3
 import sys
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import requests
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
 
 DATA_API_BASE = os.getenv("EVPOLY_POLY_DATA_API_URL", "https://data-api.polymarket.com").rstrip("/")
 CLOB_BASE = os.getenv("EVPOLY_POLY_CLOB_URL", "https://clob.polymarket.com").rstrip("/")
@@ -61,7 +59,9 @@ DB_LOCK_RETRIES = int(os.getenv("EVPOLY_WALLET_SYNC_DB_LOCK_RETRIES", "20"))
 DB_LOCK_RETRY_SEC = float(os.getenv("EVPOLY_WALLET_SYNC_DB_LOCK_RETRY_SEC", "3"))
 ADMIN_API_BIND = os.getenv("EVPOLY_ADMIN_API_BIND", "127.0.0.1:8787").strip()
 ADMIN_API_TOKEN = os.getenv("EVPOLY_ADMIN_API_TOKEN", "").strip()
-MM_RECONCILE_MIN_DRIFT_SHARES = float(os.getenv("EVPOLY_MM_INVENTORY_RECONCILE_MIN_DRIFT_SHARES", "25"))
+MM_RECONCILE_MIN_DRIFT_SHARES = float(
+    os.getenv("EVPOLY_MM_INVENTORY_RECONCILE_MIN_DRIFT_SHARES", "25")
+)
 MM_RECONCILE_LIMIT = int(os.getenv("EVPOLY_MM_INVENTORY_RECONCILE_LIMIT", "256"))
 MM_RECONCILE_TIMEOUT_SEC = 30.0
 MM_RECONCILE_STRATEGIES: tuple[str, ...] = ("mm_sport_v1",)
@@ -110,8 +110,7 @@ def load_wallet_from_env_or_args(wallet_arg: str | None) -> str:
         value = os.getenv(key, "").strip()
         if value:
             return value.lower()
-    msg = "wallet address missing. set POLY_PROXY_WALLET_ADDRESS or pass --wallet"
-    raise RuntimeError(msg)
+    raise RuntimeError("wallet address missing. set POLY_PROXY_WALLET_ADDRESS or pass --wallet")
 
 
 def new_session() -> requests.Session:
@@ -133,8 +132,12 @@ def fetch_wallet_positions(session: requests.Session, wallet: str) -> list[dict[
     return []
 
 
-def fetch_wallet_activity(session: requests.Session, wallet: str, limit: int) -> list[dict[str, Any]]:
-    payload = fetch_json(session, f"{DATA_API_BASE}/activity", {"user": wallet, "limit": max(1, limit)})
+def fetch_wallet_activity(
+    session: requests.Session, wallet: str, limit: int
+) -> list[dict[str, Any]]:
+    payload = fetch_json(
+        session, f"{DATA_API_BASE}/activity", {"user": wallet, "limit": max(1, limit)}
+    )
     if isinstance(payload, list):
         return payload
     return []
@@ -177,7 +180,9 @@ def parse_best_levels(book: Any) -> tuple[float | None, float | None]:
     return best_bid(book.get("bids")), best_ask(book.get("asks"))
 
 
-def fetch_book_mid(session: requests.Session, token_id: str) -> tuple[float | None, float | None, float | None, str]:
+def fetch_book_mid(
+    session: requests.Session, token_id: str
+) -> tuple[float | None, float | None, float | None, str]:
     url = f"{CLOB_BASE}/book"
     try:
         resp = session.get(url, params={"token_id": token_id}, timeout=REQUEST_TIMEOUT_SEC)
@@ -611,7 +616,9 @@ INSERT OR IGNORE INTO wallet_activity_v1 (
 
 
 def iter_open_positions(conn: sqlite3.Connection) -> Iterable[sqlite3.Row]:
-    exists = conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='positions_v2'").fetchone()
+    exists = conn.execute(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='positions_v2'"
+    ).fetchone()
     if not exists or int(exists[0] or 0) <= 0:
         return
     q = """
@@ -651,8 +658,12 @@ def persist_unrealized_mid_marks(
         if remaining_units <= 1e-12:
             continue
 
-        total_entry_cost = max(float(row["entry_notional_usd"] or 0.0) + float(row["entry_fee_usd"] or 0.0), 0.0)
-        remaining_cost = total_entry_cost * (remaining_units / entry_units) if entry_units > 1e-12 else 0.0
+        total_entry_cost = max(
+            float(row["entry_notional_usd"] or 0.0) + float(row["entry_fee_usd"] or 0.0), 0.0
+        )
+        remaining_cost = (
+            total_entry_cost * (remaining_units / entry_units) if entry_units > 1e-12 else 0.0
+        )
         entry_avg = (remaining_cost / remaining_units) if remaining_units > 1e-12 else None
 
         token_id = str(row["token_id"])
@@ -834,7 +845,9 @@ def try_reconcile_mm_inventory_for_strategy(
         return "error", 0, 0.0, f"{type(e).__name__}: {e}"
 
 
-def try_reconcile_mm_inventory_from_wallet(session: requests.Session) -> tuple[str, int, float, str | None]:
+def try_reconcile_mm_inventory_from_wallet(
+    session: requests.Session,
+) -> tuple[str, int, float, str | None]:
     min_drift_shares = normalize_min_drift_shares(MM_RECONCILE_MIN_DRIFT_SHARES)
     limit = normalize_limit(MM_RECONCILE_LIMIT)
     total_rows = 0
@@ -920,8 +933,8 @@ def run_once(db_path: str, wallet: str, activity_limit: int) -> RunStats:
         stats.open_positions_marked = marked
         stats.book_queries = book_queries
 
-        reconcile_status, reconcile_rows, repaired_shares, reconcile_error = try_reconcile_mm_inventory_from_wallet(
-            session
+        reconcile_status, reconcile_rows, repaired_shares, reconcile_error = (
+            try_reconcile_mm_inventory_from_wallet(session)
         )
         stats.inventory_reconcile_status = reconcile_status
         stats.inventory_reconcile_rows = reconcile_rows
@@ -930,7 +943,9 @@ def run_once(db_path: str, wallet: str, activity_limit: int) -> RunStats:
         if reconcile_status != "ok":
             stats.status = "partial"
 
-        dust_status, dust_candidates, dust_submitted, dust_error = try_dust_sell_mm_inventory(session)
+        dust_status, dust_candidates, dust_submitted, dust_error = try_dust_sell_mm_inventory(
+            session
+        )
         stats.dust_sell_status = dust_status
         stats.dust_sell_candidates = dust_candidates
         stats.dust_sell_submitted = dust_submitted
@@ -963,17 +978,24 @@ def run_once_with_retry(db_path: str, wallet: str, activity_limit: int) -> RunSt
                 time.sleep(max(0.5, DB_LOCK_RETRY_SEC))
                 continue
             raise
-    msg_0 = "unexpected wallet sync retry state"
-    raise RuntimeError(msg_0)
+    raise RuntimeError("unexpected wallet sync retry state")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Sync wallet history + unrealized mid marks into tracking.db")
+    parser = argparse.ArgumentParser(
+        description="Sync wallet history + unrealized mid marks into tracking.db"
+    )
     parser.add_argument("--db", default="tracking.db", help="SQLite DB path (default: tracking.db)")
-    parser.add_argument("--wallet", default=None, help="Wallet address (default from POLY_PROXY_WALLET_ADDRESS)")
-    parser.add_argument("--activity-limit", type=int, default=DEFAULT_ACTIVITY_LIMIT, help="Activity fetch limit")
+    parser.add_argument(
+        "--wallet", default=None, help="Wallet address (default from POLY_PROXY_WALLET_ADDRESS)"
+    )
+    parser.add_argument(
+        "--activity-limit", type=int, default=DEFAULT_ACTIVITY_LIMIT, help="Activity fetch limit"
+    )
     parser.add_argument("--loop", action="store_true", help="Run forever")
-    parser.add_argument("--interval-sec", type=int, default=DEFAULT_INTERVAL_SEC, help="Loop interval seconds")
+    parser.add_argument(
+        "--interval-sec", type=int, default=DEFAULT_INTERVAL_SEC, help="Loop interval seconds"
+    )
     args = parser.parse_args()
 
     wallet = load_wallet_from_env_or_args(args.wallet)
