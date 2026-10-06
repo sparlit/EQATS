@@ -98,7 +98,9 @@ def _row_from_history(sub: pd.DataFrame) -> dict | None:
 
 def main():
     if not os.path.exists(s.SNAPSHOT_PATH):
-        print("ERROR: snapshot missing — run backfill_frontier.py (one-time) first.", file=sys.stderr)
+        print(
+            "ERROR: snapshot missing — run backfill_frontier.py (one-time) first.", file=sys.stderr
+        )
         sys.exit(1)
 
     store = pd.read_csv(s.SNAPSHOT_PATH)  # the snapshot is the store of record
@@ -204,11 +206,24 @@ def main():
         print(f"  {done}/{total}", flush=True)
 
     price = pd.DataFrame(list(by_sym.values()))[
-        ["Symbol", "Company", "LastClose", "AvgVol20d", "LastDate", "HighATH", "HighATHDate", "Frontier"]
+        [
+            "Symbol",
+            "Company",
+            "LastClose",
+            "AvgVol20d",
+            "LastDate",
+            "HighATH",
+            "HighATHDate",
+            "Frontier",
+        ]
     ]
     out = s.merge_reference(price)  # re-merge fresh F&O / band / listing
     out.to_csv(s.SNAPSHOT_PATH, index=False)
-    print(f"DONE: {len(out)} rows | updated {updated}, re-backfilled(split) {resplit}, seeded-new {seeded}", flush=True)
+    print(
+        f"DONE: {len(out)} rows | updated {updated}, re-backfilled(split) {resplit}, "
+        f"seeded-new {seeded}",
+        flush=True,
+    )
 
 
 if __name__ == "__main__":

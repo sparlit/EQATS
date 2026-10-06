@@ -51,7 +51,9 @@ import pandas as pd
 import requests
 
 IST = ZoneInfo("Asia/Kolkata")
-SCRIP_MASTER = "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
+SCRIP_MASTER = (
+    "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
+)
 FULL_BATCH = 50
 SLEEP_BETWEEN = 1.0
 MIN_SUCCESS_FRAC = 0.5
@@ -89,7 +91,7 @@ def token_map(target: set[str]) -> dict[str, str]:
         if row.get("exch_seg") != "NSE":
             continue
         sym = str(row.get("symbol", ""))
-        if not (sym.endswith(("-EQ", "-BE"))):  # both NSE cash series
+        if not (sym.endswith("-EQ") or sym.endswith("-BE")):  # both NSE cash series
             continue
         name = str(row.get("name", "")).strip().upper()
         if name in target and name not in out:
@@ -109,7 +111,9 @@ def _trade_date(row, fallback: str) -> str:
     return fallback
 
 
-def fetch_quotes(obj, sym_token: dict[str, str], fallback_date: str) -> dict[str, tuple[float, float, str]]:
+def fetch_quotes(
+    obj, sym_token: dict[str, str], fallback_date: str
+) -> dict[str, tuple[float, float, str]]:
     """symbol -> (high, close, trade_date) from Angel FULL quotes."""
     tok_sym = {v: k for k, v in sym_token.items()}
     tokens = list(sym_token.values())
@@ -210,13 +214,23 @@ def main():
         obj.terminateSession(_env("ANGEL_CLIENT_CODE"))
 
     price = pd.DataFrame(list(by_sym.values()))[
-        ["Symbol", "Company", "LastClose", "AvgVol20d", "LastDate", "HighATH", "HighATHDate", "Frontier"]
+        [
+            "Symbol",
+            "Company",
+            "LastClose",
+            "AvgVol20d",
+            "LastDate",
+            "HighATH",
+            "HighATHDate",
+            "Frontier",
+        ]
     ]
     out = s.merge_reference(price)
     out.to_csv(s.SNAPSHOT_PATH, index=False)
     latest = out["LastDate"].dropna().max() if "LastDate" in out else "?"
     print(
-        f"DONE: {len(out)} rows | updated {updated}, skipped(split-guard) {skipped_split} | snapshot now as of {latest}"
+        f"DONE: {len(out)} rows | updated {updated}, "
+        f"skipped(split-guard) {skipped_split} | snapshot now as of {latest}"
     )
 
 

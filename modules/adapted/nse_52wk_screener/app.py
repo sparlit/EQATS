@@ -64,6 +64,7 @@ importlib.reload(nse_screener)
 screener = nse_screener
 
 import alerts_db  # Supabase-backed price alerts (degrades gracefully if unset)
+import options_db  # Supabase-backed live options-flow scan (degrades gracefully)
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -126,7 +127,9 @@ require_passcode()
 GH_OWNER = "ej9909-create"
 GH_REPO = "nse_52wk_screener"
 GH_WORKFLOW = "update-daily.yml"
-SNAPSHOT_RAW_URL = f"https://raw.githubusercontent.com/{GH_OWNER}/{GH_REPO}/main/data/screener_snapshot.csv"
+SNAPSHOT_RAW_URL = (
+    f"https://raw.githubusercontent.com/{GH_OWNER}/{GH_REPO}/main/data/screener_snapshot.csv"
+)
 
 
 @st.cache_data(ttl=6 * 3600, show_spinner=False)
@@ -166,7 +169,10 @@ def _gh_newest_run():
         return None
     import requests
 
-    url = f"https://api.github.com/repos/{GH_OWNER}/{GH_REPO}/actions/workflows/{GH_WORKFLOW}/runs?per_page=1"
+    url = (
+        f"https://api.github.com/repos/{GH_OWNER}/{GH_REPO}/actions/"
+        f"workflows/{GH_WORKFLOW}/runs?per_page=1"
+    )
     try:
         r = requests.get(url, headers=h, timeout=20)
         runs = r.json().get("workflow_runs", []) if r.ok else []
@@ -185,7 +191,10 @@ def _gh_dispatch():
         return False, "no-token"
     import requests
 
-    url = f"https://api.github.com/repos/{GH_OWNER}/{GH_REPO}/actions/workflows/{GH_WORKFLOW}/dispatches"
+    url = (
+        f"https://api.github.com/repos/{GH_OWNER}/{GH_REPO}/actions/"
+        f"workflows/{GH_WORKFLOW}/dispatches"
+    )
     try:
         r = requests.post(url, headers=h, json={"ref": "main"}, timeout=30)
     except Exception as e:
@@ -205,7 +214,10 @@ def _fetch_remote_csv():
 
     h = _gh_headers()
     if h:
-        api = f"https://api.github.com/repos/{GH_OWNER}/{GH_REPO}/contents/data/screener_snapshot.csv?ref=main"
+        api = (
+            f"https://api.github.com/repos/{GH_OWNER}/{GH_REPO}/contents/"
+            f"data/screener_snapshot.csv?ref=main"
+        )
         try:
             r = requests.get(api, headers={**h, "Accept": "application/vnd.github.raw"}, timeout=30)
             if r.ok and r.text:
@@ -249,7 +261,8 @@ def _run_fetch_fallback():
         if new_id is None:
             status.update(
                 state="error",
-                label="Job dispatched but hasn't registered yet — wait a minute, then click Reload snapshot.",
+                label="Job dispatched but hasn't "
+                "registered yet — wait a minute, then click Reload snapshot.",
             )
             return
         concl = None
@@ -266,9 +279,14 @@ def _run_fetch_fallback():
             st.cache_data.clear()
             st.rerun()
         elif concl is None:
-            status.update(state="error", label="Still running — click Reload snapshot in a minute to pick it up.")
+            status.update(
+                state="error",
+                label="Still running — click Reload snapshot in a minute to pick it up.",
+            )
         else:
-            status.update(state="error", label=f"Refresh job failed ({concl}). Check the repo's Actions tab.")
+            status.update(
+                state="error", label=f"Refresh job failed ({concl}). Check the repo's Actions tab."
+            )
 
 
 def to_excel_bytes(df: pd.DataFrame) -> bytes:
@@ -317,7 +335,7 @@ def _alert_form(symbol: str, snap_close: float, high52: float | None, *, key_pre
     defaults, falling back to the snapshot's previous close if the fetch fails.
     """
     live = _live_price(symbol)
-    current = live or snap_close
+    current = live if live else snap_close
     src = "live ~15m delay" if live else "prev close"
     hi_txt = f"  ·  all-time high ₹{high52:,.2f}" if high52 else ""
     st.markdown(f"**{symbol}** — {src} ₹{current:,.2f}{hi_txt}")
@@ -326,12 +344,22 @@ def _alert_form(symbol: str, snap_close: float, high52: float | None, *, key_pre
     up_on = c1.checkbox("Alert if it breaks ABOVE", value=bool(high52), key=f"{key_prefix}_upon")
     up_default = float(high52) if high52 else round(current * 1.05, 2)
     up_val = c1.number_input(
-        "Above ₹", min_value=0.0, value=up_default, step=1.0, key=f"{key_prefix}_upval", disabled=not up_on
+        "Above ₹",
+        min_value=0.0,
+        value=up_default,
+        step=1.0,
+        key=f"{key_prefix}_upval",
+        disabled=not up_on,
     )
     lo_on = c2.checkbox("Alert if it breaks BELOW", value=False, key=f"{key_prefix}_loon")
     lo_default = round(current * 0.95, 2) if current else 0.0
     lo_val = c2.number_input(
-        "Below ₹", min_value=0.0, value=lo_default, step=1.0, key=f"{key_prefix}_loval", disabled=not lo_on
+        "Below ₹",
+        min_value=0.0,
+        value=lo_default,
+        step=1.0,
+        key=f"{key_prefix}_loval",
+        disabled=not lo_on,
     )
 
     st.caption(
@@ -342,7 +370,9 @@ def _alert_form(symbol: str, snap_close: float, high52: float | None, *, key_pre
         "⚡ The alert triggers on **real-time** price — the ₹ shown above is "
         "just a ~15 min delayed reference for picking levels."
     )
-    note = st.text_input("Note (optional)", key=f"{key_prefix}_note", placeholder="e.g. breakout watch")
+    note = st.text_input(
+        "Note (optional)", key=f"{key_prefix}_note", placeholder="e.g. breakout watch"
+    )
 
     if st.button("➕ Add alert", key=f"{key_prefix}_add", type="primary"):
         upper = float(up_val) if up_on else None
@@ -455,7 +485,9 @@ def _render_alerts_tab(snap: pd.DataFrame):
 
     widths = [2.0, 1.3, 1.3, 1.3, 1.2, 1.2, 0.7]
     hdr = st.columns(widths, vertical_alignment="center")
-    for col, label in zip(hdr, ["Symbol", "Above", "Below", "Current", "Status", "", ""], strict=False):
+    for col, label in zip(
+        hdr, ["Symbol", "Above", "Below", "Current", "Status", "", ""], strict=False
+    ):
         if label:
             col.caption(label)
 
@@ -482,7 +514,12 @@ def _render_alerts_tab(snap: pd.DataFrame):
                 alerts_db.rearm(a["id"])  # resume/re-arm: active + clear trigger
                 st.toast(f"{'Re-armed' if triggered else 'Resumed'} {a['symbol']}", icon="🔔")
             st.rerun()
-        if c[6].button("🗑", key=f"delete_{a['id']}", use_container_width=True, help=f"Delete the {a['symbol']} alert"):
+        if c[6].button(
+            "🗑",
+            key=f"delete_{a['id']}",
+            use_container_width=True,
+            help=f"Delete the {a['symbol']} alert",
+        ):
             alerts_db.delete_alert(a["id"])
             st.toast(f"Deleted {a['symbol']} alert", icon="🗑️")
             st.rerun()
@@ -516,7 +553,8 @@ with st.sidebar:
             max_value=30,
             value=3,
             step=1,
-            help="N-year high — e.g. 3 = highest in the last 3 years. (For 1 year, use the 52-week option.)",
+            help="N-year high — e.g. 3 = highest in the last 3 years. "
+            "(For 1 year, use the 52-week option.)",
         )
         window = int(years)
         win_label = f"{int(years)}-year"
@@ -534,7 +572,8 @@ with st.sidebar:
             max_value=364,
             value=screener.DEFAULT_MIN_DAYS,
             step=1,
-            help="Exclude stocks that made a new high (in the chosen window) within this many days.",
+            help="Exclude stocks that made a new high (in the chosen window) within "
+            "this many days.",
         )
         band_low, band_high = st.slider(
             "Pullback band (% below the high)",
@@ -577,7 +616,8 @@ with st.sidebar:
             ["Above threshold (liquid)", "Below threshold (thin)"],
             index=0,
             disabled=not (has_band and qty_circuit_only),
-            help="Above: avg vol ≥ threshold. Below: avg vol ≤ threshold. Combined with band = 20%.",
+            help="Above: avg vol ≥ threshold. Below: avg vol ≤ threshold. "
+            "Combined with band = 20%.",
         )
         qty_keep = "above" if qty_dir_label.startswith("Above") else "below"
         qty_threshold = st.number_input(
@@ -633,7 +673,8 @@ with st.sidebar:
     if st.button(
         "🔄 Fetch today's prices",
         use_container_width=True,
-        help="Run the Angel same-day job now, then load its result. Use if the data is still stale after market close.",
+        help="Run the Angel same-day job now, then load its result. Use if "
+        "the data is still stale after market close.",
     ):
         _run_fetch_fallback()
 
@@ -648,7 +689,264 @@ with st.sidebar:
 
 snap, snap_as_of = load_snap("remote" if st.session_state.get("use_remote") else "local")
 
-tab_screen, tab_alerts = st.tabs(["📈 Screener", "🔔 Price Alerts"])
+_FLOW_NUM = [
+    "strike",
+    "dte",
+    "ltp",
+    "chg_pct",
+    "oi",
+    "oi_chg_day",
+    "oi_chg_day_pct",
+    "volume",
+    "vol_oi",
+    "notional",
+    "iv",
+    "delta",
+    "gamma",
+    "vega",
+    "d5_oi",
+    "d10_oi",
+    "d15_oi",
+    "d5_price_pct",
+    "d10_price_pct",
+    "d15_price_pct",
+    "d5_iv",
+    "d10_iv",
+    "d15_iv",
+    "d5_vol",
+    "d10_vol",
+    "d15_vol",
+    "spread_pct",
+    "forward",
+]
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def _load_options_scan():
+    return options_db.load_scan()
+
+
+def _build_up_emoji(label):
+    return {
+        "Long Buildup": "🟢 Long Buildup",
+        "Short Buildup": "🔴 Short Buildup",
+        "Short Covering": "🟡 Short Covering",
+        "Long Unwinding": "🟠 Long Unwinding",
+    }.get(label, label or "—")
+
+
+@st.fragment(run_every="30s")
+def _render_options_flow():
+    if not options_db.configured():
+        st.info("Options-flow scan isn't configured yet (Supabase creds unset).")
+        return
+    df = _load_options_scan()
+    if df is None or df.empty:
+        st.warning(
+            "No options-scan data yet. The collector writes during market "
+            "hours (09:15–15:31 IST); check back once it has run a few minutes."
+        )
+        return
+    for c in _FLOW_NUM:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+    as_of = pd.to_datetime(df.get("as_of"), errors="coerce").max()
+    # keep only the latest snapshot — ignore any stale rows (rolled-off expiries)
+    if pd.notna(as_of):
+        df = df[
+            pd.to_datetime(df["as_of"], errors="coerce") >= as_of - pd.Timedelta(minutes=10)
+        ].copy()
+    stamp = f"{as_of:%d %b %H:%M}" if pd.notna(as_of) else "—"
+    st.caption(
+        f"Live options flow • **{len(df)}** contracts • as of **{stamp} IST** • auto-refreshes ~30s"
+    )
+
+    view = st.radio(
+        "Scan",
+        [
+            "Volume surge",
+            "OI build-up",
+            "OI unwinding",
+            "Price movers",
+            "IV jump",
+            "ATM Call vs Put",
+            "Strike ladder",
+        ],
+        horizontal=True,
+        key="flow_view",
+    )
+    c1, c2, c3 = st.columns([2, 1, 1])
+    unders = sorted(df["underlying"].dropna().unique())
+    pick = c1.multiselect("Underlying", unders, default=[], key="flow_under")
+    side = c2.radio("Side", ["All", "CE", "PE"], horizontal=True, key="flow_side")
+    win = c3.radio("Window", ["5m", "10m", "15m"], horizontal=True, key="flow_win")
+    w = win[:-1]
+    oi_c, px_c, iv_c, vol_c = f"d{w}_oi", f"d{w}_price_pct", f"d{w}_iv", f"d{w}_vol"
+
+    d = df.copy()
+    if pick:
+        d = d[d["underlying"].isin(pick)]
+    if side != "All":
+        d = d[d["kind"] == side]
+    if d.empty:
+        st.warning("Nothing matches those filters.")
+        return
+
+    if view == "ATM Call vs Put":
+        near = d[(d["forward"] > 0) & ((d["strike"] - d["forward"]).abs() / d["forward"] <= 0.02)]
+        if near.empty:
+            st.warning("No near-ATM contracts in view.")
+            return
+        agg = (
+            near.groupby(["underlying", "kind"])
+            .agg(
+                oi=("oi", "sum"),
+                vol=(vol_c, "sum"),
+                oi_chg=("oi_chg_day", "sum"),
+                iv=("iv", "mean"),
+            )
+            .reset_index()
+        )
+        piv = agg.pivot(index="underlying", columns="kind").fillna(0)
+        piv.columns = [f"{k.upper()} {a}" for a, k in piv.columns]
+        if "PE oi" in piv and "CE oi" in piv:
+            piv["PCR"] = (piv["PE oi"] / piv["CE oi"].replace(0, pd.NA)).round(2)
+        for base in ("vol", "oi_chg"):
+            ce, pe = f"CE {base}", f"PE {base}"
+            if ce in piv and pe in piv:
+                piv[f"{base} CE-PE"] = piv[ce] - piv[pe]
+        if "vol CE-PE" in piv.columns:
+            piv = piv.sort_values("vol CE-PE", key=lambda s: s.abs(), ascending=False)
+        st.caption(
+            f"Near-ATM (±2%) {win} activity per underlying • **PCR** = PE OI ÷ "
+            "CE OI (>1 = put-heavy) • CE-PE positive = calls busier."
+        )
+        st.dataframe(piv.round(1), use_container_width=True)
+        return
+
+    if view == "Strike ladder":
+        u = pick[0] if pick else "NIFTY"
+        if len(pick) > 1:
+            st.info(f"Strike ladder shows one underlying — using **{u}**.")
+        ch = d[d["underlying"] == u].copy()
+        if ch.empty:
+            st.warning(f"No contracts for {u} in view.")
+            return
+        keep = ["strike", "ltp", "iv", oi_c, vol_c]
+        ce = ch[ch["kind"] == "CE"][keep].add_prefix("CE ")
+        pe = ch[ch["kind"] == "PE"][keep].add_prefix("PE ")
+        lad = ce.merge(pe, left_on="CE strike", right_on="PE strike", how="outer")
+        lad["Strike"] = lad["CE strike"].fillna(lad["PE strike"])
+        lad = lad.sort_values("Strike", ascending=False)
+        fwd = ch["forward"].dropna().iloc[0] if ch["forward"].notna().any() else None
+        show = lad[
+            [
+                f"CE {oi_c}",
+                f"CE {vol_c}",
+                "CE iv",
+                "CE ltp",
+                "Strike",
+                "PE ltp",
+                "PE iv",
+                f"PE {vol_c}",
+                f"PE {oi_c}",
+            ]
+        ].rename(
+            columns={
+                f"CE {oi_c}": f"CE ΔOI {win}",
+                f"CE {vol_c}": f"CE Vol {win}",
+                "CE iv": "CE IV",
+                "CE ltp": "CE LTP",
+                "PE ltp": "PE LTP",
+                "PE iv": "PE IV",
+                f"PE {vol_c}": f"PE Vol {win}",
+                f"PE {oi_c}": f"PE ΔOI {win}",
+            }
+        )
+        cap = f"**{u}** strike ladder — calls (left) vs puts (right)"
+        if fwd:
+            cap += f" • forward ≈ **{fwd:g}** (ATM)"
+        st.caption(
+            cap + f" • ΔOI / Vol are the {win} change — see where flow concentrates across strikes."
+        )
+        st.dataframe(show, use_container_width=True, hide_index=True)
+        return
+
+    if view == "Volume surge":
+        d = d.sort_values(vol_c, ascending=False, na_position="last")
+    elif view == "OI build-up":
+        d = d.sort_values("oi_chg_day", ascending=False, na_position="last")
+    elif view == "OI unwinding":
+        d = d.sort_values("oi_chg_day", ascending=True, na_position="last")
+    elif view == "Price movers":
+        d = d.reindex(d[px_c].abs().sort_values(ascending=False, na_position="last").index)
+    elif view == "IV jump":
+        d = d.reindex(d[iv_c].abs().sort_values(ascending=False, na_position="last").index)
+
+    d = d.head(100).copy()
+    d["Contract"] = (
+        d["underlying"]
+        + " "
+        + d["strike"].map(lambda x: f"{x:g}")
+        + " "
+        + d["kind"]
+        + "  "
+        + d["dte"].map(lambda x: f"{int(x)}d" if pd.notna(x) else "")
+    )
+    d["Build-up"] = d["buildup"].map(_build_up_emoji)
+    show = d[
+        [
+            "Contract",
+            "ltp",
+            "chg_pct",
+            oi_c,
+            "oi_chg_day",
+            vol_c,
+            "vol_oi",
+            "iv",
+            iv_c,
+            "delta",
+            "Build-up",
+            "spread_pct",
+        ]
+    ].rename(
+        columns={
+            "ltp": "LTP",
+            "chg_pct": "Chg%",
+            oi_c: f"ΔOI {win}",
+            "oi_chg_day": "ΔOI day",
+            vol_c: f"Vol {win}",
+            "vol_oi": "Vol÷OI",
+            "iv": "IV%",
+            iv_c: f"ΔIV {win}",
+            "delta": "δ",
+            "spread_pct": "Spread%",
+        }
+    )
+    st.dataframe(
+        show,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "LTP": st.column_config.NumberColumn(format="%.2f"),
+            "Chg%": st.column_config.NumberColumn(format="%.1f%%"),
+            f"ΔOI {win}": st.column_config.NumberColumn(format="%d"),
+            "ΔOI day": st.column_config.NumberColumn(format="%d"),
+            f"Vol {win}": st.column_config.NumberColumn(format="%d"),
+            "Vol÷OI": st.column_config.NumberColumn(format="%.2f"),
+            "IV%": st.column_config.NumberColumn(format="%.1f"),
+            f"ΔIV {win}": st.column_config.NumberColumn(format="%.1f"),
+            "δ": st.column_config.NumberColumn(format="%.2f"),
+            "Spread%": st.column_config.NumberColumn(format="%.1f"),
+        },
+    )
+    st.caption(
+        "Top 100 by the selected scan. ΔOI/ΔIV/Vol are the change over the "
+        "chosen window; ΔOI day is vs the day-open."
+    )
+
+
+tab_screen, tab_alerts, tab_flow = st.tabs(["📈 Screener", "🔔 Price Alerts", "📊 Options Flow"])
 
 with tab_screen:
     # F&O (Filter 1) + Qty+Circuit (Filter 2) can never both be true — F&O stocks
@@ -708,7 +1006,15 @@ with tab_screen:
             # Columns shown in the table + downloads (full `results` is still used
             # for the per-row quick-add, which reads LastClose/52wHigh).
             if window == "ath":
-                show_cols = ["Symbol", "PctFromHigh", "LastClose", "52wHigh", "DaysSinceHigh", "HighDate", "AvgVol20d"]
+                show_cols = [
+                    "Symbol",
+                    "PctFromHigh",
+                    "LastClose",
+                    "52wHigh",
+                    "DaysSinceHigh",
+                    "HighDate",
+                    "AvgVol20d",
+                ]
                 rename = {"52wHigh": "All-time High", "PctFromHigh": "% from High"}
             else:
                 # N-year window: show the all-time high alongside for context
@@ -765,3 +1071,6 @@ with tab_screen:
 
 with tab_alerts:
     _render_alerts_tab(snap)
+
+with tab_flow:
+    _render_options_flow()
