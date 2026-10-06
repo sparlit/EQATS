@@ -8,8 +8,8 @@ enforcing 0.05 INR tick rounding and IST market session validation.
 Magic Number: 9100102
 """
 
-import math
 import logging
+import math
 import zoneinfo
 from datetime import datetime
 from typing import Any
@@ -68,7 +68,12 @@ class OptionsGreeksHedgeEngine:
         self.r = risk_free_rate
 
     def calculate_greeks(
-        self, spot: float, strike: float, dte_days: float, volatility: float, option_type: str = "CE"
+        self,
+        spot: float,
+        strike: float,
+        dte_days: float,
+        volatility: float,
+        option_type: str = "CE",
     ) -> dict[str, float]:
         """
         Calculates Black-76 option price and analytical Greeks (Delta, Gamma, Vega, Theta).
@@ -210,10 +215,14 @@ class OptionsGreeksHedgeEngineAdapter(SEBIBrokerAdapter):
     def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
-    def get_history(self, symbol: str, exchange: str = "NFO", count: int = 100) -> list[dict[str, Any]]:
+    def get_history(
+        self, symbol: str, exchange: str = "NFO", count: int = 100
+    ) -> list[dict[str, Any]]:
         return [{"symbol": symbol, "close": 215.50} for _ in range(count)]
 
-    def modify_order(self, ticket: str, price: float = 0.0, trigger_price: float = 0.0) -> SEBIOrderResponse:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, trigger_price: float = 0.0
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             ticket=ticket,
             symbol="NIFTY",
