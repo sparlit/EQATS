@@ -106,7 +106,9 @@ c2.metric(
     f"{param_var:.2%}",
     help="Worst expected loss assuming normally distributed returns",
 )
-c3.metric("Max 1-Day Loss at Risk (₹)", f"₹{hist_var_inr:,.0f}", help=f"On your ₹{investment:,} portfolio")
+c3.metric(
+    "Max 1-Day Loss at Risk (₹)", f"₹{hist_var_inr:,.0f}", help=f"On your ₹{investment:,} portfolio"
+)
 c4.metric(
     "Portfolio Volatility (Ann.)",
     f"{std_r * (252**0.5):.2%}",
@@ -123,9 +125,19 @@ with left:
     st.subheader("📉 Return Distribution with VaR Lines")
     fig, ax = plt.subplots(figsize=(8, 4))
     ax.hist(port_returns, bins=50, alpha=0.7, color="#1f77b4", edgecolor="white")
-    ax.axvline(hist_var, color="red", linestyle="--", linewidth=2, label=f"Historical VaR {confidence}: {hist_var:.2%}")
     ax.axvline(
-        param_var, color="orange", linestyle=":", linewidth=2, label=f"Parametric VaR {confidence}: {param_var:.2%}"
+        hist_var,
+        color="red",
+        linestyle="--",
+        linewidth=2,
+        label=f"Historical VaR {confidence}: {hist_var:.2%}",
+    )
+    ax.axvline(
+        param_var,
+        color="orange",
+        linestyle=":",
+        linewidth=2,
+        label=f"Parametric VaR {confidence}: {param_var:.2%}",
     )
     ax.set_xlabel("Daily Return")
     ax.set_ylabel("Frequency")
@@ -138,7 +150,10 @@ with left:
 with right:
     st.subheader("📊 Annualised Volatility by Stock")
     fig2, ax2 = plt.subplots(figsize=(8, 4))
-    colors = ["#d62728" if v == ann_vol.max() else "#2ca02c" if v == ann_vol.min() else "#1f77b4" for v in ann_vol]
+    colors = [
+        "#d62728" if v == ann_vol.max() else "#2ca02c" if v == ann_vol.min() else "#1f77b4"
+        for v in ann_vol
+    ]
     ax2.barh(ann_vol.index, ann_vol.values, color=colors)
     ax2.set_xlabel("Annualised Volatility")
     ax2.set_title("Volatility Comparison (Red = Highest Risk)")
@@ -157,7 +172,10 @@ var_df = pd.DataFrame(
         "Method": ["Historical Simulation", "Parametric (Normal)"],
         "VaR": [f"{hist_var:.2%}", f"{param_var:.2%}"],
         "₹ at Risk": [f"₹{hist_var_inr:,.0f}", f"₹{param_var_inr:,.0f}"],
-        "Assumption": ["Uses actual return distribution", "Assumes returns are normally distributed"],
+        "Assumption": [
+            "Uses actual return distribution",
+            "Assumes returns are normally distributed",
+        ],
     }
 )
 
@@ -167,7 +185,10 @@ var_df = pd.DataFrame(
         "Method": ["Historical Simulation", "Parametric (Normal)"],
         "VaR": [f"{hist_var:.2%}", f"{param_var:.2%}"],
         "Rs at Risk": [f"Rs {hist_var_inr:,.0f}", f"Rs {param_var_inr:,.0f}"],
-        "Assumption": ["Uses actual return distribution", "Assumes returns are normally distributed"],
+        "Assumption": [
+            "Uses actual return distribution",
+            "Assumes returns are normally distributed",
+        ],
     }
 )
 st.dataframe(var_df, use_container_width=True, hide_index=True)
