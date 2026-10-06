@@ -23,7 +23,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 # install these libraries - nsetools,pprint,csv
 from csv import writer
-from pprint import pprint
 
 from nsetools import Nse
 
