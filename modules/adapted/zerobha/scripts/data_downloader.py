@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import argparse
 import concurrent.futures
 import os
-import time
 
 import pandas as pd
 import yfinance as yf
@@ -67,10 +66,10 @@ def download_stock(symbol, args):
 
     # Format for Zerobha
     # 1. Reset index to get Timestamp as column
-    df = df.reset_index()
+    df.reset_index(inplace=True)
 
     # 2. Rename columns to lowercase matches
-    df = df.rename(
+    df.rename(
         columns={
             "Datetime": "timestamp",
             "Date": "timestamp",
@@ -79,7 +78,8 @@ def download_stock(symbol, args):
             "Low": "low",
             "Close": "close",
             "Volume": "volume",
-        }
+        },
+        inplace=True,
     )
 
     # 3. Format timestamp to RFC3339 (Go standard)
@@ -110,7 +110,9 @@ def main():
         default="ind_nifty50list.csv",
         help="Path to CSV file containing stock symbols (column 'symbol')",
     )
-    parser.add_argument("--limit", type=int, default=500, help="Number of stocks to download (default: 100)")
+    parser.add_argument(
+        "--limit", type=int, default=500, help="Number of stocks to download (default: 100)"
+    )
     parser.add_argument("--interval", type=str, default="1h", help="Data interval (1h, 1d)")
     parser.add_argument("--period", type=str, default="59d", help="Data period (e.g. 59d, 2y)")
     parser.add_argument("--start", type=str, help="Start date (YYYY-MM-DD)")

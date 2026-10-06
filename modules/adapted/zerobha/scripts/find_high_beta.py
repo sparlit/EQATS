@@ -34,7 +34,6 @@ import json
 import os
 from datetime import datetime, timedelta
 
-import numpy as np
 import pandas as pd
 import yfinance as yf
 
@@ -107,7 +106,9 @@ def process_symbol(args):
     """
     sym, industry, start_str, end_str, market_returns, market_perf_1m = args
     try:
-        stock_data = yf.download(sym, start=start_str, end=end_str, progress=False, auto_adjust=True)
+        stock_data = yf.download(
+            sym, start=start_str, end=end_str, progress=False, auto_adjust=True
+        )
 
         if stock_data.empty:
             return None
@@ -150,17 +151,23 @@ def main():
         default="ind_nifty500list.csv",
         help="Path to CSV file containing symbols (column name 'Symbol')",
     )
-    parser.add_argument("--output", type=str, default="high_beta_stocks.csv", help="Output CSV file")
+    parser.add_argument(
+        "--output", type=str, default="high_beta_stocks.csv", help="Output CSV file"
+    )
     parser.add_argument("--start-date", type=str, help="Start date (YYYY-MM-DD)")
     parser.add_argument("--end-date", type=str, help="End date (YYYY-MM-DD)")
-    parser.add_argument("--workers", type=int, default=os.cpu_count(), help="Number of worker processes")
+    parser.add_argument(
+        "--workers", type=int, default=os.cpu_count(), help="Number of worker processes"
+    )
     parser.add_argument(
         "--sectors",
         type=str,
         default=None,
         help="Comma-separated list of industries to filter (e.g. 'Healthcare,Metals & Mining')",
     )
-    parser.add_argument("--min-beta", type=float, default=None, help="Minimum beta threshold (e.g. 1.2)")
+    parser.add_argument(
+        "--min-beta", type=float, default=None, help="Minimum beta threshold (e.g. 1.2)"
+    )
     parser.add_argument("--limit", type=int, default=None, help="Max number of stocks to output")
     args = parser.parse_args()
 
@@ -173,7 +180,9 @@ def main():
     if args.start_date:
         start_date = datetime.strptime(args.start_date, "%Y-%m-%d")
 
-    print(f"Calculating Beta from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+    print(
+        f"Calculating Beta from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
+    )
 
     # Parse sector filter
     sector_filter = None
@@ -208,7 +217,9 @@ def main():
     start_str = start_date.strftime("%Y-%m-%d")
     end_str = (end_date + timedelta(days=1)).strftime("%Y-%m-%d")
 
-    market_data = yf.download("^NSEI", start=start_str, end=end_str, progress=False, auto_adjust=True)
+    market_data = yf.download(
+        "^NSEI", start=start_str, end=end_str, progress=False, auto_adjust=True
+    )
     if market_data.empty:
         print("Error: No market data fetched.")
         return
@@ -227,7 +238,10 @@ def main():
     results = []
     print(f"Processing {len(symbols_with_industry)} stocks using {args.workers} workers...")
 
-    tasks = [(sym, ind, start_str, end_str, market_returns, market_perf_1m) for sym, ind in symbols_with_industry]
+    tasks = [
+        (sym, ind, start_str, end_str, market_returns, market_perf_1m)
+        for sym, ind in symbols_with_industry
+    ]
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.workers) as executor:
         for result in executor.map(process_symbol, tasks):
