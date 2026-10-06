@@ -104,7 +104,7 @@ Total Repositories: 424 | Current Index: 102
 | 99 | crypto-crawler/coinsignal | Processed | https://github.com/sparlit/EQATS/pull/3039 |
 | 100 | cutupdev/solana-copytrading-bot | Skipped: Private/Non-Existent (404/403) | None |
 | 101 | cyberomin/nsefinance-python | Processed | https://github.com/sparlit/EQATS/pull/3041 |
-| 102 | d-e-s-o/apcacli | Processed | None |
+| 102 | d-e-s-o/apcacli | Processed | https://github.com/sparlit/EQATS/pull/3042 |
 | 103 | dallyshalla/tropix | pending | None |
 | 104 | day0market/geger | pending | None |
 | 105 | daydy-dev/moon-dev-ai-agents-for-trading | pending | None |

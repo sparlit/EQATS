@@ -814,8 +814,8 @@
       "target": "d-e-s-o/apcacli",
       "url": "https://github.com/d-e-s-o/apcacli",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3042",
+      "merged": true
     },
     {
       "name": "tropix",
