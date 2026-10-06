@@ -55,22 +55,24 @@ class TestScalperBrainAndConnector(unittest.TestCase):
     def setUp(self) -> None:
         import config
         self.orig_db = config.DB_PATH
-        if os.path.exists('test_scalper_brain.db'):
-            try:
-                os.remove('test_scalper_brain.db')
-            except Exception:
-                pass
+        for db_file in ['test_scalper_brain.db', 'test_scalper_brain.db-wal', 'test_scalper_brain.db-shm']:
+            if os.path.exists(db_file):
+                try:
+                    os.remove(db_file)
+                except Exception:
+                    pass
         config.DB_PATH = 'test_scalper_brain.db'
         database.init_db()
 
     def tearDown(self) -> None:
         import config
         config.DB_PATH = getattr(self, 'orig_db', 'scalper_brain.db')
-        if os.path.exists('test_scalper_brain.db'):
-            try:
-                os.remove('test_scalper_brain.db')
-            except Exception:
-                pass
+        for db_file in ['test_scalper_brain.db', 'test_scalper_brain.db-wal', 'test_scalper_brain.db-shm']:
+            if os.path.exists(db_file):
+                try:
+                    os.remove(db_file)
+                except Exception:
+                    pass
         database.init_db()
 
     def test_simulator_connector(self) -> None:
@@ -114,11 +116,12 @@ class TestAutonomousScalperIntegration(unittest.TestCase):
     def setUp(self) -> None:
         import config
         self.orig_db = config.DB_PATH
-        if os.path.exists('integration_test.db'):
-            try:
-                os.remove('integration_test.db')
-            except Exception:
-                pass
+        for db_file in ['integration_test.db', 'integration_test.db-wal', 'integration_test.db-shm']:
+            if os.path.exists(db_file):
+                try:
+                    os.remove(db_file)
+                except Exception:
+                    pass
         config.DB_PATH = 'integration_test.db'
         config.SIMULATION_MODE = True
         config.SYMBOLS = ['EURUSD', 'GBPUSD']
@@ -127,11 +130,12 @@ class TestAutonomousScalperIntegration(unittest.TestCase):
     def tearDown(self) -> None:
         import config
         config.DB_PATH = getattr(self, 'orig_db', 'scalper_brain.db')
-        if os.path.exists('integration_test.db'):
-            try:
-                os.remove('integration_test.db')
-            except Exception:
-                pass
+        for db_file in ['integration_test.db', 'integration_test.db-wal', 'integration_test.db-shm']:
+            if os.path.exists(db_file):
+                try:
+                    os.remove(db_file)
+                except Exception:
+                    pass
         database.init_db()
 
     def test_full_trading_loop(self) -> None:
