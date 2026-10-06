@@ -28,8 +28,8 @@ def investing_quantity(
     risk: float,
     risk_to_reward_ratio: float = 2,
     leverage: float = 1,
-    entry: float | None = None,
-    stop_loss: float | None = None,
+    entry: float = None,
+    stop_loss: float = None,
     Low: str = "LOW",
     High: str = "HIGH",
     delta: float = 0.001,
@@ -55,7 +55,9 @@ def investing_quantity(
     df = self.open_downloaded_stock(name)
 
     if risk_to_reward_ratio > 2:
-        warnings.warn(f"Don't be greedy with risk to reward ratio of {risk_to_reward_ratio}. Stick to system")
+        warnings.warn(
+            f"Don't be greedy with risk to reward ratio of {risk_to_reward_ratio}. Stick to system"
+        )
 
     buy_delta = df.loc[0, High] * delta
     sell_delta = min(df.loc[:1, Low].values) * delta
@@ -132,7 +134,9 @@ def intraday_quantity(
     target = entry + profit if position == "long" else entry - profit
 
     if (target > expected_target) and position == "long":
-        print(f"Expected Target can't be reached with {risk_to_reward_ratio} Risk-to-Reward. Might not be a good Trade")
+        print(
+            f"Expected Target can't be reached with {risk_to_reward_ratio} Risk-to-Reward. Might not be a good Trade"
+        )
         return None
 
     if (target < expected_target) and position == "short":

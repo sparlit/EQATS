@@ -22,7 +22,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import json
-import warnings
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -39,9 +38,9 @@ class KiteZerodha:
     def __init__(
         self,
         secret_file_path: None = None,
-        user_id: str | None = None,
-        password: str | None = None,
-        two_factor_pin: str | None = None,
+        user_id: str = None,
+        password: str = None,
+        two_factor_pin: str = None,
         data_path="./data.json",
     ):
         """
@@ -72,7 +71,15 @@ class KiteZerodha:
         with open(data_path) as f:
             self.data = json.load(f)
 
-        self.data_day_limit = {60: 400, 30: 200, 15: 200, 5: 100, 3: 100, 4: 100, 2: 60}
+        self.data_day_limit = {
+            60: 400,
+            30: 200,
+            15: 200,
+            5: 100,
+            3: 100,
+            4: 100,
+            2: 60,
+        }
 
         self.name_code_mapping = {
             "NIFTY": 256265,
@@ -133,7 +140,9 @@ class KiteZerodha:
         login_url = self.kite_basic_urls["login_url"]
         two_factor_url = self.kite_basic_urls["two_factor_url"]
 
-        response = self.session.post(login_url, data={"user_id": self.user_id, "password": self.password})
+        response = self.session.post(
+            login_url, data={"user_id": self.user_id, "password": self.password}
+        )
         response = self.session.post(
             two_factor_url,
             data={
@@ -146,8 +155,7 @@ class KiteZerodha:
         if response.status_code == 200:
             print("Logged in Successfully")
         else:
-            msg = "Some problem in your login. Check Credentials or file"
-            raise AssertionError(msg)
+            raise AssertionError("Some problem in your login. Check Credentials or file")
 
         enc_token = self.session.cookies["enctoken"]
 
@@ -165,8 +173,7 @@ class KiteZerodha:
         """
         keys = list(self.kite_basic_urls.keys())[3:]
         if kind not in self.kite_basic_urls:
-            msg = f"Enter values from one of {keys}"
-            raise AssertionError(msg)
+            raise AssertionError(f"Enter values from one of {keys}")
 
         response = self.session.get(self.kite_basic_urls[kind])
         return response.json()
@@ -175,9 +182,9 @@ class KiteZerodha:
         self,
         name: str,
         data_type: str,
-        code: int | None = None,
+        code: int = None,
         interval: int = 5,
-        starting_from_date: str | None = None,
+        starting_from_date: str = None,
         no_days_back: int = 7,
         include_live: bool = False,
     ):
@@ -208,8 +215,9 @@ class KiteZerodha:
             )
 
         else:
-            msg = "Enter proper value for the parameter 'data_type'. One of: day / min"
-            raise AssertionError(msg)
+            raise AssertionError(
+                "Enter proper value for the parameter 'data_type'. One of: day / min"
+            )
 
         assert (name in self.data["all_stocks"]) or (name in self.name_code_mapping) or (code), (
             "Enter a valid stock name OR code. Check NSE website for code"
@@ -218,12 +226,15 @@ class KiteZerodha:
             "Name and it's code has not been updated. Help me help you update all 1600 names and code. Please find the code and Update the file or raise an issue / feature request for specific stock"
         )
 
-        code = code or self.name_code_mapping[name]
+        code = code if code else self.name_code_mapping[name]
 
         today = datetime.today()
         include_live = (
             True
-            if (((today.hour > 14 and today.minute > 30) or (today.hour < 10 and today.minute < 15)) and include_live)
+            if (
+                ((today.hour > 14 and today.minute > 30) or (today.hour < 10 and today.minute < 15))
+                and include_live
+            )
             else include_live
         )
 
@@ -256,7 +267,18 @@ class KiteZerodha:
                 data = js["data"]["candles"]
 
             df = pd.DataFrame(data)
-            df = df.rename(columns={0: "DATE", 1: "OPEN", 2: "HIGH", 3: "LOW", 4: "CLOSE", 5: "VOLUME", 6: "UNKNOWN"})
+            df.rename(
+                columns={
+                    0: "DATE",
+                    1: "OPEN",
+                    2: "HIGH",
+                    3: "LOW",
+                    4: "CLOSE",
+                    5: "VOLUME",
+                    6: "UNKNOWN",
+                },
+                inplace=True,
+            )
 
             if data_type == "day":  # need to strip the extra timestamp
                 df["DATE"] = df["DATE"].apply(lambda x: x[:10])
@@ -276,7 +298,9 @@ class KiteZerodha:
                 "Error in fetching Data. Probable Casuses: Not connected to internet or some parameters not passed properly"
             )
 
-    def download_intraday_data(self, name: str, interval: int, path: str = "./intraday_data", overwrite: bool = False):
+    def download_intraday_data(
+        self, name: str, interval: int, path: str = "./intraday_data", overwrite: bool = False
+    ):
         """
         Download Minutes Data starting from NOW to the last available date to which the specific candle can be downloaded.
         No functionality is given for MultiProcessing due to the fact that Zerodha might block access when huge no of requests are fired
@@ -286,7 +310,7 @@ class KiteZerodha:
             interval: Which interval data in minutes you want to get
             overwrite: Whether to download from scratch or append to the existing data
         """
-        full_path = f"{path}/minutes_{interval!s}/{name}.csv"
+        full_path = f"{path}/minutes_{str(interval)}/{name}.csv"
 
         no_days_back = self.data_day_limit[interval] - 1
         df = self.get_historical_minutes_data(name, interval, None, no_days_back)
