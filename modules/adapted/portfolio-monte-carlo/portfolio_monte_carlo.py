@@ -27,7 +27,6 @@ Markowitz Efficient Frontier via Monte Carlo Simulation
 """
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import seaborn as sns
 import yfinance as yf
 
@@ -56,8 +55,7 @@ stock_prices = stock_prices[STOCKS]
 log_returns = np.log(stock_prices / stock_prices.shift(1)).dropna()
 
 if log_returns.empty:
-    msg = "No valid return data after dropna() - check tickers/date range."
-    raise ValueError(msg)
+    raise ValueError("No valid return data after dropna() - check tickers/date range.")
 
 # --- 2. Portfolio statistics ---
 num_stocks = len(STOCKS)
@@ -97,13 +95,27 @@ for i, stock in enumerate(STOCKS):
 
 # --- 5. Plotting ---
 plt.figure(figsize=(12, 8))
-plt.scatter(portfolio_risks, portfolio_returns, c=sharpe_ratios, cmap="viridis", marker="o", s=10, alpha=0.3)
+plt.scatter(
+    portfolio_risks, portfolio_returns, c=sharpe_ratios, cmap="viridis", marker="o", s=10, alpha=0.3
+)
 plt.colorbar(label="Sharpe Ratio")
 plt.xlabel("Expected Risk")
 plt.ylabel("Expected Return")
 
-plt.plot(portfolio_risks[max_sharpe_idx], portfolio_returns[max_sharpe_idx], "r*", markersize=15.0, label="Max Sharpe")
-plt.plot(portfolio_risks[min_risk_idx], portfolio_returns[min_risk_idx], "g*", markersize=15.0, label="Min Risk")
+plt.plot(
+    portfolio_risks[max_sharpe_idx],
+    portfolio_returns[max_sharpe_idx],
+    "r*",
+    markersize=15.0,
+    label="Max Sharpe",
+)
+plt.plot(
+    portfolio_risks[min_risk_idx],
+    portfolio_returns[min_risk_idx],
+    "g*",
+    markersize=15.0,
+    label="Min Risk",
+)
 plt.title("Efficient Frontier - Monte Carlo Simulation")
 plt.legend()
 plt.grid(True)
