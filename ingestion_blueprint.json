@@ -822,8 +822,8 @@
       "target": "dallyshalla/tropix",
       "url": "https://github.com/dallyshalla/tropix",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3043",
+      "merged": true
     },
     {
       "name": "geger",
