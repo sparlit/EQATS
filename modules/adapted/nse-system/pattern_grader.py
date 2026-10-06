@@ -85,8 +85,9 @@ def _grade_one(conn, tag_date, symbol, breakout, stop, direction=None):
     if is_bearish:
         if stop <= breakout:
             return None
-    elif breakout <= stop:
-        return None
+    else:
+        if breakout <= stop:
+            return None
 
     rows = conn.execute(
         "SELECT date, high, low FROM prices_daily WHERE symbol=? AND date>? ORDER BY date LIMIT ?",
@@ -138,27 +139,28 @@ def _grade_one(conn, tag_date, symbol, breakout, stop, direction=None):
                 return None
         r = {"WIN": 1.0, "LOSS": -1.0, "TIMEOUT": 0.0, "EXPIRED": 0.0}[out]
         return (out, exit_date, r)
-    risk = breakout - stop
-    target = breakout + WIN_R * risk
-    out = "OPEN"
-    exit_date = None
-    for d, h, l in rows[trig_idx:]:
-        if l is not None and l <= stop:
-            out = "LOSS"
-            exit_date = d
-            break
-        if h is not None and h >= target:
-            out = "WIN"
-            exit_date = d
-            break
-    if out == "OPEN":
-        if len(rows) - trig_idx >= HOLD_BARS:
-            out = "TIMEOUT"
-            exit_date = rows[-1][0]
-        else:
-            return None
-    r = {"WIN": 1.0, "LOSS": -1.0, "TIMEOUT": 0.0, "EXPIRED": 0.0}[out]
-    return (out, exit_date, r)
+    else:
+        risk = breakout - stop
+        target = breakout + WIN_R * risk
+        out = "OPEN"
+        exit_date = None
+        for d, h, l in rows[trig_idx:]:
+            if l is not None and l <= stop:
+                out = "LOSS"
+                exit_date = d
+                break
+            if h is not None and h >= target:
+                out = "WIN"
+                exit_date = d
+                break
+        if out == "OPEN":
+            if len(rows) - trig_idx >= HOLD_BARS:
+                out = "TIMEOUT"
+                exit_date = rows[-1][0]
+            else:
+                return None
+        r = {"WIN": 1.0, "LOSS": -1.0, "TIMEOUT": 0.0, "EXPIRED": 0.0}[out]
+        return (out, exit_date, r)
 
 
 def grade_all():
@@ -172,7 +174,8 @@ def grade_all():
     skipped = 0
     for td, sym, pat, brk, stp, dirn in tags:
         exists = conn.execute(
-            "SELECT 1 FROM pattern_grades WHERE tag_date=? AND symbol=? AND pattern=?", (td, sym, pat)
+            "SELECT 1 FROM pattern_grades WHERE tag_date=? AND symbol=? AND pattern=?",
+            (td, sym, pat),
         ).fetchone()
         if exists:
             continue
@@ -201,7 +204,9 @@ def grade_all():
 def stats():
     conn = db.get_conn()
     _ensure(conn)
-    rows = conn.execute("SELECT pattern, outcome, COUNT(*) FROM pattern_grades GROUP BY pattern, outcome").fetchall()
+    rows = conn.execute(
+        "SELECT pattern, outcome, COUNT(*) FROM pattern_grades GROUP BY pattern, outcome"
+    ).fetchall()
     conn.close()
     raw = {}
     for pat, out, n in rows:
@@ -247,7 +252,9 @@ def report(save_gate=True):
     print(f"[PATTERN GATE] hit rates (WIN at +1R vs LOSS, stop-first, {HOLD_BARS}-bar window):")
     for pat, s in sorted(st.items()):
         print(
-            f"   {pat:<28} n={s['graded']:<6} W/L={s['wins']}/{s['losses']}  WR={s['win_rate']:.1%}  -> {s['status']}"
+            f"   {pat:<28} n={s['graded']:<6} "
+            f"W/L={s['wins']}/{s['losses']}  "
+            f"WR={s['win_rate']:.1%}  -> {s['status']}"
         )
     if not st:
         print("   (no graded patterns yet)")

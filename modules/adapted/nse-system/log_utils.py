@@ -43,7 +43,9 @@ def get_logger(name="nse"):
         _LOGGERS[name] = logger
         return logger
     logger.setLevel(logging.INFO)
-    fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+    fmt = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    )
 
     fh = TimedRotatingFileHandler(
         os.path.join(LOG_DIR, f"{name}.log"), when="midnight", backupCount=14, encoding="utf-8"

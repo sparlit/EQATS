@@ -26,9 +26,11 @@ Data Quality Monitor for NSE Intelligence.
 Checks core tables, staleness, duplicates, OHLC integrity,
 tracked-universe coverage, suspicious jumps. Logs + Telegram alert.
 """
+import contextlib
 import datetime as dt
 
 import db
+import universe_helper as U
 
 CRITICAL_STALE_DAYS = 5
 WARN_STALE_DAYS = 3
@@ -81,7 +83,9 @@ def _log(conn, rows, severity, check_name, message):
 
 
 def _table_exists(conn, table):
-    r = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone()
+    r = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+    ).fetchone()
     return r is not None
 
 
@@ -89,15 +93,8 @@ def _get_universe_symbols(conn):
     """Tracked universe = smallcap band + active core stocks."""
     symbols = set()
     if _table_exists(conn, "universe_broad"):
-        try:
-            rows = conn.execute(
-                "SELECT symbol FROM universe_broad "
-                "WHERE mcap_cr BETWEEN 1000 AND 8000 "
-                "AND symbol NOT LIKE '%$%' AND symbol NOT LIKE '% %'"
-            ).fetchall()
-            symbols.update(r[0] for r in rows)
-        except Exception:
-            pass
+        with contextlib.suppress(Exception):
+            symbols.update(U.band_universe(conn, None))
     if _table_exists(conn, "stocks"):
         try:
             rows = conn.execute("SELECT symbol FROM stocks WHERE active=1").fetchall()
@@ -114,15 +111,35 @@ def check_stale_price_date(conn, logs):
     r = conn.execute("SELECT MAX(date) FROM prices_daily").fetchone()
     max_date = _parse_date(r[0] if r else None)
     if max_date is None:
-        _log(conn, logs, "CRITICAL", "latest_price_date", "No valid max(date) found in prices_daily")
+        _log(
+            conn, logs, "CRITICAL", "latest_price_date", "No valid max(date) found in prices_daily"
+        )
         return None
     age = (_today() - max_date).days
     if age >= CRITICAL_STALE_DAYS:
-        _log(conn, logs, "CRITICAL", "latest_price_date", f"Latest price date is stale: {max_date} ({age} days old)")
+        _log(
+            conn,
+            logs,
+            "CRITICAL",
+            "latest_price_date",
+            f"Latest price date is stale: {max_date} ({age} days old)",
+        )
     elif age >= WARN_STALE_DAYS:
-        _log(conn, logs, "WARN", "latest_price_date", f"Latest price date may be stale: {max_date} ({age} days old)")
+        _log(
+            conn,
+            logs,
+            "WARN",
+            "latest_price_date",
+            f"Latest price date may be stale: {max_date} ({age} days old)",
+        )
     else:
-        _log(conn, logs, "OK", "latest_price_date", f"Latest price date OK: {max_date} ({age} days old)")
+        _log(
+            conn,
+            logs,
+            "OK",
+            "latest_price_date",
+            f"Latest price date OK: {max_date} ({age} days old)",
+        )
     return max_date
 
 
@@ -135,7 +152,13 @@ def check_duplicate_rows(conn, logs):
         """).fetchone()
         dupes = int(r[0] or 0)
         if dupes:
-            _log(conn, logs, "CRITICAL", "duplicate_prices", f"Duplicate symbol/date price rows found: {dupes}")
+            _log(
+                conn,
+                logs,
+                "CRITICAL",
+                "duplicate_prices",
+                f"Duplicate symbol/date price rows found: {dupes}",
+            )
         else:
             _log(conn, logs, "OK", "duplicate_prices", "No duplicate symbol/date rows")
     except Exception as e:
@@ -180,7 +203,9 @@ def check_missing_recent_symbols(conn, logs, latest_date):
     else:
         sev = "OK"
     shown = ", ".join(missing[:MAX_MISSING_SYMBOLS_SHOWN])
-    msg = f"Tracked symbols: {len(universe)}, missing recent data: {len(missing)} ({pct_missing:.1%})"
+    msg = (
+        f"Tracked symbols: {len(universe)}, missing recent data: {len(missing)} ({pct_missing:.1%})"
+    )
     if missing:
         msg += f". Examples: {shown}"
     _log(conn, logs, sev, "universe_recent_coverage", msg)
@@ -192,7 +217,8 @@ def check_suspicious_jumps(conn, logs):
         bad = []
         for sym in symbols[:1500]:
             rows = conn.execute(
-                "SELECT date, close FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 12", (sym,)
+                "SELECT date, close FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 12",
+                (sym,),
             ).fetchall()
             rows = list(reversed(rows))
             if len(rows) < 2:
@@ -209,7 +235,13 @@ def check_suspicious_jumps(conn, logs):
         if bad:
             shown = ", ".join([f"{s} {d} {j}%" for s, d, j in bad[:15]])
             sev = "WARN" if len(bad) < 10 else "CRITICAL"
-            _log(conn, logs, sev, "suspicious_price_jumps", f"Suspicious jumps found: {len(bad)}. {shown}")
+            _log(
+                conn,
+                logs,
+                sev,
+                "suspicious_price_jumps",
+                f"Suspicious jumps found: {len(bad)}. {shown}",
+            )
         else:
             _log(conn, logs, "OK", "suspicious_price_jumps", "No suspicious recent jumps")
     except Exception as e:

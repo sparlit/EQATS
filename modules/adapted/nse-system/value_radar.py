@@ -27,7 +27,6 @@ Authorized 2026-09-12 (Feature B). v3 (2026-09-12): uses canonical
 universe_helper for symbol list (ID7 consolidation).
 """
 import datetime as dt
-import json
 import statistics
 import sys
 
@@ -138,7 +137,8 @@ def compute(conn=None, limit=1500):
     rows_out = []
     for sym in syms:
         prows = conn.execute(
-            "SELECT high, low, close FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 260", (sym,)
+            "SELECT high, low, close FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 260",
+            (sym,),
         ).fetchall()
         if len(prows) < 200:
             continue

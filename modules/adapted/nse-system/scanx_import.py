@@ -219,8 +219,7 @@ def _read_csv(path):
     with Path(path).open(encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         if not reader.fieldnames:
-            msg = f"{path} has no CSV header"
-            raise ValueError(msg)
+            raise ValueError(f"{path} has no CSV header")
         return [{str(k).strip(): (v or "").strip() for k, v in row.items()} for row in reader]
 
 
@@ -252,8 +251,7 @@ def _resolve(rows, by_name, by_symbol):
             security = by_symbol.get(override)
             method = "curated_alias"
             if security is None:
-                msg = f"Alias {name!r} points to missing NSE EQ symbol {override!r}"
-                raise ValueError(msg)
+                raise ValueError(f"Alias {name!r} points to missing NSE EQ symbol {override!r}")
         else:
             candidates = by_name.get(_norm(name), {})
             if len(candidates) != 1:
@@ -275,8 +273,9 @@ def _resolve(rows, by_name, by_symbol):
     seen = set()
     for item in mapped:
         if item["symbol"] in seen:
-            msg = f"Multiple ScanX rows map to {item['symbol']}; refusing an ambiguous import"
-            raise ValueError(msg)
+            raise ValueError(
+                f"Multiple ScanX rows map to {item['symbol']}; refusing an ambiguous import"
+            )
         seen.add(item["symbol"])
     return mapped, unmatched
 
@@ -370,11 +369,16 @@ def _apply(path, snapshots, source_file, security_master_file):
         imported_at = dt.datetime.now().astimezone().isoformat(timespec="seconds")
         source_metadata = file_metadata(source_file)
         master_metadata = file_metadata(security_master_file)
-        definitions = ", ".join(f"{column} {kind}" for column, kind in SNAPSHOT_BASE_COLUMNS.items())
-        conn.execute(
-            f"CREATE TABLE IF NOT EXISTS scanx_fundamentals_snapshots ({definitions}, PRIMARY KEY (as_of_date, symbol))"
+        definitions = ", ".join(
+            f"{column} {kind}" for column, kind in SNAPSHOT_BASE_COLUMNS.items()
         )
-        table_columns = {row[1] for row in conn.execute("PRAGMA table_info(scanx_fundamentals_snapshots)")}
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS scanx_fundamentals_snapshots ("
+            f"{definitions}, PRIMARY KEY (as_of_date, symbol))"
+        )
+        table_columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(scanx_fundamentals_snapshots)")
+        }
         for column, kind in SNAPSHOT_BASE_COLUMNS.items():
             if column in table_columns:
                 continue
@@ -397,7 +401,11 @@ def _apply(path, snapshots, source_file, security_master_file):
                 f"({','.join(snapshot_cols)}) VALUES "
                 f"({','.join('?' for _ in snapshot_cols)}) "
                 "ON CONFLICT(as_of_date,symbol) DO UPDATE SET "
-                + ",".join(f"{key}=excluded.{key}" for key in snapshot_cols if key not in ("as_of_date", "symbol")),
+                + ",".join(
+                    f"{key}=excluded.{key}"
+                    for key in snapshot_cols
+                    if key not in ("as_of_date", "symbol")
+                ),
                 [values.get(key) for key in snapshot_cols],
             )
         conn.commit()
@@ -413,7 +421,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("csv", help="ScanX export CSV")
     parser.add_argument(
-        "--master", default="data/incoming/nse_equity_master.csv", help="NSE EQUITY_L.csv security master"
+        "--master",
+        default="data/incoming/nse_equity_master.csv",
+        help="NSE EQUITY_L.csv security master",
     )
     parser.add_argument("--as-of", required=True, help="Snapshot date YYYY-MM-DD")
     parser.add_argument("--db", default=str(db.DB_PATH), help="Target SQLite database")
@@ -423,24 +433,24 @@ def main(argv=None):
     source = Path(args.csv)
     master = Path(args.master)
     if not source.is_file() or not master.is_file():
-        msg = "ScanX CSV or NSE security master not found"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError("ScanX CSV or NSE security master not found")
     rows = _read_csv(source)
     by_name, by_symbol = _master_index(master)
     mapped, unmatched = _resolve(rows, by_name, by_symbol)
     if not mapped:
-        msg = "No ScanX company names could be mapped"
-        raise RuntimeError(msg)
+        raise RuntimeError("No ScanX company names could be mapped")
     sentinels = _zero_sentinel_fields(rows)
     snapshots = [_snapshot_values(item, as_of, sentinels) for item in mapped]
     if args.apply:
         target = Path(args.db).resolve()
         if not target.is_file():
-            msg = f"Target database does not exist: {target}"
-            raise FileNotFoundError(msg)
+            raise FileNotFoundError(f"Target database does not exist: {target}")
         backup = _backup(target)
         imported_at, written = _apply(target, snapshots, source, master)
-        print(f"Imported {len(snapshots)} dated ScanX snapshots ({as_of}; {imported_at}) into {target}")
+        print(
+            f"Imported {len(snapshots)} dated ScanX snapshots "
+            f"({as_of}; {imported_at}) into {target}"
+        )
         print(
             f"Inserted/updated {written} rows only in "
             "scanx_fundamentals_snapshots; live fundamentals and trading "
@@ -454,7 +464,10 @@ def main(argv=None):
             f"{len(STRUCTURED_FIELDS)} structured research fields"
         )
     if sentinels:
-        print("All-zero source columns withheld from structured metrics (original values remain in raw_json):")
+        print(
+            "All-zero source columns withheld from structured metrics "
+            "(original values remain in raw_json):"
+        )
         for name in sorted(sentinels):
             print(f"  {name}")
     if unmatched:

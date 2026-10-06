@@ -42,6 +42,7 @@ import sys
 
 import db
 import numpy as np
+import universe_helper as U
 
 LOOKBACK = 90  # daily closes used per symbol
 N_POINTS = 60  # resampled sequence length
@@ -56,10 +57,16 @@ def _from_points(pts, n=N_POINTS):
 
 
 TEMPLATES = {
-    "VCP": _from_points([(0, 0), (10, 12), (20, 30), (26, 22), (32, 32), (38, 28), (44, 34), (50, 32), (60, 34)]),
-    "HIGH_TIGHT_FLAG": _from_points([(0, 0), (12, 18), (30, 70), (38, 62), (45, 55), (52, 56), (60, 58)]),
+    "VCP": _from_points(
+        [(0, 0), (10, 12), (20, 30), (26, 22), (32, 32), (38, 28), (44, 34), (50, 32), (60, 34)]
+    ),
+    "HIGH_TIGHT_FLAG": _from_points(
+        [(0, 0), (12, 18), (30, 70), (38, 62), (45, 55), (52, 56), (60, 58)]
+    ),
     "BULL_FLAG": _from_points([(0, 0), (14, 10), (30, 30), (38, 26), (45, 24), (52, 24), (60, 25)]),
-    "DOUBLE_BOTTOM": _from_points([(0, 0), (8, -8), (15, -18), (25, -6), (32, -12), (38, -16), (48, -4), (60, 6)]),
+    "DOUBLE_BOTTOM": _from_points(
+        [(0, 0), (8, -8), (15, -18), (25, -6), (32, -12), (38, -16), (48, -4), (60, 6)]
+    ),
 }
 
 
@@ -101,14 +108,7 @@ def _ensure(conn):
 
 
 def _symbols(conn, limit=600):
-    rows = conn.execute(
-        "SELECT symbol FROM universe_broad "
-        "WHERE mcap_cr BETWEEN 1000 AND 8000 "
-        "AND symbol NOT LIKE '%$%' AND symbol NOT LIKE '% %' "
-        "ORDER BY mcap_cr DESC LIMIT ?",
-        (limit,),
-    ).fetchall()
-    return [r[0] for r in rows]
+    return U.band_universe(conn, limit)
 
 
 def scan_symbol(symbol, conn=None, lookback=LOOKBACK):
@@ -116,7 +116,8 @@ def scan_symbol(symbol, conn=None, lookback=LOOKBACK):
     if own:
         conn = db.get_conn()
     rows = conn.execute(
-        "SELECT close FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?", (symbol, lookback)
+        "SELECT close FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
+        (symbol, lookback),
     ).fetchall()
     if own:
         conn.close()
@@ -178,7 +179,9 @@ def backfill(step=10, limit=300, min_sim=MIN_SIM_TO_STORE):
     print(f"[TEMPLATE-BF] backfilling {total} symbols (step={step})")
     for i, sym in enumerate(syms, 1):
         conn = db.get_conn()
-        rows = conn.execute("SELECT date, close FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)).fetchall()
+        rows = conn.execute(
+            "SELECT date, close FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)
+        ).fetchall()
         conn.close()
         if len(rows) < 150:
             continue
@@ -198,7 +201,10 @@ def backfill(step=10, limit=300, min_sim=MIN_SIM_TO_STORE):
         if batch:
             conn = db.get_conn()
             existing = {
-                r[0] for r in conn.execute("SELECT date FROM template_scores WHERE symbol=?", (sym,)).fetchall()
+                r[0]
+                for r in conn.execute(
+                    "SELECT date FROM template_scores WHERE symbol=?", (sym,)
+                ).fetchall()
             }
             todo = [b for b in batch if b[0] not in existing]
             if todo:

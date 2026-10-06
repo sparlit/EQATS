@@ -21,7 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import datetime as dt
 import sys
 
 import db
@@ -37,7 +36,12 @@ def detect():
     ensure(conn)
 
     # Use the two most recent dates that actually have technicals data
-    dates = [r[0] for r in conn.execute("SELECT DISTINCT date FROM technicals_daily ORDER BY date DESC LIMIT 2")]
+    dates = [
+        r[0]
+        for r in conn.execute(
+            "SELECT DISTINCT date FROM technicals_daily ORDER BY date DESC LIMIT 2"
+        )
+    ]
     if len(dates) < 2:
         print("Events: need at least 2 days of technicals — run daily update first")
         conn.close()
@@ -48,8 +52,12 @@ def detect():
 
     conn.execute("DELETE FROM events WHERE date=?", (latest_date,))
 
-    cur = {r[0]: r for r in conn.execute("SELECT * FROM technicals_daily WHERE date=?", (latest_date,))}
-    pre = {r[0]: r for r in conn.execute("SELECT * FROM technicals_daily WHERE date=?", (prev_date,))}
+    cur = {
+        r[0]: r for r in conn.execute("SELECT * FROM technicals_daily WHERE date=?", (latest_date,))
+    }
+    pre = {
+        r[0]: r for r in conn.execute("SELECT * FROM technicals_daily WHERE date=?", (prev_date,))
+    }
 
     ev = []
     for sym, t in cur.items():
@@ -85,7 +93,10 @@ def detect():
             ev.append((sym, "OVERSOLD", f"{sym} RSI {t[6]:.0f}"))
 
     rec_now = {r[0] for r in conn.execute("SELECT symbol FROM pipeline WHERE status='Recommended'")}
-    seen = {r[0] for r in conn.execute("SELECT DISTINCT symbol FROM events WHERE kind='NEW_RECOMMENDED'")}
+    seen = {
+        r[0]
+        for r in conn.execute("SELECT DISTINCT symbol FROM events WHERE kind='NEW_RECOMMENDED'")
+    }
     for sym in rec_now - seen:
         ev.append((sym, "NEW_RECOMMENDED", f"{sym} entered Recommended"))
 

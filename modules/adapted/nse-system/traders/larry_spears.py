@@ -41,8 +41,6 @@ import db
 import numpy as np
 import pandas as pd
 from log_utils import get_logger
-from traders import base as B
-from universe_helper import band_universe
 
 log = get_logger("trader.larry_spears")
 
@@ -266,14 +264,15 @@ def _counter_trend(df, direction):
                 break
         ok = MIN_CONSOLIDATION_DAYS <= n <= MAX_CONSOLIDATION_DAYS
         return {"bars_lower_highs": n, "ok": ok, "invalidated": n > MAX_CONSOLIDATION_DAYS}
-    n = 0
-    for i in range(len(lows) - 1, 0, -1):
-        if lows[i] > lows[i - 1]:
-            n += 1
-        else:
-            break
-    ok = MIN_CONSOLIDATION_DAYS <= n <= MAX_CONSOLIDATION_DAYS
-    return {"bars_higher_lows": n, "ok": ok, "invalidated": n > MAX_CONSOLIDATION_DAYS}
+    else:
+        n = 0
+        for i in range(len(lows) - 1, 0, -1):
+            if lows[i] > lows[i - 1]:
+                n += 1
+            else:
+                break
+        ok = MIN_CONSOLIDATION_DAYS <= n <= MAX_CONSOLIDATION_DAYS
+        return {"bars_higher_lows": n, "ok": ok, "invalidated": n > MAX_CONSOLIDATION_DAYS}
 
 
 # ============================================================
@@ -396,9 +395,14 @@ def _scan_symbol(symbol, df, bench_returns):
                     "trader": SLUG,
                     "method": "counter_trend",
                     "direction": "BULLISH" if trend["direction"] == "UP" else "BEARISH",
-                    "signal_type": "PAUSE" if ct["ok"] else ("INVALIDATED" if ct["invalidated"] else "TOO_SHORT"),
+                    "signal_type": "PAUSE"
+                    if ct["ok"]
+                    else ("INVALIDATED" if ct["invalidated"] else "TOO_SHORT"),
                     "confidence": "MED" if ct["ok"] else "LOW",
-                    "notes": (f"{ct.get('bars_lower_highs') or ct.get('bars_higher_lows')} bars of counter-trend move"),
+                    "notes": (
+                        f"{ct.get('bars_lower_highs') or ct.get('bars_higher_lows')} "
+                        f"bars of counter-trend move"
+                    ),
                     "raw": ct,
                 }
             )
@@ -452,7 +456,7 @@ def _scan_symbol(symbol, df, bench_returns):
 # ============================================================
 # Universe scan
 # ============================================================
-def scan(conn=None, limit=800):
+def scan(conn=None, limit=800, symbols=None):
     own = conn is None
     if own:
         conn = db.get_conn()
@@ -463,15 +467,21 @@ def scan(conn=None, limit=800):
     if bench is None or len(bench) < 60:
         log.warning("benchmark returns not available; beta filter will be skipped")
 
-    syms = band_universe(conn, limit=limit)
+    from traders.base import select_scan_symbols
+
+    syms = select_scan_symbols(conn, limit, symbols)
     signals = []
     for i, sym in enumerate(syms, 1):
         rows = conn.execute(
-            "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)
+            "SELECT date, open, high, low, close, volume "
+            "FROM prices_daily WHERE symbol=? ORDER BY date",
+            (sym,),
         ).fetchall()
         if len(rows) < 60:
             continue
-        df = pd.DataFrame(list(rows), columns=["date", "Open", "High", "Low", "Close", "Volume"]).set_index("date")
+        df = pd.DataFrame(
+            list(rows), columns=["date", "Open", "High", "Low", "Close", "Volume"]
+        ).set_index("date")
         df.index = pd.to_datetime(df.index)
         try:
             sigs = _scan_symbol(sym, df, bench)

@@ -43,7 +43,8 @@ def compute_all():
     n = 0
     for sym in symbols:
         rows = conn.execute(
-            "SELECT close, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 260", (sym,)
+            "SELECT close, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 260",
+            (sym,),
         ).fetchall()
         rows = [r for r in rows if r[0] is not None and r[1] is not None]
         if len(rows) < 210:
@@ -70,7 +71,20 @@ def compute_all():
         mom20 = c / closes[-21] - 1
         conn.execute(
             "INSERT OR REPLACE INTO technicals_daily VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-            (sym, today, c, dma20, dma50, dma200, rsi, vol_ratio, hi52, lo52, mom20, 1 if c > dma200 else 0),
+            (
+                sym,
+                today,
+                c,
+                dma20,
+                dma50,
+                dma200,
+                rsi,
+                vol_ratio,
+                hi52,
+                lo52,
+                mom20,
+                1 if c > dma200 else 0,
+            ),
         )
         n += 1
     conn.commit()

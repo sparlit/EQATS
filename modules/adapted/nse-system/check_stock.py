@@ -51,7 +51,16 @@ for k in [
 med = scoring.sector_pe_medians(conn)
 r = scoring.score_stock(conn, sym, med)
 print("sector:", r["sector"], "| sector median PE:", med.get(r["sector"]))
-print("roce_s:", r["roce_s"], "| growth_s:", r["growth_s"], "| val_s:", r["val_s"], "| composite:", r["composite"])
+print(
+    "roce_s:",
+    r["roce_s"],
+    "| growth_s:",
+    r["growth_s"],
+    "| val_s:",
+    r["val_s"],
+    "| composite:",
+    r["composite"],
+)
 print("GATES:")
 for g in r["gates"]:
     print("  ", g[0], "| passed:", g[1], "|", g[4])

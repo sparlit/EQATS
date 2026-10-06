@@ -30,6 +30,7 @@ import datetime as dt
 
 import db
 import pandas as pd
+import universe_helper as U
 
 SAMPLE = 400
 HIST = 220
@@ -41,10 +42,7 @@ def _ensure(conn):
 
 
 def _tracked(conn):
-    rows = conn.execute(
-        "SELECT symbol FROM universe_broad WHERE mcap_cr BETWEEN 1000 AND 8000 ORDER BY mcap_cr DESC LIMIT ?", (SAMPLE,)
-    ).fetchall()
-    return [r[0] for r in rows]
+    return U.band_universe(conn, SAMPLE)
 
 
 def compute(conn=None, force=False):
@@ -56,7 +54,9 @@ def compute(conn=None, force=False):
     _ensure(conn)
 
     if not force:
-        r = conn.execute("SELECT above50, adv, dec FROM breadth_daily WHERE date=?", (today,)).fetchone()
+        r = conn.execute(
+            "SELECT above50, adv, dec FROM breadth_daily WHERE date=?", (today,)
+        ).fetchone()
         if r:
             out = {"above50": r[0], "adv": r[1], "dec": r[2]}
             if own:
@@ -82,7 +82,9 @@ def compute(conn=None, force=False):
                 dec += 1
 
     above50 = round(above / max(1, tot), 3)
-    conn.execute("INSERT OR REPLACE INTO breadth_daily VALUES (?,?,?,?)", (today, above50, adv, dec))
+    conn.execute(
+        "INSERT OR REPLACE INTO breadth_daily VALUES (?,?,?,?)", (today, above50, adv, dec)
+    )
     conn.commit()
     out = {"above50": above50, "adv": adv, "dec": dec}
     if own:

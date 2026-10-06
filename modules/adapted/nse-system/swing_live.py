@@ -135,7 +135,10 @@ def scan():
     ensure(conn)
     reg = MarketRegime.compute()
     today = dt.date.today().isoformat()
-    print(f"regime: {reg.level} ({reg.symbol}) size_mult={reg.size_mult} allows_swing={reg.allows_swing}")
+    print(
+        f"regime: {reg.level} ({reg.symbol}) "
+        f"size_mult={reg.size_mult} allows_swing={reg.allows_swing}"
+    )
     conn.execute("DELETE FROM swing_signals WHERE signal_date=? AND mode='SWING'", (today,))
 
     if not reg.allows_swing:
@@ -165,11 +168,14 @@ def scan():
         if not sector_gate.passes(sym, allowed):
             continue
         rows = conn.execute(
-            "SELECT date, close, high, low, volume FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)
+            "SELECT date, close, high, low, volume FROM prices_daily WHERE symbol=? ORDER BY date",
+            (sym,),
         ).fetchall()
         if len(rows) < 280:
             continue
-        df = pd.DataFrame(list(rows), columns=["date", "Close", "High", "Low", "Volume"]).set_index("date")
+        df = pd.DataFrame(list(rows), columns=["date", "Close", "High", "Low", "Volume"]).set_index(
+            "date"
+        )
         df.index = pd.to_datetime(df.index)
         sc = Screener.evaluate(df, sym)
         if not sc.passed:
@@ -235,7 +241,9 @@ def update_outcomes():
     ).fetchall()
     for rowid, sd, sym, trig, stop, target in pend:
         rows = conn.execute(
-            "SELECT date, high, low FROM prices_daily WHERE symbol=? AND date>? ORDER BY date LIMIT 35", (sym, sd)
+            "SELECT date, high, low FROM prices_daily "
+            "WHERE symbol=? AND date>? ORDER BY date LIMIT 35",
+            (sym, sd),
         ).fetchall()
         trig_day = None
         for i in range(min(3, len(rows))):
@@ -272,7 +280,9 @@ def report():
     conn = db.get_conn()
     ensure(conn)
     print("SWING SCORECARD:")
-    for r in conn.execute("SELECT outcome, COUNT(*) FROM swing_signals GROUP BY outcome ORDER BY outcome"):
+    for r in conn.execute(
+        "SELECT outcome, COUNT(*) FROM swing_signals GROUP BY outcome ORDER BY outcome"
+    ):
         print(f"   {r[0]:<8} {r[1]}")
     print("BY MODE:")
     for r in conn.execute("SELECT mode, COUNT(*) FROM swing_signals GROUP BY mode ORDER BY mode"):
@@ -289,18 +299,23 @@ def backfill(step=10, max_stocks=600):
     for sym in syms:
         conn = db.get_conn()
         rows = conn.execute(
-            "SELECT date, close, high, low, volume FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)
+            "SELECT date, close, high, low, volume FROM prices_daily WHERE symbol=? ORDER BY date",
+            (sym,),
         ).fetchall()
         conn.close()
         if len(rows) < 300:
             continue
-        df = pd.DataFrame(list(rows), columns=["date", "Close", "High", "Low", "Volume"]).set_index("date")
+        df = pd.DataFrame(list(rows), columns=["date", "Close", "High", "Low", "Volume"]).set_index(
+            "date"
+        )
         df.index = pd.to_datetime(df.index)
         conn = db.get_conn()
         for i in range(280, len(df), step):
             hist = df.iloc[:i]
             d = str(hist.index[-1])[:10]
-            if conn.execute("SELECT 1 FROM swing_signals WHERE symbol=? AND signal_date=?", (sym, d)).fetchone():
+            if conn.execute(
+                "SELECT 1 FROM swing_signals WHERE symbol=? AND signal_date=?", (sym, d)
+            ).fetchone():
                 continue
             sc = Screener.evaluate(hist, sym)
             if not sc.passed:

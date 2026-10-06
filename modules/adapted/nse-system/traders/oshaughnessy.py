@@ -323,7 +323,7 @@ def _price_features(conn, sym, lookback=280):
     closes = [r[0] for r in rows if r[0] is not None]
     if len(closes) < 253:
         return None
-    closes.reverse()
+    closes = list(reversed(closes))
     close = float(closes[-1])
     pa_1y = None
     if closes[-253] and closes[-253] > 0:
@@ -406,7 +406,9 @@ def _universe_stats(features):
         mcap_40pct = mcaps[idx]
 
     # Top-N by market cap — Large Stocks and Market Leaders proxy
-    top_by_mcap = sorted([(s, f.get("market_cap_cr") or 0) for s, f in entries], key=lambda x: -x[1])
+    top_by_mcap = sorted(
+        [(s, f.get("market_cap_cr") or 0) for s, f in entries], key=lambda x: -x[1]
+    )
     large_cap_set = {s for s, _ in top_by_mcap[:LARGE_CAP_PROXY_N]}
     market_leaders_set = {s for s, _ in top_by_mcap[:MARKET_LEADER_PROXY_N]}
 
@@ -458,7 +460,8 @@ def _compute_rankings(features, ustats):
 
     # high_dividend_yield — 50 highest yield, non-utility
     dy_rows = _collect(
-        "dividend_yield", filt=lambda f: not _is_utility(f.get("sector")) and (f.get("dividend_yield") or 0) > 0
+        "dividend_yield",
+        filt=lambda f: not _is_utility(f.get("sector")) and (f.get("dividend_yield") or 0) > 0,
     )
     dy_rows.sort(key=lambda x: -x[1])
     out["high_dividend_yield"] = {"set": {s for s, _ in dy_rows[:TOP_N]}, "key": "dividend_yield"}
@@ -494,7 +497,10 @@ def _compute_rankings(features, ustats):
 
     # cornerstone_growth_original — PSR<=1.5, EPS up, top RS
     cg_orig = _collect(
-        "pa_1y", filt=lambda f: (f.get("price_to_sales") or 999) <= PSR_CAP_LOOSE and (f.get("eps_growth_1y") or -1) > 0
+        "pa_1y",
+        filt=lambda f: (
+            (f.get("price_to_sales") or 999) <= PSR_CAP_LOOSE and (f.get("eps_growth_1y") or -1) > 0
+        ),
     )
     cg_orig.sort(key=lambda x: -x[1])
     out["cornerstone_growth_original"] = {"set": {s for s, _ in cg_orig[:TOP_N]}, "key": "pa_1y"}
@@ -516,12 +522,18 @@ def _compute_rankings(features, ustats):
 
     # cornerstone_value_original — top 50 Market Leaders by dividend yield
     cv_orig = [(s, v) for s, v in dy_rows if s in ustats["market_leaders_set"]]
-    out["cornerstone_value_original"] = {"set": {s for s, _ in cv_orig[:TOP_N]}, "key": "dividend_yield"}
+    out["cornerstone_value_original"] = {
+        "set": {s for s, _ in cv_orig[:TOP_N]},
+        "key": "dividend_yield",
+    }
 
     # cornerstone_value_improved — shareholder yield (pending). Fall back
     # to dividend yield in Market Leaders until buyback data lands.
     sv_rows = [(s, v) for s, v in dy_rows if s in ustats["market_leaders_set"]]
-    out["cornerstone_value_improved"] = {"set": {s for s, _ in sv_rows[:TOP_N]}, "key": "dividend_yield"}
+    out["cornerstone_value_improved"] = {
+        "set": {s for s, _ in sv_rows[:TOP_N]},
+        "key": "dividend_yield",
+    }
 
     return out
 
@@ -549,17 +561,17 @@ def _evaluate_symbol(sym, f, ustats, rankings):
     signals = []
 
     # Method 1 — Market Leaders Universe
-    if sym in ustats["market_leaders_set"]:
-        if not _is_utility(f.get("sector")):
-            signals.append(
-                _signal(
-                    sym,
-                    "market_leaders_universe",
-                    "HIGH",
-                    f"mcap ₹{f.get('market_cap_cr'):.0f}cr · rank in top {MARKET_LEADER_PROXY_N} of band",
-                    {"mcap_cr": f.get("market_cap_cr"), "sector": f.get("sector")},
-                )
+    if sym in ustats["market_leaders_set"] and not _is_utility(f.get("sector")):
+        signals.append(
+            _signal(
+                sym,
+                "market_leaders_universe",
+                "HIGH",
+                f"mcap ₹{f.get('market_cap_cr'):.0f}cr · "
+                f"rank in top {MARKET_LEADER_PROXY_N} of band",
+                {"mcap_cr": f.get("market_cap_cr"), "sector": f.get("sector")},
             )
+        )
 
     # Method 2 — Dogs of the Dow
     if sym in rankings["dogs_of_the_dow"]["set"]:
@@ -576,12 +588,20 @@ def _evaluate_symbol(sym, f, ustats, rankings):
     # Method 3 — Low PE
     if sym in rankings["low_pe_value"]["set"]:
         signals.append(
-            _signal(sym, "low_pe_value", "HIGH", f"PE {f.get('pe'):.2f} (cap {PE_CAP})", {"pe": f.get("pe")})
+            _signal(
+                sym,
+                "low_pe_value",
+                "HIGH",
+                f"PE {f.get('pe'):.2f} (cap {PE_CAP})",
+                {"pe": f.get("pe")},
+            )
         )
 
     # Method 4 — Low P/B
     if sym in rankings["low_pb_value"]["set"]:
-        signals.append(_signal(sym, "low_pb_value", "HIGH", f"P/B {f.get('pb'):.2f}", {"pb": f.get("pb")}))
+        signals.append(
+            _signal(sym, "low_pb_value", "HIGH", f"P/B {f.get('pb'):.2f}", {"pb": f.get("pb")})
+        )
 
     # Method 5 — Low P/CF (needs P/CF; currently None → no hits)
     if sym in rankings["low_pcf_value"]["set"] if "low_pcf_value" in rankings else False:
@@ -727,7 +747,10 @@ def _evaluate_symbol(sym, f, ustats, rankings):
                 "HIGH",
                 f"Market Leader · shareholder yield (dividend-only "
                 f"until buyback data lands): {f.get('dividend_yield'):.2f}%",
-                {"dividend_yield": f.get("dividend_yield"), "shareholder_yield": f.get("shareholder_yield")},
+                {
+                    "dividend_yield": f.get("dividend_yield"),
+                    "shareholder_yield": f.get("shareholder_yield"),
+                },
             )
         )
 
@@ -802,6 +825,7 @@ def scan(conn=None, limit=800):
         conn.close()
 
     log.info(
-        f"O'Shaughnessy scan complete: {len(signals)} signals across {len({s['symbol'] for s in signals})} symbols"
+        f"O'Shaughnessy scan complete: {len(signals)} signals "
+        f"across {len({s['symbol'] for s in signals})} symbols"
     )
     return signals

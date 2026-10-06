@@ -248,7 +248,15 @@ MIGRATIONS = [
     ("fundamentals", "ev_ebitda", "REAL"),
     ("fundamentals", "fcf_fy", "REAL"),
     ("fundamentals", "net_debt_fy", "REAL"),
+    # ROIC is distinct from ROE and ROCE.  These migrations intentionally do
+    # not copy historical values: old rows require an explicit remediation.
+    ("fundamentals", "roic", "REAL"),
     ("fundamentals", "data_source", "TEXT"),
+    ("fundamentals", "field_sources", "TEXT"),
+    ("fundamentals", "field_updated_at", "TEXT"),
+    ("fundamentals", "data_quality_flags", "TEXT"),
+    ("fundamentals", "source_metadata", "TEXT"),
+    ("pwin_daily", "model_version", "TEXT"),
 ]
 
 

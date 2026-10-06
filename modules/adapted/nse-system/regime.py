@@ -62,7 +62,9 @@ class MarketRegime:
         start = end - dt.timedelta(days=days_back)
         for sym in cls.INDEX_CANDIDATES:
             try:
-                df = yf.Ticker(sym).history(start=start.isoformat(), end=end.isoformat(), auto_adjust=True)
+                df = yf.Ticker(sym).history(
+                    start=start.isoformat(), end=end.isoformat(), auto_adjust=True
+                )
                 if df is not None and len(df) > 30:
                     return df, sym
             except Exception:
@@ -73,8 +75,7 @@ class MarketRegime:
     def compute(cls, days_back: int = 120) -> RegimeState:
         df, used = cls._fetch(days_back)
         if df is None:
-            msg = "No benchmark data found for any candidate"
-            raise ValueError(msg)
+            raise ValueError("No benchmark data found for any candidate")
         print(f"   benchmark used: {used}")
         df["EMA10"] = df["Close"].ewm(span=cls.EMA_PERIOD, adjust=False).mean()
         df["EMA20"] = df["Close"].ewm(span=cls.EMA20_PERIOD, adjust=False).mean()

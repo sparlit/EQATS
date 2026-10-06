@@ -27,16 +27,14 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 from collections import deque
+from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from importlib import import_module
 from pkgutil import iter_modules
 from threading import Lock
 from time import monotonic
-from typing import TYPE_CHECKING, Any, Deque, Dict, List, Optional, Protocol
-
-if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+from typing import Any, Protocol
 
 
 @dataclass(frozen=True)
@@ -82,8 +80,7 @@ class ProviderFetchError(RuntimeError):
 class RateWindow:
     def __init__(self, max_calls: int, window_seconds: int):
         if max_calls < 1 or window_seconds < 1:
-            msg = "Rate window values must be positive"
-            raise ValueError(msg)
+            raise ValueError("Rate window values must be positive")
         self.max_calls = max_calls
         self.window = timedelta(seconds=window_seconds)
         self._calls: deque[float] = deque()
@@ -128,7 +125,13 @@ class BaseSourceAdapter:
 
     def health(self) -> SourceHealth:
         with self._lock:
-            state = "unavailable" if self._last_error else "healthy" if self._last_success else "not_checked"
+            state = (
+                "unavailable"
+                if self._last_error
+                else "healthy"
+                if self._last_success
+                else "not_checked"
+            )
             return SourceHealth(
                 provider=self.name,
                 datasets=sorted(self.datasets),
@@ -142,8 +145,7 @@ class BaseSourceAdapter:
 
     def _execute(self, operation: Callable[[], Any]) -> Any:
         if not self._rate_window.consume():
-            msg = "local provider rate limit exceeded"
-            raise RuntimeError(msg)
+            raise RuntimeError("local provider rate limit exceeded")
         with self._lock:
             self._calls += 1
         try:
@@ -174,8 +176,7 @@ class SourceRegistry:
     def register(self, adapter: SourceAdapter) -> None:
         with self._lock:
             if adapter.name in self._adapters:
-                msg = f"Duplicate data source: {adapter.name}"
-                raise ValueError(msg)
+                raise ValueError(f"Duplicate data source: {adapter.name}")
             self._adapters[adapter.name] = adapter
 
     def discover(self) -> None:
@@ -231,7 +232,10 @@ class SourceRegistry:
 
     def health(self) -> list[dict[str, Any]]:
         self.discover()
-        return [asdict(adapter.health()) for adapter in sorted(self._adapters.values(), key=lambda item: item.name)]
+        return [
+            asdict(adapter.health())
+            for adapter in sorted(self._adapters.values(), key=lambda item: item.name)
+        ]
 
 
 _registry = SourceRegistry()

@@ -51,7 +51,6 @@ import db
 import numpy as np
 import pandas as pd
 from log_utils import get_logger
-from universe_helper import band_universe
 
 log = get_logger("trader.singhal")
 
@@ -309,7 +308,8 @@ def _try_emit(sigs, fn):
 # ----------------------------------------------------------------
 def _load_df(conn, sym, limit=500):
     rows = conn.execute(
-        "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
+        "SELECT date, open, high, low, close, volume "
+        "FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
         (sym, limit),
     ).fetchall()
     if not rows or len(rows) < MIN_BARS:
@@ -440,7 +440,8 @@ def _ichimoku(highs, lows, closes):
         + float(np.min(lows[-ICH_KIJUN - ICH_TENKAN : -ICH_KIJUN]))
     ) / 2.0
     kijun_prev = (
-        float(np.max(highs[-2 * ICH_KIJUN : -ICH_KIJUN])) + float(np.min(lows[-2 * ICH_KIJUN : -ICH_KIJUN]))
+        float(np.max(highs[-2 * ICH_KIJUN : -ICH_KIJUN]))
+        + float(np.min(lows[-2 * ICH_KIJUN : -ICH_KIJUN]))
     ) / 2.0
     span_a = (tenkan_prev + kijun_prev) / 2.0
     span_b = (
@@ -449,7 +450,14 @@ def _ichimoku(highs, lows, closes):
     ) / 2.0
     top = max(span_a, span_b)
     bot = min(span_a, span_b)
-    return {"tenkan": tenkan, "kijun": kijun, "span_a": span_a, "span_b": span_b, "cloud_top": top, "cloud_bottom": bot}
+    return {
+        "tenkan": tenkan,
+        "kijun": kijun,
+        "span_a": span_a,
+        "span_b": span_b,
+        "cloud_top": top,
+        "cloud_bottom": bot,
+    }
 
 
 def _supertrend(df, period=ST_PERIOD, mult=ST_MULT):
@@ -540,7 +548,7 @@ def _pivots(values, k=3, lookback=120, kind="low"):
     out = []
     for i in range(start, n - k):
         win = values[i - k : i + k + 1]
-        if (kind == "low" and values[i] == win.min()) or (kind == "high" and values[i] == win.max()):
+        if kind == "low" and values[i] == win.min() or kind == "high" and values[i] == win.max():
             out.append((i, float(values[i])))
     return out
 
@@ -598,7 +606,11 @@ def _vcp_pattern(df, min_pullbacks=3):
     for i in range(1, len(ranges)):
         if ranges[i - 1] <= ranges[i]:
             return None
-    return {"pullback_count": len(ranges), "ranges": [round(r, 4) for r in ranges], "range_pct": round(ranges[-1], 4)}
+    return {
+        "pullback_count": len(ranges),
+        "ranges": [round(r, 4) for r in ranges],
+        "range_pct": round(ranges[-1], 4),
+    }
 
 
 def _detect_two_leg_pullback(df):
@@ -652,7 +664,11 @@ def _mk_exits(
         "offset": {"thesis": offset_thesis, "trigger": offset_trigger},
         "invalidation": {"thesis": invalidation_thesis, "condition": invalidation_condition},
         "exhaustion": None,
-        "time_exit": ({"thesis": time_exit_thesis, "sessions": time_exit_sessions} if time_exit_sessions else None),
+        "time_exit": (
+            {"thesis": time_exit_thesis, "sessions": time_exit_sessions}
+            if time_exit_sessions
+            else None
+        ),
     }
 
 
@@ -909,7 +925,8 @@ def _detect_triangle_breakout(sym, df):
             time_exit_sessions=5,
             time_exit_thesis="Standard.",
         ),
-        "overlap_note": "Overlaps patterns.ASCENDING_TRIANGLE (which is a similar pattern). Marked, not pruned.",
+        "overlap_note": "Overlaps patterns.ASCENDING_TRIANGLE (which is "
+        "a similar pattern). Marked, not pruned.",
     }
     return [
         _signal(
@@ -959,7 +976,9 @@ def _detect_institutional_gap(sym, df):
     for j in range(gap_found["idx"] + 1, len(df)):
         if lows[j] <= gap_found["gap_top"]:
             # Count how many retracements
-            retracements = sum(1 for k in range(gap_found["idx"] + 1, j + 1) if lows[k] <= gap_found["gap_top"])
+            retracements = sum(
+                1 for k in range(gap_found["idx"] + 1, j + 1) if lows[k] <= gap_found["gap_top"]
+            )
             if retracements > 1:
                 return []
             # Confirmation: bullish reversal candle
@@ -995,7 +1014,8 @@ def _detect_institutional_gap(sym, df):
                     time_exit_sessions=10,
                     time_exit_thesis="Standard.",
                 ),
-                "overlap_note": "Overlaps McAllen island bottom / Nison rising window. Marked, not pruned.",
+                "overlap_note": "Overlaps McAllen island bottom / "
+                "Nison rising window. Marked, not pruned.",
             }
             return [
                 _signal(
@@ -1007,7 +1027,10 @@ def _detect_institutional_gap(sym, df):
                     "MED",
                     notes,
                     raw,
-                    overlaps_with=["mcallen.mcallen_island_bottom_long", "nison.nison_rising_window_support"],
+                    overlaps_with=[
+                        "mcallen.mcallen_island_bottom_long",
+                        "nison.nison_rising_window_support",
+                    ],
                 )
             ]
     return []
@@ -1017,7 +1040,7 @@ def _detect_bb_width_breakout(sym, df):
     closes = df["close"].values.astype(float)
     if len(closes) < BB_PERIOD + 30:
         return []
-    upper, lower, _mid, width_now = _bollinger(closes)
+    upper, lower, mid, width_now = _bollinger(closes)
     if upper is None:
         return []
     widths = _bb_width_series(closes, n=25)
@@ -1198,7 +1221,8 @@ def _detect_supertrend_rsi(sym, df):
             time_exit_sessions=10,
             time_exit_thesis="Positional window.",
         ),
-        "overlap_note": "Overlaps chande 65sma-3cc / nison golden cross (trend-following family). Marked, not pruned.",
+        "overlap_note": "Overlaps chande 65sma-3cc / nison golden cross "
+        "(trend-following family). Marked, not pruned.",
     }
     return [
         _signal(
@@ -1634,7 +1658,10 @@ def _detect_vcp(sym, df):
     entry = closes[-1]
     stop = _default_stop(entry, df)
     target = entry + 2.0 * (entry - stop)
-    notes = f"VCP: {vcp['pullback_count']} successively shorter pullbacks, range {_fmt_num(vcp['range_pct'] * 100, 1)}%"
+    notes = (
+        f"VCP: {vcp['pullback_count']} successively shorter "
+        f"pullbacks, range {_fmt_num(vcp['range_pct'] * 100, 1)}%"
+    )
     raw = {
         "vcp": vcp,
         "range_high": range_high,
@@ -1657,7 +1684,15 @@ def _detect_vcp(sym, df):
     }
     return [
         _signal(
-            sym, "vcp_breakout", entry, stop, target, "HIGH", notes, raw, overlaps_with=["oneil.oneil_cup_with_handle"]
+            sym,
+            "vcp_breakout",
+            entry,
+            stop,
+            target,
+            "HIGH",
+            notes,
+            raw,
+            overlaps_with=["oneil.oneil_cup_with_handle"],
         )
     ]
 
@@ -1741,7 +1776,9 @@ def _sector_rs_map(conn):
         for i, (_, row) in enumerate(g.iterrows()):
             rank[row["sector"]] = 1.0 - (i / max(1, n - 1))
         out = {}
-        for sym, sec in conn.execute("SELECT symbol, sector FROM stocks WHERE sector IS NOT NULL AND sector!=''"):
+        for sym, sec in conn.execute(
+            "SELECT symbol, sector FROM stocks WHERE sector IS NOT NULL AND sector!=''"
+        ):
             out[sym] = rank.get(sec, 0.5)
         return out
     except Exception as e:
@@ -1752,11 +1789,13 @@ def _sector_rs_map(conn):
 # ----------------------------------------------------------------
 # Universe scan
 # ----------------------------------------------------------------
-def scan(conn=None, limit=DEFAULT_LIMIT):
+def scan(conn=None, limit=DEFAULT_LIMIT, symbols=None):
     own = conn is None
     if own:
         conn = db.get_conn()
-    syms = band_universe(conn, limit=limit)
+    from traders.base import select_scan_symbols
+
+    syms = select_scan_symbols(conn, limit, symbols)
     log.info(f"Singhal scan: {len(syms)} symbols in universe")
 
     sector_rs = _sector_rs_map(conn)
@@ -1764,7 +1803,8 @@ def scan(conn=None, limit=DEFAULT_LIMIT):
     # Data-coverage note
     if REPO_RATE_CURRENT is None:
         log.info(
-            "Singhal data gap: repo_rate (DR-23) — Method 49 (repo_rate_trading) will emit 0 signals until supplied"
+            "Singhal data gap: repo_rate (DR-23) — Method 49 "
+            "(repo_rate_trading) will emit 0 signals until supplied"
         )
 
     signals = []

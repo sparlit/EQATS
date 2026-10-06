@@ -30,12 +30,18 @@ import json
 
 import db
 import meta_model
+import universe_helper as U
+
+MODEL_VERSION = meta_model.MODEL_VERSION
 
 
 def _ensure(conn):
     conn.execute("""CREATE TABLE IF NOT EXISTS pwin_daily(
         symbol TEXT, date TEXT, p_win REAL, why TEXT,
         PRIMARY KEY (symbol, date))""")
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(pwin_daily)")}
+    if "model_version" not in cols:
+        conn.execute("ALTER TABLE pwin_daily ADD COLUMN model_version TEXT")
 
 
 def get_map(conn=None):
@@ -44,10 +50,15 @@ def get_map(conn=None):
     if own:
         conn = db.get_conn()
     _ensure(conn)
-    d = conn.execute("SELECT MAX(date) FROM pwin_daily").fetchone()[0]
+    d = conn.execute(
+        "SELECT MAX(date) FROM pwin_daily WHERE model_version=?", (MODEL_VERSION,)
+    ).fetchone()[0]
     out = {}
     if d:
-        for sym, p in conn.execute("SELECT symbol, p_win FROM pwin_daily WHERE date=?", (d,)).fetchall():
+        for sym, p in conn.execute(
+            "SELECT symbol, p_win FROM pwin_daily WHERE date=? AND model_version=?",
+            (d, MODEL_VERSION),
+        ).fetchall():
             out[sym] = p
     if own:
         conn.close()
@@ -55,8 +66,13 @@ def get_map(conn=None):
 
 
 def get_why(conn, symbol):
-    d = conn.execute("SELECT MAX(date) FROM pwin_daily").fetchone()[0]
-    r = conn.execute("SELECT why FROM pwin_daily WHERE symbol=? AND date=?", (symbol, d)).fetchone()
+    d = conn.execute(
+        "SELECT MAX(date) FROM pwin_daily WHERE model_version=?", (MODEL_VERSION,)
+    ).fetchone()[0]
+    r = conn.execute(
+        "SELECT why FROM pwin_daily WHERE symbol=? AND date=? AND model_version=?",
+        (symbol, d, MODEL_VERSION),
+    ).fetchone()
     return json.loads(r[0]) if r and r[0] else []
 
 
@@ -65,17 +81,13 @@ def refresh_all(limit=600):
     conn = db.get_conn()
     _ensure(conn)
     d = dt.date.today().isoformat()
-    done = {r[0] for r in conn.execute("SELECT symbol FROM pwin_daily WHERE date=?", (d,)).fetchall()}
-    syms = [
+    done = {
         r[0]
         for r in conn.execute(
-            "SELECT symbol FROM universe_broad "
-            "WHERE mcap_cr BETWEEN 1000 AND 8000 "
-            "AND symbol NOT LIKE '%$%' AND symbol NOT LIKE '% %' "
-            "ORDER BY mcap_cr DESC LIMIT ?",
-            (limit,),
+            "SELECT symbol FROM pwin_daily WHERE date=? AND model_version=?", (d, MODEL_VERSION)
         ).fetchall()
-    ]
+    }
+    syms = U.band_universe(conn, limit)
     core = [r[0] for r in conn.execute("SELECT symbol FROM stocks WHERE active=1").fetchall()]
     todo = [s for s in sorted(set(syms) | set(core)) if s not in done]
     n = 0
@@ -87,7 +99,9 @@ def refresh_all(limit=600):
         if not r or r.get("p_win") is None:
             continue
         conn.execute(
-            "INSERT OR REPLACE INTO pwin_daily VALUES (?,?,?,?)", (sym, d, r["p_win"], json.dumps(r.get("why", [])))
+            "INSERT OR REPLACE INTO pwin_daily "
+            "(symbol,date,p_win,why,model_version) VALUES (?,?,?,?,?)",
+            (sym, d, r["p_win"], json.dumps(r.get("why", [])), MODEL_VERSION),
         )
         n += 1
         if n % 50 == 0:

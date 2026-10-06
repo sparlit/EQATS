@@ -23,7 +23,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import unittest
 
-import pytest
 from data_sources.core import (
     BaseSourceAdapter,
     ProviderFetchError,
@@ -55,60 +54,62 @@ class SourceRegistryTests(unittest.TestCase):
         registry.register(_FakeAdapter("first", error=OSError("offline")))
         registry.register(_FakeAdapter("second", result=["accepted"]))
 
-        result = registry.fetch("test.value", ("first", "second"), accept=bool)
+        result = registry.fetch("test.value", ("first", "second"), accept=lambda value: bool(value))
 
-        assert result.data == ["accepted"]
-        assert result.provider == "second"
+        self.assertEqual(result.data, ["accepted"])
+        self.assertEqual(result.provider, "second")
         health = {item["provider"]: item for item in registry.health()}
-        assert health["first"]["state"] == "unavailable"
-        assert health["first"]["failures"] == 1
-        assert health["second"]["state"] == "healthy"
+        self.assertEqual(health["first"]["state"], "unavailable")
+        self.assertEqual(health["first"]["failures"], 1)
+        self.assertEqual(health["second"]["state"], "healthy")
 
     def test_rejected_results_do_not_masquerade_as_success(self):
         registry = SourceRegistry()
         registry.register(_FakeAdapter("empty", result=[]))
 
-        with pytest.raises(ProviderFetchError) as error:
-            registry.fetch("test.value", ("empty",), accept=bool)
+        with self.assertRaises(ProviderFetchError) as error:
+            registry.fetch("test.value", ("empty",), accept=lambda value: bool(value))
 
-        assert error.value.errors["empty"] == "provider result rejected"
+        self.assertEqual(error.exception.errors["empty"], "provider result rejected")
         health = {item["provider"]: item for item in registry.health()}
-        assert health["empty"]["state"] == "unavailable"
+        self.assertEqual(health["empty"]["state"], "unavailable")
 
     def test_exhausted_fallback_raises_explicit_error(self):
         registry = SourceRegistry()
         registry.register(_FakeAdapter("broken", error=OSError("offline")))
 
-        with pytest.raises(ProviderFetchError) as error:
+        with self.assertRaises(ProviderFetchError) as error:
             registry.fetch("test.value", ("broken",))
 
-        assert "offline" in str(error.value)
+        self.assertIn("offline", str(error.exception))
 
     def test_rate_limit_blocks_calls_after_the_configured_budget(self):
         registry = SourceRegistry()
         adapter = _FakeAdapter("limited", result="ok", max_calls=1)
         registry.register(adapter)
 
-        assert registry.fetch("test.value", ("limited",)).data == "ok"
-        with pytest.raises(ProviderFetchError) as error:
+        self.assertEqual(registry.fetch("test.value", ("limited",)).data, "ok")
+        with self.assertRaises(ProviderFetchError) as error:
             registry.fetch("test.value", ("limited",))
 
-        assert error.value.errors["limited"] == "provider rate limit exceeded"
-        assert adapter.health().calls == 1
+        self.assertEqual(error.exception.errors["limited"], "provider rate limit exceeded")
+        self.assertEqual(adapter.health().calls, 1)
 
     def test_builtins_are_discoverable_without_network_calls(self):
         registry = SourceRegistry()
         sources = {item["provider"]: item for item in registry.health()}
 
-        assert {
-            "tradingview",
-            "yahoo_finance",
-            "nse_constituents_local_csv",
-            "nse_constituents_api",
-            "nse_constituents_archive_csv",
-            "chartink",
-        }.issubset(sources)
-        assert sources["tradingview"]["state"] == "not_checked"
+        self.assertTrue(
+            {
+                "tradingview",
+                "yahoo_finance",
+                "nse_constituents_local_csv",
+                "nse_constituents_api",
+                "nse_constituents_archive_csv",
+                "chartink",
+            }.issubset(sources)
+        )
+        self.assertEqual(sources["tradingview"]["state"], "not_checked")
 
 
 if __name__ == "__main__":
