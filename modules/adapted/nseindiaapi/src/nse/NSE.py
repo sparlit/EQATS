@@ -21,37 +21,122 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import gzip
-import json
-import shutil
+import logging
+import tempfile
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
-from zipfile import ZipFile
+from typing import Any, Literal, TypedDict
 
+from pyrate_limiter import Limiter
+
+from . import _utils
+from .cookie_store import CookieStore
+from .retry import RetryConfig
 from .transport import Transport
+
+logger = logging.getLogger(__name__)
+
+
+class OHLCV(TypedDict):
+    """Result of :meth:`NSE.equity_quote`."""
+
+    date: str
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: int
+
+
+class OptionLeg(TypedDict):
+    """A single leg (PE or CE) of an option chain strike row."""
+
+    last: float
+    oi: int
+    chg: float
+    pct_chg: float
+    iv: float
+
+
+class StrikeRow(TypedDict):
+    """One strike price row in the compiled option chain."""
+
+    pe: OptionLeg
+    ce: OptionLeg
+    pcr: float | None
+
+
+class CompiledOptionChain(TypedDict):
+    """Result of :meth:`NSE.compile_option_chain`."""
+
+    expiry: str
+    timestamp: str
+    underlying: float
+    atm: float
+    max_pain: float
+    max_coi: int
+    max_poi: int
+    coi_total: int
+    poi_total: int
+    pcr: float | None
+    chain: dict[str, StrikeRow]
 
 
 class NSE:
     """An Unofficial Python API for the NSE India stock exchange.
 
-    Methods will raise
-        - ``TimeoutError`` if request takes too long.
-        - ``ConnectionError`` if request failed for any reason.
+    This class is a thin, high-level wrapper over NSE's public JSON and
+    archive endpoints. Each method maps to a specific NSE page or report
+    and returns the raw parsed JSON (or a downloaded file path) with minimal
+    post-processing, so callers can rely on NSE's own field names.
 
-    :param download_folder: A folder/dir to save downloaded files and cookie files
-    :type download_folder: pathlib.Path or str
-    :param server: A parameter to specify whether the script is being run on a server (like AWS, Azure, Google Cloud etc).
-        True if running on a server, False if run locally.
-    :type server: bool
-    :param timeout: Default 15. Network timeout in seconds
-    :type timeout: int
-    :param use_requests_library: Default False. Use ``requests`` library instead of ``httpx``
-    :type use_requests_library: bool
-    :raise ValueError: if ``download_folder`` is not a folder/dir
+    All network I/O is delegated to an internal transport layer, which
+    applies request throttling (default: 3 requests/second), automatic
+    retries with exponential backoff, and cookie management. See
+    :class:`Transport` for details.
+
+    The class is usable as a context manager. Using it in a ``with`` block
+    is recommended, as it guarantees that session cookies are flushed to
+    the cookie store and the underlying HTTP session is closed::
+
+        from nse import NSE
+
+        with NSE(download_folder=".") as nse:
+            print(nse.status())
+
+    If you prefer manual lifecycle management, call :meth:`exit` when done.
+
+    .. note::
+       A hidden ``.opt-expiry-cache/`` directory is created under
+       ``download_folder`` to cache the nearest option expiry per symbol
+       for :meth:`option_chain`. It is safe to delete; entries are
+       refetched on demand.
+
+    **Shared exceptions**
+
+    Because every method issues its requests through the internal transport,
+    the following exceptions may be raised by *any* method. They are not
+    repeated in each method's docstring:
+
+    :raises httpx.TimeoutException: The request exceeded the configured
+        timeout and all retries were exhausted.
+    :raises httpx.ConnectError: A connection to NSE could not be established
+        and all retries were exhausted.
+    :raises httpx.ReadError: The response body could not be read and all
+        retries were exhausted.
+    :raises httpx.RemoteProtocolError: The server violated the HTTP protocol.
+        The session is transparently restarted and the request retried; this
+        exception propagates only if all retries are exhausted.
+    :raises RetryableStatusError: NSE returned a retryable status code
+        (``429``, ``502``, ``503``, ``504``) and all retries were exhausted.
+    :raises httpx.HTTPStatusError: NSE returned any other non-2xx status code.
+
+    Methods that download dated reports may additionally raise
+    :class:`NSEFileUnavailableError` on ``404``; this is noted on those
+    methods individually.
     """
 
-    __version__ = "4.0.1"
+    __version__ = "5.0.0"
     SEGMENT_EQUITY = "equities"
     SEGMENT_SME = "sme"
     SEGMENT_MF = "mf"
@@ -66,19 +151,69 @@ class NSE:
     FNO_IT = "niftyit"
     UDIFF_SWITCH_DATE = datetime(2024, 7, 8).date()
 
-    _optionIndex = ("banknifty", "nifty", "finnifty", "niftyit")
+    _option_index = ("banknifty", "nifty", "finnifty", "niftyit")
     base_url = "https://www.nseindia.com/api"
-    next_api_url = f"{base_url}/NextApi/apiClient/GetQuoteApi"
+    next_api_base_url = f"{base_url}/NextApi"
+
+    next_api_quote_url = f"{next_api_base_url}/apiClient/GetQuoteApi"
+    next_api_global_search_url = f"{next_api_base_url}/globalSearch"
+
     archive_url = "https://nsearchives.nseindia.com"
 
     def __init__(
         self,
         download_folder: str | Path,
-        server: bool = False,
+        use_http2: bool = False,
+        cookie_store: CookieStore | None = None,
+        throttle: Limiter | None = None,
+        retry_config: RetryConfig | None = None,
         timeout: int = 15,
-        use_requests_library=False,
+        cookie_filename: str | None = None,
     ):
-        """Initialise NSE"""
+        """Initialise the NSE client.
+
+        Creates the download directory if it does not exist, sets up the
+        cookie store, rate limiter, and retry configuration, and starts an
+        HTTP session. If the configured cookie store is empty, a network
+        request is made to NSE immediately to fetch initial cookies (this
+        is subject to the retry policy and rate limiter).
+
+        :param download_folder: Directory for downloaded files and the default
+            cookie file. Created (including parents) if it does not exist.
+        :type download_folder: pathlib.Path or str
+
+        :param use_http2: Enable HTTP/2 for the underlying client. Default
+            ``False``.
+        :type use_http2: bool
+
+        :param cookie_store: Custom cookie storage backend. If ``None``, a
+            :class:`FileCookieStore` is created at
+            ``download_folder / cookie_filename``. Use
+            :class:`MemoryCookieStore` for multi-process or multi-threaded
+            deployments. Default ``None``.
+        :type cookie_store: Optional[CookieStore]
+
+        :param throttle: Custom rate limiter. If ``None``, a default limiter
+            of ``3 requests per second`` shared across API and file downloads
+            is used. Default ``None``.
+        :type throttle: Optional[pyrate_limiter.Limiter]
+
+        :param retry_config: Retry policy configuration. If ``None``, a
+            default :class:`RetryConfig` is used. Default ``None``.
+        :type retry_config: Optional[RetryConfig]
+
+        :param timeout: Network timeout in seconds, applied per request.
+            Default ``15``.
+        :type timeout: int
+
+        :param cookie_filename: Filename for the default file cookie store
+            when ``cookie_store`` is not provided. If ``None``, defaults to
+            ``"cookies.txt"``. Default ``None``.
+        :type cookie_filename: Optional[str]
+
+        :raises NotADirectoryError: If ``download_folder`` exists but is not
+            a directory.
+        """
         uAgent = "Mozilla/5.0 (Windows NT 10.0; rv:109.0) Gecko/20100101 Firefox/118.0"
 
         headers = {
@@ -89,14 +224,22 @@ class NSE:
             "Referer": "https://www.nseindia.com/get-quotes/equity?symbol=HDFCBANK",
         }
 
-        self.dir = NSE._getPath(download_folder, isFolder=True)
+        self.dir = _utils.prepare_path(download_folder, is_folder=True)
 
-        if use_requests_library:
-            from .request_transport import RequestTransport
+        self._transport = Transport(
+            folder=self.dir,
+            headers=headers,
+            use_http2=use_http2,
+            cookie_store=cookie_store,
+            throttle=throttle,
+            retry_config=retry_config,
+            timeout=timeout,
+            cookie_filename=cookie_filename,
+        )
 
-            self._transport = RequestTransport(folder=self.dir, headers=headers, timeout=timeout)
-        else:
-            self._transport = Transport(folder=self.dir, headers=headers, server=server, timeout=timeout)
+        # Used by NSE.option_chain(), create the hidden directory once.
+        self.opt_cache_dir = self.dir / ".opt-expiry-cache"
+        self.opt_cache_dir.mkdir(exist_ok=True)
 
     def __enter__(self):
         return self
@@ -106,105 +249,51 @@ class NSE:
 
         return False
 
-    @staticmethod
-    def _getPath(path: str | Path, isFolder: bool = False):
-        path = path if isinstance(path, Path) else Path(path)
-        path = path.expanduser().resolve()
-
-        if isFolder:
-            if path.is_file():
-                msg = f"{path}: must be a folder"
-                raise ValueError(msg)
-
-            if not path.exists():
-                path.mkdir(parents=True)
-
-        return path
-
-    @staticmethod
-    def _unzip(file: Path, folder: Path, extract_files: list[str] | None = None):
-        if file.suffix == ".zip":
-            with ZipFile(file) as zip:
-                if extract_files:
-                    zip.extractall(path=folder, members=extract_files)
-
-                    # return the last filepath
-                    filepath = folder / extract_files[-1]
-                else:
-                    filepath = zip.extract(member=zip.namelist()[0], path=folder)
-
-        elif file.suffix == ".gz":
-            filepath = folder / file.stem
-
-            with gzip.open(file, "rb") as f_in, open(filepath, "wb") as f_out:
-                shutil.copyfileobj(f_in, f_out)
-        else:
-            msg = "Unknown file format"
-            raise ValueError(msg)
-
-        file.unlink()
-        return Path(filepath)
-
-    @staticmethod
-    def _split_date_range(from_date: date, to_date: date, max_chunk_size: int = 365) -> list[tuple[date, date]]:
-        """Splits a date range into non-overlapping chunks with each chunk having size at specified by
-        the max_chunk_size parameter
-
-        :param from_date: The starting date of the range
-        :type from_date: datetime.date
-        :param to_date: The ending date of the range
-        :type to_date: datetime.date
-        :param max_chunk_size: The max size of each chunk into which the range is split
-        :type max_chunk_size: int
-        :raise ValueError: if ``from_date`` is greater than ``to_date``
-        :return: A sorted list of tuples. Each element of the list is a range (`start_date`, `end_date`)
-        :rtype: List[Tuple[datetime.date, datetime.date]]
-        """
-        chunks = []
-        current_start = from_date
-
-        while current_start <= to_date:
-            # Calculate the end of the current chunk.
-            # We use max_size - 1 because the range is inclusive.
-            current_end = current_start + timedelta(days=max_chunk_size - 1)
-
-            # Don't go past the final date.
-            current_end = min(current_end, to_date)
-
-            chunks.append((current_start, current_end))
-
-            # Start next chunk the day after the current end.
-            current_start = current_end + timedelta(days=1)
-
-        return chunks
-
     def exit(self):
-        """Close the ``requests`` session.
+        """Close the underlying HTTP session and persist cookies.
 
-        *Use at the end of script or when class is no longer required.*
+        Saves the current session cookies to the configured cookie store,
+        then closes the ``httpx`` session. Call this at the end of a script
+        when the client is no longer needed. Not required when using the
+        ``with`` statement, as ``__exit__`` calls this automatically.
 
-        *Not required when using the ``with`` statement.*
+        Calling ``exit`` more than once is safe, though subsequent calls
+        operate on an already-closed session.
+
+        :return: ``None``
+        :rtype: None
         """
         self._transport.exit()
 
     def status(self) -> list[dict]:
-        """Returns market status
+        """Return the current market status for all NSE segments.
+
+        Reflects NSE's live market-state feed and includes segments such as
+        capital market, currency, commodity, and debt. The response changes
+        throughout the trading day as segments open, close, or enter
+        pre-open.
 
         `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/status.json>`__
 
-        :return: Market status of all NSE market segments
+        :return: Market status of all NSE market segments. Each item is a
+            dictionary describing one segment.
         :rtype: list[dict]
         """
         return self._transport.request(f"{self.base_url}/marketStatus").json()["marketState"]
 
-    def lookup(self, query: str) -> dict:
-        """
-        Lookup a stock symbol by passing the company name or look up company name by passing the stock symbol.
+    def lookup(
+        self,
+        query: str,
+        segment: Literal["all", "equity", "derivatives", "etf", "others"] = "equity",
+    ) -> dict:
+        """Look up stocks, derivatives, ETFs, or other instruments by company name or symbol.
 
-        Returns a dictionary with the `symbols` key containing a list of dictionary results.
-        The first item is usually an exact match assuming the exact company name or full symbol name was searched.
+        Returns a dictionary with the ``data`` key containing a list of matching
+        results. Each item in the list includes details such as the company name,
+        stock symbol, segment, series, last traded price, change, percentage
+        change, and URLs for the quote page.
 
-        If the symbols list is empty, no symbols matched the query.
+        If the ``data`` list is empty, no matches were found for the query.
 
         `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/lookup.json>`__
 
@@ -213,38 +302,61 @@ class NSE:
             with NSE("") as nse:
                 result = nse.lookup(query="hdfcbank")
 
-                print(result['symbols'][0]['symbol_info']) # company name - HDFC Bank Limited
-                print(result['symbols'][0]['symbol']) # stock symbol - HDFCBANK
+                print(result['data'][0]['companyName'])  # HDFC Bank Limited
+                print(result['data'][0]['symbol'])       # HDFCBANK
+                print(result['data'][0]['segment'])      # in equity
+                print(result['data'][0]['series'])       # EQ
 
-        :param query:
+        :param query: Company name or stock symbol to search for.
         :type query: str
-        :return: A dictionary of results from the query search.
+        :param segment: Market segment to search within. One of ``"all"``,
+            ``"equity"``, ``"derivatives"``, ``"etf"``, or ``"others"``.
+            The ``"others"`` segment includes instruments such as ``debt``.
+            Defaults to ``"equity"``.
+        :type segment: Literal["all", "equity", "derivatives", "etf", "others"]
+        :return: A dictionary containing a ``data`` key with a list of matching
+            results.
         :rtype: dict
         """
         return self._transport.request(
-            f"{self.base_url}/search/autocomplete",
-            params={"q": query},
+            f"{self.next_api_global_search_url}/{segment}",
+            params={"symbol": query},
         ).json()
 
-    def equityBhavcopy(self, date: datetime, folder: str | Path | None = None) -> Path:
-        """Download the daily Equity bhavcopy report for specified ``date``
-        and return the saved filepath.
+    def equity_bhavcopy(
+        self,
+        date: datetime,
+        folder: str | Path | None = None,
+    ) -> Path:
+        """Download the daily Equity bhavcopy report for ``date`` and return
+        the saved file path.
 
-        If the date is before 8th July 2024, the old bhavcopy will be downloaded i.e. `cm02JAN2023bhav.csv`
+        The file format depends on the date:
 
-        If all other cases, the latest UDIFF bhavcopy format is used .i.e `BhavCopy_NSE_CM_0_0_0_20250102_F_0000.csv`
+        - Before 8th July 2024, the legacy bhavcopy format is downloaded,
+          e.g. ``cm02JAN2023bhav.csv``.
+        - On or after 8th July 2024, the UDIFF bhavcopy format is used,
+          e.g. ``BhavCopy_NSE_CM_0_0_0_20250102_F_0000.csv``.
 
-        :param date: Date of bhavcopy to download
+        The downloaded archive (``.zip``) is automatically extracted and the
+        archive deleted; the returned path points to the extracted CSV.
+
+        :param date: Date of the bhavcopy to download.
         :type date: datetime.datetime
-        :param folder: Optional folder/dir path to save file. If not specified, use ``download_folder`` specified during class initializataion.
-        :type folder: pathlib.Path or str
-        :raise ValueError: if ``folder`` is not a folder/dir.
-        :raise FileNotFoundError: if download failed or file corrupted
-        :raise RuntimeError: if report unavailable or not yet updated.
-        :return: Path to saved file
+        :param folder: Optional folder to save the file in. If not specified,
+            the ``download_folder`` from initialization is used.
+        :type folder: pathlib.Path or str or None
+
+        :raises ValueError: If ``folder`` is not a directory.
+        :raises NSEFileUnavailableError: If NSE responds with ``404``. This
+            typically means the report is not yet published for ``date``
+            (e.g. a weekend, holiday, or future date), or the archive has not
+            yet been uploaded.
+
+        :return: Path to the extracted CSV file.
         :rtype: pathlib.Path
         """
-        folder = NSE._getPath(folder, isFolder=True) if folder else self.dir
+        folder = _utils.prepare_path(folder, is_folder=True) if folder else self.dir
 
         if date.date() < self.UDIFF_SWITCH_DATE:
             date_str = date.strftime("%d%b%Y").upper()
@@ -260,187 +372,208 @@ class NSE:
 
         file = self._transport.download(url, folder)
 
-        if not file.is_file():
-            file.unlink()
-            msg = f"Failed to download file: {file.name}"
-            raise FileNotFoundError(msg)
+        return _utils.consume_archive(file, file.parent)
 
-        return NSE._unzip(file, file.parent)
+    def delivery_bhavcopy(
+        self,
+        date: datetime,
+        folder: str | Path | None = None,
+    ) -> Path:
+        """Download the daily Equity delivery report for ``date`` and return
+        the saved file path.
 
-    def deliveryBhavcopy(self, date: datetime, folder: str | Path | None = None) -> Path:
-        """Download the daily Equity delivery report for specified ``date`` and return saved file path.
+        The delivered file is a plain CSV (no archive extraction is needed).
 
-        :param date: Date of delivery bhavcopy to download
+        :param date: Date of the delivery bhavcopy to download.
         :type date: datetime.datetime
-        :param folder: Optional folder/dir path to save file. If not specified, use ``download_folder`` specified during class initializataion.
-        :type folder: pathlib.Path or str
-        :raise ValueError: if ``folder`` is not a folder/dir
-        :raise FileNotFoundError: if download failed or file corrupted
-        :raise RuntimeError: if report unavailable or not yet updated.
-        :return: Path to saved file
+        :param folder: Optional folder to save the file in. If not specified,
+            the ``download_folder`` from initialization is used.
+        :type folder: pathlib.Path or str or None
+
+        :raises ValueError: If ``folder`` is not a directory.
+        :raises NSEFileUnavailableError: If NSE responds with ``404``. This
+            typically means the report is not yet published for ``date``.
+
+        :return: Path to the saved CSV file.
         :rtype: pathlib.Path
         """
-        folder = NSE._getPath(folder, isFolder=True) if folder else self.dir
+        folder = _utils.prepare_path(folder, is_folder=True) if folder else self.dir
 
-        url = "{}/products/content/sec_bhavdata_full_{}.csv".format(self.archive_url, date.strftime("%d%m%Y"))
+        url = "{}/products/content/sec_bhavdata_full_{}.csv".format(
+            self.archive_url, date.strftime("%d%m%Y")
+        )
 
         file = self._transport.download(url, folder)
 
-        if not file.is_file():
-            file.unlink()
-            msg = f"Failed to download file: {file.name}"
-            raise FileNotFoundError(msg)
-
         return file
 
-    def indicesBhavcopy(self, date: datetime, folder: str | Path | None = None) -> Path:
-        """Download the daily Equity Indices report for specified ``date``
-        and return the saved file path.
+    def indices_bhavcopy(
+        self,
+        date: datetime,
+        folder: str | Path | None = None,
+    ) -> Path:
+        """Download the daily Equity Indices report for ``date`` and return
+        the saved file path.
 
-        :param date: Date of Indices bhavcopy to download
+        The delivered file is a plain CSV (no archive extraction is needed).
+
+        :param date: Date of the Indices bhavcopy to download.
         :type date: datetime.datetime
-        :param folder: Optional folder/dir path to save file. If not specified, use ``download_folder`` specified during class initializataion.
-        :type folder: pathlib.Path or str
-        :raise ValueError: if ``folder`` is not a folder/dir
-        :raise FileNotFoundError: if download failed or file corrupted
-        :raise RuntimeError: if report unavailable or not yet updated.
-        :return: Path to saved file
+        :param folder: Optional folder to save the file in. If not specified,
+            the ``download_folder`` from initialization is used.
+        :type folder: pathlib.Path or str or None
+
+        :raises ValueError: If ``folder`` is not a directory.
+        :raises NSEFileUnavailableError: If NSE responds with ``404``. This
+            typically means the report is not yet published for ``date``.
+
+        :return: Path to the saved CSV file.
         :rtype: pathlib.Path
         """
-        folder = NSE._getPath(folder, isFolder=True) if folder else self.dir
+        folder = _utils.prepare_path(folder, is_folder=True) if folder else self.dir
 
         url = f"{self.archive_url}/content/indices/ind_close_all_{date:%d%m%Y}.csv"
 
         file = self._transport.download(url, folder)
 
-        if not file.is_file():
-            file.unlink()
-            msg = f"Failed to download file: {file.name}"
-            raise FileNotFoundError(msg)
-
         return file
 
-    def fnoBhavcopy(self, date: datetime, folder: str | Path | None = None) -> Path:
-        """Download the daily Udiff format FnO bhavcopy report for specified ``date``
+    def fno_bhavcopy(
+        self,
+        date: datetime,
+        folder: str | Path | None = None,
+    ) -> Path:
+        """Download the daily UDIFF-format FnO bhavcopy report for ``date``
         and return the saved file path.
 
-        :param date: Date of FnO bhavcopy to download
+        The downloaded archive (``.zip``) is automatically extracted and the
+        archive deleted; the returned path points to the extracted CSV.
+
+        :param date: Date of the FnO bhavcopy to download.
         :type date: datetime.datetime
-        :param folder: Optional folder path to save file. If not specified, use ``download_folder`` specified during class initializataion.
-        :type folder: pathlib.Path or str
-        :raise ValueError: if ``folder`` is not a dir/folder
-        :raise FileNotFoundError: if download failed or file corrupted
-        :raise RuntimeError: if report unavailable or not yet updated.
-        :return: Path to saved file
+        :param folder: Optional folder to save the file in. If not specified,
+            the ``download_folder`` from initialization is used.
+        :type folder: pathlib.Path or str or None
+
+        :raises ValueError: If ``folder`` is not a directory.
+        :raises NSEFileUnavailableError: If NSE responds with ``404``. This
+            typically means the report is not yet published for ``date``.
+
+        :return: Path to the extracted CSV file.
         :rtype: pathlib.Path
         """
         dt_str = date.strftime("%Y%m%d")
 
-        folder = NSE._getPath(folder, isFolder=True) if folder else self.dir
+        folder = _utils.prepare_path(folder, is_folder=True) if folder else self.dir
 
         url = f"{self.archive_url}/content/fo/BhavCopy_NSE_FO_0_0_0_{dt_str}_F_0000.csv.zip"
 
         file = self._transport.download(url, folder)
 
-        if not file.is_file():
-            file.unlink()
-            msg = f"Failed to download file: {file.name}"
-            raise FileNotFoundError(msg)
+        return _utils.consume_archive(file, folder=file.parent)
 
-        return NSE._unzip(file, folder=file.parent)
+    def priceband_report(
+        self,
+        date: datetime,
+        folder: str | Path | None = None,
+    ) -> Path:
+        """Download the daily priceband report for ``date`` and return the
+        saved file path.
 
-    def priceband_report(self, date: datetime, folder: str | Path | None = None) -> Path:
-        """Download the daily priceband report for specified ``date``
-        and return the saved file path.
+        The delivered file is a plain CSV (no archive extraction is needed).
 
-        :param date: Report date to download
+        :param date: Report date to download.
         :type date: datetime.datetime
-        :param folder: Optional folder path to save file. If not specified, use ``download_folder`` specified during class initializataion.
-        :type folder: pathlib.Path or str
-        :raise ValueError: if ``folder`` is not a dir/folder
-        :raise FileNotFoundError: if download failed or file corrupted
-        :raise RuntimeError: if report unavailable or not yet updated.
-        :return: Path to saved file
+        :param folder: Optional folder to save the file in. If not specified,
+            the ``download_folder`` from initialization is used.
+        :type folder: pathlib.Path or str or None
+
+        :raises ValueError: If ``folder`` is not a directory.
+        :raises NSEFileUnavailableError: If NSE responds with ``404``. This
+            typically means the report is not yet published for ``date``.
+
+        :return: Path to the saved CSV file.
         :rtype: pathlib.Path
         """
         dt_str = date.strftime("%d%m%Y")
 
-        folder = NSE._getPath(folder, isFolder=True) if folder else self.dir
+        folder = _utils.prepare_path(folder, is_folder=True) if folder else self.dir
 
         url = f"{self.archive_url}/content/equities/sec_list_{dt_str}.csv"
 
         file = self._transport.download(url, folder)
 
-        if not file.is_file():
-            file.unlink()
-            msg = f"Failed to download file: {file.name}"
-            raise FileNotFoundError(msg)
-
         return file
 
-    def pr_bhavcopy(self, date: datetime, folder: str | Path | None = None) -> Path:
-        """Download the daily PR Bhavcopy zip report for specified ``date``
-        and return the saved zipfile path.
+    def pr_bhavcopy(
+        self,
+        date: datetime,
+        folder: str | Path | None = None,
+    ) -> Path:
+        """Download the daily PR Bhavcopy zip report for ``date`` and return
+        the saved zip file path.
 
-        The file returned is a zip file containing a collection of various reports.
+        The returned file is a zip archive containing a collection of reports,
+        including a ``Readme.txt`` that explains the contents of each file and
+        the file naming format. Unlike other bhavcopy methods, this archive is
+        **not** extracted.
 
-        It includes a `Readme.txt`, explaining the contents of each file and the file naming format.
-
-        :param date: Report date to download
+        :param date: Report date to download.
         :type date: datetime.datetime
-        :param folder: Optional folder path to save file. If not specified, use ``download_folder`` specified during class initializataion.
-        :type folder: pathlib.Path or str
-        :raise ValueError: if ``folder`` is not a dir/folder
-        :raise FileNotFoundError: if download failed or file corrupted
-        :raise RuntimeError: if report unavailable or not yet updated.
-        :return: Path to saved zip file
+        :param folder: Optional folder to save the file in. If not specified,
+            the ``download_folder`` from initialization is used.
+        :type folder: pathlib.Path or str or None
+
+        :raises ValueError: If ``folder`` is not a directory.
+        :raises NSEFileUnavailableError: If NSE responds with ``404``. This
+            typically means the report is not yet published for ``date``.
+
+        :return: Path to the saved zip file.
         :rtype: pathlib.Path
         """
         dt_str = date.strftime("%d%m%y")
 
-        folder = NSE._getPath(folder, isFolder=True) if folder else self.dir
+        folder = _utils.prepare_path(folder, is_folder=True) if folder else self.dir
 
         url = f"{self.archive_url}/archives/equities/bhavcopy/pr/PR{dt_str}.zip"
 
         file = self._transport.download(url, folder)
 
-        if not file.is_file():
-            file.unlink()
-            msg = f"Failed to download file: {file.name}"
-            raise FileNotFoundError(msg)
-
         return file
 
-    def cm_mii_security_report(self, date: datetime, folder: str | Path | None = None) -> Path:
-        """Download the daily CM MII security file report for specified ``date``
-        and return the saved and extracted file path.
+    def cm_mii_security_report(
+        self,
+        date: datetime,
+        folder: str | Path | None = None,
+    ) -> Path:
+        """Download the daily CM MII security file report for ``date`` and
+        return the saved and extracted file path.
 
-        The file returned is a csv file.
+        The downloaded ``.gz`` archive is automatically decompressed and the
+        archive deleted; the returned path points to the resulting CSV.
 
-        :param date: Report date to download
+        :param date: Report date to download.
         :type date: datetime.datetime
-        :param folder: Optional folder path to save file. If not specified, use ``download_folder`` specified during class initializataion.
-        :type folder: pathlib.Path or str
-        :raise ValueError: if ``folder`` is not a dir/folder
-        :raise FileNotFoundError: if download failed or file corrupted
-        :raise RuntimeError: if report unavailable or not yet updated.
-        :return: Path to saved zip file
+        :param folder: Optional folder to save the file in. If not specified,
+            the ``download_folder`` from initialization is used.
+        :type folder: pathlib.Path or str or None
+
+        :raises ValueError: If ``folder`` is not a directory.
+        :raises NSEFileUnavailableError: If NSE responds with ``404``. This
+            typically means the report is not yet published for ``date``.
+
+        :return: Path to the extracted CSV file.
         :rtype: pathlib.Path
         """
         dt_str = date.strftime("%d%m%Y")
 
-        folder = NSE._getPath(folder, isFolder=True) if folder else self.dir
+        folder = _utils.prepare_path(folder, is_folder=True) if folder else self.dir
 
         url = f"{self.archive_url}/content/cm/NSE_CM_security_{dt_str}.csv.gz"
 
         file = self._transport.download(url, folder)
 
-        if not file.is_file():
-            file.unlink()
-            msg = f"Failed to download file: {file.name}"
-            raise FileNotFoundError(msg)
-
-        return self._unzip(file, folder=file.parent)
+        return _utils.consume_archive(file, folder=file.parent)
 
     def actions(
         self,
@@ -451,37 +584,37 @@ class NSE:
     ) -> list[dict]:
         """Get all forthcoming corporate actions.
 
+        If ``symbol`` is specified, only actions for that symbol are returned.
+        If ``from_date`` and ``to_date`` are both specified, only actions
+        within the date range are returned.
+
         `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/actions.json>`__
 
-        If ``symbol`` is specified, only actions for the ``symbol`` is returned.
-
-        If ``from_data`` and ``to_date`` are specified, actions within the date range are returned
-
-        :param segment: One of ``equities``, ``sme``, ``debt`` or ``mf``. Default ``equities``
+        :param segment: One of ``equities``, ``sme``, ``debt`` or ``mf``.
+            Default ``equities``.
         :type segment: str
-        :param symbol: Optional Stock symbol
+        :param symbol: Optional stock symbol to filter actions.
         :type symbol: str or None
-        :param from_date: Optional from date
-        :type from_date: datetime.datetime
-        :param to_date: Optional to date
-        :type to_date: datetime.datetime
-        :raise ValueError: if ``from_date`` is greater than ``to_date``
-        :return: A list of corporate actions
+        :param from_date: Optional start date of the range.
+        :type from_date: datetime.datetime or None
+        :param to_date: Optional end date of the range.
+        :type to_date: datetime.datetime or None
+
+        :raises ValueError: If ``from_date`` is greater than ``to_date``.
+
+        :return: A list of corporate actions.
         :rtype: list[dict]
         """
         fmt = "%d-%m-%Y"
 
-        params = {
-            "index": segment,
-        }
+        params = {"index": segment}
 
         if symbol:
             params["symbol"] = symbol
 
         if from_date and to_date:
             if from_date > to_date:
-                msg = "'from_date' cannot be greater than 'to_date'"
-                raise ValueError(msg)
+                raise ValueError("'from_date' cannot be greater than 'to_date'")
 
             params.update(
                 {
@@ -502,26 +635,31 @@ class NSE:
         from_date: datetime | None = None,
         to_date: datetime | None = None,
     ) -> list[dict]:
-        """Get all corporate announcements for current date.
+        """Get all corporate announcements.
 
-        If symbol is specified, only announcements for the symbol is returned.
-
-        If from_date and to_date are specified, announcements within the date range are returned
+        If ``symbol`` is specified, only announcements for that symbol are
+        returned. If ``fno`` is ``True``, only announcements for FnO
+        securities are returned. If ``from_date`` and ``to_date`` are both
+        specified, only announcements within the date range are returned.
 
         `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/announcements.json>`__
 
-        :param index: One of `equities`, `sme`, `debt` or `mf`. Default ``equities``
+        :param index: One of ``equities``, ``sme``, ``debt``, ``mf`` or
+            ``invitsreits``. Default ``equities``.
         :type index: str
-        :param symbol: Optional Stock symbol
+        :param symbol: Optional stock symbol to filter announcements.
         :type symbol: str or None
-        :param fno: Only FnO stocks
+        :param fno: If ``True``, restrict results to FnO stocks. Default
+            ``False``.
         :type fno: bool
-        :param from_date: Optional from date
-        :type from_date: datetime.datetime
-        :param to_date: Optional to date
-        :type to_date: datetime.datetime
-        :raise ValueError: if ``from_date`` is greater than ``to_date``
-        :return: A list of corporate actions
+        :param from_date: Optional start date of the range.
+        :type from_date: datetime.datetime or None
+        :param to_date: Optional end date of the range.
+        :type to_date: datetime.datetime or None
+
+        :raises ValueError: If ``from_date`` is greater than ``to_date``.
+
+        :return: A list of corporate announcements.
         :rtype: list[dict]
         """
         fmt = "%d-%m-%Y"
@@ -536,8 +674,7 @@ class NSE:
 
         if from_date and to_date:
             if from_date > to_date:
-                msg = "'from_date' cannot be greater than 'to_date'"
-                raise ValueError(msg)
+                raise ValueError("'from_date' cannot be greater than 'to_date'")
 
             params.update(
                 {
@@ -550,7 +687,7 @@ class NSE:
 
         return self._transport.request(url, params=params).json()
 
-    def boardMeetings(
+    def board_meetings(
         self,
         index: Literal["equities", "sme"] = "equities",
         symbol: str | None = None,
@@ -560,24 +697,28 @@ class NSE:
     ) -> list[dict]:
         """Get all forthcoming board meetings.
 
-        If symbol is specified, only board meetings for the symbol is returned.
+        If ``symbol`` is specified, only board meetings for that symbol are
+        returned. If ``fno`` is ``True``, only board meetings for FnO
+        securities are returned. If ``from_date`` and ``to_date`` are both
+        specified, only meetings within the date range are returned.
 
-        If ``from_date`` and ``to_date`` are specified, board meetings within the date range are returned
+        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/board_meetings.json>`__
 
-        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/boardMeetings.json>`__
-
-        :param index: One of ``equities`` or ``sme``. Default ``equities``
+        :param index: One of ``equities`` or ``sme``. Default ``equities``.
         :type index: str
-        :param symbol: Optional Stock symbol
+        :param symbol: Optional stock symbol to filter board meetings.
         :type symbol: str or None
-        :param fno: Only FnO stocks
+        :param fno: If ``True``, restrict results to FnO stocks. Default
+            ``False``.
         :type fno: bool
-        :param from_date: Optional from date
-        :type from_date: datetime.datetime
-        :param to_date: Optional to date
-        :type to_date: datetime.datetime
-        :raise ValueError: if ``from_date`` is greater than ``to_date``
-        :return: A list of corporate board meetings
+        :param from_date: Optional start date of the range.
+        :type from_date: datetime.datetime or None
+        :param to_date: Optional end date of the range.
+        :type to_date: datetime.datetime or None
+
+        :raises ValueError: If ``from_date`` is greater than ``to_date``.
+
+        :return: A list of corporate board meetings.
         :rtype: list[dict]
         """
         fmt = "%d-%m-%Y"
@@ -592,8 +733,7 @@ class NSE:
 
         if from_date and to_date:
             if from_date > to_date:
-                msg = "'from_date' cannot be greater than 'to_date'"
-                raise ValueError(msg)
+                raise ValueError("'from_date' cannot be greater than 'to_date'")
 
             params.update(
                 {
@@ -607,12 +747,16 @@ class NSE:
         return self._transport.request(url, params=params).json()
 
     def annual_reports(
-        self, symbol: str, segment: Literal["equities", "sme"] = "equities"
+        self,
+        symbol: str,
+        segment: Literal["equities", "sme"] = "equities",
     ) -> dict[str, list[dict[str, str]]]:
-        """
-        Returns the dictionary containing the list of annual reports of the symbol for every year.
+        """Return annual reports for ``symbol``.
 
-        Each dictionary within the list contains the link to the annual report in PDF format.
+        The returned dictionary contains a ``data`` key holding a list of
+        per-year report entries. Each entry includes a ``fileName`` pointing
+        to the annual report PDF, which can be downloaded with
+        :meth:`download_document`.
 
         .. code-block:: python
 
@@ -621,15 +765,18 @@ class NSE:
 
                 file = nse.download_document(annual_reports["data"][0]["fileName"])
 
-                print(file) # filepath of downloaded annual report
+                print(file)  # filepath of downloaded annual report
 
         `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/annual_reports.json>`__
 
-        :param symbol: Stock symbol for which annual reports are to be fetched.
+        :param symbol: Stock symbol for which annual reports are to be
+            fetched.
         :type symbol: str
-        :param segment: One of ``equities`` or ``sme``. Default is ``equities``.
-        :type segment: Literal["equities", "sme"]
-        :return: A dictionary where keys are years and values are lists of dictionaries with PDF links to annual reports.
+        :param segment: One of ``equities`` or ``sme``. Default ``equities``.
+        :type segment: str
+
+        :return: A dictionary with a ``data`` key holding a list of
+            dictionaries, each containing a link to a yearly annual report.
         :rtype: dict[str, list[dict[str, str]]]
         """
         return self._transport.request(
@@ -647,31 +794,36 @@ class NSE:
         """Get corporate financial-results filings (metadata) for a date range.
 
         Returns one row per filing with broadcast/filing dates, the quarter
-        covered (``fromDate`` / ``toDate``), ``relatingTo`` (e.g. "Third Quarter"),
-        consolidated/audited flags, and an optional XBRL link. Revenue and EPS
-        figures are **not** included here — use :meth:`results_comparison` for
-        the numeric P&L summary per symbol.
+        covered (``fromDate`` / ``toDate``), ``relatingTo`` (e.g. "Third
+        Quarter"), consolidated/audited flags, and an optional XBRL link.
+        Revenue and EPS figures are **not** included here — use
+        :meth:`results_comparison` for the numeric P&L summary per symbol.
 
-        If ``from_date`` and ``to_date`` are omitted, the API returns filings for the
-        current year to date.
+        If ``from_date`` and ``to_date`` are omitted, the API returns filings
+        for the current year to date.
 
         `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/financial_results.json>`__
 
         Reference URL:
             https://www.nseindia.com/companies-listing/corporate-filings-financial-results
 
-        :param segment: One of ``equities``, ``sme``, ``debt`` or ``mf``. Default ``equities``
+        :param segment: One of ``equities``, ``sme``, ``debt`` or ``mf``.
+            Default ``equities``.
         :type segment: str
-        :param period: One of ``quarterly``, ``annual`` or ``half-yearly``. Default ``quarterly``
+        :param period: One of ``quarterly``, ``annual`` or ``half-yearly``.
+            Default ``quarterly``.
         :type period: str
-        :param symbol: Optional stock symbol to filter filings
+        :param symbol: Optional stock symbol to filter filings.
         :type symbol: str or None
-        :param from_date: Optional start of broadcast-date window (inclusive)
-        :type from_date: datetime.datetime
-        :param to_date: Optional end of broadcast-date window (inclusive)
-        :type to_date: datetime.datetime
-        :raise ValueError: if ``from_date`` is greater than ``to_date``
-        :return: A list of financial-results filing records
+        :param from_date: Optional start of the broadcast-date window
+            (inclusive).
+        :type from_date: datetime.datetime or None
+        :param to_date: Optional end of the broadcast-date window (inclusive).
+        :type to_date: datetime.datetime or None
+
+        :raises ValueError: If ``from_date`` is greater than ``to_date``.
+
+        :return: A list of financial-results filing records.
         :rtype: list[dict]
         """
         fmt = "%d-%m-%Y"
@@ -686,8 +838,7 @@ class NSE:
 
         if from_date and to_date:
             if from_date > to_date:
-                msg = "'from_date' cannot be greater than 'to_date'"
-                raise ValueError(msg)
+                raise ValueError("'from_date' cannot be greater than 'to_date'")
 
             params.update(
                 {
@@ -706,8 +857,8 @@ class NSE:
         NSE's endpoint path is spelled ``results-comparision`` (official typo).
 
         The response contains a ``resCmpData`` list — typically the last ~5
-        quarters — with revenue, net profit and EPS fields. Monetary amounts are
-        in **Rupees Lakhs** (divide by 100 for Crores).
+        quarters — with revenue, net profit and EPS fields. Monetary amounts
+        are in **Rupees Lakhs** (divide by 100 for Crores).
 
         `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/results_comparison.json>`__
 
@@ -721,9 +872,10 @@ class NSE:
                 for row in data["resCmpData"]:
                     print(row["re_to_dt"], row.get("re_total_inc"), row.get("re_net_profit"))
 
-        :param symbol: Stock symbol (e.g. ``RELIANCE``, ``HDFCBANK``)
+        :param symbol: Stock symbol (e.g. ``RELIANCE``, ``HDFCBANK``).
         :type symbol: str
-        :return: Dictionary with ``resCmpData`` — list of quarter rows
+
+        :return: Dictionary with ``resCmpData`` — list of quarter rows.
         :rtype: dict
         """
         return self._transport.request(
@@ -731,9 +883,12 @@ class NSE:
             params={"symbol": symbol.upper()},
         ).json()
 
-    def shareholding(self, symbol: str, index: Literal["equities", "sme"] = "equities") -> list[dict]:
-        """
-        Fetch shareholding pattern data for the given stock ``symbol``.
+    def shareholding(
+        self,
+        symbol: str,
+        index: Literal["equities", "sme"] = "equities",
+    ) -> list[dict]:
+        """Fetch shareholding pattern data for the given stock ``symbol``.
 
         Returns quarterly shareholding details with the latest quarter first.
 
@@ -743,20 +898,21 @@ class NSE:
             https://www.nseindia.com/companies-listing/corporate-filings-shareholding-pattern?symbol=HDFCBANK&tabIndex=equity
             (company listing page)
 
-        :param symbol: Stock symbol code
+        :param symbol: Stock symbol code.
         :type symbol: str
-        :param index: Market segment, either ``"equities"`` or ``"sme"``
-        :type index: Literal["equities", "sme"]
-        :return: List of quarterly shareholding records. Each dictionary contains
-                 key fields including:
+        :param index: Market segment, either ``"equities"`` or ``"sme"``.
+        :type index: str
 
-                 - ``symbol`` – Stock symbol name
-                 - ``date`` – Shareholding as-on date
-                 - ``pr_and_prgrp`` – Shares held by Promoter and Promoter Group
-                 - ``public_val`` – Shares held by Public
-                 - ``employeeTrusts`` – Shares held by Employee Trusts
+        :return: List of quarterly shareholding records. Each dictionary
+            contains key fields including:
 
-                 The first item in the list corresponds to the most recent quarter.
+            - ``symbol`` – Stock symbol name
+            - ``date`` – Shareholding as-on date
+            - ``pr_and_prgrp`` – Shares held by Promoter and Promoter Group
+            - ``public_val`` – Shares held by Public
+            - ``employeeTrusts`` – Shares held by Employee Trusts
+
+            The first item in the list corresponds to the most recent quarter.
         :rtype: list[dict[str, Any]]
         """
         return self._transport.request(
@@ -764,51 +920,57 @@ class NSE:
             params={"index": index, "symbol": symbol.upper()},
         ).json()
 
-    def equityMetaInfo(self, symbol) -> dict:
-        """Meta info for equity symbols.
+    def equity_meta_info(self, symbol) -> dict:
+        """Return meta info for an equity symbol.
 
-        Returns a dictionary containing the symbol, company name, ISIN, market type,
-        available and suspended trading series, and flags indicating whether the
-        security is listed, suspended, delisted, or belongs to categories such as
-        FnO, ETF, SLB, debt, municipal bond, or hybrid symbol.
+        Returns a dictionary containing the symbol, company name, ISIN, market
+        type, available and suspended trading series, and flags indicating
+        whether the security is listed, suspended, delisted, or belongs to
+        categories such as FnO, ETF, SLB, debt, municipal bond, or hybrid
+        symbol.
 
-        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/equityMetaInfo.json>`__
+        The ``series`` and ``marketType`` values returned here can be passed
+        directly to :meth:`quote`.
 
-        :param symbol: Equity symbol code
+        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/equity_meta_info.json>`__
+
+        :param symbol: Equity symbol code.
         :type symbol: str
-        :return: Stock meta info
+
+        :return: Stock meta info.
         :rtype: dict
         """
         return self._transport.request(
-            self.next_api_url,
+            self.next_api_quote_url,
             params={"functionName": "getMetaData", "symbol": symbol.upper()},
         ).json()
 
     def quote(
         self,
         symbol: str,
-        series: str = "EQ",
-        market_type: str = "N",
+        series: str = "eq",
+        market_type: str = "n",
     ) -> dict:
-        """Price quotes and other data for equity symbols.
+        """Return price quotes and other data for an equity symbol.
 
-        Returns a dictionary containing the current quote, market depth (order book),
-        OHLC and price statistics, trading metrics, security information, and the
-        last update timestamp.
+        Returns a dictionary containing the current quote, market depth (order
+        book), OHLC and price statistics, trading metrics, security
+        information, and the last update timestamp.
 
-        The `series` and `market_type` values can be obtained from
-        :meth:`NSE.equityMetaInfo`.
+        The ``series`` and ``market_type`` values can be obtained from
+        :meth:`equity_meta_info`.
 
         `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/quote.json>`__
 
-        :param symbol: Equity symbol code
+        :param symbol: Equity symbol code.
         :type symbol: str
-        :param series: Default `EQ`. Any of the NSE equity series, e.g. `EQ`, `BE`,
-            `BZ`, `SM`, `ST`. Can be obtained from :meth:`NSE.equityMetaInfo`.
+        :param series: Any of the NSE equity series, e.g. ``EQ``, ``BE``,
+            ``BZ``, ``SM``, ``ST``. Default ``EQ``.
         :type series: str
-        :param market_type: Default `N`. Internal NSE market classification. Can be
-            obtained from :meth:`NSE.equityMetaInfo`.
+        :param market_type: Internal NSE market classification. Default
+            ``N``.
         :type market_type: str
+
         :return: Price quote and other stock information.
         :rtype: dict
         """
@@ -819,51 +981,59 @@ class NSE:
             "symbol": symbol.upper(),
         }
 
-        result = self._transport.request(self.next_api_url, params=params).json()
+        result = self._transport.request(self.next_api_quote_url, params=params).json()
         return result["equityResponse"][0]
 
-    def equityQuote(self, symbol) -> dict[str, str | float]:
-        """A convenience method that extracts date and OCHLV data from ``NSE.quote`` for given stock ``symbol``
+    def equity_quote(self, symbol) -> OHLCV:
+        """Extract date and OHLCV data from :meth:`quote` for ``symbol``.
 
-        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/equityQuote.json>`__
+        A convenience wrapper over :meth:`quote` that returns the fields typically
+        needed for a daily OHLCV bar.
 
-        :param symbol: Equity symbol code
+        :param symbol: Equity symbol code.
         :type symbol: str
-        :return: Date and OCHLV data
-        :rtype: dict[str, str or float]
+
+        :return: OHLCV data containing ``date``, ``open``, ``high``, ``low``,
+            ``close``, and ``volume``.
+        :rtype: OHLCV
         """
         q = self.quote(symbol)
 
-        return {
-            "date": q["lastUpdateTime"],
-            "open": q["metaData"]["open"],
-            "high": q["metaData"]["dayHigh"],
-            "low": q["metaData"]["dayLow"],
-            "close": q["orderBook"]["lastPrice"],
-            "volume": q["tradeInfo"]["totalTradedVolume"],
-        }
+        return OHLCV(
+            date=q["lastUpdateTime"],
+            open=q["metaData"]["open"],
+            high=q["metaData"]["dayHigh"],
+            low=q["metaData"]["dayLow"],
+            close=q["orderBook"]["lastPrice"],
+            volume=q["tradeInfo"]["totalTradedVolume"],
+        )
 
-    def liveVolumeGainers(self) -> dict:
-        """
-        Get live volume gainers.
+    def live_volume_gainers(self) -> dict:
+        """Get live volume gainers.
 
-        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/liveVolumeGainers.json>`__
+        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/live_volume_gainers.json>`__
 
         :return: A dictionary. The ``data`` key contains a list of stocks with
             volume surge metrics, price performance, and turnover data.
+        :rtype: dict
         """
         return self._transport.request(f"{self.base_url}/live-analysis-volume-gainers").json()
 
     def gainers(self, data: dict, count: int | None = None) -> list[dict]:
-        """Top gainers by percent change above zero.
+        """Return top gainers by percent change above zero.
+
+        Filters the ``data`` list in ``data`` to entries with ``pChange > 0``,
+        sorted descending by ``pChange``.
 
         `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/gainers.json>`__
 
-        :param data: - Output of one of ``NSE.listSME``, ``NSE.listEquityStocksByIndex``
+        :param data: Output of one of :meth:`list_sme` or
+            :meth:`list_equity_stocks_by_index`.
         :type data: dict
-        :param count: Optional. Limit number of result returned
-        :type count: int
-        :return: List of top gainers
+        :param count: Optional. Limit the number of results returned.
+        :type count: int or None
+
+        :return: List of top gainers.
         :rtype: list[dict]
         """
         return sorted(
@@ -873,15 +1043,20 @@ class NSE:
         )[:count]
 
     def losers(self, data: dict, count: int | None = None) -> list[dict]:
-        """Top losers by percent change below zero.
+        """Return top losers by percent change below zero.
+
+        Filters the ``data`` list in ``data`` to entries with ``pChange < 0``,
+        sorted ascending by ``pChange`` (largest loss first).
 
         `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/losers.json>`__
 
-        :param data: - Output of one of ``NSE.listSME``, ``NSE.listEquityStocksByIndex``
+        :param data: Output of one of :meth:`list_sme` or
+            :meth:`list_equity_stocks_by_index`.
         :type data: dict
-        :param count: Optional. Limit number of result returned
-        :type count: int
-        :return: List of top losers
+        :param count: Optional. Limit the number of results returned.
+        :type count: int or None
+
+        :return: List of top losers.
         :rtype: list[dict]
         """
         return sorted(
@@ -889,116 +1064,126 @@ class NSE:
             key=lambda dct: dct["pChange"],
         )[:count]
 
-    def listFnoStocks(self):
-        """
-        .. deprecated:: 1.0.9
-            Removed in version 1.0.9,
-
-        Use `nse.listEquityStocksByIndex(index='SECURITIES IN F&O')`
-        """
-
-    def listEquityStocksByIndex(self, index="NIFTY 50") -> dict:
-        """
-        List Equity stocks by their Index name. Defaults to `NIFTY 50`
+    def list_equity_stocks_by_index(self, index="nifty 50") -> dict:
+        """List equity stocks by their index name. Defaults to ``nifty 50``.
 
         :ref:`See list of acceptable values for index argument. <listEquityStocksByIndex>`
 
-        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/listEquityStocksByIndex.json>`__
+        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/list_equity_stocks_by_index.json>`__
 
         Reference Page:
             https://www.nseindia.com/market-data/live-equity-market?symbol=NIFTY%2050
 
-        :return: A dictionary. The ``data`` key is a list of all stocks represented by a dictionary with the symbol name and other metadata.
+        :param index: Index name. Default ``nifty 50``.
+        :type index: str
+
+        :return: A dictionary. The ``data`` key is a list of all stocks
+            represented by a dictionary with the symbol name and other
+            metadata.
+        :rtype: dict
         """
         endpoint = "equity-stock-indices"
 
         if index.upper() in ("PERMITTED TO TRADE", "SECURITIES IN F&O"):
             endpoint = "equity-stockIndex"
 
-        return self._transport.request(f"{self.base_url}/{endpoint}", params={"index": index.upper()}).json()
+        return self._transport.request(
+            f"{self.base_url}/{endpoint}", params={"index": index.upper()}
+        ).json()
 
-    def listIndices(self) -> dict:
-        """List all indices
+    def list_indices(self) -> dict:
+        """List all indices.
 
-        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/listIndices.json>`__
+        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/list_indices.json>`__
 
-        :return: A dictionary. The ``data`` key is a list of all Indices represented by a dictionary with the symbol code and other metadata.
+        :return: A dictionary. The ``data`` key is a list of all Indices
+            represented by a dictionary with the symbol code and other
+            metadata.
+        :rtype: dict
         """
         url = f"{self.base_url}/allIndices"
 
         return self._transport.request(url).json()
 
-    def listIndexStocks(self, index):
-        """
-        .. deprecated:: 1.0.9
-            Removed in version 1.0.9.
+    def list_etf(self) -> dict:
+        """List all ETF stocks.
 
-        Use `nse.listEquityStocksByIndex`
-        """
+        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/list_etf.json>`__
 
-    def listEtf(self) -> dict:
-        """List all etf stocks
-
-        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/listEtf.json>`__
-
-        :return: A dictionary. The ``data`` key is a list of all ETF's represented by a dictionary with the symbol code and other metadata.
+        :return: A dictionary. The ``data`` key is a list of all ETFs
+            represented by a dictionary with the symbol code and other
+            metadata.
+        :rtype: dict
         """
         return self._transport.request(f"{self.base_url}/etf").json()
 
-    def listSme(self) -> dict:
-        """List all sme stocks
+    def list_sme(self) -> dict:
+        """List all SME stocks.
 
-        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/listSme.json>`__
+        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/list_sme.json>`__
 
-        :return: A dictionary. The ``data`` key is a list of all SME's represented by a dictionary with the symbol code and other metadata.
+        :return: A dictionary. The ``data`` key is a list of all SMEs
+            represented by a dictionary with the symbol code and other
+            metadata.
+        :rtype: dict
         """
         return self._transport.request(f"{self.base_url}/live-analysis-emerge").json()
 
-    def listSgb(self) -> dict:
-        """List all sovereign gold bonds
+    def list_sgb(self) -> dict:
+        """List all Sovereign Gold Bonds.
 
-        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/listSgb.json>`__
+        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/list_sgb.json>`__
 
-        :return: A dictionary. The ``data`` key is a list of all SGB's represented by a dictionary with the symbol code and other metadata.
+        :return: A dictionary. The ``data`` key is a list of all SGBs
+            represented by a dictionary with the symbol code and other
+            metadata.
+        :rtype: dict
         """
         return self._transport.request(f"{self.base_url}/sovereign-gold-bonds").json()
 
-    def listCurrentIPO(self) -> list[dict]:
-        """List current IPOs
+    def list_current_ipo(self) -> list[dict]:
+        """List current IPOs.
 
-        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/listCurrentIPO.json>`__
+        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/list_current_ipo.json>`__
 
-        :return: List of Dict containing current IPOs
-        :rtype: List[Dict]
+        :return: List of current IPOs.
+        :rtype: list[dict]
         """
         return self._transport.request(f"{self.base_url}/ipo-current-issue").json()
 
-    def listUpcomingIPO(self) -> list[dict]:
-        """List upcoming IPOs
+    def list_upcoming_ipo(self) -> list[dict]:
+        """List upcoming IPOs.
 
-        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/listUpcomingIPO.json>`__
+        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/list_upcoming_ipo.json>`__
 
-        :return: List of Dict containing upcoming IPOs
-        :rtype: List[Dict]
+        :return: List of upcoming IPOs.
+        :rtype: list[dict]
         """
         return self._transport.request(f"{self.base_url}/all-upcoming-issues?category=ipo").json()
 
-    def listPastIPO(
+    def list_past_ipo(
         self,
         from_date: datetime | None = None,
         to_date: datetime | None = None,
     ) -> list[dict]:
-        """List past IPOs
+        """List past IPOs within a date range.
 
-        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/listPastIPO.json>`__
+        If ``to_date`` is not provided, it defaults to the current date. If
+        ``from_date`` is not provided, it defaults to 90 days before
+        ``to_date``.
 
-        :param from_date: Optional defaults to 90 days from to_date
-        :type from_date: datetime.datetime
-        :param to_date: Optional defaults to current date
-        :type to_date: datetime.datetime
-        :raise ValueError: if `to_date` is less than `from_date`
-        :return: List of Dict containing past IPOs
-        :rtype: List[Dict]
+        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/list_past_ipo.json>`__
+
+        :param from_date: Optional start date. Defaults to 90 days before
+            ``to_date``.
+        :type from_date: datetime.datetime or None
+        :param to_date: Optional end date. Defaults to the current date.
+        :type to_date: datetime.datetime or None
+
+        :raises ValueError: If ``to_date`` is earlier than ``from_date``.
+
+        :return: List of past IPOs.
+        :rtype: list[dict]
         """
         if to_date is None:
             to_date = datetime.now()
@@ -1007,8 +1192,7 @@ class NSE:
             from_date = to_date - timedelta(90)
 
         if to_date < from_date:
-            msg = "Argument `to_date` cannot be less than `from_date`"
-            raise ValueError(msg)
+            raise ValueError("Argument `to_date` cannot be less than `from_date`")
 
         params = {
             "from_date": from_date.strftime("%d-%m-%Y"),
@@ -1027,50 +1211,60 @@ class NSE:
         from_date: datetime | None = None,
         to_date: datetime | None = None,
     ) -> dict:
-        """
-        Return exchange circulars and communications by Department
+        """Return exchange circulars and communications by department.
+
+        If ``to_date`` is not provided, it defaults to the current date. If
+        ``from_date`` is not provided, it defaults to 7 days before
+        ``to_date``.
 
         `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/circulars.json>`__
 
-        :param subject: Optional keyword string used to filter circulars based on their subject.
-        :type dept_code: str
-        :param dept_code: Optional Department code. See table below for options
-        :type dept_code: str
-        :param from_date: Optional defaults to 7 days from to_date
-        :type from_date: datetime.datetime
-        :param to_date: Optional defaults to current date
-        :type to_date: datetime.datetime
-        :raise ValueError: if `to_date` is less than `from_date`
+        :param subject: Optional keyword string used to filter circulars based
+            on their subject.
+        :type subject: str or None
+        :param dept_code: Optional department code. See the list below for
+            accepted values.
+        :type dept_code: str or None
+        :param from_date: Optional start date. Defaults to 7 days before
+            ``to_date``.
+        :type from_date: datetime.datetime or None
+        :param to_date: Optional end date. Defaults to the current date.
+        :type to_date: datetime.datetime or None
 
-        Below is the list of `dept_code` values and their description
+        :raises ValueError: If ``to_date`` is earlier than ``from_date``.
 
-        - CMTR - Capital Market (Equities) Trade
-        - COM - Commodity Derivatives
-        - CC - Corporate Communications
-        - CRM - CRM & Marketing
-        - CD - Currency Derivatives
-        - DS - Debt Segment
-        - SME - Emerge
-        - SMEITP - Emerge-ITP
-        - FAAC - Finance & Accounts
-        - FAO - Futures & Options
-        - INSP - Inspection & Compliance
-        - LEGL - Legal, ISC & Arbitration
-        - CMLS - Listing
-        - MA - Market Access
-        - MSD - Member Service Department
-        - MEMB - Membership
-        - MF - Mutual Fund
-        - NWPR - New Products
-        - NCFM - NSE Academy Limited
-        - CMPT - NSE Clearing - Capital Market
-        - IPO - Primary Market Segment
-        - RDM - Retail Debt Market
-        - SLBS - Securities Lending & Borrowing Scheme
-        - SURV - Surveillance & Investigation
-        - TEL - Systems & Telecom
-        - UCIBD - UCI Business Development
-        - WDTR - Wholesale Debt Market
+        Below is the list of ``dept_code`` values and their description:
+
+        - ``CMTR`` – Capital Market (Equities) Trade
+        - ``COM`` – Commodity Derivatives
+        - ``CC`` – Corporate Communications
+        - ``CRM`` – CRM & Marketing
+        - ``CD`` – Currency Derivatives
+        - ``DS`` – Debt Segment
+        - ``SME`` – Emerge
+        - ``SMEITP`` – Emerge-ITP
+        - ``FAAC`` – Finance & Accounts
+        - ``FAO`` – Futures & Options
+        - ``INSP`` – Inspection & Compliance
+        - ``LEGL`` – Legal, ISC & Arbitration
+        - ``CMLS`` – Listing
+        - ``MA`` – Market Access
+        - ``MSD`` – Member Service Department
+        - ``MEMB`` – Membership
+        - ``MF`` – Mutual Fund
+        - ``NWPR`` – New Products
+        - ``NCFM`` – NSE Academy Limited
+        - ``CMPT`` – NSE Clearing - Capital Market
+        - ``IPO`` – Primary Market Segment
+        - ``RDM`` – Retail Debt Market
+        - ``SLBS`` – Securities Lending & Borrowing Scheme
+        - ``SURV`` – Surveillance & Investigation
+        - ``TEL`` – Systems & Telecom
+        - ``UCIBD`` – UCI Business Development
+        - ``WDTR`` – Wholesale Debt Market
+
+        :return: A dictionary of circulars for the requested filters.
+        :rtype: dict
         """
         if to_date is None:
             to_date = datetime.now()
@@ -1079,8 +1273,7 @@ class NSE:
             from_date = to_date - timedelta(7)
 
         if to_date < from_date:
-            msg = "Argument `to_date` cannot be less than `from_date`"
-            raise ValueError(msg)
+            raise ValueError("Argument `to_date` cannot be less than `from_date`")
 
         params = {
             "from_date": from_date.strftime("%d-%m-%Y"),
@@ -1095,22 +1288,35 @@ class NSE:
 
         return self._transport.request(f"{self.base_url}/circulars", params=params).json()
 
-    def blockDeals(self) -> dict:
-        """Block deals
+    def block_deals(self) -> dict:
+        """Return block deals.
 
-        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/blockDeals.json>`__
+        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/block_deals.json>`__
 
-        :return: Block deals. ``data`` key is a list of all block deal (Empty list if no block deals).
+        :return: Block deals. The ``data`` key is a list of all block deals
+            (empty list if there are none).
         :rtype: dict
         """
         return self._transport.request(f"{self.base_url}/block-deal").json()
 
-    def fnoLots(self) -> dict[str, int]:
-        """Get the lot size of FnO stocks.
+    def fno_lots(self) -> dict[str, int]:
+        """Return the lot size of FnO stocks.
 
-        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/fnoLots.json>`__
+        Downloads NSE's fo_mktlots.csv and parses it into a symbol → lot
+        size mapping. The CSV contains two header rows, which are skipped.
+        Rows where the lot size column is empty or cannot be parsed as an
+        integer are skipped.
 
-        :return: A dictionary with symbol code as keys and lot sizes for values
+        .. note::
+            A symbol with an empty lot size is omitted from the returned dictionary.
+            This indicates that the symbol has been removed, or is scheduled to be
+            removed, from the FnO segment.
+
+        .. note::
+            The lot size is extracted from the next-month expiry column rather than
+            the current-month expiry column.
+
+        :return: A dictionary mapping symbol codes to lot sizes.
         :rtype: dict[str, int]
         """
         url = "https://nsearchives.nseindia.com/content/fo/fo_mktlots.csv"
@@ -1122,120 +1328,159 @@ class NSE:
         for line in res.strip().split(b"\n"):
             _, sym, _, lot, *_ = line.split(b",")
 
+            lot_size = lot.strip().decode()
+
+            if not lot_size:
+                # empty string indicating scrip is removed or
+                # will no longer be part of FnO
+                continue
+
+            decoded_sym = sym.strip().decode()
             try:
-                dct[sym.strip().decode()] = int(lot.strip().decode())
+                dct[decoded_sym] = int(lot.strip().decode())
             except ValueError:
+                if decoded_sym.lower() != "symbol":
+                    logger.warning(
+                        "NSE.fnoLots: Unable to determine lotsize for `%s` with value %s",
+                        sym.strip().decode(),
+                        lot_size,
+                    )
                 continue
 
         return dct
 
-    def optionChain(
+    def option_chain(
         self,
         symbol: Literal["banknifty", "nifty", "finnifty", "niftyit"] | str,
         expiry_date: datetime | None = None,
     ) -> dict:
-        """
-        Fetch the raw (unprocessed) option chain data from NSE for index futures or
-        F&O stocks.
+        """Fetch the raw (unprocessed) option chain data for an index or F&O
+        stock.
 
-        If `expiry_date` is not provided, the function automatically determines the
-        nearest valid expiry using the following order:
+        If ``expiry_date`` is not provided, the nearest valid expiry is
+        resolved automatically using the following order:
 
-        1. Reads a locally cached expiry date from `opt-expiry.json` (if available).
-        2. Validates the cached expiry against the current date.
-        3. If missing or expired, fetches expiry dates from NSE’s
-           `option-chain-contract-info` endpoint and selects the first (nearest)
-           expiry.
-        4. Updates the local cache with the resolved expiry date.
+        1. Read a locally cached expiry date from
+           ``<self.dir>/.opt-expiry-cache/<symbol>.txt`` (if available).
+        2. Validate the cached expiry against the current date.
+        3. If missing, unreadable, or expired, fetch expiry dates from NSE's
+           ``option-chain-contract-info`` endpoint and select the first
+           (nearest) expiry.
+        4. Atomically update the local cache with the resolved expiry date.
 
-        The final option chain data is fetched from NSE’s `option-chain-v3` endpoint.
+        The final option chain data is fetched from NSE's ``option-chain-v3``
+        endpoint.
+
+        .. note::
+           The cache is written atomically via a temp file and ``os.replace``,
+           so concurrent readers never observe a partially written file.
+           Per-symbol cache files also mean two processes resolving *different*
+           symbols cannot clobber each other's entries. However, there is no
+           locking: two processes resolving the *same* symbol concurrently may
+           both hit NSE and race on the final rename (last writer wins, same
+           value, so harmless). In multi-process deployments, consider using
+           :class:`MemoryCookieStore` and passing explicit ``expiry_date``
+           values to skip the cache entirely.
 
         Reference sample response:
-        https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/optionChain.json
+        https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/option_chain.json
 
-        :param symbol:
-            F&O stock symbol or index futures identifier.
-            For index futures, must be one of:
-            ``banknifty``, ``nifty``, ``finnifty``, ``niftyit``.
+        :param symbol: FnO stock symbol or index futures identifier. For index
+            futures, must be one of ``banknifty``, ``nifty``, ``finnifty``,
+            ``niftyit``.
         :type symbol: str
+        :param expiry_date: Expiry date of the instrument. If ``None``, the
+            nearest valid expiry is automatically resolved and cached.
+        :type expiry_date: datetime.datetime or None
 
-        :param expiry_date:
-            Expiry date of the instrument. If ``None``, the nearest valid expiry
-            is automatically resolved and cached.
-        :type expiry_date: datetime or None
+        :raises ValueError: If the NSE response does not contain the
+            ``expiryDates`` field.
+        :raises ValueError: If NSE returns an empty list of expiry dates.
 
-        :return:
-            Raw JSON response from NSE containing the option chain for the
-            requested symbol and expiry.
-        :rtype: Dict
-
-        :raises ValueError:
-            - If the NSE response does not contain the ``expiryDates`` field.
-            - If NSE returns an empty list of expiry dates.
+        :return: Raw JSON response from NSE containing the option chain for
+            the requested symbol and expiry.
+        :rtype: dict
         """
         symbol_key = symbol.lower()
         params = {"symbol": symbol.upper()}
 
-        if not expiry_date:
-            cache = {}
-            cache_file = self.dir / "opt-expiry.json"
+        if expiry_date is None:
+            cache_file = self.opt_cache_dir / f"{symbol_key}.txt"
 
-            if cache_file.exists():
-                try:
-                    cache = json.loads(cache_file.read_bytes())
-                except (json.JSONDecodeError, OSError):
-                    cache = {}
+            # Avoid file exists checks to avoid TOCTOU race conditions
+            # in multi process environments.
+            try:
+                expiry_date = datetime.fromisoformat(cache_file.read_text().strip())
+            except (ValueError, OSError):
+                # FileNotFoundError, invalid date format etc.
+                expiry_date = None
 
-            if symbol_key in cache:
-                expiry_date = datetime.fromisoformat(cache[symbol_key])
-
-                if date.today() > expiry_date.date():
-                    expiry_date = None
-
-            if not expiry_date:
-                opt_info = self._transport.request(f"{self.base_url}/option-chain-contract-info", params=params).json()
+            if expiry_date is None or date.today() > expiry_date.date():
+                opt_info = self._transport.request(
+                    f"{self.base_url}/option-chain-contract-info", params=params
+                ).json()
 
                 if "expiryDates" not in opt_info:
-                    msg = "Missing `expiryDates` field in option chain contract info"
-                    raise ValueError(msg)
+                    raise ValueError("Missing `expiryDates` field in option chain contract info")
 
                 if not opt_info["expiryDates"]:
-                    msg = "No expiry dates returned from NSE"
-                    raise ValueError(msg)
+                    raise ValueError("No expiry dates returned from NSE")
 
                 expiry_date = datetime.strptime(opt_info["expiryDates"][0], "%d-%b-%Y")
 
-                cache[symbol_key] = expiry_date.isoformat()
+                # Atomic file writes, prevent file corruption from
+                # concurrent file writes to same file
+                with tempfile.NamedTemporaryFile(
+                    mode="w",
+                    dir=cache_file.parent,
+                    delete=False,
+                    prefix=f".{symbol_key}-",
+                    suffix=".tmp",
+                ) as f:
+                    f.write(expiry_date.isoformat())
+                    tmp_path = Path(f.name)
 
-                cache_file.write_text(json.dumps(cache))
+                try:
+                    tmp_path.replace(cache_file)
+                except BaseException:
+                    tmp_path.unlink(missing_ok=True)
+                    raise
 
         url = f"{self.base_url}/option-chain-v3"
 
-        params["type"] = "Indices" if symbol_key in self._optionIndex else "Equity"
+        params["type"] = "Indices" if symbol_key in self._option_index else "Equity"
 
-        if expiry_date:
-            params["expiry"] = expiry_date.strftime("%d-%b-%Y")
+        params["expiry"] = expiry_date.strftime("%d-%b-%Y")
 
-        return self._transport.request(url, params=params).json()
+        data = self._transport.request(url, params=params).json()
+
+        return data
 
     @staticmethod
-    def maxpain(optionChain: dict, expiryDate: datetime) -> float:
-        """Get the max pain strike price
+    def max_pain(option_chain: dict, expiry_date: datetime) -> float:
+        """Return the max pain strike price.
 
-        :param optionChain: Output of NSE.optionChain
-        :type optionChain: dict
-        :param expiryDate: Options expiry date
-        :type expiryDate: datetime.datetime
-        :return: max pain strike price
+        Uses prefix sums to pre-compute values and avoid nested loops, giving
+        O(n) performance for the max pain calculation.
+
+        See `Prefix sum for details <https://www.geeksforgeeks.org/dsa/prefix-sum-array-implementation-applications-competitive-programming/>`_.
+
+        .. note::
+           This method relies on NSE returning strikes in **sorted ascending
+           order** within the option chain response, and does not sort them
+           itself. If the ordering is ever broken, the computed max pain will
+           be incorrect.
+
+        :param option_chain: Output of :meth:`option_chain`.
+        :type option_chain: dict
+        :param expiry_date: Options expiry date.
+        :type expiry_date: datetime.datetime
+
+        :return: Max pain strike price.
         :rtype: float
-
-        Uses prefix sums to pre compute values and avoid nested loops.
-        The result in O(n) performance for maxpain calculation.
-
-        See `Prefix sum for details <https://www.geeksforgeeks.org/dsa/prefix-sum-array-implementation-applications-competitive-programming/>`_
         """
-        data = optionChain["records"]["data"]
-        expiry = expiryDate.strftime("%d-%b-%Y")
+        data = option_chain["records"]["data"]
+        expiry = expiry_date.strftime("%d-%b-%Y")
 
         # filter strikes by expiry date and gather strikes and OI into lists
         ce_oi = []
@@ -1291,19 +1536,22 @@ class NSE:
 
         return max_pain_strike
 
-    def getFuturesExpiry(self, index: Literal["nifty", "banknifty", "finnifty"] = "nifty") -> list[str]:
-        """
-        Get current, next and far month expiry as a sorted list
-        with order guaranteed.
+    def get_futures_expiry(
+        self, index: Literal["nifty", "banknifty", "finnifty"] = "nifty"
+    ) -> list[str]:
+        """Return the current, next, and far month expiry dates for an index.
 
-        Its easy to calculate the last thursday of the month.
-        But you need to consider holidays.
+        Expiries are returned as a sorted list with order guaranteed, so the
+        first item is the nearest expiry. This is a lightweight lookup that
+        avoids the need to compute the last Thursday of the month and account
+        for exchange holidays.
 
-        This serves as a lightweight lookup option.
-
-        :param index: One of `nifty`, `banknifty`, `finnifty`. Default `nifty`.
+        :param index: One of ``nifty``, ``banknifty``, ``finnifty``. Default
+            ``nifty``.
         :type index: str
-        :return: Sorted list of current, next and far month expiry
+
+        :return: Sorted list of current, next, and far month expiries, as
+            strings in ``DD-Mon-YYYY`` format.
         :rtype: list[str]
         """
         if index == "banknifty":
@@ -1322,133 +1570,163 @@ class NSE:
 
         return sorted(data, key=lambda x: datetime.strptime(x, "%d-%b-%Y"))
 
-    def compileOptionChain(
+    def compile_option_chain(
         self,
         symbol: str | Literal["banknifty", "nifty", "finnifty", "niftyit"],
-        expiryDate: datetime,
-    ) -> dict[str, str | float | int]:
+        expiry_date: datetime,
+    ) -> CompiledOptionChain:
         """
-        Filter raw option chain by ``expiryDate`` and calculate various statistics required for analysis.
-        This makes it easy to build an option chain for analysis using a simple loop.
+        Filter raw option chain by ``expiry_date`` and calculate various statistics
+        required for analysis. This makes it easy to build an option chain for
+        analysis using a simple loop.
 
         Statistics include:
-            - Max Pain,
-            - Strike price with max Call and Put Open Interest,
-            - Total Call and Put Open Interest
-            - Total PCR ratio
-            - PCR for every strike price
-            - Every strike price has Last price, Open Interest, Change, Implied Volatility for both Call and Put
 
-        Other included values: At the Money (ATM) strike price, Underlying strike price, Expiry date.
+        - Max pain
+        - Strike price with max Call and Put Open Interest
+        - Total Call and Put Open Interest
+        - Total PCR ratio
+        - PCR for every strike price
+        - Every strike price has Last price, Open Interest, Change, Percent Change, Implied
+          Volatility for both Call and Put
 
-        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/compileOptionChain.json>`__
+        Other included values: At the Money (ATM) strike price, Underlying strike
+        price, Expiry date.
 
-        :param symbol: FnO stock or Index futures symbol code. If Index futures must be one of ``banknifty``, ``nifty``, ``finnifty``, ``niftyit``.
+        The ATM strike is derived by computing the strike interval from the first
+        two entries in ``data["filtered"]["data"]`` and rounding the underlying
+        value to the nearest multiple of that interval.
+
+        Only entries in ``data["records"]["data"]`` whose ``expiryDates`` field
+        matches ``expiry_date`` (formatted as ``"%d-%b-%Y"``) are included. For
+        each retained strike:
+
+        - If a ``PE`` entry is present, its ``openInterest``, ``lastPrice``,
+          ``change``, ``pChange`` and ``impliedVolatility`` are recorded; otherwise
+          the PE side is populated with zeros.
+        - If a ``CE`` entry is present, its ``openInterest``, ``lastPrice``,
+          ``change``, ``pChange`` and ``impliedVolatility`` are recorded; otherwise
+          the CE side is populated with zeros.
+        - The per-strike PCR is ``round(pe_oi / ce_oi, 2)`` when ``ce_oi`` is
+          non-zero, otherwise ``None``.
+
+        The ``max_coi`` and ``max_poi`` strikes reported in the result default to
+        ``0`` when no CE or PE data is found. Likewise, ``coi_total`` and
+        ``poi_total`` remain ``0`` in that case, and ``pcr`` (overall) is ``None``
+        when ``coi_total`` is ``0``.
+
+        Max pain is delegated to :meth:`max_pain` and receives the raw response
+        plus ``expiry_date``.
+
+        :param symbol: FnO stock or Index futures symbol code. If Index futures
+            must be one of ``banknifty``, ``nifty``, ``finnifty``, ``niftyit``.
         :type symbol: str
-        :param expiryDate: Option chain Expiry date
-        :type expiryDate: datetime.datetime
-        :return: Option chain filtered by ``expiryDate``
-        :rtype: dict[str, str | float | int]
+        :param expiry_date: Option chain expiry date.
+        :type expiry_date: datetime.datetime
+        :return: Option chain filtered by ``expiry_date``. Keys include ``expiry``,
+            ``timestamp``, ``underlying``, ``atm``, ``max_pain``, ``max_coi``,
+            ``max_poi``, ``coi_total``, ``poi_total``, ``pcr`` and ``chain`` (a
+            mapping of strike price strings to ``{"pe": {...}, "ce": {...},
+            "pcr": ...}``).
+        :rtype: CompiledOptionChain
         """
-        data = self.optionChain(symbol)
+        data = self.option_chain(symbol, expiry_date=expiry_date)
 
-        chain = {}
-        oc = {}
+        chain: dict[str, StrikeRow] = {}
 
-        expiryDateStr = expiryDate.strftime("%d-%b-%Y")
+        expiry_date_str = expiry_date.strftime("%d-%b-%Y")
 
-        oc["expiry"] = expiryDateStr
-        oc["timestamp"] = data["records"]["timestamp"]
-        strike1 = data["filtered"]["data"][0]["strikePrice"]
-        strike2 = data["filtered"]["data"][1]["strikePrice"]
-        multiple = strike1 - strike2
+        strike_1 = data["filtered"]["data"][0]["strikePrice"]
+        strike_2 = data["filtered"]["data"][1]["strikePrice"]
+        multiple = strike_1 - strike_2
 
         underlying = data["records"]["underlyingValue"]
 
-        oc["underlying"] = underlying
-        oc["atm"] = multiple * round(underlying / multiple)
+        max_coi = max_poi = total_coi = total_poi = max_coi_strike = max_poi_strike = 0
 
-        maxCoi = maxPoi = totalCoi = totalPoi = maxCoiStrike = maxPoiStrike = 0
+        data_fields = (
+            "openInterest",
+            "lastPrice",
+            "change",
+            "pChange",
+            "impliedVolatility",
+        )
 
-        dataFields = ("openInterest", "lastPrice", "chg", "impliedVolatility")
-
-        for idx in data["records"]["data"]:
-            if idx["expiryDates"] != expiryDateStr:
+        for row in data["records"]["data"]:
+            if row["expiryDates"] != expiry_date_str:
                 continue
 
-            strike = str(idx["strikePrice"])
+            strike = str(row["strikePrice"])
 
             if strike not in chain:
-                chain[strike] = {"pe": {}, "ce": {}}
+                chain[strike] = StrikeRow(
+                    pe=OptionLeg(last=0, oi=0, chg=0, pct_chg=0, iv=0),
+                    ce=OptionLeg(last=0, oi=0, chg=0, pct_chg=0, iv=0),
+                    pcr=None,
+                )
 
             poi = coi = 0
 
-            if "PE" in idx:
-                poi, last, chg, iv = map(idx["PE"].get, dataFields)
+            if "PE" in row:
+                poi, last, chg, pct_chg, iv = map(row["PE"].get, data_fields)
 
-                chain[strike]["pe"].update({"last": last, "oi": poi, "chg": chg, "iv": iv})
+                chain[strike]["pe"] = OptionLeg(last=last, oi=poi, chg=chg, pct_chg=pct_chg, iv=iv)
 
-                totalPoi += poi
+                total_poi += poi
 
-                if poi > maxPoi:
-                    maxPoi = poi
-                    maxPoiStrike = int(strike)
-            else:
-                chain[strike]["pe"] = {"last": 0, "oi": 0, "chg": 0, "iv": 0}
+                if poi > max_poi:
+                    max_poi = poi
+                    max_poi_strike = int(strike)
 
-            if "CE" in idx:
-                coi, last, chg, iv = map(idx["CE"].get, dataFields)
+            if "CE" in row:
+                coi, last, chg, pct_chg, iv = map(row["CE"].get, data_fields)
 
-                chain[strike]["ce"].update({"last": last, "oi": coi, "chg": chg, "iv": iv})
+                chain[strike]["ce"] = OptionLeg(last=last, oi=coi, chg=chg, pct_chg=pct_chg, iv=iv)
 
-                totalCoi += coi
+                total_coi += coi
 
-                if coi > maxCoi:
-                    maxCoi = coi
-                    maxCoiStrike = int(strike)
-            else:
-                chain[strike]["ce"] = {"last": 0, "oi": 0, "chg": 0, "iv": 0}
+                if coi > max_coi:
+                    max_coi = coi
+                    max_coi_strike = int(strike)
 
             if coi == 0:
                 chain[strike]["pcr"] = None
             else:
                 chain[strike]["pcr"] = round(poi / coi, 2)
 
-        oc.update(
-            {
-                "maxpain": self.maxpain(data, expiryDate),
-                "maxCoi": maxCoiStrike,
-                "maxPoi": maxPoiStrike,
-                "coiTotal": totalCoi,
-                "poiTotal": totalPoi,
-                "pcr": None if totalCoi == 0 else round(totalPoi / totalCoi, 2),
-                "chain": chain,
-            }
+        return CompiledOptionChain(
+            expiry=expiry_date_str,
+            timestamp=data["records"]["timestamp"],
+            underlying=underlying,
+            atm=multiple * round(underlying / multiple),
+            max_pain=self.max_pain(data, expiry_date),
+            max_coi=max_coi_strike,
+            max_poi=max_poi_strike,
+            coi_total=total_coi,
+            poi_total=total_poi,
+            pcr=None if total_coi == 0 else round(total_poi / total_coi, 2),
+            chain=chain,
         )
 
-        return oc
-
-    def advanceDecline(self, index: str = "NIFTY 50") -> dict:
-        """
-        Fetch advance-decline data for a given NSE index.
-
-        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/advanceDecline.json>`__
+    def advance_decline(self, index: str = "nifty 50") -> dict:
+        """Fetch advance-decline data for an NSE index.
 
         .. versionadded:: 3.0.0
 
-        Reintroduced using the new NSE API endpoint
+        Reintroduced using the new NSE API endpoint. Deprecated in v1.0.9
+        because the original NSE endpoint was no longer active.
 
-        Deprecated in v1.0.9 because the original NSE endpoint
-        was no longer active.
+        `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/advance_decline.json>`__
 
-        Example:
-        advanceDecline()
-        advanceDecline("NIFTY BANK")
+        Example::
 
-        :param index: NSE index name. Default is ``NIFTY 50``
+            advanceDecline()
+            advanceDecline("NIFTY BANK")
+
+        :param index: NSE index name. Default ``NIFTY 50``.
         :type index: str
 
-        :return: Advance-decline statistics
+        :return: Advance-decline statistics.
         :rtype: dict
         """
         url = f"{self.base_url}/equity-stockIndices-adu"
@@ -1456,72 +1734,69 @@ class NSE:
         return self._transport.request(url, params={"index": index.upper()}).json()
 
     def holidays(self, type: Literal["trading", "clearing"] = "trading") -> dict[str, list[dict]]:
-        """NSE holiday list
+        """Return the NSE holiday list.
 
-        ``CM`` key in dictionary stands for Capital markets (Equity Market).
+        ``CM`` key in the dictionary stands for Capital Markets (Equity
+        Market).
 
         `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/holidays.json>`__
 
-        :param type: Default ``trading``. One of ``trading`` or ``clearing``
+        :param type: One of ``trading`` or ``clearing``. Default ``trading``.
         :type type: str
+
         :return: Market holidays for all market segments.
         :rtype: dict[str, list[dict]]
         """
         url = f"{self.base_url}/holiday-master"
 
-        return self._transport.request(url, params={"type": type}).json()
+        data = self._transport.request(url, params={"type": type}).json()
 
-    def bulkdeals(
+        return data
+
+    def bulk_deals(
         self,
         option_type: Literal["block_deals", "bulk_deals", "short_selling"],
-        fromdate: datetime,
-        todate: datetime,
+        from_date: datetime,
+        to_date: datetime,
     ) -> list[dict]:
-        """
-        Retrieve bulk, block, or short-selling deal data from NSE for a given date range.
+        """Retrieve bulk, block, or short-selling deal data for a date range.
 
-        This method downloads historical deal data based on the selected report type.
-        The requested date range must be valid and must not exceed one year.
+        Downloads historical deal data based on the selected report type. The
+        requested date range must be valid and must not exceed one year.
 
         Sample responses:
-            - Bulk deals: https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/bulkdeals-bulk_deals.json
-            - Block deals: https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/bulkdeals-block_deals.json
-            - Short selling: https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/bulkdeals-short_selling.json
 
-        :param option_type:
-            Type of deal report to fetch. Must be one of
+        - Bulk deals: https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/bulk_deals-bulk_deals.json
+        - Block deals: https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/bulk_deals-block_deals.json
+        - Short selling: https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/bulk_deals-short_selling.json
+
+        :param option_type: Type of deal report to fetch. Must be one of
             ``"bulk_deals"``, ``"block_deals"``, or ``"short_selling"``.
-        :type option_type: Literal["block_deals", "bulk_deals", "short_selling"]
+        :type option_type: str
+        :param from_date: Start date of the report (inclusive).
+        :type from_date: datetime.datetime
+        :param to_date: End date of the report (inclusive).
+        :type to_date: datetime.datetime
 
-        :param fromdate:
-            Start date of the report (inclusive).
-        :type fromdate: datetime.datetime
+        :raises ValueError: If ``fromdate`` is later than ``todate``.
+        :raises ValueError: If the date range exceeds one year.
+        :raises RuntimeError: If no data is available for the specified date
+            range and report type.
 
-        :param todate:
-            End date of the report (inclusive).
-        :type todate: datetime.datetime
-
-        :raises ValueError:
-            If ``fromdate`` is later than ``todate`` or if the date range exceeds one year.
-        :raises RuntimeError:
-            If no data is available for the specified date range and report type.
-
-        :return:
-            A list of dictionaries containing deal records for the requested report type.
-        :rtype: List[Dict]
+        :return: A list of dictionaries containing deal records for the
+            requested report type.
+        :rtype: list[dict]
         """
-        if fromdate > todate:
-            msg = "fromdate must be earlier than or equal to todate."
-            raise ValueError(msg)
+        if from_date > to_date:
+            raise ValueError("fromdate must be earlier than or equal to todate.")
 
-        if (todate - fromdate).days > 365:
-            msg = "The date range cannot exceed one year."
-            raise ValueError(msg)
+        if (to_date - from_date).days > 365:
+            raise ValueError("The date range cannot exceed one year.")
 
         params = {
             "optionType": option_type,
-            "from": fromdate.strftime("%d-%m-%Y"),
-            "to": todate.strftime("%d-%m-%Y"),
+            "from": from_date.strftime("%d-%m-%Y"),
+            "to": to_date.strftime("%d-%m-%Y"),
         }
 
         url = f"{self.base_url}/historicalOR/bulk-block-short-deals"
@@ -1529,8 +1804,9 @@ class NSE:
         data = self._transport.request(url, params=params).json()
 
         if "data" not in data or len(data["data"]) < 1:
-            msg = f"No {option_type} data available from {fromdate:%d-%m-%Y} to {todate:%d-%m-%Y}."
-            raise RuntimeError(msg)
+            raise RuntimeError(
+                f"No {option_type} data available from {from_date:%d-%m-%Y} to {to_date:%d-%m-%Y}."
+            )
 
         return data["data"]
 
@@ -1542,38 +1818,40 @@ class NSE:
     ) -> Path:
         """
         Download the document from the specified URL and return the saved file path.
-        If the downloaded file is a zip file, extracts its contents to the specified folder.
+        If the downloaded file is a ``.zip`` or ``.gz`` archive, extracts its
+        contents to the specified folder and returns the extracted file path.
 
-        :param url: URL of the document to download e.g. `https://archives.nseindia.com/annual_reports/AR_ULTRACEMCO_2010_2011_08082011052526.zip`
+        :param url: URL of the document to download e.g.
+            ``https://archives.nseindia.com/annual_reports/AR_ULTRACEMCO_2010_2011_08082011052526.zip``
         :type url: str
-        :param folder: Folder path to save file. If not specified, uses download_folder from class initialization.
+        :param folder: Folder path to save file. If not specified, uses
+            ``download_folder`` from class initialization.
         :type folder: pathlib.Path or str or None
-        :param extract_files: A list of filenames to be extracted. If None, the first file in zipfile will be extracted.
+        :param extract_files: A list of filenames to be extracted from a zip
+            archive. If ``None``, the first file in the zip will be extracted. Must
+            be non-empty if provided. Ignored for ``.gz`` archives.
         :type extract_files: List[str] or None
 
-        :raise ValueError: If folder is not a directory
-        :raise FileNotFoundError: If download failed or file corrupted
-        :raise RuntimeError: If file extraction fails
+        :raise ValueError: If ``folder`` is not a directory, or if
+            ``extract_files`` is provided as an empty list.
+        :raise zipfile.BadZipFile: If the downloaded zip is not a valid archive.
+        :raise KeyError: If a name in ``extract_files`` is not present in the zip.
+        :raise OSError: If file I/O fails during download or extraction.
 
-        :return: Path to saved file (or extracted file if zip). If extract_files is specified, the last filepath in the list is returned.
+        :return: Path to the extracted file if the download was a ``.zip`` or
+            ``.gz`` archive, otherwise the path to the saved file. For zip archives
+            with ``extract_files`` specified, the last filepath in the list is
+            returned.
         :rtype: pathlib.Path
         """
-        folder = NSE._getPath(folder, isFolder=True) if folder else self.dir
+        folder = _utils.prepare_path(folder, is_folder=True) if folder else self.dir
         file = self._transport.download(url, folder)
 
-        if not file.is_file():
-            file.unlink()
-            msg = f"Failed to download file: {file.name}"
-            raise FileNotFoundError(msg)
+        suffix = file.suffix.lower()
 
         # Check if downloaded file is a zip file
-        if file.suffix.lower() == ".zip":
-            try:
-                return self._unzip(file, folder, extract_files)
-            except Exception as e:
-                file.unlink()
-                msg = f"Failed to extract zip file: {e!s}"
-                raise RuntimeError(msg)
+        if suffix == ".zip" or suffix == ".gz":
+            return _utils.consume_archive(file, folder, extract_files)
 
         return file
 
@@ -1582,64 +1860,58 @@ class NSE:
         symbol: str,
         from_date: date | None = None,
         to_date: date | None = None,
-        series: Literal["AE", "AF", "BE", "BL", "EQ", "IL", "RL", "W3", "GB", "GS"] = "EQ",
+        series: Literal["ae", "af", "be", "bl", "eq", "il", "rl", "w3", "gb", "gs"] = "eq",
     ) -> list[dict]:
-        """
-        Retrieve historical daily price and volume data for an equity symbol from NSE.
+        """Retrieve historical daily price and volume data for an equity symbol.
 
-        This method fetches historical trade data for the given symbol and series
-        between ``from_date`` and ``to_date`` (both inclusive). If no dates are
+        Fetches historical trade data for ``symbol`` and ``series`` between
+        ``from_date`` and ``to_date`` (both inclusive). If no dates are
         provided, data for the last 30 days ending today is returned.
 
-        Data is fetched using NSE’s Next API historical trade data endpoint.
+        Data is fetched via NSE's Next API historical trade data endpoint.
 
         Reference URL:
             https://www.nseindia.com/get-quote/equity/HDFCBANK/HDFC-Bank-Limited
             (Historical data section)
 
-        The response is returned as a list of rows, where each row is represented
-        as a dictionary with column names as keys and their corresponding values.
-        The trade date is available under the key ``mTIMESTAMP``.
+        The response is a list of rows, where each row is a dictionary with
+        column names as keys and their corresponding values. The trade date is
+        available under the key ``mTIMESTAMP``.
+
+        Requests covering more than 100 days are split into chunks and
+        concatenated.
 
         Sample response:
             https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/fetch_equity_historical_data.json
 
-        :param symbol:
-            Exchange-traded symbol for which historical data is requested
-            (e.g. ``HDFCBANK``, ``SGBAPR28I``, ``GOLDBEES``).
+        :param symbol: Exchange-traded symbol for which historical data is
+            requested (e.g. ``HDFCBANK``, ``SGBAPR28I``, ``GOLDBEES``).
         :type symbol: str
+        :param from_date: Start date of the data range. If ``None``, defaults
+            to 30 days before ``to_date``.
+        :type from_date: datetime.date or None
+        :param to_date: End date of the data range. If ``None``, defaults to
+            today's date.
+        :type to_date: datetime.date or None
+        :param series: Equity series for which historical data is requested.
+            Must be one of ``ae``, ``af``, ``be``, ``bl``, ``eq``, ``il``,
+            ``rl``, ``w3``, ``gb``, ``gs``. Default ``eq``.
+        :type series: str
 
-        :param from_date:
-            Start date of the data range. If ``None``, defaults to 30 days prior
-            to ``to_date``.
-        :type from_date: datetime.date, optional
+        :raises TypeError: If ``from_date`` or ``to_date`` is not an instance
+            of :class:`datetime.date`.
+        :raises ValueError: If ``from_date`` occurs after ``to_date``.
 
-        :param to_date:
-            End date of the data range. If ``None``, defaults to today’s date.
-        :type to_date: datetime.date, optional
-
-        :param series:
-            Equity series for which historical data is requested.
-            Must be one of the valid NSE equity series values.
-        :type series: Literal["AE", "AF", "BE", "BL", "EQ", "IL", "RL", "W3", "GB", "GS"]
-
-        :raises TypeError:
-            If ``from_date`` or ``to_date`` is not an instance of ``datetime.date``.
-        :raises ValueError:
-            If ``from_date`` occurs after ``to_date``.
-
-        :return:
-            A list of dictionaries, each representing one day of historical trade data.
-            The list is ordered chronologically from oldest to newest.
-        :rtype: List[Dict]
+        :return: A list of dictionaries, each representing one day of
+            historical trade data. The list is ordered chronologically from
+            **oldest to newest**.
+        :rtype: list[dict]
         """
         if from_date and not isinstance(from_date, date):
-            msg = "Starting date must be an object of type datetime.date"
-            raise TypeError(msg)
+            raise TypeError("Starting date must be an object of type datetime.date")
 
         if to_date and not isinstance(to_date, date):
-            msg = "Ending date must be an object of type datetime.date"
-            raise TypeError(msg)
+            raise TypeError("Ending date must be an object of type datetime.date")
 
         if not to_date:
             to_date = date.today()
@@ -1648,17 +1920,16 @@ class NSE:
             from_date = to_date - timedelta(30)
 
         if to_date < from_date:
-            msg = "The from date must occur before the to date"
-            raise ValueError(msg)
+            raise ValueError("The from date must occur before the to date")
 
-        date_chunks = NSE._split_date_range(from_date, to_date, 100)
+        date_chunks = _utils.split_date_range(from_date, to_date, 100)
 
         data = []
 
         for chunk in date_chunks:
             data += reversed(
                 self._transport.request(
-                    url=self.next_api_url,
+                    url=self.next_api_quote_url,
                     params={
                         "functionName": "getHistoricalTradeData",
                         "symbol": symbol,
@@ -1676,37 +1947,41 @@ class NSE:
         from_date: date | None = None,
         to_date: date | None = None,
     ) -> list[dict]:
-        """
-        Downloads the historical India VIX within a given date range from ``from_date`` to ``to_date``.
+        """Download historical India VIX data within a date range.
 
-        The data is returned as a JSON object, where the primary data is stored as a list of rows (indexed starting at 0).
+        Reference URL:
+            https://www.nseindia.com/reports-indices-historical-vix
 
-        Reference url: https://www.nseindia.com/reports-indices-historical-vix
+        Each row is a dictionary with column names as keys and their
+        corresponding values. The date is stored under the key
+        ``EOD_TIMESTAMP``.
 
-        Each row is represented as a dict, with column names as keys and their corresponding values.
-
-        The date is stored under the key ``EOD_TIMESTAMP``.
+        Requests spanning more than one year are split into chunks and
+        concatenated.
 
         `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/fetch_historical_vix_data.json>`__
 
-        :param from_date: The starting date from which we fetch the data. If None, the default date is 30 days from ``to_date``.
-        :type from_date: datetime.date
-        :param to_date: The ending date upto which we fetch the data. If None, today's date is taken by default.
-        :type to_date: datetime.date
+        :param from_date: Start date from which to fetch data. If ``None``,
+            defaults to 30 days before ``to_date``.
+        :type from_date: datetime.date or None
+        :param to_date: End date up to which to fetch data. If ``None``,
+            defaults to today's date.
+        :type to_date: datetime.date or None
 
-        :raise ValueError: if ``from_date`` is greater than ``to_date``
-        :raise TypeError: if ``from_date`` or ``to_date`` is not of type datetime.date
+        :raises TypeError: If ``from_date`` or ``to_date`` is not an instance
+            of :class:`datetime.date`.
+        :raises ValueError: If ``from_date`` is greater than ``to_date``.
 
-        :return: Data as a list of rows, each row as dictionary with key as column name mapped to the value
-        :rtype: List[Dict]
+        :return: A list of rows, each row a dictionary with column names
+            mapped to values. Returned in the order provided by NSE
+            (newest-first).
+        :rtype: list[dict]
         """
         if from_date and not isinstance(from_date, date):
-            msg = "Starting date must be an object of type datetime.date"
-            raise TypeError(msg)
+            raise TypeError("Starting date must be an object of type datetime.date")
 
         if to_date and not isinstance(to_date, date):
-            msg = "Ending date must be an object of type datetime.date"
-            raise TypeError(msg)
+            raise TypeError("Ending date must be an object of type datetime.date")
 
         if not to_date:
             to_date = date.today()
@@ -1715,10 +1990,9 @@ class NSE:
             from_date = to_date - timedelta(30)
 
         if to_date < from_date:
-            msg = "The from date must occur before the to date"
-            raise ValueError(msg)
+            raise ValueError("The from date must occur before the to date")
 
-        date_chunks = NSE._split_date_range(from_date, to_date)
+        date_chunks = _utils.split_date_range(from_date, to_date)
 
         data = []
 
@@ -1736,52 +2010,64 @@ class NSE:
     def fetch_historical_fno_data(
         self,
         symbol: str,
-        instrument: Literal["FUTIDX", "FUTSTK", "OPTIDX", "OPTSTK", "FUTIVX"] = "FUTIDX",
+        instrument: Literal["futidx", "futstk", "optidx", "optstk", "futivx"] = "futidx",
         from_date: date | None = None,
         to_date: date | None = None,
         expiry: date | None = None,
-        option_type: Literal["CE", "PE"] | None = None,
+        option_type: Literal["ce", "pe"] | None = None,
         strike_price: float | None = None,
     ) -> list[dict]:
-        """
-        Downloads the historical futures and options data within a given date range from ``from_date`` to ``to_date``.
+        """Download historical futures and options data within a date range.
 
-        Reference url: https://www.nseindia.com/report-detail/fo_eq_security
+        Reference URL:
+            https://www.nseindia.com/report-detail/fo_eq_security
 
-        The data is returned as a list of rows (indexed starting at 0).
+        Each row is a dictionary with column names as keys and their
+        corresponding values.
 
-        Each row is represented as a dict, with column names as keys and their corresponding values.
+        Requests spanning more than one year are split into chunks and
+        concatenated.
 
         `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/fetch_historical_fno_data.json>`__
 
         :param symbol: Symbol name.
         :type symbol: str
-        :param instrument: Default ``FUTIDX``. Instrument name can be one of ``FUTIDX``, ``FUTSTK``, ``OPTIDX``, ``OPTSTK``, ``FUTIVX``.
-        :type index: str
-        :param from_date: Optional. The starting date from which we fetch the data. If None, the default date is 30 days from ``to_date``.
-        :type from_date: datetime.date
-        :param to_date: Optional. The ending date upto which we fetch the data. If None, today's date is taken by default.
-        :type to_date: datetime.date
-        :param expiry: Optional. Expiry date of the instrument to filter results.
-        :type expiry: datetime.date
-        :param option_type: Optional. Filter results by option type. Must be one of ``CE`` or ``PE``
-        :type option_type: str
-        :param strike_price: Optional. Filter results by option type. Must be one of ``CE`` or ``PE``
-        :type strike_price: Optional[float]
+        :param instrument: Instrument name. one of ``futidx``, ``futstk``,
+            ``optidx``, ``optstk``, ``futivx``. Default ``futidx``.
+        :type instrument: str
+        :param from_date: Start date from which to fetch data. If ``None``,
+            defaults to 30 days before ``to_date``.
+        :type from_date: datetime.date or None
+        :param to_date: End date up to which to fetch data. If ``None``,
+            defaults to today's date.
+        :type to_date: datetime.date or None
+        :param expiry: Optional expiry date of the instrument to filter
+            results. When provided, the ``year`` parameter sent to NSE is
+            derived from this date.
+        :type expiry: datetime.date or None
+        :param option_type: Optional filter for option type. Required when
+            ``instrument`` is ``optidx`` or ``optstk``. Must be ``ce`` or
+            ``pe``.
+        :type option_type: str or None
+        :param strike_price: Optional strike price filter.
+        :type strike_price: float or None
 
-        :raise ValueError: if ``from_date`` is greater than ``to_date`` or if ``instrument`` is an Option and ``option_type`` is not specified.
-        :raise TypeError: if ``from_date`` or ``to_date`` or ``expiry`` is not of type datetime.date.
+        :raises TypeError: If ``from_date``, ``to_date``, or ``expiry`` is
+            not an instance of :class:`datetime.date`.
+        :raises ValueError: If ``from_date`` is greater than ``to_date``.
+        :raises ValueError: If ``instrument`` is ``optidx`` or ``optstk`` and
+            ``option_type`` is not specified.
 
-        :return: Data as a list of rows, each row as dictionary with key as column name mapped to the value
-        :rtype: List[Dict]
+        :return: A list of rows, each row a dictionary with column names
+            mapped to values. The list is ordered chronologically from
+            **oldest to newest**.
+        :rtype: list[dict]
         """
         if from_date and not isinstance(from_date, date):
-            msg = "Starting date must be an object of type datetime.date"
-            raise TypeError(msg)
+            raise TypeError("Starting date must be an object of type datetime.date")
 
         if to_date and not isinstance(to_date, date):
-            msg = "Ending date must be an object of type datetime.date"
-            raise TypeError(msg)
+            raise TypeError("Ending date must be an object of type datetime.date")
 
         if not to_date:
             to_date = date.today()
@@ -1790,8 +2076,7 @@ class NSE:
             from_date = to_date - timedelta(30)
 
         if to_date < from_date:
-            msg = "The from date must occur before the to date"
-            raise ValueError(msg)
+            raise ValueError("The from date must occur before the to date")
 
         params: dict[str, Any] = {
             "instrumentType": instrument.upper(),
@@ -1800,22 +2085,21 @@ class NSE:
 
         if expiry:
             if not isinstance(expiry, date):
-                msg = "`expiry` must be an object of type datetime.date"
-                raise TypeError(msg)
+                raise TypeError("`expiry` must be an object of type datetime.date")
 
             params["expiryDate"] = expiry.strftime("%d-%b-%Y")
             params["year"] = expiry.year
 
-        if instrument in ("OPTIDX", "OPTSTK"):
+        if instrument in ("optidx", "optstk"):
             if not option_type:
-                msg = "`option_type` param is required for Stock or Index options."
-                raise ValueError(msg)
-            params["optionType"] = option_type
+                raise ValueError("`option_type` param is required for Stock or Index options.")
+            else:
+                params["optionType"] = option_type.upper()
 
             if strike_price:
                 params["strikePrice"] = strike_price
 
-        date_chunks = NSE._split_date_range(from_date, to_date)
+        date_chunks = _utils.split_date_range(from_date, to_date)
 
         data = []
 
@@ -1836,56 +2120,48 @@ class NSE:
         from_date: date | None = None,
         to_date: date | None = None,
     ) -> list[dict]:
-        """
-        Retrieve historical index data for a given NSE index within a date range.
+        """Retrieve historical index data for an NSE index within a date range.
 
-        This method downloads historical index data between ``from_date`` and
-        ``to_date`` (both inclusive). Data is fetched using NSE’s
-        ``/historicalOR/indicesHistory`` endpoint and returned in a flattened,
-        row-based format.
+        Downloads historical index data between ``from_date`` and ``to_date``
+        (both inclusive) via NSE's ``/historicalOR/indicesHistory`` endpoint,
+        returned in a flattened, row-based format.
 
         Reference URL:
             https://www.nseindia.com/reports-indices-historical-index-data
 
-        The returned data is a list of dictionaries, where each dictionary represents
-        a single trading day. Price and turnover values are merged into the same row
-        where available.
+        The returned data is a list of dictionaries, where each dictionary
+        represents a single trading day. Price and turnover values are merged
+        into the same row where available.
 
-        Each row is represented as a dictionary with column names as keys and their
-        corresponding values.
+        Requests spanning more than one year are split into chunks and
+        concatenated.
 
         `Sample response <https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/fetch_historical_index_data.json>`__
 
-        :param index:
-            Name of the index for which historical data is requested.
+        :param index: Name of the index for which historical data is
+            requested.
         :type index: str
+        :param from_date: Start date of the data range. If ``None``, defaults
+            to 30 days before ``to_date``.
+        :type from_date: datetime.date or None
+        :param to_date: End date of the data range. If ``None``, defaults to
+            today's date.
+        :type to_date: datetime.date or None
 
-        :param from_date:
-            Start date of the data range. If ``None``, defaults to 30 days prior
-            to ``to_date``.
-        :type from_date: datetime.date, optional
+        :raises TypeError: If ``from_date`` or ``to_date`` is not an instance
+            of :class:`datetime.date`.
+        :raises ValueError: If ``from_date`` occurs after ``to_date``.
 
-        :param to_date:
-            End date of the data range. If ``None``, defaults to today’s date.
-        :type to_date: datetime.date, optional
-
-        :raises TypeError:
-            If ``from_date`` or ``to_date`` is not an instance of ``datetime.date``.
-        :raises ValueError:
-            If ``from_date`` occurs after ``to_date``.
-
-        :return:
-            A list of dictionaries, each representing one day of historical index data.
-            The list is ordered chronologically from oldest to newest.
-        :rtype: List[Dict]
+        :return: A list of dictionaries, each representing one day of
+            historical index data. The list is ordered chronologically from
+            **oldest to newest**.
+        :rtype: list[dict]
         """
         if from_date and not isinstance(from_date, date):
-            msg = "Starting date must be an object of type datetime.date"
-            raise TypeError(msg)
+            raise TypeError("Starting date must be an object of type datetime.date")
 
         if to_date and not isinstance(to_date, date):
-            msg = "Ending date must be an object of type datetime.date"
-            raise TypeError(msg)
+            raise TypeError("Ending date must be an object of type datetime.date")
 
         if not to_date:
             to_date = date.today()
@@ -1894,10 +2170,9 @@ class NSE:
             from_date = to_date - timedelta(30)
 
         if to_date < from_date:
-            msg = "The from date must occur before the to date"
-            raise ValueError(msg)
+            raise ValueError("The from date must occur before the to date")
 
-        date_chunks = NSE._split_date_range(from_date, to_date)
+        date_chunks = _utils.split_date_range(from_date, to_date)
 
         data = []
 
@@ -1916,99 +2191,107 @@ class NSE:
         return data[::-1]
 
     def fetch_fno_underlying(self) -> dict[str, list[dict[str, str]]]:
-        """
-        Fetches the indices and stocks for which FnO contracts are available to trade
+        """Fetch the indices and stocks for which FnO contracts are available
+        to trade.
 
-        Reference URL: https://www.nseindia.com/market-data/securities-available-for-trading
+        Reference URL:
+            https://www.nseindia.com/market-data/securities-available-for-trading
 
-        :return: A dictionary with keys '`IndexList`' and '`UnderlyingList`'. The values are the list of indices and stocks along
-         with their names and tickers respectively in alphabetical order for stocks.
-        :rtype: Dict[str, List[Dict[str, str]]]
+        :return: A dictionary with keys ``IndexList`` and ``UnderlyingList``.
+            The values are lists of indices and stocks, each with their names
+            and tickers, in alphabetical order for stocks.
+        :rtype: dict[str, list[dict[str, str]]]
         """
         url = f"{self.base_url}/underlying-information"
-        return self._transport.request(url).json()["data"]
+        data = self._transport.request(url).json()["data"]
+        return data
 
     def fetch_index_names(self) -> dict[str, list[tuple[str, str]]]:
-        """
-        Returns a dict with a list of tuples. Each tuple contains the short index name and full name of the index.
+        """Return the list of index names.
 
-        The full name can be passed as `index` parameter to :meth:`.fetch_historical_index_data`
+        Returns a dictionary with a list of tuples. Each tuple contains the
+        short index name and the full name of the index. The full name can be
+        passed as the ``index`` parameter to
+        :meth:`fetch_historical_index_data`.
+
+        :return: A dictionary mapping a key to a list of ``(short_name,
+            full_name)`` tuples.
+        :rtype: dict[str, list[tuple[str, str]]]
         """
         return self._transport.request(f"{self.base_url}/index-names").json()
 
     def fetch_daily_reports_file_metadata(
         self,
         segment: Literal[
-            "CM",
-            "INDEX",
-            "SLBS",
-            "SME",
-            "FO",
-            "COM",
-            "CD",
-            "NBF",
-            "WDM",
-            "CBM",
-            "TRI-PARTY",
-        ] = "CM",
+            "cm",
+            "index",
+            "slbs",
+            "sme",
+            "fo",
+            "com",
+            "cd",
+            "nbf",
+            "wdm",
+            "cbm",
+            "tri-party",
+        ] = "cm",
     ) -> dict:
+        """Return file metadata for daily reports in a given segment.
+
+        The returned dictionary contains info about the current day's and
+        previous day's reports, useful for checking whether a report is ready
+        and updated before attempting a download.
+
+        :param segment: The market segment to retrieve metadata for. One of
+            ``cm``, ``index``, ``slbs``, ``sme``, ``fo``, ``com``, ``cd``,
+            ``nbf``, ``wdm``, ``cbm``, ``tri-party``. Default ``cm``.
+        :type segment: str
+
+        :return: A dictionary containing metadata about the daily report files
+            for the specified segment.
+        :rtype: dict
         """
-        Returns file metadata for daily reports.
+        return self._transport.request(
+            f"{self.base_url}/daily-reports", params={"key": segment.upper()}
+        ).json()
 
-        The returned dictionary contains info about current day and previous
-        day reports.
-
-        Useful for checking if a report is ready and updated.
-
-        :param segment: The market segment to retrieve metadata. Defaults to ``CM``.
-        :type segment: Literal["CM", "INDEX", "SLBS", "SME", "FO", "COM", "CD", "NBF", "WDM", "CBM", "TRI-PARTY"]
-
-        :return: A dictionary containing metadata about the daily report files for the specified segment.
-        :rtype: Dict
-        """
-        return self._transport.request(f"{self.base_url}/daily-reports", params={"key": segment}).json()
-
-    def getDetailedScripData(
+    def get_detailed_scrip_data(
         self,
         symbol: str,
-        series: Literal["EQ", "BE", "BZ", "SM", "ST", "SZ"] = "EQ",
-        marketType: str = "N",
+        series: Literal["eq", "be", "bz", "sm", "st", "sz"] = "eq",
+        market_type: str = "n",
     ) -> dict:
-        """
-        Retrieve detailed symbol data for an equity or SME symbol from NSE using the Next API.
+        """Retrieve detailed symbol data for an equity or SME symbol.
 
-        This method fetches comprehensive data including order book, metadata, trade information,
-        price information, and security information for the given symbol and series.
+        Fetches comprehensive data including order book, metadata, trade
+        information, price information, and security information for the
+        given symbol and series via NSE's Next API.
 
         Reference URL:
             https://www.nseindia.com/get-quotes/equity?symbol=ETERNAL
 
         Sample response:
-            https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/getDetailedScripData.json
+            https://github.com/BennyThadikaran/NseIndiaApi/blob/main/src/samples/get_detailed_scrip_data.json
 
-        :param symbol:
-            Exchange-traded symbol for which data is requested (e.g. ``ETERNAL``, ``HDFCBANK``).
+        :param symbol: Exchange-traded symbol for which data is requested
+            (e.g. ``ETERNAL``, ``HDFCBANK``).
         :type symbol: str
-
-        :param series:
-            Equity or SME series for which data is requested.
-            Must be one of "EQ", "BE", "BZ", "SM", "ST", or "SZ". Default is "EQ".
+        :param series: Equity or SME series. Must be one of ``EQ``, ``BE``,
+            ``BZ``, ``SM``, ``ST``, or ``SZ``. Default ``EQ``.
             `Reference <https://www.nseindia.com/market-data/legend-of-series>`_
-        :type series: Literal["EQ", "BE", "BZ", "SM", "ST", "SZ"]
+        :type series: str
+        :param market_type: Market type for which data is requested. Default
+            ``N``.
+        :type market_type: str
 
-        :param marketType:
-            Market type for which data is requested. Default is "N".
-        :type marketType: str
-
-        :return:
-            A dictionary containing detailed symbol data.
-        :rtype: Dict
+        :return: A dictionary containing detailed symbol data.
+        :rtype: dict
         """
         params = {
             "functionName": "getSymbolData",
-            "marketType": marketType,
+            "marketType": market_type.upper(),
             "series": series.upper(),
             "symbol": symbol.upper(),
         }
 
-        return self._transport.request(self.next_api_url, params=params).json()
+        return self._transport.request(self.next_api_quote_url, params=params).json()

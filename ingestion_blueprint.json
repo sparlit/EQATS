@@ -1,5 +1,5 @@
 {
-  "current_index": 74,
+  "current_index": 75,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -597,7 +597,7 @@
       "name": "nseindiaapi",
       "target": "bennythadikaran/nseindiaapi",
       "url": "https://github.com/bennythadikaran/nseindiaapi",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
