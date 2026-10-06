@@ -902,8 +902,8 @@
       "target": "deshwalmahesh/nse-stock-scanner",
       "url": "https://github.com/deshwalmahesh/nse-stock-scanner",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3053",
+      "merged": true
     },
     {
       "name": "chartink-to-tradingview-extension",
