@@ -1,5 +1,5 @@
 {
-  "current_index": 133,
+  "current_index": 134,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1069,9 +1069,9 @@
       "name": "nsebhavcopy",
       "target": "gadiyar/nsebhavcopy",
       "url": "https://github.com/gadiyar/nsebhavcopy",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3075",
+      "merged": true
     },
     {
       "name": "nse_historical_data",
