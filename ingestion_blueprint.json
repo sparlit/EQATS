@@ -1,5 +1,5 @@
 {
-  "current_index": 109,
+  "current_index": 110,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -877,7 +877,7 @@
       "name": "openbook",
       "target": "degensugarboo/openbook",
       "url": "https://github.com/degensugarboo/openbook",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
