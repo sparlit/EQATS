@@ -64,8 +64,7 @@ def fetch_cookies():
     if response.status_code != requests.codes.ok:
         # logging.error("Fetched url: %s with status code: %s and response from server: %s" % (
         #     BASE_URL, response.status_code, response.content))
-        msg = "Please try again in a minute."
-        raise ValueError(msg)
+        raise ValueError("Please try again in a minute.")
     return response.cookies.get_dict()
 
 
@@ -78,8 +77,8 @@ def fetch_url(url, cookies):
     if response.status_code == requests.codes.ok:
         json_response = json.loads(response.content)
         return pd.DataFrame.from_dict(json_response["data"])
-    msg = "Please try again in a minute."
-    raise ValueError(msg)
+    else:
+        raise ValueError("Please try again in a minute.")
 
 
 def scrape_data(start_date, end_date, name=None, input_type="stock"):
@@ -109,7 +108,8 @@ def scrape_data(start_date, end_date, name=None, input_type="stock"):
         current_window_end = current_window_start + window_size
 
         # check if the current window extends beyond the end_date
-        current_window_end = min(current_window_end, end_date)
+        if current_window_end > end_date:
+            current_window_end = end_date
 
         st = current_window_start.strftime("%d-%m-%Y")
         et = current_window_end.strftime("%d-%m-%Y")
@@ -131,9 +131,9 @@ def scrape_data(start_date, end_date, name=None, input_type="stock"):
             try:
                 df = future.result()
                 result = pd.concat([result, df])
-            except Exception:
+            except Exception as exc:
                 # logging.error('%r generated an exception: %s. Please try again later.' % (url, exc))
-                raise
+                raise exc
     return format_dataframe_result(result, start_date, end_date)
 
 
@@ -176,7 +176,8 @@ def format_dataframe_result(result, start_date, end_date):
     )
     result["Date"] = pd.to_datetime(result["Date"])
     result = result.sort_values("Date", ascending=True)
-    return result.reset_index(drop=True)
+    result.reset_index(drop=True, inplace=True)
+    return result
 
 
 """### Scrape Directly to DataFrame """

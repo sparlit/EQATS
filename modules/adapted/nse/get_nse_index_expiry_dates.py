@@ -23,7 +23,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import datetime
 
-import pandas as pd
 import requests
 
 headers = {
@@ -55,16 +54,19 @@ def nsefetch(payload):
 
 
 def fnolist():
-    positions = nsefetch("https://www.nseindia.com/api/equity-stockIndices?index=SECURITIES%20IN%20F%26O")
+    positions = nsefetch(
+        "https://www.nseindia.com/api/equity-stockIndices?index=SECURITIES%20IN%20F%26O"
+    )
     nselist = ["NIFTY", "NIFTYIT", "BANKNIFTY"]
     i = 0
     for x in range(i, len(positions["data"])):
-        nselist = [*nselist, positions["data"][x]["symbol"]]
+        nselist = nselist + [positions["data"][x]["symbol"]]
     return nselist
 
 
 def nsesymbolpurify(symbol):
-    return symbol.replace("&", "%26")
+    symbol = symbol.replace("&", "%26")
+    return symbol
 
 
 def nse_quote(symbol, section=""):
@@ -75,7 +77,6 @@ def nse_quote(symbol, section=""):
         else:
             payload = nsefetch("https://www.nseindia.com/api/quote-equity?symbol=" + symbol)
         return payload
-    return None
 
 
 def expiry_list(symbol):
