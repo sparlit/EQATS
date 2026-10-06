@@ -319,8 +319,8 @@ def get_connection() -> Any:
         try:
             conn.execute("PRAGMA journal_mode=DELETE;")
             conn.execute("PRAGMA busy_timeout=60000;")
-        except Exception:
-            pass
+        except Exception as err:
+            _log.debug("PRAGMA journal_mode DELETE fallback error: %s", err)
     return conn
 
 
@@ -402,8 +402,8 @@ def _init_db_impl() -> None:
             ]:
                 try:
                     cursor.execute(f"ALTER TABLE trades ADD COLUMN {col_def[0]}")
-                except sqlite3.OperationalError:
-                    pass
+                except sqlite3.OperationalError as err:
+                    _log.debug("Column %s already present: %s", col_def[1], err)
             cursor.execute(
                 "\n            CREATE TABLE IF NOT EXISTS performance_metrics (\n                date TEXT PRIMARY KEY,\n                initial_balance REAL NOT NULL,\n                final_balance REAL NOT NULL,\n                trades_taken INTEGER DEFAULT 0,\n                win_rate REAL DEFAULT 0.0,\n                net_profit REAL DEFAULT 0.0\n            )\n            "
             )
@@ -417,8 +417,8 @@ def _init_db_impl() -> None:
                 cursor.execute(
                     "ALTER TABLE users ADD COLUMN login_style TEXT DEFAULT 'MATRIX_NEON'"
                 )
-            except sqlite3.OperationalError:
-                pass
+            except sqlite3.OperationalError as err:
+                _log.debug("Column login_style already present: %s", err)
 
             # Table for storing broker gateway connection details with encrypted secrets
             cursor.execute("""
@@ -491,14 +491,14 @@ def _init_db_impl() -> None:
                 cursor.execute(
                     "ALTER TABLE broker_credentials RENAME COLUMN api_key TO api_key_encrypted"
                 )
-            except sqlite3.OperationalError:
-                pass
+            except sqlite3.OperationalError as err:
+                _log.debug("api_key rename skipped: %s", err)
             try:
                 cursor.execute(
                     "ALTER TABLE broker_credentials RENAME COLUMN api_secret TO api_secret_encrypted"
                 )
-            except sqlite3.OperationalError:
-                pass
+            except sqlite3.OperationalError as err:
+                _log.debug("api_secret rename skipped: %s", err)
             _SCHEMA_ALTERS = [
                 (
                     "ALTER TABLE broker_credentials ADD COLUMN broker_name TEXT DEFAULT 'PRIMARY GATEWAY'",
@@ -732,8 +732,8 @@ def _execute_with_retry(query: str, params: Any = (), commit: bool = True) -> bo
                         if commit:
                             conn.commit()
                     return True
-                except Exception:
-                    pass
+                except Exception as err:
+                    _log.debug("Execute retry init_db exception: %s", err)
             if attempt < max_retries - 1:
                 time.sleep(0.1 * 2**attempt)
             else:
@@ -761,8 +761,8 @@ def _fetch_with_retry(query: Any, params: Any = (), fetch_all: Any = True) -> An
                         cursor.execute(query, params)
                         res = cursor.fetchall() if fetch_all else cursor.fetchone()
                     return res
-                except Exception:
-                    pass
+                except Exception as err:
+                    _log.debug("Fetch retry init_db exception: %s", err)
             if attempt < max_retries - 1:
                 time.sleep(0.1 * 2**attempt)
             else:
@@ -920,8 +920,8 @@ def get_user_login_style(username: str = "QUANT_OPERATOR") -> str:
         if row and row["login_style"]:
             res: str = str(row["login_style"])
             return res
-    except Exception:
-        pass
+    except Exception as err:
+        _log.debug("get_user_login_style error: %s", err)
     return "MATRIX_NEON"
 
 
@@ -1886,8 +1886,8 @@ def get_broker_credentials() -> Any:
         if conn:
             try:
                 conn.close()
-            except Exception:
-                pass
+            except Exception as err:
+                _log.debug("get_broker_credentials conn.close exception: %s", err)
             conn = None
         init_db()
         try:

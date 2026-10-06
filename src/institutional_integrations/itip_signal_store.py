@@ -64,6 +64,10 @@ def append_signal(signal: dict[str, Any]) -> dict[str, Any]:
             signals.append(record)
             with open(JSON_PATH, "w", encoding="utf-8") as f:
                 json.dump(signals, f, indent=4)
-        except Exception:
-            pass
+        except Exception as err:
+            import logging
+
+            logging.getLogger("itip_signal_store").debug(
+                "Error appending signal record to log files: %s", err
+            )
     return record

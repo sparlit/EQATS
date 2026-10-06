@@ -451,15 +451,15 @@ class UniversalBrokerGateway:
             if self.protocol == "FIX" and self.fix_engine:
                 try:
                     self.fix_engine.close()
-                except Exception:
-                    pass
+                except Exception as err:
+                    _log.debug("FIXEngine close error during disconnect: %s", err)
             elif self.protocol == "MT5":
                 try:
                     import MetaTrader5 as mt5
 
                     mt5.shutdown()
-                except Exception:
-                    pass
+                except Exception as err:
+                    _log.debug("MetaTrader5 shutdown error during disconnect: %s", err)
             self.is_connected_flag = False
 
     def get_account_info(self) -> Any:
@@ -478,8 +478,8 @@ class UniversalBrokerGateway:
                         "leverage": getattr(acc, "leverage", 100),
                         "protocol": "MT5",
                     }
-            except Exception:
-                pass
+            except Exception as err:
+                _log.debug("MT5 account info fetch exception: %s", err)
         creds = database.get_broker_credentials()
         if creds is None:
             creds = {"leverage": "1:100", "environment": "Demo"}

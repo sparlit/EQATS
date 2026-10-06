@@ -130,16 +130,16 @@ class AutonomousScalper:
         self.running = False
         try:
             self.self_healer.stop_loop()
-        except Exception:
-            pass
+        except Exception as err:
+            _log.debug("stop self_healer error: %s", err)
         try:
             self.ipc_bridge.stop_server()
-        except Exception:
-            pass
+        except Exception as err:
+            _log.debug("stop ipc_bridge error: %s", err)
         try:
             self.http_server.stop_server()
-        except Exception:
-            pass
+        except Exception as err:
+            _log.debug("stop http_server error: %s", err)
         self.conn.disconnect()
         stop_msg = "🛑 *Elite Quantum Autonomous Trading System Stopped Safely.*"
         print(stop_msg.replace("*", ""))
@@ -435,8 +435,8 @@ class AutonomousScalper:
             opt_style, opt_strat = self.quantum_auto_engine.determine_optimal_style_and_strategy(
                 symbol, closes_hist, highs_hist, lows_hist
             )
-        except Exception:
-            pass
+        except Exception as err:
+            _log.debug("determine_optimal_style_and_strategy error in worker: %s", err)
         price_info = self.conn.get_current_price(symbol)
         is_safe, safety_reason = self._is_market_open_and_liquid(symbol, price_info)
         analysis = self.brain.evaluate(symbol, history, current_equity)
@@ -602,8 +602,11 @@ class AutonomousScalper:
                         if res["decision"] in ["BUY", "SELL"] and res["analysis"]:
                             pending_orders.append((res["symbol"], res["decision"], res["analysis"]))
                     parallel_success = True
-            except Exception:
-                pass
+            except Exception as err:
+                _log.debug(
+                    "ProcessPoolExecutor execution failed, falling back to ThreadPoolExecutor: %s",
+                    err,
+                )
         if not parallel_success:
             scans_list = []
             pending_orders = []
@@ -989,8 +992,8 @@ class AutonomousScalper:
                         "vol_amp": fc["volatility_amplification"],
                         "confidence": fc["model_confidence"],
                     }
-        except Exception:
-            pass
+        except Exception as err:
+            _log.debug("Kronos forecast telemetry error: %s", err)
         try:
             sessions_timeline = self._get_sessions_timeline()
             self.ipc_bridge.push_state(
@@ -1038,6 +1041,6 @@ if __name__ == "__main__":
 
     try:
         mp.set_start_method("spawn", force=False)
-    except Exception:
-        pass
+    except Exception as err:
+        _log.debug("multiprocessing set_start_method exception: %s", err)
     run_main()

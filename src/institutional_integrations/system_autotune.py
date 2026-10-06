@@ -55,8 +55,8 @@ def detect_system_capabilities() -> dict[str, Any]:
         if l_cores:
             caps["cpu_logical_cores"] = l_cores
         caps["cpu_util_pct"] = psutil.cpu_percent(interval=None)
-    except Exception:
-        pass
+    except Exception as err:
+        _log.debug("psutil cpu detection skipped: %s", err)
     try:
         import psutil
 
@@ -64,14 +64,14 @@ def detect_system_capabilities() -> dict[str, Any]:
         caps["ram_total_gb"] = round(mem.total / 1024**3, 2)
         caps["ram_free_gb"] = round(mem.available / 1024**3, 2)
         caps["ram_util_pct"] = round(mem.percent, 1)
-    except Exception:
-        pass
+    except Exception as err:
+        _log.debug("psutil virtual memory detection skipped: %s", err)
     try:
         usage = shutil.disk_usage("/")
         caps["disk_total_gb"] = round(usage.total / 1024**3, 2)
         caps["disk_free_gb"] = round(usage.free / 1024**3, 2)
-    except Exception:
-        pass
+    except Exception as err:
+        _log.debug("shutil disk usage detection skipped: %s", err)
     try:
         import torch
 
@@ -86,15 +86,15 @@ def detect_system_capabilities() -> dict[str, Any]:
             caps["gpu_name"] = "Apple Silicon MPS"
             caps["gpu_backend"] = "MPS"
             caps["gpu_memory_gb"] = caps["ram_total_gb"]
-    except Exception:
-        pass
+    except Exception as err:
+        _log.debug("PyTorch GPU detection skipped: %s", err)
     try:
         t0 = time.perf_counter()
         _ = socket.gethostbyname("localhost")
         dns_dur = (time.perf_counter() - t0) * 1000.0
         caps["dns_lookup_ms"] = round(dns_dur, 2)
-    except Exception:
-        pass
+    except Exception as err:
+        _log.debug("DNS lookup speed test skipped: %s", err)
     l_cores = caps["cpu_logical_cores"]
     ram = caps["ram_total_gb"]
     has_gpu = caps["gpu_available"]

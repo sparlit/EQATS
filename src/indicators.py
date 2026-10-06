@@ -23,8 +23,12 @@ def calculate_ema(prices: Any, period: Any) -> Any:
             ema_series = rust_accelerated_ema(prices, period)
             if ema_series and len(ema_series) == len(prices):
                 return ema_series[-1]
-    except Exception:
-        pass
+    except Exception as err:
+        import logging
+
+        logging.getLogger("indicators").debug(
+            "Rust acceleration for calculate_ema unavailable: %s", err
+        )
     multiplier = 2.0 / (period + 1)
     sma = sum(prices[:period]) / float(period)
     ema = sma

@@ -13,6 +13,12 @@ from institutional_integrations.universal_broker_adapter import UniversalBrokerG
 _log = logging.getLogger("connector")
 
 
+class AbstractConnectorError(NotImplementedError):
+    """Raised when an abstract TradingConnector method is invoked without subclass implementation."""
+
+    pass
+
+
 class TradingConnector(abc.ABC):
     """
     Abstract Base Class representing an MT5 Terminal Connection.
@@ -22,17 +28,17 @@ class TradingConnector(abc.ABC):
     @abc.abstractmethod
     def connect(self) -> None:
         """Initializes the connection to the terminal."""
-        raise NotImplementedError("Subclasses must implement connect()")
+        raise AbstractConnectorError("Subclasses must implement connect()")
 
     @abc.abstractmethod
     def is_connected(self) -> None:
         """Checks if the connection to the terminal is healthy and active."""
-        raise NotImplementedError("Subclasses must implement is_connected()")
+        raise AbstractConnectorError("Subclasses must implement is_connected()")
 
     @abc.abstractmethod
     def disconnect(self) -> None:
         """Disconnects safely from the terminal."""
-        raise NotImplementedError("Subclasses must implement disconnect()")
+        raise AbstractConnectorError("Subclasses must implement disconnect()")
 
     @abc.abstractmethod
     def get_account_info(self) -> None:
@@ -40,7 +46,7 @@ class TradingConnector(abc.ABC):
         Returns a dict containing account properties:
         { 'balance': float, 'equity': float, 'currency': str, 'is_demo': bool }
         """
-        raise NotImplementedError("Subclasses must implement get_account_info()")
+        raise AbstractConnectorError("Subclasses must implement get_account_info()")
 
     @abc.abstractmethod
     def get_history(self, symbol: Any, count: Any) -> None:
@@ -48,12 +54,12 @@ class TradingConnector(abc.ABC):
         Returns list of dicts representing historical bar data, where each has:
         { 'open': float, 'high': float, 'low': float, 'close': float }
         """
-        raise NotImplementedError("Subclasses must implement get_history()")
+        raise AbstractConnectorError("Subclasses must implement get_history()")
 
     @abc.abstractmethod
     def get_current_price(self, symbol: Any) -> None:
         """Returns the current bid/ask price dict: { 'bid': float, 'ask': float }"""
-        raise NotImplementedError("Subclasses must implement get_current_price()")
+        raise AbstractConnectorError("Subclasses must implement get_current_price()")
 
     @abc.abstractmethod
     def get_symbol_volume_constraints(self, symbol: Any) -> None:
@@ -65,7 +71,7 @@ class TradingConnector(abc.ABC):
         that fat-finger checks and notional limits are applied to the actual
         volume that will be submitted to the broker, not a smaller pre-normalized value.
         """
-        raise NotImplementedError("Subclasses must implement get_symbol_volume_constraints()")
+        raise AbstractConnectorError("Subclasses must implement get_symbol_volume_constraints()")
 
     @abc.abstractmethod
     def execute_order(
@@ -81,7 +87,7 @@ class TradingConnector(abc.ABC):
 
         Returns: { 'success': bool, 'ticket': str, 'price': float, 'error': str }
         """
-        raise NotImplementedError("Subclasses must implement execute_order()")
+        raise AbstractConnectorError("Subclasses must implement execute_order()")
 
     @abc.abstractmethod
     def close_order(self, ticket: Any, reason: Any = "MANUAL") -> None:
@@ -89,7 +95,7 @@ class TradingConnector(abc.ABC):
         Closes an active order.
         Returns: { 'success': bool, 'price': float, 'profit': float, 'error': str }
         """
-        raise NotImplementedError("Subclasses must implement close_order()")
+        raise AbstractConnectorError("Subclasses must implement close_order()")
 
     @abc.abstractmethod
     def modify_order(self, ticket: Any, sl: Any, tp: Any) -> None:
@@ -97,7 +103,7 @@ class TradingConnector(abc.ABC):
         Modifies Stop Loss and Take Profit levels of an active trade.
         Returns: bool indicating success.
         """
-        raise NotImplementedError("Subclasses must implement modify_order()")
+        raise AbstractConnectorError("Subclasses must implement modify_order()")
 
     @abc.abstractmethod
     def get_open_orders(self) -> None:
@@ -105,7 +111,7 @@ class TradingConnector(abc.ABC):
         Returns currently active open orders on the terminal:
         List of dicts: [ { 'ticket': str, 'symbol': str, 'direction': 'BUY'|'SELL', 'open_price': float, 'sl': float, 'tp': float, 'lot_size': float } ]
         """
-        raise NotImplementedError("Subclasses must implement get_open_orders()")
+        raise AbstractConnectorError("Subclasses must implement get_open_orders()")
 
     @abc.abstractmethod
     def draw_dashboard(self, symbol: Any, data: Any) -> None:
@@ -113,7 +119,7 @@ class TradingConnector(abc.ABC):
         Renders status labels directly on the specified symbol's chart in MT5.
         data: dict containing balance, equity, status, detail, time, active_count.
         """
-        raise NotImplementedError("Subclasses must implement draw_dashboard()")
+        raise AbstractConnectorError("Subclasses must implement draw_dashboard()")
 
 
 class UniversalConnector(TradingConnector):

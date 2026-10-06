@@ -51,8 +51,8 @@ class FIXEngine:
             if self.socket:
                 try:
                     self.socket.close()
-                except Exception:
-                    pass
+                except Exception as err:
+                    _log.debug("FIXEngine socket close error: %s", err)
                 self.socket = None
             _log.info("FIXEngine: Session closed")
 
