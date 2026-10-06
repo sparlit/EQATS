@@ -90,7 +90,7 @@ Total Repositories: 424 | Current Index: 88
 | 85 | c3point/in-stock-screener | Completed | https://github.com/sparlit/EQATS/pull/3024 |
 | 86 | c3point/nse-support-tools | Completed | https://github.com/sparlit/EQATS/pull/3025 |
 | 87 | calumrussell/rotala | Completed | https://github.com/sparlit/EQATS/pull/3026 |
-| 88 | ccxt/ccxt | Completed | None |
+| 88 | ccxt/ccxt | Completed | https://github.com/sparlit/EQATS/pull/3027 |
 | 89 | chaitanyarahalkar/financial-info-extractor | pending | None |
 | 90 | chartiny/nse-daily-volatility-reports | pending | None |
 | 91 | chauhanramkeval-blip/nse-stock-bulk-deals- | pending | None |

@@ -702,8 +702,8 @@
       "target": "ccxt/ccxt",
       "url": "https://github.com/ccxt/ccxt",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3027",
+      "merged": true
     },
     {
       "name": "financial-info-extractor",
