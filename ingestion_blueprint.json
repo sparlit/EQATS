@@ -1,5 +1,5 @@
 {
-  "current_index": 24,
+  "current_index": 25,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -197,7 +197,7 @@
       "name": "buynsell",
       "target": "akt114/buynsell",
       "url": "https://github.com/akt114/buynsell",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
