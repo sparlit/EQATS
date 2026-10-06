@@ -78,8 +78,7 @@ def main(args):
         try:
             f = commands[c]
         except KeyError:
-            msg = "Unsupported function"
-            raise ValueError(msg)
+            raise ValueError("Unsupported function")
         report(f, args[1:])
     else:
         _printUsage()
