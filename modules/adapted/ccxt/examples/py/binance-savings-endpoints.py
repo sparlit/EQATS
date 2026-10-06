@@ -52,6 +52,7 @@ response = exchange.sapi_post_lending_customizedfixed_purchase(
     }
 )
 
+pprint(response)
 
 response = exchange.sapi_post_lending_daily_purchase(
     {
@@ -60,6 +61,7 @@ response = exchange.sapi_post_lending_daily_purchase(
     }
 )
 
+pprint(response)
 
 response = exchange.sapi_post_lending_daily_redeem(
     {
@@ -67,3 +69,5 @@ response = exchange.sapi_post_lending_daily_redeem(
         # https://binance-docs.github.io/apidocs/spot/en/#redeem-flexible-product-user_data
     }
 )
+
+pprint(response)

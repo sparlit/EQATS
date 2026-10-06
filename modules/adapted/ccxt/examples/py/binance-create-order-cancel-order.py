@@ -52,7 +52,9 @@ async def main():
     price = 0.060154  # or None
 
     order = await exchange.create_order(symbol, type, side, amount, price)
-    await exchange.cancel_order(order["id"], order["symbol"])
+    canceled = await exchange.cancel_order(order["id"], order["symbol"])
+
+    pprint(canceled)
 
     await exchange.close()
 

@@ -76,7 +76,7 @@ async def example():
     }
     promises = []
     exchange_ids = list(exchanges.keys())
-    for i in range(len(exchange_ids)):
+    for i in range(0, len(exchange_ids)):
         exchange_name = exchange_ids[i]
         config = exchanges[exchange_name]
         promises.append(start_exchange(exchange_name, config))

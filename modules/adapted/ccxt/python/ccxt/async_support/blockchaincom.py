@@ -29,7 +29,13 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 from ccxt.abstract.blockchaincom import ImplicitAPI
 from ccxt.async_support.base.exchange import Exchange
 from ccxt.base.decimal_to_precision import TICK_SIZE
-from ccxt.base.errors import ArgumentsRequired, AuthenticationError, ExchangeError, InsufficientFunds, OrderNotFound
+from ccxt.base.errors import (
+    ArgumentsRequired,
+    AuthenticationError,
+    ExchangeError,
+    InsufficientFunds,
+    OrderNotFound,
+)
 from ccxt.base.precise import Precise
 from ccxt.base.types import (
     Balances,
@@ -149,6 +155,7 @@ class blockchaincom(Exchange, ImplicitAPI):
                     "private": {
                         "get": {
                             "fees": {"cost": 1},  # fetchFees
+                            "internal/orders": {"cost": 1},  # getOrdersInternal
                             "orders": {"cost": 1},  # fetchOpenOrders, fetchClosedOrders
                             "orders/{orderId}": {"cost": 1},  # fetchOrder(id)
                             "trades": {"cost": 1},
@@ -158,7 +165,9 @@ class blockchaincom(Exchange, ImplicitAPI):
                             "accounts": {"cost": 1},  # fetchBalance
                             "accounts/{account}/{currency}": {"cost": 1},
                             "whitelist": {"cost": 1},  # fetchWithdrawalWhitelist
-                            "whitelist/{currency}": {"cost": 1},  # fetchWithdrawalWhitelistByCurrency
+                            "whitelist/{currency}": {
+                                "cost": 1
+                            },  # fetchWithdrawalWhitelistByCurrency
                             "withdrawals": {"cost": 1},  # fetchWithdrawalWhitelist
                             "withdrawals/{withdrawalId}": {"cost": 1},  # fetchWithdrawalById
                         },
@@ -166,7 +175,7 @@ class blockchaincom(Exchange, ImplicitAPI):
                             "orders": {"cost": 1},  # createOrder
                             "deposits/{currency}": {
                                 "cost": 1
-                            },  # fetchDepositAddress by currency(only crypto supported)
+                            },  # fetchDepositAddress by currency (only crypto supported)
                             "withdrawals": {"cost": 1},  # withdraw
                         },
                         "delete": {
@@ -228,7 +237,7 @@ class blockchaincom(Exchange, ImplicitAPI):
                         "BCH": "BCH",
                         "BSV": "BSV",
                         "BTC": "BTC",
-                        # 'BEP20': 'BNB',  # TODO
+                        # 'BEP20': 'BNB', // todo
                         "DCR": "DCR",
                         "DESO": "DESO",
                         "DASH": "DASH",
@@ -252,8 +261,8 @@ class blockchaincom(Exchange, ImplicitAPI):
                         "XTZ": "XTZ",
                         "ZEC": "ZEC",
                         "ZIL": "ZIL",
-                        # 'THETA': 'THETA',  # TODO: possible TFUEL THETA FUEL is also same, but API might have a mistake
-                        # TODO: uncomment below after consensus
+                        # 'THETA': 'THETA', // todo: possible TFUEL THETA FUEL is also same, but API might have a mistake
+                        # todo: uncomment below after consensus
                         # 'MOBILECOIN': 'MOB',
                         # 'KIN': 'KIN',
                         # 'DIGITALGOLD': 'DGLD',
@@ -267,14 +276,14 @@ class blockchaincom(Exchange, ImplicitAPI):
                             "triggerPrice": True,
                             "triggerPriceType": None,
                             "triggerDirection": False,
-                            "stopLossPrice": False,  # TODO
-                            "takeProfitPrice": False,  # TODO
+                            "stopLossPrice": False,  # todo
+                            "takeProfitPrice": False,  # todo
                             "attachedStopLossTakeProfit": None,
                             "timeInForce": {
                                 "IOC": True,
                                 "FOK": True,
                                 "PO": False,
-                                "GTD": True,  # TODO implementation
+                                "GTD": True,  # todo implementation
                             },
                             "hedged": False,
                             "leverage": False,
@@ -288,8 +297,8 @@ class blockchaincom(Exchange, ImplicitAPI):
                         "fetchMyTrades": {
                             "marginMode": False,
                             "limit": 1000,
-                            "daysBack": 100000,  # TODO implementation
-                            "untilDays": 100000,  # TODO implementation
+                            "daysBack": 100000,  # todo implementation
+                            "untilDays": 100000,  # todo implementation
                             "symbolRequired": False,
                         },
                         "fetchOrder": {
@@ -305,7 +314,7 @@ class blockchaincom(Exchange, ImplicitAPI):
                             "trailing": False,
                             "symbolRequired": False,
                         },
-                        "fetchOrders": None,  # TODO implement
+                        "fetchOrders": None,  # todo implement
                         "fetchClosedOrders": {
                             "marginMode": False,
                             "limit": 1000,
@@ -316,7 +325,7 @@ class blockchaincom(Exchange, ImplicitAPI):
                             "trailing": False,
                             "symbolRequired": False,
                         },
-                        "fetchOHLCV": None,  # TODO webapi
+                        "fetchOHLCV": None,  # todo webapi
                     },
                     "swap": {
                         "linear": None,
@@ -338,7 +347,7 @@ class blockchaincom(Exchange, ImplicitAPI):
             },
         )
 
-    async def fetch_markets(self, params=None) -> list[Market]:
+    async def fetch_markets(self, params: dict = None) -> list[Market]:
         """
         retrieves data on all markets for blockchaincom
 
@@ -374,13 +383,15 @@ class blockchaincom(Exchange, ImplicitAPI):
         markets = await self.publicGetSymbols(params)
         marketIds = list(markets.keys())
         result = []
-        for i in range(len(marketIds)):
+        for i in range(0, len(marketIds)):
             marketId = marketIds[i]
-            market = self.safe_value(markets, marketId)
+            market = self.safe_dict(markets, marketId)
             baseId = self.safe_string(market, "base_currency")
             quoteId = self.safe_string(market, "counter_currency")
             base = self.safe_currency_code(baseId)
             quote = self.safe_currency_code(quoteId)
+            if (base is None) or (quote is None):
+                continue
             numericId = self.safe_number(market, "id")
             active = None
             marketState = self.safe_string(market, "status")
@@ -389,7 +400,9 @@ class blockchaincom(Exchange, ImplicitAPI):
             minPriceIncrementString = self.safe_string(market, "min_price_increment")
             minPriceIncrementScaleString = self.safe_string(market, "min_price_increment_scale")
             minPriceScalePrecisionString = self.parse_precision(minPriceIncrementScaleString)
-            pricePrecisionString = Precise.string_mul(minPriceIncrementString, minPriceScalePrecisionString)
+            pricePrecisionString = Precise.string_mul(
+                minPriceIncrementString, minPriceScalePrecisionString
+            )
             # amount precision
             lotSizeString = self.safe_string(market, "lot_size")
             lotSizeScaleString = self.safe_string(market, "lot_size_scale")
@@ -399,7 +412,9 @@ class blockchaincom(Exchange, ImplicitAPI):
             minOrderSizeString = self.safe_string(market, "min_order_size")
             minOrderSizeScaleString = self.safe_string(market, "min_order_size_scale")
             minOrderSizeScalePrecisionString = self.parse_precision(minOrderSizeScaleString)
-            minOrderSizePreciseString = Precise.string_mul(minOrderSizeString, minOrderSizeScalePrecisionString)
+            minOrderSizePreciseString = Precise.string_mul(
+                minOrderSizeString, minOrderSizeScalePrecisionString
+            )
             minOrderSize = self.parse_number(minOrderSizePreciseString)
             # maximum order size
             maxOrderSize = None
@@ -407,7 +422,9 @@ class blockchaincom(Exchange, ImplicitAPI):
             if maxOrderSizeRaw != "0":
                 maxOrderSizeScaleString = self.safe_string(market, "max_order_size_scale")
                 maxOrderSizeScalePrecisionString = self.parse_precision(maxOrderSizeScaleString)
-                maxOrderSizeValueString = Precise.string_mul(maxOrderSizeRaw, maxOrderSizeScalePrecisionString)
+                maxOrderSizeValueString = Precise.string_mul(
+                    maxOrderSizeRaw, maxOrderSizeScalePrecisionString
+                )
                 maxOrderSize = self.parse_number(maxOrderSizeValueString)
             result.append(
                 {
@@ -463,7 +480,9 @@ class blockchaincom(Exchange, ImplicitAPI):
             )
         return result
 
-    async def fetch_order_book(self, symbol: str, limit: Int = None, params=None) -> OrderBook:
+    async def fetch_order_book(
+        self, symbol: str, limit: Int = None, params: dict = None
+    ) -> OrderBook:
         """
         fetches information on open orders with bid(buy) and ask(sell) prices, volumes and other data
 
@@ -478,7 +497,9 @@ class blockchaincom(Exchange, ImplicitAPI):
             params = {}
         return await self.fetch_l3_order_book(symbol, limit, params)
 
-    async def fetch_l3_order_book(self, symbol: str, limit: Int = None, params=None):
+    async def fetch_l3_order_book(
+        self, symbol: str, limit: Int = None, params: dict = None
+    ) -> OrderBook:
         """
         fetches level 3 information on open orders with bid(buy) and ask(sell) prices, volumes and other data
 
@@ -502,7 +523,7 @@ class blockchaincom(Exchange, ImplicitAPI):
         response = await self.publicGetL3Symbol(self.extend(request, params))
         return self.parse_order_book(response, market["symbol"], None, "bids", "asks", "px", "qty")
 
-    async def fetch_l2_order_book(self, symbol: str, limit: Int = None, params=None):
+    async def fetch_l2_order_book(self, symbol: str, limit: Int = None, params: dict = None):
         if params is None:
             params = {}
         if self.markets is None:
@@ -556,7 +577,7 @@ class blockchaincom(Exchange, ImplicitAPI):
             market,
         )
 
-    async def fetch_ticker(self, symbol: str, params=None) -> Ticker:
+    async def fetch_ticker(self, symbol: str, params: dict = None) -> Ticker:
         """
         fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
 
@@ -577,7 +598,7 @@ class blockchaincom(Exchange, ImplicitAPI):
         response = await self.publicGetTickersSymbol(self.extend(request, params))
         return self.parse_ticker(response, market)
 
-    async def fetch_tickers(self, symbols: Strings = None, params=None) -> Tickers:
+    async def fetch_tickers(self, symbols: Strings = None, params: dict = None) -> Tickers:
         """
         fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
 
@@ -594,7 +615,7 @@ class blockchaincom(Exchange, ImplicitAPI):
         tickers = await self.publicGetTickers(params)
         return self.parse_tickers(tickers, symbols)
 
-    def parse_order_state(self, state: object):
+    def parse_order_state(self, state: Str) -> Str:
         states = {
             "OPEN": "open",
             "REJECTED": "rejected",
@@ -638,7 +659,7 @@ class blockchaincom(Exchange, ImplicitAPI):
         datetime = self.iso8601(timestamp)
         filled = self.safe_string(order, "cumQty")
         remaining = self.safe_string(order, "leavesQty")
-        return self.safe_order(
+        result = self.safe_order(
             {
                 "id": exchangeOrderId,
                 "clientOrderId": clientOrderId,
@@ -661,10 +682,17 @@ class blockchaincom(Exchange, ImplicitAPI):
                 "info": order,
             }
         )
+        return result
 
     async def create_order(
-        self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params=None
-    ):
+        self,
+        symbol: str,
+        type: OrderType,
+        side: OrderSide,
+        amount: float,
+        price: Num = None,
+        params: dict = None,
+    ) -> Order:
         """
         create a trade order
 
@@ -686,9 +714,8 @@ class blockchaincom(Exchange, ImplicitAPI):
         orderType = self.safe_string(params, "ordType", type)
         uppercaseOrderType = orderType.upper()
         clientOrderId = self.safe_string_2(params, "clientOrderId", "clOrdId", self.uuid16())
-        params = self.omit(params, ["ordType", "clientOrderId", "clOrdId"])
-        if side is None:
-            raise ArgumentsRequired(self.id + " createOrder() requires a side argument")
+        paramsOmitted = self.omit(params, ["ordType", "clientOrderId", "clOrdId"])
+        self.check_required_argument("createOrder", side, "side")
         request = {
             # 'stopPx' : limit price
             # 'timeInForce' : "GTC" for Good Till Cancel, "IOC" for Immediate or Cancel, "FOK" for Fill or Kill, "GTD" Good Till Date
@@ -700,9 +727,9 @@ class blockchaincom(Exchange, ImplicitAPI):
             "orderQty": self.amount_to_precision(symbol, amount),
             "clOrdId": clientOrderId,
         }
-        triggerPrice = self.safe_value_n(params, ["triggerPrice", "stopPx", "stopPrice"])
-        params = self.omit(params, ["triggerPrice", "stopPx", "stopPrice"])
-        if uppercaseOrderType in {"STOP", "STOPLIMIT"}:
+        triggerPrice = self.safe_value_n(paramsOmitted, ["triggerPrice", "stopPx", "stopPrice"])
+        paramsOmitted2 = self.omit(paramsOmitted, ["triggerPrice", "stopPx", "stopPrice"])
+        if uppercaseOrderType == "STOP" or uppercaseOrderType == "STOPLIMIT":
             if triggerPrice is None:
                 raise ArgumentsRequired(
                     self.id
@@ -715,20 +742,21 @@ class blockchaincom(Exchange, ImplicitAPI):
                 request["ordType"] = "STOP"
             elif uppercaseOrderType == "LIMIT":
                 request["ordType"] = "STOPLIMIT"
+        ordType = self.safe_string(request, "ordType")
         priceRequired = False
         stopPriceRequired = False
-        if request["ordType"] == "LIMIT" or request["ordType"] == "STOPLIMIT":
+        if ordType == "LIMIT" or ordType == "STOPLIMIT":
             priceRequired = True
-        if request["ordType"] == "STOP" or request["ordType"] == "STOPLIMIT":
+        if ordType == "STOP" or ordType == "STOPLIMIT":
             stopPriceRequired = True
         if priceRequired:
             request["price"] = self.price_to_precision(symbol, price)
         if stopPriceRequired:
             request["stopPx"] = self.price_to_precision(symbol, triggerPrice)
-        response = await self.privatePostOrders(self.extend(request, params))
+        response = await self.privatePostOrders(self.extend(request, paramsOmitted2))
         return self.parse_order(response, market)
 
-    async def cancel_order(self, id: str, symbol: Str = None, params=None):
+    async def cancel_order(self, id: str, symbol: Str = None, params: dict = None) -> Order:
         """
         cancels an open order
 
@@ -752,7 +780,7 @@ class blockchaincom(Exchange, ImplicitAPI):
             }
         )
 
-    async def cancel_all_orders(self, symbol: Str = None, params=None):
+    async def cancel_all_orders(self, symbol: Str = None, params: dict = None) -> list[Order]:
         """
         cancel all open orders
 
@@ -786,7 +814,7 @@ class blockchaincom(Exchange, ImplicitAPI):
             ),
         ]
 
-    async def fetch_trading_fees(self, params=None) -> TradingFees:
+    async def fetch_trading_fees(self, params: dict = None) -> TradingFees:
         """
         fetch the trading fees for multiple markets
 
@@ -811,7 +839,7 @@ class blockchaincom(Exchange, ImplicitAPI):
         takerFee = self.safe_number(response, "takerRate")
         result = {}
         symbols = self.symbols
-        for i in range(len(symbols)):
+        for i in range(0, len(symbols)):
             symbol = symbols[i]
             result[symbol] = {
                 "info": response,
@@ -821,7 +849,9 @@ class blockchaincom(Exchange, ImplicitAPI):
             }
         return result
 
-    async def fetch_canceled_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params=None):
+    async def fetch_canceled_orders(
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Order]:
         """
         fetches information on multiple canceled orders made by the user
 
@@ -839,7 +869,7 @@ class blockchaincom(Exchange, ImplicitAPI):
         return await self.fetch_orders_by_state(state, symbol, since, limit, params)
 
     async def fetch_closed_orders(
-        self, symbol: Str = None, since: Int = None, limit: Int = None, params=None
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Order]:
         """
         fetches information on multiple closed orders made by the user
@@ -858,7 +888,7 @@ class blockchaincom(Exchange, ImplicitAPI):
         return await self.fetch_orders_by_state(state, symbol, since, limit, params)
 
     async def fetch_open_orders(
-        self, symbol: Str = None, since: Int = None, limit: Int = None, params=None
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Order]:
         """
         fetch all unfilled currently open orders
@@ -877,7 +907,12 @@ class blockchaincom(Exchange, ImplicitAPI):
         return await self.fetch_orders_by_state(state, symbol, since, limit, params)
 
     async def fetch_orders_by_state(
-        self, state: object, symbol: Str = None, since: Int = None, limit: Int = None, params=None
+        self,
+        state: str,
+        symbol: Str = None,
+        since: Int = None,
+        limit: Int = None,
+        params: dict = None,
     ) -> list[Order]:
         if params is None:
             params = {}
@@ -918,12 +953,12 @@ class blockchaincom(Exchange, ImplicitAPI):
         amountString = self.safe_string(trade, "qty")
         timestamp = self.safe_integer(trade, "timestamp")
         datetime = self.iso8601(timestamp)
-        market = self.safe_market(marketId, market, "-")
-        symbol = market["symbol"]
+        marketResolved = self.safe_market(marketId, market, "-")
+        symbol = marketResolved["symbol"]
         fee = None
         feeCostString = self.safe_string(trade, "fee")
         if feeCostString is not None:
-            feeCurrency = market["quote"]
+            feeCurrency = marketResolved["quote"]
             fee = {"cost": feeCostString, "currency": feeCurrency}
         return self.safe_trade(
             {
@@ -941,10 +976,12 @@ class blockchaincom(Exchange, ImplicitAPI):
                 "fee": fee,
                 "info": trade,
             },
-            market,
+            marketResolved,
         )
 
-    async def fetch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = None, params=None):
+    async def fetch_my_trades(
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Trade]:
         """
         fetch all trades made by the user
 
@@ -970,7 +1007,7 @@ class blockchaincom(Exchange, ImplicitAPI):
         trades = await self.privateGetFills(self.extend(request, params))
         return self.parse_trades(trades, market, since, limit, params)  # need to define
 
-    async def fetch_deposit_address(self, code: str, params=None) -> DepositAddress:
+    async def fetch_deposit_address(self, code: str, params: dict = None) -> DepositAddress:
         """
         fetch the deposit address for a currency associated with self account
 
@@ -1005,9 +1042,9 @@ class blockchaincom(Exchange, ImplicitAPI):
             "tag": tag,
         }
 
-    def parse_transaction_state(self, state: object):
+    def parse_transaction_state(self, state: Str) -> Str:
         states = {
-            "COMPLETED": "ok",
+            "COMPLETED": "ok",  #
             "REJECTED": "failed",
             "PENDING": "pending",
             "FAILED": "failed",
@@ -1034,7 +1071,7 @@ class blockchaincom(Exchange, ImplicitAPI):
         #     {
         #         "amount":30.0,
         #         "currency":"USDT",
-        #         "beneficiary":"cab00d11-6e7f-46b7-b453-2e8ef6f101fa",  # blockchain specific id
+        #         "beneficiary":"cab00d11-6e7f-46b7-b453-2e8ef6f101fa", // blockchain specific id
         #         "withdrawalId":"99df5ef7-eab6-4033-be49-312930fbd1ea",
         #         "fee":34.005078,
         #         "state":"COMPLETED",
@@ -1078,14 +1115,16 @@ class blockchaincom(Exchange, ImplicitAPI):
             "currency": code,
             "status": self.parse_transaction_state(
                 state
-            ),  # 'status':   'pending',   # 'ok', 'failed', 'canceled', string
+            ),  # 'status':   'pending',   // 'ok', 'failed', 'canceled', string
             "updated": None,
             "comment": None,
             "internal": None,
             "fee": fee,
         }
 
-    async def withdraw(self, code: str, amount: float, address: str, tag: Str = None, params=None) -> Transaction:
+    async def withdraw(
+        self, code: str, amount: float, address: str, tag: Str = None, params: dict = None
+    ) -> Transaction:
         """
         make a withdrawal
 
@@ -1124,7 +1163,7 @@ class blockchaincom(Exchange, ImplicitAPI):
         return self.parse_transaction(response, currency)
 
     async def fetch_withdrawals(
-        self, code: Str = None, since: Int = None, limit: Int = None, params=None
+        self, code: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Transaction]:
         """
         fetch all withdrawals made from an account
@@ -1153,7 +1192,7 @@ class blockchaincom(Exchange, ImplicitAPI):
         response = await self.privateGetWithdrawals(self.extend(request, params))
         return self.parse_transactions(response, currency, since, limit)
 
-    async def fetch_withdrawal(self, id: str, code: Str = None, params=None) -> Transaction:
+    async def fetch_withdrawal(self, id: str, code: Str = None, params: dict = None) -> Transaction:
         """
         fetch data on a currency withdrawal via the withdrawal id
 
@@ -1175,7 +1214,7 @@ class blockchaincom(Exchange, ImplicitAPI):
         return self.parse_transaction(response)
 
     async def fetch_deposits(
-        self, code: Str = None, since: Int = None, limit: Int = None, params=None
+        self, code: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Transaction]:
         """
         fetch all deposits made to an account
@@ -1204,7 +1243,7 @@ class blockchaincom(Exchange, ImplicitAPI):
         response = await self.privateGetDeposits(self.extend(request, params))
         return self.parse_transactions(response, currency, since, limit)
 
-    async def fetch_deposit(self, id: str, code: Str = None, params=None) -> Transaction:
+    async def fetch_deposit(self, id: str, code: Str = None, params: dict = None) -> Transaction:
         """
         fetch information on a deposit
 
@@ -1226,7 +1265,7 @@ class blockchaincom(Exchange, ImplicitAPI):
         deposit = await self.privateGetDepositsDepositId(self.extend(request, params))
         return self.parse_transaction(deposit)
 
-    async def fetch_balance(self, params=None) -> Balances:
+    async def fetch_balance(self, params: dict = None) -> Balances:
         """
         query for balance and get the amount of funds available for trading or funds locked in orders
 
@@ -1240,11 +1279,11 @@ class blockchaincom(Exchange, ImplicitAPI):
         if self.markets is None:
             await self.load_markets()
         accountName = self.safe_string(params, "account", "primary")
-        params = self.omit(params, "account")
+        paramsOmitted = self.omit(params, "account")
         request = {
             "account": accountName,
         }
-        response = await self.privateGetAccounts(self.extend(request, params))
+        response = await self.privateGetAccounts(self.extend(request, paramsOmitted))
         #
         #     {
         #         "primary": [
@@ -1260,12 +1299,14 @@ class blockchaincom(Exchange, ImplicitAPI):
         #         ]
         #     }
         #
-        balances = self.safe_value(response, accountName)
+        balances = self.safe_list(response, accountName)
         if balances is None:
-            raise ExchangeError(self.id + ' fetchBalance() could not find the "' + accountName + '" account')
+            raise ExchangeError(
+                self.id + ' fetchBalance() could not find the "' + accountName + '" account'
+            )
         result = {"info": response}
-        for i in range(len(balances)):
-            entry = balances[i]
+        for i in range(0, len(balances)):
+            entry = self.safe_dict(balances, i)
             currencyId = self.safe_string(entry, "currency")
             code = self.safe_currency_code(currencyId)
             account = self.account()
@@ -1274,7 +1315,7 @@ class blockchaincom(Exchange, ImplicitAPI):
             result[code] = account
         return self.safe_balance(result)
 
-    async def fetch_order(self, id: str, symbol: Str = None, params=None):
+    async def fetch_order(self, id: str, symbol: Str = None, params: dict = None) -> Order:
         """
         fetches information on an order made by the user
 
@@ -1317,33 +1358,43 @@ class blockchaincom(Exchange, ImplicitAPI):
 
     def sign(
         self,
-        path: object,
-        api: object = "public",
+        path: str,
+        api="public",
         method="GET",
-        params=None,
-        headers: dict | None = None,
+        params: dict = None,
+        headers: dict = None,
         body: Str = None,
-    ):
+    ) -> dict:
         if params is None:
             params = {}
         requestPath = "/" + self.implode_params(path, params)
-        url = self.urls["api"][api] + requestPath
+        apiUrl = self.safe_string(self.urls["api"], api)
+        if apiUrl is None:
+            raise ExchangeError(self.id + " sign() has no API URL for self endpoint")
+        url = apiUrl + requestPath
         query = self.omit(params, self.extract_params(path))
+        isPrivate = api == "private"
+        privateHeaders = {
+            "X-API-Token": self.secret,
+        }
+        requestHeaders = headers
+        if isPrivate:
+            requestHeaders = privateHeaders
+        isPrivatePost = isPrivate and (method != "GET")
+        requestBody = body
+        if isPrivatePost:
+            requestBody = self.json(query)
         if api == "public":
             if len(query) > 0:
                 url += "?" + self.urlencode(query)
-        elif api == "private":
+        elif isPrivate:
             self.check_required_credentials()
-            headers = {
-                "X-API-Token": self.secret,
-            }
             if method == "GET":
                 if len(query) > 0:
                     url += "?" + self.urlencode(query)
             else:
-                body = self.json(query)
-                headers["Content-Type"] = "application/json"
-        return {"url": url, "method": method, "body": body, "headers": headers}
+                privateHeaders["Content-Type"] = "application/json"
+        return {"url": url, "method": method, "body": requestBody, "headers": requestHeaders}
 
     def handle_errors(
         self,
@@ -1359,7 +1410,7 @@ class blockchaincom(Exchange, ImplicitAPI):
     ):
         # {"timestamp":"2021-10-21T15:13:58.837+00:00","status":404,"error":"Not Found","message":"","path":"/orders/505050"
         if response is None:
-            return
+            return None
         text = self.safe_string(response, "text")
         if text is not None:  # if trade currency account is empty returns 200 with rejected order
             if text == "Insufficient Balance":
@@ -1370,4 +1421,4 @@ class blockchaincom(Exchange, ImplicitAPI):
             feedback = self.id + " " + self.json(response)
             self.throw_exactly_matched_exception(self.exceptions["exact"], errorCode, feedback)
             self.throw_broadly_matched_exception(self.exceptions["broad"], errorMessage, feedback)
-        return
+        return None

@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_number_to_be():
@@ -55,31 +55,41 @@ def test_number_to_be():
     expected_binary_1 = exchange.base16_to_binary("00000000499602d2")
     result_base64 = exchange.binary_to_base64(result1)
     expected_base64 = exchange.binary_to_base64(expected_binary_1)
-    assert result_base64 == expected_base64, "Expected base64: " + expected_base64 + ", got: " + result_base64
+    assert result_base64 == expected_base64, (
+        "Expected base64: " + expected_base64 + ", got: " + result_base64
+    )
     # 0 with 1-byte padding => 0x00
     result2 = exchange.number_to_be(0, 1)
     assert exchange.is_binary_message(result2)
     assert exchange.binary_length(result2) == 1
     expected_binary_2 = exchange.base16_to_binary("00")
-    assert exchange.binary_to_base64(result2) == exchange.binary_to_base64(expected_binary_2), "zero 1-byte failed"
+    assert exchange.binary_to_base64(result2) == exchange.binary_to_base64(expected_binary_2), (
+        "zero 1-byte failed"
+    )
     # 1 with 1-byte padding => 0x01
     result3 = exchange.number_to_be(1, 1)
     assert exchange.is_binary_message(result3)
     assert exchange.binary_length(result3) == 1
     expected_binary_3 = exchange.base16_to_binary("01")
-    assert exchange.binary_to_base64(result3) == exchange.binary_to_base64(expected_binary_3), "one 1-byte failed"
+    assert exchange.binary_to_base64(result3) == exchange.binary_to_base64(expected_binary_3), (
+        "one 1-byte failed"
+    )
     # 255 with 1-byte padding => 0xFF (max single byte)
     result4 = exchange.number_to_be(255, 1)
     assert exchange.is_binary_message(result4)
     assert exchange.binary_length(result4) == 1
     expected_binary_4 = exchange.base16_to_binary("ff")
-    assert exchange.binary_to_base64(result4) == exchange.binary_to_base64(expected_binary_4), "255 1-byte failed"
+    assert exchange.binary_to_base64(result4) == exchange.binary_to_base64(expected_binary_4), (
+        "255 1-byte failed"
+    )
     # 256 with 2-byte padding => 0x01 0x00
     result5 = exchange.number_to_be(256, 2)
     assert exchange.is_binary_message(result5)
     assert exchange.binary_length(result5) == 2
     expected_binary_5 = exchange.base16_to_binary("0100")
-    assert exchange.binary_to_base64(result5) == exchange.binary_to_base64(expected_binary_5), "256 2-byte failed"
+    assert exchange.binary_to_base64(result5) == exchange.binary_to_base64(expected_binary_5), (
+        "256 2-byte failed"
+    )
     # 1 with 4-byte padding => 0x00 0x00 0x00 0x01
     result6 = exchange.number_to_be(1, 4)
     assert exchange.is_binary_message(result6)
@@ -93,7 +103,9 @@ def test_number_to_be():
     assert exchange.is_binary_message(result7)
     assert exchange.binary_length(result7) == 8
     expected_binary_7 = exchange.base16_to_binary("0000000000000000")
-    assert exchange.binary_to_base64(result7) == exchange.binary_to_base64(expected_binary_7), "zero 8-byte failed"
+    assert exchange.binary_to_base64(result7) == exchange.binary_to_base64(expected_binary_7), (
+        "zero 8-byte failed"
+    )
     # 4294967295 (0xFFFFFFFF) with 4-byte padding
     result8 = exchange.number_to_be(4294967295, 4)
     assert exchange.is_binary_message(result8)

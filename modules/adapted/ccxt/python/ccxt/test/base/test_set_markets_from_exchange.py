@@ -35,8 +35,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+import ccxt.async_support as ccxt  # noqa: F402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 async def test_set_markets_from_exchange():
@@ -94,7 +94,9 @@ async def test_set_markets_from_exchange():
     )
     try:
         exchange2.set_markets_from_exchange(nonloaded_exchange)  # exchange2 has no markets yet
-        assert not true_clause, "Should have thrown error when sharing from exchange without markets"
+        assert not true_clause, (
+            "Should have thrown error when sharing from exchange without markets"
+        )
     except Exception:
         assert true_clause
     # Test the new setMarketsFromExchange method
@@ -111,7 +113,7 @@ async def test_set_markets_from_exchange():
         "baseCurrencies",
         "quoteCurrencies",
     ]
-    for i in range(len(needed_props)):
+    for i in range(0, len(needed_props)):
         test_shared_methods.assert_deep_equal(
             empty_exchange,
             {},

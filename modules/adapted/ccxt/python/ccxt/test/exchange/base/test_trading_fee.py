@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,7 +37,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_trading_fee(exchange, skipped_properties, method, symbol, entry):
@@ -54,5 +56,7 @@ def test_trading_fee(exchange, skipped_properties, method, symbol, entry):
         "taker": exchange.parse_number("0.003"),
     }
     empty_allowed_for = ["tierBased", "percentage", "symbol"]
-    test_shared_methods.assert_structure(exchange, skipped_properties, method, entry, format, empty_allowed_for)
+    test_shared_methods.assert_structure(
+        exchange, skipped_properties, method, entry, format, empty_allowed_for
+    )
     test_shared_methods.assert_symbol(exchange, skipped_properties, method, entry, "symbol", symbol)

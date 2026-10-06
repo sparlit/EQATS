@@ -22,7 +22,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import os
-import re
 import sys
 from pprint import pprint
 
@@ -59,11 +58,13 @@ print("-----------------------------------------------------------------------")
 
 balance = exchange.fetch_free_balance()
 print("Available balance:")
+pprint(balance)
 
 print("-----------------------------------------------------------------------")
 
 ticker = exchange.fetch_ticker(symbol)
 print(symbol, "ticker:")
+pprint(ticker)
 
 print("-----------------------------------------------------------------------")
 
@@ -76,14 +77,20 @@ ask_price = ticker["ask"]
 bid_price = ticker["bid"]
 
 # None for market orders or a limit price for a limit order
-price = None if order_type == "market" else ((ask_price * 1.001) if side == "sell" else (bid_price * 0.999))
+price = (
+    None
+    if order_type == "market"
+    else ((ask_price * 1.001) if side == "sell" else (bid_price * 0.999))
+)
 
 # the following line is not necessary, it's here just for print readability below
 price = float(exchange.price_to_precision(symbol, price))
 
 # set stop-loss trigger price to last_price - 1% for a long position
 # set stop-loss trigger price to last_price + 1% for a short position
-stop_loss_trigger_price = (last_price if order_type == "market" else price) * (0.999 if side == "buy" else 1.001)
+stop_loss_trigger_price = (last_price if order_type == "market" else price) * (
+    0.999 if side == "buy" else 1.001
+)
 
 # stop-loss limit price at i.e. -1% from trigger price for a long position
 # stop-loss limit price at i.e. +1% from trigger price for a short position
@@ -91,7 +98,9 @@ stop_loss_limit_price = stop_loss_trigger_price * (1.001 if side == "buy" else 0
 
 # set take-profit trigger price to last_price + 1% for a long position
 # set take-profit trigger price to last_price - 1% for a short position
-take_profit_trigger_price = (last_price if order_type == "market" else price) * (1.001 if side == "buy" else 0.999)
+take_profit_trigger_price = (last_price if order_type == "market" else price) * (
+    1.001 if side == "buy" else 0.999
+)
 
 # take-profit limit price at i.e. -1% from trigger price for a long position
 # take-profit limit price at i.e. +1% from trigger price for a short position
@@ -137,6 +146,7 @@ if order_type == "market":
     print("with a market", side, "order at market price using the following params:")
 else:
     print("with a limit", side, "order at price", price, "using the following params:")
+pprint(params)
 
 print("-----------------------------------------------------------------------")
 
@@ -144,6 +154,7 @@ print("-----------------------------------------------------------------------")
 
 try:
     created_order = exchange.create_order(symbol, order_type, side, amount, price, params)
+    pprint(created_order)
     # uncomment the following lines to cancel a limit order
     # if order_type == 'limit':
     #     canceled_order = exchange.cancel_order(created_order['id'], symbol)

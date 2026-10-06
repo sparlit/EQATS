@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,8 +37,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.base.precise import Precise  # noqa: E402
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+from ccxt.base.precise import Precise  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_order_book(exchange, skipped_properties, method, orderbook, symbol):
@@ -63,14 +65,20 @@ def test_order_book(exchange, skipped_properties, method, orderbook, symbol):
         "nonce": 134234234,
     }
     empty_allowed_for = ["nonce"]
-    test_shared_methods.assert_structure(exchange, skipped_properties, method, orderbook, format, empty_allowed_for)
-    test_shared_methods.assert_timestamp_and_datetime(exchange, skipped_properties, method, orderbook)
-    test_shared_methods.assert_symbol(exchange, skipped_properties, method, orderbook, "symbol", symbol)
+    test_shared_methods.assert_structure(
+        exchange, skipped_properties, method, orderbook, format, empty_allowed_for
+    )
+    test_shared_methods.assert_timestamp_and_datetime(
+        exchange, skipped_properties, method, orderbook
+    )
+    test_shared_methods.assert_symbol(
+        exchange, skipped_properties, method, orderbook, "symbol", symbol
+    )
     log_text = test_shared_methods.log_template(exchange, method, orderbook)
-    # TODO: check non-emtpy arrays for bids/asks for toptier exchanges
+    # todo: check non-emtpy arrays for bids/asks for toptier exchanges
     bids = orderbook["bids"]
     bids_length = len(bids)
-    for i in range(bids_length):
+    for i in range(0, bids_length):
         current_bid_string = exchange.safe_string(bids[i], 0)
         if "compareToNextItem" not in skipped_properties:
             next_i = i + 1
@@ -85,11 +93,15 @@ def test_order_book(exchange, skipped_properties, method, orderbook, symbol):
                 )
         if "compareToZero" not in skipped_properties:
             # compare price & volume to zero
-            test_shared_methods.assert_greater(exchange, skipped_properties, method, bids[i], 0, "0")
-            test_shared_methods.assert_greater(exchange, skipped_properties, method, bids[i], 1, "0")
+            test_shared_methods.assert_greater(
+                exchange, skipped_properties, method, bids[i], 0, "0"
+            )
+            test_shared_methods.assert_greater(
+                exchange, skipped_properties, method, bids[i], 1, "0"
+            )
     asks = orderbook["asks"]
     asks_length = len(asks)
-    for i in range(asks_length):
+    for i in range(0, asks_length):
         current_ask_string = exchange.safe_string(asks[i], 0)
         if "compareToNextItem" not in skipped_properties:
             next_i = i + 1
@@ -104,13 +116,21 @@ def test_order_book(exchange, skipped_properties, method, orderbook, symbol):
                 )
         if "compareToZero" not in skipped_properties:
             # compare price & volume to zero
-            test_shared_methods.assert_greater(exchange, skipped_properties, method, asks[i], 0, "0")
-            test_shared_methods.assert_greater(exchange, skipped_properties, method, asks[i], 1, "0")
-    if "spread" not in skipped_properties:
-        if (bids_length > 0) and (asks_length > 0):
-            first_bid = exchange.safe_string(bids[0], 0)
-            first_ask = exchange.safe_string(asks[0], 0)
-            # check bid-ask spread
-            assert Precise.string_lt(first_bid, first_ask), (
-                "bids[0][0] (" + first_bid + ") should be < than asks[0][0] (" + first_ask + ")" + log_text
+            test_shared_methods.assert_greater(
+                exchange, skipped_properties, method, asks[i], 0, "0"
             )
+            test_shared_methods.assert_greater(
+                exchange, skipped_properties, method, asks[i], 1, "0"
+            )
+    if "spread" not in skipped_properties and (bids_length > 0) and (asks_length > 0):
+        first_bid = exchange.safe_string(bids[0], 0)
+        first_ask = exchange.safe_string(asks[0], 0)
+        # check bid-ask spread
+        assert Precise.string_lt(first_bid, first_ask), (
+            "bids[0][0] ("
+            + first_bid
+            + ") should be < than asks[0][0] ("
+            + first_ask
+            + ")"
+            + log_text
+        )

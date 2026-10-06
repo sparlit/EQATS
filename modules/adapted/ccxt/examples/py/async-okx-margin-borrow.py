@@ -51,7 +51,8 @@ async def main():
     code = "BTC"
     amount = 1
     try:
-        await exchange.borrowCrossMargin(code, amount)
+        response = await exchange.borrowCrossMargin(code, amount)
+        pprint(response)
     except ccxt.InsufficientFunds as e:
         print("borrowCrossMargin() failed – not enough funds")
         print(e)

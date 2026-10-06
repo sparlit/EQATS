@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,8 +37,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.base.precise import Precise  # noqa: E402
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+from ccxt.base.precise import Precise  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_liquidation(exchange, skipped_properties, method, entry, symbol):
@@ -51,7 +53,7 @@ def test_liquidation(exchange, skipped_properties, method, entry, symbol):
         "timestamp": 1502962946216,
         "datetime": "2017-09-01T00:00:00",
     }
-    # TODO: atm, many exchanges fail, so temporarily decrease stict mode
+    # todo: atm, many exchanges fail, so temporarily decrease stict mode
     empty_allowed_for = [
         "timestamp",
         "datetime",
@@ -62,19 +64,34 @@ def test_liquidation(exchange, skipped_properties, method, entry, symbol):
         "contractSize",
         "contracts",
     ]
-    test_shared_methods.assert_structure(exchange, skipped_properties, method, entry, format, empty_allowed_for)
+    test_shared_methods.assert_structure(
+        exchange, skipped_properties, method, entry, format, empty_allowed_for
+    )
     test_shared_methods.assert_timestamp_and_datetime(exchange, skipped_properties, method, entry)
     log_text = test_shared_methods.log_template(exchange, method, entry)
-    test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "contracts", "0")
-    test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "contractSize", "0")
+    test_shared_methods.assert_greater(
+        exchange, skipped_properties, method, entry, "contracts", "0"
+    )
+    test_shared_methods.assert_greater(
+        exchange, skipped_properties, method, entry, "contractSize", "0"
+    )
     test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "price", "0")
-    test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "baseValue", "0")
-    test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "quoteValue", "0")
+    test_shared_methods.assert_greater(
+        exchange, skipped_properties, method, entry, "baseValue", "0"
+    )
+    test_shared_methods.assert_greater(
+        exchange, skipped_properties, method, entry, "quoteValue", "0"
+    )
     contracts = exchange.safe_string(entry, "contracts")
     contract_size = exchange.safe_string(entry, "contractSize")
     price = exchange.safe_string(entry, "price")
     base_value = exchange.safe_string(entry, "baseValue")
-    if (contracts is not None) and (contracts != "") and (contract_size is not None) and (contract_size != ""):
+    if (
+        (contracts is not None)
+        and (contracts != "")
+        and (contract_size is not None)
+        and (contract_size != "")
+    ):
         assert Precise.string_eq(base_value, Precise.string_mul(contracts, contract_size)), (
             "baseValue == contracts * contractSize" + log_text
         )
@@ -83,5 +100,7 @@ def test_liquidation(exchange, skipped_properties, method, entry, symbol):
                 base_value, Precise.string_mul(Precise.string_mul(contracts, contract_size), price)
             ), "quoteValue == contracts * contractSize * price" + log_text
     # if singular was called, then symbol needs to be asserted
-    if method in {"watchLiquidations", "fetchLiquidations"}:
-        test_shared_methods.assert_symbol(exchange, skipped_properties, method, entry, "symbol", symbol)
+    if method == "watchLiquidations" or method == "fetchLiquidations":
+        test_shared_methods.assert_symbol(
+            exchange, skipped_properties, method, entry, "symbol", symbol
+        )

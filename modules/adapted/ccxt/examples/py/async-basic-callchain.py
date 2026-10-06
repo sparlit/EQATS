@@ -72,26 +72,29 @@ async def run_all_exchanges(exchange_ids):
 
 async def load_markets(exchange, symbol):
     try:
-        return await exchange.load_markets()
+        result = await exchange.load_markets()
+        return result
     except ccxt.BaseError as e:
         print(type(e).__name__, str(e), str(e.args))
-        raise
+        raise e
 
 
 async def fetch_ticker(exchange, symbol):
     try:
-        return await exchange.fetch_ticker(symbol)
+        result = await exchange.fetch_ticker(symbol)
+        return result
     except ccxt.BaseError as e:
         print(type(e).__name__, str(e), str(e.args))
-        raise
+        raise e
 
 
 async def fetch_orderbook(exchange, symbol):
     try:
-        return await exchange.fetch_order_book(symbol)
+        result = await exchange.fetch_order_book(symbol)
+        return result
     except ccxt.BaseError as e:
         print(type(e).__name__, str(e), str(e.args))
-        raise
+        raise e
 
 
 if __name__ == "__main__":

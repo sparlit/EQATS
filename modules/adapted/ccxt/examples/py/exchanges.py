@@ -81,5 +81,7 @@ log(pink("{:<15} {:<15} {:<15}".format("id", "name", "URL")))
 tuples = list(ccxt.Exchange.keysort(exchanges).items())
 for id, _params in tuples:
     exchange = exchanges[id]
-    website = exchange.urls["www"][0] if type(exchange.urls["www"]) is list else exchange.urls["www"]
+    website = (
+        exchange.urls["www"][0] if type(exchange.urls["www"]) is list else exchange.urls["www"]
+    )
     log(f"{exchange.id:<15} {exchange.name:<15} {website:<15}")

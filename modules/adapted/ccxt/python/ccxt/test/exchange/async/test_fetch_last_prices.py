@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,10 +37,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import (
-    test_last_price,
-    test_shared_methods,
-)
+from ccxt.test.exchange.base import test_last_price  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 async def test_fetch_last_prices(exchange, skipped_properties, symbol):
@@ -53,13 +53,20 @@ async def test_fetch_last_prices(exchange, skipped_properties, symbol):
         checked_symbol = symbol
     test_shared_methods.assert_dictionary_response(exchange, method, response, checked_symbol)
     values = list(response.values())
-    test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, values, checked_symbol)
+    test_shared_methods.assert_non_emtpy_array(
+        exchange, skipped_properties, method, values, checked_symbol
+    )
     at_least_one_passed = False
-    for i in range(len(values)):
-        # TODO: symbol check here
+    for i in range(0, len(values)):
+        # todo: symbol check here
         test_last_price(exchange, skipped_properties, method, values[i], checked_symbol)
         at_least_one_passed = at_least_one_passed or (exchange.safe_number(values[i], "price") > 0)
     assert at_least_one_passed, (
-        exchange.id + " " + method + " " + checked_symbol + " at least one symbol should pass the test"
+        exchange.id
+        + " "
+        + method
+        + " "
+        + checked_symbol
+        + " at least one symbol should pass the test"
     )
     return True

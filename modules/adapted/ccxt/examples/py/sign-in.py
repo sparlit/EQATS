@@ -46,6 +46,7 @@ while True:
         datetime = exchange.iso8601(exchange.milliseconds())
         print(datetime)
         balance = exchange.fetch_balance()  # this will trigger a sign_in when needed
+        pprint(balance)
         # handle the response how you want or do other calls...
     except ccxt.AuthenticationError as e:
         error_message = str(e)

@@ -46,35 +46,41 @@ class ImplicitAPI:
     public_spot_get_currency_pairs = publicSpotGetCurrencyPairs = Entry[_List](
         "currency_pairs", ["public", "spot"], "GET", {"cost": 1}
     )
-    public_spot_get_currency_pairs_currency_pair = publicSpotGetCurrencyPairsCurrencyPair = Entry[_Dict](
-        "currency_pairs/{currency_pair}", ["public", "spot"], "GET", {"cost": 1}
+    public_spot_get_currency_pairs_currency_pair = publicSpotGetCurrencyPairsCurrencyPair = Entry[
+        _Dict
+    ]("currency_pairs/{currency_pair}", ["public", "spot"], "GET", {"cost": 1})
+    public_spot_get_tickers = publicSpotGetTickers = Entry[_List](
+        "tickers", ["public", "spot"], "GET", {"cost": 1}
     )
-    public_spot_get_tickers = publicSpotGetTickers = Entry[_List]("tickers", ["public", "spot"], "GET", {"cost": 1})
     public_spot_get_order_book = publicSpotGetOrderBook = Entry[_Dict](
         "order_book", ["public", "spot"], "GET", {"cost": 1}
     )
-    public_spot_get_trades = publicSpotGetTrades = Entry[_List]("trades", ["public", "spot"], "GET", {"cost": 1})
+    public_spot_get_trades = publicSpotGetTrades = Entry[_List](
+        "trades", ["public", "spot"], "GET", {"cost": 1}
+    )
     public_spot_get_candlesticks = publicSpotGetCandlesticks = Entry[_List](
         "candlesticks", ["public", "spot"], "GET", {"cost": 1}
     )
-    public_spot_get_time = publicSpotGetTime = Entry[_Dict]("time", ["public", "spot"], "GET", {"cost": 1})
+    public_spot_get_time = publicSpotGetTime = Entry[_Dict](
+        "time", ["public", "spot"], "GET", {"cost": 1}
+    )
     public_spot_get_insurance_history = publicSpotGetInsuranceHistory = Entry[_List](
         "insurance_history", ["public", "spot"], "GET", {"cost": 1}
     )
     public_margin_get_uni_currency_pairs = publicMarginGetUniCurrencyPairs = Entry[_List](
         "uni/currency_pairs", ["public", "margin"], "GET", {"cost": 1}
     )
-    public_margin_get_uni_currency_pairs_currency_pair = publicMarginGetUniCurrencyPairsCurrencyPair = Entry[_Dict](
-        "uni/currency_pairs/{currency_pair}", ["public", "margin"], "GET", {"cost": 1}
-    )
+    public_margin_get_uni_currency_pairs_currency_pair = (
+        publicMarginGetUniCurrencyPairsCurrencyPair
+    ) = Entry[_Dict]("uni/currency_pairs/{currency_pair}", ["public", "margin"], "GET", {"cost": 1})
     public_margin_get_loan_margin_tiers = publicMarginGetLoanMarginTiers = Entry[_List](
         "loan_margin_tiers", ["public", "margin"], "GET", {"cost": 1}
     )
     public_margin_get_currency_pairs = publicMarginGetCurrencyPairs = Entry[_List](
         "currency_pairs", ["public", "margin"], "GET", {"cost": 1}
     )
-    public_margin_get_currency_pairs_currency_pair = publicMarginGetCurrencyPairsCurrencyPair = Entry[_Dict](
-        "currency_pairs/{currency_pair}", ["public", "margin"], "GET", {"cost": 1}
+    public_margin_get_currency_pairs_currency_pair = publicMarginGetCurrencyPairsCurrencyPair = (
+        Entry[_Dict]("currency_pairs/{currency_pair}", ["public", "margin"], "GET", {"cost": 1})
     )
     public_margin_get_funding_book = publicMarginGetFundingBook = Entry[_List](
         "funding_book", ["public", "margin"], "GET", {"cost": 1}
@@ -82,9 +88,9 @@ class ImplicitAPI:
     public_margin_get_cross_currencies = publicMarginGetCrossCurrencies = Entry[_List](
         "cross/currencies", ["public", "margin"], "GET", {"cost": 1}
     )
-    public_margin_get_cross_currencies_currency = publicMarginGetCrossCurrenciesCurrency = Entry[_Dict](
-        "cross/currencies/{currency}", ["public", "margin"], "GET", {"cost": 1}
-    )
+    public_margin_get_cross_currencies_currency = publicMarginGetCrossCurrenciesCurrency = Entry[
+        _Dict
+    ]("cross/currencies/{currency}", ["public", "margin"], "GET", {"cost": 1})
     public_flash_swap_get_currency_pairs = publicFlash_swapGetCurrencyPairs = Entry[_List](
         "currency_pairs", ["public", "flash_swap"], "GET", {"cost": 1}
     )
@@ -94,9 +100,9 @@ class ImplicitAPI:
     public_futures_get_settle_contracts = publicFuturesGetSettleContracts = Entry[_List](
         "{settle}/contracts", ["public", "futures"], "GET", {"cost": 1}
     )
-    public_futures_get_settle_contracts_contract = publicFuturesGetSettleContractsContract = Entry[_Dict](
-        "{settle}/contracts/{contract}", ["public", "futures"], "GET", {"cost": 1}
-    )
+    public_futures_get_settle_contracts_contract = publicFuturesGetSettleContractsContract = Entry[
+        _Dict
+    ]("{settle}/contracts/{contract}", ["public", "futures"], "GET", {"cost": 1})
     public_futures_get_settle_order_book = publicFuturesGetSettleOrderBook = Entry[_Dict](
         "{settle}/order_book", ["public", "futures"], "GET", {"cost": 1}
     )
@@ -121,20 +127,28 @@ class ImplicitAPI:
     public_futures_get_settle_contract_stats = publicFuturesGetSettleContractStats = Entry[_List](
         "{settle}/contract_stats", ["public", "futures"], "GET", {"cost": 1}
     )
-    public_futures_get_settle_index_constituents_index = publicFuturesGetSettleIndexConstituentsIndex = Entry[_Dict](
+    public_futures_get_settle_index_constituents_index = (
+        publicFuturesGetSettleIndexConstituentsIndex
+    ) = Entry[_Dict](
         "{settle}/index_constituents/{index}", ["public", "futures"], "GET", {"cost": 1}
     )
     public_futures_get_settle_liq_orders = publicFuturesGetSettleLiqOrders = Entry[_List](
         "{settle}/liq_orders", ["public", "futures"], "GET", {"cost": 1}
     )
-    public_futures_get_settle_risk_limit_tiers = publicFuturesGetSettleRiskLimitTiers = Entry[_List](
-        "{settle}/risk_limit_tiers", ["public", "futures"], "GET", {"cost": 1}
+    public_futures_get_settle_risk_limit_tiers = publicFuturesGetSettleRiskLimitTiers = Entry[
+        _List
+    ]("{settle}/risk_limit_tiers", ["public", "futures"], "GET", {"cost": 1})
+    public_futures_get_settle_adl_risk_states = publicFuturesGetSettleAdlRiskStates = Entry[_List](
+        "{settle}/adl_risk_states", ["public", "futures"], "GET", {"cost": 1}
+    )
+    public_futures_post_settle_funding_rates = publicFuturesPostSettleFundingRates = Entry[_List](
+        "{settle}/funding_rates", ["public", "futures"], "POST", {"cost": 1}
     )
     public_delivery_get_settle_contracts = publicDeliveryGetSettleContracts = Entry[_List](
         "{settle}/contracts", ["public", "delivery"], "GET", {"cost": 1}
     )
-    public_delivery_get_settle_contracts_contract = publicDeliveryGetSettleContractsContract = Entry[_Dict](
-        "{settle}/contracts/{contract}", ["public", "delivery"], "GET", {"cost": 1}
+    public_delivery_get_settle_contracts_contract = publicDeliveryGetSettleContractsContract = (
+        Entry[_Dict]("{settle}/contracts/{contract}", ["public", "delivery"], "GET", {"cost": 1})
     )
     public_delivery_get_settle_order_book = publicDeliveryGetSettleOrderBook = Entry[_Dict](
         "{settle}/order_book", ["public", "delivery"], "GET", {"cost": 1}
@@ -151,9 +165,9 @@ class ImplicitAPI:
     public_delivery_get_settle_insurance = publicDeliveryGetSettleInsurance = Entry[_List](
         "{settle}/insurance", ["public", "delivery"], "GET", {"cost": 1}
     )
-    public_delivery_get_settle_risk_limit_tiers = publicDeliveryGetSettleRiskLimitTiers = Entry[_List](
-        "{settle}/risk_limit_tiers", ["public", "delivery"], "GET", {"cost": 1}
-    )
+    public_delivery_get_settle_risk_limit_tiers = publicDeliveryGetSettleRiskLimitTiers = Entry[
+        _List
+    ]("{settle}/risk_limit_tiers", ["public", "delivery"], "GET", {"cost": 1})
     public_options_get_underlyings = publicOptionsGetUnderlyings = Entry[_List](
         "underlyings", ["public", "options"], "GET", {"cost": 1}
     )
@@ -178,15 +192,15 @@ class ImplicitAPI:
     public_options_get_tickers = publicOptionsGetTickers = Entry[_List](
         "tickers", ["public", "options"], "GET", {"cost": 1}
     )
-    public_options_get_underlying_tickers_underlying = publicOptionsGetUnderlyingTickersUnderlying = Entry[_Dict](
-        "underlying/tickers/{underlying}", ["public", "options"], "GET", {"cost": 1}
-    )
+    public_options_get_underlying_tickers_underlying = (
+        publicOptionsGetUnderlyingTickersUnderlying
+    ) = Entry[_Dict]("underlying/tickers/{underlying}", ["public", "options"], "GET", {"cost": 1})
     public_options_get_candlesticks = publicOptionsGetCandlesticks = Entry[_List](
         "candlesticks", ["public", "options"], "GET", {"cost": 1}
     )
-    public_options_get_underlying_candlesticks = publicOptionsGetUnderlyingCandlesticks = Entry[_List](
-        "underlying/candlesticks", ["public", "options"], "GET", {"cost": 1}
-    )
+    public_options_get_underlying_candlesticks = publicOptionsGetUnderlyingCandlesticks = Entry[
+        _List
+    ]("underlying/candlesticks", ["public", "options"], "GET", {"cost": 1})
     public_options_get_trades = publicOptionsGetTrades = Entry[_List](
         "trades", ["public", "options"], "GET", {"cost": 1}
     )
@@ -202,30 +216,41 @@ class ImplicitAPI:
     public_earn_get_structured_products = publicEarnGetStructuredProducts = Entry[_List](
         "structured/products", ["public", "earn"], "GET", {"cost": 1}
     )
+    public_earn_get_dual_project_recommend = publicEarnGetDualProjectRecommend = Entry[_List](
+        "dual/project-recommend", ["public", "earn"], "GET", {"cost": 1}
+    )
+    public_earn_get_fixed_term_product = publicEarnGetFixedTermProduct = Entry[_List](
+        "fixed-term/product", ["public", "earn"], "GET", {"cost": 1}
+    )
+    public_earn_get_fixed_term_product_asset_list = publicEarnGetFixedTermProductAssetList = Entry[
+        _List
+    ]("fixed-term/product/{asset}/list", ["public", "earn"], "GET", {"cost": 1})
     public_loan_get_collateral_currencies = publicLoanGetCollateralCurrencies = Entry[_List](
         "collateral/currencies", ["public", "loan"], "GET", {"cost": 1}
     )
-    public_loan_get_multi_collateral_currencies = publicLoanGetMultiCollateralCurrencies = Entry[_Dict](
-        "multi_collateral/currencies", ["public", "loan"], "GET", {"cost": 1}
-    )
+    public_loan_get_multi_collateral_currencies = publicLoanGetMultiCollateralCurrencies = Entry[
+        _Dict
+    ]("multi_collateral/currencies", ["public", "loan"], "GET", {"cost": 1})
     public_loan_get_multi_collateral_ltv = publicLoanGetMultiCollateralLtv = Entry[_Dict](
         "multi_collateral/ltv", ["public", "loan"], "GET", {"cost": 1}
     )
-    public_loan_get_multi_collateral_fixed_rate = publicLoanGetMultiCollateralFixedRate = Entry[_List](
-        "multi_collateral/fixed_rate", ["public", "loan"], "GET", {"cost": 1}
-    )
-    public_loan_get_multi_collateral_current_rate = publicLoanGetMultiCollateralCurrentRate = Entry[_List](
-        "multi_collateral/current_rate", ["public", "loan"], "GET", {"cost": 1}
-    )
+    public_loan_get_multi_collateral_fixed_rate = publicLoanGetMultiCollateralFixedRate = Entry[
+        _List
+    ]("multi_collateral/fixed_rate", ["public", "loan"], "GET", {"cost": 1})
+    public_loan_get_multi_collateral_current_rate = publicLoanGetMultiCollateralCurrentRate = Entry[
+        _List
+    ]("multi_collateral/current_rate", ["public", "loan"], "GET", {"cost": 1})
     private_withdrawals_post_withdrawals = privateWithdrawalsPostWithdrawals = Entry[_Dict](
         "withdrawals", ["private", "withdrawals"], "POST", {"cost": 20}
     )
     private_withdrawals_post_push = privateWithdrawalsPostPush = Entry[_Dict](
         "push", ["private", "withdrawals"], "POST", {"cost": 1}
     )
-    private_withdrawals_delete_withdrawals_withdrawal_id = privateWithdrawalsDeleteWithdrawalsWithdrawalId = Entry[
-        _Dict
-    ]("withdrawals/{withdrawal_id}", ["private", "withdrawals"], "DELETE", {"cost": 1})
+    private_withdrawals_delete_withdrawals_withdrawal_id = (
+        privateWithdrawalsDeleteWithdrawalsWithdrawalId
+    ) = Entry[_Dict](
+        "withdrawals/{withdrawal_id}", ["private", "withdrawals"], "DELETE", {"cost": 1}
+    )
     private_wallet_get_deposit_address = privateWalletGetDepositAddress = Entry[_Dict](
         "deposit_address", ["private", "wallet"], "GET", {"cost": 1}
     )
@@ -247,19 +272,23 @@ class ImplicitAPI:
     private_wallet_get_sub_account_balances = privateWalletGetSubAccountBalances = Entry[_List](
         "sub_account_balances", ["private", "wallet"], "GET", {"cost": 2.5}
     )
-    private_wallet_get_sub_account_margin_balances = privateWalletGetSubAccountMarginBalances = Entry[_List](
-        "sub_account_margin_balances", ["private", "wallet"], "GET", {"cost": 2.5}
+    private_wallet_get_sub_account_margin_balances = privateWalletGetSubAccountMarginBalances = (
+        Entry[_List]("sub_account_margin_balances", ["private", "wallet"], "GET", {"cost": 2.5})
     )
-    private_wallet_get_sub_account_futures_balances = privateWalletGetSubAccountFuturesBalances = Entry[_List](
-        "sub_account_futures_balances", ["private", "wallet"], "GET", {"cost": 2.5}
+    private_wallet_get_sub_account_futures_balances = privateWalletGetSubAccountFuturesBalances = (
+        Entry[_List]("sub_account_futures_balances", ["private", "wallet"], "GET", {"cost": 2.5})
     )
-    private_wallet_get_sub_account_cross_margin_balances = privateWalletGetSubAccountCrossMarginBalances = Entry[_List](
+    private_wallet_get_sub_account_cross_margin_balances = (
+        privateWalletGetSubAccountCrossMarginBalances
+    ) = Entry[_List](
         "sub_account_cross_margin_balances", ["private", "wallet"], "GET", {"cost": 2.5}
     )
     private_wallet_get_saved_address = privateWalletGetSavedAddress = Entry[_List](
         "saved_address", ["private", "wallet"], "GET", {"cost": 1}
     )
-    private_wallet_get_fee = privateWalletGetFee = Entry[_Dict]("fee", ["private", "wallet"], "GET", {"cost": 1})
+    private_wallet_get_fee = privateWalletGetFee = Entry[_Dict](
+        "fee", ["private", "wallet"], "GET", {"cost": 1}
+    )
     private_wallet_get_total_balance = privateWalletGetTotalBalance = Entry[_Dict](
         "total_balance", ["private", "wallet"], "GET", {"cost": 2.5}
     )
@@ -269,9 +298,14 @@ class ImplicitAPI:
     private_wallet_get_small_balance_history = privateWalletGetSmallBalanceHistory = Entry[_List](
         "small_balance_history", ["private", "wallet"], "GET", {"cost": 1}
     )
-    private_wallet_get_push = privateWalletGetPush = Entry[_List]("push", ["private", "wallet"], "GET", {"cost": 1})
+    private_wallet_get_push = privateWalletGetPush = Entry[_List](
+        "push", ["private", "wallet"], "GET", {"cost": 1}
+    )
     private_wallet_get_getlowcapexchangelist = privateWalletGetGetLowCapExchangeList = Entry[_List](
         "getLowCapExchangeList", ["private", "wallet"], "GET", {"cost": 1}
+    )
+    private_wallet_get_transfers = privateWalletGetTransfers = Entry[_Dict](
+        "transfers", ["private", "wallet"], "GET", {"cost": 1}
     )
     private_wallet_post_transfers = privateWalletPostTransfers = Entry[_Dict](
         "transfers", ["private", "wallet"], "POST", {"cost": 2.5}
@@ -279,8 +313,8 @@ class ImplicitAPI:
     private_wallet_post_sub_account_transfers = privateWalletPostSubAccountTransfers = Entry[_Dict](
         "sub_account_transfers", ["private", "wallet"], "POST", {"cost": 2.5}
     )
-    private_wallet_post_sub_account_to_sub_account = privateWalletPostSubAccountToSubAccount = Entry[_Dict](
-        "sub_account_to_sub_account", ["private", "wallet"], "POST", {"cost": 2.5}
+    private_wallet_post_sub_account_to_sub_account = privateWalletPostSubAccountToSubAccount = (
+        Entry[_Dict]("sub_account_to_sub_account", ["private", "wallet"], "POST", {"cost": 2.5})
     )
     private_wallet_post_small_balance = privateWalletPostSmallBalance = Entry[_Dict](
         "small_balance", ["private", "wallet"], "POST", {"cost": 1}
@@ -288,33 +322,47 @@ class ImplicitAPI:
     private_subaccounts_get_sub_accounts = privateSubAccountsGetSubAccounts = Entry[_List](
         "sub_accounts", ["private", "subAccounts"], "GET", {"cost": 2.5}
     )
-    private_subaccounts_get_sub_accounts_user_id = privateSubAccountsGetSubAccountsUserId = Entry[_Dict](
-        "sub_accounts/{user_id}", ["private", "subAccounts"], "GET", {"cost": 2.5}
-    )
-    private_subaccounts_get_sub_accounts_user_id_keys = privateSubAccountsGetSubAccountsUserIdKeys = Entry[_List](
+    private_subaccounts_get_sub_accounts_user_id = privateSubAccountsGetSubAccountsUserId = Entry[
+        _Dict
+    ]("sub_accounts/{user_id}", ["private", "subAccounts"], "GET", {"cost": 2.5})
+    private_subaccounts_get_sub_accounts_user_id_keys = (
+        privateSubAccountsGetSubAccountsUserIdKeys
+    ) = Entry[_List](
         "sub_accounts/{user_id}/keys", ["private", "subAccounts"], "GET", {"cost": 2.5}
     )
-    private_subaccounts_get_sub_accounts_user_id_keys_key = privateSubAccountsGetSubAccountsUserIdKeysKey = Entry[
-        _Dict
-    ]("sub_accounts/{user_id}/keys/{key}", ["private", "subAccounts"], "GET", {"cost": 2.5})
+    private_subaccounts_get_sub_accounts_user_id_keys_key = (
+        privateSubAccountsGetSubAccountsUserIdKeysKey
+    ) = Entry[_Dict](
+        "sub_accounts/{user_id}/keys/{key}", ["private", "subAccounts"], "GET", {"cost": 2.5}
+    )
     private_subaccounts_post_sub_accounts = privateSubAccountsPostSubAccounts = Entry[_Dict](
         "sub_accounts", ["private", "subAccounts"], "POST", {"cost": 2.5}
     )
-    private_subaccounts_post_sub_accounts_user_id_keys = privateSubAccountsPostSubAccountsUserIdKeys = Entry[_Dict](
+    private_subaccounts_post_sub_accounts_user_id_keys = (
+        privateSubAccountsPostSubAccountsUserIdKeys
+    ) = Entry[_Dict](
         "sub_accounts/{user_id}/keys", ["private", "subAccounts"], "POST", {"cost": 2.5}
     )
-    private_subaccounts_post_sub_accounts_user_id_lock = privateSubAccountsPostSubAccountsUserIdLock = Entry[_Dict](
+    private_subaccounts_post_sub_accounts_user_id_lock = (
+        privateSubAccountsPostSubAccountsUserIdLock
+    ) = Entry[_Dict](
         "sub_accounts/{user_id}/lock", ["private", "subAccounts"], "POST", {"cost": 2.5}
     )
-    private_subaccounts_post_sub_accounts_user_id_unlock = privateSubAccountsPostSubAccountsUserIdUnlock = Entry[_Dict](
+    private_subaccounts_post_sub_accounts_user_id_unlock = (
+        privateSubAccountsPostSubAccountsUserIdUnlock
+    ) = Entry[_Dict](
         "sub_accounts/{user_id}/unlock", ["private", "subAccounts"], "POST", {"cost": 2.5}
     )
-    private_subaccounts_put_sub_accounts_user_id_keys_key = privateSubAccountsPutSubAccountsUserIdKeysKey = Entry[
-        _Dict
-    ]("sub_accounts/{user_id}/keys/{key}", ["private", "subAccounts"], "PUT", {"cost": 2.5})
-    private_subaccounts_delete_sub_accounts_user_id_keys_key = privateSubAccountsDeleteSubAccountsUserIdKeysKey = Entry[
-        _Dict
-    ]("sub_accounts/{user_id}/keys/{key}", ["private", "subAccounts"], "DELETE", {"cost": 2.5})
+    private_subaccounts_put_sub_accounts_user_id_keys_key = (
+        privateSubAccountsPutSubAccountsUserIdKeysKey
+    ) = Entry[_Dict](
+        "sub_accounts/{user_id}/keys/{key}", ["private", "subAccounts"], "PUT", {"cost": 2.5}
+    )
+    private_subaccounts_delete_sub_accounts_user_id_keys_key = (
+        privateSubAccountsDeleteSubAccountsUserIdKeysKey
+    ) = Entry[_Dict](
+        "sub_accounts/{user_id}/keys/{key}", ["private", "subAccounts"], "DELETE", {"cost": 2.5}
+    )
     private_unified_get_accounts = privateUnifiedGetAccounts = Entry[_Dict](
         "accounts", ["private", "unified"], "GET", {"cost": 1.3333333333333333}
     )
@@ -348,17 +396,32 @@ class ImplicitAPI:
     private_unified_get_estimate_rate = privateUnifiedGetEstimateRate = Entry[_Dict](
         "estimate_rate", ["private", "unified"], "GET", {"cost": 1.3333333333333333}
     )
-    private_unified_get_currency_discount_tiers = privateUnifiedGetCurrencyDiscountTiers = Entry[_List](
-        "currency_discount_tiers", ["private", "unified"], "GET", {"cost": 1.3333333333333333}
-    )
+    private_unified_get_currency_discount_tiers = privateUnifiedGetCurrencyDiscountTiers = Entry[
+        _List
+    ]("currency_discount_tiers", ["private", "unified"], "GET", {"cost": 1.3333333333333333})
     private_unified_get_loan_margin_tiers = privateUnifiedGetLoanMarginTiers = Entry[_List](
         "loan_margin_tiers", ["private", "unified"], "GET", {"cost": 1.3333333333333333}
     )
-    private_unified_get_leverage_user_currency_config = privateUnifiedGetLeverageUserCurrencyConfig = Entry[_Dict](
+    private_unified_get_leverage_user_currency_config = (
+        privateUnifiedGetLeverageUserCurrencyConfig
+    ) = Entry[_Dict](
         "leverage/user_currency_config", ["private", "unified"], "GET", {"cost": 1.3333333333333333}
     )
-    private_unified_get_leverage_user_currency_setting = privateUnifiedGetLeverageUserCurrencySetting = Entry[_List](
-        "leverage/user_currency_setting", ["private", "unified"], "GET", {"cost": 1.3333333333333333}
+    private_unified_get_leverage_user_currency_setting = (
+        privateUnifiedGetLeverageUserCurrencySetting
+    ) = Entry[_List](
+        "leverage/user_currency_setting",
+        ["private", "unified"],
+        "GET",
+        {"cost": 1.3333333333333333},
+    )
+    private_unified_get_delta_neutral = privateUnifiedGetDeltaNeutral = Entry[_Dict](
+        "delta_neutral", ["private", "unified"], "GET", {"cost": 1.3333333333333333}
+    )
+    private_unified_get_estimated_quick_repayment = privateUnifiedGetEstimatedQuickRepayment = (
+        Entry[_Dict](
+            "estimated_quick_repayment", ["private", "unified"], "GET", {"cost": 1.3333333333333333}
+        )
     )
     private_unified_get_account_mode = privateUnifiedGetAccountMode = Entry[_Dict](
         "account_mode", ["private", "unified"], "GET", {"cost": 1.3333333333333333}
@@ -366,14 +429,28 @@ class ImplicitAPI:
     private_unified_post_loans = privateUnifiedPostLoans = Entry[_Dict](
         "loans", ["private", "unified"], "POST", {"cost": 13.333333333333334}
     )
-    private_unified_post_portfolio_calculator = privateUnifiedPostPortfolioCalculator = Entry[_Dict](
-        "portfolio_calculator", ["private", "unified"], "POST", {"cost": 1.3333333333333333}
+    private_unified_post_portfolio_calculator = privateUnifiedPostPortfolioCalculator = Entry[
+        _Dict
+    ]("portfolio_calculator", ["private", "unified"], "POST", {"cost": 1.3333333333333333})
+    private_unified_post_leverage_user_currency_setting = (
+        privateUnifiedPostLeverageUserCurrencySetting
+    ) = Entry[_List](
+        "leverage/user_currency_setting",
+        ["private", "unified"],
+        "POST",
+        {"cost": 1.3333333333333333},
     )
-    private_unified_post_leverage_user_currency_setting = privateUnifiedPostLeverageUserCurrencySetting = Entry[_List](
-        "leverage/user_currency_setting", ["private", "unified"], "POST", {"cost": 1.3333333333333333}
+    private_unified_post_collateral_currencies = privateUnifiedPostCollateralCurrencies = Entry[
+        _Dict
+    ]("collateral_currencies", ["private", "unified"], "POST", {"cost": 1.3333333333333333})
+    private_unified_post_delta_neutral = privateUnifiedPostDeltaNeutral = Entry[_Dict](
+        "delta_neutral", ["private", "unified"], "POST", {"cost": 1.3333333333333333}
     )
-    private_unified_post_collateral_currencies = privateUnifiedPostCollateralCurrencies = Entry[_Dict](
-        "collateral_currencies", ["private", "unified"], "POST", {"cost": 1.3333333333333333}
+    private_unified_post_leverage_user_setting = privateUnifiedPostLeverageUserSetting = Entry[
+        _Dict
+    ]("leverage/user_setting", ["private", "unified"], "POST", {"cost": 1.3333333333333333})
+    private_unified_post_quick_repayment = privateUnifiedPostQuickRepayment = Entry[_Dict](
+        "quick_repayment", ["private", "unified"], "POST", {"cost": 1.3333333333333333}
     )
     private_unified_post_account_mode = privateUnifiedPostAccountMode = Entry[_Dict](
         "account_mode", ["private", "unified"], "POST", {"cost": 1.3333333333333333}
@@ -381,7 +458,9 @@ class ImplicitAPI:
     private_unified_put_unified_mode = privateUnifiedPutUnifiedMode = Entry[_Dict](
         "unified_mode", ["private", "unified"], "PUT", {"cost": 1.3333333333333333}
     )
-    private_spot_get_fee = privateSpotGetFee = Entry[_Dict]("fee", ["private", "spot"], "GET", {"cost": 1})
+    private_spot_get_fee = privateSpotGetFee = Entry[_Dict](
+        "fee", ["private", "spot"], "GET", {"cost": 1}
+    )
     private_spot_get_batch_fee = privateSpotGetBatchFee = Entry[_Dict](
         "batch_fee", ["private", "spot"], "GET", {"cost": 1}
     )
@@ -394,7 +473,9 @@ class ImplicitAPI:
     private_spot_get_open_orders = privateSpotGetOpenOrders = Entry[_List](
         "open_orders", ["private", "spot"], "GET", {"cost": 1}
     )
-    private_spot_get_orders = privateSpotGetOrders = Entry[_List]("orders", ["private", "spot"], "GET", {"cost": 1})
+    private_spot_get_orders = privateSpotGetOrders = Entry[_List](
+        "orders", ["private", "spot"], "GET", {"cost": 1}
+    )
     private_spot_get_orders_order_id = privateSpotGetOrdersOrderId = Entry[_Dict](
         "orders/{order_id}", ["private", "spot"], "GET", {"cost": 1}
     )
@@ -406,6 +487,12 @@ class ImplicitAPI:
     )
     private_spot_get_price_orders_order_id = privateSpotGetPriceOrdersOrderId = Entry[_Dict](
         "price_orders/{order_id}", ["private", "spot"], "GET", {"cost": 1}
+    )
+    private_spot_get_pov_orders = privateSpotGetPovOrders = Entry[_List](
+        "pov_orders", ["private", "spot"], "GET", {"cost": 1}
+    )
+    private_spot_get_pov_orders_order_id = privateSpotGetPovOrdersOrderId = Entry[_Dict](
+        "pov_orders/{order_id}", ["private", "spot"], "GET", {"cost": 1}
     )
     private_spot_post_batch_orders = privateSpotPostBatchOrders = Entry[_List](
         "batch_orders", ["private", "spot"], "POST", {"cost": 0.4}
@@ -428,6 +515,9 @@ class ImplicitAPI:
     private_spot_post_price_orders = privateSpotPostPriceOrders = Entry[_Dict](
         "price_orders", ["private", "spot"], "POST", {"cost": 0.4}
     )
+    private_spot_post_pov_orders = privateSpotPostPovOrders = Entry[_Dict](
+        "pov_orders", ["private", "spot"], "POST", {"cost": 0.4}
+    )
     private_spot_delete_orders = privateSpotDeleteOrders = Entry[_List](
         "orders", ["private", "spot"], "DELETE", {"cost": 0.26666666666666666}
     )
@@ -439,6 +529,12 @@ class ImplicitAPI:
     )
     private_spot_delete_price_orders_order_id = privateSpotDeletePriceOrdersOrderId = Entry[_Dict](
         "price_orders/{order_id}", ["private", "spot"], "DELETE", {"cost": 0.26666666666666666}
+    )
+    private_spot_delete_pov_orders = privateSpotDeletePovOrders = Entry[_List](
+        "pov_orders", ["private", "spot"], "DELETE", {"cost": 0.26666666666666666}
+    )
+    private_spot_delete_pov_orders_order_id = privateSpotDeletePovOrdersOrderId = Entry[_Dict](
+        "pov_orders/{order_id}", ["private", "spot"], "DELETE", {"cost": 0.26666666666666666}
     )
     private_spot_patch_orders_order_id = privateSpotPatchOrdersOrderId = Entry[_Dict](
         "orders/{order_id}", ["private", "spot"], "PATCH", {"cost": 0.4}
@@ -485,14 +581,19 @@ class ImplicitAPI:
     private_margin_get_loans_loan_id = privateMarginGetLoansLoanId = Entry[_Dict](
         "loans/{loan_id}", ["private", "margin"], "GET", {"cost": 1.3333333333333333}
     )
-    private_margin_get_loans_loan_id_repayment = privateMarginGetLoansLoanIdRepayment = Entry[_List](
-        "loans/{loan_id}/repayment", ["private", "margin"], "GET", {"cost": 1.3333333333333333}
-    )
+    private_margin_get_loans_loan_id_repayment = privateMarginGetLoansLoanIdRepayment = Entry[
+        _List
+    ]("loans/{loan_id}/repayment", ["private", "margin"], "GET", {"cost": 1.3333333333333333})
     private_margin_get_loan_records = privateMarginGetLoanRecords = Entry[_List](
         "loan_records", ["private", "margin"], "GET", {"cost": 1.3333333333333333}
     )
-    private_margin_get_loan_records_loan_record_id = privateMarginGetLoanRecordsLoanRecordId = Entry[_Dict](
-        "loan_records/{loan_record_id}", ["private", "margin"], "GET", {"cost": 1.3333333333333333}
+    private_margin_get_loan_records_loan_record_id = privateMarginGetLoanRecordsLoanRecordId = (
+        Entry[_Dict](
+            "loan_records/{loan_record_id}",
+            ["private", "margin"],
+            "GET",
+            {"cost": 1.3333333333333333},
+        )
     )
     private_margin_get_borrowable = privateMarginGetBorrowable = Entry[_Dict](
         "borrowable", ["private", "margin"], "GET", {"cost": 1.3333333333333333}
@@ -530,7 +631,9 @@ class ImplicitAPI:
     private_margin_post_uni_loans = privateMarginPostUniLoans = Entry[_Dict](
         "uni/loans", ["private", "margin"], "POST", {"cost": 1.3333333333333333}
     )
-    private_margin_post_leverage_user_market_setting = privateMarginPostLeverageUserMarketSetting = Entry[_List](
+    private_margin_post_leverage_user_market_setting = (
+        privateMarginPostLeverageUserMarketSetting
+    ) = Entry[_List](
         "leverage/user_market_setting", ["private", "margin"], "POST", {"cost": 1.3333333333333333}
     )
     private_margin_post_loans = privateMarginPostLoans = Entry[_Dict](
@@ -539,9 +642,9 @@ class ImplicitAPI:
     private_margin_post_merged_loans = privateMarginPostMergedLoans = Entry[_Dict](
         "merged_loans", ["private", "margin"], "POST", {"cost": 1.3333333333333333}
     )
-    private_margin_post_loans_loan_id_repayment = privateMarginPostLoansLoanIdRepayment = Entry[_Dict](
-        "loans/{loan_id}/repayment", ["private", "margin"], "POST", {"cost": 1.3333333333333333}
-    )
+    private_margin_post_loans_loan_id_repayment = privateMarginPostLoansLoanIdRepayment = Entry[
+        _Dict
+    ]("loans/{loan_id}/repayment", ["private", "margin"], "POST", {"cost": 1.3333333333333333})
     private_margin_post_cross_loans = privateMarginPostCrossLoans = Entry[_Dict](
         "cross/loans", ["private", "margin"], "POST", {"cost": 1.3333333333333333}
     )
@@ -551,8 +654,13 @@ class ImplicitAPI:
     private_margin_patch_loans_loan_id = privateMarginPatchLoansLoanId = Entry[_Dict](
         "loans/{loan_id}", ["private", "margin"], "PATCH", {"cost": 1.3333333333333333}
     )
-    private_margin_patch_loan_records_loan_record_id = privateMarginPatchLoanRecordsLoanRecordId = Entry[_Dict](
-        "loan_records/{loan_record_id}", ["private", "margin"], "PATCH", {"cost": 1.3333333333333333}
+    private_margin_patch_loan_records_loan_record_id = privateMarginPatchLoanRecordsLoanRecordId = (
+        Entry[_Dict](
+            "loan_records/{loan_record_id}",
+            ["private", "margin"],
+            "PATCH",
+            {"cost": 1.3333333333333333},
+        )
     )
     private_margin_delete_loans_loan_id = privateMarginDeleteLoansLoanId = Entry[_Dict](
         "loans/{loan_id}", ["private", "margin"], "DELETE", {"cost": 1.3333333333333333}
@@ -578,29 +686,31 @@ class ImplicitAPI:
     private_futures_get_settle_positions = privateFuturesGetSettlePositions = Entry[_List](
         "{settle}/positions", ["private", "futures"], "GET", {"cost": 1}
     )
-    private_futures_get_settle_positions_contract = privateFuturesGetSettlePositionsContract = Entry[_Dict](
-        "{settle}/positions/{contract}", ["private", "futures"], "GET", {"cost": 1}
+    private_futures_get_settle_positions_contract = privateFuturesGetSettlePositionsContract = (
+        Entry[_Dict]("{settle}/positions/{contract}", ["private", "futures"], "GET", {"cost": 1})
     )
-    private_futures_get_settle_get_leverage_contract = privateFuturesGetSettleGetLeverageContract = Entry[_Dict](
-        "{settle}/get_leverage/{contract}", ["private", "futures"], "GET", {"cost": 1}
+    private_futures_get_settle_get_leverage_contract = (
+        privateFuturesGetSettleGetLeverageContract
+    ) = Entry[_Dict]("{settle}/get_leverage/{contract}", ["private", "futures"], "GET", {"cost": 1})
+    private_futures_get_settle_dual_comp_positions_contract = (
+        privateFuturesGetSettleDualCompPositionsContract
+    ) = Entry[_List](
+        "{settle}/dual_comp/positions/{contract}", ["private", "futures"], "GET", {"cost": 1}
     )
-    private_futures_get_settle_dual_comp_positions_contract = privateFuturesGetSettleDualCompPositionsContract = Entry[
-        _List
-    ]("{settle}/dual_comp/positions/{contract}", ["private", "futures"], "GET", {"cost": 1})
     private_futures_get_settle_orders = privateFuturesGetSettleOrders = Entry[_List](
         "{settle}/orders", ["private", "futures"], "GET", {"cost": 1}
     )
-    private_futures_get_settle_orders_timerange = privateFuturesGetSettleOrdersTimerange = Entry[_List](
-        "{settle}/orders_timerange", ["private", "futures"], "GET", {"cost": 1}
-    )
-    private_futures_get_settle_orders_order_id = privateFuturesGetSettleOrdersOrderId = Entry[_Dict](
-        "{settle}/orders/{order_id}", ["private", "futures"], "GET", {"cost": 1}
-    )
+    private_futures_get_settle_orders_timerange = privateFuturesGetSettleOrdersTimerange = Entry[
+        _List
+    ]("{settle}/orders_timerange", ["private", "futures"], "GET", {"cost": 1})
+    private_futures_get_settle_orders_order_id = privateFuturesGetSettleOrdersOrderId = Entry[
+        _Dict
+    ]("{settle}/orders/{order_id}", ["private", "futures"], "GET", {"cost": 1})
     private_futures_get_settle_my_trades = privateFuturesGetSettleMyTrades = Entry[_List](
         "{settle}/my_trades", ["private", "futures"], "GET", {"cost": 1}
     )
-    private_futures_get_settle_my_trades_timerange = privateFuturesGetSettleMyTradesTimerange = Entry[_List](
-        "{settle}/my_trades_timerange", ["private", "futures"], "GET", {"cost": 1}
+    private_futures_get_settle_my_trades_timerange = privateFuturesGetSettleMyTradesTimerange = (
+        Entry[_List]("{settle}/my_trades_timerange", ["private", "futures"], "GET", {"cost": 1})
     )
     private_futures_get_settle_position_close = privateFuturesGetSettlePositionClose = Entry[_List](
         "{settle}/position_close", ["private", "futures"], "GET", {"cost": 1}
@@ -608,68 +718,114 @@ class ImplicitAPI:
     private_futures_get_settle_liquidates = privateFuturesGetSettleLiquidates = Entry[_List](
         "{settle}/liquidates", ["private", "futures"], "GET", {"cost": 1}
     )
-    private_futures_get_settle_auto_deleverages = privateFuturesGetSettleAutoDeleverages = Entry[_List](
-        "{settle}/auto_deleverages", ["private", "futures"], "GET", {"cost": 1}
-    )
+    private_futures_get_settle_auto_deleverages = privateFuturesGetSettleAutoDeleverages = Entry[
+        _List
+    ]("{settle}/auto_deleverages", ["private", "futures"], "GET", {"cost": 1})
     private_futures_get_settle_fee = privateFuturesGetSettleFee = Entry[_Dict](
         "{settle}/fee", ["private", "futures"], "GET", {"cost": 1}
     )
-    private_futures_get_settle_risk_limit_table = privateFuturesGetSettleRiskLimitTable = Entry[_List](
-        "{settle}/risk_limit_table", ["private", "futures"], "GET", {"cost": 1}
-    )
+    private_futures_get_settle_risk_limit_table = privateFuturesGetSettleRiskLimitTable = Entry[
+        _List
+    ]("{settle}/risk_limit_table", ["private", "futures"], "GET", {"cost": 1})
     private_futures_get_settle_price_orders = privateFuturesGetSettlePriceOrders = Entry[_List](
         "{settle}/price_orders", ["private", "futures"], "GET", {"cost": 1}
     )
-    private_futures_get_settle_price_orders_order_id = privateFuturesGetSettlePriceOrdersOrderId = Entry[_Dict](
-        "{settle}/price_orders/{order_id}", ["private", "futures"], "GET", {"cost": 1}
+    private_futures_get_settle_price_orders_order_id = privateFuturesGetSettlePriceOrdersOrderId = (
+        Entry[_Dict]("{settle}/price_orders/{order_id}", ["private", "futures"], "GET", {"cost": 1})
     )
-    private_futures_post_settle_positions_contract_margin = privateFuturesPostSettlePositionsContractMargin = Entry[
-        _Dict
-    ]("{settle}/positions/{contract}/margin", ["private", "futures"], "POST", {"cost": 1})
-    private_futures_post_settle_positions_contract_leverage = privateFuturesPostSettlePositionsContractLeverage = Entry[
-        _Dict
-    ]("{settle}/positions/{contract}/leverage", ["private", "futures"], "POST", {"cost": 1})
+    private_futures_get_settle_autoorder_v1_trail_list = (
+        privateFuturesGetSettleAutoorderV1TrailList
+    ) = Entry[_List]("{settle}/autoorder/v1/trail/list", ["private", "futures"], "GET", {"cost": 1})
+    private_futures_get_settle_autoorder_v1_trail_detail = (
+        privateFuturesGetSettleAutoorderV1TrailDetail
+    ) = Entry[_Dict](
+        "{settle}/autoorder/v1/trail/detail", ["private", "futures"], "GET", {"cost": 1}
+    )
+    private_futures_get_settle_autoorder_v1_trail_change_log = (
+        privateFuturesGetSettleAutoorderV1TrailChangeLog
+    ) = Entry[_List](
+        "{settle}/autoorder/v1/trail/change_log", ["private", "futures"], "GET", {"cost": 1}
+    )
+    private_futures_get_settle_autoorder_v1_chase_list = (
+        privateFuturesGetSettleAutoorderV1ChaseList
+    ) = Entry[_List]("{settle}/autoorder/v1/chase/list", ["private", "futures"], "GET", {"cost": 1})
+    private_futures_get_settle_autoorder_v1_chase_detail = (
+        privateFuturesGetSettleAutoorderV1ChaseDetail
+    ) = Entry[_Dict](
+        "{settle}/autoorder/v1/chase/detail", ["private", "futures"], "GET", {"cost": 1}
+    )
+    private_futures_post_settle_positions_contract_margin = (
+        privateFuturesPostSettlePositionsContractMargin
+    ) = Entry[_Dict](
+        "{settle}/positions/{contract}/margin", ["private", "futures"], "POST", {"cost": 1}
+    )
+    private_futures_post_settle_positions_contract_leverage = (
+        privateFuturesPostSettlePositionsContractLeverage
+    ) = Entry[_Dict](
+        "{settle}/positions/{contract}/leverage", ["private", "futures"], "POST", {"cost": 1}
+    )
     private_futures_post_settle_positions_contract_set_leverage = (
         privateFuturesPostSettlePositionsContractSetLeverage
-    ) = Entry[_Dict]("{settle}/positions/{contract}/set_leverage", ["private", "futures"], "POST", {"cost": 1})
-    private_futures_post_settle_positions_contract_risk_limit = privateFuturesPostSettlePositionsContractRiskLimit = (
-        Entry[_Dict]("{settle}/positions/{contract}/risk_limit", ["private", "futures"], "POST", {"cost": 1})
+    ) = Entry[_Dict](
+        "{settle}/positions/{contract}/set_leverage", ["private", "futures"], "POST", {"cost": 1}
     )
-    private_futures_post_settle_positions_cross_mode = privateFuturesPostSettlePositionsCrossMode = Entry[_Dict](
-        "{settle}/positions/cross_mode", ["private", "futures"], "POST", {"cost": 1}
+    private_futures_post_settle_positions_contract_risk_limit = (
+        privateFuturesPostSettlePositionsContractRiskLimit
+    ) = Entry[_Dict](
+        "{settle}/positions/{contract}/risk_limit", ["private", "futures"], "POST", {"cost": 1}
     )
-    private_futures_post_settle_dual_comp_positions_cross_mode = privateFuturesPostSettleDualCompPositionsCrossMode = (
-        Entry[_List]("{settle}/dual_comp/positions/cross_mode", ["private", "futures"], "POST", {"cost": 1})
+    private_futures_post_settle_positions_cross_mode = (
+        privateFuturesPostSettlePositionsCrossMode
+    ) = Entry[_Dict]("{settle}/positions/cross_mode", ["private", "futures"], "POST", {"cost": 1})
+    private_futures_post_settle_dual_comp_positions_cross_mode = (
+        privateFuturesPostSettleDualCompPositionsCrossMode
+    ) = Entry[_List](
+        "{settle}/dual_comp/positions/cross_mode", ["private", "futures"], "POST", {"cost": 1}
     )
     private_futures_post_settle_dual_mode = privateFuturesPostSettleDualMode = Entry[_Dict](
         "{settle}/dual_mode", ["private", "futures"], "POST", {"cost": 1}
     )
-    private_futures_post_settle_set_position_mode = privateFuturesPostSettleSetPositionMode = Entry[_Dict](
-        "{settle}/set_position_mode", ["private", "futures"], "POST", {"cost": 1}
-    )
+    private_futures_post_settle_set_position_mode = privateFuturesPostSettleSetPositionMode = Entry[
+        _Dict
+    ]("{settle}/set_position_mode", ["private", "futures"], "POST", {"cost": 1})
     private_futures_post_settle_dual_comp_positions_contract_margin = (
         privateFuturesPostSettleDualCompPositionsContractMargin
-    ) = Entry[_List]("{settle}/dual_comp/positions/{contract}/margin", ["private", "futures"], "POST", {"cost": 1})
+    ) = Entry[_List](
+        "{settle}/dual_comp/positions/{contract}/margin",
+        ["private", "futures"],
+        "POST",
+        {"cost": 1},
+    )
     private_futures_post_settle_dual_comp_positions_contract_leverage = (
         privateFuturesPostSettleDualCompPositionsContractLeverage
-    ) = Entry[_List]("{settle}/dual_comp/positions/{contract}/leverage", ["private", "futures"], "POST", {"cost": 1})
+    ) = Entry[_List](
+        "{settle}/dual_comp/positions/{contract}/leverage",
+        ["private", "futures"],
+        "POST",
+        {"cost": 1},
+    )
     private_futures_post_settle_dual_comp_positions_contract_risk_limit = (
         privateFuturesPostSettleDualCompPositionsContractRiskLimit
-    ) = Entry[_List]("{settle}/dual_comp/positions/{contract}/risk_limit", ["private", "futures"], "POST", {"cost": 1})
+    ) = Entry[_List](
+        "{settle}/dual_comp/positions/{contract}/risk_limit",
+        ["private", "futures"],
+        "POST",
+        {"cost": 1},
+    )
     private_futures_post_settle_orders = privateFuturesPostSettleOrders = Entry[_Dict](
         "{settle}/orders", ["private", "futures"], "POST", {"cost": 0.4}
     )
     private_futures_post_settle_batch_orders = privateFuturesPostSettleBatchOrders = Entry[_List](
         "{settle}/batch_orders", ["private", "futures"], "POST", {"cost": 0.4}
     )
-    private_futures_post_settle_countdown_cancel_all = privateFuturesPostSettleCountdownCancelAll = Entry[_Dict](
-        "{settle}/countdown_cancel_all", ["private", "futures"], "POST", {"cost": 0.4}
+    private_futures_post_settle_countdown_cancel_all = (
+        privateFuturesPostSettleCountdownCancelAll
+    ) = Entry[_Dict]("{settle}/countdown_cancel_all", ["private", "futures"], "POST", {"cost": 0.4})
+    private_futures_post_settle_batch_cancel_orders = privateFuturesPostSettleBatchCancelOrders = (
+        Entry[_List]("{settle}/batch_cancel_orders", ["private", "futures"], "POST", {"cost": 0.4})
     )
-    private_futures_post_settle_batch_cancel_orders = privateFuturesPostSettleBatchCancelOrders = Entry[_List](
-        "{settle}/batch_cancel_orders", ["private", "futures"], "POST", {"cost": 0.4}
-    )
-    private_futures_post_settle_batch_amend_orders = privateFuturesPostSettleBatchAmendOrders = Entry[_List](
-        "{settle}/batch_amend_orders", ["private", "futures"], "POST", {"cost": 0.4}
+    private_futures_post_settle_batch_amend_orders = privateFuturesPostSettleBatchAmendOrders = (
+        Entry[_List]("{settle}/batch_amend_orders", ["private", "futures"], "POST", {"cost": 0.4})
     )
     private_futures_post_settle_bbo_orders = privateFuturesPostSettleBboOrders = Entry[_Dict](
         "{settle}/bbo_orders", ["private", "futures"], "POST", {"cost": 0.4}
@@ -677,23 +833,63 @@ class ImplicitAPI:
     private_futures_post_settle_price_orders = privateFuturesPostSettlePriceOrders = Entry[_Dict](
         "{settle}/price_orders", ["private", "futures"], "POST", {"cost": 0.4}
     )
-    private_futures_put_settle_orders_order_id = privateFuturesPutSettleOrdersOrderId = Entry[_Dict](
-        "{settle}/orders/{order_id}", ["private", "futures"], "PUT", {"cost": 1}
+    private_futures_post_settle_autoorder_v1_trail_create = (
+        privateFuturesPostSettleAutoorderV1TrailCreate
+    ) = Entry[_Dict](
+        "{settle}/autoorder/v1/trail/create", ["private", "futures"], "POST", {"cost": 0.4}
     )
-    private_futures_put_settle_price_orders_order_id = privateFuturesPutSettlePriceOrdersOrderId = Entry[_Dict](
-        "{settle}/price_orders/{order_id}", ["private", "futures"], "PUT", {"cost": 1}
+    private_futures_post_settle_autoorder_v1_trail_stop = (
+        privateFuturesPostSettleAutoorderV1TrailStop
+    ) = Entry[_Dict](
+        "{settle}/autoorder/v1/trail/stop", ["private", "futures"], "POST", {"cost": 0.4}
+    )
+    private_futures_post_settle_autoorder_v1_trail_stop_all = (
+        privateFuturesPostSettleAutoorderV1TrailStopAll
+    ) = Entry[_List](
+        "{settle}/autoorder/v1/trail/stop_all", ["private", "futures"], "POST", {"cost": 0.4}
+    )
+    private_futures_post_settle_autoorder_v1_trail_update = (
+        privateFuturesPostSettleAutoorderV1TrailUpdate
+    ) = Entry[_Dict](
+        "{settle}/autoorder/v1/trail/update", ["private", "futures"], "POST", {"cost": 0.4}
+    )
+    private_futures_post_settle_autoorder_v1_chase_create = (
+        privateFuturesPostSettleAutoorderV1ChaseCreate
+    ) = Entry[_Dict](
+        "{settle}/autoorder/v1/chase/create", ["private", "futures"], "POST", {"cost": 0.4}
+    )
+    private_futures_post_settle_autoorder_v1_chase_stop = (
+        privateFuturesPostSettleAutoorderV1ChaseStop
+    ) = Entry[_Dict](
+        "{settle}/autoorder/v1/chase/stop", ["private", "futures"], "POST", {"cost": 0.4}
+    )
+    private_futures_post_settle_autoorder_v1_chase_stop_all = (
+        privateFuturesPostSettleAutoorderV1ChaseStopAll
+    ) = Entry[_List](
+        "{settle}/autoorder/v1/chase/stop_all", ["private", "futures"], "POST", {"cost": 0.4}
+    )
+    private_futures_put_settle_orders_order_id = privateFuturesPutSettleOrdersOrderId = Entry[
+        _Dict
+    ]("{settle}/orders/{order_id}", ["private", "futures"], "PUT", {"cost": 1})
+    private_futures_put_settle_price_orders_order_id = privateFuturesPutSettlePriceOrdersOrderId = (
+        Entry[_Dict]("{settle}/price_orders/{order_id}", ["private", "futures"], "PUT", {"cost": 1})
     )
     private_futures_delete_settle_orders = privateFuturesDeleteSettleOrders = Entry[_List](
         "{settle}/orders", ["private", "futures"], "DELETE", {"cost": 0.26666666666666666}
     )
-    private_futures_delete_settle_orders_order_id = privateFuturesDeleteSettleOrdersOrderId = Entry[_Dict](
-        "{settle}/orders/{order_id}", ["private", "futures"], "DELETE", {"cost": 0.26666666666666666}
-    )
-    private_futures_delete_settle_price_orders = privateFuturesDeleteSettlePriceOrders = Entry[_List](
-        "{settle}/price_orders", ["private", "futures"], "DELETE", {"cost": 0.26666666666666666}
-    )
-    private_futures_delete_settle_price_orders_order_id = privateFuturesDeleteSettlePriceOrdersOrderId = Entry[_Dict](
-        "{settle}/price_orders/{order_id}", ["private", "futures"], "DELETE", {"cost": 0.26666666666666666}
+    private_futures_delete_settle_orders_order_id = privateFuturesDeleteSettleOrdersOrderId = Entry[
+        _Dict
+    ]("{settle}/orders/{order_id}", ["private", "futures"], "DELETE", {"cost": 0.26666666666666666})
+    private_futures_delete_settle_price_orders = privateFuturesDeleteSettlePriceOrders = Entry[
+        _List
+    ]("{settle}/price_orders", ["private", "futures"], "DELETE", {"cost": 0.26666666666666666})
+    private_futures_delete_settle_price_orders_order_id = (
+        privateFuturesDeleteSettlePriceOrdersOrderId
+    ) = Entry[_Dict](
+        "{settle}/price_orders/{order_id}",
+        ["private", "futures"],
+        "DELETE",
+        {"cost": 0.26666666666666666},
     )
     private_delivery_get_settle_accounts = privateDeliveryGetSettleAccounts = Entry[_Dict](
         "{settle}/accounts", ["private", "delivery"], "GET", {"cost": 1.3333333333333333}
@@ -704,21 +900,26 @@ class ImplicitAPI:
     private_delivery_get_settle_positions = privateDeliveryGetSettlePositions = Entry[_List](
         "{settle}/positions", ["private", "delivery"], "GET", {"cost": 1.3333333333333333}
     )
-    private_delivery_get_settle_positions_contract = privateDeliveryGetSettlePositionsContract = Entry[_Dict](
-        "{settle}/positions/{contract}", ["private", "delivery"], "GET", {"cost": 1.3333333333333333}
+    private_delivery_get_settle_positions_contract = privateDeliveryGetSettlePositionsContract = (
+        Entry[_Dict](
+            "{settle}/positions/{contract}",
+            ["private", "delivery"],
+            "GET",
+            {"cost": 1.3333333333333333},
+        )
     )
     private_delivery_get_settle_orders = privateDeliveryGetSettleOrders = Entry[_List](
         "{settle}/orders", ["private", "delivery"], "GET", {"cost": 1.3333333333333333}
     )
-    private_delivery_get_settle_orders_order_id = privateDeliveryGetSettleOrdersOrderId = Entry[_Dict](
-        "{settle}/orders/{order_id}", ["private", "delivery"], "GET", {"cost": 1.3333333333333333}
-    )
+    private_delivery_get_settle_orders_order_id = privateDeliveryGetSettleOrdersOrderId = Entry[
+        _Dict
+    ]("{settle}/orders/{order_id}", ["private", "delivery"], "GET", {"cost": 1.3333333333333333})
     private_delivery_get_settle_my_trades = privateDeliveryGetSettleMyTrades = Entry[_List](
         "{settle}/my_trades", ["private", "delivery"], "GET", {"cost": 1.3333333333333333}
     )
-    private_delivery_get_settle_position_close = privateDeliveryGetSettlePositionClose = Entry[_List](
-        "{settle}/position_close", ["private", "delivery"], "GET", {"cost": 1.3333333333333333}
-    )
+    private_delivery_get_settle_position_close = privateDeliveryGetSettlePositionClose = Entry[
+        _List
+    ]("{settle}/position_close", ["private", "delivery"], "GET", {"cost": 1.3333333333333333})
     private_delivery_get_settle_liquidates = privateDeliveryGetSettleLiquidates = Entry[_List](
         "{settle}/liquidates", ["private", "delivery"], "GET", {"cost": 1.3333333333333333}
     )
@@ -728,21 +929,37 @@ class ImplicitAPI:
     private_delivery_get_settle_price_orders = privateDeliveryGetSettlePriceOrders = Entry[_List](
         "{settle}/price_orders", ["private", "delivery"], "GET", {"cost": 1.3333333333333333}
     )
-    private_delivery_get_settle_price_orders_order_id = privateDeliveryGetSettlePriceOrdersOrderId = Entry[_Dict](
-        "{settle}/price_orders/{order_id}", ["private", "delivery"], "GET", {"cost": 1.3333333333333333}
+    private_delivery_get_settle_price_orders_order_id = (
+        privateDeliveryGetSettlePriceOrdersOrderId
+    ) = Entry[_Dict](
+        "{settle}/price_orders/{order_id}",
+        ["private", "delivery"],
+        "GET",
+        {"cost": 1.3333333333333333},
     )
-    private_delivery_post_settle_positions_contract_margin = privateDeliveryPostSettlePositionsContractMargin = Entry[
-        _Dict
-    ]("{settle}/positions/{contract}/margin", ["private", "delivery"], "POST", {"cost": 1.3333333333333333})
-    private_delivery_post_settle_positions_contract_leverage = privateDeliveryPostSettlePositionsContractLeverage = (
-        Entry[_Dict](
-            "{settle}/positions/{contract}/leverage", ["private", "delivery"], "POST", {"cost": 1.3333333333333333}
-        )
+    private_delivery_post_settle_positions_contract_margin = (
+        privateDeliveryPostSettlePositionsContractMargin
+    ) = Entry[_Dict](
+        "{settle}/positions/{contract}/margin",
+        ["private", "delivery"],
+        "POST",
+        {"cost": 1.3333333333333333},
     )
-    private_delivery_post_settle_positions_contract_risk_limit = privateDeliveryPostSettlePositionsContractRiskLimit = (
-        Entry[_Dict](
-            "{settle}/positions/{contract}/risk_limit", ["private", "delivery"], "POST", {"cost": 1.3333333333333333}
-        )
+    private_delivery_post_settle_positions_contract_leverage = (
+        privateDeliveryPostSettlePositionsContractLeverage
+    ) = Entry[_Dict](
+        "{settle}/positions/{contract}/leverage",
+        ["private", "delivery"],
+        "POST",
+        {"cost": 1.3333333333333333},
+    )
+    private_delivery_post_settle_positions_contract_risk_limit = (
+        privateDeliveryPostSettlePositionsContractRiskLimit
+    ) = Entry[_Dict](
+        "{settle}/positions/{contract}/risk_limit",
+        ["private", "delivery"],
+        "POST",
+        {"cost": 1.3333333333333333},
     )
     private_delivery_post_settle_orders = privateDeliveryPostSettleOrders = Entry[_Dict](
         "{settle}/orders", ["private", "delivery"], "POST", {"cost": 1.3333333333333333}
@@ -753,14 +970,24 @@ class ImplicitAPI:
     private_delivery_delete_settle_orders = privateDeliveryDeleteSettleOrders = Entry[_List](
         "{settle}/orders", ["private", "delivery"], "DELETE", {"cost": 1.3333333333333333}
     )
-    private_delivery_delete_settle_orders_order_id = privateDeliveryDeleteSettleOrdersOrderId = Entry[_Dict](
-        "{settle}/orders/{order_id}", ["private", "delivery"], "DELETE", {"cost": 1.3333333333333333}
+    private_delivery_delete_settle_orders_order_id = privateDeliveryDeleteSettleOrdersOrderId = (
+        Entry[_Dict](
+            "{settle}/orders/{order_id}",
+            ["private", "delivery"],
+            "DELETE",
+            {"cost": 1.3333333333333333},
+        )
     )
-    private_delivery_delete_settle_price_orders = privateDeliveryDeleteSettlePriceOrders = Entry[_List](
-        "{settle}/price_orders", ["private", "delivery"], "DELETE", {"cost": 1.3333333333333333}
-    )
-    private_delivery_delete_settle_price_orders_order_id = privateDeliveryDeleteSettlePriceOrdersOrderId = Entry[_Dict](
-        "{settle}/price_orders/{order_id}", ["private", "delivery"], "DELETE", {"cost": 1.3333333333333333}
+    private_delivery_delete_settle_price_orders = privateDeliveryDeleteSettlePriceOrders = Entry[
+        _List
+    ]("{settle}/price_orders", ["private", "delivery"], "DELETE", {"cost": 1.3333333333333333})
+    private_delivery_delete_settle_price_orders_order_id = (
+        privateDeliveryDeleteSettlePriceOrdersOrderId
+    ) = Entry[_Dict](
+        "{settle}/price_orders/{order_id}",
+        ["private", "delivery"],
+        "DELETE",
+        {"cost": 1.3333333333333333},
     )
     private_options_get_my_settlements = privateOptionsGetMySettlements = Entry[_Dict](
         "my_settlements", ["private", "options"], "GET", {"cost": 1.3333333333333333}
@@ -804,6 +1031,9 @@ class ImplicitAPI:
     private_options_post_mmp_reset = privateOptionsPostMmpReset = Entry[_Dict](
         "mmp/reset", ["private", "options"], "POST", {"cost": 1.3333333333333333}
     )
+    private_options_put_orders_order_id = privateOptionsPutOrdersOrderId = Entry[_Dict](
+        "orders/{order_id}", ["private", "options"], "PUT", {"cost": 1.3333333333333333}
+    )
     private_options_delete_orders = privateOptionsDeleteOrders = Entry[_List](
         "orders", ["private", "options"], "DELETE", {"cost": 1.3333333333333333}
     )
@@ -822,18 +1052,18 @@ class ImplicitAPI:
     private_earn_get_uni_interest_records = privateEarnGetUniInterestRecords = Entry[_List](
         "uni/interest_records", ["private", "earn"], "GET", {"cost": 1.3333333333333333}
     )
-    private_earn_get_uni_interest_status_currency = privateEarnGetUniInterestStatusCurrency = Entry[_Dict](
-        "uni/interest_status/{currency}", ["private", "earn"], "GET", {"cost": 1.3333333333333333}
-    )
+    private_earn_get_uni_interest_status_currency = privateEarnGetUniInterestStatusCurrency = Entry[
+        _Dict
+    ]("uni/interest_status/{currency}", ["private", "earn"], "GET", {"cost": 1.3333333333333333})
     private_earn_get_uni_chart = privateEarnGetUniChart = Entry[_List](
         "uni/chart", ["private", "earn"], "GET", {"cost": 1.3333333333333333}
     )
     private_earn_get_uni_rate = privateEarnGetUniRate = Entry[_List](
         "uni/rate", ["private", "earn"], "GET", {"cost": 1.3333333333333333}
     )
-    private_earn_get_staking_eth2_rate_records = privateEarnGetStakingEth2RateRecords = Entry[_List](
-        "staking/eth2/rate_records", ["private", "earn"], "GET", {"cost": 1.3333333333333333}
-    )
+    private_earn_get_staking_eth2_rate_records = privateEarnGetStakingEth2RateRecords = Entry[
+        _List
+    ]("staking/eth2/rate_records", ["private", "earn"], "GET", {"cost": 1.3333333333333333})
     private_earn_get_dual_orders = privateEarnGetDualOrders = Entry[_List](
         "dual/orders", ["private", "earn"], "GET", {"cost": 1.3333333333333333}
     )
@@ -854,6 +1084,33 @@ class ImplicitAPI:
     )
     private_earn_get_staking_assets = privateEarnGetStakingAssets = Entry[_List](
         "staking/assets", ["private", "earn"], "GET", {"cost": 1.3333333333333333}
+    )
+    private_earn_get_dual_order_refund_preview = privateEarnGetDualOrderRefundPreview = Entry[
+        _Dict
+    ]("dual/order-refund-preview", ["private", "earn"], "GET", {"cost": 1.3333333333333333})
+    private_earn_get_fixed_term_user_lend = privateEarnGetFixedTermUserLend = Entry[_List](
+        "fixed-term/user/lend", ["private", "earn"], "GET", {"cost": 1.3333333333333333}
+    )
+    private_earn_get_fixed_term_user_history = privateEarnGetFixedTermUserHistory = Entry[_List](
+        "fixed-term/user/history", ["private", "earn"], "GET", {"cost": 1.3333333333333333}
+    )
+    private_earn_get_autoinvest_coins = privateEarnGetAutoinvestCoins = Entry[_List](
+        "autoinvest/coins", ["private", "earn"], "GET", {"cost": 1.3333333333333333}
+    )
+    private_earn_get_autoinvest_config = privateEarnGetAutoinvestConfig = Entry[_List](
+        "autoinvest/config", ["private", "earn"], "GET", {"cost": 1.3333333333333333}
+    )
+    private_earn_get_autoinvest_orders = privateEarnGetAutoinvestOrders = Entry[_List](
+        "autoinvest/orders", ["private", "earn"], "GET", {"cost": 1.3333333333333333}
+    )
+    private_earn_get_autoinvest_plans_detail = privateEarnGetAutoinvestPlansDetail = Entry[_Dict](
+        "autoinvest/plans/detail", ["private", "earn"], "GET", {"cost": 1.3333333333333333}
+    )
+    private_earn_get_autoinvest_plans_list_info = privateEarnGetAutoinvestPlansListInfo = Entry[
+        _List
+    ]("autoinvest/plans/list_info", ["private", "earn"], "GET", {"cost": 1.3333333333333333})
+    private_earn_get_autoinvest_plans_records = privateEarnGetAutoinvestPlansRecords = Entry[_List](
+        "autoinvest/plans/records", ["private", "earn"], "GET", {"cost": 1.3333333333333333}
     )
     private_earn_get_uni_currencies = privateEarnGetUniCurrencies = Entry[_List](
         "uni/currencies", ["private", "earn"], "GET", {"cost": 1.3333333333333333}
@@ -876,6 +1133,43 @@ class ImplicitAPI:
     private_earn_post_staking_swap = privateEarnPostStakingSwap = Entry[_Dict](
         "staking/swap", ["private", "earn"], "POST", {"cost": 1.3333333333333333}
     )
+    private_earn_post_dual_order_refund = privateEarnPostDualOrderRefund = Entry[_Dict](
+        "dual/order-refund", ["private", "earn"], "POST", {"cost": 1.3333333333333333}
+    )
+    private_earn_post_dual_modify_order_reinvest = privateEarnPostDualModifyOrderReinvest = Entry[
+        _Dict
+    ]("dual/modify-order-reinvest", ["private", "earn"], "POST", {"cost": 1.3333333333333333})
+    private_earn_post_fixed_term_user_lend = privateEarnPostFixedTermUserLend = Entry[_Dict](
+        "fixed-term/user/lend", ["private", "earn"], "POST", {"cost": 1.3333333333333333}
+    )
+    private_earn_post_fixed_term_user_pre_redeem = privateEarnPostFixedTermUserPreRedeem = Entry[
+        _Dict
+    ]("fixed-term/user/pre-redeem", ["private", "earn"], "POST", {"cost": 1.3333333333333333})
+    private_earn_post_autoinvest_min_invest_amount = privateEarnPostAutoinvestMinInvestAmount = (
+        Entry[_Dict](
+            "autoinvest/min_invest_amount",
+            ["private", "earn"],
+            "POST",
+            {"cost": 1.3333333333333333},
+        )
+    )
+    private_earn_post_autoinvest_plans_add_position = privateEarnPostAutoinvestPlansAddPosition = (
+        Entry[_Dict](
+            "autoinvest/plans/add_position",
+            ["private", "earn"],
+            "POST",
+            {"cost": 1.3333333333333333},
+        )
+    )
+    private_earn_post_autoinvest_plans_create = privateEarnPostAutoinvestPlansCreate = Entry[_Dict](
+        "autoinvest/plans/create", ["private", "earn"], "POST", {"cost": 1.3333333333333333}
+    )
+    private_earn_post_autoinvest_plans_stop = privateEarnPostAutoinvestPlansStop = Entry[_Dict](
+        "autoinvest/plans/stop", ["private", "earn"], "POST", {"cost": 1.3333333333333333}
+    )
+    private_earn_post_autoinvest_plans_update = privateEarnPostAutoinvestPlansUpdate = Entry[_Dict](
+        "autoinvest/plans/update", ["private", "earn"], "POST", {"cost": 1.3333333333333333}
+    )
     private_earn_put_uni_interest_reinvest = privateEarnPutUniInterestReinvest = Entry[_Dict](
         "uni/interest_reinvest", ["private", "earn"], "PUT", {"cost": 1.3333333333333333}
     )
@@ -885,9 +1179,9 @@ class ImplicitAPI:
     private_loan_get_collateral_orders = privateLoanGetCollateralOrders = Entry[_List](
         "collateral/orders", ["private", "loan"], "GET", {"cost": 1.3333333333333333}
     )
-    private_loan_get_collateral_orders_order_id = privateLoanGetCollateralOrdersOrderId = Entry[_Dict](
-        "collateral/orders/{order_id}", ["private", "loan"], "GET", {"cost": 1.3333333333333333}
-    )
+    private_loan_get_collateral_orders_order_id = privateLoanGetCollateralOrdersOrderId = Entry[
+        _Dict
+    ]("collateral/orders/{order_id}", ["private", "loan"], "GET", {"cost": 1.3333333333333333})
     private_loan_get_collateral_repay_records = privateLoanGetCollateralRepayRecords = Entry[_List](
         "collateral/repay_records", ["private", "loan"], "GET", {"cost": 1.3333333333333333}
     )
@@ -903,32 +1197,44 @@ class ImplicitAPI:
     private_loan_get_multi_collateral_orders = privateLoanGetMultiCollateralOrders = Entry[_List](
         "multi_collateral/orders", ["private", "loan"], "GET", {"cost": 1.3333333333333333}
     )
-    private_loan_get_multi_collateral_orders_order_id = privateLoanGetMultiCollateralOrdersOrderId = Entry[_Dict](
-        "multi_collateral/orders/{order_id}", ["private", "loan"], "GET", {"cost": 1.3333333333333333}
+    private_loan_get_multi_collateral_orders_order_id = (
+        privateLoanGetMultiCollateralOrdersOrderId
+    ) = Entry[_Dict](
+        "multi_collateral/orders/{order_id}",
+        ["private", "loan"],
+        "GET",
+        {"cost": 1.3333333333333333},
     )
     private_loan_get_multi_collateral_repay = privateLoanGetMultiCollateralRepay = Entry[_List](
         "multi_collateral/repay", ["private", "loan"], "GET", {"cost": 1.3333333333333333}
     )
-    private_loan_get_multi_collateral_mortgage = privateLoanGetMultiCollateralMortgage = Entry[_List](
-        "multi_collateral/mortgage", ["private", "loan"], "GET", {"cost": 1.3333333333333333}
-    )
-    private_loan_get_multi_collateral_currency_quota = privateLoanGetMultiCollateralCurrencyQuota = Entry[_List](
+    private_loan_get_multi_collateral_mortgage = privateLoanGetMultiCollateralMortgage = Entry[
+        _List
+    ]("multi_collateral/mortgage", ["private", "loan"], "GET", {"cost": 1.3333333333333333})
+    private_loan_get_multi_collateral_currency_quota = (
+        privateLoanGetMultiCollateralCurrencyQuota
+    ) = Entry[_List](
         "multi_collateral/currency_quota", ["private", "loan"], "GET", {"cost": 1.3333333333333333}
     )
     private_loan_get_collateral_currencies = privateLoanGetCollateralCurrencies = Entry[_List](
         "collateral/currencies", ["private", "loan"], "GET", {"cost": 1.3333333333333333}
     )
-    private_loan_get_multi_collateral_currencies = privateLoanGetMultiCollateralCurrencies = Entry[_Dict](
-        "multi_collateral/currencies", ["private", "loan"], "GET", {"cost": 1.3333333333333333}
-    )
+    private_loan_get_multi_collateral_currencies = privateLoanGetMultiCollateralCurrencies = Entry[
+        _Dict
+    ]("multi_collateral/currencies", ["private", "loan"], "GET", {"cost": 1.3333333333333333})
     private_loan_get_multi_collateral_ltv = privateLoanGetMultiCollateralLtv = Entry[_Dict](
         "multi_collateral/ltv", ["private", "loan"], "GET", {"cost": 1.3333333333333333}
     )
-    private_loan_get_multi_collateral_fixed_rate = privateLoanGetMultiCollateralFixedRate = Entry[_List](
-        "multi_collateral/fixed_rate", ["private", "loan"], "GET", {"cost": 1.3333333333333333}
-    )
-    private_loan_get_multi_collateral_current_rate = privateLoanGetMultiCollateralCurrentRate = Entry[_List](
-        "multi_collateral/current_rate", ["private", "loan"], "GET", {"cost": 1.3333333333333333}
+    private_loan_get_multi_collateral_fixed_rate = privateLoanGetMultiCollateralFixedRate = Entry[
+        _List
+    ]("multi_collateral/fixed_rate", ["private", "loan"], "GET", {"cost": 1.3333333333333333})
+    private_loan_get_multi_collateral_current_rate = privateLoanGetMultiCollateralCurrentRate = (
+        Entry[_List](
+            "multi_collateral/current_rate",
+            ["private", "loan"],
+            "GET",
+            {"cost": 1.3333333333333333},
+        )
     )
     private_loan_post_collateral_orders = privateLoanPostCollateralOrders = Entry[_Dict](
         "collateral/orders", ["private", "loan"], "POST", {"cost": 1.3333333333333333}
@@ -945,9 +1251,9 @@ class ImplicitAPI:
     private_loan_post_multi_collateral_repay = privateLoanPostMultiCollateralRepay = Entry[_Dict](
         "multi_collateral/repay", ["private", "loan"], "POST", {"cost": 1.3333333333333333}
     )
-    private_loan_post_multi_collateral_mortgage = privateLoanPostMultiCollateralMortgage = Entry[_Dict](
-        "multi_collateral/mortgage", ["private", "loan"], "POST", {"cost": 1.3333333333333333}
-    )
+    private_loan_post_multi_collateral_mortgage = privateLoanPostMultiCollateralMortgage = Entry[
+        _Dict
+    ]("multi_collateral/mortgage", ["private", "loan"], "POST", {"cost": 1.3333333333333333})
     private_account_get_detail = privateAccountGetDetail = Entry[_Dict](
         "detail", ["private", "account"], "GET", {"cost": 1.3333333333333333}
     )
@@ -960,9 +1266,9 @@ class ImplicitAPI:
     private_account_get_stp_groups = privateAccountGetStpGroups = Entry[_List](
         "stp_groups", ["private", "account"], "GET", {"cost": 1.3333333333333333}
     )
-    private_account_get_stp_groups_stp_id_users = privateAccountGetStpGroupsStpIdUsers = Entry[_List](
-        "stp_groups/{stp_id}/users", ["private", "account"], "GET", {"cost": 1.3333333333333333}
-    )
+    private_account_get_stp_groups_stp_id_users = privateAccountGetStpGroupsStpIdUsers = Entry[
+        _List
+    ]("stp_groups/{stp_id}/users", ["private", "account"], "GET", {"cost": 1.3333333333333333})
     private_account_get_stp_groups_debit_fee = privateAccountGetStpGroupsDebitFee = Entry[_Dict](
         "stp_groups/debit_fee", ["private", "account"], "GET", {"cost": 1.3333333333333333}
     )
@@ -972,35 +1278,51 @@ class ImplicitAPI:
     private_account_post_stp_groups = privateAccountPostStpGroups = Entry[_Dict](
         "stp_groups", ["private", "account"], "POST", {"cost": 1.3333333333333333}
     )
-    private_account_post_stp_groups_stp_id_users = privateAccountPostStpGroupsStpIdUsers = Entry[_List](
-        "stp_groups/{stp_id}/users", ["private", "account"], "POST", {"cost": 1.3333333333333333}
-    )
+    private_account_post_stp_groups_stp_id_users = privateAccountPostStpGroupsStpIdUsers = Entry[
+        _List
+    ]("stp_groups/{stp_id}/users", ["private", "account"], "POST", {"cost": 1.3333333333333333})
     private_account_post_debit_fee = privateAccountPostDebitFee = Entry[_Dict](
         "debit_fee", ["private", "account"], "POST", {"cost": 1.3333333333333333}
     )
-    private_account_delete_stp_groups_stp_id_users = privateAccountDeleteStpGroupsStpIdUsers = Entry[_List](
-        "stp_groups/{stp_id}/users", ["private", "account"], "DELETE", {"cost": 1.3333333333333333}
+    private_account_delete_stp_groups_stp_id_users = privateAccountDeleteStpGroupsStpIdUsers = (
+        Entry[_List](
+            "stp_groups/{stp_id}/users",
+            ["private", "account"],
+            "DELETE",
+            {"cost": 1.3333333333333333},
+        )
     )
-    private_rebate_get_agency_transaction_history = privateRebateGetAgencyTransactionHistory = Entry[_List](
-        "agency/transaction_history", ["private", "rebate"], "GET", {"cost": 1.3333333333333333}
+    private_rebate_get_agency_transaction_history = privateRebateGetAgencyTransactionHistory = (
+        Entry[_List](
+            "agency/transaction_history", ["private", "rebate"], "GET", {"cost": 1.3333333333333333}
+        )
     )
-    private_rebate_get_agency_commission_history = privateRebateGetAgencyCommissionHistory = Entry[_List](
-        "agency/commission_history", ["private", "rebate"], "GET", {"cost": 1.3333333333333333}
+    private_rebate_get_agency_commission_history = privateRebateGetAgencyCommissionHistory = Entry[
+        _List
+    ]("agency/commission_history", ["private", "rebate"], "GET", {"cost": 1.3333333333333333})
+    private_rebate_get_partner_transaction_history = privateRebateGetPartnerTransactionHistory = (
+        Entry[_Dict](
+            "partner/transaction_history",
+            ["private", "rebate"],
+            "GET",
+            {"cost": 1.3333333333333333},
+        )
     )
-    private_rebate_get_partner_transaction_history = privateRebateGetPartnerTransactionHistory = Entry[_Dict](
-        "partner/transaction_history", ["private", "rebate"], "GET", {"cost": 1.3333333333333333}
-    )
-    private_rebate_get_partner_commission_history = privateRebateGetPartnerCommissionHistory = Entry[_Dict](
-        "partner/commission_history", ["private", "rebate"], "GET", {"cost": 1.3333333333333333}
+    private_rebate_get_partner_commission_history = privateRebateGetPartnerCommissionHistory = (
+        Entry[_Dict](
+            "partner/commission_history", ["private", "rebate"], "GET", {"cost": 1.3333333333333333}
+        )
     )
     private_rebate_get_partner_sub_list = privateRebateGetPartnerSubList = Entry[_Dict](
         "partner/sub_list", ["private", "rebate"], "GET", {"cost": 1.3333333333333333}
     )
-    private_rebate_get_broker_commission_history = privateRebateGetBrokerCommissionHistory = Entry[_List](
-        "broker/commission_history", ["private", "rebate"], "GET", {"cost": 1.3333333333333333}
-    )
-    private_rebate_get_broker_transaction_history = privateRebateGetBrokerTransactionHistory = Entry[_List](
-        "broker/transaction_history", ["private", "rebate"], "GET", {"cost": 1.3333333333333333}
+    private_rebate_get_broker_commission_history = privateRebateGetBrokerCommissionHistory = Entry[
+        _List
+    ]("broker/commission_history", ["private", "rebate"], "GET", {"cost": 1.3333333333333333})
+    private_rebate_get_broker_transaction_history = privateRebateGetBrokerTransactionHistory = (
+        Entry[_List](
+            "broker/transaction_history", ["private", "rebate"], "GET", {"cost": 1.3333333333333333}
+        )
     )
     private_rebate_get_user_info = privateRebateGetUserInfo = Entry[_List](
         "user/info", ["private", "rebate"], "GET", {"cost": 1.3333333333333333}
@@ -1008,6 +1330,9 @@ class ImplicitAPI:
     private_rebate_get_user_sub_relation = privateRebateGetUserSubRelation = Entry[_Dict](
         "user/sub_relation", ["private", "rebate"], "GET", {"cost": 1.3333333333333333}
     )
+    private_rebate_get_partner_data_aggregated = privateRebateGetPartnerDataAggregated = Entry[
+        _Dict
+    ]("partner/data/aggregated", ["private", "rebate"], "GET", {"cost": 1.3333333333333333})
     private_otc_get_get_user_def_bank = privateOtcGetGetUserDefBank = Entry[_Dict](
         "get_user_def_bank", ["private", "otc"], "GET", {"cost": 1}
     )
@@ -1020,7 +1345,15 @@ class ImplicitAPI:
     private_otc_get_order_detail = privateOtcGetOrderDetail = Entry[_Dict](
         "order/detail", ["private", "otc"], "GET", {"cost": 1}
     )
-    private_otc_post_quote = privateOtcPostQuote = Entry[_Dict]("quote", ["private", "otc"], "POST", {"cost": 1})
+    private_otc_get_bank_list = privateOtcGetBankList = Entry[_List](
+        "bank/list", ["private", "otc"], "GET", {"cost": 1}
+    )
+    private_otc_get_bank_bank_supplement_checklist = privateOtcGetBankBankSupplementChecklist = (
+        Entry[_Dict]("bank/bank_supplement_checklist", ["private", "otc"], "GET", {"cost": 1})
+    )
+    private_otc_post_quote = privateOtcPostQuote = Entry[_Dict](
+        "quote", ["private", "otc"], "POST", {"cost": 1}
+    )
     private_otc_post_order_create = privateOtcPostOrderCreate = Entry[_Dict](
         "order/create", ["private", "otc"], "POST", {"cost": 1}
     )
@@ -1032,4 +1365,22 @@ class ImplicitAPI:
     )
     private_otc_post_order_cancel = privateOtcPostOrderCancel = Entry[_Dict](
         "order/cancel", ["private", "otc"], "POST", {"cost": 1}
+    )
+    private_otc_post_bank_create = privateOtcPostBankCreate = Entry[_Dict](
+        "bank/create", ["private", "otc"], "POST", {"cost": 1}
+    )
+    private_otc_post_bank_delete = privateOtcPostBankDelete = Entry[_Dict](
+        "bank/delete", ["private", "otc"], "POST", {"cost": 1}
+    )
+    private_otc_post_bank_set_default = privateOtcPostBankSetDefault = Entry[_Dict](
+        "bank/set_default", ["private", "otc"], "POST", {"cost": 1}
+    )
+    private_otc_post_bank_personal_bank_supplement = privateOtcPostBankPersonalBankSupplement = (
+        Entry[_Dict]("bank/personal/bank_supplement", ["private", "otc"], "POST", {"cost": 1})
+    )
+    private_otc_post_bank_enterprise_bank_supplement = (
+        privateOtcPostBankEnterpriseBankSupplement
+    ) = Entry[_Dict]("bank/enterprise/bank_supplement", ["private", "otc"], "POST", {"cost": 1})
+    private_otc_post_upload_pre_upload = privateOtcPostUploadPreUpload = Entry[_Dict](
+        "upload/pre_upload", ["private", "otc"], "POST", {"cost": 1}
     )

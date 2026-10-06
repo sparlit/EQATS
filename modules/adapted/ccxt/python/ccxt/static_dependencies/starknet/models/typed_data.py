@@ -26,7 +26,7 @@ TypedDict structures for TypedData
 """
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, TypedDict
 
 
 class Revision(Enum):

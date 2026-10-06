@@ -55,4 +55,11 @@ while end_time > exchange.milliseconds():
         break
 
 all_trades = exchange.sort_by(all_trades.values(), "id")
-print("Fetched", len(all_trades), "trades since", all_trades[0]["datetime"], "till", all_trades[-1]["datetime"])
+print(
+    "Fetched",
+    len(all_trades),
+    "trades since",
+    all_trades[0]["datetime"],
+    "till",
+    all_trades[-1]["datetime"],
+)

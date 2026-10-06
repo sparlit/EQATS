@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -36,7 +38,11 @@ sys.path.append(root)
 # -*- coding: utf-8 -*-
 
 
-from ccxt.async_support.base.ws.order_book import CountedOrderBook, IndexedOrderBook, OrderBook
+from ccxt.async_support.base.ws.order_book import (  # noqa: F402
+    CountedOrderBook,
+    IndexedOrderBook,
+    OrderBook,
+)
 
 
 def equals(a, b):
@@ -114,15 +120,33 @@ def test_ws_order_book():
             [6.4, 14, "1238"],
             [4.5, 13, "1239"],
         ],
-        "asks": [[11.1, 13, "1244"], [13.3, 13, "1243"], [14.4, 12, "1242"], [15.5, 11, "1241"], [16.6, 10, "1240"]],
+        "asks": [
+            [11.1, 13, "1244"],
+            [13.3, 13, "1243"],
+            [14.4, 12, "1242"],
+            [15.5, 11, "1241"],
+            [16.6, 10, "1240"],
+        ],
         "timestamp": 1574827239000,
         "datetime": "2019-11-27T04:00:39.000Z",
         "nonce": 69,
         "symbol": None,
     }
     limited_indexed_order_book_target = {
-        "bids": [[10, 10, "1234"], [9.1, 11, "1235"], [8.2, 12, "1236"], [7.3, 13, "1237"], [6.4, 14, "1238"]],
-        "asks": [[11.1, 13, "1244"], [13.3, 13, "1243"], [14.4, 12, "1242"], [15.5, 11, "1241"], [16.6, 10, "1240"]],
+        "bids": [
+            [10, 10, "1234"],
+            [9.1, 11, "1235"],
+            [8.2, 12, "1236"],
+            [7.3, 13, "1237"],
+            [6.4, 14, "1238"],
+        ],
+        "asks": [
+            [11.1, 13, "1244"],
+            [13.3, 13, "1243"],
+            [14.4, 12, "1242"],
+            [15.5, 11, "1241"],
+            [16.6, 10, "1240"],
+        ],
         "timestamp": 1574827239000,
         "datetime": "2019-11-27T04:00:39.000Z",
         "nonce": 69,
@@ -179,7 +203,13 @@ def test_ws_order_book():
             [4.5, 13, "1239"],
             [4, 2, "12399"],
         ],
-        "asks": [[11.1, 13, "1244"], [13.3, 13, "1243"], [14.4, 12, "1242"], [15.5, 11, "1241"], [16.6, 10, "1240"]],
+        "asks": [
+            [11.1, 13, "1244"],
+            [13.3, 13, "1243"],
+            [14.4, 12, "1242"],
+            [15.5, 11, "1241"],
+            [16.6, 10, "1240"],
+        ],
         "timestamp": 1574827239000,
         "datetime": "2019-11-27T04:00:39.000Z",
         "nonce": 69,
@@ -194,7 +224,13 @@ def test_ws_order_book():
             [6.4, 14, "1238"],
             [4.5, 13, "1239"],
         ],
-        "asks": [[13.3, 13, "1243"], [13.5, 13, "1244"], [14.4, 12, "1242"], [15.5, 11, "1241"], [16.6, 10, "1240"]],
+        "asks": [
+            [13.3, 13, "1243"],
+            [13.5, 13, "1244"],
+            [14.4, 12, "1242"],
+            [15.5, 11, "1241"],
+            [16.6, 10, "1240"],
+        ],
         "timestamp": 1574827239000,
         "datetime": "2019-11-27T04:00:39.000Z",
         "nonce": 69,
@@ -227,7 +263,14 @@ def test_ws_order_book():
     }
     counted_order_book_target = {
         "bids": [[10, 10, 1], [9.1, 11, 1], [8.2, 12, 1], [6.4, 14, 5]],
-        "asks": [[11.1, 13, 12], [12.2, 14, 3], [13.3, 13, 3], [14.4, 12, 1], [15.5, 11, 1], [16.6, 10, 1]],
+        "asks": [
+            [11.1, 13, 12],
+            [12.2, 14, 3],
+            [13.3, 13, 3],
+            [14.4, 12, 1],
+            [15.5, 11, 1],
+            [16.6, 10, 1],
+        ],
         "timestamp": 1574827239000,
         "datetime": "2019-11-27T04:00:39.000Z",
         "nonce": 69,
@@ -235,7 +278,14 @@ def test_ws_order_book():
     }
     stored_counted_orderbook_target = {
         "bids": [[10, 10, 1], [9.1, 11, 1], [8.2, 12, 1], [6.4, 14, 5], [1, 1, 6]],
-        "asks": [[11.1, 13, 12], [12.2, 14, 3], [13.3, 13, 3], [14.4, 12, 1], [15.5, 11, 1], [16.6, 10, 1]],
+        "asks": [
+            [11.1, 13, 12],
+            [12.2, 14, 3],
+            [13.3, 13, 3],
+            [14.4, 12, 1],
+            [15.5, 11, 1],
+            [16.6, 10, 1],
+        ],
         "timestamp": 1574827239000,
         "datetime": "2019-11-27T04:00:39.000Z",
         "nonce": 69,
@@ -469,9 +519,9 @@ def test_ws_order_book():
     # every row must be a well formed price and amount pair, the php
     # corruption produced rows holding only an amount
     desync_sides = [desync_book["bids"], desync_book["asks"]]
-    for i in range(len(desync_sides)):
+    for i in range(0, len(desync_sides)):
         side = desync_sides[i]
-        for k in range(len(side)):
+        for k in range(0, len(side)):
             row = side[k]
             assert len(row) >= 2
             assert row[0] is not None

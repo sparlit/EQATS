@@ -58,7 +58,7 @@ class zaif(Exchange, ImplicitAPI):
                 "id": "zaif",
                 "name": "Zaif",
                 "countries": ["JP"],
-                # 10 requests per second = 1000ms / 10 = 100ms between requests(public market endpoints)
+                # 10 requests per second = 1000ms / 10 = 100ms between requests (public market endpoints)
                 "rateLimit": 100,
                 "version": "1",
                 "has": {
@@ -153,19 +153,30 @@ class zaif(Exchange, ImplicitAPI):
                             "last_price/{pair}": {"cost": 1},
                             "ticker/{pair}": {"cost": 1},
                             "trades/{pair}": {"cost": 1},
+                            "vasp_info/{vasp_master_id}": {"cost": 1},
+                            "country_info/{code}": {"cost": 1},
+                            "corp_type_id_info/{id}": {"cost": 1},
                         },
                     },
                     "private": {
                         "post": {
-                            "active_orders": {"cost": 5},  # 10 in 5 seconds = 2 per second => cost = 10 / 2 = 5
+                            "active_orders": {
+                                "cost": 5
+                            },  # 10 in 5 seconds = 2 per second => cost = 10 / 2 = 5
                             "cancel_order": {"cost": 5},
                             "deposit_history": {"cost": 5},
                             "get_id_info": {"cost": 5},
-                            "get_info": {"cost": 10},  # 10 in 10 seconds = 1 per second => cost = 10 / 1 = 10
-                            "get_info2": {"cost": 5},  # 20 in 10 seconds = 2 per second => cost = 10 / 2 = 5
+                            "get_info": {
+                                "cost": 10
+                            },  # 10 in 10 seconds = 1 per second => cost = 10 / 1 = 10
+                            "get_info2": {
+                                "cost": 5
+                            },  # 20 in 10 seconds = 2 per second => cost = 10 / 2 = 5
                             "get_personal_info": {"cost": 5},
                             "trade": {"cost": 5},
-                            "trade_history": {"cost": 50},  # 12 in 60 seconds = 0.2 per second => cost = 10 / 0.2 = 50
+                            "trade_history": {
+                                "cost": 50
+                            },  # 12 in 60 seconds = 0.2 per second => cost = 10 / 0.2 = 50
                             "withdraw": {"cost": 5},
                             "withdraw_history": {"cost": 5},
                         },
@@ -185,7 +196,9 @@ class zaif(Exchange, ImplicitAPI):
                             },  # 10 in 60 seconds = 0.166 per second => cost = 10 / 0.166 = 66
                             "position_history": {"cost": 66},  # 10 in 60 seconds
                             "active_positions": {"cost": 5},  # 20 in 10 seconds
-                            "create_position": {"cost": 33},  # 3 in 10 seconds = 0.3 per second => cost = 10 / 0.3 = 33
+                            "create_position": {
+                                "cost": 33
+                            },  # 3 in 10 seconds = 0.3 per second => cost = 10 / 0.3 = 33
                             "change_position": {"cost": 33},  # 3 in 10 seconds
                             "cancel_position": {"cost": 33},  # 3 in 10 seconds
                         },
@@ -205,12 +218,12 @@ class zaif(Exchange, ImplicitAPI):
                     "spot": {
                         "sandbox": False,
                         "createOrder": {
-                            "marginMode": True,  # TODO
-                            "triggerPrice": True,  # TODO implement
+                            "marginMode": True,  # todo
+                            "triggerPrice": True,  # todo implement
                             "triggerDirection": False,
                             "triggerPriceType": None,
-                            "stopLossPrice": False,  # TODO
-                            "takeProfitPrice": False,  # TODO
+                            "stopLossPrice": False,  # todo
+                            "takeProfitPrice": False,  # todo
                             "attachedStopLossTakeProfit": None,
                             "timeInForce": {
                                 "IOC": False,
@@ -220,29 +233,29 @@ class zaif(Exchange, ImplicitAPI):
                             },
                             "hedged": False,
                             "trailing": False,
-                            "leverage": True,  # TODO implement
+                            "leverage": True,  # todo implement
                             "marketBuyByCost": False,
                             "marketBuyRequiresPrice": False,
                             "selfTradePrevention": False,
                             "iceberg": False,
                         },
                         "createOrders": None,
-                        "fetchMyTrades": None,  # TODO
+                        "fetchMyTrades": None,  # todo
                         "fetchOrder": None,
                         "fetchOpenOrders": {
-                            "marginMode": True,  # TODO
+                            "marginMode": True,  # todo
                             "limit": None,
                             "trigger": False,
                             "trailing": False,
                             "symbolRequired": False,
                         },
-                        "fetchOrders": None,  # TODO
+                        "fetchOrders": None,  # todo
                         "fetchClosedOrders": {
-                            "marginMode": True,  # TODO
+                            "marginMode": True,  # todo
                             "limit": 1000,
-                            "daysBack": 100000,  # TODO
-                            "daysBackCanceled": 1,  # TODO
-                            "untilDays": 100000,  # TODO
+                            "daysBack": 100000,  # todo
+                            "daysBackCanceled": 1,  # todo
+                            "untilDays": 100000,  # todo
                             "trigger": False,
                             "trailing": False,
                             "symbolRequired": False,
@@ -268,7 +281,7 @@ class zaif(Exchange, ImplicitAPI):
             },
         )
 
-    def fetch_markets(self, params=None) -> list[Market]:
+    def fetch_markets(self, params: dict = None) -> list[Market]:
         """
 
         https://zaif-api-document.readthedocs.io/ja/latest/PublicAPI.html#id12
@@ -290,7 +303,7 @@ class zaif(Exchange, ImplicitAPI):
         #             "item_unit_min": 0.001,
         #             "event_number": 0,
         #             "currency_pair": "btc_jpy",
-        #             "is_token": False,
+        #             "is_token": false,
         #             "aux_unit_min": 5.0,
         #             "aux_japanese": "\u65e5\u672c\u5186",
         #             "id": 1,
@@ -311,6 +324,8 @@ class zaif(Exchange, ImplicitAPI):
         baseId, quoteId = name.split("/")
         base = self.safe_currency_code(baseId)
         quote = self.safe_currency_code(quoteId)
+        if (base is None) or (quote is None):
+            return None
         symbol = base + "/" + quote
         return self.safe_market_structure(
             {
@@ -339,7 +354,9 @@ class zaif(Exchange, ImplicitAPI):
                 "optionType": None,
                 "precision": {
                     "amount": self.safe_number(market, "item_unit_step"),
-                    "price": self.parse_number(self.parse_precision(self.safe_string(market, "aux_unit_point"))),
+                    "price": self.parse_number(
+                        self.parse_precision(self.safe_string(market, "aux_unit_point"))
+                    ),
                 },
                 "limits": {
                     "leverage": {
@@ -365,30 +382,29 @@ class zaif(Exchange, ImplicitAPI):
         )
 
     def parse_balance(self, response: object) -> Balances:
-        balances = self.safe_value(response, "return", {})
-        deposit = self.safe_value(balances, "deposit")
+        balances = self.safe_dict(response, "return", {})
+        deposit = self.safe_dict(balances, "deposit")
         result = {
             "info": response,
             "timestamp": None,
             "datetime": None,
         }
-        funds = self.safe_value(balances, "funds", {})
+        funds = self.safe_dict(balances, "funds", {})
         currencyIds = list(funds.keys())
-        for i in range(len(currencyIds)):
+        for i in range(0, len(currencyIds)):
             currencyId = currencyIds[i]
             code = self.safe_currency_code(currencyId)
             balance = self.safe_string(funds, currencyId)
             account = self.account()
             account["free"] = balance
             account["total"] = balance
-            if deposit is not None:
-                if currencyId in deposit:
-                    account["total"] = self.safe_string(deposit, currencyId)
+            if deposit is not None and currencyId in deposit:
+                account["total"] = self.safe_string(deposit, currencyId)
             if code is not None:
                 result[code] = account
         return self.safe_balance(result)
 
-    def fetch_balance(self, params=None) -> Balances:
+    def fetch_balance(self, params: dict = None) -> Balances:
         """
 
         https://zaif-api-document.readthedocs.io/ja/latest/TradingAPI.html#id10
@@ -404,7 +420,7 @@ class zaif(Exchange, ImplicitAPI):
         response = self.privatePostGetInfo(params)
         return self.parse_balance(response)
 
-    def fetch_order_book(self, symbol: str, limit: Int = None, params=None) -> OrderBook:
+    def fetch_order_book(self, symbol: str, limit: Int = None, params: dict = None) -> OrderBook:
         """
 
         https://zaif-api-document.readthedocs.io/ja/latest/PublicAPI.html#id34
@@ -469,7 +485,7 @@ class zaif(Exchange, ImplicitAPI):
             market,
         )
 
-    def fetch_ticker(self, symbol: str, params=None) -> Ticker:
+    def fetch_ticker(self, symbol: str, params: dict = None) -> Ticker:
         """
 
         https://zaif-api-document.readthedocs.io/ja/latest/PublicAPI.html#id22
@@ -503,7 +519,7 @@ class zaif(Exchange, ImplicitAPI):
 
     def parse_trade(self, trade: dict, market: Market = None) -> Trade:
         #
-        # fetchTrades(public)
+        # fetchTrades (public)
         #
         #      {
         #          "date": 1648559414,
@@ -541,7 +557,9 @@ class zaif(Exchange, ImplicitAPI):
             market,
         )
 
-    def fetch_trades(self, symbol: str, since: Int = None, limit: Int = None, params=None) -> list[Trade]:
+    def fetch_trades(
+        self, symbol: str, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Trade]:
         """
 
         https://zaif-api-document.readthedocs.io/ja/latest/PublicAPI.html#id28
@@ -583,8 +601,14 @@ class zaif(Exchange, ImplicitAPI):
         return self.parse_trades(trades, market, since, limit)
 
     def create_order(
-        self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params=None
-    ):
+        self,
+        symbol: str,
+        type: OrderType,
+        side: OrderSide,
+        amount: float,
+        price: Num = None,
+        params: dict = None,
+    ) -> Order:
         """
 
         https://zaif-api-document.readthedocs.io/ja/latest/MarginTradingAPI.html#id23
@@ -621,7 +645,7 @@ class zaif(Exchange, ImplicitAPI):
             market,
         )
 
-    def cancel_order(self, id: str, symbol: Str = None, params=None):
+    def cancel_order(self, id: str, symbol: Str = None, params: dict = None) -> Order:
         """
 
         https://zaif-api-document.readthedocs.io/ja/latest/TradingAPI.html#id37
@@ -713,7 +737,9 @@ class zaif(Exchange, ImplicitAPI):
             market,
         )
 
-    def fetch_open_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params=None) -> list[Order]:
+    def fetch_open_orders(
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Order]:
         """
 
         https://zaif-api-document.readthedocs.io/ja/latest/MarginTradingAPI.html#id28
@@ -731,8 +757,8 @@ class zaif(Exchange, ImplicitAPI):
             self.load_markets()
         market = None
         request = {
-            # 'is_token': False,
-            # 'is_token_both': False,
+            # 'is_token': false,
+            # 'is_token_both': false,
         }
         if symbol is not None:
             market = self.market(symbol)
@@ -741,7 +767,9 @@ class zaif(Exchange, ImplicitAPI):
         data = self.safe_dict(response, "return", {})
         return self.parse_orders(data, market, since, limit)
 
-    def fetch_closed_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params=None) -> list[Order]:
+    def fetch_closed_orders(
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Order]:
         """
 
         https://zaif-api-document.readthedocs.io/ja/latest/TradingAPI.html#id24
@@ -766,16 +794,22 @@ class zaif(Exchange, ImplicitAPI):
             # 'order': 'DESC',
             # 'since': 1503821051,
             # 'end': 1503821051,
-            # 'is_token': False,
+            # 'is_token': false,
         }
         if symbol is not None:
             market = self.market(symbol)
             request["currency_pair"] = market["id"]
+        if since is not None:
+            request["since"] = self.parse_to_int(since / 1000)
+        if limit is not None:
+            request["count"] = min(limit, 1000)
         response = self.privatePostTradeHistory(self.extend(request, params))
         data = self.safe_dict(response, "return", {})
         return self.parse_orders(data, market, since, limit)
 
-    def withdraw(self, code: str, amount: float, address: str, tag: Str = None, params=None) -> Transaction:
+    def withdraw(
+        self, code: str, amount: float, address: str, tag: Str = None, params: dict = None
+    ) -> Transaction:
         """
 
         https://zaif-api-document.readthedocs.io/ja/latest/TradingAPI.html#id41
@@ -790,7 +824,7 @@ class zaif(Exchange, ImplicitAPI):
         """
         if params is None:
             params = {}
-        tag, params = self.handle_withdraw_tag_and_params(tag, params)
+        tagWithdrawTag, paramsWithdrawTag = self.handle_withdraw_tag_and_params(tag, params)
         self.check_address(address)
         if self.markets is None:
             self.load_markets()
@@ -801,12 +835,12 @@ class zaif(Exchange, ImplicitAPI):
             "currency": currency["id"],
             "amount": amount,
             "address": address,
-            # 'message': 'Hi!',  # XEM and others
-            # 'opt_fee': 0.003,  # BTC and MONA only
+            # 'message': 'Hi!', // XEM and others
+            # 'opt_fee': 0.003, // BTC and MONA only
         }
-        if tag is not None:
-            request["message"] = tag
-        result = self.privatePostWithdraw(self.extend(request, params))
+        if tagWithdrawTag is not None:
+            request["message"] = tagWithdrawTag
+        result = self.privatePostWithdraw(self.extend(request, paramsWithdrawTag))
         #
         #     {
         #         "success": 1,
@@ -840,13 +874,13 @@ class zaif(Exchange, ImplicitAPI):
         #         }
         #     }
         #
-        currency = self.safe_currency(None, currency)
+        currencyResolved = self.safe_currency(None, currency)
         fee = None
-        feeCost = self.safe_value(transaction, "fee")
+        feeCost = self.safe_number(transaction, "fee")
         if feeCost is not None:
             fee = {
                 "cost": feeCost,
-                "currency": currency["code"],
+                "currency": currencyResolved["code"],
             }
         return {
             "id": self.safe_string(transaction, "id"),
@@ -859,7 +893,7 @@ class zaif(Exchange, ImplicitAPI):
             "addressTo": None,
             "amount": None,
             "type": None,
-            "currency": currency["code"],
+            "currency": currencyResolved["code"],
             "status": None,
             "updated": None,
             "tagFrom": None,
@@ -878,16 +912,20 @@ class zaif(Exchange, ImplicitAPI):
 
     def sign(
         self,
-        path: object,
-        api: object = "public",
+        path: str,
+        api="public",
         method="GET",
-        params=None,
-        headers: dict | None = None,
-        body: object = None,
-    ):
+        params: dict = None,
+        headers: dict = None,
+        body: Str = None,
+    ) -> dict:
         if params is None:
             params = {}
-        url = self.urls["api"]["rest"] + "/"
+        baseApiUrl = self.safe_string(self.urls["api"], "rest")
+        if baseApiUrl is None:
+            raise ExchangeError(self.id + " sign() has no API URL for self endpoint")
+        baseUrl = baseApiUrl
+        url = baseUrl + "/"
         if api == "public":
             url += "api/" + self.version + "/" + self.implode_params(path, params)
         elif api == "fapi":
@@ -901,7 +939,7 @@ class zaif(Exchange, ImplicitAPI):
             else:
                 url += "tapi"
             nonce = self.custom_nonce()
-            body = self.urlencode(
+            bodyEncoded = self.urlencode(
                 self.extend(
                     {
                         "method": path,
@@ -910,11 +948,14 @@ class zaif(Exchange, ImplicitAPI):
                     params,
                 )
             )
-            headers = {
+            headersSigned = {
                 "Content-Type": "application/x-www-form-urlencoded",
                 "Key": self.apiKey,
-                "Sign": self.hmac(self.encode(body), self.encode(self.secret), hashlib.sha512),
+                "Sign": self.hmac(
+                    self.encode(bodyEncoded), self.encode(self.secret), hashlib.sha512
+                ),
             }
+            return {"url": url, "method": method, "body": bodyEncoded, "headers": headersSigned}
         return {"url": url, "method": method, "body": body, "headers": headers}
 
     def handle_errors(
@@ -930,7 +971,7 @@ class zaif(Exchange, ImplicitAPI):
         requestBody: object,
     ):
         if response is None:
-            return
+            return None
         #
         #     {"error": "unsupported currency_pair"}
         #
@@ -943,4 +984,4 @@ class zaif(Exchange, ImplicitAPI):
         success = self.safe_bool(response, "success", True)
         if success is not True:
             raise ExchangeError(feedback)
-        return
+        return None

@@ -46,7 +46,8 @@ async def main():
     exchange.verbose = True  # enable verbose mode after loading the markets
     print("-------------------------------------------------------------------")
     try:
-        await exchange.fetch_balance()
+        balance = await exchange.fetch_balance()
+        pprint(balance)
     except Exception as e:
         print("Failed to fetch the balance")
         print(type(e).__name__, str(e))
@@ -55,20 +56,24 @@ async def main():
     try:
         symbol = "BTC/USDT"
         market = exchange.market(symbol)
-        market["base"]
-        market["quote"]
+        base = market["base"]
+        quote = market["quote"]
+        pprint(balance[base])
+        pprint(balance[quote])
         amount = 0.001
         price = 40000
         order_type = "limit"
         side = "sell"
         order = await exchange.create_order(symbol, order_type, side, amount, price)
+        pprint(order)
     except Exception as e:
         print("Failed to place", symbol, "order")
         print(type(e).__name__, str(e))
     print("-------------------------------------------------------------------")
     if order is not None:
         try:
-            await exchange.cancel_order(order["id"], order["symbol"])
+            response = await exchange.cancel_order(order["id"], order["symbol"])
+            pprint(response)
         except Exception as e:
             print("Failed to cancel", symbol, "order")
             print(type(e).__name__, str(e))

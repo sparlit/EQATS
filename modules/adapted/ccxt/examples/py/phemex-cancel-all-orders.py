@@ -43,7 +43,8 @@ async def main():
     # exchange.verbose = True  # uncomment for debugging purposes if necessary
     try:
         symbol = "UNI/USDT"
-        await exchange.cancel_all_orders(symbol)
+        response = await exchange.cancel_all_orders(symbol)
+        pprint(response)
     except Exception as e:
         print(type(e).__name__, str(e))
     await exchange.close()

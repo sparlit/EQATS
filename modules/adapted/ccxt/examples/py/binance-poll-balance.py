@@ -53,6 +53,7 @@ while True:
         print("--------------------------------------------------------------")
         current_timestamp = exchange.milliseconds()
         print(exchange.iso8601(current_timestamp), "balance:")
+        pprint(balance)
         print("Fetched in", current_timestamp - previous_timestamp, "milliseconds")
         previous_timestamp = current_timestamp
     except Exception as e:

@@ -60,6 +60,7 @@ async def main():
     # exchanges = [exchange for exchange in exchanges if exchange.certified]
     results = await gather(*[load_markets(exchange) for exchange in exchanges])
     results = [result for result in results if result is not None]
+    pprint(results)
 
 
 run(main())

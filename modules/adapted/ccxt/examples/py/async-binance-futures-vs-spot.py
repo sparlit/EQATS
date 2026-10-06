@@ -29,7 +29,6 @@ from importlib.util import find_spec
 run = import_module(next(filter(find_spec, ("uvloop", "winloop", "asyncio")))).run
 import os
 import sys
-from pprint import pprint
 
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(root + "/python")
@@ -53,7 +52,7 @@ async def load(exchange, symbol, type="spot"):
         }
     except Exception as e:
         print("\n\nError in load() with type =", type, "-", e)
-        raise
+        raise e
 
 
 async def run():

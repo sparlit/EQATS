@@ -31,9 +31,15 @@ class ImplicitAPI:
     public_get_api_v1_exchangeinfo = publicGetApiV1ExchangeInfo = Entry[_Dict](
         "api/v1/exchangeInfo", "public", "GET", {"cost": 5}
     )
-    public_get_quote_v1_depth = publicGetQuoteV1Depth = Entry[_Dict]("quote/v1/depth", "public", "GET", {"cost": 1})
-    public_get_quote_v1_trades = publicGetQuoteV1Trades = Entry[_List]("quote/v1/trades", "public", "GET", {"cost": 1})
-    public_get_quote_v1_klines = publicGetQuoteV1Klines = Entry[_List]("quote/v1/klines", "public", "GET", {"cost": 1})
+    public_get_quote_v1_depth = publicGetQuoteV1Depth = Entry[_Dict](
+        "quote/v1/depth", "public", "GET", {"cost": 1}
+    )
+    public_get_quote_v1_trades = publicGetQuoteV1Trades = Entry[_List](
+        "quote/v1/trades", "public", "GET", {"cost": 1}
+    )
+    public_get_quote_v1_klines = publicGetQuoteV1Klines = Entry[_List](
+        "quote/v1/klines", "public", "GET", {"cost": 1}
+    )
     public_get_quote_v1_ticker_24hr = publicGetQuoteV1Ticker24hr = Entry[_List](
         "quote/v1/ticker/24hr", "public", "GET", {"cost": 1}
     )
@@ -49,15 +55,21 @@ class ImplicitAPI:
     public_get_quote_v1_markprice = publicGetQuoteV1MarkPrice = Entry[_Dict](
         "quote/v1/markPrice", "public", "GET", {"cost": 1}
     )
-    public_get_quote_v1_index = publicGetQuoteV1Index = Entry[_Dict]("quote/v1/index", "public", "GET", {"cost": 1})
+    public_get_quote_v1_index = publicGetQuoteV1Index = Entry[_Dict](
+        "quote/v1/index", "public", "GET", {"cost": 1}
+    )
     public_get_api_v1_futures_fundingrate = publicGetApiV1FuturesFundingRate = Entry[_List](
         "api/v1/futures/fundingRate", "public", "GET", {"cost": 1}
     )
-    public_get_api_v1_futures_historyfundingrate = publicGetApiV1FuturesHistoryFundingRate = Entry[_List](
-        "api/v1/futures/historyFundingRate", "public", "GET", {"cost": 1}
+    public_get_api_v1_futures_historyfundingrate = publicGetApiV1FuturesHistoryFundingRate = Entry[
+        _List
+    ]("api/v1/futures/historyFundingRate", "public", "GET", {"cost": 1})
+    public_get_api_v1_ping = publicGetApiV1Ping = Entry[_Dict](
+        "api/v1/ping", "public", "GET", {"cost": 1}
     )
-    public_get_api_v1_ping = publicGetApiV1Ping = Entry[_Dict]("api/v1/ping", "public", "GET", {"cost": 1})
-    public_get_api_v1_time = publicGetApiV1Time = Entry[_Dict]("api/v1/time", "public", "GET", {"cost": 1})
+    public_get_api_v1_time = publicGetApiV1Time = Entry[_Dict](
+        "api/v1/time", "public", "GET", {"cost": 1}
+    )
     private_get_api_v1_spot_order = privateGetApiV1SpotOrder = Entry[_Dict](
         "api/v1/spot/order", "private", "GET", {"cost": 1}
     )
@@ -88,9 +100,9 @@ class ImplicitAPI:
     private_get_api_v1_futures_balance = privateGetApiV1FuturesBalance = Entry[_List](
         "api/v1/futures/balance", "private", "GET", {"cost": 1}
     )
-    private_get_api_v1_futures_liquidationassignstatus = privateGetApiV1FuturesLiquidationAssignStatus = Entry[_List](
-        "api/v1/futures/liquidationAssignStatus", "private", "GET", {"cost": 1}
-    )
+    private_get_api_v1_futures_liquidationassignstatus = (
+        privateGetApiV1FuturesLiquidationAssignStatus
+    ) = Entry[_List]("api/v1/futures/liquidationAssignStatus", "private", "GET", {"cost": 1})
     private_get_api_v1_futures_risklimit = privateGetApiV1FuturesRiskLimit = Entry[_List](
         "api/v1/futures/riskLimit", "private", "GET", {"cost": 1}
     )
@@ -106,7 +118,9 @@ class ImplicitAPI:
     private_get_api_v1_account_vipinfo = privateGetApiV1AccountVipInfo = Entry[_Dict](
         "api/v1/account/vipInfo", "private", "GET", {"cost": 1}
     )
-    private_get_api_v1_account = privateGetApiV1Account = Entry[_Dict]("api/v1/account", "private", "GET", {"cost": 1})
+    private_get_api_v1_account = privateGetApiV1Account = Entry[_Dict](
+        "api/v1/account", "private", "GET", {"cost": 1}
+    )
     private_get_api_v1_account_trades = privateGetApiV1AccountTrades = Entry[_List](
         "api/v1/account/trades", "private", "GET", {"cost": 5}
     )
@@ -122,32 +136,35 @@ class ImplicitAPI:
     private_get_api_v1_account_balanceflow = privateGetApiV1AccountBalanceFlow = Entry[_List](
         "api/v1/account/balanceFlow", "private", "GET", {"cost": 5}
     )
-    private_get_api_v1_spot_subaccount_openorders = privateGetApiV1SpotSubAccountOpenOrders = Entry[_List](
-        "api/v1/spot/subAccount/openOrders", "private", "GET", {"cost": 1}
-    )
-    private_get_api_v1_spot_subaccount_tradeorders = privateGetApiV1SpotSubAccountTradeOrders = Entry[_List](
-        "api/v1/spot/subAccount/tradeOrders", "private", "GET", {"cost": 1}
+    private_get_api_v1_spot_subaccount_openorders = privateGetApiV1SpotSubAccountOpenOrders = Entry[
+        _List
+    ]("api/v1/spot/subAccount/openOrders", "private", "GET", {"cost": 1})
+    private_get_api_v1_spot_subaccount_tradeorders = privateGetApiV1SpotSubAccountTradeOrders = (
+        Entry[_List]("api/v1/spot/subAccount/tradeOrders", "private", "GET", {"cost": 1})
     )
     private_get_api_v1_subaccount_trades = privateGetApiV1SubAccountTrades = Entry[_List](
         "api/v1/subAccount/trades", "private", "GET", {"cost": 1}
     )
-    private_get_api_v1_futures_subaccount_openorders = privateGetApiV1FuturesSubAccountOpenOrders = Entry[_List](
-        "api/v1/futures/subAccount/openOrders", "private", "GET", {"cost": 1}
-    )
-    private_get_api_v1_futures_subaccount_historyorders = privateGetApiV1FuturesSubAccountHistoryOrders = Entry[_List](
-        "api/v1/futures/subAccount/historyOrders", "private", "GET", {"cost": 1}
-    )
-    private_get_api_v1_futures_subaccount_usertrades = privateGetApiV1FuturesSubAccountUserTrades = Entry[_List](
-        "api/v1/futures/subAccount/userTrades", "private", "GET", {"cost": 1}
-    )
-    private_get_api_v1_account_deposit_address = privateGetApiV1AccountDepositAddress = Entry[_Dict](
-        "api/v1/account/deposit/address", "private", "GET", {"cost": 1}
-    )
+    private_get_api_v1_futures_subaccount_openorders = (
+        privateGetApiV1FuturesSubAccountOpenOrders
+    ) = Entry[_List]("api/v1/futures/subAccount/openOrders", "private", "GET", {"cost": 1})
+    private_get_api_v1_futures_subaccount_historyorders = (
+        privateGetApiV1FuturesSubAccountHistoryOrders
+    ) = Entry[_List]("api/v1/futures/subAccount/historyOrders", "private", "GET", {"cost": 1})
+    private_get_api_v1_futures_subaccount_usertrades = (
+        privateGetApiV1FuturesSubAccountUserTrades
+    ) = Entry[_List]("api/v1/futures/subAccount/userTrades", "private", "GET", {"cost": 1})
+    private_get_api_v1_account_deposit_address = privateGetApiV1AccountDepositAddress = Entry[
+        _Dict
+    ]("api/v1/account/deposit/address", "private", "GET", {"cost": 1})
     private_get_api_v1_account_depositorders = privateGetApiV1AccountDepositOrders = Entry[_List](
         "api/v1/account/depositOrders", "private", "GET", {"cost": 1}
     )
     private_get_api_v1_account_withdraworders = privateGetApiV1AccountWithdrawOrders = Entry[_List](
         "api/v1/account/withdrawOrders", "private", "GET", {"cost": 1}
+    )
+    private_get_api_v1_affiliate_inviteeinfo = privateGetApiV1AffiliateInviteeInfo = Entry[_List](
+        "api/v1/affiliate/inviteeInfo", "private", "GET", {"cost": 1}
     )
     private_post_api_v1_userdatastream = privatePostApiV1UserDataStream = Entry[_Dict](
         "api/v1/userDataStream", "private", "POST", {"cost": 1}
@@ -173,12 +190,12 @@ class ImplicitAPI:
     private_post_api_v1_futures_margintype = privatePostApiV1FuturesMarginType = Entry[_Dict](
         "api/v1/futures/marginType", "private", "POST", {"cost": 1}
     )
-    private_post_api_v1_futures_positionmargin = privatePostApiV1FuturesPositionMargin = Entry[_Dict](
-        "api/v1/futures/positionMargin", "private", "POST", {"cost": 1}
-    )
-    private_post_api_v1_futures_position_trading_stop = privatePostApiV1FuturesPositionTradingStop = Entry[_Dict](
-        "api/v1/futures/position/trading-stop", "private", "POST", {"cost": 3}
-    )
+    private_post_api_v1_futures_positionmargin = privatePostApiV1FuturesPositionMargin = Entry[
+        _Dict
+    ]("api/v1/futures/positionMargin", "private", "POST", {"cost": 1})
+    private_post_api_v1_futures_position_trading_stop = (
+        privatePostApiV1FuturesPositionTradingStop
+    ) = Entry[_Dict]("api/v1/futures/position/trading-stop", "private", "POST", {"cost": 3})
     private_post_api_v1_futures_batchorders = privatePostApiV1FuturesBatchOrders = Entry[_Dict](
         "api/v1/futures/batchOrders", "private", "POST", {"cost": 5}
     )
@@ -200,8 +217,11 @@ class ImplicitAPI:
     private_delete_api_v1_spot_openorders = privateDeleteApiV1SpotOpenOrders = Entry[_List](
         "api/v1/spot/openOrders", "private", "DELETE", {"cost": 5}
     )
-    private_delete_api_v1_spot_cancelorderbyids = privateDeleteApiV1SpotCancelOrderByIds = Entry[_Dict](
-        "api/v1/spot/cancelOrderByIds", "private", "DELETE", {"cost": 5}
+    private_delete_api_v1_spot_cancelorderbyids = privateDeleteApiV1SpotCancelOrderByIds = Entry[
+        _Dict
+    ]("api/v1/spot/cancelOrderByIds", "private", "DELETE", {"cost": 5})
+    private_delete_api_v1_spot_cancelallopenorders = privateDeleteApiV1SpotCancelAllOpenOrders = (
+        Entry[_Dict]("api/v1/spot/cancelAllOpenOrders", "private", "DELETE", {"cost": 5})
     )
     private_delete_api_v1_futures_order = privateDeleteApiV1FuturesOrder = Entry[_Dict](
         "api/v1/futures/order", "private", "DELETE", {"cost": 1}
@@ -209,9 +229,12 @@ class ImplicitAPI:
     private_delete_api_v1_futures_batchorders = privateDeleteApiV1FuturesBatchOrders = Entry[_Dict](
         "api/v1/futures/batchOrders", "private", "DELETE", {"cost": 1}
     )
-    private_delete_api_v1_futures_cancelorderbyids = privateDeleteApiV1FuturesCancelOrderByIds = Entry[_Dict](
-        "api/v1/futures/cancelOrderByIds", "private", "DELETE", {"cost": 1}
+    private_delete_api_v1_futures_cancelorderbyids = privateDeleteApiV1FuturesCancelOrderByIds = (
+        Entry[_Dict]("api/v1/futures/cancelOrderByIds", "private", "DELETE", {"cost": 1})
     )
+    private_delete_api_v1_futures_cancelallopenorders = (
+        privateDeleteApiV1FuturesCancelAllOpenOrders
+    ) = Entry[_Dict]("api/v1/futures/cancelAllOpenOrders", "private", "DELETE", {"cost": 1})
     private_delete_api_v1_userdatastream = privateDeleteApiV1UserDataStream = Entry[_Dict](
         "api/v1/userDataStream", "private", "DELETE", {"cost": 1}
     )

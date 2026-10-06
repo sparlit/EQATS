@@ -27,21 +27,35 @@ _Dict = dict[str, object]
 
 
 class ImplicitAPI:
-    public_get_orderbook = publicGetOrderBook = Entry[_Dict]("orderBook", "public", "GET", {"cost": 1})
+    public_get_orderbook = publicGetOrderBook = Entry[_Dict](
+        "orderBook", "public", "GET", {"cost": 1}
+    )
     public_get_ticker = publicGetTicker = Entry[_Dict]("ticker", "public", "GET", {"cost": 1})
-    public_get_tickerall = publicGetTickerAll = Entry[_Dict]("tickerAll", "public", "GET", {"cost": 1})
+    public_get_tickerall = publicGetTickerAll = Entry[_Dict](
+        "tickerAll", "public", "GET", {"cost": 1}
+    )
     public_get_products = publicGetProducts = Entry[_Dict]("products", "public", "GET", {"cost": 1})
-    public_get_transactions = publicGetTransactions = Entry[_Dict]("transactions", "public", "GET", {"cost": 1})
-    public_get_tradingpairs = publicGetTradingPairs = Entry[_Dict]("tradingPairs", "public", "GET", {"cost": 1})
-    public_get_system_time = publicGetSystemTime = Entry[_Dict]("system/time", "public", "GET", {"cost": 1})
-    private_post_currencies = privatePostCurrencies = Entry[_Dict]("currencies", "private", "POST", {"cost": 1})
-    private_post_balances = privatePostBalances = Entry[_Dict]("balances", "private", "POST", {"cost": 1})
+    public_get_transactions = publicGetTransactions = Entry[_Dict](
+        "transactions", "public", "GET", {"cost": 1}
+    )
+    public_get_tradingpairs = publicGetTradingPairs = Entry[_Dict](
+        "tradingPairs", "public", "GET", {"cost": 1}
+    )
+    public_get_system_time = publicGetSystemTime = Entry[_Dict](
+        "system/time", "public", "GET", {"cost": 1}
+    )
+    private_post_currencies = privatePostCurrencies = Entry[_Dict](
+        "currencies", "private", "POST", {"cost": 1}
+    )
+    private_post_balances = privatePostBalances = Entry[_Dict](
+        "balances", "private", "POST", {"cost": 1}
+    )
     private_post_bitcoincashwithdrawal = privatePostBitcoinCashWithdrawal = Entry[_Dict](
         "bitcoinCashWithdrawal", "private", "POST", {"cost": 1}
     )
-    private_post_bitcoincashdepositaddresses = privatePostBitcoinCashDepositAddresses = Entry[_Dict](
-        "bitcoinCashDepositAddresses", "private", "POST", {"cost": 1}
-    )
+    private_post_bitcoincashdepositaddresses = privatePostBitcoinCashDepositAddresses = Entry[
+        _Dict
+    ]("bitcoinCashDepositAddresses", "private", "POST", {"cost": 1})
     private_post_bitcoindepositaddresses = privatePostBitcoinDepositAddresses = Entry[_Dict](
         "bitcoinDepositAddresses", "private", "POST", {"cost": 1}
     )
@@ -51,9 +65,15 @@ class ImplicitAPI:
     private_post_bitcoinwithdrawalfees = privatePostBitcoinWithdrawalFees = Entry[_Dict](
         "bitcoinWithdrawalFees", "private", "POST", {"cost": 1}
     )
-    private_post_buyinstant = privatePostBuyInstant = Entry[_Dict]("buyInstant", "private", "POST", {"cost": 1})
-    private_post_buylimit = privatePostBuyLimit = Entry[_Dict]("buyLimit", "private", "POST", {"cost": 1})
-    private_post_cancelorder = privatePostCancelOrder = Entry[_Dict]("cancelOrder", "private", "POST", {"cost": 1})
+    private_post_buyinstant = privatePostBuyInstant = Entry[_Dict](
+        "buyInstant", "private", "POST", {"cost": 1}
+    )
+    private_post_buylimit = privatePostBuyLimit = Entry[_Dict](
+        "buyLimit", "private", "POST", {"cost": 1}
+    )
+    private_post_cancelorder = privatePostCancelOrder = Entry[_Dict](
+        "cancelOrder", "private", "POST", {"cost": 1}
+    )
     private_post_cancelorderwithinfo = privatePostCancelOrderWithInfo = Entry[_Dict](
         "cancelOrderWithInfo", "private", "POST", {"cost": 1}
     )
@@ -78,11 +98,19 @@ class ImplicitAPI:
     private_post_litecoindepositaddresses = privatePostLitecoinDepositAddresses = Entry[_Dict](
         "litecoinDepositAddresses", "private", "POST", {"cost": 1}
     )
-    private_post_openorders = privatePostOpenOrders = Entry[_Dict]("openOrders", "private", "POST", {"cost": 1})
+    private_post_openorders = privatePostOpenOrders = Entry[_Dict](
+        "openOrders", "private", "POST", {"cost": 1}
+    )
     private_post_order = privatePostOrder = Entry[_Dict]("order", "private", "POST", {"cost": 1})
-    private_post_orderhistory = privatePostOrderHistory = Entry[_Dict]("orderHistory", "private", "POST", {"cost": 1})
-    private_post_orderbyid = privatePostOrderById = Entry[_Dict]("orderById", "private", "POST", {"cost": 1})
-    private_post_pusherauth = privatePostPusherAuth = Entry[_Dict]("pusherAuth", "private", "POST", {"cost": 1})
+    private_post_orderhistory = privatePostOrderHistory = Entry[_Dict](
+        "orderHistory", "private", "POST", {"cost": 1}
+    )
+    private_post_orderbyid = privatePostOrderById = Entry[_Dict](
+        "orderById", "private", "POST", {"cost": 1}
+    )
+    private_post_pusherauth = privatePostPusherAuth = Entry[_Dict](
+        "pusherAuth", "private", "POST", {"cost": 1}
+    )
     private_post_redeemvoucher = privatePostRedeemVoucher = Entry[_Dict](
         "redeemVoucher", "private", "POST", {"cost": 1}
     )
@@ -104,32 +132,42 @@ class ImplicitAPI:
     private_post_ripplewithdrawal = privatePostRippleWithdrawal = Entry[_Dict](
         "rippleWithdrawal", "private", "POST", {"cost": 1}
     )
-    private_post_sellinstant = privatePostSellInstant = Entry[_Dict]("sellInstant", "private", "POST", {"cost": 1})
-    private_post_selllimit = privatePostSellLimit = Entry[_Dict]("sellLimit", "private", "POST", {"cost": 1})
+    private_post_sellinstant = privatePostSellInstant = Entry[_Dict](
+        "sellInstant", "private", "POST", {"cost": 1}
+    )
+    private_post_selllimit = privatePostSellLimit = Entry[_Dict](
+        "sellLimit", "private", "POST", {"cost": 1}
+    )
     private_post_transactionhistory = privatePostTransactionHistory = Entry[_Dict](
         "transactionHistory", "private", "POST", {"cost": 1}
     )
-    private_post_traderfees = privatePostTraderFees = Entry[_Dict]("traderFees", "private", "POST", {"cost": 1})
-    private_post_tradehistory = privatePostTradeHistory = Entry[_Dict]("tradeHistory", "private", "POST", {"cost": 1})
-    private_post_transfer = privatePostTransfer = Entry[_Dict]("transfer", "private", "POST", {"cost": 1})
+    private_post_traderfees = privatePostTraderFees = Entry[_Dict](
+        "traderFees", "private", "POST", {"cost": 1}
+    )
+    private_post_tradehistory = privatePostTradeHistory = Entry[_Dict](
+        "tradeHistory", "private", "POST", {"cost": 1}
+    )
+    private_post_transfer = privatePostTransfer = Entry[_Dict](
+        "transfer", "private", "POST", {"cost": 1}
+    )
     private_post_transferhistory = privatePostTransferHistory = Entry[_Dict](
         "transferHistory", "private", "POST", {"cost": 1}
     )
     private_post_unconfirmedbitcoindeposits = privatePostUnconfirmedBitcoinDeposits = Entry[_Dict](
         "unconfirmedBitcoinDeposits", "private", "POST", {"cost": 1}
     )
-    private_post_unconfirmedbitcoincashdeposits = privatePostUnconfirmedBitcoinCashDeposits = Entry[_Dict](
-        "unconfirmedBitcoinCashDeposits", "private", "POST", {"cost": 1}
-    )
+    private_post_unconfirmedbitcoincashdeposits = privatePostUnconfirmedBitcoinCashDeposits = Entry[
+        _Dict
+    ]("unconfirmedBitcoinCashDeposits", "private", "POST", {"cost": 1})
     private_post_unconfirmeddashdeposits = privatePostUnconfirmedDashDeposits = Entry[_Dict](
         "unconfirmedDashDeposits", "private", "POST", {"cost": 1}
     )
-    private_post_unconfirmedethereumdeposits = privatePostUnconfirmedEthereumDeposits = Entry[_Dict](
-        "unconfirmedEthereumDeposits", "private", "POST", {"cost": 1}
-    )
-    private_post_unconfirmedlitecoindeposits = privatePostUnconfirmedLitecoinDeposits = Entry[_Dict](
-        "unconfirmedLitecoinDeposits", "private", "POST", {"cost": 1}
-    )
+    private_post_unconfirmedethereumdeposits = privatePostUnconfirmedEthereumDeposits = Entry[
+        _Dict
+    ]("unconfirmedEthereumDeposits", "private", "POST", {"cost": 1})
+    private_post_unconfirmedlitecoindeposits = privatePostUnconfirmedLitecoinDeposits = Entry[
+        _Dict
+    ]("unconfirmedLitecoinDeposits", "private", "POST", {"cost": 1})
     private_post_unconfirmedrippledeposits = privatePostUnconfirmedRippleDeposits = Entry[_Dict](
         "unconfirmedRippleDeposits", "private", "POST", {"cost": 1}
     )
@@ -139,12 +177,12 @@ class ImplicitAPI:
     private_post_withdrawvirtualcurrency = privatePostWithdrawVirtualCurrency = Entry[_Dict](
         "withdrawVirtualCurrency", "private", "POST", {"cost": 1}
     )
-    private_post_virtualcurrencydepositaddresses = privatePostVirtualCurrencyDepositAddresses = Entry[_Dict](
-        "virtualCurrencyDepositAddresses", "private", "POST", {"cost": 1}
+    private_post_virtualcurrencydepositaddresses = privatePostVirtualCurrencyDepositAddresses = (
+        Entry[_Dict]("virtualCurrencyDepositAddresses", "private", "POST", {"cost": 1})
     )
-    private_post_unconfirmedvirtualcurrencydeposits = privatePostUnconfirmedVirtualCurrencyDeposits = Entry[_Dict](
-        "unconfirmedVirtualCurrencyDeposits", "private", "POST", {"cost": 1}
-    )
+    private_post_unconfirmedvirtualcurrencydeposits = (
+        privatePostUnconfirmedVirtualCurrencyDeposits
+    ) = Entry[_Dict]("unconfirmedVirtualCurrencyDeposits", "private", "POST", {"cost": 1})
     private_post_adawithdrawal = privatePostAdaWithdrawal = Entry[_Dict](
         "adaWithdrawal", "private", "POST", {"cost": 1}
     )
@@ -174,4 +212,10 @@ class ImplicitAPI:
     )
     private_post_bankwirewithdrawal = privatePostBankWireWithdrawal = Entry[_Dict](
         "bankWireWithdrawal", "private", "POST", {"cost": 1}
+    )
+    private_post_lightningdeposit = privatePostLightningDeposit = Entry[_Dict](
+        "lightningDeposit", "private", "POST", {"cost": 1}
+    )
+    private_post_lightningwithdraw = privatePostLightningWithdraw = Entry[_Dict](
+        "lightningWithdraw", "private", "POST", {"cost": 1}
     )

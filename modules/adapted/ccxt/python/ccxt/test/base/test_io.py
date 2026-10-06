@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_io():
@@ -54,4 +54,6 @@ def test_io():
     assert exchange.write_file(file_path, file_content), "can not write file " + file_path
     assert exchange.exists_file(file_path), "file does not exist: " + file_path
     read_content = exchange.read_file(file_path)
-    assert read_content == file_content, "file content mismatch. Expected: " + file_content + ", got: " + read_content
+    assert read_content == file_content, (
+        "file content mismatch. Expected: " + file_content + ", got: " + read_content
+    )

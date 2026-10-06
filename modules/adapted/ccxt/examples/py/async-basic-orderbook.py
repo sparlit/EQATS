@@ -51,7 +51,7 @@ async def test():
         return orderbook
     except ccxt.BaseError as e:
         print(type(e).__name__, str(e), str(e.args))
-        raise
+        raise e
 
 
 run(test())

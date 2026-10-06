@@ -30,7 +30,9 @@ class ImplicitAPI:
     v2public_get_reference_currencies = v2PublicGetReferenceCurrencies = Entry[_Dict](
         "reference/currencies", "v2Public", "GET", {"cost": 1}
     )
-    v2public_get_market_status = v2PublicGetMarketStatus = Entry[_Dict]("market-status", "v2Public", "GET", {"cost": 1})
+    v2public_get_market_status = v2PublicGetMarketStatus = Entry[_Dict](
+        "market-status", "v2Public", "GET", {"cost": 1}
+    )
     v2private_get_account_ledger = v2PrivateGetAccountLedger = Entry[_Dict](
         "account/ledger", "v2Private", "GET", {"cost": 1}
     )
@@ -70,8 +72,12 @@ class ImplicitAPI:
     v2private_get_sub_user_query_deposit = v2PrivateGetSubUserQueryDeposit = Entry[_Dict](
         "sub-user/query-deposit", "v2Private", "GET", {"cost": 1}
     )
-    v2private_get_user_api_key = v2PrivateGetUserApiKey = Entry[_Dict]("user/api-key", "v2Private", "GET", {"cost": 1})
-    v2private_get_user_uid = v2PrivateGetUserUid = Entry[_Dict]("user/uid", "v2Private", "GET", {"cost": 1})
+    v2private_get_user_api_key = v2PrivateGetUserApiKey = Entry[_Dict](
+        "user/api-key", "v2Private", "GET", {"cost": 1}
+    )
+    v2private_get_user_uid = v2PrivateGetUserUid = Entry[_Dict](
+        "user/uid", "v2Private", "GET", {"cost": 1}
+    )
     v2private_get_algo_orders_opening = v2PrivateGetAlgoOrdersOpening = Entry[_Dict](
         "algo-orders/opening", "v2Private", "GET", {"cost": 1}
     )
@@ -81,15 +87,21 @@ class ImplicitAPI:
     v2private_get_algo_orders_specific = v2PrivateGetAlgoOrdersSpecific = Entry[_Dict](
         "algo-orders/specific", "v2Private", "GET", {"cost": 1}
     )
-    v2private_get_c2c_offers = v2PrivateGetC2cOffers = Entry[_Dict]("c2c/offers", "v2Private", "GET", {"cost": 1})
-    v2private_get_c2c_offer = v2PrivateGetC2cOffer = Entry[_Dict]("c2c/offer", "v2Private", "GET", {"cost": 1})
+    v2private_get_c2c_offers = v2PrivateGetC2cOffers = Entry[_Dict](
+        "c2c/offers", "v2Private", "GET", {"cost": 1}
+    )
+    v2private_get_c2c_offer = v2PrivateGetC2cOffer = Entry[_Dict](
+        "c2c/offer", "v2Private", "GET", {"cost": 1}
+    )
     v2private_get_c2c_transactions = v2PrivateGetC2cTransactions = Entry[_Dict](
         "c2c/transactions", "v2Private", "GET", {"cost": 1}
     )
     v2private_get_c2c_repayment = v2PrivateGetC2cRepayment = Entry[_Dict](
         "c2c/repayment", "v2Private", "GET", {"cost": 1}
     )
-    v2private_get_c2c_account = v2PrivateGetC2cAccount = Entry[_Dict]("c2c/account", "v2Private", "GET", {"cost": 1})
+    v2private_get_c2c_account = v2PrivateGetC2cAccount = Entry[_Dict](
+        "c2c/account", "v2Private", "GET", {"cost": 1}
+    )
     v2private_get_etp_reference = v2PrivateGetEtpReference = Entry[_Dict](
         "etp/reference", "v2Private", "GET", {"cost": 1}
     )
@@ -102,7 +114,9 @@ class ImplicitAPI:
     v2private_get_etp_rebalance = v2PrivateGetEtpRebalance = Entry[_Dict](
         "etp/rebalance", "v2Private", "GET", {"cost": 1}
     )
-    v2private_get_etp_limit = v2PrivateGetEtpLimit = Entry[_Dict]("etp/limit", "v2Private", "GET", {"cost": 1})
+    v2private_get_etp_limit = v2PrivateGetEtpLimit = Entry[_Dict](
+        "etp/limit", "v2Private", "GET", {"cost": 1}
+    )
     v2private_post_account_transfer = v2PrivatePostAccountTransfer = Entry[_Dict](
         "account/transfer", "v2Private", "POST", {"cost": 1}
     )
@@ -124,26 +138,30 @@ class ImplicitAPI:
     v2private_post_sub_user_transferability = v2PrivatePostSubUserTransferability = Entry[_Dict](
         "sub-user/transferability", "v2Private", "POST", {"cost": 1}
     )
-    v2private_post_sub_user_api_key_generation = v2PrivatePostSubUserApiKeyGeneration = Entry[_Dict](
-        "sub-user/api-key-generation", "v2Private", "POST", {"cost": 1}
-    )
-    v2private_post_sub_user_api_key_modification = v2PrivatePostSubUserApiKeyModification = Entry[_Dict](
-        "sub-user/api-key-modification", "v2Private", "POST", {"cost": 1}
-    )
+    v2private_post_sub_user_api_key_generation = v2PrivatePostSubUserApiKeyGeneration = Entry[
+        _Dict
+    ]("sub-user/api-key-generation", "v2Private", "POST", {"cost": 1})
+    v2private_post_sub_user_api_key_modification = v2PrivatePostSubUserApiKeyModification = Entry[
+        _Dict
+    ]("sub-user/api-key-modification", "v2Private", "POST", {"cost": 1})
     v2private_post_sub_user_api_key_deletion = v2PrivatePostSubUserApiKeyDeletion = Entry[_Dict](
         "sub-user/api-key-deletion", "v2Private", "POST", {"cost": 1}
     )
     v2private_post_sub_user_deduct_mode = v2PrivatePostSubUserDeductMode = Entry[_Dict](
         "sub-user/deduct-mode", "v2Private", "POST", {"cost": 1}
     )
-    v2private_post_algo_orders = v2PrivatePostAlgoOrders = Entry[_Dict]("algo-orders", "v2Private", "POST", {"cost": 1})
-    v2private_post_algo_orders_cancel_all_after = v2PrivatePostAlgoOrdersCancelAllAfter = Entry[_Dict](
-        "algo-orders/cancel-all-after", "v2Private", "POST", {"cost": 1}
+    v2private_post_algo_orders = v2PrivatePostAlgoOrders = Entry[_Dict](
+        "algo-orders", "v2Private", "POST", {"cost": 1}
     )
+    v2private_post_algo_orders_cancel_all_after = v2PrivatePostAlgoOrdersCancelAllAfter = Entry[
+        _Dict
+    ]("algo-orders/cancel-all-after", "v2Private", "POST", {"cost": 1})
     v2private_post_algo_orders_cancellation = v2PrivatePostAlgoOrdersCancellation = Entry[_Dict](
         "algo-orders/cancellation", "v2Private", "POST", {"cost": 1}
     )
-    v2private_post_c2c_offer = v2PrivatePostC2cOffer = Entry[_Dict]("c2c/offer", "v2Private", "POST", {"cost": 1})
+    v2private_post_c2c_offer = v2PrivatePostC2cOffer = Entry[_Dict](
+        "c2c/offer", "v2Private", "POST", {"cost": 1}
+    )
     v2private_post_c2c_cancellation = v2PrivatePostC2cCancellation = Entry[_Dict](
         "c2c/cancellation", "v2Private", "POST", {"cost": 1}
     )
@@ -168,24 +186,37 @@ class ImplicitAPI:
     v2private_post_etp_batch_cancel = v2PrivatePostEtpBatchCancel = Entry[_Dict](
         "etp/batch-cancel", "v2Private", "POST", {"cost": 50}
     )
-    market_get_history_kline = marketGetHistoryKline = Entry[_Dict]("history/kline", "market", "GET", {"cost": 1})
-    market_get_detail_merged = marketGetDetailMerged = Entry[_Dict]("detail/merged", "market", "GET", {"cost": 1})
+    market_get_history_kline = marketGetHistoryKline = Entry[_Dict](
+        "history/kline", "market", "GET", {"cost": 1}
+    )
+    market_get_detail_merged = marketGetDetailMerged = Entry[_Dict](
+        "detail/merged", "market", "GET", {"cost": 1}
+    )
     market_get_depth = marketGetDepth = Entry[_Dict]("depth", "market", "GET", {"cost": 1})
     market_get_trade = marketGetTrade = Entry[_Dict]("trade", "market", "GET", {"cost": 1})
-    market_get_history_trade = marketGetHistoryTrade = Entry[_Dict]("history/trade", "market", "GET", {"cost": 1})
+    market_get_history_trade = marketGetHistoryTrade = Entry[_Dict](
+        "history/trade", "market", "GET", {"cost": 1}
+    )
     market_get_detail = marketGetDetail = Entry[_Dict]("detail", "market", "GET", {"cost": 1})
     market_get_tickers = marketGetTickers = Entry[_Dict]("tickers", "market", "GET", {"cost": 1})
     market_get_etp = marketGetEtp = Entry[_Dict]("etp", "market", "GET", {"cost": 1})
-    public_get_common_symbols = publicGetCommonSymbols = Entry[_Dict]("common/symbols", "public", "GET", {"cost": 1})
+    public_get_common_symbols = publicGetCommonSymbols = Entry[_Dict](
+        "common/symbols", "public", "GET", {"cost": 1}
+    )
     public_get_common_currencys = publicGetCommonCurrencys = Entry[_Dict](
         "common/currencys", "public", "GET", {"cost": 1}
     )
     public_get_common_timestamp = publicGetCommonTimestamp = Entry[_Dict](
         "common/timestamp", "public", "GET", {"cost": 1}
     )
-    public_get_common_exchange = publicGetCommonExchange = Entry[_Dict]("common/exchange", "public", "GET", {"cost": 1})
+    public_get_common_exchange = publicGetCommonExchange = Entry[_Dict](
+        "common/exchange", "public", "GET", {"cost": 1}
+    )
     public_get_settings_currencys = publicGetSettingsCurrencys = Entry[_Dict](
         "settings/currencys", "public", "GET", {"cost": 1}
+    )
+    public_get_retail_maintain_time = publicGetRetailMaintainTime = Entry[_Dict](
+        "retail/maintain/time", "public", "GET", {"cost": 1}
     )
     private_get_account_accounts = privateGetAccountAccounts = Entry[_Dict](
         "account/accounts", "private", "GET", {"cost": 0.2}
@@ -211,7 +242,9 @@ class ImplicitAPI:
     private_get_order_openorders = privateGetOrderOpenOrders = Entry[_Dict](
         "order/openOrders", "private", "GET", {"cost": 0.4}
     )
-    private_get_order_orders = privateGetOrderOrders = Entry[_Dict]("order/orders", "private", "GET", {"cost": 0.4})
+    private_get_order_orders = privateGetOrderOrders = Entry[_Dict](
+        "order/orders", "private", "GET", {"cost": 0.4}
+    )
     private_get_order_orders_id = privateGetOrderOrdersId = Entry[_Dict](
         "order/orders/{id}", "private", "GET", {"cost": 0.4}
     )
@@ -221,7 +254,9 @@ class ImplicitAPI:
     private_get_order_orders_getclientorder = privateGetOrderOrdersGetClientOrder = Entry[_Dict](
         "order/orders/getClientOrder", "private", "GET", {"cost": 0.4}
     )
-    private_get_order_history = privateGetOrderHistory = Entry[_Dict]("order/history", "private", "GET", {"cost": 1})
+    private_get_order_history = privateGetOrderHistory = Entry[_Dict](
+        "order/history", "private", "GET", {"cost": 1}
+    )
     private_get_order_matchresults = privateGetOrderMatchresults = Entry[_Dict](
         "order/matchresults", "private", "GET", {"cost": 1}
     )
@@ -240,8 +275,12 @@ class ImplicitAPI:
     private_get_cross_margin_accounts_balance = privateGetCrossMarginAccountsBalance = Entry[_Dict](
         "cross-margin/accounts/balance", "private", "GET", {"cost": 1}
     )
-    private_get_points_actions = privateGetPointsActions = Entry[_Dict]("points/actions", "private", "GET", {"cost": 1})
-    private_get_points_orders = privateGetPointsOrders = Entry[_Dict]("points/orders", "private", "GET", {"cost": 1})
+    private_get_points_actions = privateGetPointsActions = Entry[_Dict](
+        "points/actions", "private", "GET", {"cost": 1}
+    )
+    private_get_points_orders = privateGetPointsOrders = Entry[_Dict](
+        "points/orders", "private", "GET", {"cost": 1}
+    )
     private_get_subuser_aggregate_balance = privateGetSubuserAggregateBalance = Entry[_Dict](
         "subuser/aggregate-balance", "private", "GET", {"cost": 10}
     )
@@ -250,6 +289,9 @@ class ImplicitAPI:
     )
     private_get_stable_coin_quote = privateGetStableCoinQuote = Entry[_Dict](
         "stable-coin/quote", "private", "GET", {"cost": 1}
+    )
+    private_get_retail_order_list = privateGetRetailOrderList = Entry[_Dict](
+        "retail/order/list", "private", "GET", {"cost": 1}
     )
     private_post_account_transfer = privatePostAccountTransfer = Entry[_Dict](
         "account/transfer", "private", "POST", {"cost": 1}
@@ -263,12 +305,12 @@ class ImplicitAPI:
     private_post_order_orders_place = privatePostOrderOrdersPlace = Entry[_Dict](
         "order/orders/place", "private", "POST", {"cost": 0.2}
     )
-    private_post_order_orders_submitcancelclientorder = privatePostOrderOrdersSubmitCancelClientOrder = Entry[_Dict](
-        "order/orders/submitCancelClientOrder", "private", "POST", {"cost": 0.2}
-    )
-    private_post_order_orders_batchcancelopenorders = privatePostOrderOrdersBatchCancelOpenOrders = Entry[_Dict](
-        "order/orders/batchCancelOpenOrders", "private", "POST", {"cost": 0.4}
-    )
+    private_post_order_orders_submitcancelclientorder = (
+        privatePostOrderOrdersSubmitCancelClientOrder
+    ) = Entry[_Dict]("order/orders/submitCancelClientOrder", "private", "POST", {"cost": 0.2})
+    private_post_order_orders_batchcancelopenorders = (
+        privatePostOrderOrdersBatchCancelOpenOrders
+    ) = Entry[_Dict]("order/orders/batchCancelOpenOrders", "private", "POST", {"cost": 0.4})
     private_post_order_orders_id_submitcancel = privatePostOrderOrdersIdSubmitcancel = Entry[_Dict](
         "order/orders/{id}/submitcancel", "private", "POST", {"cost": 0.2}
     )
@@ -278,9 +320,9 @@ class ImplicitAPI:
     private_post_dw_withdraw_api_create = privatePostDwWithdrawApiCreate = Entry[_Dict](
         "dw/withdraw/api/create", "private", "POST", {"cost": 1}
     )
-    private_post_dw_withdraw_virtual_id_cancel = privatePostDwWithdrawVirtualIdCancel = Entry[_Dict](
-        "dw/withdraw-virtual/{id}/cancel", "private", "POST", {"cost": 1}
-    )
+    private_post_dw_withdraw_virtual_id_cancel = privatePostDwWithdrawVirtualIdCancel = Entry[
+        _Dict
+    ]("dw/withdraw-virtual/{id}/cancel", "private", "POST", {"cost": 1})
     private_post_dw_transfer_in_margin = privatePostDwTransferInMargin = Entry[_Dict](
         "dw/transfer-in/margin", "private", "POST", {"cost": 10}
     )
@@ -310,4 +352,7 @@ class ImplicitAPI:
     )
     private_post_subuser_transfer = privatePostSubuserTransfer = Entry[_Dict](
         "subuser/transfer", "private", "POST", {"cost": 10}
+    )
+    private_post_retail_order_place = privatePostRetailOrderPlace = Entry[_Dict](
+        "retail/order/place", "private", "POST", {"cost": 1}
     )

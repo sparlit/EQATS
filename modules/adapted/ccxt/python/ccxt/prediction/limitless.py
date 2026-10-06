@@ -32,7 +32,14 @@ import math
 
 from ccxt.abstract.prediction.limitless import ImplicitAPI
 from ccxt.async_support.base.prediction_exchange import PredictionExchange
-from ccxt.base.errors import ArgumentsRequired, BadRequest, ExchangeError, InvalidAddress, InvalidOrder, OrderNotFound
+from ccxt.base.errors import (
+    ArgumentsRequired,
+    BadRequest,
+    ExchangeError,
+    InvalidAddress,
+    InvalidOrder,
+    OrderNotFound,
+)
 from ccxt.base.precise import Precise
 from ccxt.base.types import (
     Account,
@@ -40,6 +47,8 @@ from ccxt.base.types import (
     Int,
     Market,
     Num,
+    OrderSide,
+    OrderType,
     PredictionEvent,
     PredictionOrder,
     PredictionOrderBook,
@@ -174,7 +183,9 @@ class limitless(PredictionExchange, ImplicitAPI):
                                 "portfolio/withdrawal-addresses": {"cost": 1},
                                 "auth/api-tokens/derive": {"cost": 1},
                                 "profiles/partner-accounts": {"cost": 1},
-                                "profiles/partner-accounts/{profileId}/allowances/retry": {"cost": 1},
+                                "profiles/partner-accounts/{profileId}/allowances/retry": {
+                                    "cost": 1
+                                },
                             },
                             "delete": {
                                 "auth/api-keys": {"cost": 1},
@@ -189,7 +200,7 @@ class limitless(PredictionExchange, ImplicitAPI):
                 "requiredCredentials": {
                     "apiKey": True,  # Limitless API key
                     "secret": True,
-                    "privateKey": True,  # embedded/trading wallet key — createOrder signs with it(env-loading needs self True)
+                    "privateKey": True,  # embedded/trading wallet key — createOrder signs with it (env-var loading needs this true)
                 },
                 "fees": {
                     "trading": {
@@ -203,12 +214,12 @@ class limitless(PredictionExchange, ImplicitAPI):
                     "defaultFetchMarketsPages": 5,
                     "marketsPageSize": 25,
                     "usdcDecimals": 6,  # Limitless sizes are 6-decimal USDC
-                    "warnOnCancelAllOrdersWithOutcome": True,  # cancelAllOrders with an outcome will cancel all orders for the entire slug(both YES and NO outcomes), so we warn by default to prevent mistakes. Set self option to False to suppress the warning.
+                    "warnOnCancelAllOrdersWithOutcome": True,  # cancelAllOrders with an outcome will cancel all orders for the entire slug (both YES and NO outcomes), so we warn by default to prevent mistakes. Set this option to false to suppress the warning.
                     "zeroAddress": "0x0000000000000000000000000000000000000000",
                     "chainId": 8453,  # Base
                     "rpcUrl": "https://mainnet.base.org",  # Base RPC used by approve() for the on-chain allowance tx
-                    "collateralAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",  # USDC on Base(default approve token)
-                    "exchangeAddress": "0x05c748E2f4DcDe0ec9Fa8DDc40DE6b867f923fa5",  # Limitless CTF exchange(default approve spender)
+                    "collateralAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",  # USDC on Base (default approve token)
+                    "exchangeAddress": "0x05c748E2f4DcDe0ec9Fa8DDc40DE6b867f923fa5",  # Limitless CTF exchange (default approve spender)
                     "createMarketBuyOrderRequiresPrice": True,
                 },
                 "exceptions": {
@@ -224,7 +235,7 @@ class limitless(PredictionExchange, ImplicitAPI):
             },
         )
 
-    async def fetch_markets(self, params=None) -> list[Market]:
+    async def fetch_markets(self, params: dict = None) -> list[Market]:
         """
         fetches all active limitless markets paginated and returns one CCXT market per child market, each containing a list of outcome objects(YES/NO)
 
@@ -242,22 +253,25 @@ class limitless(PredictionExchange, ImplicitAPI):
         rest = self.omit(params, ["query", "queries", "limit"])
         # scope the listing: without a search query loadMarkets would otherwise page through
         # every active limitless market. Cap the total number of markets collected.
-        maxMarkets = self.safe_integer(params, "limit", self.safe_integer(self.options, "fetchMarketsLimit", 1000))
+        maxMarkets = self.safe_integer(
+            params, "limit", self.safe_integer(self.options, "fetchMarketsLimit", 1000)
+        )
         allRaw = []
         queriesLength = len(queries)
         if queriesLength > 0:
             requestedLimit = self.safe_integer(params, "limit", 50)
-            # the search endpoint rejects limit > 50 - cap the per-query request and             # maxMarkets bound the overall collection
+            # the search endpoint rejects limit > 50 - cap the per-query request and let
+            # maxMarkets bound the overall collection
             limit = min(requestedLimit, 50)
             searchRest = self.omit(rest, ["limit"])
             seen = {}
-            for i in range(len(queries)):
+            for i in range(0, len(queries)):
                 q = queries[i]
                 response = await self.limitlessPublicGetMarketsSearch(
                     self.extend({"query": q, "limit": limit}, searchRest)
                 )
                 found = self.safe_list(response, "markets", [])
-                for j in range(len(found)):
+                for j in range(0, len(found)):
                     raw = found[j]
                     slug = self.safe_string(raw, "slug")
                     if (slug is not None and slug != "") and slug not in seen:
@@ -270,14 +284,16 @@ class limitless(PredictionExchange, ImplicitAPI):
                 "page": page,
                 "limit": pageSize,
             }
-            firstPageResponse = await self.limitlessPublicGetMarketsActive(self.extend(request, rest))
+            firstPageResponse = await self.limitlessPublicGetMarketsActive(
+                self.extend(request, rest)
+            )
             totalMarketsCount = self.safe_integer(firstPageResponse, "totalMarketsCount")
             firstData = self.safe_list(firstPageResponse, "data", [])
             allRaw = self.array_concat(allRaw, firstData)
             promises = []
-            cappedPages = math.ceil(maxMarkets / pageSize)
+            cappedPages = int(math.ceil(maxMarkets / pageSize))
             knownTotal = totalMarketsCount if (totalMarketsCount is not None) else 0
-            allPages = math.ceil(knownTotal / pageSize)
+            allPages = int(math.ceil(knownTotal / pageSize))
             totalPages = min(allPages, cappedPages)
             for i in range(2, totalPages):
                 page = i
@@ -285,7 +301,7 @@ class limitless(PredictionExchange, ImplicitAPI):
                 promises.append(self.limitlessPublicGetMarketsActive(self.extend(request, rest)))
             responses = await asyncio.gather(*promises)
             length = len(responses)
-            for j in range(length):
+            for j in range(0, length):
                 response = self.safe_dict(responses, j)
                 data = self.safe_list(response, "data", [])
                 allRaw = self.array_concat(allRaw, data)
@@ -297,7 +313,9 @@ class limitless(PredictionExchange, ImplicitAPI):
                 while True:
                     page = self.sum(page, 1)
                     request["page"] = page
-                    response = await self.limitlessPublicGetMarketsActive(self.extend(request, rest))
+                    response = await self.limitlessPublicGetMarketsActive(
+                        self.extend(request, rest)
+                    )
                     responseRows = []
                     if isinstance(response, list):
                         responseRows = response
@@ -306,7 +324,7 @@ class limitless(PredictionExchange, ImplicitAPI):
                     pageMarketsLength = len(page_markets)
                     if pageMarketsLength == 0:
                         break
-                    for i in range(len(page_markets)):
+                    for i in range(0, len(page_markets)):
                         raw = page_markets[i]
                         allRaw.append(raw)
                     allRawCount = len(allRaw)
@@ -315,12 +333,16 @@ class limitless(PredictionExchange, ImplicitAPI):
         markets = []
         eventGroups = {}
         # group rows carry their tradeable children in a nested `markets` list — expand them
-        # into regular rows before parsing(a group row itself has no tokens)
+        # into regular rows before parsing (a group row itself has no tokens)
         expandedRaw = self.expand_group_rows(allRaw)
-        for i in range(len(expandedRaw)):
+        for i in range(0, len(expandedRaw)):
             raw = expandedRaw[i]
-            groupId = self.safe_string_n(raw, ["groupSlug", "groupId"], self.safe_string(raw, "slug"))
-            eventKey = self.shorten_slug(groupId) if (groupId is not None and groupId != "") else None
+            groupId = self.safe_string_n(
+                raw, ["groupSlug", "groupId"], self.safe_string(raw, "slug")
+            )
+            eventKey = None
+            if groupId is not None and groupId != "":
+                eventKey = self.shorten_slug(groupId)
             m = self.parse_market(raw)
             markets.append(m)
             if (eventKey is not None) and (eventKey != ""):
@@ -340,7 +362,7 @@ class limitless(PredictionExchange, ImplicitAPI):
                 eventGroup["markets"] = groupMarkets
         eventsDict = {}
         eventKeys = list(eventGroups.keys())
-        for i in range(len(eventKeys)):
+        for i in range(0, len(eventKeys)):
             eventKey = eventKeys[i]
             g = eventGroups[eventKey]
             eventsDict[eventKey] = self.parse_event(g)
@@ -357,13 +379,13 @@ class limitless(PredictionExchange, ImplicitAPI):
         #   "automationType":"manual",
         #   "conditionId":"0x11287d02d8067ff3d3d8bd21b212ebcfdc20b638f7f6440e4115f649e6b57015",
         #   "negRiskRequestId":null,
-        #   "description":"<p>This market will resolve to “Yes” if Donald Trump resigns or is removed or otherwise ceases to be the President of the United States for any period of time by December 31, 2026, 11:59 PM ET. Otherwise, self market will resolve to “No”.</p><p>An announcement of Donald Trump's resignation/removal before self market's end date will immediately resolve self market to \\""Yes\\"", regardless of when the announced resignation/removal goes into effect.</p><p>Only permanent removal from office will qualify. Temporary removal(e.g. temporary invocation of the 25th Amendment under Section 3 or a Section 4 invocation not sustained by both Houses of Congress) or impeachment without removal will not count.</p><p>A sustained invocation of the Twenty-Fifth Amendment, Section 4(i.e., if both Houses of Congress, by two-thirds vote, uphold the Vice President and Cabinet’s determination of presidential inability) will qualify for a \\""Yes\\"" resolution.</p><p>The resolution source for self market will be a consensus of credible reporting.</p>",
+        #   "description":"<p>This market will resolve to “Yes” if Donald Trump resigns or is removed as President or otherwise ceases to be the President of the United States for any period of time by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to “No”.</p><p>An announcement of Donald Trump's resignation/removal before this market's end date will immediately resolve this market to \\""Yes\\"", regardless of when the announced resignation/removal goes into effect.</p><p>Only permanent removal from office will qualify. Temporary removal (e.g. temporary invocation of the 25th Amendment under Section 3 or a Section 4 invocation not sustained by both Houses of Congress) or impeachment without removal will not count.</p><p>A sustained invocation of the Twenty-Fifth Amendment, Section 4 (i.e., if both Houses of Congress, by two-thirds vote, uphold the Vice President and Cabinet’s determination of presidential inability) will qualify for a \\""Yes\\"" resolution.</p><p>The resolution source for this market will be a consensus of credible reporting.</p>",
         #   "collateralToken":{
         #       "address":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
         #       "decimals":"6",
         #       "symbol":"USDC"
         #   },
-        #   "title":"💎 Trump out before 2027?",
+        #   "title":"💎 Trump out as President before 2027?",
         #   "proxyTitle":null,
         #   "expirationDate":"Jan 1, 2027",
         #   "expirationTimestamp":"1798779540000",
@@ -434,41 +456,43 @@ class limitless(PredictionExchange, ImplicitAPI):
         groupId = self.safe_string_n(raw, ["groupSlug", "groupId"], slug)
         # CTF condition id — needed to redeem a resolved winning position
         conditionId = self.safe_string(raw, "conditionId")
-        tokens = self.safe_value(raw, "tokens", {})
-        # the listing exposes `expired` + `status`(FUNDED/RESOLVED/…), not an `active` flag; a
+        tokens = self.safe_dict(raw, "tokens", {})
+        # the listing exposes `expired` + `status` (FUNDED/RESOLVED/…), not an `active` flag; a
         # market is tradeable only while it is FUNDED and not yet expired
         isExpired = self.safe_bool(raw, "expired", False)
         marketStatus = self.safe_string(raw, "status")
         active = (isExpired is not True) and (marketStatus == "FUNDED")
-        # expiry is a ms timestamp string(`expirationTimestamp`); `deadline`/`expiresAt` do not exist
+        # expiry is a ms timestamp string (`expirationTimestamp`); `deadline`/`expiresAt` do not exist
         expiryTimestamp = self.safe_integer(raw, "expirationTimestamp")
-        # limitless reports lifetime volume(human-readable in `volumeFormatted`), not a 24h figure
+        # limitless reports lifetime volume (human-readable in `volumeFormatted`), not a 24h figure
         volume24h = self.safe_number(raw, "volumeFormatted")
         # resolution: winningOutcomeIndex is null until the market resolves, then the winning outcome index
         winningOutcomeIndex = self.safe_integer(raw, "winningOutcomeIndex")
         marketResolved = winningOutcomeIndex is not None
         resolvedOutcome = None
         marketSymbol = self.slug_to_market_symbol(groupId, slug)
-        # amount precision comes from the collateral token decimals(USDC, 6); limitless does not
+        # amount precision comes from the collateral token decimals (USDC, 6); limitless does not
         # expose a price tick, so 0.001 is the platform convention
         collateralToken = self.safe_dict(raw, "collateralToken", {})
         collateralDecimals = self.safe_integer(
             collateralToken, "decimals", self.safe_integer(self.options, "usdcDecimals", 6)
         )
         precision = {
-            "amount": self.parse_number(self.parse_precision(self.number_to_string(collateralDecimals))),
+            "amount": self.parse_number(
+                self.parse_precision(self.number_to_string(collateralDecimals))
+            ),
             "price": 0.001,
         }
         outcomes = []
         tokenEntries = list(tokens.keys())
-        for i in range(len(tokenEntries)):
+        for i in range(0, len(tokenEntries)):
             outcomeLabel = tokenEntries[i]
             tokenData = tokens[outcomeLabel]
             tokenId = tokenData
             outcomeHandle = self.slug_to_outcome_symbol(groupId, slug, outcomeLabel)
-            # winningOutcomeIndex indexes the API's canonical outcome order(yes=0, no=1 for
+            # winningOutcomeIndex indexes the API's canonical outcome order (yes=0, no=1 for
             # limitless's binary yes/no markets). Object.keys iteration order is NOT stable across
-            # languages(Go randomizes map iteration), so map the leg to its canonical index by
+            # languages (Go randomizes map iteration), so map the leg to its canonical index by
             # label rather than by loop position — otherwise Go/Java flag the wrong winner
             labelLower = outcomeLabel.lower()
             legIndex = i
@@ -483,7 +507,7 @@ class limitless(PredictionExchange, ImplicitAPI):
                 settleFractionRaw = 1 if winnerRaw else 0
                 if winnerRaw:
                     resolvedOutcome = outcomeHandle
-            # effectively-final copies for the object literal below(Java cannot capture a
+            # effectively-final copies for the object literal below (Java cannot capture a
             # reassigned local into the anonymous inner class it emits for a map literal)
             winner = winnerRaw
             settleFraction = settleFractionRaw
@@ -508,7 +532,7 @@ class limitless(PredictionExchange, ImplicitAPI):
                 }
             )
         outcomesLength = len(outcomes)
-        # effectively-final copy for the market object literal below(reassigned in the loop)
+        # effectively-final copy for the market object literal below (reassigned in the loop)
         marketResolvedOutcome = resolvedOutcome
         return {
             "id": slug,
@@ -564,7 +588,7 @@ class limitless(PredictionExchange, ImplicitAPI):
             "created": None,
         }
 
-    async def fetch_event(self, id: str, params=None) -> PredictionEvent:
+    async def fetch_event(self, id: str, params: dict = None) -> PredictionEvent:
         """
         fetches a single prediction-market event by its market slug or address
 
@@ -578,7 +602,7 @@ class limitless(PredictionExchange, ImplicitAPI):
             params = {}
         request = {"addressOrSlug": id}
         response = await self.limitlessPublicGetMarketsAddressOrSlug(self.extend(request, params))
-        # a group response carries its tradeable children in `markets`(each a full market row
+        # a group response carries its tradeable children in `markets` (each a full market row
         # with tokens) — expandGroupRows unwraps them; a single market has no nested markets
         # and wraps as its own one-market event, which parseEvent's loop then parses
         rows = self.expand_group_rows([response])
@@ -598,7 +622,7 @@ class limitless(PredictionExchange, ImplicitAPI):
                :returns dict[]: raw single-market rows only
         """
         result = []
-        for i in range(len(rawRows)):
+        for i in range(0, len(rawRows)):
             raw = rawRows[i]
             rowType = self.safe_string(raw, "marketType")
             nestedMarkets = self.safe_list(raw, "markets")
@@ -606,9 +630,11 @@ class limitless(PredictionExchange, ImplicitAPI):
                 groupSlug = self.safe_string(raw, "slug")
                 groupTitle = self.safe_string(raw, "title", groupSlug)
                 nestedMarketsLength = len(nestedMarkets)
-                for j in range(nestedMarketsLength):
-                    # self.extend copies — the raw child stays untouched
-                    tagged = self.extend(nestedMarkets[j], {"groupSlug": groupSlug, "groupTitle": groupTitle})
+                for j in range(0, nestedMarketsLength):
+                    # extend copies — the raw child stays untouched
+                    tagged = self.extend(
+                        nestedMarkets[j], {"groupSlug": groupSlug, "groupTitle": groupTitle}
+                    )
                     result.append(tagged)
             else:
                 result.append(raw)
@@ -617,19 +643,19 @@ class limitless(PredictionExchange, ImplicitAPI):
     def parse_event(self, event: dict) -> object:
         # {
         #    "groupId":"trump-out-as-president-before-2027-1768933068297",
-        #    "title":"💎 Trump out before 2027?",
+        #    "title":"💎 Trump out as President before 2027?",
         #    "raw":{
         #       "id":"36814",
         #       "automationType":"manual",
         #       "conditionId":"0x11287d02d8067ff3d3d8bd21b212ebcfdc20b638f7f6440e4115f649e6b57015",
         #       "negRiskRequestId":null,
-        #       "description":"<p>This market will resolve to “Yes” if Donald Trump resigns or is removed or otherwise ceases to be the President of the United States for any period of time by December 31, 2026, 11:59 PM ET. Otherwise, self market will resolve to “No”.</p><p>An announcement of Donald Trump's resignation/removal before self market's end date will immediately resolve self market to \\""Yes\\"", regardless of when the announced resignation/removal goes into effect.</p><p>Only permanent removal from office will qualify. Temporary removal(e.g. temporary invocation of the 25th Amendment under Section 3 or a Section 4 invocation not sustained by both Houses of Congress) or impeachment without removal will not count.</p><p>A sustained invocation of the Twenty-Fifth Amendment, Section 4(i.e., if both Houses of Congress, by two-thirds vote, uphold the Vice President and Cabinet’s determination of presidential inability) will qualify for a \\""Yes\\"" resolution.</p><p>The resolution source for self market will be a consensus of credible reporting.</p>",
+        #       "description":"<p>This market will resolve to “Yes” if Donald Trump resigns or is removed as President or otherwise ceases to be the President of the United States for any period of time by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to “No”.</p><p>An announcement of Donald Trump's resignation/removal before this market's end date will immediately resolve this market to \\""Yes\\"", regardless of when the announced resignation/removal goes into effect.</p><p>Only permanent removal from office will qualify. Temporary removal (e.g. temporary invocation of the 25th Amendment under Section 3 or a Section 4 invocation not sustained by both Houses of Congress) or impeachment without removal will not count.</p><p>A sustained invocation of the Twenty-Fifth Amendment, Section 4 (i.e., if both Houses of Congress, by two-thirds vote, uphold the Vice President and Cabinet’s determination of presidential inability) will qualify for a \\""Yes\\"" resolution.</p><p>The resolution source for this market will be a consensus of credible reporting.</p>",
         #       "collateralToken":{
         #          "address":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
         #          "decimals":"6",
         #          "symbol":"USDC"
         #       },
-        #       "title":"💎 Trump out before 2027?",
+        #       "title":"💎 Trump out as President before 2027?",
         #       "proxyTitle":null,
         #       "expirationDate":"Jan 1, 2027",
         #       "expirationTimestamp":"1798779540000",
@@ -766,13 +792,13 @@ class limitless(PredictionExchange, ImplicitAPI):
         #             "automationType":"manual",
         #             "conditionId":"0x11287d02d8067ff3d3d8bd21b212ebcfdc20b638f7f6440e4115f649e6b57015",
         #             "negRiskRequestId":null,
-        #             "description":"<p>This market will resolve to “Yes” if Donald Trump resigns or is removed or otherwise ceases to be the President of the United States for any period of time by December 31, 2026, 11:59 PM ET. Otherwise, self market will resolve to “No”.</p><p>An announcement of Donald Trump's resignation/removal before self market's end date will immediately resolve self market to \\""Yes\\"", regardless of when the announced resignation/removal goes into effect.</p><p>Only permanent removal from office will qualify. Temporary removal(e.g. temporary invocation of the 25th Amendment under Section 3 or a Section 4 invocation not sustained by both Houses of Congress) or impeachment without removal will not count.</p><p>A sustained invocation of the Twenty-Fifth Amendment, Section 4(i.e., if both Houses of Congress, by two-thirds vote, uphold the Vice President and Cabinet’s determination of presidential inability) will qualify for a \\""Yes\\"" resolution.</p><p>The resolution source for self market will be a consensus of credible reporting.</p>",
+        #             "description":"<p>This market will resolve to “Yes” if Donald Trump resigns or is removed as President or otherwise ceases to be the President of the United States for any period of time by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to “No”.</p><p>An announcement of Donald Trump's resignation/removal before this market's end date will immediately resolve this market to \\""Yes\\"", regardless of when the announced resignation/removal goes into effect.</p><p>Only permanent removal from office will qualify. Temporary removal (e.g. temporary invocation of the 25th Amendment under Section 3 or a Section 4 invocation not sustained by both Houses of Congress) or impeachment without removal will not count.</p><p>A sustained invocation of the Twenty-Fifth Amendment, Section 4 (i.e., if both Houses of Congress, by two-thirds vote, uphold the Vice President and Cabinet’s determination of presidential inability) will qualify for a \\""Yes\\"" resolution.</p><p>The resolution source for this market will be a consensus of credible reporting.</p>",
         #             "collateralToken":{
         #                "address":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
         #                "decimals":"6",
         #                "symbol":"USDC"
         #             },
-        #             "title":"💎 Trump out before 2027?",
+        #             "title":"💎 Trump out as President before 2027?",
         #             "proxyTitle":null,
         #             "expirationDate":"Jan 1, 2027",
         #             "expirationTimestamp":"1798779540000",
@@ -845,14 +871,16 @@ class limitless(PredictionExchange, ImplicitAPI):
         endDate = self.safe_string(event, "deadline", self.safe_string(event, "expiresAt"))
         title = self.safe_string(event, "title", groupId)
         hasGroupId = (groupId is not None) and (groupId != "")
-        eventSlug = self.shorten_slug(groupId) if hasGroupId else None
+        eventSlug = None
+        if hasGroupId:
+            eventSlug = self.shorten_slug(groupId)
         hasEndDate = (endDate is not None) and (endDate != "")
         endTimestamp = self.parse8601(endDate) if hasEndDate else None
         markets = []
         rawMarkets = self.safe_list(event, "markets", [])
         # aggregate 24h volume across the markets so sort by volume works
         totalVolume = 0
-        for i in range(len(rawMarkets)):
+        for i in range(0, len(rawMarkets)):
             rawMarket = rawMarkets[i]
             # an already-parsed ccxt market row carries the unified 'market' handle + outcomes
             # with 'symbol' kept as a legacy fallback — don't run it through parseMarket again
@@ -863,7 +891,7 @@ class limitless(PredictionExchange, ImplicitAPI):
             else:
                 markets.append(self.parse_market(rawMarket))
             marketInfo = self.safe_dict(rawMarket, "info", rawMarket)
-            # use volumeFormatted(human units) — the raw `volume` is 1e-6 fixed-point, which would
+            # use volumeFormatted (human units) — the raw `volume` is 1e-6 fixed-point, which would
             # make the event volume 1,000,000x too big and useless for cross-venue ranking
             totalVolume = self.sum(totalVolume, self.safe_number(marketInfo, "volumeFormatted", 0))
         return self.extend(
@@ -892,7 +920,7 @@ class limitless(PredictionExchange, ImplicitAPI):
             }
         )
 
-    async def fetch_ticker(self, outcome: Str, params=None) -> PredictionTicker:
+    async def fetch_ticker(self, outcome: str, params: dict = None) -> PredictionTicker:
         """
         fetches the current price and best bid/ask for a single outcome token, combining the market detail and order book endpoints
 
@@ -923,41 +951,41 @@ class limitless(PredictionExchange, ImplicitAPI):
         #         "automationType": "manual",
         #         "conditionId": "0x11287d02d8067ff3d3d8bd21b212ebcfdc20b638f7f6440e4115f649e6b57015",
         #         "negRiskRequestId": null,
-        #         "description": "<p>This market will resolve to Yes if Donald Trump resigns or is removed or otherwise ceases to be the President of the United States for any period of time by December 31, 2026, 11:59 PM ET. Otherwise, self market will resolve to No.</p><p>An announcement of Donald Trump's resignation/removal before self market's end date will immediately resolve self market to Yes, regardless of when the announced resignation/removal goes into effect.</p><p>Only permanent removal from office will qualify. Temporary removal(e.g. temporary invocation of the 25th Amendment under Section 3 or a Section 4 invocation not sustained by both Houses of Congress) or impeachment without removal will not count.</p><p>A sustained invocation of the Twenty-Fifth Amendment, Section 4(i.e., if both Houses of Congress, by two-thirds vote, uphold the Vice President and Cabinets determination of presidential inability) will qualify for a Yes resolution.</p><p>The resolution source for self market will be a consensus of credible reporting.</p>",
+        #         "description": "<p>This market will resolve to Yes if Donald Trump resigns or is removed as President or otherwise ceases to be the President of the United States for any period of time by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to No.</p><p>An announcement of Donald Trump's resignation/removal before this market's end date will immediately resolve this market to Yes, regardless of when the announced resignation/removal goes into effect.</p><p>Only permanent removal from office will qualify. Temporary removal (e.g. temporary invocation of the 25th Amendment under Section 3 or a Section 4 invocation not sustained by both Houses of Congress) or impeachment without removal will not count.</p><p>A sustained invocation of the Twenty-Fifth Amendment, Section 4 (i.e., if both Houses of Congress, by two-thirds vote, uphold the Vice President and Cabinets determination of presidential inability) will qualify for a Yes resolution.</p><p>The resolution source for this market will be a consensus of credible reporting.</p>",
         #         "collateralToken": {
         #             "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
         #             "decimals": "6",
         #             "symbol": "USDC"
         #         },
-        #         "title": "Trump out before 2027?",
+        #         "title": "Trump out as President before 2027?",
         #         "proxyTitle": null,
         #         "expirationDate": "Jan 1, 2027",
         #         "expirationTimestamp": "1798779540000",
         #         "createdAt": "2026-01-20T18:17:48.298Z",
         #         "updatedAt": "2026-04-09T10:47:02.254Z",
-        #         "categories": ["Politics"],
+        #         "categories": [ "Politics" ],
         #         "status": "FUNDED",
-        #         "expired": False,
-        #         "hidden": False,
+        #         "expired": false,
+        #         "hidden": false,
         #         "creator": {
         #             "name": "Limitless",
         #             "imageURI": "https://limitless.exchange/assets/images/logo.svg",
         #             "link": "https://x.com/trylimitless"
         #         },
-        #         "tags": ["Limitless"],
+        #         "tags": [ "Limitless" ],
         #         "volume": "1032001807",
         #         "volumeFormatted": "1032.001807",
         #         "tokens": {
         #             "yes": "56154308742753982686710750162015444986563701968079760676518531584453506363044",
         #             "no": "32572248812801208874557774576516861470423415416073401354576860825663488568217"
         #         },
-        #         "prices": [0.155, 0.845],
+        #         "prices": [ 0.155, 0.845 ],
         #         "tradePrices": {
-        #             "buy": {"market": [Array], "limit": [Array]},
-        #             "sell": {"market": [Array], "limit": [Array]}
+        #             "buy": { "market": [Array], "limit": [Array] },
+        #             "sell": { "market": [Array], "limit": [Array] }
         #         },
-        #         "isOther": False,
-        #         "isRewardable": True,
+        #         "isOther": false,
+        #         "isRewardable": true,
         #         "slug": "trump-out-as-president-before-2027-1768933068297",
         #         "tradeType": "clob",
         #         "venue": {
@@ -967,7 +995,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         #         "marketType": "single",
         #         "priorityIndex": "0",
         #         "winningOutcomeIndex": null,
-        #         "metadata": {"fee": True, "isBannered": False, "isPolyArbitrage": True},
+        #         "metadata": { "fee": true, "isBannered": false, "isPolyArbitrage": true },
         #         "settings": {
         #             "minSize": "100000000",
         #             "maxSpread": "0.035",
@@ -997,41 +1025,41 @@ class limitless(PredictionExchange, ImplicitAPI):
         #         "automationType": "manual",
         #         "conditionId": "0x11287d02d8067ff3d3d8bd21b212ebcfdc20b638f7f6440e4115f649e6b57015",
         #         "negRiskRequestId": null,
-        #         "description": "<p>This market will resolve to Yes if Donald Trump resigns or is removed or otherwise ceases to be the President of the United States for any period of time by December 31, 2026, 11:59 PM ET. Otherwise, self market will resolve to No.</p><p>An announcement of Donald Trump's resignation/removal before self market's end date will immediately resolve self market to Yes, regardless of when the announced resignation/removal goes into effect.</p><p>Only permanent removal from office will qualify. Temporary removal(e.g. temporary invocation of the 25th Amendment under Section 3 or a Section 4 invocation not sustained by both Houses of Congress) or impeachment without removal will not count.</p><p>A sustained invocation of the Twenty-Fifth Amendment, Section 4(i.e., if both Houses of Congress, by two-thirds vote, uphold the Vice President and Cabinets determination of presidential inability) will qualify for a Yes resolution.</p><p>The resolution source for self market will be a consensus of credible reporting.</p>",
+        #         "description": "<p>This market will resolve to Yes if Donald Trump resigns or is removed as President or otherwise ceases to be the President of the United States for any period of time by December 31, 2026, 11:59 PM ET. Otherwise, this market will resolve to No.</p><p>An announcement of Donald Trump's resignation/removal before this market's end date will immediately resolve this market to Yes, regardless of when the announced resignation/removal goes into effect.</p><p>Only permanent removal from office will qualify. Temporary removal (e.g. temporary invocation of the 25th Amendment under Section 3 or a Section 4 invocation not sustained by both Houses of Congress) or impeachment without removal will not count.</p><p>A sustained invocation of the Twenty-Fifth Amendment, Section 4 (i.e., if both Houses of Congress, by two-thirds vote, uphold the Vice President and Cabinets determination of presidential inability) will qualify for a Yes resolution.</p><p>The resolution source for this market will be a consensus of credible reporting.</p>",
         #         "collateralToken": {
         #             "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
         #             "decimals": "6",
         #             "symbol": "USDC"
         #         },
-        #         "title": "Trump out before 2027?",
+        #         "title": "Trump out as President before 2027?",
         #         "proxyTitle": null,
         #         "expirationDate": "Jan 1, 2027",
         #         "expirationTimestamp": "1798779540000",
         #         "createdAt": "2026-01-20T18:17:48.298Z",
         #         "updatedAt": "2026-04-09T10:47:02.254Z",
-        #         "categories": ["Politics"],
+        #         "categories": [ "Politics" ],
         #         "status": "FUNDED",
-        #         "expired": False,
-        #         "hidden": False,
+        #         "expired": false,
+        #         "hidden": false,
         #         "creator": {
         #             "name": "Limitless",
         #             "imageURI": "https://limitless.exchange/assets/images/logo.svg",
         #             "link": "https://x.com/trylimitless"
         #         },
-        #         "tags": ["Limitless"],
+        #         "tags": [ "Limitless" ],
         #         "volume": "1032001807",
         #         "volumeFormatted": "1032.001807",
         #         "tokens": {
         #             "yes": "56154308742753982686710750162015444986563701968079760676518531584453506363044",
         #             "no": "32572248812801208874557774576516861470423415416073401354576860825663488568217"
         #         },
-        #         "prices": [0.155, 0.845],
+        #         "prices": [ 0.155, 0.845 ],
         #         "tradePrices": {
-        #             "buy": {"market": [Array], "limit": [Array]},
-        #             "sell": {"market": [Array], "limit": [Array]}
+        #             "buy": { "market": [Array], "limit": [Array] },
+        #             "sell": { "market": [Array], "limit": [Array] }
         #         },
-        #         "isOther": False,
-        #         "isRewardable": True,
+        #         "isOther": false,
+        #         "isRewardable": true,
         #         "slug": "trump-out-as-president-before-2027-1768933068297",
         #         "tradeType": "clob",
         #         "venue": {
@@ -1041,7 +1069,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         #         "marketType": "single",
         #         "priorityIndex": "0",
         #         "winningOutcomeIndex": null,
-        #         "metadata": {"fee": True, "isBannered": False, "isPolyArbitrage": True},
+        #         "metadata": { "fee": true, "isBannered": false, "isPolyArbitrage": true },
         #         "settings": {
         #             "minSize": "100000000",
         #             "maxSpread": "0.035",
@@ -1054,14 +1082,16 @@ class limitless(PredictionExchange, ImplicitAPI):
         #         "logo": "https://cdn.limitless.exchange/markets-logo/36814/9daba01d-6bcd-4a2c-9187-f4264b7191da.png"
         #     }
         #
-        # ticker is either a plain raw market object, or a composite dict {'market': rawMarket, 'book': rawOrderbook}
+        # ticker is either a plain raw market object, or a composite dict { 'market': rawMarket, 'book': rawOrderbook }
         raw = ticker
         book = None
         if "market" in ticker:
             raw = self.safe_dict(ticker, "market", {})
             book = self.safe_dict(ticker, "book")
         rawLabel = (
-            self.safe_string(market, "label", self.safe_string(market["info"], "outcomeLabel", "yes"))
+            self.safe_string(
+                market, "label", self.safe_string(market["info"], "outcomeLabel", "yes")
+            )
             if (market is not None)
             else "yes"
         )
@@ -1108,7 +1138,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         pricesLength = len(prices)
         if (lastStr is None) and (pricesLength > 0):
             lastStr = self.safe_string(prices, 0) if (isYes) else self.safe_string(prices, 1)
-        # volume and book sizes are in USDC micro-units(6 decimals)
+        # volume and book sizes are in USDC micro-units (6 decimals)
         rawVolume = self.safe_string(raw, "volume")
         volumeStr = None
         if rawVolume is not None:
@@ -1117,7 +1147,6 @@ class limitless(PredictionExchange, ImplicitAPI):
             bidSizeStr = Precise.string_div(bidSizeStr, "1000000")
         if askSizeStr is not None:
             askSizeStr = Precise.string_div(askSizeStr, "1000000")
-        now = self.milliseconds()
         outcomeSymbol = self.safe_outcome_symbol(None, market)
         return self.safe_prediction_ticker(
             {
@@ -1125,8 +1154,8 @@ class limitless(PredictionExchange, ImplicitAPI):
                 "outcomeId": self.safe_string(market, "outcomeId"),
                 "label": self.safe_string(market, "label"),
                 "market": self.safe_string(market, "market"),
-                "timestamp": now,
-                "datetime": self.iso8601(now),
+                "timestamp": None,
+                "datetime": None,
                 "high": None,
                 "low": None,
                 "bid": self.parse_number(bidStr),
@@ -1147,7 +1176,9 @@ class limitless(PredictionExchange, ImplicitAPI):
             }
         )
 
-    async def fetch_tickers(self, outcomes: Strings = None, params=None) -> PredictionTickers:
+    async def fetch_tickers(
+        self, outcomes: Strings = None, params: dict = None
+    ) -> PredictionTickers:
         """
         fetches tickers for multiple outcome tokens, grouping requested outcomes by their parent market(two requests per market: detail + order book)
 
@@ -1163,7 +1194,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         if outcomes is None:
             raise ArgumentsRequired(
                 self.id
-                + " fetchTickers() requires an outcomes argument — the venue has no all-tickers endpoint; pass the outcome handles to fetch(discover them via fetchEvents())"
+                + " fetchTickers() requires an outcomes argument — the venue has no all-tickers endpoint; pass the outcome handles to fetch (discover them via fetchEvents ())"
             )
         result = {}
         # resolve the uncached outcomes first, then group by parent market to fetch each
@@ -1171,7 +1202,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         await self.load_outcomes(outcomes)
         outcomesBySlug = {}
         slugs = []
-        for i in range(len(outcomes)):
+        for i in range(0, len(outcomes)):
             outcomeObj = self.outcome(outcomes[i])
             slug = self.safe_string(outcomeObj["info"], "slug")
             if slug is None:
@@ -1180,25 +1211,29 @@ class limitless(PredictionExchange, ImplicitAPI):
                 if slug is not None:
                     outcomesBySlug[slug] = []
                 slugs.append(slug)
-            # reassign after push, plain mutation through a local is lost in transpiled php(arrays are value types there)
+            # reassign after push, plain mutation through a local is lost in transpiled php (arrays are value types there)
             grouped = self.safe_value(outcomesBySlug, slug)
             grouped.append(outcomeObj)
             if slug is not None:
                 outcomesBySlug[slug] = grouped
         promises = []
-        for i in range(len(slugs)):
+        for i in range(0, len(slugs)):
             slug = slugs[i]
-            promises.append(self.limitlessPublicGetMarketsAddressOrSlug(self.extend({"addressOrSlug": slug}, params)))
+            promises.append(
+                self.limitlessPublicGetMarketsAddressOrSlug(
+                    self.extend({"addressOrSlug": slug}, params)
+                )
+            )
             promises.append(self.limitlessPublicGetMarketsSlugOrderbook({"slug": slug}))
         responses = await asyncio.gather(*promises)
-        for i in range(len(slugs)):
+        for i in range(0, len(slugs)):
             slug = slugs[i]
             detailIndex = i * 2
             detail = responses[detailIndex]
             book = responses[self.sum(detailIndex, 1)]
             tickerInput = {"market": detail, "book": book}
             grouped = outcomesBySlug[slug]
-            for j in range(len(grouped)):
+            for j in range(0, len(grouped)):
                 ticker = self.parse_prediction_ticker(tickerInput, grouped[j])
                 symbolKey = self.safe_string(ticker, "outcome")
                 if symbolKey is not None:
@@ -1206,7 +1241,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         return result
 
     async def fetch_trades(
-        self, outcome: Str, since: Int = None, limit: Int = None, params=None
+        self, outcome: str, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[PredictionTrade]:
         """
         fetches recent public trades for a single outcome token from the market events feed
@@ -1229,7 +1264,7 @@ class limitless(PredictionExchange, ImplicitAPI):
             "slug": slug,
         }
         if limit is not None:
-            request["limit"] = limit
+            request["limit"] = min(limit, 100)
         response = await self.limitlessPublicGetMarketsSlugEvents(self.extend(request, params))
         #
         #     {
@@ -1239,7 +1274,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         #                 "makerAmount": "19996200",
         #                 "matchedSize": "2500000",
         #                 "price": 0.332,
-        #                 "profile": {"account": "0x0572B4Aa431e730d1d19cc7CFea7D6C0Bc07096f"},
+        #                 "profile": { "account": "0x0572B4Aa431e730d1d19cc7CFea7D6C0Bc07096f" },
         #                 "side": 0,
         #                 "takerAmount": "830000",
         #                 "title": "",
@@ -1255,7 +1290,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         #
         rows = self.safe_list(response, "events", [])
         filtered = []
-        for i in range(len(rows)):
+        for i in range(0, len(rows)):
             row = rows[i]
             rowTokenId = self.safe_string(row, "tokenId")
             if (tokenId is not None) and (rowTokenId is not None) and (rowTokenId != tokenId):
@@ -1263,7 +1298,9 @@ class limitless(PredictionExchange, ImplicitAPI):
             filtered.append(row)
         return self.parse_prediction_trades(filtered, outcomeObj, since, limit)
 
-    async def fetch_order_book(self, outcome: Str, limit: Int = None, params=None) -> PredictionOrderBook:
+    async def fetch_order_book(
+        self, outcome: str, limit: Int = None, params: dict = None
+    ) -> PredictionOrderBook:
         """
         fetches the order book for a single outcome token, converting 6-decimal USDC sizes to whole units, no outcomes are quoted at 1 - price with the sides swapped
 
@@ -1286,14 +1323,14 @@ class limitless(PredictionExchange, ImplicitAPI):
         #
         #     {
         #         "bids": [
-        #             {"price": "0.14", "size": "12360330000", "side": "BUY"},
-        #             {"price": "0.1", "size": "1000000", "side": "BUY"},
-        #             {"price": "0.003", "size": "500000000", "side": "BUY"}
+        #             { "price": "0.14", "size": "12360330000", "side": "BUY" },
+        #             { "price": "0.1", "size": "1000000", "side": "BUY" },
+        #             { "price": "0.003", "size": "500000000", "side": "BUY" }
         #         ],
         #         "asks": [
-        #             {"price": "0.161", "size": "222000000", "side": "SELL"},
-        #             {"price": "0.996", "size": "5555000000", "side": "SELL"},
-        #             {"price": "0.997", "size": "500000000", "side": "SELL"}
+        #             { "price": "0.161", "size": "222000000", "side": "SELL" },
+        #             { "price": "0.996", "size": "5555000000", "side": "SELL" },
+        #             { "price": "0.997", "size": "500000000", "side": "SELL" }
         #         ],
         #         "tokenId": "56154308742753982686710750162015444986563701968079760676518531584453506363044",
         #         "adjustedMidpoint": "0.1505",
@@ -1303,7 +1340,6 @@ class limitless(PredictionExchange, ImplicitAPI):
         #         "lastTradePrice": "0.161"
         #     }
         #
-        timestamp = self.milliseconds()
         decimals = self.safe_integer(self.options, "usdcDecimals", 6)
         # sizes are scaled by 10^decimals, USDC uses 6 decimals
         scaleStr = self.parse_precision(self.number_to_string(-decimals))
@@ -1312,11 +1348,15 @@ class limitless(PredictionExchange, ImplicitAPI):
         rawBids = self.safe_list(response, "bids", [])
         rawAsks = self.safe_list(response, "asks", [])
         # the book endpoint is quoted in the yes token, the no side mirrors at 1 - price with bids and asks swapped
-        bidsSource = rawBids if (isYes) else rawAsks
-        asksSource = rawAsks if (isYes) else rawBids
+        bidsSource = rawAsks
+        if isYes:
+            bidsSource = rawBids
+        asksSource = rawBids
+        if isYes:
+            asksSource = rawAsks
         bids = []
         asks = []
-        for bi in range(len(bidsSource)):
+        for bi in range(0, len(bidsSource)):
             priceStr = self.safe_string(bidsSource[bi], "price")
             if not isYes and (priceStr is not None):
                 priceStr = Precise.string_sub("1", priceStr)
@@ -1324,7 +1364,7 @@ class limitless(PredictionExchange, ImplicitAPI):
             if sizeStr is not None:
                 sizeStr = Precise.string_div(sizeStr, scaleStr)
             bids.append([self.parse_number(priceStr), self.parse_number(sizeStr)])
-        for ai in range(len(asksSource)):
+        for ai in range(0, len(asksSource)):
             priceStr = self.safe_string(asksSource[ai], "price")
             if not isYes and (priceStr is not None):
                 priceStr = Precise.string_sub("1", priceStr)
@@ -1336,14 +1376,19 @@ class limitless(PredictionExchange, ImplicitAPI):
             "outcome": self.safe_outcome_symbol(outcome, outcomeObj),
             "bids": self.sort_by(bids, 0, True),
             "asks": self.sort_by(asks, 0),
-            "timestamp": timestamp,
-            "datetime": self.iso8601(timestamp),
+            "timestamp": None,
+            "datetime": None,
             "nonce": None,
         }
         return self.safe_prediction_order_book(orderbook, outcomeObj)
 
     async def fetch_ohlcv(
-        self, outcome: Str, timeframe="1d", since: Int = None, limit: Int = None, params=None
+        self,
+        outcome: str,
+        timeframe="1d",
+        since: Int = None,
+        limit: Int = None,
+        params: dict = None,
     ) -> list[list]:
         """
         fetches historical prices for a single limitless market outcome and maps them to OHLCV format, uses the `interval` query parameter and selects the YES/NO series that matches the requested outcome
@@ -1408,7 +1453,9 @@ class limitless(PredictionExchange, ImplicitAPI):
         responseRows = []
         if isinstance(response, list):
             responseRows = response
-        rawHistoryList = self.safe_list(response, "data", self.safe_list(response, "prices", responseRows))
+        rawHistoryList = self.safe_list(
+            response, "data", self.safe_list(response, "prices", responseRows)
+        )
         rawHistory = rawHistoryList if (rawHistoryList is not None) else []
         history = rawHistory
         rawHistoryLength = len(rawHistory)
@@ -1417,7 +1464,7 @@ class limitless(PredictionExchange, ImplicitAPI):
             firstPrices = self.safe_list(first, "prices")
             if firstPrices is not None:
                 selectedSeries = first
-                for i in range(len(rawHistory)):
+                for i in range(0, len(rawHistory)):
                     series = self.safe_dict(rawHistory, i, {})
                     title = self.safe_string_upper(series, "title", "")
                     if title is None:
@@ -1427,15 +1474,17 @@ class limitless(PredictionExchange, ImplicitAPI):
                         break
                 history = self.safe_list(selectedSeries, "prices", [])
         # the endpoint returns raw price points, not candles - bucket them into
-        # timeframe-aligned candles(single points would carry unaligned timestamps)
+        # timeframe-aligned candles (single points would carry unaligned timestamps)
         pseudoTrades = []
-        for i in range(len(history)):
-            point = history[i]
+        for i in range(0, len(history)):
+            point = self.safe_dict(history, i)
             pointPrice = self.safe_number(point, "price")
             pointTs = self.safe_integer(point, "timestamp")
             if pointTs is None:
                 tsString = self.safe_string(point, "timestamp")
-                pointTs = self.parse8601(tsString) if (tsString is not None and tsString != "") else None
+                pointTs = (
+                    self.parse8601(tsString) if (tsString is not None and tsString != "") else None
+                )
             elif pointTs < 1000000000000:
                 # old responses may return unix seconds
                 pointTs = pointTs * 1000
@@ -1449,8 +1498,8 @@ class limitless(PredictionExchange, ImplicitAPI):
         ms = self.parse_timeframe(timeframe) * 1000
         candles = {}
         bucketOrder = []
-        for i in range(len(sorted)):
-            point = sorted[i]
+        for i in range(0, len(sorted)):
+            point = self.safe_dict(sorted, i)
             pTs = self.safe_integer(point, "timestamp")
             pPrice = self.safe_number(point, "price")
             if pTs is None:
@@ -1470,12 +1519,12 @@ class limitless(PredictionExchange, ImplicitAPI):
                 candle[4] = pPrice
                 candles[key] = candle  # php arrays are value types - write the mutation back
         result = []
-        for i in range(len(bucketOrder)):
+        for i in range(0, len(bucketOrder)):
             result.append(candles[bucketOrder[i]])
         return self.filter_by_since_limit(result, since, limit, 0)
 
     async def fetch_orders(
-        self, outcome: Str = None, since: Int = None, limit: Int = None, params=None
+        self, outcome: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[PredictionOrder]:
         """
         fetches orders for the authenticated user for a single outcome
@@ -1521,13 +1570,13 @@ class limitless(PredictionExchange, ImplicitAPI):
         #         }
         #     ]
         #
-        # pass None as market: parsePredictionOrder sets outcome to the market outcome while the outcome
+        # pass undefined as market: parsePredictionOrder sets outcome to the market outcome while the outcome
         # lives under 'outcome', so the base outcome filter would drop every order; the per-slug
         # endpoint already scopes results and parsePredictionOrder resolves the outcome via outcomes_by_id
         return self.parse_prediction_orders(self.to_array(response), None, since, limit)
 
     async def fetch_open_orders(
-        self, outcome: Str = None, since: Int = None, limit: Int = None, params=None
+        self, outcome: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[PredictionOrder]:
         """
         fetches open orders for the authenticated user for a single outcome
@@ -1545,16 +1594,16 @@ class limitless(PredictionExchange, ImplicitAPI):
         if outcome is None:
             raise ArgumentsRequired(self.id + " fetchOpenOrders requires an outcome argument")
         await self.load_outcome(outcome)
-        params = self.extend(
+        paramsExtended = self.extend(
             params,
             {
                 "statuses": ["LIVE"],
             },
         )
-        return await self.fetch_orders(outcome, since, limit, params)
+        return await self.fetch_orders(outcome, since, limit, paramsExtended)
 
     async def fetch_closed_orders(
-        self, outcome: Str = None, since: Int = None, limit: Int = None, params=None
+        self, outcome: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[PredictionOrder]:
         """
         fetches closed orders for the authenticated user for a single outcome
@@ -1572,15 +1621,17 @@ class limitless(PredictionExchange, ImplicitAPI):
         if outcome is None:
             raise ArgumentsRequired(self.id + " fetchClosedOrders requires an outcome argument")
         await self.load_outcome(outcome)
-        params = self.extend(
+        paramsExtended = self.extend(
             params,
             {
                 "statuses": ["MATCHED"],
             },
         )
-        return await self.fetch_orders(outcome, since, limit, params)
+        return await self.fetch_orders(outcome, since, limit, paramsExtended)
 
-    async def fetch_orders_by_ids(self, ids: object, outcome: Str = None, params=None) -> list[PredictionOrder]:
+    async def fetch_orders_by_ids(
+        self, ids: object, outcome: Str = None, params: dict = None
+    ) -> list[PredictionOrder]:
         """
         fetch orders by the list of order id
 
@@ -1599,7 +1650,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         if length > 50:
             raise BadRequest(self.id + " fetchOrdersByIds can only fetch up to 50 orders at a time")
         items = []
-        for i in range(length):
+        for i in range(0, length):
             id = self.safe_string(ids, i)
             item = {
                 "orderId": id,
@@ -1687,7 +1738,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         #                     "execution": {
         #                         "feeRateBps": 300,
         #                         "effectiveFeeBps": 59,
-        #                         "matched": True,
+        #                         "matched": true,
         #                         "settlementStatus": "MINED",
         #                         "tradeEventId": "44c46a93-f5cb-40f5-a52f-bd55bb97641e",
         #                         "txHash": "0x101cda4b605007440b382c35a27531605c7fc1b29a7c803b19237586a74c10e8",
@@ -1707,14 +1758,16 @@ class limitless(PredictionExchange, ImplicitAPI):
         #
         results = self.safe_list(response, "results", [])
         found = []
-        for i in range(len(results)):
+        for i in range(0, len(results)):
             item = self.safe_dict(results, i, {})
             itemStatus = self.safe_string(item, "status")
             if itemStatus == "found":
                 found.append(item)
         return self.parse_prediction_orders(found)
 
-    async def fetch_order(self, id: str, outcome: Str = None, params=None) -> PredictionOrder:
+    async def fetch_order(
+        self, id: str, outcome: Str = None, params: dict = None
+    ) -> PredictionOrder:
         """
         fetches information on an order made by the user
 
@@ -1837,7 +1890,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         #             "execution": {
         #                 "feeRateBps": 300,
         #                 "effectiveFeeBps": 59,
-        #                 "matched": True,
+        #                 "matched": true,
         #                 "settlementStatus": "MINED",
         #                 "tradeEventId": "44c46a93-f5cb-40f5-a52f-bd55bb97641e",
         #                 "txHash": "0x101cda4b605007440b382c35a27531605c7fc1b29a7c803b19237586a74c10e8",
@@ -1865,7 +1918,10 @@ class limitless(PredictionExchange, ImplicitAPI):
         rawSide = self.safe_string(rawOrder, "side")
         side = self.parse_order_side(rawSide)
         price = self.safe_string(rawOrder, "price")
-        amountKey = "takerAmount" if (side == "buy") else "makerAmount"  # TODO check
+        # todo check
+        amountKey = "makerAmount"
+        if side == "buy":
+            amountKey = "takerAmount"
         amount = self.safe_string(rawOrder, amountKey)
         remaining = self.safe_string(rawOrder, "remainingSize")
         datetime = self.safe_string(rawOrder, "createdAt")
@@ -1975,7 +2031,8 @@ class limitless(PredictionExchange, ImplicitAPI):
         scale = self.number_to_string(math.pow(10, decimals))
         if multiply:
             return Precise.string_mul(amount, scale)
-        return Precise.string_div(amount, scale)
+        else:
+            return Precise.string_div(amount, scale)
 
     def parse_account(self, account: dict) -> Account:
         accountId = self.safe_string(account, "id")
@@ -1986,7 +2043,7 @@ class limitless(PredictionExchange, ImplicitAPI):
             "info": account,
         }
 
-    async def fetch_accounts(self, params=None) -> list[Account]:
+    async def fetch_accounts(self, params: dict = None) -> list[Account]:
         """
         query for account id and info
 
@@ -2002,7 +2059,13 @@ class limitless(PredictionExchange, ImplicitAPI):
         return self.parse_accounts(responseList)
 
     async def create_order(
-        self, outcome: str, type: Str, side: Str, amount: Num, price: Num = None, params=None
+        self,
+        outcome: str,
+        type: OrderType,
+        side: OrderSide,
+        amount: float,
+        price: Num = None,
+        params: dict = None,
     ) -> PredictionOrder:
         """
         places a limit or market order on limitless for the given outcome token
@@ -2029,13 +2092,18 @@ class limitless(PredictionExchange, ImplicitAPI):
         # smartWallet field can stay populated after switching to eoa, so key off the option here
         tradeWalletOption = self.safe_string(accountInfo, "tradeWalletOption")
         usesSmartWallet = tradeWalletOption == "smartWallet"
-        walletFromAccount = (
-            self.safe_string(accountInfo, "smartWallet")
-            if (usesSmartWallet)
-            else self.safe_string(accountInfo, "account")
+        walletFromAccount = None
+        if usesSmartWallet:
+            walletFromAccount = self.safe_string(accountInfo, "smartWallet")
+        else:
+            walletFromAccount = self.safe_string(accountInfo, "account")
+        maker = walletFromAccount
+        if self.walletAddress != "":
+            maker = self.walletAddress
+        paramsValue = params
+        maker, paramsValue = self.handle_option_and_params(
+            paramsValue, "createOrder", "maker", maker
         )
-        maker = self.walletAddress if (self.walletAddress != "") else walletFromAccount
-        maker, params = self.handle_option_and_params(params, "createOrder", "maker", maker)
         try:
             self.check_address(maker)
         except Exception:
@@ -2044,14 +2112,16 @@ class limitless(PredictionExchange, ImplicitAPI):
                 + ' createOrder requires a valid maker address. Set the "maker" parameter to a valid address or set the "walletAddress" property in the constructor options.'
             )
         # when the profile trades through a smart wallet the order must be signed by the
-        # linked embedded(owner) wallet, not by the smart wallet itself
+        # linked embedded (owner) wallet, not by the smart wallet itself
         embeddedAddress = self.safe_string(accountInfo, "embeddedAccount")
         hasEmbedded = embeddedAddress is not None
         isSmartWallet = usesSmartWallet and hasEmbedded
         signer = maker
         if isSmartWallet:
             signer = embeddedAddress
-        signer, params = self.handle_option_and_params(params, "createOrder", "signer", signer)
+        signer, paramsValue = self.handle_option_and_params(
+            paramsValue, "createOrder", "signer", signer
+        )
         try:
             self.check_address(signer)
         except Exception:
@@ -2059,8 +2129,12 @@ class limitless(PredictionExchange, ImplicitAPI):
                 self.id
                 + ' createOrder requires a valid signer address. Set the "signer" parameter to a valid address or set the "walletAddress" property in the constructor options.'
             )
-        taker = self.safe_string(self.options, "NoneAddress", "0x0000000000000000000000000000000000000000")
-        taker, params = self.handle_option_and_params(params, "createOrder", "taker", taker)
+        taker = self.safe_string(
+            self.options, "NoneAddress", "0x0000000000000000000000000000000000000000"
+        )
+        taker, paramsValue = self.handle_option_and_params(
+            paramsValue, "createOrder", "taker", taker
+        )
         try:
             self.check_address(taker)
         except Exception:
@@ -2068,18 +2142,19 @@ class limitless(PredictionExchange, ImplicitAPI):
                 self.id
                 + ' createOrder requires a valid taker address. Set the "taker" parameter to a valid address or set the "nullAddress" property in the constructor options.'
             )
-        nonce = self.milliseconds()
+        nonce = self.incrementing_nonce()
         sides = {
             "buy": 0,
             "sell": 1,
         }
-        if side is None:
-            raise ArgumentsRequired(self.id + " createOrder() requires a side argument")
+        self.check_required_argument("createOrder", side, "side")
         sideValue = self.safe_integer(sides, side.lower())
         rank = self.safe_dict(accountInfo, "rank")
-        # signatureType: 0 = EOA, 2 = smart-wallet(the embedded owner signs on behalf of the safe)
+        # signatureType: 0 = EOA, 2 = smart-wallet (the embedded owner signs on behalf of the safe)
         signatureType = 2 if isSmartWallet else 0
-        signatureType, params = self.handle_option_and_params(params, "createOrder", "signatureType", signatureType)
+        signatureType, paramsValue = self.handle_option_and_params(
+            paramsValue, "createOrder", "signatureType", signatureType
+        )
         signRequest = {
             "salt": nonce,
             "maker": maker,
@@ -2091,10 +2166,10 @@ class limitless(PredictionExchange, ImplicitAPI):
             "side": sideValue,
             "signatureType": signatureType,
         }
-        # the contract expects expiration as a uint256; non-zero values are rejected by the API(GTC orders use 0)
-        expirationInt = self.safe_integer(params, "expiration")
+        # the contract expects expiration as a uint256; non-zero values are rejected by the API (GTC orders use 0)
+        expirationInt = self.safe_integer(paramsValue, "expiration")
         if expirationInt is not None:
-            params = self.omit(params, "expiration")
+            paramsValue = self.omit(paramsValue, "expiration")
             signRequest["expiration"] = self.number_to_string(expirationInt)
         else:
             signRequest["expiration"] = "0"
@@ -2104,28 +2179,31 @@ class limitless(PredictionExchange, ImplicitAPI):
         takerAmount = None
         isMarket = type == "market"
         postOnly = False
-        postOnly, params = self.handle_post_only(isMarket, False, params)
-        timeInForce = self.safe_string(params, "timeInForce")
-        params = self.omit(params, "timeInForce")
+        postOnly, paramsValue = self.handle_post_only(isMarket, False, paramsValue)
+        timeInForce = self.safe_string(paramsValue, "timeInForce")
+        paramsValue = self.omit(paramsValue, "timeInForce")
         if timeInForce is None:
             timeInForce = "FOK" if isMarket else "GTC"
         marketSymbol = self.safe_string(outcomeObj, "market")
         if isMarket and (side == "buy"):
             createMarketBuyOrderRequiresPrice = True
-            createMarketBuyOrderRequiresPrice, params = self.handle_option_and_params(
-                params, "createOrder", "createMarketBuyOrderRequiresPrice", True
+            createMarketBuyOrderRequiresPrice, paramsValue = self.handle_option_bool_and_params(
+                paramsValue, "createOrder", "createMarketBuyOrderRequiresPrice", True
             )
-            cost = self.safe_number(params, "cost")
-            params = self.omit(params, "cost")
+            cost = self.safe_number(paramsValue, "cost")
+            paramsValue = self.omit(paramsValue, "cost")
             if createMarketBuyOrderRequiresPrice:
                 if (price is None) and (cost is None):
                     raise InvalidOrder(
                         self.id
-                        + " createOrder() requires the price argument for market buy orders to calculate the total cost to spend(amount * price), alternatively set the createMarketBuyOrderRequiresPrice option or param to False and pass the cost to spend in the amount argument"
+                        + " createOrder() requires the price argument for market buy orders to calculate the total cost to spend (amount * price), alternatively set the createMarketBuyOrderRequiresPrice option or param to False and pass the cost to spend in the amount argument"
                     )
-                quoteAmount = self.parse_to_numeric(Precise.string_mul(amountString, priceString))
-                costRequest = cost if (cost is not None) else quoteAmount
-                makerAmount = self.cost_to_prediction_precision(outcome, costRequest)
+                else:
+                    quoteAmount = self.parse_to_numeric(
+                        Precise.string_mul(amountString, priceString)
+                    )
+                    costRequest = cost if (cost is not None) else quoteAmount
+                    makerAmount = self.cost_to_prediction_precision(outcome, costRequest)
             else:
                 makerAmount = self.cost_to_prediction_precision(outcome, amount)
         elif isMarket:
@@ -2138,12 +2216,14 @@ class limitless(PredictionExchange, ImplicitAPI):
             else:
                 makerAmount = self.amount_to_prediction_precision(outcome, amount)
                 takerAmount = self.cost_to_prediction_precision(outcome, calculatedCost)
-        # amounts must be integers(uint256): parseNumber yields a float that the Python EIP-712 encoder rejects
+        # amounts must be integers (uint256): parseNumber yields a float that the Python EIP-712 encoder rejects
         signRequest["makerAmount"] = self.parse_to_int(self.apply_scale(makerAmount, True))
-        signRequest["takerAmount"] = 1 if isMarket else self.parse_to_int(self.apply_scale(takerAmount, True))
+        signRequest["takerAmount"] = (
+            1 if isMarket else self.parse_to_int(self.apply_scale(takerAmount, True))
+        )
         signature = self.sign_order_request(signRequest, marketSymbol)
         signRequest["signature"] = signature
-        # price is an unsigned hint required by the API for GTC/FAK orders(not part of the EIP-712 struct)
+        # price is an unsigned hint required by the API for GTC/FAK orders (not part of the EIP-712 struct)
         if not isMarket and (price is not None):
             signRequest["price"] = self.parse_number(priceString)
         slug = self.safe_string(outcomeObj["info"], "slug")
@@ -2155,7 +2235,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         }
         if postOnly:
             request["postOnly"] = postOnly
-        response = await self.limitlessPrivatePostOrders(self.extend(request, params))
+        response = await self.limitlessPrivatePostOrders(self.extend(request, paramsValue))
         parsedOrder = self.parse_prediction_order(response, outcomeObj)
         # the create-order response omits a status field; a freshly accepted order is open
         if parsedOrder["status"] is None:
@@ -2166,7 +2246,8 @@ class limitless(PredictionExchange, ImplicitAPI):
         self.check_required_credentials()
         if self.privateKey is None:
             raise ArgumentsRequired(
-                self.id + " createOrder() requires a privateKey(the embedded/trading wallet key) to sign orders"
+                self.id
+                + " createOrder() requires a privateKey (the embedded/trading wallet key) to sign orders"
             )
         market = self.market(marketSymbol)
         info = self.safe_dict(market, "info")
@@ -2214,12 +2295,14 @@ class limitless(PredictionExchange, ImplicitAPI):
         return self.sign_hash(self.hash_message(message), privateKey[-64:])
 
     def sign_evm_transaction(self, tx: dict, privateKey: str) -> str:
-        # builds and signs an EIP-1559(type 0x02) transaction, returning the signed raw tx hex
+        # builds and signs an EIP-1559 (type 0x02) transaction, returning the signed raw tx hex
         accessList = self.rlp_encode_list([])
         fields = [
             self.rlp_encode_bytes(self.int_to_rlp_hex(self.safe_integer(tx, "chainId"))),
             self.rlp_encode_bytes(self.hex_to_rlp_bytes(self.safe_string(tx, "nonce"))),
-            self.rlp_encode_bytes(self.hex_to_rlp_bytes(self.safe_string(tx, "maxPriorityFeePerGas"))),
+            self.rlp_encode_bytes(
+                self.hex_to_rlp_bytes(self.safe_string(tx, "maxPriorityFeePerGas"))
+            ),
             self.rlp_encode_bytes(self.hex_to_rlp_bytes(self.safe_string(tx, "maxFeePerGas"))),
             self.rlp_encode_bytes(self.hex_to_rlp_bytes(self.safe_string(tx, "gasLimit"))),
             self.rlp_encode_bytes(self.remove0x_prefix(self.safe_string(tx, "to"))),
@@ -2236,14 +2319,14 @@ class limitless(PredictionExchange, ImplicitAPI):
         sHex = self.pad_hex_to_even(sHex)
         yParity = self.safe_integer(signature, "v")
         signedFields = []
-        for i in range(len(fields)):
+        for i in range(0, len(fields)):
             signedFields.append(fields[i])
         signedFields.append(self.rlp_encode_bytes(self.int_to_rlp_hex(yParity)))
         signedFields.append(self.rlp_encode_bytes(rHex))
         signedFields.append(self.rlp_encode_bytes(sHex))
         return "0x02" + self.rlp_encode_list(signedFields)
 
-    async def approve(self, params=None) -> object:
+    async def approve(self, params: dict = None) -> object:
         """
         sets the on-chain ERC20 collateral(USDC) allowance for the limitless exchange contract on Base, which is required before an EOA maker can place orders("Insufficient collateral allowance" otherwise). Sends a real on-chain transaction signed with the privateKey and waits for the receipt
         :param dict [params]: extra parameters
@@ -2259,11 +2342,17 @@ class limitless(PredictionExchange, ImplicitAPI):
             params = {}
         self.check_required_credentials()
         if self.privateKey is None:
-            raise ArgumentsRequired(self.id + " approve() requires a privateKey to sign the on-chain transaction")
+            raise ArgumentsRequired(
+                self.id + " approve() requires a privateKey to sign the on-chain transaction"
+            )
         rpcUrl = self.safe_string(params, "rpcUrl", self.safe_string(self.options, "rpcUrl"))
         chainId = self.safe_integer(self.options, "chainId", 8453)
-        token = self.safe_string(params, "token", self.safe_string(self.options, "collateralAddress"))
-        spender = self.safe_string(params, "spender", self.safe_string(self.options, "exchangeAddress"))
+        token = self.safe_string(
+            params, "token", self.safe_string(self.options, "collateralAddress")
+        )
+        spender = self.safe_string(
+            params, "spender", self.safe_string(self.options, "exchangeAddress")
+        )
         owner = self.safe_string(params, "owner", self.walletAddress)
         if owner is None:
             owner = self.eth_get_address_from_private_key(self.privateKey)
@@ -2273,17 +2362,23 @@ class limitless(PredictionExchange, ImplicitAPI):
         amount = self.safe_string(params, "amount")
         if amount is not None:
             decimals = self.safe_integer(self.options, "usdcDecimals", 6)
-            # scale the human USDC amount to base units(amount / 10^-decimals = amount * 10^decimals)
-            scaled = Precise.string_div(amount, self.parse_precision(self.number_to_string(decimals)))
+            # scale the human USDC amount to base units (amount / 10^-decimals = amount * 10^decimals)
+            scaled = Precise.string_div(
+                amount, self.parse_precision(self.number_to_string(decimals))
+            )
             amountInt = self.parse_to_int(scaled)
             amountBase16 = self.int_to_base16(amountInt)
             amountHex = amountBase16.rjust(64, "0")
         # approve(spender, amount) -> selector 0x095ea7b3
         approveData = "0x095ea7b3" + self.pad_hex_address(spender) + amountHex
-        txHash = await self.send_evm_transaction(rpcUrl, chainId, owner, token, "0x0", approveData, gasLimit)
+        txHash = await self.send_evm_transaction(
+            rpcUrl, chainId, owner, token, "0x0", approveData, gasLimit
+        )
         return await self.wait_for_transaction_receipt(rpcUrl, txHash)
 
-    async def cancel_order(self, id: Str, outcome: Str = None, params=None) -> PredictionOrder:
+    async def cancel_order(
+        self, id: str, outcome: Str = None, params: dict = None
+    ) -> PredictionOrder:
         """
         cancels a single open order by id
 
@@ -2302,7 +2397,7 @@ class limitless(PredictionExchange, ImplicitAPI):
             "order_id": id,
         }
         response = await self.limitlessPrivateDeleteOrdersOrderId(self.extend(request, params))
-        # the del response carries no order body, so backfill the id and the resulting status
+        # the delete response carries no order body, so backfill the id and the resulting status
         order = self.parse_prediction_order(response)
         if order["id"] is None:
             order["id"] = id
@@ -2310,7 +2405,7 @@ class limitless(PredictionExchange, ImplicitAPI):
             order["status"] = "canceled"
         return order
 
-    async def redeem(self, outcome: Str = None, params=None) -> object:
+    async def redeem(self, outcome: Str = None, params: dict = None) -> object:
         """
         redeem a resolved winning position back to collateral(gasless — the operator settles on-chain)
 
@@ -2326,14 +2421,16 @@ class limitless(PredictionExchange, ImplicitAPI):
         conditionId = self.safe_string_2(params, "conditionId", "condition_id")
         if conditionId is None:
             if outcome is None:
-                raise ArgumentsRequired(self.id + " redeem() requires an outcome or a params.conditionId")
+                raise ArgumentsRequired(
+                    self.id + " redeem() requires an outcome or a params.conditionId"
+                )
             await self.load_outcome(outcome)
             outcomeObj = self.outcome(outcome)
             conditionId = self.safe_string(self.safe_dict(outcomeObj, "info", {}), "conditionId")
         if conditionId is None:
             raise ArgumentsRequired(
                 self.id
-                + " redeem() could not resolve the market conditionId - pass params.conditionId(a bytes32 hex string)"
+                + " redeem() could not resolve the market conditionId - pass params.conditionId (a bytes32 hex string)"
             )
         request = {
             "conditionId": conditionId,
@@ -2346,7 +2443,9 @@ class limitless(PredictionExchange, ImplicitAPI):
             "conditionId": conditionId,
         }
 
-    async def cancel_orders(self, ids: list[str], outcome: Str = None, params=None) -> list[PredictionOrder]:
+    async def cancel_orders(
+        self, ids: list[str], outcome: Str = None, params: dict = None
+    ) -> list[PredictionOrder]:
         """
         cancel multiple orders at the same time
 
@@ -2374,7 +2473,9 @@ class limitless(PredictionExchange, ImplicitAPI):
             raise OrderNotFound(feedback)
         return self.parse_prediction_orders(canceled)
 
-    async def cancel_all_orders(self, outcome: Str = None, params=None) -> list[PredictionOrder]:
+    async def cancel_all_orders(
+        self, outcome: Str = None, params: dict = None
+    ) -> list[PredictionOrder]:
         """
         cancels all open orders for one market slug
 
@@ -2387,18 +2488,19 @@ class limitless(PredictionExchange, ImplicitAPI):
         """
         if params is None:
             params = {}
+        paramsValue = params
         if outcome is not None:
             warn = True
-            warn, params = self.handle_option_and_params(
-                params, "cancelAllOrders", "warnOnCancelAllOrdersWithOutcome", warn
+            warn, paramsValue = self.handle_option_and_params(
+                paramsValue, "cancelAllOrders", "warnOnCancelAllOrdersWithOutcome", warn
             )
             if warn:
                 raise BadRequest(
                     self.id
-                    + " cancelAllOrders cancels all orders for entire slug(both YES and NO outcomes). Please provide params.slug to specify the slug, or set the warnOnCancelAllOrdersWithOutcome option to False to suppress self warning message."
+                    + " cancelAllOrders cancels all orders for entire slug (both YES and NO outcomes). Please provide params.slug to specify the slug, or set the warnOnCancelAllOrdersWithOutcome option to False to suppress self warning message."
                 )
         request = {}
-        slug = self.safe_string(params, "slug")
+        slug = self.safe_string(paramsValue, "slug")
         if outcome is not None:
             outcomeObj = await self.load_outcome(outcome)
             request["slug"] = self.safe_string(outcomeObj["info"], "slug")
@@ -2406,7 +2508,7 @@ class limitless(PredictionExchange, ImplicitAPI):
             raise ArgumentsRequired(
                 self.id + " cancelAllOrders requires either an outcome argument or a slug parameter"
             )
-        response = await self.limitlessPrivateDeleteOrdersAllSlug(self.extend(request, params))
+        response = await self.limitlessPrivateDeleteOrdersAllSlug(self.extend(request, paramsValue))
         #
         #     {
         #         "message": "Orders canceled successfully"
@@ -2415,7 +2517,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         return [self.safe_prediction_order({"info": response})]
 
     async def fetch_my_trades(
-        self, outcome: Str = None, since: Int = None, limit: Int = None, params=None
+        self, outcome: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[PredictionTrade]:
         """
         fetch all trades made by the user
@@ -2437,16 +2539,27 @@ class limitless(PredictionExchange, ImplicitAPI):
             outcomeSymbol = self.safe_string(outcomeObj, "outcome")
         paginate = False
         maxLimit = 100
-        paginate, params = self.handle_option_and_params(params, "fetchMyTrades", "paginate", paginate)
+        paramsValue = params
+        paginate, paramsValue = self.handle_option_and_params(
+            paramsValue, "fetchMyTrades", "paginate", paginate
+        )
         if paginate:
-            params = self.omit(params, "paginate")
+            paramsValue = self.omit(paramsValue, "paginate")
             return await self.fetch_paginated_call_cursor(
-                "fetchMyTrades", outcome, since, limit, params, "nextCursor", "cursor", None, maxLimit
+                "fetchMyTrades",
+                outcome,
+                since,
+                limit,
+                paramsValue,
+                "nextCursor",
+                "cursor",
+                None,
+                maxLimit,
             )
         request = {}
         if limit is not None:
             request["limit"] = min(limit, maxLimit)
-        response = await self.limitlessPrivateGetPortfolioHistory(self.extend(request, params))
+        response = await self.limitlessPrivateGetPortfolioHistory(self.extend(request, paramsValue))
         #
         #     {
         #         "data": [
@@ -2458,7 +2571,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         #                 "collateralToken": "7",
         #                 "conditionId": "0x0c61db7449dd8f8c81cd856f53d4186cf30888e27eb025d10c7908fa94ba736e",
         #                 "market": {
-        #                     "closed": True,
+        #                     "closed": true,
         #                     "collateral": {
         #                     "symbol": "USDC",
         #                     "id": "7",
@@ -2480,7 +2593,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         #                 "blockTimestamp": 1778144137,
         #                 "collateralAmount": "2",
         #                 "market": {
-        #                     "closed": True,
+        #                     "closed": true,
         #                     "collateral": {
         #                         "symbol": "USDC",
         #                         "id": "7",
@@ -2513,7 +2626,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         # response contains both trade, settlement, split and merge history
         # we filter out the settlements here and only return the trades
         trades = []
-        for i in range(len(data)):
+        for i in range(0, len(data)):
             item = self.safe_dict(data, i)
             strategy = self.safe_string_lower(item, "strategy")
             if strategy is not None:
@@ -2573,7 +2686,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         #         "blockTimestamp": 1778144137,
         #         "collateralAmount": "2",
         #         "market": {
-        #             "closed": True,
+        #             "closed": true,
         #             "collateral": {
         #                 "symbol": "USDC",
         #                 "id": "7",
@@ -2608,7 +2721,9 @@ class limitless(PredictionExchange, ImplicitAPI):
         if rawSide is None:
             raise ExchangeError(self.id + " parsePredictionTrade() missing rawSide")
         sellIndex = rawSide.find("sell")
-        side = "sell" if (sellIndex >= 0) else "buy"
+        side = "buy"
+        if sellIndex >= 0:
+            side = "sell"
         type = None
         takerOrMaker = None
         if rawSide is None:
@@ -2616,15 +2731,17 @@ class limitless(PredictionExchange, ImplicitAPI):
         if rawSide.find("limit") >= 0:
             type = "limit"
             takerOrMaker = "maker"
-        if rawSide is None:
-            raise ExchangeError(self.id + " method() missing rawSide")
-        if rawSide.find("market") >= 0:
+            if rawSide is None:
+                raise ExchangeError(self.id + " method() missing rawSide")
+        elif rawSide.find("market") >= 0:
             type = "market"
             takerOrMaker = "taker"
         rawMarket = self.safe_dict(trade, "market", {})
         slug = self.safe_string(rawMarket, "slug")
         outcomeIndex = self.safe_integer(trade, "outcomeIndex")
-        label = "yes" if (outcomeIndex == 0) else "no"
+        label = "no"
+        if outcomeIndex == 0:
+            label = "yes"
         outcome = self.get_outcome_by_slug_and_label(slug, label, market)
         tradeOutcome = self.safe_string(outcome, "outcome")
         return self.safe_prediction_trade(
@@ -2640,7 +2757,7 @@ class limitless(PredictionExchange, ImplicitAPI):
                 "order": None,
                 "type": type,
                 "side": side,
-                "takerOrMaker": takerOrMaker,  # TODO check
+                "takerOrMaker": takerOrMaker,  # todo check
                 "price": price,
                 "amount": amount,
                 "cost": cost,
@@ -2651,14 +2768,16 @@ class limitless(PredictionExchange, ImplicitAPI):
     def get_outcome_by_slug_and_label(self, slug: Str, label: Str, market: Market = None) -> object:
         mkt = self.safe_market(slug, market)
         outcomes = self.safe_list(mkt, "outcomes", [])
-        for i in range(len(outcomes)):
+        for i in range(0, len(outcomes)):
             outcome = self.safe_dict(outcomes, i)
             outcomeLabel = self.safe_string(outcome, "label")
             if outcomeLabel == label:
                 return outcome
         return None
 
-    async def fetch_positions(self, outcomes: Strings = None, params=None) -> list[PredictionPosition]:
+    async def fetch_positions(
+        self, outcomes: Strings = None, params: dict = None
+    ) -> list[PredictionPosition]:
         """
         fetches open positions for the authenticated limitless user from the portfolio endpoint
 
@@ -2676,7 +2795,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         if symbolsLength > 0:
             await self.load_outcomes(outcomes)
         # no bulk warm-up on the unfiltered path: the portfolio request is self-contained and
-        # labels resolve cache-only(raw slugs/labels stay available in info when the cache is cold)
+        # labels resolve cache-only (raw slugs/labels stay available in info when the cache is cold)
         response = await self.limitlessPrivateGetPortfolioPositions(params)
         #
         #     {
@@ -2700,7 +2819,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         #                     "conditionId": "0xdcd8264cd09a6c50fca35eca24cda13e70f705e8b9ca7df7edb1c53d5e14ef91",
         #                     "id": 113280,
         #                     "address": null,
-        #                     "closed": False,
+        #                     "closed": false,
         #                     "expirationDate": "2026-05-11T10:00:00.000Z",
         #                     "deadline": "2026-05-11T10:00:00.000Z",
         #                     "negRiskRequestId": null,
@@ -2750,7 +2869,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         #                     "yes": "1004763"
         #                 },
         #                 "rewards": {
-        #                     "isEarning": False,
+        #                     "isEarning": false,
         #                     "epochs": []
         #                 },
         #                 "makerAddress": "0xAb2B9833FC8B8f55F4De7C4A0FAb8577EF0F7b36"
@@ -2761,16 +2880,16 @@ class limitless(PredictionExchange, ImplicitAPI):
         clob = self.safe_list(response, "clob", [])
         result = []
         labels = ["yes", "no"]
-        for i in range(len(clob)):
+        for i in range(0, len(clob)):
             entry = self.safe_dict(clob, i)
-            for j in range(len(labels)):
+            for j in range(0, len(labels)):
                 label = self.safe_string(labels, j)
                 position = self.get_position_from_clob_entry(label, entry)
                 if position is not None:
                     result.append(position)
         return result
 
-    def get_position_from_clob_entry(self, label: Str, entry: dict | None = None):
+    def get_position_from_clob_entry(self, label: Str, entry: dict = None):
         if entry is None:
             return None
         tokensBalance = self.safe_dict(entry, "tokensBalance")
@@ -2792,7 +2911,9 @@ class limitless(PredictionExchange, ImplicitAPI):
         parsed["info"] = entry
         return self.safe_prediction_position(parsed)
 
-    def parse_prediction_position(self, position: dict, market: Market = None) -> PredictionPosition:
+    def parse_prediction_position(
+        self, position: dict, market: Market = None
+    ) -> PredictionPosition:
         """
         @ignore
                parses a raw limitless portfolio position into a unified position object
@@ -2867,17 +2988,19 @@ class limitless(PredictionExchange, ImplicitAPI):
         if queries is None:
             raise ExchangeError(self.id + " fetchEvents() missing queries")
         queriesLength = len(queries)
-        rest = self.omit(params, ["query", "queries", "limit", "sort", "searchIn", "eventId", "slug", "status"])
+        rest = self.omit(
+            params, ["query", "queries", "limit", "sort", "searchIn", "eventId", "slug", "status"]
+        )
         eventId = self.safe_string_2(params, "eventId", "slug")
-        # always fetch fresh from the API(never serve the possibly-cold cache): a query searches, an
-        # eventId/slug does a direct lookup, and any other scope(tags) pages the active-markets listing
+        # always fetch fresh from the API (never serve the possibly-cold cache): a query searches, an
+        # eventId/slug does a direct lookup, and any other scope (tags) pages the active-markets listing
         rawMarkets = []
         if queriesLength > 0:
             requestedLimit = self.safe_integer(params, "limit", 50)
             # the search endpoint rejects limit > 50 - cap the per-query request
             limit = min(requestedLimit, 50)
             seen = {}
-            for i in range(len(queries)):
+            for i in range(0, len(queries)):
                 if queries is None:
                     raise ExchangeError(self.id + " fetchEvents() missing queries")
                 q = queries[i]
@@ -2891,14 +3014,16 @@ class limitless(PredictionExchange, ImplicitAPI):
                     )
                 )
                 found = self.safe_list(response, "markets", [])
-                for j in range(len(found)):
+                for j in range(0, len(found)):
                     raw = found[j]
                     rawSlug = self.safe_string(raw, "slug")
                     if (rawSlug is not None and rawSlug != "") and rawSlug not in seen:
                         seen[rawSlug] = True
                         rawMarkets.append(raw)
         elif eventId is not None:
-            response = await self.limitlessPublicGetMarketsAddressOrSlug(self.extend({"addressOrSlug": eventId}, rest))
+            response = await self.limitlessPublicGetMarketsAddressOrSlug(
+                self.extend({"addressOrSlug": eventId}, rest)
+            )
             rawMarkets.append(response)
         else:
             # tags scope: resolve the tags to limitless categories and page only those
@@ -2906,7 +3031,7 @@ class limitless(PredictionExchange, ImplicitAPI):
             requestedTags = self.safe_list(params, "tags", [])
             listRaw = await self.fetch_raw_markets_by_tags(requestedTags, params)
             listRawLength = len(listRaw)
-            for i in range(listRawLength):
+            for i in range(0, listRawLength):
                 rawMarkets.append(listRaw[i])
         if self.events is None:
             self.events = {}
@@ -2914,13 +3039,17 @@ class limitless(PredictionExchange, ImplicitAPI):
             self.markets = self.create_safe_dictionary()
         eventGroups = {}
         # group rows carry their tradeable children in a nested `markets` list — expand them
-        # into regular rows before parsing(a group row itself has no tokens)
+        # into regular rows before parsing (a group row itself has no tokens)
         expandedMarkets = self.expand_group_rows(rawMarkets)
         rawMarketsLength = len(expandedMarkets)
-        for i in range(rawMarketsLength):
+        for i in range(0, rawMarketsLength):
             raw = expandedMarkets[i]
-            groupId = self.safe_string_n(raw, ["groupSlug", "groupId"], self.safe_string(raw, "slug"))
-            eventKey = self.shorten_slug(groupId) if (groupId is not None and groupId != "") else None
+            groupId = self.safe_string_n(
+                raw, ["groupSlug", "groupId"], self.safe_string(raw, "slug")
+            )
+            eventKey = None
+            if groupId is not None and groupId != "":
+                eventKey = self.shorten_slug(groupId)
             m = self.parse_market(raw)
             if m is None:
                 raise ExchangeError(self.id + " fetchEvents() missing m")
@@ -2943,7 +3072,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         result = []
         eventKeys = list(eventGroups.keys())
         eventKeysLength = len(eventKeys)
-        for i in range(eventKeysLength):
+        for i in range(0, eventKeysLength):
             g = eventGroups[eventKeys[i]]
             ev = self.parse_event(g)
             result.append(ev)
@@ -2952,18 +3081,20 @@ class limitless(PredictionExchange, ImplicitAPI):
         self.populate_outcomes()
         # the limitless search endpoint is FUZZY — it returns nearest-neighbour markets even
         # for queries that match nothing — so default searchIn to 'both' to post-filter the
-        # results literally by title/description(an explicit params.searchIn still wins).
-        # tags were already applied server-side(category-scoped listing); strip them before the
+        # results literally by title/description (an explicit params.searchIn still wins).
+        # tags were already applied server-side (category-scoped listing); strip them before the
         # client-side pass — events built from raw markets carry venue tags, not category names,
         # so the base tag filter would wrongly drop server-matched events
         searchParams = self.extend({"searchIn": "both"}, params)
         postParams = self.omit(searchParams, ["tags"])
         return self.apply_event_fetch_params(result, postParams, queries)
 
-    async def fetch_raw_active_markets(self, params=None, categoryId: Str = None) -> list[object]:
+    async def fetch_raw_active_markets(
+        self, params: dict = None, categoryId: Str = None
+    ) -> list[object]:
         """
         @ignore
-               pages the active-markets listing(or a single category's listing), bounded by limit(or options.fetchMarketsLimit)
+               pages the active-markets listing(or a single category's listing), bounded by limit (or options.fetchMarketsLimit)
                :param dict [params]: extra exchange-specific parameters
                :param int [params.limit]: max number of raw markets to collect
                :param str [categoryId]: a limitless category id — pages only that category's listing
@@ -2971,9 +3102,14 @@ class limitless(PredictionExchange, ImplicitAPI):
         """
         if params is None:
             params = {}
-        maxMarkets = self.safe_integer(params, "limit", self.safe_integer(self.options, "fetchMarketsLimit", 1000))
+        maxMarkets = self.safe_integer(
+            params, "limit", self.safe_integer(self.options, "fetchMarketsLimit", 1000)
+        )
         pageSize = self.safe_integer(self.options, "marketsPageSize", 25)
-        rest = self.omit(params, ["query", "queries", "limit", "sort", "searchIn", "eventId", "slug", "status", "tags"])
+        rest = self.omit(
+            params,
+            ["query", "queries", "limit", "sort", "searchIn", "eventId", "slug", "status", "tags"],
+        )
         allRaw = []
         page = 1
         collected = 0
@@ -2982,14 +3118,16 @@ class limitless(PredictionExchange, ImplicitAPI):
             response = None
             if categoryId is not None:
                 request["categoryId"] = categoryId
-                response = await self.limitlessPublicGetMarketsActiveCategoryId(self.extend(request, rest))
+                response = await self.limitlessPublicGetMarketsActiveCategoryId(
+                    self.extend(request, rest)
+                )
             else:
                 response = await self.limitlessPublicGetMarketsActive(self.extend(request, rest))
             data = self.safe_list(response, "data", [])
             dataLength = len(data)
             if dataLength == 0:
                 break
-            for i in range(dataLength):
+            for i in range(0, dataLength):
                 if collected < maxMarkets:
                     allRaw.append(data[i])
                     collected = self.sum(collected, 1)
@@ -2998,7 +3136,7 @@ class limitless(PredictionExchange, ImplicitAPI):
                 break
         return allRaw
 
-    async def fetch_raw_markets_by_tags(self, tags: list[str], params=None) -> list[object]:
+    async def fetch_raw_markets_by_tags(self, tags: list[str], params: dict = None) -> list[object]:
         """
         @ignore
                resolves the requested tags to limitless categories via GET /categories, then pages only those categories' active listings server-side
@@ -3014,16 +3152,16 @@ class limitless(PredictionExchange, ImplicitAPI):
         if isinstance(categoriesResponse, list):
             categories = categoriesResponse
         wanted = []
-        for i in range(len(tags)):
+        for i in range(0, len(tags)):
             wanted.append(tags[i].lower())
         categoryIds = []
         categoriesLength = len(categories)
-        for i in range(categoriesLength):
-            category = categories[i]
+        for i in range(0, categoriesLength):
+            category = self.safe_dict(categories, i)
             name = self.safe_string_lower(category, "name", "")
             categoryId = self.safe_string(category, "id")
             matched = False
-            for wi in range(len(wanted)):
+            for wi in range(0, len(wanted)):
                 if name is None:
                     raise ExchangeError(self.id + " fetchRawMarketsByTags() missing name")
                 if name.find(wanted[wi]) >= 0:
@@ -3039,10 +3177,10 @@ class limitless(PredictionExchange, ImplicitAPI):
             )
         seen = {}
         allRaw = []
-        for ci in range(categoryIdsLength):
+        for ci in range(0, categoryIdsLength):
             categoryMarkets = await self.fetch_raw_active_markets(params, categoryIds[ci])
             categoryMarketsLength = len(categoryMarkets)
-            for mi in range(categoryMarketsLength):
+            for mi in range(0, categoryMarketsLength):
                 raw = categoryMarkets[mi]
                 slug = self.safe_string(raw, "slug")
                 if (slug is not None) and slug not in seen:
@@ -3050,12 +3188,17 @@ class limitless(PredictionExchange, ImplicitAPI):
                     allRaw.append(raw)
         return allRaw
 
+    def nonce(self) -> float:
+        # the order salt is a millisecond timestamp; incrementingNonce () reads this and keeps salts
+        # unique when two orders are signed within the same millisecond
+        return self.milliseconds()
+
     def sign(
         self,
-        path: object,
-        section: object = "limitless",
+        path: str,
+        api: object = "limitless",
         method="GET",
-        params=None,
+        params: dict = None,
         headers: object = None,
         body: object = None,
     ):
@@ -3063,7 +3206,7 @@ class limitless(PredictionExchange, ImplicitAPI):
         @ignore
                builds the request URL and attaches the lmts authentication headers for private endpoints
                :param str path: the endpoint path
-               :param string|str[] [section]: the api group and access level
+               :param string|str[] [api]: the api group and access level
                :param str [method]: HTTP method
                :param dict [params]: request parameters
                :param dict [headers]: request headers
@@ -3072,8 +3215,8 @@ class limitless(PredictionExchange, ImplicitAPI):
         """
         if params is None:
             params = {}
-        apiGroup = section if isinstance(section, str) else section[0]
-        access = "public" if isinstance(section, str) else section[1]
+        apiGroup = api if isinstance(api, str) else api[0]
+        access = "public" if isinstance(api, str) else api[1]
         baseUrls = self.urls["api"]
         baseUrl = self.safe_string(baseUrls, apiGroup, baseUrls["limitless"])
         url = "/" + self.implode_params(path, params)
@@ -3081,15 +3224,17 @@ class limitless(PredictionExchange, ImplicitAPI):
         querystring = self.urlencode_with_array_repeat(query)
         if method == "GET" and (querystring != ""):
             url += "?" + querystring
+        headersValue = headers
+        bodyValue = body
         if access == "private":
             bodyString = ""
-            if headers is None:
-                headers = {}
+            if headersValue is None:
+                headersValue = {}
             if method == "POST" and (querystring != ""):
                 bodyString = self.json(query)
-                body = bodyString
-                headerDefaults = headers if (headers is not None) else {}
-                headers = self.extend(
+                bodyValue = bodyString
+                headerDefaults = headersValue if (headersValue is not None) else {}
+                headersValue = self.extend(
                     {
                         "Accept": "application/json",
                         "Content-Type": "application/json",
@@ -3100,17 +3245,22 @@ class limitless(PredictionExchange, ImplicitAPI):
             timestamp = self.iso8601(self.milliseconds())
             newline = "\n"  # eslint-disable-line quotes
             payload = timestamp + newline + method + newline + url + newline + bodyString
-            signature = self.hmac(self.encode(payload), self.base64_to_binary(self.secret), hashlib.sha256, "base64")
-            headers = self.extend(
-                headers,
+            signature = self.hmac(
+                self.encode(payload), self.base64_to_binary(self.secret), hashlib.sha256, "base64"
+            )
+            headersValue = self.extend(
+                headersValue,
                 {
-                    "lmts-api-key": self.apiKey,
                     "lmts-timestamp": timestamp,
                     "lmts-signature": signature,
                 },
             )
+            headerKey = "lmts-api" + "-key"  # concatenating because of the php version
+            headersKey = {}
+            headersKey[headerKey] = self.apiKey
+            headersValue = self.extend(headersValue, headersKey)
         url = baseUrl + url
-        return {"url": url, "method": method, "body": body, "headers": headers}
+        return {"url": url, "method": method, "body": bodyValue, "headers": headersValue}
 
     def handle_errors(
         self,
@@ -3129,18 +3279,18 @@ class limitless(PredictionExchange, ImplicitAPI):
                maps limitless error responses to ccxt exceptions
         """
         if response is None:
-            return
+            return None
         if (statusCode >= 200) and (statusCode < 300):
-            return
+            return None
         feedback = self.id + " " + responseBody
         # the API returns either a string message or an array of field-validation errors
         message = self.safe_string(response, "message")
         if message is not None:
             self.throw_exactly_matched_exception(self.exceptions["exact"], message, feedback)
         self.throw_broadly_matched_exception(self.exceptions["broad"], responseBody, feedback)
-        # a 400 is a client-side bad request(bad params, or a business rule like "market not
-        # resolved"), not a transport outage — raise BadRequest with the exchange message instead
+        # a 400 is a client-side bad request (bad params, or a business rule like "market not
+        # resolved"), not a transport outage — throw BadRequest with the exchange message instead
         # of letting the base map the bare 400 to a retryable network-unavailable error
         if statusCode == 400:
             raise BadRequest(feedback)
-        return
+        return None

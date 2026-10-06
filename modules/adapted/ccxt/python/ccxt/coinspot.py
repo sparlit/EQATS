@@ -38,6 +38,7 @@ from ccxt.base.types import (
     Int,
     Market,
     Num,
+    Order,
     OrderBook,
     OrderSide,
     OrderType,
@@ -221,7 +222,9 @@ class coinspot(Exchange, ImplicitAPI):
                                 "my/sell": {"cost": 1},
                                 "my/sell/edit": {"cost": 1},
                                 "my/buy/now": {"cost": 1},
+                                "my/buy/now/coinlist": {"cost": 1},
                                 "my/sell/now": {"cost": 1},
+                                "my/sell/now/coinlist": {"cost": 1},
                                 "my/swap/now": {"cost": 1},
                                 "my/buy/cancel": {"cost": 1},
                                 "my/buy/cancel/all": {"cost": 1},
@@ -229,6 +232,8 @@ class coinspot(Exchange, ImplicitAPI):
                                 "my/sell/cancel/all": {"cost": 1},
                                 "my/coin/withdraw/senddetails": {"cost": 1},
                                 "my/coin/withdraw/send": {"cost": 1},
+                                "my/coin/withdraw/send/async": {"cost": 1},
+                                "my/coin/withdraw/send/status": {"cost": 1},
                                 "ro/status": {"cost": 1},
                                 "ro/orders/market/open": {"cost": 1},
                                 "ro/orders/market/completed": {"cost": 1},
@@ -489,13 +494,13 @@ class coinspot(Exchange, ImplicitAPI):
                             "marginMode": False,
                             "limit": None,
                             "daysBack": 100000,
-                            "untilDays": 100000,  # TODO implement
+                            "untilDays": 100000,  # todo implement
                             "symbolRequired": False,
                         },
                         "fetchOrder": None,
-                        "fetchOpenOrders": None,  # TODO implement
+                        "fetchOpenOrders": None,  # todo implement
                         "fetchOrders": None,
-                        "fetchClosedOrders": None,  # TODO implement
+                        "fetchClosedOrders": None,  # todo implement
                         "fetchOHLCV": None,
                     },
                     "swap": {
@@ -515,12 +520,12 @@ class coinspot(Exchange, ImplicitAPI):
         result = {"info": response}
         balances = self.safe_value_2(response, "balance", "balances")
         if isinstance(balances, list):
-            for i in range(len(balances)):
+            for i in range(0, len(balances)):
                 currencies = balances[i]
                 currencyIds = list(currencies.keys())
-                for j in range(len(currencyIds)):
+                for j in range(0, len(currencyIds)):
                     currencyId = currencyIds[j]
-                    balance = currencies[currencyId]
+                    balance = self.safe_dict(currencies, currencyId)
                     code = self.safe_currency_code(currencyId)
                     account = self.account()
                     account["total"] = self.safe_string(balance, "balance")
@@ -528,7 +533,7 @@ class coinspot(Exchange, ImplicitAPI):
                         result[code] = account
         else:
             currencyIds = list(balances.keys())
-            for i in range(len(currencyIds)):
+            for i in range(0, len(currencyIds)):
                 currencyId = currencyIds[i]
                 code = self.safe_currency_code(currencyId)
                 account = self.account()
@@ -537,7 +542,7 @@ class coinspot(Exchange, ImplicitAPI):
                     result[code] = account
         return self.safe_balance(result)
 
-    def fetch_balance(self, params=None) -> Balances:
+    def fetch_balance(self, params: dict = None) -> Balances:
         """
         query for balance and get the amount of funds available for trading or funds locked in orders
 
@@ -552,7 +557,7 @@ class coinspot(Exchange, ImplicitAPI):
             self.load_markets()
         method = self.safe_string(self.options, "fetchBalance", "private_post_my_balances")
         response = None
-        if method in {"private_post_ro_my_balances", "privatePostRoMyBalances"}:
+        if (method == "private_post_ro_my_balances") or (method == "privatePostRoMyBalances"):
             response = self.privatePostRoMyBalances(params)
         else:
             response = self.privatePostMyBalances(params)
@@ -574,7 +579,7 @@ class coinspot(Exchange, ImplicitAPI):
         #
         return self.parse_balance(response)
 
-    def fetch_order_book(self, symbol: str, limit: Int = None, params=None) -> OrderBook:
+    def fetch_order_book(self, symbol: str, limit: Int = None, params: dict = None) -> OrderBook:
         """
         fetches information on open orders with bid(buy) and ask(sell) prices, volumes and other data
 
@@ -594,7 +599,9 @@ class coinspot(Exchange, ImplicitAPI):
             "cointype": market["id"],
         }
         orderbook = self.privatePostOrders(self.extend(request, params))
-        return self.parse_order_book(orderbook, market["symbol"], None, "buyorders", "sellorders", "rate", "amount")
+        return self.parse_order_book(
+            orderbook, market["symbol"], None, "buyorders", "sellorders", "rate", "amount"
+        )
 
     def parse_ticker(self, ticker: dict, market: Market = None) -> Ticker:
         #
@@ -634,7 +641,7 @@ class coinspot(Exchange, ImplicitAPI):
             market,
         )
 
-    def fetch_ticker(self, symbol: str, params=None) -> Ticker:
+    def fetch_ticker(self, symbol: str, params: dict = None) -> Ticker:
         """
         fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
 
@@ -668,7 +675,7 @@ class coinspot(Exchange, ImplicitAPI):
         ticker = self.safe_dict(prices, id, {})
         return self.parse_ticker(ticker, market)
 
-    def fetch_tickers(self, symbols: Strings = None, params=None) -> Tickers:
+    def fetch_tickers(self, symbols: Strings = None, params: dict = None) -> Tickers:
         """
         fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
 
@@ -703,7 +710,7 @@ class coinspot(Exchange, ImplicitAPI):
         result = {}
         prices = self.safe_dict(response, "prices", {})
         ids = list(prices.keys())
-        for i in range(len(ids)):
+        for i in range(0, len(ids)):
             id = ids[i]
             market = self.safe_market(id)
             if market["spot"] is True:
@@ -712,7 +719,9 @@ class coinspot(Exchange, ImplicitAPI):
                 result[symbol] = self.parse_ticker(ticker, market)
         return self.filter_by_array_tickers(result, "symbol", symbols)
 
-    def fetch_trades(self, symbol: str, since: Int = None, limit: Int = None, params=None) -> list[Trade]:
+    def fetch_trades(
+        self, symbol: str, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Trade]:
         """
         get the list of most recent trades for a particular symbol
 
@@ -744,7 +753,9 @@ class coinspot(Exchange, ImplicitAPI):
         trades = self.safe_list(response, "orders", [])
         return self.parse_trades(trades, market, since, limit)
 
-    def fetch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = None, params=None):
+    def fetch_my_trades(
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Trade]:
         """
         fetch all trades made by the user
 
@@ -771,7 +782,7 @@ class coinspot(Exchange, ImplicitAPI):
         #      "status": "ok",
         #      "buyorders": [
         #          {
-        #              "otc": False,
+        #              "otc": false,
         #              "market": "ALGO/AUD",
         #              "amount": 386.95197925,
         #              "created": "2022-10-20T09:56:44.502Z",
@@ -782,7 +793,7 @@ class coinspot(Exchange, ImplicitAPI):
         #      ],
         #      "sellorders": [
         #          {
-        #              "otc": False,
+        #              "otc": false,
         #              "market": "SOLO/ALGO",
         #              "amount": 154.52345614,
         #              "total": 115.78858204658796,
@@ -794,10 +805,10 @@ class coinspot(Exchange, ImplicitAPI):
         #      ]
         # }
         buyTrades = self.safe_list(response, "buyorders", [])
-        for i in range(len(buyTrades)):
+        for i in range(0, len(buyTrades)):
             buyTrades[i]["side"] = "buy"
         sellTrades = self.safe_list(response, "sellorders", [])
-        for i in range(len(sellTrades)):
+        for i in range(0, len(sellTrades)):
             sellTrades[i]["side"] = "sell"
         trades = self.array_concat(buyTrades, sellTrades)
         return self.parse_trades(trades, market, since, limit)
@@ -817,7 +828,7 @@ class coinspot(Exchange, ImplicitAPI):
         #
         # private fetchMyTrades
         #     {
-        #       "otc": False,
+        #       "otc": false,
         #       "market": "ALGO/AUD",
         #       "amount": 386.95197925,
         #       "created": "2022-10-20T09:56:44.502Z",
@@ -874,8 +885,14 @@ class coinspot(Exchange, ImplicitAPI):
         )
 
     def create_order(
-        self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params=None
-    ):
+        self,
+        symbol: str,
+        type: OrderType,
+        side: OrderSide,
+        amount: float,
+        price: Num = None,
+        params: dict = None,
+    ) -> Order:
         """
         create a trade order
 
@@ -893,8 +910,7 @@ class coinspot(Exchange, ImplicitAPI):
             params = {}
         if self.markets is None:
             self.load_markets()
-        if side is None:
-            raise ArgumentsRequired(self.id + " createOrder() requires a side argument")
+        self.check_required_argument("createOrder", side, "side")
         sideUpper = side.upper()
         if type == "market":
             raise ExchangeError(self.id + " createOrder() allows limit orders only")
@@ -920,7 +936,7 @@ class coinspot(Exchange, ImplicitAPI):
             }
         )
 
-    def cancel_order(self, id: str, symbol: Str = None, params=None):
+    def cancel_order(self, id: str, symbol: Str = None, params: dict = None) -> Order:
         """
         cancels an open order
 
@@ -935,17 +951,19 @@ class coinspot(Exchange, ImplicitAPI):
         if params is None:
             params = {}
         side = self.safe_string(params, "side")
-        if side not in {"buy", "sell"}:
-            raise ArgumentsRequired(self.id + ' cancelOrder() requires a side parameter, "buy" or "sell"')
-        params = self.omit(params, "side")
+        if side != "buy" and side != "sell":
+            raise ArgumentsRequired(
+                self.id + ' cancelOrder() requires a side parameter, "buy" or "sell"'
+            )
+        paramsOmitted = self.omit(params, "side")
         request = {
             "id": id,
         }
         response: dict
         if side == "buy":
-            response = self.privatePostMyBuyCancel(self.extend(request, params))
+            response = self.privatePostMyBuyCancel(self.extend(request, paramsOmitted))
         else:
-            response = self.privatePostMySellCancel(self.extend(request, params))
+            response = self.privatePostMySellCancel(self.extend(request, paramsOmitted))
         #
         # status - ok, error
         #
@@ -968,37 +986,51 @@ class coinspot(Exchange, ImplicitAPI):
         requestBody: object,
     ):
         if response is None:
-            return  # fallback to default error handler
+            return None  # fallback to default error handler
         status = self.safe_string(response, "status")
         if status == "error":
             feedback = self.id + " " + self.json(response)
             raise ExchangeError(feedback)
-        return
+        return None
+
+    def nonce(self) -> float:
+        # the venue accepts any strictly-increasing integer, so use milliseconds: with the second-resolution base nonce a burst of N calls would leave incrementingNonce N seconds ahead of the clock
+        return self.milliseconds()
 
     def sign(
         self,
-        path: object,
-        api: object = "public",
+        path: str,
+        api="public",
         method="GET",
-        params=None,
-        headers: dict | None = None,
+        params: dict = None,
+        headers: dict = None,
         body: Str = None,
-    ):
+    ) -> dict:
         if params is None:
             params = {}
+        requestHeaders = headers
+        requestBody = body
         isVersionedApi = isinstance(api, list)
         version = api[0] if isVersionedApi else None
         accessType = api[1] if isVersionedApi else api
         endpoint = "/" + self.implode_params(path, params)
-        fullPath = "/" + version + endpoint if (version is not None) else endpoint
-        url = self.urls["api"][accessType] + fullPath
+        fullPath = endpoint
+        if version is not None:
+            fullPath = "/" + version + endpoint
+        apiUrl = self.safe_string(self.urls["api"], accessType)
+        if apiUrl is None:
+            raise ExchangeError(self.id + " sign() has no API URL for self endpoint")
+        url = apiUrl + fullPath
         if accessType == "private":
             self.check_required_credentials()
-            nonce = self.nonce()
-            body = self.json(self.extend({"nonce": nonce}, params))
-            headers = {
+            # coinspot requires an increasing nonce
+            nonce = self.incrementing_nonce()
+            requestBody = self.json(self.extend({"nonce": nonce}, params))
+            requestHeaders = {
                 "Content-Type": "application/json",
                 "key": self.apiKey,
-                "sign": self.hmac(self.encode(body), self.encode(self.secret), hashlib.sha512),
+                "sign": self.hmac(
+                    self.encode(requestBody), self.encode(self.secret), hashlib.sha512
+                ),
             }
-        return {"url": url, "method": method, "body": body, "headers": headers}
+        return {"url": url, "method": method, "body": requestBody, "headers": requestHeaders}

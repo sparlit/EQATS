@@ -42,7 +42,14 @@ async def fetch_ohlcv_continuously(exchange, symbol):
         try:
             ohlcv = await exchange.fetch_ohlcv(symbol)
             ohlcv_length = len(ohlcv)
-            print("Fetched ", exchange.id, " - ", symbol, " candles. last candle: ", ohlcv[ohlcv_length - 1])
+            print(
+                "Fetched ",
+                exchange.id,
+                " - ",
+                symbol,
+                " candles. last candle: ",
+                ohlcv[ohlcv_length - 1],
+            )
         except Exception as e:
             print(e)
             break
@@ -52,7 +59,7 @@ async def fetch_ohlcv_continuously(exchange, symbol):
 async def start_exchange(exchange_name, symbols):
     ex = getattr(ccxt, exchange_name)({})
     promises = []
-    for i in range(len(symbols)):
+    for i in range(0, len(symbols)):
         symbol = symbols[i]
         promises.append(fetch_ohlcv_continuously(ex, symbol))
     await asyncio.gather(*promises)
@@ -66,7 +73,7 @@ async def example():
     exchanges = ["binance", "okx", "kraken"]
     symbols = ["BTC/USDT", "ETH/USDT"]
     promises = []
-    for i in range(len(exchanges)):
+    for i in range(0, len(exchanges)):
         exchange_name = exchanges[i]
         promises.append(start_exchange(exchange_name, symbols))
     await asyncio.gather(*promises)

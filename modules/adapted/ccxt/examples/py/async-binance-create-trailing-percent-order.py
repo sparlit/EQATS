@@ -52,7 +52,7 @@ async def main():
         side = "sell"
         amount = 0.1
         price = None
-        await exchange.create_order(
+        order = await exchange.create_order(
             symbol,
             type,
             side,
@@ -71,6 +71,7 @@ async def main():
         #     'reduceOnly': True,
         # }
         # order = await exchange.create_trailing_percent_order (symbol, type, side, amount, price, trailing_percent, trailing_trigger_price, params)
+        pprint(order)
     except ccxt.InsufficientFunds as e:
         print("create_order() failed - not enough funds")
         print(e)

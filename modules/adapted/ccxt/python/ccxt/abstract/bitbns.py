@@ -28,22 +28,30 @@ _Dict = dict[str, object]
 
 
 class ImplicitAPI:
-    www_get_order_fetchmarkets = wwwGetOrderFetchMarkets = Entry[_List]("order/fetchMarkets", "www", "GET", {"cost": 1})
-    www_get_order_fetchtickers = wwwGetOrderFetchTickers = Entry[_Dict]("order/fetchTickers", "www", "GET", {"cost": 1})
+    www_get_order_fetchmarkets = wwwGetOrderFetchMarkets = Entry[_List](
+        "order/fetchMarkets", "www", "GET", {"cost": 1}
+    )
+    www_get_order_fetchtickers = wwwGetOrderFetchTickers = Entry[_Dict](
+        "order/fetchTickers", "www", "GET", {"cost": 1}
+    )
     www_get_order_fetchorderbook = wwwGetOrderFetchOrderbook = Entry[_Dict](
         "order/fetchOrderbook", "www", "GET", {"cost": 1}
     )
     www_get_order_gettickerwithvolume = wwwGetOrderGetTickerWithVolume = Entry[_Dict](
         "order/getTickerWithVolume", "www", "GET", {"cost": 1}
     )
-    www_get_exchangedata_ohlc = wwwGetExchangeDataOhlc = Entry[_List]("exchangeData/ohlc", "www", "GET", {"cost": 1})
+    www_get_exchangedata_ohlc = wwwGetExchangeDataOhlc = Entry[_List](
+        "exchangeData/ohlc", "www", "GET", {"cost": 1}
+    )
     www_get_exchangedata_orderbook = wwwGetExchangeDataOrderBook = Entry[_Dict](
         "exchangeData/orderBook", "www", "GET", {"cost": 1}
     )
     www_get_exchangedata_tradedetails = wwwGetExchangeDataTradedetails = Entry[_List](
         "exchangeData/tradedetails", "www", "GET", {"cost": 1}
     )
-    v1_get_platform_status = v1GetPlatformStatus = Entry[_Dict]("platform/status", "v1", "GET", {"cost": 1})
+    v1_get_platform_status = v1GetPlatformStatus = Entry[_Dict](
+        "platform/status", "v1", "GET", {"cost": 1}
+    )
     v1_get_tickers = v1GetTickers = Entry[_Dict]("tickers", "v1", "GET", {"cost": 1})
     v1_get_orderbook_sell_symbol = v1GetOrderbookSellSymbol = Entry[_Dict](
         "orderbook/sell/{symbol}", "v1", "GET", {"cost": 1}
@@ -78,8 +86,14 @@ class ImplicitAPI:
     v1_post_deposithistoryall_symbol = v1PostDepositHistoryAllSymbol = Entry[_Dict](
         "depositHistoryAll/{symbol}", "v1", "POST", {"cost": 1}
     )
+    v1_post_userhistorynew = v1PostUserHistoryNew = Entry[_Dict](
+        "userHistoryNew", "v1", "POST", {"cost": 1}
+    )
     v1_post_listopenorders_symbol = v1PostListOpenOrdersSymbol = Entry[_Dict](
         "listOpenOrders/{symbol}", "v1", "POST", {"cost": 1}
+    )
+    v1_post_listopenordersother_symbol = v1PostListOpenOrdersOtherSymbol = Entry[_Dict](
+        "listOpenOrdersOther/{symbol}", "v1", "POST", {"cost": 1}
     )
     v1_post_listopenstoporders_symbol = v1PostListOpenStopOrdersSymbol = Entry[_Dict](
         "listOpenStopOrders/{symbol}", "v1", "POST", {"cost": 1}
@@ -90,8 +104,14 @@ class ImplicitAPI:
     v1_post_placesellorder_symbol = v1PostPlaceSellOrderSymbol = Entry[_Dict](
         "placeSellOrder/{symbol}", "v1", "POST", {"cost": 1}
     )
+    v1_post_placesellorderother_symbol = v1PostPlaceSellOrderOtherSymbol = Entry[_Dict](
+        "placeSellOrderOther/{symbol}", "v1", "POST", {"cost": 1}
+    )
     v1_post_placebuyorder_symbol = v1PostPlaceBuyOrderSymbol = Entry[_Dict](
         "placeBuyOrder/{symbol}", "v1", "POST", {"cost": 1}
+    )
+    v1_post_placebuyorderother_symbol = v1PostPlaceBuyOrderOtherSymbol = Entry[_Dict](
+        "placeBuyOrderOther/{symbol}", "v1", "POST", {"cost": 1}
     )
     v1_post_buystoploss_symbol = v1PostBuyStopLossSymbol = Entry[_Dict](
         "buyStopLoss/{symbol}", "v1", "POST", {"cost": 1}
@@ -101,6 +121,9 @@ class ImplicitAPI:
     )
     v1_post_cancelorder_symbol = v1PostCancelOrderSymbol = Entry[_Dict](
         "cancelOrder/{symbol}", "v1", "POST", {"cost": 1}
+    )
+    v1_post_cancelorderother_symbol = v1PostCancelOrderOtherSymbol = Entry[_Dict](
+        "cancelOrderOther/{symbol}", "v1", "POST", {"cost": 1}
     )
     v1_post_cancelstoplossorder_symbol = v1PostCancelStopLossOrderSymbol = Entry[_Dict](
         "cancelStopLossOrder/{symbol}", "v1", "POST", {"cost": 1}
@@ -116,5 +139,9 @@ class ImplicitAPI:
     )
     v2_post_orders = v2PostOrders = Entry[_Dict]("orders", "v2", "POST", {"cost": 1})
     v2_post_cancel = v2PostCancel = Entry[_Dict]("cancel", "v2", "POST", {"cost": 1})
-    v2_post_getordersnew = v2PostGetordersnew = Entry[_Dict]("getordersnew", "v2", "POST", {"cost": 1})
-    v2_post_marginorders = v2PostMarginOrders = Entry[_Dict]("marginOrders", "v2", "POST", {"cost": 1})
+    v2_post_getordersnew = v2PostGetordersnew = Entry[_Dict](
+        "getordersnew", "v2", "POST", {"cost": 1}
+    )
+    v2_post_marginorders = v2PostMarginOrders = Entry[_Dict](
+        "marginOrders", "v2", "POST", {"cost": 1}
+    )

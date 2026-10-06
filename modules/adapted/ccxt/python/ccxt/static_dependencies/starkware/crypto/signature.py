@@ -39,11 +39,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import hashlib
 import itertools
-import json
 import math
-import os
 import secrets
-from typing import List, Optional, Tuple, Union
 
 from .math_utils import (
     ECPoint,
@@ -118,7 +115,7 @@ def constant_points_range(start: int, stop: int) -> list[ECPoint]:
     return rows
 
 
-N_ELEMENT_BITS_ECDSA = math.floor(math.log2(FIELD_PRIME))
+N_ELEMENT_BITS_ECDSA = math.floor(math.log(FIELD_PRIME, 2))
 assert N_ELEMENT_BITS_ECDSA == 251
 
 N_ELEMENT_BITS_HASH = FIELD_PRIME.bit_length()
@@ -165,7 +162,7 @@ def get_y_coordinate(stark_key_x_coordinate: int) -> int:
     x = stark_key_x_coordinate
     y_squared = (x * x * x + ALPHA * x + BETA) % FIELD_PRIME
     if not is_quad_residue(y_squared, FIELD_PRIME):
-        raise InvalidPublicKeyError
+        raise InvalidPublicKeyError()
     return sqrt_mod(y_squared, FIELD_PRIME, all_roots=True)
 
 
@@ -356,7 +353,6 @@ def grind_key(key_seed: int, key_value_limit: int) -> int:  # type: ignore[retur
         key = int(hashlib.sha256(hash_input).hexdigest(), 16)
         if key < max_allowed_value:
             return key % key_value_limit
-    return None
 
 
 #################
@@ -376,7 +372,9 @@ def pedersen_hash_as_point(*elements: int) -> ECPoint:
     point = SHIFT_POINT
     for i, x in enumerate(elements):
         assert 0 <= x < FIELD_PRIME
-        point_list = constant_points_range(2 + i * N_ELEMENT_BITS_HASH, 2 + (i + 1) * N_ELEMENT_BITS_HASH)
+        point_list = constant_points_range(
+            2 + i * N_ELEMENT_BITS_HASH, 2 + (i + 1) * N_ELEMENT_BITS_HASH
+        )
         assert len(point_list) == N_ELEMENT_BITS_HASH
         for pt in point_list:
             assert point[0] != pt[0], "Unhashable input."

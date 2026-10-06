@@ -62,6 +62,7 @@ try:
     fetch_result = exchange.fetch_deposit_address(currency_code)
 
     print("Successfully fetched deposit address for " + currency_code)
+    pprint(fetch_result)
 
 except ccxt.InvalidAddress:
     # never skip proper error handling, whatever it is you're building
@@ -78,16 +79,21 @@ except ccxt.InvalidAddress:
             # pprint(create_result)  # for debugging
 
             print(
-                "Successfully created a deposit address for " + currency_code + ", fetching the deposit address now..."
+                "Successfully created a deposit address for "
+                + currency_code
+                + ", fetching the deposit address now..."
             )
 
             try:
                 fetch_result = exchange.fetch_deposit_address(currency_code)
 
                 print("Successfully fetched deposit address for " + currency_code)
+                pprint(fetch_result)
 
             except Exception as e:
-                print("Failed to fetch deposit address for " + currency_code, type(e).__name__, str(e))
+                print(
+                    "Failed to fetch deposit address for " + currency_code, type(e).__name__, str(e)
+                )
 
         except Exception as e:
             print("Failed to create deposit address for " + currency_code, type(e).__name__, str(e))
@@ -96,4 +102,8 @@ except ccxt.InvalidAddress:
         print("The exchange does not support createDepositAddress()")
 
 except Exception as e:
-    print("There was an error while fetching deposit address for " + currency_code, type(e).__name__, str(e))
+    print(
+        "There was an error while fetching deposit address for " + currency_code,
+        type(e).__name__,
+        str(e),
+    )

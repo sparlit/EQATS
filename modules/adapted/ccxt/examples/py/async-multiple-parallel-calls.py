@@ -62,7 +62,11 @@ async def main():
     await exchange.load_markets()
     # exchange.verbose = True  # uncomment for debugging purposes
     symbol = "BTC/USDT"
-    loops = [exchange.fetch_balance(), exchange.fetch_order_book(symbol), exchange.fetch_open_orders()]
+    loops = [
+        exchange.fetch_balance(),
+        exchange.fetch_order_book(symbol),
+        exchange.fetch_open_orders(),
+    ]
     results = await gather(*loops)
     print("Balance:")
     print(results[0])
