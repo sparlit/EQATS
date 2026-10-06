@@ -2,7 +2,6 @@
 
 use futures_util::StreamExt;
 use std::path::PathBuf;
-use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Emitter;
 
@@ -1160,8 +1159,7 @@ pub async fn download_llama_server(
         if file_name.ends_with(".zip") {
             #[cfg(windows)]
             {
-                use std::os::windows::process::CommandExt;
-                let status = Command::new("powershell")
+                let status = crate::utils::process::command("powershell")
                     .args([
                         "-NoProfile",
                         "-Command",
@@ -1171,7 +1169,6 @@ pub async fn download_llama_server(
                             extract_dir.display()
                         ),
                     ])
-                    .creation_flags(0x08000000)
                     .status()
                     .map_err(|e| format!("Extract failed: {}", e))?;
                 if !status.success() {
@@ -1184,7 +1181,7 @@ pub async fn download_llama_server(
             #[cfg(not(windows))]
             return Err("ZIP extraction is only supported on Windows".to_string());
         } else {
-            let status = Command::new("tar")
+            let status = crate::utils::process::command("tar")
                 .args([
                     "-xzf",
                     &temp_file.to_string_lossy(),
@@ -1313,17 +1310,9 @@ async fn download_engine_file(
 
 #[allow(dead_code)]
 fn check_python_package(package: &str) -> Option<String> {
-    #[cfg(windows)]
-    let result = {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        Command::new("pip3")
-            .args(["show", package])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output()
-    };
-    #[cfg(not(windows))]
-    let result = Command::new("pip3").args(["show", package]).output();
+    let result = crate::utils::process::command("pip3")
+        .args(["show", package])
+        .output();
 
     if let Ok(out) = result {
         if out.status.success() {
@@ -1553,24 +1542,7 @@ async fn install_pip_engine(
         let app = app.clone();
         move || {
             // Try primary install
-            #[cfg(windows)]
-            let status = {
-                use std::os::windows::process::CommandExt;
-                const CREATE_NO_WINDOW: u32 = 0x08000000;
-                Command::new("pip3")
-                    .args([
-                        "install", &package,
-                        "--upgrade",
-                        "-i", "https://pypi.tuna.tsinghua.edu.cn/simple",
-                        "--trusted-host", "pypi.tuna.tsinghua.edu.cn",
-                    ])
-                    .stdout(std::process::Stdio::piped())
-                    .stderr(std::process::Stdio::piped())
-                    .creation_flags(CREATE_NO_WINDOW)
-                    .spawn()
-            };
-            #[cfg(not(windows))]
-            let status = Command::new("pip3")
+            let status = crate::utils::process::command("pip3")
                 .args([
                     "install", &package,
                     "--upgrade",
@@ -1602,17 +1574,7 @@ async fn install_pip_engine(
                             // Fallback: retry with official PyPI
                             log::warn!("[EngineInstaller] Tsinghua mirror failed ({}), retrying with official PyPI", status);
                             emit_dl_progress(&app, &runtime, 50, 0, 0, "installing", None);
-                            #[cfg(windows)]
-                            let result2 = {
-                                use std::os::windows::process::CommandExt;
-                                const CREATE_NO_WINDOW: u32 = 0x08000000;
-                                Command::new("pip3")
-                                    .args(["install", &package, "--upgrade"])
-                                    .creation_flags(CREATE_NO_WINDOW)
-                                    .output()
-                            };
-                            #[cfg(not(windows))]
-                            let result2 = Command::new("pip3")
+                            let result2 = crate::utils::process::command("pip3")
                                 .args(["install", &package, "--upgrade"])
                                 .output();
                             match result2 {

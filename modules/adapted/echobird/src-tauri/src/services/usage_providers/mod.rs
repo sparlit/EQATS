@@ -8,6 +8,7 @@ pub mod deepseek;
 pub mod kimi;
 pub mod minimax;
 pub mod novita;
+pub mod opencode;
 pub mod openrouter;
 pub mod siliconflow;
 pub mod stepfun;
@@ -15,16 +16,40 @@ pub mod sub2api;
 pub mod volcengine;
 pub mod zenmux;
 pub mod zhipu;
+pub mod zhipu_team;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum QuotaPeriod {
+    FiveHour,
+    Daily,
+    Weekly,
+    Monthly,
+}
 
 /// Single usage quota data (progress bar)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageQuota {
-    pub percentage: f64, // 0-100
-    pub reset_at: i64,   // Unix timestamp (ms)
+    pub percentage: f64, // Used percentage, 0-100
+    pub reset_at: i64,   // Unix timestamp (ms); 0 when the reset time is unknown
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub period: Option<QuotaPeriod>,
     // Balance display (for providers like DeepSeek that show remaining balance)
     pub balance: Option<f64>,         // Remaining balance (e.g., 10.50 USD)
     pub balance_unit: Option<String>, // Currency unit (e.g., "USD", "CNY", "Credits")
+}
+
+impl UsageQuota {
+    fn window(period: QuotaPeriod, used: f64, reset_at: Option<i64>) -> Option<Self> {
+        used.is_finite().then(|| Self {
+            percentage: used.clamp(0.0, 100.0),
+            reset_at: reset_at.filter(|value| *value > 0).unwrap_or(0),
+            period: Some(period),
+            balance: None,
+            balance_unit: None,
+        })
+    }
 }
 
 /// Model usage data
@@ -41,6 +66,87 @@ pub struct UsageResult {
     pub success: bool,
     pub data: Option<ModelUsageData>,
     pub error: Option<String>,
+}
+
+impl UsageResult {
+    fn from_quotas(quotas: Vec<UsageQuota>) -> Self {
+        if quotas.is_empty() {
+            return Self::failure("No usage data available");
+        }
+        Self {
+            success: true,
+            data: Some(ModelUsageData {
+                quotas,
+                last_updated: Some(now_millis()),
+            }),
+            error: None,
+        }
+    }
+
+    fn failure(message: impl Into<String>) -> Self {
+        Self {
+            success: false,
+            data: None,
+            error: Some(message.into()),
+        }
+    }
+}
+
+fn parse_reset_time(value: &serde_json::Value) -> Option<i64> {
+    if let Some(text) = value.as_str() {
+        if let Ok(time) = chrono::DateTime::parse_from_rfc3339(text) {
+            return (time.timestamp_millis() > 0).then_some(time.timestamp_millis());
+        }
+    }
+    let value = value.as_i64().or_else(|| value.as_str()?.parse().ok())?;
+    if value <= 0 {
+        return None;
+    }
+    Some(if value < 1_000_000_000_000 {
+        value * 1000
+    } else {
+        value
+    })
+}
+
+fn api_url(base_url: &str, hosts: &[&str]) -> Option<url::Url> {
+    let url = url::Url::parse(base_url).ok()?;
+    (url.scheme() == "https"
+        && hosts.contains(&url.host_str()?)
+        && url.username().is_empty()
+        && url.password().is_none())
+    .then_some(url)
+}
+
+async fn fetch_usage(url: &str, authorization: &str) -> Result<serde_json::Value, String> {
+    send_usage_request(
+        reqwest::Client::new()
+            .get(url)
+            .header("Authorization", authorization),
+    )
+    .await
+}
+
+async fn send_usage_request(request: reqwest::RequestBuilder) -> Result<serde_json::Value, String> {
+    let response = request
+        .header("Accept", "application/json")
+        .header("Content-Type", "application/json")
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|_| "Unable to reach the usage API".to_string())?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(match status.as_u16() {
+            401 => "Usage authentication failed (HTTP 401)".to_string(),
+            403 => "Usage access denied; check the key and subscription (HTTP 403)".to_string(),
+            _ => format!("Usage API error (HTTP {status})"),
+        });
+    }
+    response
+        .json()
+        .await
+        .map_err(|_| "Invalid usage API response".to_string())
 }
 
 /// Provider trait - each provider implements this
@@ -62,6 +168,7 @@ pub enum Provider {
     Kimi(kimi::KimiProvider),
     MiniMax(minimax::MiniMaxProvider),
     Novita(novita::NovitaProvider),
+    OpenCode(opencode::OpenCodeProvider),
     OpenRouter(openrouter::OpenRouterProvider),
     SiliconFlow(siliconflow::SiliconFlowProvider),
     StepFun(stepfun::StepFunProvider),
@@ -78,6 +185,7 @@ impl Provider {
             Provider::Kimi(p) => p.query_usage(api_key, base_url).await,
             Provider::MiniMax(p) => p.query_usage(api_key, base_url).await,
             Provider::Novita(p) => p.query_usage(api_key, base_url).await,
+            Provider::OpenCode(p) => p.query_usage(api_key, base_url).await,
             Provider::OpenRouter(p) => p.query_usage(api_key, base_url).await,
             Provider::SiliconFlow(p) => p.query_usage(api_key, base_url).await,
             Provider::StepFun(p) => p.query_usage(api_key, base_url).await,
@@ -104,6 +212,9 @@ pub fn detect_provider(base_url: &str) -> Option<Provider> {
     }
     if novita::NovitaProvider.can_handle(&url) {
         return Some(Provider::Novita(novita::NovitaProvider));
+    }
+    if opencode::OpenCodeProvider.can_handle(&url) {
+        return Some(Provider::OpenCode(opencode::OpenCodeProvider));
     }
     if openrouter::OpenRouterProvider.can_handle(&url) {
         return Some(Provider::OpenRouter(openrouter::OpenRouterProvider));
@@ -162,6 +273,14 @@ pub async fn query_model_usage(
         });
     }
 
+    if matches!(&provider, Provider::Zhipu(_)) && api_url(base_url, &["open.bigmodel.cn"]).is_some()
+    {
+        match zhipu_team::read_access(internal_id) {
+            Ok(Some(access)) => return zhipu_team::query_usage(api_key, &access).await,
+            Ok(None) => {}
+            Err(error) => return Ok(UsageResult::failure(error)),
+        }
+    }
     provider.query_usage(api_key, base_url).await
 }
 
@@ -179,4 +298,80 @@ pub(crate) fn parse_f64(value: &serde_json::Value) -> Option<f64> {
     value
         .as_f64()
         .or_else(|| value.as_str().and_then(|s| s.parse().ok()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn reset_times_accept_iso_seconds_and_milliseconds_but_not_missing_values() {
+        for value in [
+            json!(1800000000),
+            json!(1800000000000_i64),
+            json!("1800000000"),
+        ] {
+            assert_eq!(parse_reset_time(&value), Some(1800000000000));
+        }
+        assert_eq!(
+            parse_reset_time(&json!("2027-01-01T12:00:00Z")),
+            Some(1798804800000)
+        );
+        for value in [json!(null), json!(0), json!(-1), json!("invalid")] {
+            assert_eq!(parse_reset_time(&value), None);
+        }
+    }
+
+    #[test]
+    fn old_payloads_remain_compatible_and_go_is_routed_before_the_generic_provider() {
+        let quota: UsageQuota =
+            serde_json::from_value(json!({"percentage":20,"resetAt":0})).unwrap();
+        assert_eq!(quota.period, None);
+        let payload =
+            serde_json::to_value(UsageQuota::window(QuotaPeriod::Weekly, 20.0, None).unwrap())
+                .unwrap();
+        assert_eq!(payload["period"], "weekly");
+        assert!(matches!(
+            detect_provider("https://opencode.ai/zen/go/v1"),
+            Some(Provider::OpenCode(_))
+        ));
+        assert!(!matches!(
+            detect_provider("https://opencode.ai/zen/v1"),
+            Some(Provider::OpenCode(_))
+        ));
+        assert!(!UsageResult::from_quotas(vec![]).success);
+    }
+
+    #[tokio::test]
+    async fn request_errors_never_become_quota_data_or_echo_credentials() {
+        use std::io::{Read, Write};
+        for (status, body) in [
+            (401, "test-api-key"),
+            (403, "forbidden"),
+            (429, "limited"),
+            (200, "invalid JSON"),
+        ] {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let endpoint = format!("http://{}/usage", listener.local_addr().unwrap());
+            let server = std::thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                    .unwrap();
+                let mut request = [0; 4096];
+                let length = stream.read(&mut request).unwrap();
+                let request = String::from_utf8_lossy(&request[..length]);
+                assert!(request
+                    .to_ascii_lowercase()
+                    .contains("authorization: bearer test-api-key"));
+                write!(stream, "HTTP/1.1 {status} Response\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+            });
+            let error = fetch_usage(&endpoint, "Bearer test-api-key")
+                .await
+                .unwrap_err();
+            assert!(!error.contains("test-api-key"));
+            server.join().unwrap();
+        }
+    }
 }

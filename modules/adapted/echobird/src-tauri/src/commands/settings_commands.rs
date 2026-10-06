@@ -31,11 +31,19 @@ fn settings_path() -> std::path::PathBuf {
 /// Read app settings from ~/.echobird/settings.json
 #[tauri::command]
 pub fn get_settings() -> AppSettings {
-    let path = settings_path();
+    read_settings(&settings_path())
+}
+
+fn read_settings(path: &std::path::Path) -> AppSettings {
     if !path.exists() {
-        return AppSettings::default();
+        // Only new installations default to dark. An unset themeMode in an
+        // existing file still represents the user's follow-system preference.
+        return AppSettings {
+            theme_mode: Some("dark".to_string()),
+            ..AppSettings::default()
+        };
     }
-    match std::fs::read_to_string(&path) {
+    match std::fs::read_to_string(path) {
         Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
         Err(e) => {
             log::warn!("[Settings] Failed to read settings: {}", e);
@@ -135,4 +143,43 @@ pub fn get_avatar() -> Option<String> {
     let bytes = std::fs::read(avatar_path()).ok()?;
     let b64 = base64::engine::general_purpose::STANDARD.encode(bytes);
     Some(format!("data:image/png;base64,{b64}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read_settings;
+
+    #[test]
+    fn first_install_defaults_to_dark_without_creating_settings() {
+        let path =
+            std::env::temp_dir().join(format!("echobird-theme-{}.json", uuid::Uuid::new_v4()));
+        let settings = read_settings(&path);
+        assert_eq!(settings.theme_mode.as_deref(), Some("dark"));
+        assert!(settings.color_theme.is_none());
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn saved_theme_preferences_are_preserved_without_rewriting() {
+        let path =
+            std::env::temp_dir().join(format!("echobird-theme-{}.json", uuid::Uuid::new_v4()));
+        for (content, mode, palette) in [
+            (r#"{}"#, None, None),
+            (r#"{"themeMode":null}"#, None, None),
+            (r#"{"themeMode":"light"}"#, Some("light"), None),
+            (r#"{"themeMode":"dark"}"#, Some("dark"), None),
+            (
+                r#"{"themeMode":null,"colorTheme":"aurora"}"#,
+                None,
+                Some("aurora"),
+            ),
+        ] {
+            std::fs::write(&path, content).unwrap();
+            let settings = read_settings(&path);
+            assert_eq!(settings.theme_mode.as_deref(), mode);
+            assert_eq!(settings.color_theme.as_deref(), palette);
+            assert_eq!(std::fs::read_to_string(&path).unwrap(), content);
+        }
+        std::fs::remove_file(path).unwrap();
+    }
 }

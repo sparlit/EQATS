@@ -1,134 +1,85 @@
-//! MiniMax usage provider
-//!
-//! API: MiniMax Coding Plan usage query
-//! Similar to Kimi and Zhipu, provides token plan quotas
+//! MiniMax Token Plan usage, queried with the model's regional API key.
 
-use super::{now_millis, parse_f64, ModelUsageData, UsageProvider, UsageQuota, UsageResult};
-use reqwest;
-use std::time::Duration;
+use super::{
+    api_url, fetch_usage, parse_f64, parse_reset_time, QuotaPeriod, UsageProvider, UsageQuota,
+    UsageResult,
+};
+use serde_json::Value;
 
 pub struct MiniMaxProvider;
 
-fn usage_url(base_url: &str) -> &'static str {
-    if base_url.contains("api.minimax.cn") {
-        "https://api.minimax.cn/v1/usage"
-    } else if base_url.contains("api.minimaxi.com") {
-        "https://api.minimaxi.com/v1/usage"
+fn usage_url(base_url: &str) -> Option<String> {
+    let url = api_url(
+        base_url,
+        &["api.minimax.cn", "api.minimaxi.com", "api.minimax.io"],
+    )?;
+    // The legacy China API also serves keys issued on the current China platform.
+    let host = if url.host_str()? == "api.minimax.io" {
+        "api.minimax.io"
     } else {
-        "https://api.minimax.io/v1/usage"
-    }
+        "api.minimaxi.com"
+    };
+    Some(format!("https://{host}/v1/token_plan/remains"))
 }
 
-/// Extract reset time from JSON value
-fn extract_reset_time(value: &serde_json::Value) -> Option<i64> {
-    if let Some(s) = value.as_str() {
-        // ISO 8601 string
-        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
-            return Some(dt.timestamp_millis());
+fn parse_quotas(body: &Value) -> Vec<UsageQuota> {
+    let Some(items) = body["model_remains"].as_array() else {
+        return vec![];
+    };
+    let item = items
+        .iter()
+        .find(|item| item["model_name"] == "general")
+        .or_else(|| items.iter().find(|item| item["model_name"] == "MiniMax-M*"));
+    let Some(item) = item else {
+        return vec![];
+    };
+    let mut quotas = Vec::new();
+    for (period, prefix, end) in [
+        (QuotaPeriod::FiveHour, "current_interval", "end_time"),
+        (QuotaPeriod::Weekly, "current_weekly", "weekly_end_time"),
+    ] {
+        let status = item[format!("{prefix}_status")].as_i64();
+        if period == QuotaPeriod::Weekly && status.is_some_and(|status| status != 1) {
+            continue;
+        }
+        let limit = parse_f64(&item[format!("{prefix}_total_count")]).filter(|limit| *limit > 0.0);
+        // Weekly percentages can be placeholders on plans without a weekly bucket.
+        if period == QuotaPeriod::Weekly && status != Some(1) && limit.is_none() {
+            continue;
+        }
+        let used = parse_f64(&item[format!("{prefix}_remaining_percent")])
+            .map(|left| 100.0 - left)
+            .or_else(|| {
+                Some((1.0 - parse_f64(&item[format!("{prefix}_usage_count")])? / limit?) * 100.0)
+            });
+        if let Some(quota) =
+            used.and_then(|used| UsageQuota::window(period, used, parse_reset_time(&item[end])))
+        {
+            quotas.push(quota);
         }
     }
-    if let Some(n) = value.as_i64() {
-        if n <= 0 {
-            return None;
-        }
-        // Check if seconds or milliseconds
-        let ms = if n < 1_000_000_000_000 { n * 1000 } else { n };
-        return Some(ms);
-    }
-    None
+    quotas
 }
 
 #[async_trait::async_trait]
 impl UsageProvider for MiniMaxProvider {
     async fn query_usage(&self, api_key: &str, base_url: &str) -> Result<UsageResult, String> {
-        let client = reqwest::Client::new();
-
-        let resp = client
-            .get(usage_url(base_url))
-            .header("Authorization", format!("Bearer {}", api_key))
-            .header("Accept", "application/json")
-            .timeout(Duration::from_secs(15))
-            .send()
-            .await
-            .map_err(|e| format!("Network error: {}", e))?;
-
-        let status = resp.status();
-        if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
-            return Ok(UsageResult {
-                success: false,
-                data: None,
-                error: Some(format!("Authentication failed (HTTP {})", status)),
-            });
+        let endpoint = usage_url(base_url).ok_or("Unsupported MiniMax endpoint")?;
+        let body = match fetch_usage(&endpoint, &format!("Bearer {api_key}")).await {
+            Ok(body) => body,
+            Err(error) => return Ok(UsageResult::failure(error)),
+        };
+        if body.get("base_resp").is_some() && body["base_resp"]["status_code"].as_i64() != Some(0) {
+            return Ok(UsageResult::failure(
+                "MiniMax rejected the quota query; check the Token Plan key and subscription",
+            ));
         }
-
-        if !status.is_success() {
-            let body = resp.text().await.unwrap_or_default();
-            return Ok(UsageResult {
-                success: false,
-                data: None,
-                error: Some(format!("API error (HTTP {}): {}", status, body)),
-            });
-        }
-
-        let body: serde_json::Value = resp
-            .json()
-            .await
-            .map_err(|e| format!("Failed to parse response: {}", e))?;
-
-        // Parse MiniMax response structure
-        let data = body.get("data").ok_or("Missing 'data' field")?;
-        let quotas_array = data.get("quotas").and_then(|v| v.as_array());
-
-        let mut quotas = Vec::new();
-
-        if let Some(arr) = quotas_array {
-            for quota_item in arr {
-                let limit = quota_item.get("limit").and_then(parse_f64).unwrap_or(1.0);
-                let used = quota_item.get("used").and_then(parse_f64).unwrap_or(0.0);
-                let reset_at = quota_item
-                    .get("resetAt")
-                    .and_then(extract_reset_time)
-                    .unwrap_or_else(|| now_millis() + 24 * 60 * 60 * 1000);
-
-                let percentage = if limit > 0.0 {
-                    (used / limit * 100.0).clamp(0.0, 100.0)
-                } else {
-                    0.0
-                };
-
-                quotas.push(UsageQuota {
-                    percentage,
-                    reset_at,
-                    balance: None,
-                    balance_unit: None,
-                });
-            }
-        }
-
-        if quotas.is_empty() {
-            return Ok(UsageResult {
-                success: false,
-                data: None,
-                error: Some("No usage data available".to_string()),
-            });
-        }
-
-        Ok(UsageResult {
-            success: true,
-            data: Some(ModelUsageData {
-                quotas,
-                last_updated: Some(now_millis()),
-            }),
-            error: None,
-        })
+        Ok(UsageResult::from_quotas(parse_quotas(&body)))
     }
 
     fn can_handle(&self, base_url: &str) -> bool {
-        base_url.contains("api.minimax.cn")
-            || base_url.contains("api.minimaxi.com")
-            || base_url.contains("api.minimax.io")
+        usage_url(base_url).is_some()
     }
-
     fn name(&self) -> &'static str {
         "MiniMax"
     }
@@ -137,37 +88,66 @@ impl UsageProvider for MiniMaxProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
-    fn minimax_recognizes_current_legacy_and_global_endpoints() {
-        for base_url in [
-            "https://api.minimax.cn/v1",
+    fn routes_regional_keys_without_matching_lookalike_hosts() {
+        for base in [
             "https://api.minimax.cn/anthropic",
             "https://api.minimaxi.com/v1",
-            "https://api.minimax.io/v1",
         ] {
-            assert!(MiniMaxProvider.can_handle(base_url), "{base_url}");
+            assert_eq!(
+                usage_url(base).unwrap(),
+                "https://api.minimaxi.com/v1/token_plan/remains"
+            );
         }
-        assert!(!MiniMaxProvider.can_handle("https://api.openai.com/v1"));
+        assert_eq!(
+            usage_url("https://api.minimax.io/v1").unwrap(),
+            "https://api.minimax.io/v1/token_plan/remains"
+        );
+        for url in [
+            "https://api.minimax.cn.evil.test/v1",
+            "https://evil.test/api.minimax.io",
+            "https://api.minimax.io@evil.test/v1",
+        ] {
+            assert!(!MiniMaxProvider.can_handle(url));
+        }
     }
 
     #[test]
-    fn minimax_usage_keeps_china_keys_on_china_endpoints() {
-        assert_eq!(
-            usage_url("https://api.minimax.cn/v1"),
-            "https://api.minimax.cn/v1/usage"
-        );
-        assert_eq!(
-            usage_url("https://api.minimax.cn/anthropic"),
-            "https://api.minimax.cn/v1/usage"
-        );
-        assert_eq!(
-            usage_url("https://api.minimaxi.com/v1"),
-            "https://api.minimaxi.com/v1/usage"
-        );
-        assert_eq!(
-            usage_url("https://api.minimax.io/v1"),
-            "https://api.minimax.io/v1/usage"
-        );
+    fn chooses_text_bucket_and_converts_remaining_to_used() {
+        let quotas = parse_quotas(&json!({"model_remains":[
+            {"model_name":"video", "current_interval_remaining_percent":0},
+            {"model_name":"general", "current_interval_remaining_percent":"99", "end_time":1800000000000_i64,
+             "current_weekly_status":1, "current_weekly_remaining_percent":80, "weekly_end_time":1800400000000_i64}
+        ]}));
+        assert_eq!(quotas.len(), 2);
+        assert_eq!(quotas[0].percentage, 1.0);
+        assert_eq!(quotas[0].period, Some(QuotaPeriod::FiveHour));
+        assert_eq!(quotas[1].percentage, 20.0);
+        assert_eq!(quotas[1].period, Some(QuotaPeriod::Weekly));
+        assert_eq!(quotas[1].reset_at, 1800400000000);
+    }
+
+    #[test]
+    fn skips_inactive_and_missing_windows_without_fabricating_values() {
+        for status in [2, 3] {
+            let quotas = parse_quotas(&json!({"model_remains":[{"model_name":"general",
+                "current_interval_remaining_percent":50, "current_weekly_status":status,
+                "current_weekly_remaining_percent":100}]}));
+            assert_eq!(quotas.len(), 1);
+            assert_eq!(quotas[0].reset_at, 0);
+        }
+        assert!(parse_quotas(&json!({"model_remains":[{"model_name":"general"}]})).is_empty());
+        assert!(parse_quotas(&json!({"model_remains":[{"model_name":"video","current_interval_remaining_percent":100}]})).is_empty());
+    }
+
+    #[test]
+    fn accepts_legacy_count_response_only_with_a_positive_limit() {
+        let quotas = parse_quotas(&json!({"model_remains":[{"model_name":"MiniMax-M*",
+            "current_interval_total_count":1000, "current_interval_usage_count":250,
+            "current_weekly_total_count":0, "current_weekly_usage_count":0}]}));
+        assert_eq!(quotas.len(), 1);
+        assert_eq!(quotas[0].percentage, 75.0);
     }
 }
