@@ -29,13 +29,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import json
 import shutil
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pandas as pd
 from utils import p, read_parquet_safe, write_parquet
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 MAX_PER_INDUSTRY = 4
 TOP_BUY_COUNT = 20
@@ -46,12 +43,13 @@ SNAPSHOT_ROOT_NAME = "dashboard_snapshots"
 def require_columns(frame: pd.DataFrame, columns: list[str], label: str) -> None:
     missing = [column for column in columns if column not in frame.columns]
     if missing:
-        msg = f"{label} missing columns: {missing}"
-        raise ValueError(msg)
+        raise ValueError(f"{label} missing columns: {missing}")
 
 
 def clean_group(frame: pd.DataFrame, column: str) -> pd.DataFrame:
-    frame[column] = frame[column].fillna("Unclassified").astype(str).str.strip().replace("", "Unclassified")
+    frame[column] = (
+        frame[column].fillna("Unclassified").astype(str).str.strip().replace("", "Unclassified")
+    )
     return frame
 
 
@@ -59,12 +57,20 @@ def prepare(frame: pd.DataFrame, label: str) -> pd.DataFrame:
     data = frame.copy()
     require_columns(data, ["date"], label)
     data["date"] = pd.to_datetime(data["date"], errors="coerce").dt.normalize()
-    return data.dropna(subset=["date"]).copy()
+    data = data.dropna(subset=["date"]).copy()
+    return data
 
 
 def prepare_stock(stock: pd.DataFrame) -> pd.DataFrame:
     data = prepare(stock, "Stock feature file")
-    required = ["symbol", "sector", "industry", "basic_industry", "established_buy_setup", "ipo_buy_setup"]
+    required = [
+        "symbol",
+        "sector",
+        "industry",
+        "basic_industry",
+        "established_buy_setup",
+        "ipo_buy_setup",
+    ]
     require_columns(data, required, "Stock feature file")
     data["symbol"] = data["symbol"].fillna("").astype(str).str.strip()
     data = data[data["symbol"] != ""].drop_duplicates(["date", "symbol"], keep="last")
@@ -115,10 +121,12 @@ def build_snapshot(
 
     for frame in [basic_day, industry_day, sector_day]:
         if "leadership_score" in frame.columns:
-            frame = frame.sort_values(["leadership_score", "actionability_score"], ascending=[False, False])
+            frame.sort_values(
+                ["leadership_score", "actionability_score"], ascending=[False, False], inplace=True
+            )
 
     stock_day = add_priority(stock_day)
-    stock_day = stock_day.sort_values("buy_priority_score", ascending=False)
+    stock_day.sort_values("buy_priority_score", ascending=False, inplace=True)
 
     basic_day.to_parquet(folder / "basic_industry_snapshot.parquet", index=False)
     industry_day.to_parquet(folder / "industry_snapshot.parquet", index=False)
@@ -127,19 +135,23 @@ def build_snapshot(
 
     buy = stock_day[stock_day["established_buy_setup"] == 1].copy()
     buy["_industry_rank"] = buy.groupby("basic_industry").cumcount()
-    buy = buy[buy["_industry_rank"] < MAX_PER_INDUSTRY].drop(columns="_industry_rank").head(TOP_BUY_COUNT)
+    buy = (
+        buy[buy["_industry_rank"] < MAX_PER_INDUSTRY]
+        .drop(columns="_industry_rank")
+        .head(TOP_BUY_COUNT)
+    )
     ipo = stock_day[stock_day["ipo_buy_setup"] == 1].copy().head(IPO_COUNT)
     buy.to_parquet(folder / "top_buy_candidates.parquet", index=False)
     ipo.to_parquet(folder / "ipo_watchlist.parquet", index=False)
 
     metadata = {
         "date": key,
-        "basic_industry_rows": len(basic_day),
-        "industry_rows": len(industry_day),
-        "sector_rows": len(sector_day),
-        "stock_rows": len(stock_day),
-        "top_buy_rows": len(buy),
-        "ipo_rows": len(ipo),
+        "basic_industry_rows": int(len(basic_day)),
+        "industry_rows": int(len(industry_day)),
+        "sector_rows": int(len(sector_day)),
+        "stock_rows": int(len(stock_day)),
+        "top_buy_rows": int(len(buy)),
+        "ipo_rows": int(len(ipo)),
     }
     (folder / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     return metadata
@@ -148,20 +160,28 @@ def build_snapshot(
 def main() -> None:
     processed = p("data", "processed")
     basic = prepare(
-        read_parquet_safe(processed / "basic_industry_daily_features.parquet"), "Basic Industry feature file"
+        read_parquet_safe(processed / "basic_industry_daily_features.parquet"),
+        "Basic Industry feature file",
     )
-    industry = prepare(read_parquet_safe(processed / "industry_daily_features.parquet"), "Industry feature file")
-    sector = prepare(read_parquet_safe(processed / "sector_daily_features.parquet"), "Sector feature file")
+    industry = prepare(
+        read_parquet_safe(processed / "industry_daily_features.parquet"), "Industry feature file"
+    )
+    sector = prepare(
+        read_parquet_safe(processed / "sector_daily_features.parquet"), "Sector feature file"
+    )
     stock = prepare_stock(read_parquet_safe(processed / "stock_daily_features.parquet"))
 
     for frame, column in [(basic, "basic_industry"), (industry, "industry"), (sector, "sector")]:
         require_columns(frame, [column, "leadership_score", "members"], f"{column} feature file")
         clean_group(frame, column)
 
-    common_dates = sorted(set(basic["date"]) & set(industry["date"]) & set(sector["date"]) & set(stock["date"]))
+    common_dates = sorted(
+        set(basic["date"]) & set(industry["date"]) & set(sector["date"]) & set(stock["date"])
+    )
     if not common_dates:
-        msg = "No common dates across Basic Industry, Industry, Sector and Stock features"
-        raise ValueError(msg)
+        raise ValueError(
+            "No common dates across Basic Industry, Industry, Sector and Stock features"
+        )
 
     snapshot_root = processed / SNAPSHOT_ROOT_NAME
     snapshot_root.mkdir(parents=True, exist_ok=True)
@@ -171,7 +191,8 @@ def main() -> None:
             shutil.rmtree(child)
 
     metadata = [
-        build_snapshot(pd.Timestamp(date), basic, industry, sector, stock, snapshot_root) for date in common_dates
+        build_snapshot(pd.Timestamp(date), basic, industry, sector, stock, snapshot_root)
+        for date in common_dates
     ]
     dates = pd.DataFrame(metadata).sort_values("date").reset_index(drop=True)
     dates.to_parquet(processed / "dashboard_dates.parquet", index=False)
@@ -181,14 +202,17 @@ def main() -> None:
     latest_industry = industry[industry["date"] == latest].copy()
     latest_sector = sector[sector["date"] == latest].copy()
     latest_stock = add_priority(stock[stock["date"] == latest].copy())
-    latest_stock = latest_stock.sort_values("buy_priority_score", ascending=False)
+    latest_stock.sort_values("buy_priority_score", ascending=False, inplace=True)
 
     write_parquet(latest_basic, processed / "dashboard_basic_industry_latest.parquet")
     write_parquet(latest_industry, processed / "dashboard_industry_latest.parquet")
     write_parquet(latest_sector, processed / "dashboard_sector_latest.parquet")
-    write_parquet(latest_stock.head(TOP_BUY_COUNT), processed / "dashboard_top_buy_candidates.parquet")
     write_parquet(
-        latest_stock[latest_stock["ipo_buy_setup"] == 1].head(IPO_COUNT), processed / "dashboard_ipo_watchlist.parquet"
+        latest_stock.head(TOP_BUY_COUNT), processed / "dashboard_top_buy_candidates.parquet"
+    )
+    write_parquet(
+        latest_stock[latest_stock["ipo_buy_setup"] == 1].head(IPO_COUNT),
+        processed / "dashboard_ipo_watchlist.parquet",
     )
 
     summary = {
@@ -196,7 +220,9 @@ def main() -> None:
         "dates": len(common_dates),
         "sector_snapshots": len(common_dates),
     }
-    (processed / "dashboard_snapshot_metadata.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    (processed / "dashboard_snapshot_metadata.json").write_text(
+        json.dumps(summary, indent=2), encoding="utf-8"
+    )
     print(f"dashboard snapshots ready: {len(common_dates):,} dates through {latest.date()}")
 
 

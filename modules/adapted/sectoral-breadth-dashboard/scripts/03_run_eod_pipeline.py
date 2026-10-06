@@ -30,7 +30,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import subprocess
 import sys
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -42,8 +42,7 @@ PROCESSED = ROOT / "data" / "processed"
 def run(script_name: str) -> None:
     script_path = ROOT / "scripts" / script_name
     if not script_path.exists():
-        msg = f"Pipeline script missing: {script_path}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Pipeline script missing: {script_path}")
     print(f"\n========== RUNNING {script_name} ==========")
     subprocess.run([sys.executable, str(script_path)], check=True)
 
@@ -63,17 +62,17 @@ def validate_outputs() -> None:
     ]
     missing = [str(path.relative_to(ROOT)) for path in required_files if not path.exists()]
     if missing:
-        raise FileNotFoundError("EOD pipeline did not produce required outputs:\n" + "\n".join(missing))
+        raise FileNotFoundError(
+            "EOD pipeline did not produce required outputs:\n" + "\n".join(missing)
+        )
 
     dates = pd.read_parquet(PROCESSED / "dashboard_dates.parquet")
     if dates.empty or "date" not in dates.columns:
-        msg = "dashboard_dates.parquet is empty or missing the date column"
-        raise ValueError(msg)
+        raise ValueError("dashboard_dates.parquet is empty or missing the date column")
     dates["date"] = pd.to_datetime(dates["date"], errors="coerce")
     dates = dates.dropna(subset=["date"])
     if dates.empty:
-        msg = "dashboard_dates.parquet contains no valid dates"
-        raise ValueError(msg)
+        raise ValueError("dashboard_dates.parquet contains no valid dates")
 
     latest = dates["date"].max().strftime("%Y-%m-%d")
     latest_snapshot = PROCESSED / "dashboard_snapshots" / latest
@@ -92,11 +91,9 @@ def validate_outputs() -> None:
     basic = pd.read_parquet(latest_snapshot / "basic_industry_snapshot.parquet")
     stock = pd.read_parquet(latest_snapshot / "stock_snapshot.parquet")
     if basic.empty:
-        msg = f"Latest Basic Industry snapshot is empty: {latest}"
-        raise ValueError(msg)
+        raise ValueError(f"Latest Basic Industry snapshot is empty: {latest}")
     if stock.empty:
-        msg = f"Latest stock snapshot is empty: {latest}"
-        raise ValueError(msg)
+        raise ValueError(f"Latest stock snapshot is empty: {latest}")
 
     print("========== OUTPUT VALIDATION PASSED ==========")
     print(f"Available dashboard dates: {len(dates):,}")
