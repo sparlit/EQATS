@@ -1,5 +1,5 @@
 {
-  "current_index": 119,
+  "current_index": 120,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -957,9 +957,9 @@
       "name": "echobird",
       "target": "edison7009/echobird",
       "url": "https://github.com/edison7009/echobird",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3061",
+      "merged": true
     },
     {
       "name": "pybroker",

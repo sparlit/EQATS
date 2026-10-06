@@ -1,10 +1,7 @@
 // Local LLM server lifecycle management
 // Handles: start, stop, find binary, stdout/stderr piped reading
 
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
-use std::process::Command;
 use std::sync::Arc;
 use tauri::Emitter;
 use tokio::sync::OnceCell;
@@ -140,10 +137,8 @@ impl LocalLlmServer {
             ));
             #[cfg(windows)]
             {
-                use std::os::windows::process::CommandExt;
-                let _ = Command::new("taskkill")
+                let _ = crate::utils::process::command("taskkill")
                     .args(["/F", "/PID", &stale_pid.to_string()])
-                    .creation_flags(0x08000000)
                     .output();
             }
             #[cfg(not(windows))]
@@ -197,7 +192,7 @@ impl LocalLlmServer {
                         gpu_count
                     ));
                 }
-                let c = Command::new("python3")
+                let c = crate::utils::process::command("python3")
                     .args(&args)
                     .stdout(std::process::Stdio::piped())
                     .stderr(std::process::Stdio::piped())
@@ -228,7 +223,7 @@ impl LocalLlmServer {
                 if multi_gpu {
                     self.add_log(&format!("  SGLang tensor parallelism: --tp {}", gpu_count));
                 }
-                let c = Command::new("python3")
+                let c = crate::utils::process::command("python3")
                     .args(&args)
                     .stdout(std::process::Stdio::piped())
                     .stderr(std::process::Stdio::piped())
@@ -283,17 +278,7 @@ impl LocalLlmServer {
                 };
                 log::info!("[LocalLLM] Starting: {:?}", exe);
 
-                #[cfg(windows)]
-                let c = Command::new(&exe)
-                    .args(&args)
-                    .creation_flags(0x08000000) // CREATE_NO_WINDOW — keep UI clean
-                    .stdout(std::process::Stdio::piped())
-                    .stderr(std::process::Stdio::piped())
-                    .spawn()
-                    .map_err(|e| format!("Failed to spawn llama-server: {}", e))?;
-
-                #[cfg(not(windows))]
-                let c = Command::new(&exe)
+                let c = crate::utils::process::command(&exe)
                     .args(&args)
                     .stdout(std::process::Stdio::piped())
                     .stderr(std::process::Stdio::piped())
@@ -369,9 +354,8 @@ impl LocalLlmServer {
 
             #[cfg(windows)]
             {
-                let _ = Command::new("taskkill")
+                let _ = crate::utils::process::command("taskkill")
                     .args(["/pid", &pid.to_string(), "/T", "/F"])
-                    .creation_flags(0x08000000)
                     .output();
             }
 

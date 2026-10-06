@@ -80,6 +80,11 @@ impl ProcessManager {
         if tool_id == "claudecode" {
             Self::ensure_claude_onboarding();
         }
+        if tool_id == "minimaxdesktop"
+            && crate::services::tool_manager::get_tool_exe_path(tool_id).is_none()
+        {
+            return Err("MiniMax Desktop is not installed".into());
+        }
 
         // Desktop apps load provider config at startup, so switching the model
         // while the app is open silently fails. Restore "launch = kill +
@@ -117,28 +122,15 @@ impl ProcessManager {
             }
         }
 
-        // Priority 0: Codex pre-flight + launch entry.
-        //
-        // CLI always goes through here so the Codex-specific onboarding bypass
-        // runs. The launch itself then
-        // uses the same generic start_cli_tool path as Claude and OpenCode.
-        //
-        // Desktop only goes here when a third-party (non-OpenAI) provider
-        // is configured. Skipping otherwise preserves Desktop's normal
-        // launchUri path (Priority 2.9), which is the *only* way to
-        // start a Microsoft Store install of ChatGPT; direct-exe
-        // spawn would fail with "not found" because Store packages live
-        // under \\WindowsApps\... not \\Programs\\.
-        //
-        // The Rust-native launcher performs pre-flight migration/onboarding
-        // work and resolves the Codex binary in-process.
-        let needs_native_path = match tool_id {
-            "codex" => true,
-            "chatgptdesktop" => Self::codex_has_third_party_provider(),
-            _ => false,
-        };
-        if needs_native_path {
-            return self.start_codex_native(tool_id, cwd);
+        // Provider-specific preparation does not choose a separate launcher.
+        if tool_id == "codex"
+            || (tool_id == "chatgptdesktop" && Self::codex_has_third_party_provider())
+        {
+            if let Some(dir) = crate::services::codex_runtime::default_codex_dir() {
+                if let Err(error) = crate::services::codex_runtime::bypass_onboarding(&dir) {
+                    log::warn!("[ProcessManager] bypass_onboarding failed (non-fatal): {error}");
+                }
+            }
         }
 
         // Priority 1: If explicit command is given from frontend, use it
@@ -249,8 +241,8 @@ impl ProcessManager {
     }
 
     /// True iff ~/.codex/config.toml points at a non-OpenAI endpoint.
-    /// Used to select the native ChatGPT desktop launch path for third-party
-    /// configurations while official OpenAI keeps the normal launch URI path.
+    /// Third-party configurations need the onboarding preparation before the
+    /// shared desktop launch path; official OpenAI keeps its native onboarding.
     fn codex_has_third_party_provider() -> bool {
         let config_path = match crate::services::codex_runtime::default_codex_dir() {
             Some(dir) => dir.join("config.toml"),
@@ -292,139 +284,6 @@ impl ProcessManager {
         );
 
         is_third_party
-    }
-
-    /// Start Codex (CLI or Desktop) natively in Rust. Replaces the
-    /// Phase 1-6 `node codex-launcher.cjs` indirection.
-    ///
-    /// Pre-flight patches Codex's global-state JSON so onboarding is skipped.
-    ///
-    /// Spawn:
-    ///   • Desktop mode tries the standalone .exe first (Programs install
-    ///     or PATH), then falls back to the Microsoft Store shell URI
-    ///     from tools/chatgptdesktop/paths.json.
-    ///   • CLI mode tries the bundled native binary inside
-    ///     @openai/codex-<triple>/vendor/... so the Rust TUI keeps a real
-    ///     TTY. If that's missing we fall back to `codex.cmd` (loses TTY
-    ///     in some shells but still launches).
-    fn start_codex_native(&mut self, tool_id: &str, cwd: Option<&str>) -> Result<(), String> {
-        use crate::services::codex_runtime;
-
-        if let Some(codex_dir) = codex_runtime::default_codex_dir() {
-            if let Err(e) = codex_runtime::bypass_onboarding(&codex_dir) {
-                log::warn!("[ProcessManager] bypass_onboarding failed (non-fatal): {e}");
-            }
-        }
-
-        if tool_id == "chatgptdesktop" {
-            self.start_codex_desktop_native(tool_id)
-        } else {
-            // Codex CLI launches through the SAME generic path as claude /
-            // OpenCode: pass the bare `codex` command and let the shell
-            // resolve + exec it (the npm shim's `#!/usr/bin/env node` shebang
-            // is honoured). Configuration and launch are separate concerns.
-            // OPENAI_* env is suppressed for codex inside start_cli_tool.
-            self.start_cli_tool(tool_id, "codex", cwd)
-        }
-    }
-
-    /// ChatGPT desktop: try direct .exe spawn first, fall back to the
-    /// Windows Store shell URI if the binary lookup misses.
-    fn start_codex_desktop_native(&mut self, tool_id: &str) -> Result<(), String> {
-        use crate::services::codex_runtime;
-
-        if let Some(exe) = codex_runtime::resolve_desktop_binary() {
-            log::info!(
-                "[ProcessManager] Launching ChatGPT desktop (native exe): {:?}",
-                exe
-            );
-            return self.spawn_codex_desktop_exe(tool_id, &exe);
-        }
-
-        // MSIX / Microsoft Store install — launch via the shell:AppsFolder
-        // URI. ChatGPT desktop no longer needs any command-line arguments,
-        // so the plain shell URI is sufficient.
-        // Prefer the actually-installed Store package (stable OR beta, any
-        // publisher hash) over the hardcoded paths.json URI, so beta-channel
-        // installs launch correctly. Fall back to paths.json when the scan
-        // finds nothing (or on non-Windows).
-        let uri = codex_runtime::resolve_desktop_launch_uri_scanned().or_else(|| {
-            let tools_dir = crate::services::tool_manager::find_tools_dir();
-            tools_dir
-                .as_deref()
-                .and_then(codex_runtime::resolve_desktop_launch_uri)
-        });
-        if let Some(uri) = uri {
-            log::info!(
-                "[ProcessManager] Launching ChatGPT desktop via Store URI: {}",
-                uri
-            );
-            return self.start_shell_uri(tool_id, &uri);
-        }
-
-        Err(
-            "ChatGPT not found. Install it from https://openai.com/codex or the Microsoft Store."
-                .to_string(),
-        )
-    }
-
-    /// Spawn the ChatGPT desktop binary detached so EchoBird isn't pinned
-    /// to the GUI process lifetime.
-    fn spawn_codex_desktop_exe(
-        &mut self,
-        tool_id: &str,
-        exe: &std::path::Path,
-    ) -> Result<(), String> {
-        let home = dirs::home_dir().unwrap_or_default();
-
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            const DETACHED_PROCESS: u32 = 0x00000008;
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
-            const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
-
-            let mut cmd = Command::new(exe);
-            cmd.current_dir(&home);
-            cmd.creation_flags(DETACHED_PROCESS | CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP);
-            match cmd.spawn() {
-                Ok(child) => {
-                    let pid = child.id();
-                    log::info!("[ProcessManager] ChatGPT desktop PID: {pid}");
-                    self.processes
-                        .insert(tool_id.to_string(), ProcessInfo::new(pid));
-                    Ok(())
-                }
-                Err(e) => Err(format!("Failed to spawn ChatGPT desktop: {e}")),
-            }
-        }
-
-        #[cfg(target_os = "macos")]
-        {
-            // macOS app bundle: spawn the inner executable directly.
-            // (We could also use `open`, but the direct path gives us a
-            // real PID to track.)
-            let mut cmd = Command::new(exe);
-            cmd.current_dir(&home);
-            match cmd.spawn() {
-                Ok(child) => {
-                    let pid = child.id();
-                    log::info!("[ProcessManager] ChatGPT desktop PID: {pid}");
-                    self.processes
-                        .insert(tool_id.to_string(), ProcessInfo::new(pid));
-                    Ok(())
-                }
-                Err(e) => Err(format!("Failed to spawn ChatGPT desktop: {e}")),
-            }
-        }
-
-        #[cfg(target_os = "linux")]
-        {
-            // No ChatGPT desktop Linux build as of 2026-07; this branch
-            // exists for completeness only.
-            let _ = (tool_id, exe, home);
-            Err("ChatGPT desktop is not available on Linux.".to_string())
-        }
     }
 
     /// Start a CLI tool via terminal
@@ -833,37 +692,25 @@ impl ProcessManager {
         }
     }
 
-    /// Start a GUI tool by opening its executable
     /// Launch an MSIX/Store app via shell:AppsFolder URI (Windows only).
-    /// On non-Windows hosts there are no Store apps, so this is a no-op error.
+    #[cfg(windows)]
     fn start_shell_uri(&mut self, tool_id: &str, uri: &str) -> Result<(), String> {
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
-            let result = Command::new("explorer.exe")
-                .arg(uri)
-                .creation_flags(CREATE_NO_WINDOW)
-                .spawn();
-            match result {
-                Ok(child) => {
-                    let pid = child.id();
-                    log::info!(
-                        "[ProcessManager] Launched {} via shell URI, PID: {}",
-                        tool_id,
-                        pid
-                    );
-                    self.processes
-                        .insert(tool_id.to_string(), ProcessInfo::new(pid));
-                    Ok(())
-                }
-                Err(e) => Err(format!("Failed to launch via shell URI: {}", e)),
+        let result = crate::utils::process::command("explorer.exe")
+            .arg(uri)
+            .spawn();
+        match result {
+            Ok(child) => {
+                let pid = child.id();
+                log::info!(
+                    "[ProcessManager] Launched {} via shell URI, PID: {}",
+                    tool_id,
+                    pid
+                );
+                self.processes
+                    .insert(tool_id.to_string(), ProcessInfo::new(pid));
+                Ok(())
             }
-        }
-        #[cfg(not(windows))]
-        {
-            let _ = (tool_id, uri);
-            Err("Shell-URI launch is Windows-only".to_string())
+            Err(e) => Err(format!("Failed to launch via shell URI: {}", e)),
         }
     }
 
@@ -909,7 +756,7 @@ impl ProcessManager {
                 ),
             };
 
-            let mut command = Command::new("powershell");
+            let mut command = crate::utils::process::command("powershell");
             command
                 .args(["-Command", &ps_cmd])
                 .creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW);
@@ -1051,12 +898,9 @@ impl ProcessManager {
 
         #[cfg(windows)]
         {
-            use std::os::windows::process::CommandExt;
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
             // Windows: taskkill /T /F to kill process tree
-            let output = Command::new("taskkill")
+            let output = crate::utils::process::command("taskkill")
                 .args(["/pid", &info.pid.to_string(), "/T", "/F"])
-                .creation_flags(CREATE_NO_WINDOW)
                 .output()
                 .map_err(|e| format!("taskkill error: {}", e))?;
 
@@ -1091,17 +935,46 @@ impl ProcessManager {
         // kill below terminates that process anyway.
         self.processes.remove(tool_id);
 
+        // The CN and Global builds have the same process name, so restarting
+        // one edition must match its executable path rather than killing both.
+        if tool_id == "minimaxdesktop" {
+            let Some(path) = crate::services::tool_manager::get_tool_exe_path(tool_id) else {
+                return false;
+            };
+            #[cfg(windows)]
+            {
+                return crate::utils::process::command("powershell")
+                    .args(["-NoProfile", "-NonInteractive", "-Command", "$stopped=$false; Get-CimInstance Win32_Process -Filter \"Name = 'MiniMax Code.exe'\" | Where-Object { $_.ExecutablePath -eq $env:ECHOBIRD_MINIMAX_EXE } | ForEach-Object { taskkill /PID $_.ProcessId /T /F; if($LASTEXITCODE -eq 0){$stopped=$true} }; if($stopped){exit 0}else{exit 1}"])
+                    .env("ECHOBIRD_MINIMAX_EXE", path)
+                    .output().is_ok_and(|out|out.status.success());
+            }
+            #[cfg(not(windows))]
+            {
+                let escaped: String = path
+                    .chars()
+                    .flat_map(|c| {
+                        if "\\.^$|?*+()[]{}".contains(c) {
+                            vec!['\\', c]
+                        } else {
+                            vec![c]
+                        }
+                    })
+                    .collect();
+                return crate::utils::process::command("pkill")
+                    .args(["-f", &format!("^{escaped}($| )")])
+                    .output()
+                    .is_ok_and(|out| out.status.success());
+            }
+        }
+
         let names = crate::services::tool_manager::get_tool_process_names(tool_id);
         let mut killed = false;
         for name in &names {
             #[cfg(windows)]
             {
-                use std::os::windows::process::CommandExt;
-                const CREATE_NO_WINDOW: u32 = 0x08000000;
                 // /T also reaps the Electron helper-process tree.
-                if let Ok(out) = Command::new("taskkill")
+                if let Ok(out) = crate::utils::process::command("taskkill")
                     .args(["/IM", name.as_str(), "/F", "/T"])
-                    .creation_flags(CREATE_NO_WINDOW)
                     .output()
                 {
                     killed |= out.status.success();
@@ -1110,7 +983,10 @@ impl ProcessManager {
             #[cfg(not(windows))]
             {
                 // macOS/Linux: match the exact process (binary) name.
-                if let Ok(out) = Command::new("pkill").args(["-x", name.as_str()]).output() {
+                if let Ok(out) = crate::utils::process::command("pkill")
+                    .args(["-x", name.as_str()])
+                    .output()
+                {
                     killed |= out.status.success();
                 }
             }
@@ -1142,11 +1018,8 @@ impl ProcessManager {
             if let Some(info) = self.processes.remove(tool_id) {
                 #[cfg(windows)]
                 {
-                    use std::os::windows::process::CommandExt;
-                    const CREATE_NO_WINDOW: u32 = 0x08000000;
-                    let _ = Command::new("taskkill")
+                    let _ = crate::utils::process::command("taskkill")
                         .args(["/pid", &info.pid.to_string(), "/T", "/F"])
-                        .creation_flags(CREATE_NO_WINDOW)
                         .output();
                 }
                 #[cfg(not(windows))]
@@ -1165,11 +1038,8 @@ impl ProcessManager {
         let mut exited = Vec::new();
 
         for (tool_id, info) in &self.processes {
-            use std::os::windows::process::CommandExt;
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
-            let output = Command::new("tasklist")
+            let output = crate::utils::process::command("tasklist")
                 .args(["/FI", &format!("PID eq {}", info.pid), "/FO", "CSV", "/NH"])
-                .creation_flags(CREATE_NO_WINDOW)
                 .output();
 
             match output {
@@ -1361,6 +1231,18 @@ pub async fn start_tool(
     let mgr = get_manager().await;
     let mut mgr = mgr.lock().await;
     mgr.start_tool(tool_id, start_command, cwd).await
+}
+
+/// Release native desktop storage before an explicit model change. Uses the same
+/// process scope as launch/restart; it never targets standalone CLI instances.
+pub(crate) async fn stop_desktop_for_config(tool_id: &str) {
+    if !crate::services::tool_manager::is_managed_desktop_tool(tool_id) {
+        return;
+    }
+    let mgr = get_manager().await;
+    if mgr.lock().await.kill_desktop_instances(tool_id) {
+        tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+    }
 }
 
 #[cfg(test)]

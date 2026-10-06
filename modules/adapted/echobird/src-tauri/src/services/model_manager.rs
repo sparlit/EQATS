@@ -118,17 +118,13 @@ fn is_encrypted(key: &str) -> bool {
 fn get_machine_fingerprint() -> String {
     #[cfg(windows)]
     {
-        use std::os::windows::process::CommandExt;
-        use std::process::Command;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        if let Ok(output) = Command::new("reg")
+        if let Ok(output) = crate::utils::process::command("reg")
             .args([
                 "query",
                 r"HKLM\SOFTWARE\Microsoft\Cryptography",
                 "/v",
                 "MachineGuid",
             ])
-            .creation_flags(CREATE_NO_WINDOW)
             .output()
         {
             let text = String::from_utf8_lossy(&output.stdout);
@@ -143,8 +139,7 @@ fn get_machine_fingerprint() -> String {
 
     #[cfg(target_os = "macos")]
     {
-        use std::process::Command;
-        if let Ok(output) = Command::new("ioreg")
+        if let Ok(output) = crate::utils::process::command("ioreg")
             .args(["-rd1", "-c", "IOPlatformExpertDevice"])
             .output()
         {

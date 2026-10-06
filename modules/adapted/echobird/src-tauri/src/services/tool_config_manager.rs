@@ -4,6 +4,7 @@
 mod aider;
 mod claudecode;
 mod claudedesktop;
+pub(crate) mod cline;
 mod codex;
 pub(crate) mod dsh;
 mod generic;
@@ -12,6 +13,7 @@ mod kilo;
 mod kimicode;
 mod mimocode;
 mod mimodesktop;
+pub(crate) mod minimaxcode;
 mod omp;
 mod openclaw;
 mod opencode;
@@ -57,6 +59,10 @@ use vibe_trading::{apply_vibe_trading, read_vibe_trading};
 use workbuddy::{apply_workbuddy, read_workbuddy};
 use zcode::{apply_zcode, read_zcode, restore_zcode_to_official};
 
+pub(crate) fn restore_zcode_account_config(dir: &std::path::Path) -> ApplyResult {
+    zcode::restore_zcode_to_official_at(dir)
+}
+
 /// Model info to apply to a tool
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -79,6 +85,9 @@ pub struct ModelInfo {
     /// Anthropic-compatible relay instead of EchoBird's model-id router.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relay_mode: Option<bool>,
+    /// Codex CLI / ChatGPT desktop. None keeps the provider default.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub web_search: Option<bool>,
     /// Claude Code relay-only. When `Some(true)` AND `relay_mode` is on,
     /// append `[1m]` to the 1M-capable env vars (`ANTHROPIC_MODEL` /
     /// `ANTHROPIC_DEFAULT_SONNET_MODEL` / `ANTHROPIC_DEFAULT_OPUS_MODEL` / `ANTHROPIC_DEFAULT_FABLE_MODEL`)
@@ -278,6 +287,10 @@ pub async fn apply_model_to_tool(tool_id: &str, model_info: ModelInfo) -> ApplyR
         // own config at ~/.config/mimocode/mimocode.json(c).
         "mimocode" => return apply_mimocode(&model_info),
         "mimodesktop" => return mimodesktop::apply(&model_info),
+        "minimaxcode" | "minimaxdesktop" => return minimaxcode::apply(&model_info),
+        "cline" | "clinedesktop" => {
+            return cline::apply(&model_info, tool_id == "clinedesktop").await
+        }
         "kimidesktop" => return apply_kimidesktop(&model_info),
 
         // Kilo Code (Kilo fork of OpenCode): same provider schema,
@@ -349,6 +362,13 @@ pub async fn apply_model_to_tool(tool_id: &str, model_info: ModelInfo) -> ApplyR
 /// the tool itself regenerates a fresh, vendor-default config on next launch.
 /// Used by the App Desktop "restore to official" flow.
 pub async fn restore_tool_to_official(tool_id: &str) -> ApplyResult {
+    if matches!(tool_id, "cline" | "clinedesktop") {
+        return ApplyResult {
+            success: false,
+            message: "Select a built-in provider in Cline to restore its native configuration."
+                .into(),
+        };
+    }
     let config_path = match tool_manager::get_tool_config_mapping(tool_id) {
         Some((_, path)) => path,
         None => {
@@ -380,6 +400,9 @@ pub async fn restore_tool_to_official(tool_id: &str) -> ApplyResult {
     }
     if tool_id == "mimodesktop" {
         return mimodesktop::restore();
+    }
+    if matches!(tool_id, "minimaxcode" | "minimaxdesktop") {
+        return minimaxcode::restore();
     }
     if tool_id == "kimidesktop" {
         return restore_kimidesktop_to_official();
@@ -455,6 +478,8 @@ pub async fn get_tool_model_info(tool_id: &str) -> Option<ModelInfo> {
         "opencode" | "opencodedesktop" => return read_opencode(),
         "mimocode" => return read_mimocode(),
         "mimodesktop" => return mimodesktop::read(),
+        "minimaxcode" | "minimaxdesktop" => return minimaxcode::read(),
+        "cline" | "clinedesktop" => return cline::read(tool_id == "clinedesktop"),
         "kimidesktop" => return read_kimidesktop(),
         "kilo" => return read_kilo(),
         "openscience" => return read_openscience(),

@@ -226,6 +226,8 @@ pub enum ToolCategory {
     AutoTrading,
     Game,
     Desktop,
+    #[serde(rename = "Cloud Agent")]
+    CloudAgent,
     Utility,
     Science,
     Custom,

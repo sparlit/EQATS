@@ -4,10 +4,12 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use tauri::AppHandle;
 use tauri_plugin_shell::ShellExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
+use tokio_util::sync::CancellationToken;
 
 const LEGACY_BACKUP_FILE: &str = "codex-auth.bak.json";
 #[cfg(target_os = "macos")]
@@ -22,6 +24,40 @@ const OAUTH_REDIRECT_PATH: &str = "/auth/callback";
 const OAUTH_SCOPES: &str =
     "openid profile email offline_access api.connectors.read api.connectors.invoke";
 const OAUTH_TIMEOUT_SECONDS: u64 = 60;
+static PENDING_LOGIN: Mutex<Option<(String, CancellationToken)>> = Mutex::new(None);
+
+pub fn start_login() -> Result<String, String> {
+    let mut pending = PENDING_LOGIN.lock().map_err(|_| "accountError.busy")?;
+    if let Some((_, cancel)) = pending.take() {
+        cancel.cancel();
+    }
+    let id = uuid::Uuid::new_v4().to_string();
+    *pending = Some((id.clone(), CancellationToken::new()));
+    Ok(id)
+}
+
+pub fn cancel_login(id: &str) -> Result<(), String> {
+    let mut pending = PENDING_LOGIN.lock().map_err(|_| "accountError.busy")?;
+    if pending.as_ref().is_some_and(|(current, _)| current == id) {
+        if let Some((_, cancel)) = pending.take() {
+            cancel.cancel();
+        }
+    }
+    Ok(())
+}
+
+async fn await_login<T>(
+    cancel: &CancellationToken,
+    attempt: impl std::future::Future<Output = Result<T, String>>,
+) -> Result<T, String> {
+    tokio::select! {
+        biased;
+        _ = cancel.cancelled() => Err("accountError.cancelled".into()),
+        result = tokio::time::timeout(std::time::Duration::from_secs(OAUTH_TIMEOUT_SECONDS), attempt) => {
+            result.map_err(|_| "accountError.expired".to_string())?
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -29,9 +65,19 @@ pub struct CodexAccountSummary {
     pub id: String,
     pub email: String,
     pub plan: Option<String>,
+    pub subscription_end_at: Option<i64>,
+    pub quota_windows: Vec<QuotaWindow>,
     pub quota_percent: Option<i32>,
     pub quota_reset_at: Option<i64>,
     pub active: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct QuotaWindow {
+    pub label: Option<String>,
+    pub remaining_percent: i32,
+    pub reset_at: Option<i64>,
 }
 
 const USAGE_URL: &str = "https://chatgpt.com/backend-api/wham/usage";
@@ -41,11 +87,14 @@ struct AccountMetadata {
     id: String,
     email: String,
     plan: Option<String>,
+    subscription_end_at: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AccountQuotaCache {
+    #[serde(default)]
+    quota_windows: Vec<QuotaWindow>,
     #[serde(default)]
     quota_percent: Option<i32>,
     #[serde(default)]
@@ -238,7 +287,7 @@ fn keychain_account(base_dir: &Path) -> String {
 
 #[cfg(target_os = "macos")]
 fn read_keychain_raw(base_dir: &Path) -> Result<Option<Vec<u8>>, String> {
-    let output = std::process::Command::new("security")
+    let output = crate::utils::process::command("security")
         .args(["find-generic-password", "-s", KEYCHAIN_SERVICE, "-a"])
         .arg(keychain_account(base_dir))
         .args(["-w"])
@@ -264,7 +313,7 @@ fn read_keychain_raw(_base_dir: &Path) -> Result<Option<Vec<u8>>, String> {
 fn write_keychain_raw(base_dir: &Path, raw: &[u8]) -> Result<(), String> {
     let secret = String::from_utf8(raw.to_vec())
         .map_err(|error| format!("accountError.keychain|{error}"))?;
-    let output = std::process::Command::new("security")
+    let output = crate::utils::process::command("security")
         .args(["add-generic-password", "-U", "-s", KEYCHAIN_SERVICE, "-a"])
         .arg(keychain_account(base_dir))
         .arg("-w")
@@ -330,6 +379,18 @@ fn metadata_from_auth(auth: &Value, raw: &[u8]) -> Result<AccountMetadata, Strin
                 .and_then(auth_claims)
                 .and_then(|claims| non_empty_string(claims.get("chatgpt_plan_type")))
         });
+    let subscription_end_at = access_payload
+        .as_ref()
+        .and_then(auth_claims)
+        .and_then(|claims| subscription_end_at(claims.get("chatgpt_subscription_active_until")))
+        .or_else(|| {
+            id_payload
+                .as_ref()
+                .and_then(auth_claims)
+                .and_then(|claims| {
+                    subscription_end_at(claims.get("chatgpt_subscription_active_until"))
+                })
+        });
 
     let identity = account_id
         .as_deref()
@@ -341,7 +402,27 @@ fn metadata_from_auth(auth: &Value, raw: &[u8]) -> Result<AccountMetadata, Strin
         .or(account_id)
         .unwrap_or_else(|| "OpenAI account".to_string());
 
-    Ok(AccountMetadata { id, email, plan })
+    Ok(AccountMetadata {
+        id,
+        email,
+        plan,
+        subscription_end_at,
+    })
+}
+
+fn subscription_end_at(value: Option<&Value>) -> Option<i64> {
+    let value = value?;
+    let timestamp = value.as_i64().or_else(|| value.as_str()?.parse().ok());
+    if let Some(timestamp) = timestamp {
+        return Some(if timestamp > 1_000_000_000_000 {
+            timestamp / 1000
+        } else {
+            timestamp
+        });
+    }
+    chrono::DateTime::parse_from_rfc3339(value.as_str()?)
+        .ok()
+        .map(|date| date.timestamp())
 }
 
 fn read_oauth_snapshot(path: &Path) -> Option<(Vec<u8>, Value)> {
@@ -436,10 +517,12 @@ fn build_summary(
     CodexAccountSummary {
         active: active_id == Some(metadata.id.as_str()),
         quota_percent: quota.as_ref().and_then(|cache| cache.quota_percent),
-        quota_reset_at: quota.and_then(|cache| cache.quota_reset_at),
+        quota_reset_at: quota.as_ref().and_then(|cache| cache.quota_reset_at),
+        quota_windows: quota.map_or_else(Vec::new, |cache| cache.quota_windows),
         id: metadata.id,
         email: metadata.email,
         plan: metadata.plan,
+        subscription_end_at: metadata.subscription_end_at,
     }
 }
 
@@ -459,6 +542,10 @@ fn quota_percent_from_usage(body: &Value) -> Result<Option<i32>, String> {
     let Some(window) = quota_window_from_usage(body) else {
         return Ok(None);
     };
+    Ok(quota_percent_from_window(window))
+}
+
+fn quota_percent_from_window(window: &Value) -> Option<i32> {
     let used = [
         "used_percent",
         "usedPercent",
@@ -468,7 +555,7 @@ fn quota_percent_from_usage(body: &Value) -> Result<Option<i32>, String> {
     .iter()
     .find_map(|key| window.get(*key).and_then(Value::as_f64));
     if let Some(used) = used {
-        return Ok(Some((100.0 - used).round().clamp(0.0, 100.0) as i32));
+        return Some((100.0 - used).round().clamp(0.0, 100.0) as i32);
     }
 
     let remaining = [
@@ -479,11 +566,15 @@ fn quota_percent_from_usage(body: &Value) -> Result<Option<i32>, String> {
     ]
     .iter()
     .find_map(|key| window.get(*key).and_then(Value::as_f64));
-    Ok(remaining.map(|value| value.round().clamp(0.0, 100.0) as i32))
+    remaining.map(|value| value.round().clamp(0.0, 100.0) as i32)
 }
 
 fn quota_reset_at_from_usage(body: &Value) -> Option<i64> {
     let window = quota_window_from_usage(body)?;
+    quota_reset_at_from_window(window)
+}
+
+fn quota_reset_at_from_window(window: &Value) -> Option<i64> {
     let normalize = |mut value: i64| {
         if value > 1_000_000_000_000 {
             value /= 1000;
@@ -511,6 +602,31 @@ fn quota_reset_at_from_usage(body: &Value) -> Option<i64> {
         })
         .filter(|value| *value >= 0)
         .map(|value| chrono::Utc::now().timestamp() + value)
+}
+
+fn quota_window(body: &Value, key: &str) -> Option<QuotaWindow> {
+    let window = body
+        .get("rate_limit")?
+        .get(key)
+        .filter(|value| !value.is_null())?;
+    let label = window
+        .get("limit_window_seconds")
+        .and_then(Value::as_i64)
+        .filter(|seconds| *seconds > 0)
+        .map(|seconds| {
+            if seconds >= 86400 {
+                format!("{}d", (seconds + 86399) / 86400)
+            } else if seconds >= 3600 {
+                format!("{}h", (seconds + 3599) / 3600)
+            } else {
+                format!("{}m", (seconds + 59) / 60)
+            }
+        });
+    Some(QuotaWindow {
+        label,
+        remaining_percent: quota_percent_from_window(window)?,
+        reset_at: quota_reset_at_from_window(window),
+    })
 }
 
 pub(crate) fn save_effective_snapshot_at(
@@ -695,6 +811,28 @@ fn callback_page(title: &str, message: &str) -> String {
 
 pub async fn add_account_via_oauth(
     app_handle: AppHandle,
+    login_id: String,
+    callback_messages: OAuthCallbackMessages,
+) -> Result<CodexAccountSummary, String> {
+    let cancel = PENDING_LOGIN
+        .lock()
+        .map_err(|_| "accountError.busy")?
+        .as_ref()
+        .filter(|(id, _)| id == &login_id)
+        .map(|(_, cancel)| cancel.clone())
+        .ok_or("accountError.cancelled")?;
+    let result = await_login(
+        &cancel,
+        complete_oauth(app_handle, &login_id, callback_messages),
+    )
+    .await;
+    cancel_login(&login_id)?;
+    result
+}
+
+async fn complete_oauth(
+    app_handle: AppHandle,
+    login_id: &str,
     callback_messages: OAuthCallbackMessages,
 ) -> Result<CodexAccountSummary, String> {
     let verifier = random_token();
@@ -721,13 +859,10 @@ pub async fn add_account_via_oauth(
     let auth_url = build_oauth_url(&redirect_uri, &state, &challenge);
     open_browser(&app_handle, &auth_url)?;
 
-    let (mut stream, _) = tokio::time::timeout(
-        std::time::Duration::from_secs(OAUTH_TIMEOUT_SECONDS),
-        listener.accept(),
-    )
-    .await
-    .map_err(|_| "accountError.expired".to_string())?
-    .map_err(|error| format!("accountError.authResponse|{error}"))?;
+    let (mut stream, _) = listener
+        .accept()
+        .await
+        .map_err(|error| format!("accountError.authResponse|{error}"))?;
     let mut request = vec![0u8; 8192];
     let size = stream
         .read(&mut request)
@@ -764,6 +899,14 @@ pub async fn add_account_via_oauth(
         .await
         .map_err(|error| format!("accountError.authResponse|{error}"))?;
     let token_response = exchange_oauth_code(&code, &verifier, &redirect_uri).await?;
+    // Serialize saving against cancellation so an abandoned attempt cannot save a late response.
+    let pending = PENDING_LOGIN.lock().map_err(|_| "accountError.busy")?;
+    if !pending
+        .as_ref()
+        .is_some_and(|(id, cancel)| id == login_id && !cancel.is_cancelled())
+    {
+        return Err("accountError.cancelled".into());
+    }
     store_oauth_token_response(&token_response)
 }
 
@@ -895,7 +1038,7 @@ pub async fn refresh_account_quota(account_id: &str) -> Result<CodexAccountSumma
     let raw = fs::read(&saved_path).map_err(|_| "accountError.invalidAccount".to_string())?;
     let mut auth: Value = serde_json::from_slice(&raw)
         .map_err(|error| format!("accountError.invalidAccount|{error}"))?;
-    let metadata = metadata_from_auth(&auth, &raw)?;
+    let mut metadata = metadata_from_auth(&auth, &raw)?;
     let chatgpt_account_id = account_id_from_auth(&auth);
     let mut access_token = auth
         .get("tokens")
@@ -935,6 +1078,7 @@ pub async fn refresh_account_quota(account_id: &str) -> Result<CodexAccountSumma
     if !status.is_success() {
         return Err(quota_http_error(status.as_u16(), &body));
     }
+    metadata.subscription_end_at = metadata_from_auth(&auth, &raw)?.subscription_end_at;
     let plan = non_empty_string(body.get("plan_type")).or_else(|| metadata.plan.clone());
     let mut quota_percent = quota_percent_from_usage(&body)?;
     if quota_percent.is_none()
@@ -953,11 +1097,20 @@ pub async fn refresh_account_quota(account_id: &str) -> Result<CodexAccountSumma
         quota_reset_at =
             read_quota_cache(&store_dir, account_id).and_then(|cache| cache.quota_reset_at);
     }
+    let quota_windows = if body.get("rate_limit").is_some() {
+        ["primary_window", "secondary_window"]
+            .iter()
+            .filter_map(|key| quota_window(&body, key))
+            .collect::<Vec<_>>()
+    } else {
+        read_quota_cache(&store_dir, account_id).map_or_else(Vec::new, |cache| cache.quota_windows)
+    };
     write_private_file(
         &quota_path(&store_dir, account_id),
         serde_json::to_string(&serde_json::json!({
             "quotaPercent": quota_percent,
             "quotaResetAt": quota_reset_at,
+            "quotaWindows": quota_windows,
             "plan": plan,
         }))
         .map_err(|error| format!("accountError.quota|{error}"))?
@@ -971,6 +1124,57 @@ pub async fn refresh_account_quota(account_id: &str) -> Result<CodexAccountSumma
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn cancelled_login_drops_pending_callback_and_releases_port() {
+        let cancel = CancellationToken::new();
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let entered = std::sync::Arc::new(tokio::sync::Notify::new());
+        let ready = entered.clone();
+        let token = cancel.clone();
+        let task = tokio::spawn(async move {
+            await_login(&token, async move {
+                ready.notify_one();
+                listener
+                    .accept()
+                    .await
+                    .map(|_| ())
+                    .map_err(|e| e.to_string())
+            })
+            .await
+        });
+        entered.notified().await;
+        cancel.cancel();
+        assert_eq!(task.await.unwrap().unwrap_err(), "accountError.cancelled");
+        assert!(TcpListener::bind(address).await.is_ok());
+        assert_eq!(
+            await_login(&CancellationToken::new(), async { Ok::<_, String>(42) })
+                .await
+                .unwrap(),
+            42
+        );
+        let called = std::sync::atomic::AtomicBool::new(false);
+        let result = await_login(&cancel, async {
+            called.store(true, std::sync::atomic::Ordering::SeqCst);
+            Ok::<_, String>(())
+        })
+        .await;
+        assert!(result.is_err());
+        assert!(!called.load(std::sync::atomic::Ordering::SeqCst));
+    }
+
+    #[test]
+    fn cancelling_an_older_login_does_not_cancel_the_new_attempt() {
+        let first = start_login().unwrap();
+        let old_token = PENDING_LOGIN.lock().unwrap().as_ref().unwrap().1.clone();
+        let second = start_login().unwrap();
+        assert!(old_token.is_cancelled());
+        cancel_login(&first).unwrap();
+        assert_eq!(PENDING_LOGIN.lock().unwrap().as_ref().unwrap().0, second);
+        cancel_login(&second).unwrap();
+        assert!(PENDING_LOGIN.lock().unwrap().is_none());
+    }
 
     #[test]
     fn callback_page_preserves_localized_text_and_escapes_html() {
@@ -1144,6 +1348,88 @@ mod tests {
         });
         assert_eq!(quota_percent_from_usage(&body).unwrap(), Some(100));
         assert_eq!(quota_reset_at_from_usage(&body), Some(1_800_000_000));
+    }
+
+    #[test]
+    fn reads_subscription_end_from_the_account_token() {
+        let auth = json!({
+            "auth_mode": "chatgpt",
+            "tokens": {
+                "id_token": jwt(json!({
+                    "email": "paid@example.test",
+                    "https://api.openai.com/auth": {
+                        "chatgpt_plan_type": "prolite",
+                        "chatgpt_subscription_active_until": "2026-10-15T15:21:48+00:00"
+                    }
+                }))
+            }
+        });
+        let summary = metadata_from_auth(&auth, b"fixture").unwrap();
+        assert_eq!(summary.subscription_end_at, Some(1_792_077_708));
+        assert_eq!(
+            subscription_end_at(Some(&json!(1_792_077_708_000_i64))),
+            Some(1_792_077_708)
+        );
+        assert_eq!(subscription_end_at(Some(&json!("not-a-date"))), None);
+    }
+
+    #[test]
+    fn prefers_the_current_access_token_subscription_end() {
+        let auth = json!({
+            "auth_mode": "chatgpt",
+            "tokens": {
+                "id_token": jwt(json!({
+                    "email": "paid@example.test",
+                    "https://api.openai.com/auth": {
+                        "chatgpt_subscription_active_until": "2026-10-15T15:21:48+00:00"
+                    }
+                })),
+                "access_token": jwt(json!({
+                    "https://api.openai.com/auth": {
+                        "chatgpt_subscription_active_until": "2026-11-15T15:21:48+00:00"
+                    }
+                }))
+            }
+        });
+        let summary = metadata_from_auth(&auth, b"fixture").unwrap();
+        assert_eq!(summary.subscription_end_at, Some(1_794_756_108));
+    }
+
+    #[test]
+    fn keeps_short_and_weekly_quota_windows_separate() {
+        let body = json!({
+            "rate_limit": {
+                "primary_window": {"used_percent": 25, "reset_at": 1_800_000_100, "limit_window_seconds": 18000},
+                "secondary_window": {"used_percent": 60, "reset_at": 1_800_000_200, "limit_window_seconds": 604800}
+            }
+        });
+        assert_eq!(
+            quota_window(&body, "primary_window"),
+            Some(QuotaWindow {
+                label: Some("5h".into()),
+                remaining_percent: 75,
+                reset_at: Some(1_800_000_100)
+            })
+        );
+        assert_eq!(
+            quota_window(&body, "secondary_window"),
+            Some(QuotaWindow {
+                label: Some("7d".into()),
+                remaining_percent: 40,
+                reset_at: Some(1_800_000_200)
+            })
+        );
+        assert_eq!(
+            quota_window(&json!({"rate_limit": {}}), "primary_window"),
+            None
+        );
+        assert_eq!(
+            quota_window(
+                &json!({"rate_limit": {"primary_window": {"used_percent": 30, "limit_window_seconds": 604800}}}),
+                "primary_window"
+            ).and_then(|window| window.label),
+            Some("7d".into())
+        );
     }
 
     #[test]

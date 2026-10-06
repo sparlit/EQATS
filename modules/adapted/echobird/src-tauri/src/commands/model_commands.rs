@@ -21,6 +21,9 @@ pub fn add_model(input: AddModelInput) -> ModelConfig {
 pub fn delete_model(internal_id: String) -> bool {
     let deleted = model_manager::delete_model(&internal_id);
     if deleted {
+        if let Err(error) = usage_providers::zhipu_team::save_access(&internal_id, None) {
+            log::warn!("Failed to clear deleted model's team access: {error}");
+        }
         if let Err(error) = crate::services::smart_router::remove_candidate(&internal_id) {
             log::warn!("Failed to remove deleted model from Smart Router: {error}");
             crate::services::smart_router::forget_candidate_memory(&internal_id);
@@ -138,4 +141,23 @@ pub fn get_volc_aksk(internal_id: String) -> Option<VolcAksk> {
         access_key: ak,
         secret_key: sk,
     })
+}
+
+#[tauri::command]
+pub fn get_zhipu_team_access(
+    internal_id: String,
+) -> Result<Option<usage_providers::zhipu_team::TeamAccess>, String> {
+    usage_providers::zhipu_team::read_access(&internal_id)
+}
+
+#[tauri::command]
+pub fn save_zhipu_team_access(
+    internal_id: String,
+    access: Option<usage_providers::zhipu_team::TeamAccess>,
+) -> Result<(), String> {
+    let models = model_manager::get_models();
+    if !models.iter().any(|model| model.internal_id == internal_id) {
+        return Err("Model not found".to_string());
+    }
+    usage_providers::zhipu_team::save_access(&internal_id, access)
 }

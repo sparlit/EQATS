@@ -5,9 +5,6 @@
 
 use super::settings::{load_model_settings, save_model_settings};
 use super::types::{GpuInfo, SystemInfo};
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
-use std::process::Command;
 
 /// Get system information: OS, architecture, and GPU details
 pub fn get_system_info() -> SystemInfo {
@@ -128,12 +125,11 @@ fn detect_gpu_system() -> Option<GpuInfo> {
 
 #[cfg(windows)]
 fn detect_gpu_nvidia_smi() -> Option<GpuInfo> {
-    let output = Command::new("nvidia-smi")
+    let output = crate::utils::process::command("nvidia-smi")
         .args([
             "--query-gpu=name,memory.total",
             "--format=csv,noheader,nounits",
         ])
-        .creation_flags(0x08000000)
         .output()
         .ok()?;
 
@@ -158,7 +154,7 @@ fn detect_gpu_nvidia_smi() -> Option<GpuInfo> {
 
 #[cfg(windows)]
 fn detect_gpu_wmic() -> Option<GpuInfo> {
-    let output = Command::new("wmic")
+    let output = crate::utils::process::command("wmic")
         .args([
             "path",
             "win32_VideoController",
@@ -166,7 +162,6 @@ fn detect_gpu_wmic() -> Option<GpuInfo> {
             "Name,AdapterRAM",
             "/format:csv",
         ])
-        .creation_flags(0x08000000)
         .output()
         .ok()?;
 
@@ -213,9 +208,8 @@ fn detect_gpu_wmic() -> Option<GpuInfo> {
 
 #[cfg(windows)]
 fn detect_gpu_rocm() -> Option<GpuInfo> {
-    let out = Command::new("rocm-smi")
+    let out = crate::utils::process::command("rocm-smi")
         .args(["--showmeminfo", "vram", "--showname", "--csv"])
-        .creation_flags(0x08000000)
         .output()
         .ok()?;
     if !out.status.success() {
@@ -252,7 +246,7 @@ fn detect_gpu_system() -> Option<GpuInfo> {
 
 #[cfg(not(windows))]
 fn detect_gpu_nvidia_smi_unix() -> Option<GpuInfo> {
-    let out = Command::new("nvidia-smi")
+    let out = crate::utils::process::command("nvidia-smi")
         .args([
             "--query-gpu=name,memory.total",
             "--format=csv,noheader,nounits",
@@ -277,7 +271,7 @@ fn detect_gpu_nvidia_smi_unix() -> Option<GpuInfo> {
 
 #[cfg(not(windows))]
 fn detect_gpu_rocm() -> Option<GpuInfo> {
-    let out = Command::new("rocm-smi")
+    let out = crate::utils::process::command("rocm-smi")
         .args(["--showmeminfo", "vram", "--showname", "--csv"])
         .output()
         .ok()?;
@@ -305,7 +299,7 @@ fn detect_gpu_rocm() -> Option<GpuInfo> {
 
 #[cfg(not(windows))]
 fn detect_gpu_intel_xpu() -> Option<GpuInfo> {
-    let out = Command::new("xpu-smi")
+    let out = crate::utils::process::command("xpu-smi")
         .args(["discovery", "-j"])
         .output()
         .ok()?;
@@ -335,7 +329,7 @@ fn detect_gpu_intel_xpu() -> Option<GpuInfo> {
 
 #[cfg(target_os = "macos")]
 fn detect_gpu_apple() -> Option<GpuInfo> {
-    let out = Command::new("system_profiler")
+    let out = crate::utils::process::command("system_profiler")
         .args(["SPDisplaysDataType", "-json"])
         .output()
         .ok()?;
@@ -385,7 +379,7 @@ fn detect_gpu_apple() -> Option<GpuInfo> {
 /// sysctl is unavailable or its output can't be parsed.
 #[cfg(target_os = "macos")]
 fn mac_unified_memory_gb() -> Option<f64> {
-    let out = Command::new("sysctl")
+    let out = crate::utils::process::command("sysctl")
         .args(["-n", "hw.memsize"])
         .output()
         .ok()?;
@@ -406,14 +400,14 @@ fn detect_gpu_apple() -> Option<GpuInfo> {
 
 #[cfg(not(windows))]
 fn detect_gpu_iluvatar() -> Option<GpuInfo> {
-    let out = Command::new("ixsmi")
+    let out = crate::utils::process::command("ixsmi")
         .args(["-q", "--display=MEMORY"])
         .output()
         .ok()?;
     if !out.status.success() {
         return None;
     }
-    let name_o = Command::new("ixsmi")
+    let name_o = crate::utils::process::command("ixsmi")
         .args(["-q", "--display=NAME"])
         .output()
         .ok()?;
@@ -429,7 +423,10 @@ fn detect_gpu_iluvatar() -> Option<GpuInfo> {
 
 #[cfg(not(windows))]
 fn detect_gpu_cambricon() -> Option<GpuInfo> {
-    let out = Command::new("cnmon").args(["info", "-j"]).output().ok()?;
+    let out = crate::utils::process::command("cnmon")
+        .args(["info", "-j"])
+        .output()
+        .ok()?;
     if !out.status.success() {
         return None;
     }
@@ -458,14 +455,14 @@ fn detect_gpu_cambricon() -> Option<GpuInfo> {
 
 #[cfg(not(windows))]
 fn detect_gpu_biren() -> Option<GpuInfo> {
-    let out = Command::new("brsmi")
+    let out = crate::utils::process::command("brsmi")
         .args(["-q", "--display=MEMORY"])
         .output()
         .ok()?;
     if !out.status.success() {
         return None;
     }
-    let name_o = Command::new("brsmi")
+    let name_o = crate::utils::process::command("brsmi")
         .args(["-q", "--display=NAME"])
         .output()
         .ok()?;
@@ -481,7 +478,7 @@ fn detect_gpu_biren() -> Option<GpuInfo> {
 
 #[cfg(not(windows))]
 fn detect_gpu_kunlunxin() -> Option<GpuInfo> {
-    let out = Command::new("kunlunxin-smi")
+    let out = crate::utils::process::command("kunlunxin-smi")
         .args([
             "--query-xpu=name,memory.total",
             "--format=csv,noheader,nounits",
@@ -550,14 +547,11 @@ fn parse_name_colon(text: &str) -> Option<String> {
 /// `local_llm::server::start` to choose between single-GPU defaults
 /// and tensor-parallel multi-GPU args.
 pub fn detect_nvidia_gpu_count() -> usize {
-    let mut cmd = Command::new("nvidia-smi");
+    let mut cmd = crate::utils::process::command("nvidia-smi");
     cmd.args([
         "--query-gpu=name,memory.total",
         "--format=csv,noheader,nounits",
     ]);
-    #[cfg(windows)]
-    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-
     let output = match cmd.output() {
         Ok(o) => o,
         Err(_) => return 0,

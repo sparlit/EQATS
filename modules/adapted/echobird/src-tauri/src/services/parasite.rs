@@ -23,7 +23,6 @@ use std::process::Stdio;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::io::AsyncReadExt;
-use tokio::process::Command;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
@@ -145,27 +144,15 @@ pub async fn detect_installed() -> Vec<String> {
 }
 
 async fn probe(agent: &ParasiteAgent) -> bool {
-    let mut cmd = Command::new(agent.command);
+    let mut cmd = crate::utils::process::async_command(agent.command);
     cmd.args(agent.detect_args);
     cmd.stdout(Stdio::null()).stderr(Stdio::null());
-    apply_no_window(&mut cmd);
 
     match tokio::time::timeout(std::time::Duration::from_secs(5), cmd.status()).await {
         Ok(Ok(status)) => status.success(),
         _ => false,
     }
 }
-
-#[cfg(target_os = "windows")]
-fn apply_no_window(cmd: &mut Command) {
-    // tokio::process::Command exposes creation_flags as an inherent method on
-    // Windows targets; no extension-trait import needed.
-    const CREATE_NO_WINDOW: u32 = 0x08000000;
-    cmd.creation_flags(CREATE_NO_WINDOW);
-}
-
-#[cfg(not(target_os = "windows"))]
-fn apply_no_window(_cmd: &mut Command) {}
 
 // ── Sending a Message ──
 
@@ -244,13 +231,12 @@ pub async fn send_message(
             .collect::<Vec<_>>()
     );
 
-    let mut cmd = Command::new(agent.command);
+    let mut cmd = crate::utils::process::async_command(agent.command);
     cmd.args(&args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
-    apply_no_window(&mut cmd);
 
     let mut child = match cmd.spawn() {
         Ok(c) => c,

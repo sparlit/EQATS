@@ -69,6 +69,7 @@ impl UsageProvider for DeepSeekProvider {
             success: true,
             data: Some(ModelUsageData {
                 quotas: vec![UsageQuota {
+                    period: None,
                     percentage: 0.0,
                     reset_at: now_millis() + 30 * 24 * 60 * 60 * 1000, // 30 days from now
                     balance: Some(total_balance),
