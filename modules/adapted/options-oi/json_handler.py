@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 #!/usr/bin/env python
 
 import json
-import time
 
 import requests
 
@@ -52,6 +51,8 @@ def get_OC_json(index_name):
 
     #  time.sleep(5)
     #  print(type(content))
+
+    return
 
 
 def filter_OC_json_data():
