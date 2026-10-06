@@ -77,7 +77,14 @@ def new_positions(min_weight=0.01, consensus=1) -> pd.DataFrame:
             if prev_names is not None and total > 0:
                 for _, r in cur.iterrows():
                     if r["issuer"] not in prev_names and r["value"] / total >= min_weight:
-                        events.append({"fund": fund, "issuer": r["issuer"], "date": d, "w": r["value"] / total})
+                        events.append(
+                            {
+                                "fund": fund,
+                                "issuer": r["issuer"],
+                                "date": d,
+                                "w": r["value"] / total,
+                            }
+                        )
             prev_names = names
     ev = pd.DataFrame(events)
     tm = ticker_map()
@@ -102,7 +109,7 @@ def new_positions(min_weight=0.01, consensus=1) -> pd.DataFrame:
 
 
 def main():
-    close, open_, _vol, member_at = load()
+    close, open_, vol, member_at = load()
     variants = [
         ("baseline(w>=1%,63d)", {}, 63),
         ("w_0.5%", {"min_weight": 0.005}, 63),

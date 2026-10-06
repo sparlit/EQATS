@@ -59,7 +59,10 @@ if __name__ == "__main__":
     syms = sorted(_liquid_universe())
     got = 0
     s = nse.session()
-    s.get("https://www.nseindia.com/companies-listing/corporate-filings-shareholding-pattern", timeout=15)
+    s.get(
+        "https://www.nseindia.com/companies-listing/corporate-filings-shareholding-pattern",
+        timeout=15,
+    )
     for sym in syms:
         f = DIR / f"{sym}.parquet"
         if f.exists():

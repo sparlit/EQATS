@@ -44,7 +44,9 @@ def load():
     vol = px.pivot_table(index="date", columns="symbol", values="volume")
 
     m = pd.read_csv(DATA / "sp500_hist.csv", parse_dates=["date"])
-    m["set"] = m["tickers"].map(lambda s: frozenset(t.strip().replace(".", "-") for t in s.split(",")))
+    m["set"] = m["tickers"].map(
+        lambda s: frozenset(t.strip().replace(".", "-") for t in s.split(","))
+    )
     m = m.set_index("date")["set"].sort_index()
     member_at = m.reindex(close.index, method="ffill")
     return close, open_, vol, member_at
@@ -77,14 +79,16 @@ def events(close, open_, vol, member_at, pop=0.07, vmult=3.0, hold=21, trend_fil
         last_event[sym_name] = t_idx
         raw = x_close / e_open - 1
         spy = spy_c.iloc[t_idx + 1 + hold] / spy_o.iloc[t_idx + 1] - 1
-        rows.append({"date": d, "symbol": sym_name, "raw_pct": 100 * raw, "excess_pct": 100 * (raw - spy)})
+        rows.append(
+            {"date": d, "symbol": sym_name, "raw_pct": 100 * raw, "excess_pct": 100 * (raw - spy)}
+        )
     return pd.DataFrame(rows)
 
 
 def report(name, ev):
     if ev.empty:
         print(f"{name}: no events")
-        return None
+        return
     q = ev.assign(qtr=ev["date"].dt.to_period("Q")).groupby("qtr")["excess_pct"].sum()
     pos_total = q[q > 0].sum()
     out = {

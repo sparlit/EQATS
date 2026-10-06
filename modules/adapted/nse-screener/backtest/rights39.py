@@ -42,7 +42,7 @@ from ingest import renames
 import config
 
 RATIO = re.compile(r"(\d+(?:\.\d+)?)\s*[:/]\s*(\d+(?:\.\d+)?)")
-PREM = re.compile(r"premium\s*(?:of\s*)?rs\.?\s*(\d+(?:\.\d+)?)", re.IGNORECASE)
+PREM = re.compile(r"premium\s*(?:of\s*)?rs\.?\s*(\d+(?:\.\d+)?)", re.I)
 THRESH = (0.05, 0.10)
 EXITS = (15, 21, 30)
 COST, STCG, SLAB = 0.0025, 0.20, 0.30
@@ -174,7 +174,10 @@ def main():
             net = gross - 2 * COST
             flips.append(net - SLAB * max(net, 0.0))
     if flips:
-        print(f"  n={len(flips)}  mean net {100 * np.mean(flips):+6.2f}%  median {100 * np.median(flips):+6.2f}%")
+        print(
+            f"  n={len(flips)}  mean net {100 * np.mean(flips):+6.2f}%  "
+            f"median {100 * np.median(flips):+6.2f}%"
+        )
 
 
 if __name__ == "__main__":

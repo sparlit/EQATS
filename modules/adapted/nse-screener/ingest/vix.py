@@ -41,7 +41,10 @@ def backfill(start: date = date(2016, 1, 1)) -> pd.DataFrame:
     frames, d = [], start
     while d <= date.today():
         q = min(d + timedelta(days=89), date.today())
-        r = nse.get(URL.format(frm=d.strftime("%d-%m-%Y"), to=q.strftime("%d-%m-%Y")), timeout=config.TIMEOUT)
+        r = nse.get(
+            URL.format(frm=d.strftime("%d-%m-%Y"), to=q.strftime("%d-%m-%Y")),
+            timeout=config.TIMEOUT,
+        )
         if r.status_code == 200 and r.text.strip().startswith("{"):
             rows = r.json().get("data", [])
             if rows:
@@ -50,7 +53,11 @@ def backfill(start: date = date(2016, 1, 1)) -> pd.DataFrame:
         time.sleep(config.SLEEP_SECS)
     df = pd.concat(frames, ignore_index=True)
     df["date"] = pd.to_datetime(df["EOD_TIMESTAMP"], format="%d-%b-%Y")
-    df = df.rename(columns={"EOD_CLOSE_INDEX_VAL": "vix"})[["date", "vix"]].drop_duplicates("date").sort_values("date")
+    df = (
+        df.rename(columns={"EOD_CLOSE_INDEX_VAL": "vix"})[["date", "vix"]]
+        .drop_duplicates("date")
+        .sort_values("date")
+    )
     df.to_parquet(OUT, index=False)
     print(f"{len(df)} VIX days → {OUT}")
     return df

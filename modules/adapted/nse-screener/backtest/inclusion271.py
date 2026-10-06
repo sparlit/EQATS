@@ -91,7 +91,10 @@ def make_nulls(ev, close, liquid, mom, k=20):
         if e["symbol"] in mom.columns and pd.notna(mom.loc[day].get(e["symbol"])) and len(m) > 20:
             dec = pd.qcut(m, 10, labels=False, duplicates="drop")
             target = pd.qcut(
-                pd.concat([m, pd.Series({e["symbol"]: mom.loc[day, e["symbol"]]})]), 10, labels=False, duplicates="drop"
+                pd.concat([m, pd.Series({e["symbol"]: mom.loc[day, e["symbol"]]})]),
+                10,
+                labels=False,
+                duplicates="drop",
             )[e["symbol"]]
             cands = dec.index[dec == target]
             if len(cands):
@@ -102,7 +105,9 @@ def make_nulls(ev, close, liquid, mom, k=20):
 
 def stat(df):
     return (
-        (f"n={len(df):5d} mean={df['excess'].mean():+6.2f} med={df['excess'].median():+6.2f}") if len(df) else "n=    0"
+        (f"n={len(df):5d} mean={df['excess'].mean():+6.2f} med={df['excess'].median():+6.2f}")
+        if len(df)
+        else "n=    0"
     )
 
 
@@ -110,7 +115,10 @@ def verdict(a, n1, n2, screen=False):
     if not (len(a) >= 30 and len(n1) and len(n2)):
         return "fail (n)"
     if screen:
-        ok = a["excess"].mean() <= n1["excess"].mean() - 3 and a["excess"].mean() <= n2["excess"].mean() - 3
+        ok = (
+            a["excess"].mean() <= n1["excess"].mean() - 3
+            and a["excess"].mean() <= n2["excess"].mean() - 3
+        )
         return "CONFIRMED" if ok else "fail"
     ok = (
         a["excess"].mean() >= n1["excess"].mean() + 3
@@ -127,7 +135,9 @@ def main():
     ev["an_dt"] = ev["announce"]
     # pooled: dedupe, attribute to largest index per frozen order
     order = {n: i for i, n in enumerate(INDICES)}
-    pooled = ev.sort_values("index", key=lambda s: s.map(order)).drop_duplicates(["announce", "symbol", "action"])
+    pooled = ev.sort_values("index", key=lambda s: s.map(order)).drop_duplicates(
+        ["announce", "symbol", "action"]
+    )
 
     p = features._panel(None, None)
     close, open_ = p["close"], p["open"]

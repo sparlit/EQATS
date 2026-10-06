@@ -49,11 +49,14 @@ FPI = {
 
 def load_detail() -> pd.DataFrame:
     df = pd.concat(
-        map(pd.read_parquet, Path(config.DATA_DIR / "shareholding_detail").glob("*.parquet")), ignore_index=True
+        map(pd.read_parquet, Path(config.DATA_DIR / "shareholding_detail").glob("*.parquet")),
+        ignore_index=True,
     )
     df["qdate"] = pd.to_datetime(df["date"], format="%d-%b-%Y", errors="coerce")
     df = df[df["qdate"].dt.is_quarter_end]
-    df["cat"] = df["category"].astype(str).str.strip().str.replace(r"\s+", " ", regex=True).str.lower()
+    df["cat"] = (
+        df["category"].astype(str).str.strip().str.replace(r"\s+", " ", regex=True).str.lower()
+    )
     df["pct_n"] = pd.to_numeric(df["pct"], errors="coerce")
     df["an_dt"] = pd.to_datetime(df["broadcastDate"], format="%d-%b-%Y %H:%M:%S", errors="coerce")
     df = df.dropna(subset=["an_dt", "pct_n"])
@@ -75,7 +78,9 @@ def load_detail() -> pd.DataFrame:
 
 def stat(df):
     return (
-        (f"n={len(df):5d} mean={df['excess'].mean():+6.2f} med={df['excess'].median():+6.2f}") if len(df) else "n=    0"
+        (f"n={len(df):5d} mean={df['excess'].mean():+6.2f} med={df['excess'].median():+6.2f}")
+        if len(df)
+        else "n=    0"
     )
 
 

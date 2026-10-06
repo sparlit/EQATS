@@ -31,7 +31,6 @@ Two strategies share one context (MAs, RS, ATR, liquidity, regime):
   build_v3() v3 — delivery-accumulation footprint, spec in PROTOCOL_V3.md
 """
 import numpy as np
-import pandas as pd
 from ingest import bhavcopy, corporate_actions, deals_hist, etf_list
 
 import config
@@ -46,17 +45,18 @@ def _panel(start: str | None, end: str | None) -> dict:
 
     gaps = df["date"].drop_duplicates().sort_values().diff().dt.days
     if (gaps > 10).any():
-        msg = (
+        raise SystemExit(
             "Panel has a >10-day hole (backfill incomplete?). Rolling "
             "windows would span it and produce garbage. Finish the "
             "backfill, then rerun."
         )
-        raise SystemExit(msg)
 
     def wide(col):
         return df.pivot_table(index="date", columns="symbol", values=col)
 
-    return {c: wide(c) for c in ("open", "high", "low", "close", "volume", "turnover_lacs", "deliv_qty")}
+    return {
+        c: wide(c) for c in ("open", "high", "low", "close", "volume", "turnover_lacs", "deliv_qty")
+    }
 
 
 def _context(p: dict) -> dict:
@@ -74,7 +74,9 @@ def _context(p: dict) -> dict:
     )
     rs_pctile = rs_raw.rank(axis=1, pct=True) * 100
 
-    tr = np.maximum(high - low, np.maximum((high - close.shift()).abs(), (low - close.shift()).abs()))
+    tr = np.maximum(
+        high - low, np.maximum((high - close.shift()).abs(), (low - close.shift()).abs())
+    )
     atr14 = tr.rolling(14).mean()
 
     liquid = p["turnover_lacs"].rolling(20).median() >= config.MIN_AVG_TURNOVER_LACS
@@ -183,7 +185,12 @@ def build_v3(
     # where ~True == -2 (truthy) silently disables the freshness filter
     fresh = in_cluster & ~in_cluster.shift(1, fill_value=False)
 
-    signal = fresh & ctx["liquid"].fillna(False) & (close > ctx["ma200"]) & (ctx["rs_pctile"] >= rs_floor)
+    signal = (
+        fresh
+        & ctx["liquid"].fillna(False)
+        & (close > ctx["ma200"])
+        & (ctx["rs_pctile"] >= rs_floor)
+    )
     return _result(p, ctx, signal)
 
 
@@ -205,7 +212,12 @@ def build_v5(
         d = d[d["kind"] == "bulk"]
     d = d[d["client_name"].str.upper().str.contains(sticky_re, na=False, regex=True)].copy()
     d["net"] = d["qty"].where(d["buy_sell"].str.upper().str.startswith("B"), -d["qty"])
-    net = d.groupby(["date", "symbol"])["net"].sum().unstack().reindex(index=close.index, columns=close.columns)
+    net = (
+        d.groupby(["date", "symbol"])["net"]
+        .sum()
+        .unstack()
+        .reindex(index=close.index, columns=close.columns)
+    )
     event = net > 0
     if min_vol_share > 0:
         event = event & (net >= min_vol_share * p["volume"])

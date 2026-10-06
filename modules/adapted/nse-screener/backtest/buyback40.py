@@ -36,7 +36,9 @@ import config
 
 def stat(df):
     return (
-        (f"n={len(df):4d} mean={df['excess'].mean():+6.2f} med={df['excess'].median():+6.2f}") if len(df) else "n=   0"
+        (f"n={len(df):4d} mean={df['excess'].mean():+6.2f} med={df['excess'].median():+6.2f}")
+        if len(df)
+        else "n=   0"
     )
 
 
@@ -65,7 +67,9 @@ def main():
     a1 = ev.dropna(subset=["announce_dt"]).copy()
     a1["an_dt"] = a1["announce_dt"]
     a2 = ev.copy()
-    a2["an_dt"] = a2["record_date"].map(lambda d: dates[max(dates.searchsorted(d, side="right") - 6, 0)])
+    a2["an_dt"] = a2["record_date"].map(
+        lambda d: dates[max(dates.searchsorted(d, side="right") - 6, 0)]
+    )
     a3 = ev.copy()
     a3["an_dt"] = a3["record_date"]
 
@@ -97,9 +101,15 @@ def main():
                 and r["excess"].mean() >= nm + 3
                 and r["excess"].median() > nb["excess"].median()
             )
-            print(f"  {name:<20} {stat(r)}  (hold {hold}d, null mean {nm:+.2f})  [{'PASS' if ok else 'fail'}]")
+            print(
+                f"  {name:<20} {stat(r)}  (hold {hold}d, null mean "
+                f"{nm:+.2f})  [{'PASS' if ok else 'fail'}]"
+            )
         r3 = run_kind(W(a3), *args, hold=21, gap_days=126)
-        print(f"  A3 post-record 21d   {stat(r3)}  (descriptive; null mean {n21['excess'].mean():+.2f})")
+        print(
+            f"  A3 post-record 21d   {stat(r3)}  "
+            f"(descriptive; null mean {n21['excess'].mean():+.2f})"
+        )
 
 
 if __name__ == "__main__":

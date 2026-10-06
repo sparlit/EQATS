@@ -49,7 +49,7 @@ H = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36"
 }
-KW = re.compile(r"replac|reconstit|exclusion|inclusion|change", re.IGNORECASE)
+KW = re.compile(r"replac|reconstit|exclusion|inclusion|change", re.I)
 
 
 def scrape_list() -> None:
@@ -59,7 +59,7 @@ def scrape_list() -> None:
         r'data-date="([^"]+)"[^>]*>\s*<p>[^<]*</p>\s*'
         r'<a href=[\'"]([^\'"]+\.pdf)[\'"][^>]*>(.*?)</a>',
         page,
-        re.DOTALL,
+        re.S,
     )
     rows = [
         {
@@ -103,10 +103,10 @@ def fetch_pdfs() -> None:
     print(f"pdf fetch done: {got} new, {len(list(PDF_DIR.glob('*.pdf')))} total on disk")
 
 
-SECTION = re.compile(r"^\s*\d+\)\s*((?:NIFTY|Nifty)[^\n]{0,60})\s*$", re.MULTILINE)
-ROW = re.compile(r"^\s*\d+\s+(.+?)\s+([A-Z][A-Z0-9&\-]{1,15})\s*$", re.MULTILINE)
-EXCL = re.compile(r"being\s+excluded", re.IGNORECASE)
-INCL = re.compile(r"being\s+included", re.IGNORECASE)
+SECTION = re.compile(r"^\s*\d+\)\s*((?:NIFTY|Nifty)[^\n]{0,60})\s*$", re.M)
+ROW = re.compile(r"^\s*\d+\s+(.+?)\s+([A-Z][A-Z0-9&\-]{1,15})\s*$", re.M)
+EXCL = re.compile(r"being\s+excluded", re.I)
+INCL = re.compile(r"being\s+included", re.I)
 WEF = re.compile(
     r"(?:w\.?e\.?f\.?|effective\s+from)\s*:?\s*"
     r"([A-Z][a-z]+ \d{1,2},? \d{4})"
@@ -122,7 +122,11 @@ def parse_pdf(path: Path, announce, title) -> list[dict]:
 
     txt = "\n".join(p.extract_text() or "" for p in PdfReader(str(path)).pages)
     m = WEF.search(title) or WEF.search(txt[:3000])
-    effective = pd.to_datetime(m.group(1).replace(",", ""), format="%B %d %Y", errors="coerce") if m else pd.NaT
+    effective = (
+        pd.to_datetime(m.group(1).replace(",", ""), format="%B %d %Y", errors="coerce")
+        if m
+        else pd.NaT
+    )
     rows = []
     sections = list(SECTION.finditer(txt))
     for i, sec in enumerate(sections):
@@ -130,7 +134,8 @@ def parse_pdf(path: Path, announce, title) -> list[dict]:
         seg = txt[sec.end() : sections[i + 1].start() if i + 1 < len(sections) else len(txt)]
         # split the segment at excluded/included markers; rows after each
         marks = sorted(
-            [(m.start(), "drop") for m in EXCL.finditer(seg)] + [(m.start(), "add") for m in INCL.finditer(seg)]
+            [(m.start(), "drop") for m in EXCL.finditer(seg)]
+            + [(m.start(), "add") for m in INCL.finditer(seg)]
         )
         for j, (pos, action) in enumerate(marks):
             chunk = seg[pos : marks[j + 1][0] if j + 1 < len(marks) else len(seg)]

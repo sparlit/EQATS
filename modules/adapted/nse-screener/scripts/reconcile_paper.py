@@ -83,8 +83,7 @@ def diff(label, logged, now):
 
 def main():
     if not LOG.exists():
-        msg = "no paper log yet"
-        raise SystemExit(msg)
+        raise SystemExit("no paper log yet")
     log = pd.read_csv(LOG, parse_dates=["asof"])
     p = features._panel(None, None)
     ctx = features._context(p)

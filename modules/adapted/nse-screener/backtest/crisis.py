@@ -28,7 +28,6 @@ of missing dividends — diagnostic D2 corrects for it).
 
     python -m backtest.crisis
 """
-import numpy as np
 import pandas as pd
 from backtest import features, monthly
 from ingest import etf_list
@@ -46,7 +45,12 @@ SUBS = (
 def nifty_close(dates) -> pd.Series:
     df = pd.read_parquet(config.DATA_DIR / "indices" / "NIFTY_50_OHLC.parquet")
     df["date"] = pd.to_datetime(df["EOD_TIMESTAMP"], format="%d-%b-%Y")
-    s = df.sort_values("date").drop_duplicates("date").set_index("date")["EOD_CLOSE_INDEX_VAL"].astype(float)
+    s = (
+        df.sort_values("date")
+        .drop_duplicates("date")
+        .set_index("date")["EOD_CLOSE_INDEX_VAL"]
+        .astype(float)
+    )
     return s.reindex(dates).ffill()
 
 
@@ -86,7 +90,7 @@ def main():
     ctx = {"bench": bench, "stocks": [c for c in close.columns if c not in etfs]}
 
     print("=== PRIMARY: v4 verbatim, index regime ===")
-    _r, eq, b = run(p, ctx, bench, "v4 (200DMA breaker)", regime_filter=True)
+    r, eq, b = run(p, ctx, bench, "v4 (200DMA breaker)", regime_filter=True)
 
     print("\n=== D1: regime OFF (what the breaker contributed) ===")
     run(p, ctx, bench, "v4 no breaker", regime_filter=False)
@@ -101,7 +105,9 @@ def main():
     scale = float(bench.iloc[-1]) / 24000.0  # era Nifty vs ~today's
     run(p, ctx, bench, f"floor x{scale:.2f}", regime_filter=True, turnover_floor=500.0 * scale)
 
-    print("\nPASS bars (PROTOCOL_CRISIS): PRIMARY beats index total AND PRIMARY maxDD <= index maxDD.")
+    print(
+        "\nPASS bars (PROTOCOL_CRISIS): PRIMARY beats index total AND PRIMARY maxDD <= index maxDD."
+    )
 
 
 if __name__ == "__main__":

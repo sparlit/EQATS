@@ -42,7 +42,9 @@ def load():
     open_ = px.pivot_table(index="date", columns="symbol", values="open")
 
     m = pd.read_csv(DATA / "sp500_hist.csv", parse_dates=["date"])
-    m["set"] = m["tickers"].map(lambda s: frozenset(t.strip().replace(".", "-") for t in s.split(",")))
+    m["set"] = m["tickers"].map(
+        lambda s: frozenset(t.strip().replace(".", "-") for t in s.split(","))
+    )
     members = m.set_index("date")["set"].sort_index().reindex(close.index, method="ffill")
 
     p = {
@@ -78,14 +80,21 @@ def window(p, ctx, start, end):
 
 def run():
     p, ctx, members = load()
-    for label, start, end in (("IN-SAMPLE 2023-26", "2022-01-03", None), ("OUT-OF-SAMPLE 2016-22", None, "2022-12-31")):
+    for label, start, end in (
+        ("IN-SAMPLE 2023-26", "2022-01-03", None),
+        ("OUT-OF-SAMPLE 2016-22", None, "2022-12-31"),
+    ):
         print(f"\n=== {label} ===")
         q, c = window(p, ctx, start, end)
         base = {"regime_filter": True, "cost": 0.001, "select_fn": member_top(members)}
         monthly.report("v8 baseline", monthly.simulate(q, c, **base))
         monthly.report("spy_no_regime", monthly.simulate(q, c, **{**base, "regime_filter": False}))
-        monthly.report("top10", monthly.simulate(q, c, **{**base, "select_fn": member_top(members, 10)}))
-        monthly.report("top30", monthly.simulate(q, c, **{**base, "select_fn": member_top(members, 30)}))
+        monthly.report(
+            "top10", monthly.simulate(q, c, **{**base, "select_fn": member_top(members, 10)})
+        )
+        monthly.report(
+            "top30", monthly.simulate(q, c, **{**base, "select_fn": member_top(members, 30)})
+        )
         monthly.report("skip0", monthly.simulate(q, c, **{**base, "skip": 0}))
         monthly.report("cost_2.5x", monthly.simulate(q, c, **{**base, "cost": 0.0025}))
 

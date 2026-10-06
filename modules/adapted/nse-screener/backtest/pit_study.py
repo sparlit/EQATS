@@ -38,7 +38,9 @@ import config
 
 
 def load_pit():
-    df = pd.concat(map(pd.read_parquet, Path(config.DATA_DIR / "pit").glob("*.parquet")), ignore_index=True)
+    df = pd.concat(
+        map(pd.read_parquet, Path(config.DATA_DIR / "pit").glob("*.parquet")), ignore_index=True
+    )
     df["symbol"] = renames.canonical(df["symbol"].astype(str).str.strip())
     df["an_dt"] = pd.to_datetime(df["date"], format="%d-%b-%Y %H:%M", errors="coerce")
     df["val"] = pd.to_numeric(df["secVal"], errors="coerce")
@@ -46,7 +48,10 @@ def load_pit():
 
 
 def load_ann():
-    df = pd.concat(map(pd.read_parquet, Path(config.DATA_DIR / "ann_full").glob("*.parquet")), ignore_index=True)
+    df = pd.concat(
+        map(pd.read_parquet, Path(config.DATA_DIR / "ann_full").glob("*.parquet")),
+        ignore_index=True,
+    )
     df["symbol"] = renames.canonical(df["symbol"])
     df["an_dt"] = pd.to_datetime(df["an_dt"], errors="coerce")
     return df.dropna(subset=["an_dt", "symbol"])
@@ -71,7 +76,10 @@ def main():
     cl = []
     for _sym, g in b.groupby("symbol"):
         for i in range(len(g)):
-            w = g[(g["day"] > g["day"].iloc[i] - pd.Timedelta(days=21)) & (g["day"] <= g["day"].iloc[i])]
+            w = g[
+                (g["day"] > g["day"].iloc[i] - pd.Timedelta(days=21))
+                & (g["day"] <= g["day"].iloc[i])
+            ]
             if w["acqName"].nunique() >= 2:
                 cl.append(g.iloc[i])
     cluster = pd.DataFrame(cl)
@@ -81,7 +89,10 @@ def main():
     lowsnip = ann["snippet"].astype(str).str.lower()
     downgrade = ann[
         lowsnip.str.contains("downgrad", na=False)
-        | (lowdesc.str.contains("credit rating", na=False) & lowsnip.str.contains("downgrad|negative", na=False))
+        | (
+            lowdesc.str.contains("credit rating", na=False)
+            & lowsnip.str.contains("downgrad|negative", na=False)
+        )
     ]
     aud_resign = ann[
         lowsnip.str.contains(
@@ -116,12 +127,16 @@ def main():
         )
         _rep("v21 baseline 63d", run_kind(W(base_v21), *args, gap_days=63), nm)
         _rep("v21 cluster>=2", run_kind(W(cluster), *args, gap_days=63), nm)
-        _rep("v21 value>=1cr", run_kind(W(base_v21[base_v21["val"] >= 1e7]), *args, gap_days=63), nm)
+        _rep(
+            "v21 value>=1cr", run_kind(W(base_v21[base_v21["val"] >= 1e7]), *args, gap_days=63), nm
+        )
         _rep("v21 hold_21", run_kind(W(base_v21), *args, hold=21, gap_days=63), nm)
         _rep("v21 hold_126", run_kind(W(base_v21), *args, hold=126, gap_days=63), nm)
         _rep(
             "v21 promoters_only",
-            run_kind(W(base_v21[base_v21["personCategory"].str.contains("Promoter")]), *args, gap_days=63),
+            run_kind(
+                W(base_v21[base_v21["personCategory"].str.contains("Promoter")]), *args, gap_days=63
+            ),
             nm,
         )
         _rep("v22 rating-downgrade", run_kind(W(downgrade), *args, gap_days=63), nm)
