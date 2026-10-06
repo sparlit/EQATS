@@ -66,5 +66,8 @@ def append_signal(signal: dict[str, Any]) -> dict[str, Any]:
                 json.dump(signals, f, indent=4)
         except Exception as err:
             import logging
-            logging.getLogger("itip_signal_store").debug("Error appending signal record to log files: %s", err)
+
+            logging.getLogger("itip_signal_store").debug(
+                "Error appending signal record to log files: %s", err
+            )
     return record

@@ -108,6 +108,7 @@ class QuantumAutoEngine:
             research_metrics["status"] = "LIVE_FEED_READY"
         except Exception as err:
             import logging
+
             logging.getLogger("quantum_engine").debug("Research metrics error: %s", err)
         return research_metrics
 

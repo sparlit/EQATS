@@ -25,7 +25,10 @@ def calculate_ema(prices: Any, period: Any) -> Any:
                 return ema_series[-1]
     except Exception as err:
         import logging
-        logging.getLogger("indicators").debug("Rust acceleration for calculate_ema unavailable: %s", err)
+
+        logging.getLogger("indicators").debug(
+            "Rust acceleration for calculate_ema unavailable: %s", err
+        )
     multiplier = 2.0 / (period + 1)
     sma = sum(prices[:period]) / float(period)
     ema = sma

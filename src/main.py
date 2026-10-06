@@ -603,7 +603,10 @@ class AutonomousScalper:
                             pending_orders.append((res["symbol"], res["decision"], res["analysis"]))
                     parallel_success = True
             except Exception as err:
-                _log.debug("ProcessPoolExecutor execution failed, falling back to ThreadPoolExecutor: %s", err)
+                _log.debug(
+                    "ProcessPoolExecutor execution failed, falling back to ThreadPoolExecutor: %s",
+                    err,
+                )
         if not parallel_success:
             scans_list = []
             pending_orders = []

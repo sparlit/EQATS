@@ -41,7 +41,10 @@ def extract_advanced_nlp_sentiments(headline: Any) -> Any:
         _ = [(ent.text, ent.label_) for ent in doc.ents]
     except Exception as err:
         import logging
-        logging.getLogger("natural_language").debug("spaCy entity recognition optional pipeline unbacked: %s", err)
+
+        logging.getLogger("natural_language").debug(
+            "spaCy entity recognition optional pipeline unbacked: %s", err
+        )
     try:
         from transformers import pipeline
 
@@ -56,7 +59,10 @@ def extract_advanced_nlp_sentiments(headline: Any) -> Any:
             scores["sentiment_label"] = "BULLISH"
     except Exception as err:
         import logging
-        logging.getLogger("natural_language").debug("HuggingFace Transformers optional pipeline unbacked: %s", err)
+
+        logging.getLogger("natural_language").debug(
+            "HuggingFace Transformers optional pipeline unbacked: %s", err
+        )
         if scores["textblob_polarity"] > 0.1:
             scores["sentiment_label"] = "BULLISH"
         elif scores["textblob_polarity"] < -0.1:
