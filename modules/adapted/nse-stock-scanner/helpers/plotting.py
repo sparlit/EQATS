@@ -56,7 +56,7 @@ class Plots:
         self,
         df,
         names=("DATE", "OPEN", "CLOSE", "LOW", "HIGH"),
-        mv: list | None = None,
+        mv: list = None,
         slider: bool = False,
         fig_size: bool = (1400, 700),
         plot: bool = True,
@@ -76,16 +76,16 @@ class Plots:
         delta = df.iloc[0, 0] - df.iloc[1, 0]
         kind = "day" if delta.days > 0 else "intra"
         freq = int(delta.seconds / 60) if kind == "intra" else None
-        candle_text = f"{freq!s} Min" if freq else "Daily"
+        candle_text = f"{str(freq)} Min" if freq else "Daily"
 
         stocks = df.copy()
-        stocks = stocks.sort_index(
-            ascending=False
+        stocks.sort_index(
+            ascending=False, inplace=True
         )  # Without reverse, recent rolling mean will be either NaN or equal to the exact value
 
         Date, Open, Close, Low, High = names
 
-        mv = mv or []  # just in case you don't want to have any moving averages
+        mv = mv if mv else []  # just in case you don't want to have any moving averages
         colors = np.random.choice(["black", "magenta", "teal", "brown"], len(mv), replace=False)
 
         # To remove gaps in candles due to Non- Trading days
@@ -110,11 +110,13 @@ class Plots:
             start = stocks["DATE"].iloc[0] - timedelta(days=1)
             end = stocks["DATE"].iloc[-1] + timedelta(days=1)
 
-            dt_all = pd.date_range(start=start, end=end, freq=f"{freq!s}min")
+            dt_all = pd.date_range(start=start, end=end, freq=f"{str(freq)}min")
             # check which dates from your source that also accur in the continuous date range
             dt_obs = [d.strftime("%Y-%m-%d %H:%M:%S") for d in stocks["DATE"]]
             # isolate missing timestamps
-            dt_breaks = [d for d in dt_all.strftime("%Y-%m-%d %H:%M:%S").tolist() if d not in dt_obs]
+            dt_breaks = [
+                d for d in dt_all.strftime("%Y-%m-%d %H:%M:%S").tolist() if d not in dt_obs
+            ]
 
             rangebreaks = [{"dvalue": freq * 60 * 1000, "values": dt_breaks}]
 
@@ -130,23 +132,26 @@ class Plots:
                     high=stocks[High],
                     low=stocks[Low],
                     close=stocks[Close],
-                )
+                ),
             ]
         )
 
         for i in range(len(mv)):
-            stocks[f"{mv[i]!s}-SMA"] = stocks[Close].rolling(mv[i], min_periods=1).mean()
+            stocks[f"{str(mv[i])}-SMA"] = stocks[Close].rolling(mv[i], min_periods=1).mean()
             candle.add_trace(
                 go.Scatter(
-                    name=f"{mv[i]!s} MA",
+                    name=f"{str(mv[i])} MA",
                     x=stocks[Date],
-                    y=stocks[f"{mv[i]!s}-SMA"],
+                    y=stocks[f"{str(mv[i])}-SMA"],
                     line={"color": colors[i], "width": 1.7},
                 )
             )
 
         candle.update_xaxes(
-            title_text="Date", rangeslider_visible=slider, rangeselector=range_selector, rangebreaks=rangebreaks
+            title_text="Date",
+            rangeslider_visible=slider,
+            rangeselector=range_selector,
+            rangebreaks=rangebreaks,
         )
 
         candle.update_layout(
@@ -154,7 +159,7 @@ class Plots:
             width=fig_size[0],
             height=fig_size[1],
             title={
-                "text": f"{stocks['SYMBOL'][0]} : {candle_text!s} Candles | {self.all_stocks[stocks['SYMBOL'][0]].split('_')[1]}",
+                "text": f"{stocks['SYMBOL'][0]} : {str(candle_text)} Candles | {self.all_stocks[stocks['SYMBOL'][0]].split('_')[1]}",
                 "y": 0.97,
                 "x": 0.5,
                 "xanchor": "center",
@@ -186,21 +191,49 @@ class Plots:
         piv_data[null_date] = None
         total = len(dates)
 
-        _fig, ax = plt.subplots(figsize=plot_size)
+        fig, ax = plt.subplots(figsize=plot_size)
         plt.title(f"Pivot Plot for {name}", weight="bold", fontsize=15)
 
         for i, key in enumerate(dates):
             data = piv_data[key]
 
             if i < total - 1:
-                ax.hlines(y=data["UB"], xmin=key, xmax=dates[i + 1], linewidth=1.5, color="red", linestyles="dotted")
-                ax.hlines(y=data["Pivot"], xmin=key, xmax=dates[i + 1], linewidth=2, color="black")
-                ax.hlines(y=data["LB"], xmin=key, xmax=dates[i + 1], linewidth=1.5, color="green", linestyles="dotted")
+                ax.hlines(
+                    y=data["UB"],
+                    xmin=dates[i],
+                    xmax=dates[i + 1],
+                    linewidth=1.5,
+                    color="red",
+                    linestyles="dotted",
+                )
+                ax.hlines(
+                    y=data["Pivot"],
+                    xmin=dates[i],
+                    xmax=dates[i + 1],
+                    linewidth=2,
+                    color="black",
+                )
+                ax.hlines(
+                    y=data["LB"],
+                    xmin=dates[i],
+                    xmax=dates[i + 1],
+                    linewidth=1.5,
+                    color="green",
+                    linestyles="dotted",
+                )
 
-                ax.hlines(y=data["S-1"], xmin=key, xmax=dates[i + 1], linewidth=2, color="green")
-                ax.hlines(y=data["R-1"], xmin=key, xmax=dates[i + 1], linewidth=2, color="red")
+                ax.hlines(
+                    y=data["S-1"], xmin=dates[i], xmax=dates[i + 1], linewidth=2, color="green"
+                )
+                ax.hlines(
+                    y=data["R-1"],
+                    xmin=dates[i],
+                    xmax=dates[i + 1],
+                    linewidth=2,
+                    color="red",
+                )
 
-                ax.axvline(x=key, color="black", linestyle="dotted", linewidth=1)
+                ax.axvline(x=dates[i], color="black", linestyle="dotted", linewidth=1)
 
         ax.axvline(x=dates[i], color="black", linestyle="dotted", linewidth=1)
 
@@ -215,19 +248,51 @@ class Plots:
             linestyles="dotted",
             label="Upper Bound",
         )
-        ax.hlines(y=data["Pivot"], xmin=dates[i], xmax=dates[i], linewidth=2, color="black", label="Lower Bound")
         ax.hlines(
-            y=data["LB"], xmin=dates[i], xmax=dates[i], linewidth=1.5, color="green", linestyles="dotted", label="Pivot"
+            y=data["Pivot"],
+            xmin=dates[i],
+            xmax=dates[i],
+            linewidth=2,
+            color="black",
+            label="Lower Bound",
+        )
+        ax.hlines(
+            y=data["LB"],
+            xmin=dates[i],
+            xmax=dates[i],
+            linewidth=1.5,
+            color="green",
+            linestyles="dotted",
+            label="Pivot",
         )
 
-        ax.hlines(y=data["S-1"], xmin=dates[i], xmax=dates[i], linewidth=2, color="green", label="Support 1")
-        ax.hlines(y=data["R-1"], xmin=dates[i], xmax=dates[i], linewidth=2, color="red", label="Resistance 1")
+        ax.hlines(
+            y=data["S-1"],
+            xmin=dates[i],
+            xmax=dates[i],
+            linewidth=2,
+            color="green",
+            label="Support 1",
+        )
+        ax.hlines(
+            y=data["R-1"],
+            xmin=dates[i],
+            xmax=dates[i],
+            linewidth=2,
+            color="red",
+            label="Resistance 1",
+        )
 
         plt.legend()
         plt.show()
 
     def pivot_plot(
-        self, pivot_data, fig=None, name: str | None = None, fig_size: bool = (1000, 600), sr_levels: int = 1
+        self,
+        pivot_data,
+        fig=None,
+        name: str = None,
+        fig_size: bool = (1000, 600),
+        sr_levels: int = 1,
     ):
         """
         Plot Pivot points with Pivot, Upper Bound, Lower Bound, Support-1, Resistance-1
@@ -253,7 +318,7 @@ class Plots:
             data = piv_data[key]
 
             if i < total - 1:
-                curr_date = key
+                curr_date = dates[i]
                 next_date = dates[i + 1]
                 X_range = pd.date_range(curr_date, next_date, freq="15T")
 
@@ -297,22 +362,22 @@ class Plots:
                     fig.add_traces(
                         go.Scatter(
                             x=X_range,
-                            y=np.repeat([data[f"S-{j!s}"]], 100),
+                            y=np.repeat([data[f"S-{str(j)}"]], 100),
                             mode="lines",
                             line_color="green",
                             showlegend=False,
-                            name=f"S-{j!s}",
+                            name=f"S-{str(j)}",
                             line={"width": 1.3 + j},
                         )
                     )
                     fig.add_traces(
                         go.Scatter(
                             x=X_range,
-                            y=np.repeat([data[f"R-{j!s}"]], 100),
+                            y=np.repeat([data[f"R-{str(j)}"]], 100),
                             mode="lines",
                             line_color="red",
                             showlegend=False,
-                            name=f"R-{j!s}",
+                            name=f"R-{str(j)}",
                             line={"width": 1.3 + j},
                         )
                     )
@@ -324,7 +389,9 @@ class Plots:
         fig.update_layout(autosize=False, width=fig_size[0], height=fig_size[1])
         return fig
 
-    def plot_Option_chain(self, symbol: str, df, compare_with, top_n: int, sup_plot_text_date: str, fig_size=(25, 10)):
+    def plot_Option_chain(
+        self, symbol: str, df, compare_with, top_n: int, sup_plot_text_date: str, fig_size=(25, 10)
+    ):
         """
         Plot the N values for option chain. Takes input from with FnO.analyse_option_chain()
         args:
@@ -386,7 +453,9 @@ class Plots:
             )
 
             for c in fig.containers:
-                fig.bar_label(c, fmt="%.0f", label_type="edge", padding=5, color="black", fontsize=15)
+                fig.bar_label(
+                    c, fmt="%.0f", label_type="edge", padding=5, color="black", fontsize=15
+                )
                 fig.margins(y=0.3)
 
             fig.set_ylabel(comp_with, labelpad=10, fontsize=13)

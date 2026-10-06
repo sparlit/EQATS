@@ -21,9 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from pandas import DataFrame as frame
-
-
 class CandlePattern:
     def find_color(self, open: float, close: float):
         """
@@ -36,7 +33,7 @@ class CandlePattern:
             return "Red"
         return "Green"
 
-    def find_name(self, open: float, close: float, low: float | None = None, high: float | None = None):
+    def find_name(self, open: float, close: float, low: float = None, high: float = None):
         """
         Find if Candle is Doji / Hammer / Shooting Star / Normal
         args:
@@ -68,10 +65,14 @@ class CandlePattern:
         if abs(high - max(close, open)) > o_c_diff and abs(low - min(close, open)) > o_c_diff:
             return "Green Doji" if color == "Green" else "Red Doji"  # doji
 
-        if abs(high - max(close, open)) < 0.15 * o_c_diff and abs(low - min(close, open)) < 0.15 * o_c_diff:
+        if (
+            abs(high - max(close, open)) < 0.15 * o_c_diff
+            and abs(low - min(close, open)) < 0.15 * o_c_diff
+        ):
             return "Bullish" if color == "Green" else "Bearish"
 
-        return f"Unknown {color}"
+        else:
+            return f"Unknown {color}"
 
     def double_candle_pattern(self, df, names=("DATE", "OPEN", "CLOSE", "LOW", "HIGH")):
         """
@@ -80,7 +81,7 @@ class CandlePattern:
             stocks: Pandas DataFrame
             names: Name of Columns representing ('DATE','OPEN','CLOSE','LOW','HIGH') in same order
         """
-        _Date, Open, Close, Low, High = names
+        Date, Open, Close, Low, High = names
         stocks = df.copy()
 
         if (
@@ -92,7 +93,12 @@ class CandlePattern:
             last_traded = stocks.iloc[-1, :]
             second_last_traded = stocks.iloc[-2, :]
 
-        low, high, open_, close = last_traded[Low], last_traded[High], last_traded[Open], last_traded[Close]
+        low, high, open_, close = (
+            last_traded[Low],
+            last_traded[High],
+            last_traded[Open],
+            last_traded[Close],
+        )
         _sec_low, _sec_high, sec_open_, sec_close = (
             second_last_traded[Low],
             second_last_traded[High],
@@ -101,31 +107,34 @@ class CandlePattern:
         )
 
         # If current or last candle is Green and it's Open, Close Engulfs the whole of previous one, then it is Bullish Engulfing
-        if (self.find_color(sec_open_, sec_close) == "Red" and self.find_color(open_, close) == "Green") and (
-            sec_close >= open_ and sec_open_ <= close
-        ):
+        if (
+            self.find_color(sec_open_, sec_close) == "Red"
+            and self.find_color(open_, close) == "Green"
+        ) and (sec_close >= open_ and sec_open_ <= close):
             return "Bullish Engulfing"
 
-        if (self.find_color(sec_open_, sec_close) == "Green" and self.find_color(open_, close) == "Red") and (
-            sec_close <= open_ and sec_open_ >= close
-        ):
+        elif (
+            self.find_color(sec_open_, sec_close) == "Green"
+            and self.find_color(open_, close) == "Red"
+        ) and (sec_close <= open_ and sec_open_ >= close):
             return "Bearish Engulfing"
 
-        if (
+        elif (
             (self.find_color(sec_open_, sec_close) == "Green")
             and (sec_open_ < low and sec_close > high)
             and self.find_name(open_, close, low, high) == "Red Doji"
         ):
             return "Bearish Harami"
 
-        if (
+        elif (
             (self.find_color(sec_open_, sec_close) == "Red")
             and (sec_close < low and sec_open_ > high)
             and self.find_name(open_, close, low, high) == "Green Doji"
         ):
             return "Bullish Harami"
 
-        return "Unknown"
+        else:
+            return "Unknown"
 
     def triple_candle_pattern(self, stocks, names=("DATE", "OPEN", "CLOSE", "LOW", "HIGH")):
         """
@@ -134,7 +143,7 @@ class CandlePattern:
             stocks: Pandas DataFrame
             names: Name of Columns representing ('DATE','OPEN','CLOSE','LOW','HIGH') in same order
         """
-        _Date, Open, Close, Low, High = names
+        Date, Open, Close, Low, High = names
 
         if (
             stocks.iloc[0, 0] > stocks.iloc[1, 0]
@@ -166,13 +175,17 @@ class CandlePattern:
             third_last_traded[Close],
         )  # Third
 
-        if (third_high > sec_high and third_low > sec_low) and (curr_low > sec_low and curr_high > sec_high):
+        if (third_high > sec_high and third_low > sec_low) and (
+            curr_low > sec_low and curr_high > sec_high
+        ):
             return "V Pattern"
 
-        if (third_low < sec_low and third_high < sec_high) and (sec_high > curr_high and sec_low > curr_low):
+        elif (third_low < sec_low and third_high < sec_high) and (
+            sec_high > curr_high and sec_low > curr_low
+        ):
             return "Reverse V Pattern"
 
-        if (
+        elif (
             (
                 self.find_name(curr_open_, curr_close, curr_low, curr_high)
                 == self.find_name(sec_open_, sec_close, sec_low, sec_high)
@@ -184,7 +197,7 @@ class CandlePattern:
         ):
             return "Three White Soldiers"
 
-        if (
+        elif (
             (
                 self.find_name(curr_open_, curr_close, curr_low, curr_high)
                 == self.find_name(sec_open_, sec_close, sec_low, sec_high)
@@ -197,4 +210,5 @@ class CandlePattern:
             return "Three Black Crows"
 
         # shooting star. Reverse V but dependent on low and middle one should be a shooting star or reverse hammer
-        return "Unknown"
+        else:
+            return "Unknown"

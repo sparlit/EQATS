@@ -23,9 +23,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 from datetime import datetime
 
-import matplotlib.pyplot as plt
 import pandas as pd
-import seaborn as sns
 from dateutil.relativedelta import TH, relativedelta
 
 from .nse_data import NSEData
@@ -53,9 +51,8 @@ def get_next_expiry_date(expiry_type: str = "monthly"):
         for i in range(1, 13):
             x = (today + relativedelta(weekday=TH(i))).date()
             y = (today + relativedelta(weekday=TH(i + 1))).date()
-            if x.month != y.month:
-                if x.day > y.day:
-                    expiry_dates.append(x.strftime("%d-%b-%Y"))
+            if x.month != y.month and x.day > y.day:
+                expiry_dates.append(x.strftime("%d-%b-%Y"))
 
     return expiry_dates
 
@@ -63,7 +60,7 @@ def get_next_expiry_date(expiry_type: str = "monthly"):
 def analyse_option_chain(
     symbol,
     compare_with: tuple = ("openInterest", "changeinOpenInterest", "totalTradedVolume", "change"),
-    expiry_dates: tuple | None = None,
+    expiry_dates: tuple = None,
     top_n: int = 10,
     expiry_type: str = "monthly",
     plot: bool = True,
@@ -120,11 +117,13 @@ def analyse_option_chain(
             ]
 
     df = pd.DataFrame(df_data)
-    df = df.rename(columns={"expiryDate": "expiry_date", "strikePrice": "strike_price"})
-    df["expiry_date"] = df["expiry_date"].apply(lambda x: datetime.strptime(x, "%d-%b-%Y").strftime("%d-%b-%Y"))
-    df["strike_price"] = df["strike_price"].apply(int)
-    df["absChangeOI"] = df["changeinOpenInterest"].apply(abs)
-    df["absChange"] = df["change"].apply(abs)
+    df.rename(columns={"expiryDate": "expiry_date", "strikePrice": "strike_price"}, inplace=True)
+    df["expiry_date"] = df["expiry_date"].apply(
+        lambda x: datetime.strptime(x, "%d-%b-%Y").strftime("%d-%b-%Y")
+    )
+    df["strike_price"] = df["strike_price"].apply(lambda x: int(x))
+    df["absChangeOI"] = df["changeinOpenInterest"].apply(lambda x: abs(x))
+    df["absChange"] = df["change"].apply(lambda x: abs(x))
 
     # Get specific expiry date
     if not expiry_dates:
@@ -138,6 +137,8 @@ def analyse_option_chain(
     df = df[df["expiry_date"].isin(expiry_dates)]
 
     if plot:
-        PLT.plot_Option_chain(symbol, df, compare_with, top_n, sup_plot_text_date, fig_size=fig_size)
+        PLT.plot_Option_chain(
+            symbol, df, compare_with, top_n, sup_plot_text_date, fig_size=fig_size
+        )
 
     return df
