@@ -33,7 +33,7 @@ Tells you what % of stocks are shared between two or more funds.
 import json
 import logging
 import urllib.request
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger("finstack.mf_overlap")
 
@@ -184,7 +184,18 @@ KNOWN_FUND_HOLDINGS: dict[str, list[str]] = {
         "JKCEMENT",
         "HGINFRA",
     ],
-    "QUANT SMALL CAP": ["IRB", "RELIANCE", "ITC", "JSWENERGY", "VEDL", "ADANIENT", "BHEL", "RVNL", "IRFC", "PFC"],
+    "QUANT SMALL CAP": [
+        "IRB",
+        "RELIANCE",
+        "ITC",
+        "JSWENERGY",
+        "VEDL",
+        "ADANIENT",
+        "BHEL",
+        "RVNL",
+        "IRFC",
+        "PFC",
+    ],
     "DSP SMALL CAP": [
         "PGHL",
         "CYIENT",

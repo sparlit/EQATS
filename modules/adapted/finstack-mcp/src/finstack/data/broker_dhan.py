@@ -188,7 +188,7 @@ def get_live_quote_dhan(symbol: str) -> dict:
 
 
 def get_candle_data_dhan(
-    symbol: str, interval: str = "1d", from_date: str | None = None, to_date: str | None = None
+    symbol: str, interval: str = "1d", from_date: str = None, to_date: str = None
 ) -> dict:
     """
     Historical OHLCV candle data via Dhan API v2.
@@ -203,7 +203,9 @@ def get_candle_data_dhan(
     sym = symbol.upper().replace(".NS", "").replace(".BO", "")
     security_id = NSE_SECURITY_MAP.get(sym)
     if not security_id:
-        return {"error": f"Security ID not found for {sym}. Add it to NSE_SECURITY_MAP in broker_dhan.py"}
+        return {
+            "error": f"Security ID not found for {sym}. Add it to NSE_SECURITY_MAP in broker_dhan.py"
+        }
 
     dhan_interval = DHAN_INTERVAL_MAP.get(interval.lower(), "D")
     is_intraday = dhan_interval not in ("D", "W", "M")

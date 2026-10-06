@@ -149,7 +149,7 @@ def get_live_quote_upstox(symbol: str) -> dict:
             data = resp.json()
 
             if data.get("status") == "success" and data.get("data"):
-                q = next(iter(data["data"].values()))
+                q = list(data["data"].values())[0]
                 ohlc = q.get("ohlc", {})
                 ltp = q.get("last_price", 0)
                 prev_close = ohlc.get("close", 0)
@@ -188,7 +188,10 @@ def get_live_quote_upstox(symbol: str) -> dict:
 def get_market_depth_upstox(symbol: str) -> dict:
     """Level 2 order book depth via Upstox API v2 — top 5 bid/ask."""
     if not _is_configured():
-        return {"configured": False, "message": "Set UPSTOX_API_KEY and UPSTOX_ACCESS_TOKEN in .env"}
+        return {
+            "configured": False,
+            "message": "Set UPSTOX_API_KEY and UPSTOX_ACCESS_TOKEN in .env",
+        }
 
     sym = symbol.upper().replace(".NS", "").replace(".BO", "")
     instrument_key = NSE_INSTRUMENT_MAP.get(sym)
@@ -206,7 +209,7 @@ def get_market_depth_upstox(symbol: str) -> dict:
             data = resp.json()
 
             if data.get("status") == "success" and data.get("data"):
-                q = next(iter(data["data"].values()))
+                q = list(data["data"].values())[0]
                 depth = q.get("depth", {})
                 return clean_nan(
                     {
@@ -228,7 +231,7 @@ def get_market_depth_upstox(symbol: str) -> dict:
 
 
 def get_candle_data_upstox(
-    symbol: str, interval: str = "1d", from_date: str | None = None, to_date: str | None = None
+    symbol: str, interval: str = "1d", from_date: str = None, to_date: str = None
 ) -> dict:
     """
     Historical OHLCV candle data via Upstox API v2.
@@ -243,7 +246,9 @@ def get_candle_data_upstox(
     sym = symbol.upper().replace(".NS", "").replace(".BO", "")
     instrument_key = NSE_INSTRUMENT_MAP.get(sym)
     if not instrument_key:
-        return {"error": f"Instrument key not found for {sym}. Add it to NSE_INSTRUMENT_MAP in broker_upstox.py"}
+        return {
+            "error": f"Instrument key not found for {sym}. Add it to NSE_INSTRUMENT_MAP in broker_upstox.py"
+        }
 
     upstox_interval = INTERVAL_MAP.get(interval.lower(), "day")
     is_intraday = interval.lower() not in ("1d", "1wk", "1mo", "day", "week", "month")
@@ -289,8 +294,11 @@ def get_candle_data_upstox(
                         continue
                     ts, o, h, low, cl, vol = c[0], c[1], c[2], c[3], c[4], c[5]
                     try:
-                        dt = datetime.fromisoformat(str(ts))
-                        time_val = dt.strftime("%Y-%m-%d") if not is_intraday else int(dt.timestamp())
+                        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+                        if not is_intraday:
+                            time_val = dt.strftime("%Y-%m-%d")
+                        else:
+                            time_val = int(dt.timestamp())
                     except Exception:
                         time_val = str(ts)
                     records.append(

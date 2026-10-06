@@ -36,7 +36,7 @@ Output: single % probability Nifty closes UP tomorrow + bull/bear factors.
 """
 
 import logging
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger("finstack.probability")
 
@@ -102,7 +102,9 @@ def _get_index_snapshot(index_name: str) -> dict | None:
             "spot": round(spot, 2),
             "rsi": round(float(rsi.iloc[-1]), 2) if rsi.notna().iloc[-1] else None,
             "macd": round(float(macd.iloc[-1]), 2) if macd.notna().iloc[-1] else None,
-            "macd_signal": round(float(macd_signal.iloc[-1]), 2) if macd_signal.notna().iloc[-1] else None,
+            "macd_signal": round(float(macd_signal.iloc[-1]), 2)
+            if macd_signal.notna().iloc[-1]
+            else None,
             "sma20": round(float(sma20.iloc[-1]), 2) if sma20.notna().iloc[-1] else None,
         }
     except Exception as e:
@@ -588,7 +590,11 @@ def get_fno_trade_setup(symbol: str = "NIFTY") -> dict:
                 if vix_regime in {"fear", "panic"}
                 else []
             ),
-            *(["Confidence is below 58%, so position size should stay small"] if confidence < 58 else []),
+            *(
+                ["Confidence is below 58%, so position size should stay small"]
+                if confidence < 58
+                else []
+            ),
         ],
         "computed_at": datetime.now(tz=UTC).isoformat(),
         "disclaimer": "Signal aid only. For educational use. Not broker-linked auto execution or SEBI-registered advice.",

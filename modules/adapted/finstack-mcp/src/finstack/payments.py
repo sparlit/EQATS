@@ -111,7 +111,9 @@ def generate_api_key(tier: UserTier = UserTier.FREE) -> str:
 # ===== USER MANAGEMENT =====
 
 
-def create_user(email: str, tier: UserTier = UserTier.FREE, payment_id: str = "", provider: str = "") -> dict:
+def create_user(
+    email: str, tier: UserTier = UserTier.FREE, payment_id: str = "", provider: str = ""
+) -> dict:
     """Create a new user with an API key."""
     db = _get_db()
 
@@ -120,7 +122,9 @@ def create_user(email: str, tier: UserTier = UserTier.FREE, payment_id: str = ""
     if existing:
         # Upgrade existing user
         api_key = existing["api_key"]
-        expires_at = (datetime.now() + timedelta(days=30)).isoformat() if tier != UserTier.FREE else None
+        expires_at = (
+            (datetime.now() + timedelta(days=30)).isoformat() if tier != UserTier.FREE else None
+        )
 
         db.execute(
             """
@@ -143,7 +147,9 @@ def create_user(email: str, tier: UserTier = UserTier.FREE, payment_id: str = ""
     # Create new user
     api_key = generate_api_key(tier)
     now = datetime.now().isoformat()
-    expires_at = (datetime.now() + timedelta(days=30)).isoformat() if tier != UserTier.FREE else None
+    expires_at = (
+        (datetime.now() + timedelta(days=30)).isoformat() if tier != UserTier.FREE else None
+    )
 
     db.execute(
         """
@@ -175,7 +181,9 @@ def validate_api_key(api_key: str) -> dict | None:
         return None
 
     db = _get_db()
-    user = db.execute("SELECT * FROM users WHERE api_key = ? AND is_active = 1", (api_key,)).fetchone()
+    user = db.execute(
+        "SELECT * FROM users WHERE api_key = ? AND is_active = 1", (api_key,)
+    ).fetchone()
 
     if not user:
         db.close()
@@ -200,10 +208,15 @@ def validate_api_key(api_key: str) -> dict | None:
     # Track daily requests
     today = datetime.now().strftime("%Y-%m-%d")
     if user["last_request_date"] != today:
-        db.execute("UPDATE users SET requests_today = 1, last_request_date = ? WHERE api_key = ?", (today, api_key))
+        db.execute(
+            "UPDATE users SET requests_today = 1, last_request_date = ? WHERE api_key = ?",
+            (today, api_key),
+        )
         requests_today = 1
     else:
-        db.execute("UPDATE users SET requests_today = requests_today + 1 WHERE api_key = ?", (api_key,))
+        db.execute(
+            "UPDATE users SET requests_today = requests_today + 1 WHERE api_key = ?", (api_key,)
+        )
         requests_today = int(user["requests_today"]) + 1
     db.commit()
 
@@ -270,14 +283,22 @@ def handle_razorpay_webhook(payload: bytes, signature: str, secret: str) -> dict
             INSERT INTO payment_logs (event_type, payment_id, amount, currency, provider, raw_data, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-            (event, payment_id, amount, "INR", "razorpay", json.dumps(data), datetime.now().isoformat()),
+            (
+                event,
+                payment_id,
+                amount,
+                "INR",
+                "razorpay",
+                json.dumps(data),
+                datetime.now().isoformat(),
+            ),
         )
         db.commit()
         db.close()
 
         return result
 
-    if event in ("subscription.activated", "subscription.charged"):
+    elif event in ("subscription.activated", "subscription.charged"):
         # Handle subscription renewal
         logger.info(f"Subscription event: {event}")
         return {"status": "processed", "event": event}
@@ -308,14 +329,16 @@ def handle_stripe_webhook(payload: bytes, signature: str, secret: str) -> dict:
         v1_sig = sig_parts.get("v1", "")
 
         signed_payload = f"{timestamp}.{payload.decode('utf-8')}"
-        expected = hmac.new(secret.encode("utf-8"), signed_payload.encode("utf-8"), hashlib.sha256).hexdigest()
+        expected = hmac.new(
+            secret.encode("utf-8"), signed_payload.encode("utf-8"), hashlib.sha256
+        ).hexdigest()
 
         if not hmac.compare_digest(expected, v1_sig):
             logger.warning("Stripe webhook signature mismatch!")
             return {"error": True, "message": "Invalid signature"}
 
     except Exception as e:
-        logger.exception(f"Stripe signature verification failed: {e}")
+        logger.error(f"Stripe signature verification failed: {e}")
         return {"error": True, "message": "Signature verification failed"}
 
     data = json.loads(payload)
@@ -347,14 +370,22 @@ def handle_stripe_webhook(payload: bytes, signature: str, secret: str) -> dict:
             INSERT INTO payment_logs (event_type, payment_id, amount, currency, provider, raw_data, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-            (event_type, payment_id, amount, "USD", "stripe", json.dumps(data), datetime.now().isoformat()),
+            (
+                event_type,
+                payment_id,
+                amount,
+                "USD",
+                "stripe",
+                json.dumps(data),
+                datetime.now().isoformat(),
+            ),
         )
         db.commit()
         db.close()
 
         return result
 
-    if event_type == "invoice.paid":
+    elif event_type == "invoice.paid":
         invoice = data.get("data", {}).get("object", {})
         email = invoice.get("customer_email", "")
         if email:
@@ -371,7 +402,7 @@ def handle_stripe_webhook(payload: bytes, signature: str, secret: str) -> dict:
             logger.info(f"Subscription renewed for {email}")
         return {"status": "renewed", "email": email}
 
-    if event_type == "customer.subscription.deleted":
+    elif event_type == "customer.subscription.deleted":
         sub = data.get("data", {}).get("object", {})
         # Will auto-downgrade when expires_at passes
         logger.info(f"Subscription cancelled: {sub.get('id')}")
@@ -391,7 +422,9 @@ def get_user_stats() -> dict:
     free = db.execute("SELECT COUNT(*) as c FROM users WHERE tier = 'free'").fetchone()["c"]
     pro = db.execute("SELECT COUNT(*) as c FROM users WHERE tier = 'pro'").fetchone()["c"]
     api = db.execute("SELECT COUNT(*) as c FROM users WHERE tier = 'api'").fetchone()["c"]
-    enterprise = db.execute("SELECT COUNT(*) as c FROM users WHERE tier = 'enterprise'").fetchone()["c"]
+    enterprise = db.execute("SELECT COUNT(*) as c FROM users WHERE tier = 'enterprise'").fetchone()[
+        "c"
+    ]
 
     db.close()
 

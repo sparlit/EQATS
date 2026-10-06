@@ -46,7 +46,7 @@ Without setup: returns known channel database with historical scoring.
 
 import logging
 import os
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger("finstack.telegram")
 
@@ -60,7 +60,11 @@ KNOWN_CHANNELS = [
         "avg_return_pct": 3.1,
         "pump_probability": "high",
         "verdict": "Likely operator-driven. Tips come right after volume spikes.",
-        "red_flags": ["Tips follow volume spike by 1-2 days", "No stop-loss given", "Deletes failed tips"],
+        "red_flags": [
+            "Tips follow volume spike by 1-2 days",
+            "No stop-loss given",
+            "Deletes failed tips",
+        ],
     },
     {
         "channel": "@DalalStreetWinnersOfficial",
@@ -69,7 +73,11 @@ KNOWN_CHANNELS = [
         "avg_return_pct": 1.8,
         "pump_probability": "very_high",
         "verdict": "Classic pump channel. High subscriber count used to move small caps.",
-        "red_flags": ["Targets micro-caps only", "Tips expire same day", "Paid promotions not disclosed"],
+        "red_flags": [
+            "Targets micro-caps only",
+            "Tips expire same day",
+            "Paid promotions not disclosed",
+        ],
     },
     {
         "channel": "@StockMarketUpdate24",
@@ -102,7 +110,11 @@ KNOWN_CHANNELS = [
 
 
 def _is_configured() -> bool:
-    return bool(os.getenv("TELEGRAM_API_ID") and os.getenv("TELEGRAM_API_HASH") and os.getenv("TELEGRAM_PHONE"))
+    return bool(
+        os.getenv("TELEGRAM_API_ID")
+        and os.getenv("TELEGRAM_API_HASH")
+        and os.getenv("TELEGRAM_PHONE")
+    )
 
 
 async def _fetch_channel_messages(channel: str, limit: int = 100) -> list[dict]:

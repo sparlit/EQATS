@@ -62,7 +62,7 @@ IST = timezone(timedelta(hours=5, minutes=30))
 # ─── Telegram HTTP helpers ────────────────────────────────────────────────────
 
 
-async def tg_get(method: str, params: dict | None = None) -> dict:
+async def tg_get(method: str, params: dict = None) -> dict:
     if params is None:
         params = {}
     async with httpx.AsyncClient(timeout=10) as client:
@@ -235,7 +235,9 @@ def build_alert_message(symbol: str, condition: str, price: float, current: floa
     )
 
 
-def build_battle_message(symbol: str, signal: str, strength: str, avg_score: float, note: str) -> str:
+def build_battle_message(
+    symbol: str, signal: str, strength: str, avg_score: float, note: str
+) -> str:
     emoji = {"BUY": "🟢", "SELL": "🔴", "HOLD": "🟡"}.get(signal.upper(), "⚡")
     return (
         f"⚔️ <b>Agent Battle — {symbol}</b>\n\n"
@@ -300,31 +302,31 @@ async def handle_update(update: dict) -> dict | None:
             print(f"[telegram] save_subscriber error: {e}")
         return _inline(WELCOME)
 
-    if text.startswith("/brief"):
+    elif text.startswith("/brief"):
         asyncio.create_task(_send_brief_delayed(chat_id))
         return _inline("⏳ Fetching morning brief… will arrive in a few seconds.")
 
-    if text.startswith("/nifty"):
+    elif text.startswith("/nifty"):
         asyncio.create_task(_send_nifty(chat_id))
         return _inline("⏳ Fetching live prices…")
 
-    if text.startswith("/vix"):
+    elif text.startswith("/vix"):
         asyncio.create_task(_send_vix(chat_id))
         return _inline("⏳ Fetching VIX…")
 
-    if text.startswith("/fii"):
+    elif text.startswith("/fii"):
         asyncio.create_task(_send_fii(chat_id))
         return _inline("⏳ Fetching FII/DII data…")
 
-    if text.startswith("/signal"):
+    elif text.startswith("/signal"):
         asyncio.create_task(_send_signal(chat_id))
         return _inline("⏳ Running F&O signal scan…")
 
-    if text.startswith("/pcr"):
+    elif text.startswith("/pcr"):
         asyncio.create_task(_send_pcr(chat_id))
         return _inline("⏳ Fetching PCR…")
 
-    if text.startswith(("/q ", "/quote ")):
+    elif text.startswith("/q ") or text.startswith("/quote "):
         parts = text.split(None, 1)
         sym = parts[1].strip().upper() if len(parts) > 1 else ""
         if not sym:
@@ -332,12 +334,12 @@ async def handle_update(update: dict) -> dict | None:
         asyncio.create_task(_send_quote(chat_id, sym))
         return _inline(f"⏳ Fetching {sym}…")
 
-    if text.startswith("/stop"):
+    elif text.startswith("/stop"):
         with contextlib.suppress(Exception):
             await mark_unsubscribed(chat_id)
         return _inline("✅ Unsubscribed. Send /start to resubscribe.")
 
-    if text.startswith("/help"):
+    elif text.startswith("/help"):
         return _inline(WELCOME)
 
     return None
@@ -449,7 +451,9 @@ async def _send_signal(chat_id: int):
         active = [s for s in signals if s.get("direction") not in (None, "NO_SIGNAL")]
 
         if not active:
-            scores = [f"{s['symbol']} {s.get('score', 0)}/{s.get('min_score', '?')}" for s in signals]
+            scores = [
+                f"{s['symbol']} {s.get('score', 0)}/{s.get('min_score', '?')}" for s in signals
+            ]
             msg = (
                 f"⚡ <b>F&amp;O Signals</b>\n\n"
                 f"No signal right now.\n"
@@ -523,7 +527,9 @@ async def _send_quote(chat_id: int, symbol: str):
         vol = data.get("volume")
 
         if not ltp:
-            await send_message(chat_id, f"⚠️ No data for <b>{symbol}</b>. Check symbol (e.g. RELIANCE, TCS, INFY).")
+            await send_message(
+                chat_id, f"⚠️ No data for <b>{symbol}</b>. Check symbol (e.g. RELIANCE, TCS, INFY)."
+            )
             return
 
         chg_str = fmt_chg(chg) if chg else "—"
@@ -580,7 +586,7 @@ async def broadcast_morning_brief():
 
 
 async def send_alert_to_subscribers(
-    symbol: str, condition: str, price: float, current: float, chat_ids: list[str] | None = None
+    symbol: str, condition: str, price: float, current: float, chat_ids: list[str] = None
 ):
     """Send price alert. chat_ids=None → broadcast to all."""
     msg = build_alert_message(symbol, condition, price, current)
@@ -592,7 +598,9 @@ async def send_alert_to_subscribers(
             print(f"[telegram] Alert send failed for {cid}: {e}")
 
 
-async def send_battle_to_chat(chat_id: str, symbol: str, signal: str, strength: str, avg_score: float, note: str):
+async def send_battle_to_chat(
+    chat_id: str, symbol: str, signal: str, strength: str, avg_score: float, note: str
+):
     msg = build_battle_message(symbol, signal, strength, avg_score, note)
     await send_message(chat_id, msg)
 

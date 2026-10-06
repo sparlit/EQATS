@@ -34,7 +34,7 @@ The "someone knows something" signal for Indian markets.
 """
 
 import logging
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger("finstack.smart_money")
 

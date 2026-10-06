@@ -129,9 +129,17 @@ def compute_technical_indicators(
                 signal_line = macd_line.ewm(span=9, adjust=False).mean()
                 histogram = macd_line - signal_line
 
-                current_macd = round(float(macd_line.iloc[-1]), 2) if pd.notna(macd_line.iloc[-1]) else None
-                current_signal = round(float(signal_line.iloc[-1]), 2) if pd.notna(signal_line.iloc[-1]) else None
-                current_hist = round(float(histogram.iloc[-1]), 2) if pd.notna(histogram.iloc[-1]) else None
+                current_macd = (
+                    round(float(macd_line.iloc[-1]), 2) if pd.notna(macd_line.iloc[-1]) else None
+                )
+                current_signal = (
+                    round(float(signal_line.iloc[-1]), 2)
+                    if pd.notna(signal_line.iloc[-1])
+                    else None
+                )
+                current_hist = (
+                    round(float(histogram.iloc[-1]), 2) if pd.notna(histogram.iloc[-1]) else None
+                )
 
                 signal = "Neutral"
                 if current_macd and current_signal:
@@ -169,7 +177,7 @@ def compute_technical_indicators(
                     "sma_20": sma20_val,
                     "sma_50": sma50_val,
                     "sma_200": sma200_val,
-                    "price_vs_sma": signals or ["Neutral"],
+                    "price_vs_sma": signals if signals else ["Neutral"],
                 }
 
             elif ind == "EMA":
@@ -202,7 +210,9 @@ def compute_technical_indicators(
                     "upper": upper_val,
                     "middle": mid_val,
                     "lower": lower_val,
-                    "bandwidth": round(float((upper.iloc[-1] - lower.iloc[-1]) / sma20.iloc[-1] * 100), 2)
+                    "bandwidth": round(
+                        float((upper.iloc[-1] - lower.iloc[-1]) / sma20.iloc[-1] * 100), 2
+                    )
                     if pd.notna(upper.iloc[-1]) and pd.notna(sma20.iloc[-1])
                     else None,
                     "signal": signal,
@@ -274,8 +284,12 @@ def compute_technical_indicators(
 
                 result["indicators"]["ADX"] = {
                     "value": adx_val,
-                    "plus_di": round(float(plus_di.iloc[-1]), 2) if pd.notna(plus_di.iloc[-1]) else None,
-                    "minus_di": round(float(minus_di.iloc[-1]), 2) if pd.notna(minus_di.iloc[-1]) else None,
+                    "plus_di": round(float(plus_di.iloc[-1]), 2)
+                    if pd.notna(plus_di.iloc[-1])
+                    else None,
+                    "minus_di": round(float(minus_di.iloc[-1]), 2)
+                    if pd.notna(minus_di.iloc[-1])
+                    else None,
                     "signal": signal,
                 }
 
@@ -302,7 +316,7 @@ def compute_technical_indicators(
     if macd_data.get("signal") and "Bearish" in macd_data.get("signal", ""):
         signals.append("MACD bearish")
 
-    result["overall_signals"] = signals or ["No strong signals"]
+    result["overall_signals"] = signals if signals else ["No strong signals"]
     result["timestamp"] = datetime.now().isoformat()
 
     return clean_nan(result)
@@ -615,14 +629,20 @@ def compare_stocks(symbols: list[str]) -> dict:
                             "roe": round(safe_get(info, "returnOnEquity", default=0) * 100, 2)
                             if safe_get(info, "returnOnEquity")
                             else None,
-                            "profit_margin": round(safe_get(info, "profitMargins", default=0) * 100, 2)
+                            "profit_margin": round(
+                                safe_get(info, "profitMargins", default=0) * 100, 2
+                            )
                             if safe_get(info, "profitMargins")
                             else None,
-                            "revenue_growth": round(safe_get(info, "revenueGrowth", default=0) * 100, 2)
+                            "revenue_growth": round(
+                                safe_get(info, "revenueGrowth", default=0) * 100, 2
+                            )
                             if safe_get(info, "revenueGrowth")
                             else None,
                             "debt_to_equity": safe_get(info, "debtToEquity"),
-                            "dividend_yield": round(safe_get(info, "dividendYield", default=0) * 100, 2)
+                            "dividend_yield": round(
+                                safe_get(info, "dividendYield", default=0) * 100, 2
+                            )
                             if safe_get(info, "dividendYield")
                             else None,
                             "beta": safe_get(info, "beta"),
@@ -756,7 +776,9 @@ def analyze_portfolio(
 
     # Calculate weights
     for p in portfolio:
-        p["weight_pct"] = round((p["current_value"] / total_current) * 100, 2) if total_current > 0 else 0
+        p["weight_pct"] = (
+            round((p["current_value"] / total_current) * 100, 2) if total_current > 0 else 0
+        )
 
     total_pnl = total_current - total_invested
     total_pnl_pct = (total_pnl / total_invested * 100) if total_invested > 0 else 0
@@ -810,7 +832,10 @@ def backtest_sma_crossover(
         return {"error": True, "message": f"No data for '{symbol}'."}
 
     if len(hist) < long_window + 10:
-        return {"error": True, "message": f"Not enough data. Need at least {long_window + 10} days."}
+        return {
+            "error": True,
+            "message": f"Not enough data. Need at least {long_window + 10} days.",
+        }
 
     close = hist["Close"]
     sma_short = close.rolling(window=short_window).mean()
@@ -883,10 +908,14 @@ def backtest_sma_crossover(
                 "total_trades": len([t for t in trades if t["action"] == "SELL"]),
                 "winning_trades": len(winning_trades),
                 "losing_trades": len(losing_trades),
-                "win_rate": round(len(winning_trades) / max(len(winning_trades) + len(losing_trades), 1) * 100, 1),
+                "win_rate": round(
+                    len(winning_trades) / max(len(winning_trades) + len(losing_trades), 1) * 100, 1
+                ),
             },
             "trades": trades[-10:],  # Last 10 trades
-            "verdict": "Strategy BEAT buy-and-hold" if total_return > buy_hold_return else "Buy-and-hold was BETTER",
+            "verdict": "Strategy BEAT buy-and-hold"
+            if total_return > buy_hold_return
+            else "Buy-and-hold was BETTER",
             "disclaimer": "Past performance does not guarantee future results. This is not financial advice.",
             "timestamp": datetime.now().isoformat(),
         }

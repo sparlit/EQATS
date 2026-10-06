@@ -62,7 +62,11 @@ ICICI_STOCK_CODES = {
 
 
 def _is_configured() -> bool:
-    return bool(os.getenv("ICICI_API_KEY") and os.getenv("ICICI_API_SECRET") and os.getenv("ICICI_SESSION_TOKEN"))
+    return bool(
+        os.getenv("ICICI_API_KEY")
+        and os.getenv("ICICI_API_SECRET")
+        and os.getenv("ICICI_SESSION_TOKEN")
+    )
 
 
 def _get_client():
@@ -70,12 +74,12 @@ def _get_client():
     try:
         from breeze_connect import BreezeConnect
     except ImportError:
-        msg = "Run: pip install breeze-connect"
-        raise ImportError(msg)
+        raise ImportError("Run: pip install breeze-connect")
 
     breeze = BreezeConnect(api_key=os.getenv("ICICI_API_KEY", ""))
     breeze.generate_session(
-        api_secret=os.getenv("ICICI_API_SECRET", ""), session_token=os.getenv("ICICI_SESSION_TOKEN", "")
+        api_secret=os.getenv("ICICI_API_SECRET", ""),
+        session_token=os.getenv("ICICI_SESSION_TOKEN", ""),
     )
     return breeze
 
@@ -122,7 +126,7 @@ def get_live_quote_icici(symbol: str) -> dict:
             "source": "icici_breeze",
         }
     except Exception as e:
-        logger.exception("ICICI quote error: %s", e)
+        logger.error("ICICI quote error: %s", e)
         return {"error": str(e)}
 
 
@@ -177,9 +181,14 @@ def get_candle_data_icici(symbol: str, interval: str = "1day", days: int = 30) -
                 }
             )
 
-        return {"symbol": symbol.upper(), "interval": interval, "data": candles, "source": "icici_breeze"}
+        return {
+            "symbol": symbol.upper(),
+            "interval": interval,
+            "data": candles,
+            "source": "icici_breeze",
+        }
     except Exception as e:
-        logger.exception("ICICI candle error: %s", e)
+        logger.error("ICICI candle error: %s", e)
         return {"error": str(e)}
 
 

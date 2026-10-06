@@ -39,7 +39,7 @@ Setup (Reddit only — StockTwits + ET work with zero setup):
 import logging
 import os
 import re
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger("finstack.sentiment")
 
@@ -218,7 +218,9 @@ def _fetch_stocktwits(symbol: str, limit: int = 50) -> list[dict]:
                 {
                     "source": "stocktwits",
                     "text": (msg.get("body") or "")[:400],
-                    "score": msg.get("likes", {}).get("total", 0) if isinstance(msg.get("likes"), dict) else 0,
+                    "score": msg.get("likes", {}).get("total", 0)
+                    if isinstance(msg.get("likes"), dict)
+                    else 0,
                     "created": msg.get("created_at", ""),
                     "sentiment": sentiment,
                 }
@@ -376,7 +378,10 @@ def get_social_sentiment(symbol: str, limit: int = 100) -> dict:
     themes = _extract_themes([p["text"] for p in all_posts])
 
     top_posts = sorted(all_posts, key=lambda p: p.get("score", 0), reverse=True)[:5]
-    sample = [{"source": p["source"], "text": p["text"][:120], "sentiment": p["sentiment"]} for p in top_posts]
+    sample = [
+        {"source": p["source"], "text": p["text"][:120], "sentiment": p["sentiment"]}
+        for p in top_posts
+    ]
 
     # Per-source breakdown
     sources_used = list({p["source"] for p in all_posts})

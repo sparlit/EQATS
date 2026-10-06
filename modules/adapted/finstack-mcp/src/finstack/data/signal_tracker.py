@@ -47,7 +47,7 @@ Outcome labels:
 import json
 import logging
 import sqlite3
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 logger = logging.getLogger("finstack.signal_tracker")
@@ -152,7 +152,7 @@ def log_signal(
         conn.close()
         logger.info("Signal logged: %s %s @ ₹%s [%s]", symbol, signal, price, sig_id)
     except Exception as e:
-        logger.exception("Failed to log signal: %s", e)
+        logger.error("Failed to log signal: %s", e)
 
     return sig_id
 
@@ -172,7 +172,9 @@ def check_pending_outcomes() -> dict:
     try:
         conn = _get_conn()
         # 7-day pending
-        rows_7d = conn.execute("SELECT * FROM signals WHERE checked_7d=0 AND check_7d_at <= ?", (now,)).fetchall()
+        rows_7d = conn.execute(
+            "SELECT * FROM signals WHERE checked_7d=0 AND check_7d_at <= ?", (now,)
+        ).fetchall()
 
         for row in rows_7d:
             price_now = _fetch_price(row["symbol"])
@@ -188,7 +190,9 @@ def check_pending_outcomes() -> dict:
                 updated["errors"] += 1
 
         # 30-day pending
-        rows_30d = conn.execute("SELECT * FROM signals WHERE checked_30d=0 AND check_30d_at <= ?", (now,)).fetchall()
+        rows_30d = conn.execute(
+            "SELECT * FROM signals WHERE checked_30d=0 AND check_30d_at <= ?", (now,)
+        ).fetchall()
 
         for row in rows_30d:
             price_now = _fetch_price(row["symbol"])
@@ -206,7 +210,7 @@ def check_pending_outcomes() -> dict:
         conn.commit()
         conn.close()
     except Exception as e:
-        logger.exception("Outcome check error: %s", e)
+        logger.error("Outcome check error: %s", e)
         updated["errors"] += 1
 
     return updated
@@ -217,19 +221,19 @@ def _label_outcome(signal: str, return_pct: float) -> str:
     if signal == "BUY":
         if return_pct >= 2:
             return "correct"
-        if return_pct <= -2:
+        elif return_pct <= -2:
             return "wrong"
         return "neutral"
-    if signal == "SELL":
+    elif signal == "SELL":
         if return_pct <= -2:
             return "correct"
-        if return_pct >= 2:
+        elif return_pct >= 2:
             return "wrong"
         return "neutral"
-    # HOLD
-    if abs(return_pct) <= 3:
-        return "correct"
-    return "neutral"
+    else:  # HOLD
+        if abs(return_pct) <= 3:
+            return "correct"
+        return "neutral"
 
 
 # ─── Accuracy stats ───────────────────────────────────────────────────────────
@@ -268,7 +272,9 @@ def get_accuracy_stats(
         where = " AND ".join(filters)
 
         # 7-day outcomes
-        rows = conn.execute(f"SELECT * FROM signals WHERE {where} AND checked_7d=1", params).fetchall()
+        rows = conn.execute(
+            f"SELECT * FROM signals WHERE {where} AND checked_7d=1", params
+        ).fetchall()
 
         conn.close()
     except Exception as e:
@@ -305,7 +311,10 @@ def get_accuracy_stats(
             sym_returns.setdefault(r["symbol"], []).append(r["return_7d"])
 
     top_symbols = sorted(
-        [{"symbol": s, "avg_return_7d": round(sum(v) / len(v), 2), "signals": len(v)} for s, v in sym_returns.items()],
+        [
+            {"symbol": s, "avg_return_7d": round(sum(v) / len(v), 2), "signals": len(v)}
+            for s, v in sym_returns.items()
+        ],
         key=lambda x: x["avg_return_7d"],
         reverse=True,
     )[:5]
@@ -340,7 +349,9 @@ def get_signal_history(symbol: str | None = None, limit: int = 20) -> list[dict]
                 (symbol.upper(), limit),
             ).fetchall()
         else:
-            rows = conn.execute("SELECT * FROM signals ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+            rows = conn.execute(
+                "SELECT * FROM signals ORDER BY created_at DESC LIMIT ?", (limit,)
+            ).fetchall()
         conn.close()
     except Exception as e:
         return [{"error": str(e)}]

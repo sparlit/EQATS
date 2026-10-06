@@ -61,8 +61,9 @@ class TTLCache:
             if time.time() < expiry:
                 logger.debug(f"Cache HIT: {key[:16]}...")
                 return value
-            del self._store[key]
-            logger.debug(f"Cache EXPIRED: {key[:16]}...")
+            else:
+                del self._store[key]
+                logger.debug(f"Cache EXPIRED: {key[:16]}...")
         return None
 
     def set(self, key: str, value: Any, ttl: int | None = None) -> None:

@@ -136,11 +136,15 @@ def _narrative(
 
     if gainers:
         top = gainers[0]
-        lines.append(f"Top momentum came from {top.get('symbol', 'N/A')} with {_format_change(top)}.")
+        lines.append(
+            f"Top momentum came from {top.get('symbol', 'N/A')} with {_format_change(top)}."
+        )
 
     if losers:
         lag = losers[0]
-        lines.append(f"Main weakness showed in {lag.get('symbol', 'N/A')} with {_format_change(lag)}.")
+        lines.append(
+            f"Main weakness showed in {lag.get('symbol', 'N/A')} with {_format_change(lag)}."
+        )
 
     if watchlist:
         lines.append(f"Watchlist coverage included {len(watchlist)} tracked names.")
@@ -178,13 +182,21 @@ def _render_plain_text(payload: dict) -> str:
     gainers = _safe_list(movers.get("gainers"), limit=3)
     losers = _safe_list(movers.get("losers"), limit=3)
     if gainers:
-        lines.append("Top gainers: " + ", ".join(f"{item['symbol']} {_format_change(item)}" for item in gainers))
+        lines.append(
+            "Top gainers: "
+            + ", ".join(f"{item['symbol']} {_format_change(item)}" for item in gainers)
+        )
     if losers:
-        lines.append("Top losers: " + ", ".join(f"{item['symbol']} {_format_change(item)}" for item in losers))
+        lines.append(
+            "Top losers: "
+            + ", ".join(f"{item['symbol']} {_format_change(item)}" for item in losers)
+        )
 
     best_sector = _safe_dict(sectors.get("best_performer"))
     if best_sector:
-        lines.append(f"Leading sector: {best_sector.get('sector', 'N/A')} ({_format_change(best_sector)})")
+        lines.append(
+            f"Leading sector: {best_sector.get('sector', 'N/A')} ({_format_change(best_sector)})"
+        )
 
     flow_data = _safe_list(fii_dii.get("data"), limit=2)
     if flow_data:
@@ -224,9 +236,15 @@ def _render_telegram(payload: dict) -> str:
     gainers = _safe_list(movers.get("gainers"), limit=3)
     losers = _safe_list(movers.get("losers"), limit=3)
     if gainers:
-        lines.append("Top gainers: " + ", ".join(f"{item['symbol']} {_format_change(item)}" for item in gainers))
+        lines.append(
+            "Top gainers: "
+            + ", ".join(f"{item['symbol']} {_format_change(item)}" for item in gainers)
+        )
     if losers:
-        lines.append("Top losers: " + ", ".join(f"{item['symbol']} {_format_change(item)}" for item in losers))
+        lines.append(
+            "Top losers: "
+            + ", ".join(f"{item['symbol']} {_format_change(item)}" for item in losers)
+        )
 
     if watchlist:
         lines.append("")

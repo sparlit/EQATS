@@ -99,8 +99,7 @@ def validate_symbol(symbol: str) -> str:
     Raises ValueError if symbol is clearly invalid.
     """
     if not symbol or not isinstance(symbol, str):
-        msg = "Symbol cannot be empty"
-        raise ValueError(msg)
+        raise ValueError("Symbol cannot be empty")
 
     symbol = symbol.strip().upper()
 
@@ -109,8 +108,9 @@ def validate_symbol(symbol: str) -> str:
 
     # Basic format check: 1-20 alphanumeric chars, allow & and -
     if not re.match(r"^[A-Z0-9&\-]{1,20}$", base):
-        msg = f"Invalid symbol format: '{symbol}'. Use formats like RELIANCE, TCS, AAPL, RELIANCE.NS"
-        raise ValueError(msg)
+        raise ValueError(
+            f"Invalid symbol format: '{symbol}'. Use formats like RELIANCE, TCS, AAPL, RELIANCE.NS"
+        )
 
     return symbol
 
@@ -141,15 +141,28 @@ def to_bse_symbol(symbol: str) -> str:
 # ----- Period Validation -----
 
 VALID_PERIODS = {"1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"}
-VALID_INTERVALS = {"1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo"}
+VALID_INTERVALS = {
+    "1m",
+    "2m",
+    "5m",
+    "15m",
+    "30m",
+    "60m",
+    "90m",
+    "1h",
+    "1d",
+    "5d",
+    "1wk",
+    "1mo",
+    "3mo",
+}
 
 
 def validate_period(period: str) -> str:
     """Validate a yfinance-compatible period string."""
     period = period.strip().lower()
     if period not in VALID_PERIODS:
-        msg = f"Invalid period '{period}'. Valid: {', '.join(sorted(VALID_PERIODS))}"
-        raise ValueError(msg)
+        raise ValueError(f"Invalid period '{period}'. Valid: {', '.join(sorted(VALID_PERIODS))}")
     return period
 
 
@@ -157,8 +170,9 @@ def validate_interval(interval: str) -> str:
     """Validate a yfinance-compatible interval string."""
     interval = interval.strip().lower()
     if interval not in VALID_INTERVALS:
-        msg = f"Invalid interval '{interval}'. Valid: {', '.join(sorted(VALID_INTERVALS))}"
-        raise ValueError(msg)
+        raise ValueError(
+            f"Invalid interval '{interval}'. Valid: {', '.join(sorted(VALID_INTERVALS))}"
+        )
     return interval
 
 
@@ -173,11 +187,12 @@ def format_number(value: Any, decimals: int = 2) -> str | None:
         num = float(value)
         if abs(num) >= 1_00_00_000:  # 1 crore (Indian numbering)
             return f"₹{num / 1_00_00_000:.2f} Cr"
-        if abs(num) >= 1_00_000:  # 1 lakh
+        elif abs(num) >= 1_00_000:  # 1 lakh
             return f"₹{num / 1_00_000:.2f} L"
-        if abs(num) >= 1000:
+        elif abs(num) >= 1000:
             return f"₹{num:,.{decimals}f}"
-        return f"{num:.{decimals}f}"
+        else:
+            return f"{num:.{decimals}f}"
     except (ValueError, TypeError):
         return None
 
@@ -190,13 +205,14 @@ def format_market_cap(value: Any) -> str | None:
         num = float(value)
         if abs(num) >= 1e12:
             return f"${num / 1e12:.2f}T"
-        if abs(num) >= 1e9:
+        elif abs(num) >= 1e9:
             return f"${num / 1e9:.2f}B"
-        if abs(num) >= 1e6:
+        elif abs(num) >= 1e6:
             return f"${num / 1e6:.2f}M"
-        if abs(num) >= 1e3:
+        elif abs(num) >= 1e3:
             return f"${num / 1e3:.2f}K"
-        return f"${num:.2f}"
+        else:
+            return f"${num:.2f}"
     except (ValueError, TypeError):
         return None
 
@@ -220,9 +236,9 @@ def clean_nan(data: dict | list) -> dict | list:
 
     if isinstance(data, dict):
         return {k: clean_nan(v) for k, v in data.items()}
-    if isinstance(data, list):
+    elif isinstance(data, list):
         return [clean_nan(item) for item in data]
-    if isinstance(data, float):
+    elif isinstance(data, float):
         if math.isnan(data) or math.isinf(data):
             return None
         return data
@@ -234,7 +250,10 @@ def safe_get(obj: Any, *keys, default=None) -> Any:
     current = obj
     for key in keys:
         try:
-            current = current.get(key, default) if isinstance(current, dict) else getattr(current, key, default)
+            if isinstance(current, dict):
+                current = current.get(key, default)
+            else:
+                current = getattr(current, key, default)
         except (AttributeError, TypeError, KeyError):
             return default
         if current is None:
