@@ -52,6 +52,24 @@ class TestScalperIndicators(unittest.TestCase):
 
 class TestScalperBrainAndConnector(unittest.TestCase):
 
+    def _reset_global_state(self) -> None:
+        try:
+            from institutional_integrations.bayesian_consensus import global_bayesian_consensus
+            global_bayesian_consensus.symbol_state.clear()
+        except Exception:
+            pass
+        try:
+            from institutional_integrations.nofx_ai_terminal_engine import global_nofx_direction_board
+            global_nofx_direction_board.directions.clear()
+        except Exception:
+            pass
+        try:
+            import predictive_brain
+            predictive_brain._predictor_registry.clear()
+            predictive_brain._kronos_registry.clear()
+        except Exception:
+            pass
+
     def setUp(self) -> None:
         import config
         self.orig_db = config.DB_PATH
@@ -62,6 +80,7 @@ class TestScalperBrainAndConnector(unittest.TestCase):
                 except Exception:
                     pass
         config.DB_PATH = 'test_scalper_brain.db'
+        self._reset_global_state()
         database.init_db()
 
     def tearDown(self) -> None:
@@ -73,6 +92,7 @@ class TestScalperBrainAndConnector(unittest.TestCase):
                     os.remove(db_file)
                 except Exception:
                     pass
+        self._reset_global_state()
         database.init_db()
 
     def test_simulator_connector(self) -> None:
