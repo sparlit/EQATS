@@ -82,7 +82,9 @@ def _fetch_tickers(ticker_map: dict, period: str = "5d") -> dict:
     all_symbols = list(ticker_map.values())
 
     try:
-        data = yf.download(all_symbols, period=period, progress=False, auto_adjust=True, threads=True)
+        data = yf.download(
+            all_symbols, period=period, progress=False, auto_adjust=True, threads=True
+        )
     except Exception as e:
         log.warning("yfinance bulk download failed: %s — falling back to individual", e)
         data = None
@@ -92,10 +94,11 @@ def _fetch_tickers(ticker_map: dict, period: str = "5d") -> dict:
             if data is not None and not data.empty:
                 if len(ticker_map) == 1:
                     closes = data["Close"].dropna()
-                elif ticker in data["Close"].columns:
-                    closes = data["Close"][ticker].dropna()
                 else:
-                    closes = pd.Series(dtype=float)
+                    if ticker in data["Close"].columns:
+                        closes = data["Close"][ticker].dropna()
+                    else:
+                        closes = pd.Series(dtype=float)
             else:
                 closes = pd.Series(dtype=float)
 
@@ -230,7 +233,9 @@ def show_info():
     if not os.path.isdir(DATA_DIR):
         print("No global cues data collected yet")
         return
-    files = sorted(f for f in os.listdir(DATA_DIR) if f.startswith("global_") and f.endswith(".parquet"))
+    files = sorted(
+        f for f in os.listdir(DATA_DIR) if f.startswith("global_") and f.endswith(".parquet")
+    )
     if not files:
         print("No global cues files found")
         return

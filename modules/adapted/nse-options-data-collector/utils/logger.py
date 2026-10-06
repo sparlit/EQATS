@@ -39,7 +39,7 @@ from pathlib import Path
 _setup_done = False
 
 
-def setup_logging(log_dir: str | None = None, process_name: str = "collector") -> None:
+def setup_logging(log_dir: str = None, process_name: str = "collector") -> None:
     """One-time setup: root logger with console + daily file handlers."""
     global _setup_done
     if _setup_done:
