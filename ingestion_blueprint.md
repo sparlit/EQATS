@@ -70,7 +70,7 @@ Total Repositories: 424 | Current Index: 68
 | 65 | avirichie/nse-closing-stock-price-prediction-using-lstm | Processed | https://github.com/sparlit/EQATS/pull/3001 |
 | 66 | ayushmaanbhav/stockmart | Processed | https://github.com/sparlit/EQATS/pull/3002 |
 | 67 | azhagesan-dev/orderflowmap | Processed | https://github.com/sparlit/EQATS/pull/3003 |
-| 68 | barathgb007/nse-options-data-collector | Completed | None |
+| 68 | barathgb007/nse-options-data-collector | Completed | https://github.com/sparlit/EQATS/pull/3004 |
 | 69 | barathgb007/upstox-python-data | pending | None |
 | 70 | barter-rs/barter-rs | pending | None |
 | 71 | beinghorizontal/bhavfno | pending | None |
