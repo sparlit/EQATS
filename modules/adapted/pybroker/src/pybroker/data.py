@@ -33,7 +33,7 @@ import sys
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from datetime import datetime
-from typing import Any, Final, Optional, Union, override
+from typing import Any, Final, override
 
 import alpaca.data.historical.crypto as alpaca_crypto
 import alpaca.data.historical.stock as alpaca_stock
@@ -229,12 +229,10 @@ class DataSource(ABC, DataSourceCacheMixin):
         end_date = to_datetime(end_date)
         verify_date_range(start_date, end_date)
         if isinstance(symbols, str) and not symbols:
-            msg = "Symbols cannot be empty."
-            raise ValueError(msg)
+            raise ValueError("Symbols cannot be empty.")
         unique_syms = frozenset((symbols,)) if isinstance(symbols, str) else frozenset(symbols)
         if not unique_syms:
-            msg = "Symbols cannot be empty."
-            raise ValueError(msg)
+            raise ValueError("Symbols cannot be empty.")
         timeframe = self._format_timeframe(timeframe)
         cached_df, uncached_syms = self.get_cached(
             symbols=unique_syms,
@@ -292,7 +290,11 @@ class DataSource(ABC, DataSourceCacheMixin):
         self.set_cached(timeframe, start_date, end_date, adjust, df)
         # Concatenating an all-empty fetch would degrade the cached
         # frame's dtypes (datetime columns fall back to object).
-        df = cached_df if df.empty and not cached_df.empty else pd.concat((cached_df, df), ignore_index=True)
+        df = (
+            cached_df
+            if df.empty and not cached_df.empty
+            else pd.concat((cached_df, df), ignore_index=True)
+        )
         if not df.empty:
             df = df.sort_values(by=[DataCol.DATE.value, DataCol.SYMBOL.value])
         self._logger.download_bar_data_completed()
@@ -345,12 +347,10 @@ def _parse_alpaca_timeframe(
     timeframe: str | None,
 ) -> tuple[int, TimeFrameUnit]:
     if timeframe is None:
-        msg = "Timeframe needs to be specified for Alpaca."
-        raise ValueError(msg)
+        raise ValueError("Timeframe needs to be specified for Alpaca.")
     parts = parse_timeframe(timeframe)
     if len(parts) != 1:
-        msg = f"Invalid Alpaca timeframe: {timeframe}"
-        raise ValueError(msg)
+        raise ValueError(f"Invalid Alpaca timeframe: {timeframe}")
     tf = parts[0]
     if tf[1] == "min":
         unit = TimeFrameUnit.Minute
@@ -361,8 +361,7 @@ def _parse_alpaca_timeframe(
     elif tf[1] == "week":
         unit = TimeFrameUnit.Week
     else:
-        msg = f"Invalid Alpaca timeframe: {timeframe}"
-        raise ValueError(msg)
+        raise ValueError(f"Invalid Alpaca timeframe: {timeframe}")
     return tf[0], unit
 
 
@@ -377,12 +376,11 @@ def _get_alpaca_crypto_bars(
         try:
             return get_crypto_bars(request)
         except TypeError as exc:
-            msg = (
+            raise ImportError(
                 "AlpacaCrypto requires alpaca-py>=0.10.0 in the same Python "
                 "environment as your notebook kernel. Upgrade with: "
                 "python -m pip install 'alpaca-py>=0.10.0'"
-            )
-            raise ImportError(msg) from exc
+            ) from exc
 
     try:
         return get_crypto_bars(request, feed=CryptoFeed.US)
@@ -428,8 +426,7 @@ class Alpaca(DataSource):
                     adj_enum = member
                     break
             if adj_enum is None:
-                msg = f"Unknown adjustment: {adjust}."
-                raise ValueError(msg)
+                raise ValueError(f"Unknown adjustment: {adjust}.")
         request = StockBarsRequest(
             symbol_or_symbols=list(symbols),
             start=start_date,
@@ -456,7 +453,7 @@ class Alpaca(DataSource):
         if df.empty:
             return df
         df = df.reset_index()
-        df = df.rename(columns={"timestamp": DataCol.DATE.value})
+        df.rename(columns={"timestamp": DataCol.DATE.value}, inplace=True)
         df = df[[col.value for col in DataCol]]
         df[DataCol.DATE.value] = pd.to_datetime(df[DataCol.DATE.value])
         df[DataCol.DATE.value] = df[DataCol.DATE.value].dt.tz_convert(self.__EST)
@@ -526,7 +523,7 @@ class AlpacaCrypto(DataSource):
         if df.empty:
             return df
         df = df.reset_index()
-        df = df.rename(columns={"timestamp": DataCol.DATE.value})
+        df.rename(columns={"timestamp": DataCol.DATE.value}, inplace=True)
         df = df[list(self.COLUMNS)]
         df[DataCol.DATE.value] = pd.to_datetime(df[DataCol.DATE.value])
         df[DataCol.DATE.value] = df[DataCol.DATE.value].dt.tz_convert(self.__EST)
@@ -584,7 +581,9 @@ class YFinance(DataSource):
         _adjust: Any | None,
     ) -> pd.DataFrame:
         """:meta private:"""
-        show_yf_progress_bar = not self._logger._disabled and not self._logger._progress_bar_disabled
+        show_yf_progress_bar = (
+            not self._logger._disabled and not self._logger._progress_bar_disabled
+        )
         df = yfinance.download(
             list(symbols),
             start=start_date,
@@ -642,10 +641,16 @@ class YFinance(DataSource):
                 DataCol.OPEN.value: np.concatenate([df[("Open", sym)].values for sym in sym_list]),
                 DataCol.HIGH.value: np.concatenate([df[("High", sym)].values for sym in sym_list]),
                 DataCol.LOW.value: np.concatenate([df[("Low", sym)].values for sym in sym_list]),
-                DataCol.CLOSE.value: np.concatenate([df[("Close", sym)].values for sym in sym_list]),
-                DataCol.VOLUME.value: np.concatenate([df[("Volume", sym)].values for sym in sym_list]),
+                DataCol.CLOSE.value: np.concatenate(
+                    [df[("Close", sym)].values for sym in sym_list]
+                ),
+                DataCol.VOLUME.value: np.concatenate(
+                    [df[("Volume", sym)].values for sym in sym_list]
+                ),
             }
             if not self.auto_adjust:
-                result_data[self.ADJ_CLOSE] = np.concatenate([df[("Adj Close", sym)].values for sym in sym_list])
+                result_data[self.ADJ_CLOSE] = np.concatenate(
+                    [df[("Adj Close", sym)].values for sym in sym_list]
+                )
             result = pd.DataFrame(result_data)
         return result

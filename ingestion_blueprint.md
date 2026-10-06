@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 424 | Current Index: 120
+Total Repositories: 424 | Current Index: 121
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -123,7 +123,7 @@ Total Repositories: 424 | Current Index: 120
 | 118 | dkraj0612/nse-delivery-data | Completed | https://github.com/sparlit/EQATS/pull/3059 |
 | 119 | dpeachpeach/kalshi-rust | Processed | https://github.com/sparlit/EQATS/pull/3060 |
 | 120 | edison7009/echobird | Processed | https://github.com/sparlit/EQATS/pull/3061 |
-| 121 | edtechre/pybroker | pending | None |
+| 121 | edtechre/pybroker | Completed | None |
 | 122 | eggmasonvalue/mtfdb | pending | None |
 | 123 | ej9909-create/nse_52wk_screener | pending | None |
 | 124 | ekanshsinghal/indian-stock-market | pending | None |

@@ -43,7 +43,6 @@ from typing import (
     Concatenate,
     Literal,
     NamedTuple,
-    Optional,
     ParamSpec,
     TypeGuard,
     Union,
@@ -227,9 +226,7 @@ def _is_rankable(score: float | None) -> TypeGuard[float]:
         return False
     if isinstance(score, float) and math.isnan(score):
         return False
-    if pd.isna(score):
-        return False
-    return True
+    return not pd.isna(score)
 
 
 def _rank_by_score(scores: Mapping[str, float]) -> dict[str, int]:
@@ -271,11 +268,9 @@ def _resolve_strategy_setting(
         return None
     if isinstance(value, Hyperparam):
         if run_hyperparams is None:
-            msg = f"Hyperparam {value.name!r} requires run_hyperparams."
-            raise ValueError(msg)
+            raise ValueError(f"Hyperparam {value.name!r} requires run_hyperparams.")
         if value.name not in run_hyperparams:
-            msg = f"Hyperparam {value.name!r} was not resolved."
-            raise ValueError(msg)
+            raise ValueError(f"Hyperparam {value.name!r} was not resolved.")
         return int(run_hyperparams[value.name])
     return int(value)
 
@@ -286,14 +281,13 @@ def _validate_worst_rank_held(
     max_short_positions: int | None,
 ) -> None:
     if max_long_positions is None and max_short_positions is None:
-        msg = "worst_rank_held requires max_long_positions or max_short_positions to be set."
-        raise ValueError(msg)
+        raise ValueError(
+            "worst_rank_held requires max_long_positions or max_short_positions to be set."
+        )
     if max_long_positions is not None and worst_rank_held < max_long_positions:
-        msg = "worst_rank_held must be greater than or equal to max_long_positions."
-        raise ValueError(msg)
+        raise ValueError("worst_rank_held must be greater than or equal to max_long_positions.")
     if max_short_positions is not None and worst_rank_held < max_short_positions:
-        msg = "worst_rank_held must be greater than or equal to max_short_positions."
-        raise ValueError(msg)
+        raise ValueError("worst_rank_held must be greater than or equal to max_short_positions.")
 
 
 def _rotation_target_size(settings: BacktestSettings) -> float:
@@ -575,7 +569,9 @@ def _apply_worst_rank_held(
             "short",
             pending_order_scope,
         )
-    long_cands, short_cands = _resolve_rotation_overlap(long_cands, short_cands, long_ranks, short_ranks)
+    long_cands, short_cands = _resolve_rotation_overlap(
+        long_cands, short_cands, long_ranks, short_ranks
+    )
     for sym in long_cands:
         active_ctxs[sym].set_target_shares(target_size, dir="long")
     for sym in short_cands:
@@ -725,8 +721,10 @@ class BacktestMixin:
             its binding.
         """
         if rotation_sizer is not None and backtest_settings.worst_rank_held is None:
-            msg = "Rotation sizer is set but rotation is not enabled; call enable_rotation(worst_rank_held=...) first."
-            raise ValueError(msg)
+            raise ValueError(
+                "Rotation sizer is set but rotation is not enabled; call "
+                "enable_rotation(worst_rank_held=...) first."
+            )
         test_dates: Sequence[np.datetime64]
         if test_col_scope is not None:
             # Derive from the store so callers need not materialize (or ship
@@ -804,7 +802,9 @@ class BacktestMixin:
                 # silently swapping the context's declared intervals.
                 break
         sym_exec_dates = {
-            sym: dates for sym, dates in sym_exec_dates_from_store(col_scope.store).items() if sym in exec_ctxs
+            sym: dates
+            for sym, dates in sym_exec_dates_from_store(col_scope.store).items()
+            if sym in exec_ctxs
         }
         date_to_syms, calendar_aligned = _date_to_active_syms(sym_exec_dates, test_dates)
         cover_sched: dict[np.datetime64, list[ExecResult]] = defaultdict(list)
@@ -823,7 +823,9 @@ class BacktestMixin:
             if calendar_aligned:
                 active_iter: Iterable[tuple[str, ExecContext]] = exec_ctxs.items()
             else:
-                active_iter = ((sym, exec_ctxs[sym]) for sym in date_to_syms.get(date, ()) if sym in exec_ctxs)
+                active_iter = (
+                    (sym, exec_ctxs[sym]) for sym in date_to_syms.get(date, ()) if sym in exec_ctxs
+                )
             for sym, ctx in active_iter:
                 sym_end_index[sym] += 1
                 if warmup and sym_end_index[sym] <= warmup:
@@ -994,7 +996,11 @@ class BacktestMixin:
             portfolio.incr_bars(date, price_scope)
             if i % 10 == 0 or i == len(test_dates) - 1:
                 logger.backtest_executions_loading(i + 1)
-        return get_signals(signal_syms, col_scope, ind_scope, pred_scope) if config.return_signals else {}
+        return (
+            get_signals(signal_syms, col_scope, ind_scope, pred_scope)
+            if config.return_signals
+            else {}
+        )
 
     def _exit_position(
         self,
@@ -1036,8 +1042,7 @@ class BacktestMixin:
         date_loc = sym_end_index[result.symbol] - 1
         dates = col_scope.fetch(result.symbol, DataCol.DATE.value)
         if dates is None:
-            msg = "Dates not found."
-            raise ValueError(msg)
+            raise ValueError("Dates not found.")
         logger = StaticScope.instance().logger
         date = None
         in_window = False
@@ -1064,8 +1069,7 @@ class BacktestMixin:
                 limit_price = result.sell_limit_price
                 fill_price = result.sell_fill_price
             else:
-                msg = "buy_shares or sell_shares needs to be set."
-                raise ValueError(msg)
+                raise ValueError("buy_shares or sell_shares needs to be set.")
             if order_type == "buy":
                 timeout_bars = result.buy_timeout_bars
                 stops = result.long_stops
@@ -1138,7 +1142,9 @@ class BacktestMixin:
         for result in buy_results:
             if result.buy_shares is None:
                 continue
-            if result.pending_order_id is None or not pending_order_scope.contains(result.pending_order_id):
+            if result.pending_order_id is None or not pending_order_scope.contains(
+                result.pending_order_id
+            ):
                 continue
             pending = pending_order_scope.get(result.pending_order_id)
             if pending is None:
@@ -1193,7 +1199,9 @@ class BacktestMixin:
         for result in sell_results:
             if result.sell_shares is None:
                 continue
-            if result.pending_order_id is None or not pending_order_scope.contains(result.pending_order_id):
+            if result.pending_order_id is None or not pending_order_scope.contains(
+                result.pending_order_id
+            ):
                 continue
             pending = pending_order_scope.get(result.pending_order_id)
             if pending is None:
@@ -1304,22 +1312,23 @@ class BacktestMixin:
                         fill_price=fill_price,
                         limit_price=pending.limit_price,
                     )
-            elif pending.type == "buy":
-                logger.debug_filled_buy_order(
-                    date=date,
-                    symbol=pending.symbol,
-                    shares=shares,
-                    fill_price=fill_price,
-                    limit_price=pending.limit_price,
-                )
             else:
-                logger.debug_filled_sell_order(
-                    date=date,
-                    symbol=pending.symbol,
-                    shares=shares,
-                    fill_price=fill_price,
-                    limit_price=pending.limit_price,
-                )
+                if pending.type == "buy":
+                    logger.debug_filled_buy_order(
+                        date=date,
+                        symbol=pending.symbol,
+                        shares=shares,
+                        fill_price=fill_price,
+                        limit_price=pending.limit_price,
+                    )
+                else:
+                    logger.debug_filled_sell_order(
+                        date=date,
+                        symbol=pending.symbol,
+                        shares=shares,
+                        fill_price=fill_price,
+                        limit_price=pending.limit_price,
+                    )
             # Same rule as the two scheduled paths: only a persistent limit
             # order survives an unfilled attempt. An adopted one-shot order
             # left in the scope can never be retried -- the branch above needs
@@ -1360,10 +1369,15 @@ class BacktestMixin:
             # cannot flip the position to the opposite side. A partial fill --
             # a participation cap, say -- leaves the remainder held, and the
             # entries it did not consume keep the stops protecting them.
-            positions = portfolio.long_positions if pending.exit_pos_type == "long" else portfolio.short_positions
+            positions = (
+                portfolio.long_positions
+                if pending.exit_pos_type == "long"
+                else portfolio.short_positions
+            )
             exit_pos = positions.get(pending.symbol)
             held = Decimal() if exit_pos is None else exit_pos.shares
-            shares = min(shares, held)
+            if shares > held:
+                shares = held
             if shares <= 0:
                 return None, Decimal(), fill_price
         # The unadjusted bar price, recorded on the order so slippage can be
@@ -1387,12 +1401,11 @@ class BacktestMixin:
                 )
                 shares, fill_price = slippage_model.apply_slippage(slippage_ctx)
                 if shares < 0 or shares > slippage_ctx.shares:
-                    msg = (
+                    raise ValueError(
                         f"{type(slippage_model).__name__}.apply_slippage "
                         f"returned {shares} shares; must be between 0 and "
                         f"the ordered {slippage_ctx.shares}."
                     )
-                    raise ValueError(msg)
                 shares = self._get_shares(shares, enable_fractional_shares)
         if pending.type == "buy":
             order_type = OrderType.LIMIT if pending.limit_price is not None else OrderType.MARKET
@@ -1430,12 +1443,13 @@ class BacktestMixin:
 
     def _get_shares(
         self,
-        shares: float | Decimal,
+        shares: int | float | Decimal,
         enable_fractional_shares: bool,
     ) -> Decimal:
         if enable_fractional_shares:
             return to_decimal(shares)
-        return to_decimal(int(shares))
+        else:
+            return to_decimal(int(shares))
 
 
 class WalkforwardWindow(NamedTuple):
@@ -1507,17 +1521,13 @@ class WalkforwardMixin:
             train and test data.
         """
         if windows <= 0:
-            msg = "windows needs to be > 0."
-            raise ValueError(msg)
+            raise ValueError("windows needs to be > 0.")
         if lookahead <= 0:
-            msg = "lookahead needs to be > 0."
-            raise ValueError(msg)
+            raise ValueError("lookahead needs to be > 0.")
         if train_size < 0:
-            msg = "train_size cannot be negative."
-            raise ValueError(msg)
+            raise ValueError("train_size cannot be negative.")
         if df.empty:
-            msg = "DataFrame is empty."
-            raise ValueError(msg)
+            raise ValueError("DataFrame is empty.")
         date_col = DataCol.DATE.value
         dates_arr = df[date_col].to_numpy(copy=False, dtype="datetime64[ns]")
         window_dates = get_unique_sorted_dates_array(dates_arr)
@@ -1527,7 +1537,7 @@ class WalkforwardMixin:
         lookahead: {lookahead}
         train_size: {train_size}
         """
-        if train_size in {0, 1}:
+        if train_size == 0 or train_size == 1:
             window_length = int(len(window_dates) / windows)
             if window_length == 0:
                 # Otherwise ``start`` reaches len(window_dates) and the date
@@ -1733,29 +1743,24 @@ class TestResult:
                 tickers. Must be a non-empty subset of :attr:`.symbols`.
         """
         if isinstance(include, str):
-            msg = "include must be a frozenset of section names, not a str."
-            raise TypeError(msg)
+            raise TypeError("include must be a frozenset of section names, not a str.")
         # Materialized before use: a one-shot iterable would otherwise be
         # consumed by validation and read as empty by the section checks.
         include = frozenset(include)
         unknown = include - _VALID_JSON_SECTIONS
         if unknown:
-            msg = f"Unknown to_json include section(s): {sorted(map(str, unknown))}"
-            raise ValueError(msg)
+            raise ValueError(f"Unknown to_json include section(s): {sorted(map(str, unknown))}")
         if symbols is not None:
             if isinstance(symbols, str):
                 # frozenset() would split a str into characters and report
                 # a misleading per-character "Symbol not found" error.
-                msg = "symbols must be a frozenset of ticker symbols, not a str."
-                raise TypeError(msg)
+                raise TypeError("symbols must be a frozenset of ticker symbols, not a str.")
             symbols = frozenset(symbols)
             if not symbols:
-                msg = "Symbols cannot be empty."
-                raise ValueError(msg)
+                raise ValueError("Symbols cannot be empty.")
             missing = symbols - self.symbols
             if missing:
-                msg = f"Symbol not found: {', '.join(sorted(map(str, missing)))}."
-                raise ValueError(msg)
+                raise ValueError(f"Symbol not found: {', '.join(sorted(map(str, missing)))}.")
         payload: dict[str, Any] = {
             "start_date": _json_safe(_naive_utc(self.start_date)),
             "end_date": _json_safe(_naive_utc(self.end_date)),
@@ -1866,55 +1871,49 @@ class Strategy(
 
     def _verify_config(self, config: StrategyConfig):
         if config.initial_cash <= 0:
-            msg = "initial_cash must be greater than 0."
-            raise ValueError(msg)
+            raise ValueError("initial_cash must be greater than 0.")
         if config.max_long_positions is not None and config.max_long_positions <= 0:
-            msg = "max_long_positions must be greater than 0."
-            raise ValueError(msg)
+            raise ValueError("max_long_positions must be greater than 0.")
         if config.max_short_positions is not None and config.max_short_positions <= 0:
-            msg = "max_short_positions must be greater than 0."
-            raise ValueError(msg)
+            raise ValueError("max_short_positions must be greater than 0.")
         if config.max_long_positions is not None:
             warnings.warn(
-                "StrategyConfig.max_long_positions is deprecated; use Strategy.set_max_long_positions().",
+                "StrategyConfig.max_long_positions is deprecated; use "
+                "Strategy.set_max_long_positions().",
                 DeprecationWarning,
                 stacklevel=2,
             )
         if config.max_short_positions is not None:
             warnings.warn(
-                "StrategyConfig.max_short_positions is deprecated; use Strategy.set_max_short_positions().",
+                "StrategyConfig.max_short_positions is deprecated; use "
+                "Strategy.set_max_short_positions().",
                 DeprecationWarning,
                 stacklevel=2,
             )
         if config.fee_amount is not None and config.fee_amount < 0:
             # A negative fee flows straight into the fill accounting and
             # CREDITS the account on every order instead of debiting it.
-            msg = "fee_amount cannot be negative."
-            raise ValueError(msg)
+            raise ValueError("fee_amount cannot be negative.")
         if config.buy_delay <= 0:
-            msg = "buy_delay must be greater than 0."
-            raise ValueError(msg)
+            raise ValueError("buy_delay must be greater than 0.")
         if config.sell_delay <= 0:
-            msg = "sell_delay must be greater than 0."
-            raise ValueError(msg)
+            raise ValueError("sell_delay must be greater than 0.")
         if config.bootstrap_samples <= 0:
-            msg = "bootstrap_samples must be greater than 0."
-            raise ValueError(msg)
+            raise ValueError("bootstrap_samples must be greater than 0.")
         if config.leverage < 1:
-            msg = "leverage must be greater than or equal to 1."
-            raise ValueError(msg)
+            raise ValueError("leverage must be greater than or equal to 1.")
         if config.interest_rate < 0:
-            msg = "interest_rate must be greater than or equal to 0."
-            raise ValueError(msg)
+            raise ValueError("interest_rate must be greater than or equal to 0.")
         if config.interest_rate > 0 and config.bars_per_year is None:
-            msg = (
+            raise ValueError(
                 "bars_per_year is required when interest_rate is set, since "
                 "it sets the interest accrual period. For example, use 252 "
                 "for daily bars or 98280 for 1-minute US equity bars."
             )
-            raise ValueError(msg)
 
-    def _resolve_backtest_settings(self, run_hyperparams: dict[str, Any] | None = None) -> BacktestSettings:
+    def _resolve_backtest_settings(
+        self, run_hyperparams: dict[str, Any] | None = None
+    ) -> BacktestSettings:
         max_long = _resolve_strategy_setting(self._max_long_positions, run_hyperparams)
         max_short = _resolve_strategy_setting(self._max_short_positions, run_hyperparams)
         worst = _resolve_strategy_setting(self._worst_rank_held, run_hyperparams)
@@ -1922,7 +1921,8 @@ class Strategy(
         if self._config.max_long_positions is not None:
             if max_long is not None:
                 warnings.warn(
-                    "Strategy.set_max_long_positions takes precedence over StrategyConfig.max_long_positions.",
+                    "Strategy.set_max_long_positions takes precedence over "
+                    "StrategyConfig.max_long_positions.",
                     stacklevel=2,
                 )
             else:
@@ -1930,21 +1930,22 @@ class Strategy(
         if self._config.max_short_positions is not None:
             if max_short is not None:
                 warnings.warn(
-                    "Strategy.set_max_short_positions takes precedence over StrategyConfig.max_short_positions.",
+                    "Strategy.set_max_short_positions takes precedence over "
+                    "StrategyConfig.max_short_positions.",
                     stacklevel=2,
                 )
             else:
                 max_short = self._config.max_short_positions
 
         if max_long is not None and max_long <= 0:
-            msg = "max_long_positions must be greater than 0."
-            raise ValueError(msg)
+            raise ValueError("max_long_positions must be greater than 0.")
         if max_short is not None and max_short <= 0:
-            msg = "max_short_positions must be greater than 0."
-            raise ValueError(msg)
+            raise ValueError("max_short_positions must be greater than 0.")
         if self._rotation_sizer is not None and worst is None:
-            msg = "Rotation sizer is set but rotation is not enabled; call enable_rotation(worst_rank_held=...) first."
-            raise ValueError(msg)
+            raise ValueError(
+                "Rotation sizer is set but rotation is not enabled; call "
+                "enable_rotation(worst_rank_held=...) first."
+            )
         if worst is not None:
             _validate_worst_rank_held(worst, max_long, max_short)
 
@@ -1970,8 +1971,7 @@ class Strategy(
                 unlimited.
         """
         if isinstance(max_long, int) and max_long <= 0:
-            msg = "max_long_positions must be greater than 0."
-            raise ValueError(msg)
+            raise ValueError("max_long_positions must be greater than 0.")
         self._max_long_positions = max_long
 
     def set_max_short_positions(self, max_short: StrategySetting) -> None:
@@ -1983,8 +1983,7 @@ class Strategy(
                 unlimited.
         """
         if isinstance(max_short, int) and max_short <= 0:
-            msg = "max_short_positions must be greater than 0."
-            raise ValueError(msg)
+            raise ValueError("max_short_positions must be greater than 0.")
         self._max_short_positions = max_short
 
     def enable_rotation(
@@ -2031,8 +2030,7 @@ class Strategy(
         if isinstance(data_source, pd.DataFrame):
             verify_data_source_columns(data_source)
         elif not isinstance(data_source, DataSource):
-            msg = f"Invalid data_source type: {type(data_source)}"
-            raise TypeError(msg)
+            raise TypeError(f"Invalid data_source type: {type(data_source)}")
 
     def set_slippage_model(self, slippage_model: SlippageModel | None):
         """Sets :class:`pybroker.slippage.SlippageModel`.
@@ -2062,7 +2060,7 @@ class Strategy(
         if not intervals:
             return IntervalData()
         if not timeframe.strip():
-            msg = (
+            raise ValueError(
                 "Compression intervals — declared with "
                 "add_execution(intervals=...) or bound with "
                 "ModelSource.intervals() / Indicator.intervals() — need the "
@@ -2070,7 +2068,6 @@ class Strategy(
                 "or walkforward() (e.g. walkforward(windows=1, "
                 "timeframe='1d'))."
             )
-            raise ValueError(msg)
         base_bar_seconds = base_timeframe_to_seconds(timeframe)
         # Validate the union rather than the per-symbol map so an interval
         # declared by an execution whose symbols have no rows still raises.
@@ -2087,8 +2084,14 @@ class Strategy(
         self,
         fn: Callable[Concatenate[ExecContext, P], None] | None,
         symbols: str | Iterable[str] | SymbolSelector,
-        models: ModelSource | IntervalBoundModel | Iterable[ModelSource | IntervalBoundModel] | None = None,
-        indicators: Indicator | IntervalBoundIndicator | Iterable[Indicator | IntervalBoundIndicator] | None = None,
+        models: ModelSource
+        | IntervalBoundModel
+        | Iterable[ModelSource | IntervalBoundModel]
+        | None = None,
+        indicators: Indicator
+        | IntervalBoundIndicator
+        | Iterable[Indicator | IntervalBoundIndicator]
+        | None = None,
         hyperparams: Iterable[Hyperparam] | None = None,
         intervals: TimeframeInterval | Iterable[TimeframeInterval] | None = None,
         *args: P.args,
@@ -2198,16 +2201,14 @@ class Strategy(
             stored_symbols = frozenset(symbols)
         if isinstance(stored_symbols, frozenset):
             if not stored_symbols:
-                msg = "symbols cannot be empty."
-                raise ValueError(msg)
+                raise ValueError("symbols cannot be empty.")
             for sym in stored_symbols:
                 for exec in self._executions:
                     exec_syms = _static_symbols(exec.symbols)
                     if not exec_syms:
                         continue
                     if sym in exec_syms:
-                        msg = f"{sym} was already added to an execution."
-                        raise ValueError(msg)
+                        raise ValueError(f"{sym} was already added to an execution.")
         bound_intervals: set[TimeframeInterval] = set()
         if models is not None:
             model_name_set: set[str] = set()
@@ -2224,30 +2225,34 @@ class Strategy(
                 )
                 else models
             ):
-                model = model_entry.source if isinstance(model_entry, IntervalBoundModel) else model_entry
+                model = (
+                    model_entry.source
+                    if isinstance(model_entry, IntervalBoundModel)
+                    else model_entry
+                )
                 if not isinstance(model, ModelSource):
-                    msg = f"Invalid model type: {type(model_entry)!r}."
-                    raise TypeError(msg)
+                    raise TypeError(f"Invalid model type: {type(model_entry)!r}.")
                 if isinstance(model_entry, IntervalBoundModel):
                     # Re-validate: the binding NamedTuple is public and can
                     # be constructed without going through
                     # ModelSource.intervals().
                     if not isinstance(model, ModelTrainer):
-                        msg = (
+                        raise ValueError(
                             f"Pretrained model {model.name!r} is not "
                             "trained per interval and cannot be bound to "
                             "intervals."
                         )
-                        raise ValueError(msg)
-                    model_intervals = normalize_intervals(model_entry.intervals, "intervals", allow_base=True)
+                    model_intervals = normalize_intervals(
+                        model_entry.intervals, "intervals", allow_base=True
+                    )
                 else:
                     model_intervals = frozenset()
                 if not self._scope.has_model_source(model.name):
-                    msg = f"ModelSource {model.name!r} was not registered."
-                    raise ValueError(msg)
+                    raise ValueError(f"ModelSource {model.name!r} was not registered.")
                 if model is not self._scope.get_model_source(model.name):
-                    msg = f"ModelSource {model.name!r} does not match registered ModelSource."
-                    raise ValueError(msg)
+                    raise ValueError(
+                        f"ModelSource {model.name!r} does not match registered ModelSource."
+                    )
                 # A binding is exhaustive: the base variant is trained only
                 # when 'base' is listed. Unbound models default to base.
                 if isinstance(model_entry, IntervalBoundModel):
@@ -2275,23 +2280,26 @@ class Strategy(
                 )
                 else indicators
             ):
-                ind = ind_entry.indicator if isinstance(ind_entry, IntervalBoundIndicator) else ind_entry
+                ind = (
+                    ind_entry.indicator
+                    if isinstance(ind_entry, IntervalBoundIndicator)
+                    else ind_entry
+                )
                 if not isinstance(ind, Indicator):
-                    msg = f"Invalid indicator type: {type(ind_entry)!r}."
-                    raise TypeError(msg)
+                    raise TypeError(f"Invalid indicator type: {type(ind_entry)!r}.")
                 if isinstance(ind_entry, IntervalBoundIndicator):
                     # Re-normalize: the binding NamedTuple is public and can
                     # be constructed without going through
                     # Indicator.intervals().
-                    ind_intervals = normalize_intervals(ind_entry.intervals, "intervals", allow_base=True)
+                    ind_intervals = normalize_intervals(
+                        ind_entry.intervals, "intervals", allow_base=True
+                    )
                 else:
                     ind_intervals = frozenset()
                 if not self._scope.has_indicator(ind.name):
-                    msg = f"Indicator {ind.name!r} was not registered."
-                    raise ValueError(msg)
+                    raise ValueError(f"Indicator {ind.name!r} was not registered.")
                 if ind is not self._scope.get_indicator(ind.name):
-                    msg = f"Indicator {ind.name!r} does not match registered Indicator."
-                    raise ValueError(msg)
+                    raise ValueError(f"Indicator {ind.name!r} does not match registered Indicator.")
                 # A binding is exhaustive: the base variant is computed only
                 # when 'base' is listed. Unbound indicators default to base.
                 if isinstance(ind_entry, IntervalBoundIndicator):
@@ -2310,14 +2318,13 @@ class Strategy(
         if hyperparams is not None:
             for hp in hyperparams:
                 if not isinstance(hp, Hyperparam):
-                    msg = f"Invalid hyperparam type: {type(hp)!r}."
-                    raise TypeError(msg)
+                    raise TypeError(f"Invalid hyperparam type: {type(hp)!r}.")
                 if not self._scope.has_hyperparam(hp.name):
-                    msg = f"Hyperparam {hp.name!r} was not registered."
-                    raise ValueError(msg)
+                    raise ValueError(f"Hyperparam {hp.name!r} was not registered.")
                 if hp is not self._scope.get_hyperparam(hp.name):
-                    msg = f"Hyperparam {hp.name!r} does not match registered Hyperparam."
-                    raise ValueError(msg)
+                    raise ValueError(
+                        f"Hyperparam {hp.name!r} does not match registered Hyperparam."
+                    )
                 hyperparam_name_set.add(hp.name)
         if intervals is None:
             interval_set: frozenset[TimeframeInterval] = frozenset()
@@ -2566,8 +2573,7 @@ class Strategy(
             history, and evaluation metrics.
         """
         if warmup is not None and warmup < 1:
-            msg = "warmup must be > 0."
-            raise ValueError(msg)
+            raise ValueError("warmup must be > 0.")
         scope = StaticScope.instance()
         try:
             scope.freeze_data_cols()
@@ -2576,18 +2582,19 @@ class Strategy(
                 (n for e in self._executions for n in e.model_names),
             )
             if not self._executions:
-                msg = "No executions were added."
-                raise ValueError(msg)
+                raise ValueError("No executions were added.")
             if self._slippage_model is not None:
                 self._slippage_model.validate(self)
             start_dt = self._start_date if start_date is None else to_datetime(start_date)
             if start_dt < self._start_date or start_dt > self._end_date:
-                msg = f"start_date must be between {self._start_date} and {self._end_date}."
-                raise ValueError(msg)
+                raise ValueError(
+                    f"start_date must be between {self._start_date} and {self._end_date}."
+                )
             end_dt = self._end_date if end_date is None else to_datetime(end_date)
             if end_dt < self._start_date or end_dt > self._end_date:
-                msg = f"end_date must be between {self._start_date} and {self._end_date}."
-                raise ValueError(msg)
+                raise ValueError(
+                    f"end_date must be between {self._start_date} and {self._end_date}."
+                )
             if start_dt is not None and end_dt is not None:
                 verify_date_range(start_dt, end_dt)
             self._logger.walkforward_start(start_dt, end_dt)
@@ -2695,7 +2702,11 @@ class Strategy(
         if days is None:
             return None
         days = (days,) if isinstance(days, (str, Day)) else days
-        return tuple(sorted((day.value if isinstance(day, Day) else Day[day.upper()].value) for day in set(days)))  # type: ignore[return-value]
+        return tuple(
+            sorted(
+                (day.value if isinstance(day, Day) else Day[day.upper()].value) for day in set(days)
+            )
+        )  # type: ignore[return-value]
 
     def _has_symbol_selector(self) -> bool:
         return any(_is_symbol_selector(e.symbols) for e in self._executions)
@@ -2729,7 +2740,11 @@ class Strategy(
         """
         held = set(portfolio.long_positions) | set(portfolio.short_positions)
         if pending_order_scope is not None:
-            stale = {order.symbol for order in pending_order_scope.orders() if order.symbol not in selected_syms}
+            stale = {
+                order.symbol
+                for order in pending_order_scope.orders()
+                if order.symbol not in selected_syms
+            }
             for sym in sorted(stale):
                 pending_order_scope.remove_all(sym)
         dropped = frozenset(held - selected_syms)
@@ -2741,7 +2756,9 @@ class Strategy(
             boundary_date = test_data[DataCol.DATE.value].min()
             exited = self._exit_dropped_at_bar(
                 portfolio=portfolio,
-                store=symbol_array_store_from_frame(_ensure_range_index(test_data), symbols=dropped),
+                store=symbol_array_store_from_frame(
+                    _ensure_range_index(test_data), symbols=dropped
+                ),
                 symbols=dropped,
                 first_bar=True,
                 slippage_model=slippage_model,
@@ -2889,8 +2906,7 @@ class Strategy(
             selection_data = _selection_df(self._executions, train_data, test_data)
             if has_selector:
                 if global_cache_date_fields is None:
-                    msg = "global_cache_date_fields is required."
-                    raise ValueError(msg)
+                    raise ValueError("global_cache_date_fields is required.")
                 window_executions = _resolve_executions(self._executions, selection_data)
                 window_indicator_data = self._fetch_indicators(
                     df=df,
@@ -2933,7 +2949,9 @@ class Strategy(
                             model_syms.add(ModelSymbol(model_name, sym))
                 pooled_model_groups: dict[tuple[str, int], frozenset[str]] = {}
                 for execution in window_executions:
-                    exec_syms = frozenset(sym for sym in _static_symbols(execution.symbols) if sym in train_symbols)
+                    exec_syms = frozenset(
+                        sym for sym in _static_symbols(execution.symbols) if sym in train_symbols
+                    )
                     if not exec_syms:
                         continue
                     for model_name in execution.model_names:
@@ -3037,8 +3055,10 @@ class Strategy(
             df = df[df.index.weekday.isin(frozenset(days))]
         if between_time is not None:
             if len(between_time) != 2:
-                msg = f"between_time must be a tuple[str, str] of start time and end time, received {between_time!r}."
-                raise ValueError(msg)
+                raise ValueError(
+                    "between_time must be a tuple[str, str] of start time and"
+                    f" end time, received {between_time!r}."
+                )
             self._logger.info_walkforward_between_time(between_time)
             df = df.between_time(*between_time)
         if is_time_range:
@@ -3081,7 +3101,9 @@ class Strategy(
                 # windows: with lookahead > 1 the skipped bars fall
                 # between them, and omitting those would make "lag 1" at
                 # the train/test boundary reach lookahead bars back.
-                span_mask = (master_dates_arr >= train_dates_arr[0]) & (master_dates_arr <= test_dates_arr[-1])
+                span_mask = (master_dates_arr >= train_dates_arr[0]) & (
+                    master_dates_arr <= test_dates_arr[-1]
+                )
                 history_store = slice_symbol_array_store_by_dates(
                     master_store,
                     np.unique(master_dates_arr[span_mask]),
@@ -3105,7 +3127,9 @@ class Strategy(
         if has_selector:
             exit_symbols = set(df[sym_col].unique())
         else:
-            exit_symbols = {sym for exec in self._executions for sym in _static_symbols(exec.symbols)}
+            exit_symbols = {
+                sym for exec in self._executions for sym in _static_symbols(exec.symbols)
+            }
         if exit_symbols and not df.empty:
             mask = df[sym_col].isin(exit_symbols)
             masked = df.loc[mask]
@@ -3170,10 +3194,14 @@ class Strategy(
     def _fetch_data(self, timeframe: str, adjust: Any | None) -> pd.DataFrame:
         has_selector = self._has_symbol_selector()
         if has_selector and isinstance(self._data_source, DataSource):
-            msg = "Dynamic symbol selection requires a pandas DataFrame data source containing the candidate universe."
-            raise ValueError(msg)
+            raise ValueError(
+                "Dynamic symbol selection requires a pandas DataFrame data "
+                "source containing the candidate universe."
+            )
         if isinstance(self._data_source, DataSource):
-            unique_syms = frozenset(sym for execution in self._executions for sym in _static_symbols(execution.symbols))
+            unique_syms = frozenset(
+                sym for execution in self._executions for sym in _static_symbols(execution.symbols)
+            )
             df = self._data_source.query(
                 unique_syms,
                 self._start_date,
@@ -3185,12 +3213,13 @@ class Strategy(
             df = _between(self._data_source, self._start_date, self._end_date)
             if not has_selector:
                 unique_syms = frozenset(
-                    sym for execution in self._executions for sym in _static_symbols(execution.symbols)
+                    sym
+                    for execution in self._executions
+                    for sym in _static_symbols(execution.symbols)
                 )
                 df = df[df[DataCol.SYMBOL.value].isin(unique_syms)]
         if df.empty:
-            msg = "DataSource is empty."
-            raise ValueError(msg)
+            raise ValueError("DataSource is empty.")
         self._reject_duplicate_bars(df)
         return _ensure_range_index(df)
 
@@ -3222,13 +3251,12 @@ class Strategy(
         shown = ", ".join(symbols[:5])
         if len(symbols) > 5:
             shown += f", ... ({len(symbols)} symbols)"
-        msg = (
+        raise ValueError(
             f"Data contains {int(dupes.sum())} duplicate (symbol, date) rows "
             f"for: {shown}. Bar data and indicators are indexed by the same "
             "bar counter, so duplicates put them out of step. Drop them with "
             "df.drop_duplicates(['symbol', 'date'])."
         )
-        raise ValueError(msg)
 
     def _to_test_result(
         self,
@@ -3269,9 +3297,11 @@ class Strategy(
             "unrealized_pnl",
         ):
             pos_df[col] = quantize(pos_df, col, self._config.round_test_result)
-        pos_df = pos_df.set_index(["symbol", "date"])
-        bar_records = portfolio.bars or portfolio._metrics_bars
-        portfolio_df = pd.DataFrame.from_records(bar_records, columns=PortfolioBar._fields, index="date")
+        pos_df.set_index(["symbol", "date"], inplace=True)
+        bar_records = portfolio.bars if portfolio.bars else portfolio._metrics_bars
+        portfolio_df = pd.DataFrame.from_records(
+            bar_records, columns=PortfolioBar._fields, index="date"
+        )
         for col in (
             "cash",
             "equity",
@@ -3314,14 +3344,18 @@ class Strategy(
             bars_per_year=self._config.bars_per_year,
             seed=seed,
         )
-        metrics = [(k, v) for k, v in dataclasses.asdict(eval_result.metrics).items() if v is not None]
+        metrics = [
+            (k, v) for k, v in dataclasses.asdict(eval_result.metrics).items() if v is not None
+        ]
         # dtype=object skips numeric inference: without a datetime metric
         # (e.g. no drawdown date), pandas would otherwise infer float64 and
         # coerce integer metrics like trade_count to floats.
         metrics_df = pd.DataFrame(metrics, columns=["name", "value"], dtype=object)
         stops_df = None
         if self._config.return_stops:
-            stops_df = pd.DataFrame.from_records(portfolio._stop_records, columns=StopRecord._fields)
+            stops_df = pd.DataFrame.from_records(
+                portfolio._stop_records, columns=StopRecord._fields
+            )
         self._logger.walkforward_completed()
         return TestResult(
             start_date=start_date,

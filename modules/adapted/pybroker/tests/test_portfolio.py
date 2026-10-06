@@ -172,7 +172,7 @@ def assert_entry(entry, date, symbol, shares, price, type):
     assert entry.type == type
 
 
-@pytest.mark.parametrize(("fill_price", "limit_price"), [(100, 101), (100, 100), (100, None)])
+@pytest.mark.parametrize("fill_price, limit_price", [(100, 101), (100, 100), (100, None)])
 def test_buy(fill_price, limit_price):
     portfolio = Portfolio(CASH)
     order = portfolio.buy(DATE_1, SYMBOL_1, SHARES_1, fill_price, limit_price)
@@ -568,7 +568,7 @@ def test_buy_when_zero_shares():
 
 
 @pytest.mark.parametrize(
-    ("shares", "fill_price", "limit_price", "expected_msg"),
+    "shares, fill_price, limit_price, expected_msg",
     [
         (-1, FILL_PRICE_1, LIMIT_PRICE_1, "Shares cannot be negative: -1"),
         (SHARES_1, -1, LIMIT_PRICE_1, "Fill price must be > 0: -1"),
@@ -581,7 +581,7 @@ def test_buy_when_invalid_input_then_error(shares, fill_price, limit_price, expe
         portfolio.buy(DATE_1, SYMBOL_1, shares, fill_price, limit_price)
 
 
-@pytest.mark.parametrize(("fill_price", "limit_price"), [(101, 100), (101, 101), (101, None)])
+@pytest.mark.parametrize("fill_price, limit_price", [(101, 100), (101, 101), (101, None)])
 def test_sell_when_all_shares(fill_price, limit_price):
     portfolio = Portfolio(CASH)
     buy_order = portfolio.buy(DATE_1, SYMBOL_1, SHARES_1, FILL_PRICE_1, LIMIT_PRICE_1)
@@ -763,7 +763,7 @@ def calc_fees(fee_info):
 
 
 @pytest.mark.parametrize(
-    ("fee_mode", "expected_buy_fees", "expected_sell_fees"),
+    "fee_mode, expected_buy_fees, expected_sell_fees",
     [
         (
             FeeMode.ORDER_PERCENT,
@@ -775,7 +775,7 @@ def calc_fees(fee_info):
             SHARES_1,
             SHARES_1,
         ),
-        (FeeMode.PER_ORDER, Decimal(1), Decimal(1)),
+        (FeeMode.PER_ORDER, Decimal("1"), Decimal("1")),
         (calc_fees, Decimal("9.99"), Decimal("9.99")),
     ],
 )
@@ -1031,7 +1031,7 @@ def test_sell_when_zero_shares():
 
 
 @pytest.mark.parametrize(
-    ("shares", "fill_price", "limit_price", "expected_msg"),
+    "shares, fill_price, limit_price, expected_msg",
     [
         (-1, FILL_PRICE_3, LIMIT_PRICE_3, "Shares cannot be negative: -1"),
         (SHARES_1, -1, LIMIT_PRICE_3, "Fill price must be > 0: -1"),
@@ -1044,7 +1044,7 @@ def test_sell_when_invalid_input_then_error(shares, fill_price, limit_price, exp
         portfolio.sell(DATE_1, SYMBOL_1, shares, fill_price, limit_price)
 
 
-@pytest.mark.parametrize(("fill_price", "limit_price"), [(100, 99), (100, 100), (100, None)])
+@pytest.mark.parametrize("fill_price, limit_price", [(100, 99), (100, 100), (100, None)])
 def test_short(fill_price, limit_price):
     portfolio = Portfolio(CASH)
     order = portfolio.sell(DATE_1, SYMBOL_1, SHARES_1, fill_price, limit_price)
@@ -1325,7 +1325,7 @@ def test_short_when_zero_shares():
     assert not len(portfolio.trades)
 
 
-@pytest.mark.parametrize(("fill_price", "limit_price"), [(100, 101), (100, 100), (100, None)])
+@pytest.mark.parametrize("fill_price, limit_price", [(100, 101), (100, 100), (100, None)])
 def test_cover_when_all_shares(fill_price, limit_price):
     portfolio = Portfolio(CASH)
     sell_order = portfolio.sell(DATE_1, SYMBOL_1, SHARES_1, FILL_PRICE_3, LIMIT_PRICE_3)
@@ -2046,7 +2046,7 @@ def test_trigger_bar_stop_when_invalid_fill_price_then_error(fill_price):
 
 
 @pytest.mark.parametrize(
-    ("percent", "points", "expected_fill_price"),
+    "percent, points, expected_fill_price",
     [(Decimal(20), None, Decimal(160)), (None, Decimal(10), Decimal(190))],
 )
 def test_trigger_long_loss_stop(percent, points, expected_fill_price):
@@ -2193,7 +2193,7 @@ def test_trigger_long_loss_stop_when_slippage_then_market_price():
 
 
 @pytest.mark.parametrize(
-    ("percent", "points", "expected_fill_price"),
+    "percent, points, expected_fill_price",
     [(Decimal(20), None, Decimal(240)), (None, Decimal(10), Decimal(210))],
 )
 def test_trigger_long_profit_stop(percent, points, expected_fill_price):
@@ -2288,7 +2288,7 @@ def test_trigger_long_profit_stop(percent, points, expected_fill_price):
 
 
 @pytest.mark.parametrize(
-    ("percent", "points", "expected_fill_price"),
+    "percent, points, expected_fill_price",
     [(Decimal(20), None, Decimal(200)), (None, Decimal(20), Decimal(200))],
 )
 def test_trigger_long_trailing_stop(percent, points, expected_fill_price):
@@ -2484,7 +2484,7 @@ def test_trigger_short_bar_stop():
 
 
 @pytest.mark.parametrize(
-    ("percent", "points", "expected_fill_price"),
+    "percent, points, expected_fill_price",
     [(Decimal(20), None, Decimal(240)), (None, Decimal(10), Decimal(210))],
 )
 def test_trigger_short_loss_stop(percent, points, expected_fill_price):
@@ -2579,7 +2579,7 @@ def test_trigger_short_loss_stop(percent, points, expected_fill_price):
 
 
 @pytest.mark.parametrize(
-    ("percent", "points", "expected_fill_price"),
+    "percent, points, expected_fill_price",
     [(Decimal(20), None, Decimal(160)), (None, Decimal(10), Decimal(190))],
 )
 def test_trigger_short_profit_stop(percent, points, expected_fill_price):
@@ -2674,7 +2674,7 @@ def test_trigger_short_profit_stop(percent, points, expected_fill_price):
 
 
 @pytest.mark.parametrize(
-    ("percent", "points", "expected_fill_price"),
+    "percent, points, expected_fill_price",
     [(Decimal(20), None, Decimal(400)), (None, Decimal(20), Decimal(400))],
 )
 def test_trigger_short_trailing_stop(percent, points, expected_fill_price):
@@ -3616,7 +3616,7 @@ def test_incr_ids():
     portfolio = Portfolio(CASH)
     buy_order = portfolio.buy(DATE_1, SYMBOL_1, SHARES_1, FILL_PRICE_1, LIMIT_PRICE_1)
     assert buy_order.id == 1
-    assert next(iter(portfolio.long_positions.values())).entries[0].id == 1
+    assert list(portfolio.long_positions.values())[0].entries[0].id == 1
     sell_order = portfolio.sell(DATE_2, SYMBOL_1, SHARES_1, FILL_PRICE_3, LIMIT_PRICE_3)
     assert sell_order.id == 2
     assert portfolio.trades[0].id == 1
@@ -3698,7 +3698,9 @@ def test_capture_bar_when_short_position_and_no_price_data():
     shares = 100
     portfolio = Portfolio(cash, record_portfolio_bars=True)
     portfolio.sell(DATE_1, SYMBOL_1, shares, fill_price)
-    df = pd.DataFrame([], columns=["symbol", "date", "close", "low", "high"]).set_index(["symbol", "date"])
+    df = pd.DataFrame([], columns=["symbol", "date", "close", "low", "high"]).set_index(
+        ["symbol", "date"]
+    )
     portfolio.capture_bar(DATE_1, ColumnScope(df), {SYMBOL_1: 0})
     bar = portfolio.bars[0]
     assert bar.cash == cash - shares * fill_price
@@ -4110,7 +4112,7 @@ def test_buying_power_when_partial_exit_redeploys():
     assert order.shares == Decimal(500)
 
 
-@pytest.mark.parametrize(("close", "type"), [(120, "short"), (190, "short"), (80, "long")])
+@pytest.mark.parametrize("close, type", [(120, "short"), (190, "short"), (80, "long")])
 def test_buying_power_when_adverse_mark_respects_leverage(close, type):
     """An unrealized loss must consume buying power for shorts and longs.
 
@@ -4142,7 +4144,9 @@ def test_buying_power_when_adverse_mark_respects_leverage(close, type):
 def _capture_bar_without_data(portfolio, date):
     """Runs ``capture_bar`` for a date that has no bar for any symbol."""
     rows = [[sym, DATE_4, Decimal(1), Decimal(1), Decimal(1)] for sym in portfolio.symbols]
-    df = pd.DataFrame(rows, columns=["symbol", "date", "close", "low", "high"]).set_index(["symbol", "date"])
+    df = pd.DataFrame(rows, columns=["symbol", "date", "close", "low", "high"]).set_index(
+        ["symbol", "date"]
+    )
     portfolio.capture_bar(date, ColumnScope(df), dict.fromkeys(portfolio.symbols, 1))
 
 
@@ -4178,7 +4182,7 @@ def test_capture_bar_when_no_data_holds_at_last_mark(type):
 
 
 @pytest.mark.parametrize(
-    ("fee_mode", "fee_amount"),
+    "fee_mode, fee_amount",
     [
         (FeeMode.PER_SHARE, 1.0),
         (FeeMode.ORDER_PERCENT, 1.0),
@@ -4289,7 +4293,7 @@ def test_buying_power_when_full_exit_before_mark_respects_leverage(type):
     assert gross / portfolio.market_value <= leverage
 
 
-@pytest.mark.parametrize(("type", "excess"), [("long", Decimal(22_500)), ("short", Decimal(67_500))])
+@pytest.mark.parametrize("type, excess", [("long", Decimal(22_500)), ("short", Decimal(67_500))])
 def test_buying_power_when_partial_exit_before_mark_trails_by_one_bar(type, excess):
     """Pins the known residual: the *unexited* remainder keeps its last mark.
 
@@ -4472,7 +4476,7 @@ def test_position_cap_when_lowered_below_held_count_then_still_binds(type):
 
 
 @pytest.mark.parametrize(
-    ("fee_mode", "fee_amount", "price"),
+    "fee_mode, fee_amount, price",
     [
         (FeeMode.PER_SHARE, 0.05, Decimal(1)),
         (FeeMode.PER_SHARE, 0.005, Decimal(5)),
@@ -4524,9 +4528,8 @@ def _reference_calc_pnl_mae_mfe(pos, close, low, high):
     below assert the production implementation is bit-identical to this
     one. Do not modify or "modernize" this copy.
     """
-    if pos.type not in {"long", "short"}:
-        msg = f"Unknown position type: {pos.type}"
-        raise ValueError(msg)
+    if pos.type != "long" and pos.type != "short":
+        raise ValueError(f"Unknown position type: {pos.type}")
     pnl = Decimal()
     for entry in pos.entries:
         close_d = to_decimal(close)
@@ -4647,7 +4650,7 @@ def test_calc_pnl_mae_mfe_tie_does_not_update():
 
 @pytest.mark.parametrize("pos_type", ["long", "short"])
 @pytest.mark.parametrize(
-    ("low", "high"),
+    "low, high",
     [(None, None), (10.0, None), (None, 12.0), (10.0, 12.0)],
 )
 def test_calc_pnl_mae_mfe_optional_low_high_combinations(pos_type, low, high):

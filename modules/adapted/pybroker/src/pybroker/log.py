@@ -36,7 +36,6 @@ import time
 from collections.abc import Iterable, Iterator, Sequence, Sized
 from contextlib import contextmanager
 from decimal import Decimal
-from typing import Optional
 
 import numpy as np
 from progressbar import ProgressBar
@@ -156,7 +155,9 @@ class Logger:
             # whole symbol universe per call is wasted work when the output
             # is discarded.
             return
-        self._info(f"Loading:\n{start_date} to {end_date}\ntimeframe: {timeframe}\n{sorted(symbols)}")
+        self._info(
+            f"Loading:\n{start_date} to {end_date}\ntimeframe: {timeframe}\n{sorted(symbols)}"
+        )
 
     def loaded_bar_data(self):
         self._out("Loaded cached bar data.\n")
@@ -227,7 +228,11 @@ class Logger:
         self._debug(f"Set indicator cache:\n{cache_key}")
 
     def debug_compute_indicators(self, is_parallel: bool):
-        self._debug("Computing indicators in parallel." if is_parallel else "Computing indicators in serial.")
+        self._debug(
+            "Computing indicators in parallel."
+            if is_parallel
+            else "Computing indicators in serial."
+        )
 
     def train_split_start(self, train_dates: Sequence[np.datetime64]):
         start_date = to_datetime(train_dates[0])
@@ -272,7 +277,8 @@ class Logger:
 
     def warn_set_model_cache_failed(self, cache_key, error):
         self._warn(
-            f"Model could not be pickled for the model cache and will not be cached:\n{cache_key}\nError: {error}"
+            f"Model could not be pickled for the model cache and will not "
+            f"be cached:\n{cache_key}\nError: {error}"
         )
 
     def train_split_completed(self):
@@ -332,7 +338,10 @@ class Logger:
                     f"{grid_size} trials per window ({total} total, {sampler})"
                 )
             else:
-                msg = f"Optimizing: {windows} windows, {n_trials} trials per window ({total} total, {sampler})"
+                msg = (
+                    f"Optimizing: {windows} windows, {n_trials} trials "
+                    f"per window ({total} total, {sampler})"
+                )
         elif grid_size is not None and n_trials < grid_size:
             msg = f"Optimizing: {n_trials} of {grid_size} trials ({sampler})"
         else:
@@ -397,7 +406,10 @@ class Logger:
             fill_price=fill_price,
             limit_price=limit_price,
         )
-        self._debug(f"Buy order amount exceeds available cash={cash}:\n{order}\nSetting buy_shares={clamped_shares}.")
+        self._debug(
+            f"Buy order amount exceeds available cash={cash}:\n{order}\n"
+            f"Setting buy_shares={clamped_shares}."
+        )
 
     def debug_filled_buy_order(
         self,
@@ -530,7 +542,8 @@ class Logger:
         if not self._debug_enabled():
             return
         self._debug(
-            f"Discarded {pos_type} order for {symbol}: holding {held} of max {max_positions} {pos_type} positions."
+            f"Discarded {pos_type} order for {symbol}: holding {held} of "
+            f"max {max_positions} {pos_type} positions."
         )
 
     def debug_enable_data_source_cache(self, ns: str, cache_dir: str):

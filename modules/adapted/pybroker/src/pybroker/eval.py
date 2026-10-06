@@ -34,7 +34,7 @@ from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -226,8 +226,7 @@ def _bca_intervals_from_boot(
 @njit(cache=True)
 def _bca_boot_conf_pf(x: NDArray[np.float64], n_boot: int, use_log: bool) -> BootConfIntervals:
     if n_boot <= 0:
-        msg = "Number of boostrap samples must be greater than 0."
-        raise ValueError(msg)
+        raise ValueError("Number of boostrap samples must be greater than 0.")
     n = len(x)
     if not n:
         return BootConfIntervals(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
@@ -251,8 +250,7 @@ def _bca_boot_conf_pf(x: NDArray[np.float64], n_boot: int, use_log: bool) -> Boo
 @njit(cache=True)
 def _bca_boot_conf_sharpe(x: NDArray[np.float64], n_boot: int) -> BootConfIntervals:
     if n_boot <= 0:
-        msg = "Number of boostrap samples must be greater than 0."
-        raise ValueError(msg)
+        raise ValueError("Number of boostrap samples must be greater than 0.")
     n = len(x)
     if not n:
         return BootConfIntervals(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
@@ -280,8 +278,7 @@ def _bca_boot_conf_generic(
     fn: Callable[[NDArray[np.float64]], float],
 ) -> BootConfIntervals:
     if n_boot <= 0:
-        msg = "Number of boostrap samples must be greater than 0."
-        raise ValueError(msg)
+        raise ValueError("Number of boostrap samples must be greater than 0.")
     n = len(x)
     if not n:
         return BootConfIntervals(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
@@ -485,7 +482,9 @@ def conf_profit_factor(x: NDArray[np.float64], n_boot: int) -> BootConfIntervals
     )
 
 
-def conf_sharpe_ratio(x: NDArray[np.float64], n_boot: int, obs: int | None = None) -> BootConfIntervals:
+def conf_sharpe_ratio(
+    x: NDArray[np.float64], n_boot: int, obs: int | None = None
+) -> BootConfIntervals:
     """Computes confidence intervals for :func:`.sharpe_ratio`."""
     intervals = bca_boot_conf(x, n_boot, sharpe_ratio)
     if obs is not None:
@@ -520,7 +519,8 @@ def max_drawdown(changes: NDArray[np.float64]) -> float:
             max_equity = cumulative
         else:
             loss = max_equity - cumulative
-            dd = max(dd, loss)
+            if loss > dd:
+                dd = loss
     return -dd
 
 
@@ -656,12 +656,10 @@ def drawdown_conf(
         :class:`.DrawdownMetrics` containing the confidence bounds.
     """
     if n_boot <= 0:
-        msg = "Number of boostrap samples must be greater than 0."
-        raise ValueError(msg)
+        raise ValueError("Number of boostrap samples must be greater than 0.")
     n_changes = len(changes)
     if n_changes != len(returns):
-        msg = "Param changes length does not match returns length."
-        raise ValueError(msg)
+        raise ValueError("Param changes length does not match returns length.")
     if not n_changes:
         empty = DrawdownConfs(0.0, 0.0, 0.0, 0.0)
         return DrawdownMetrics(empty, empty)
@@ -691,12 +689,10 @@ def bootstrap_eval_all(
 ) -> tuple[BootConfIntervals, BootConfIntervals, DrawdownMetrics]:
     """Computes all bootstrap metrics in one shared resampling pass."""
     if n_boot <= 0:
-        msg = "Number of boostrap samples must be greater than 0."
-        raise ValueError(msg)
+        raise ValueError("Number of boostrap samples must be greater than 0.")
     n = len(changes)
     if n != len(returns):
-        msg = "Param changes length does not match returns length."
-        raise ValueError(msg)
+        raise ValueError("Param changes length does not match returns length.")
     if not n:
         empty_ci = BootConfIntervals(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         empty_dd = DrawdownConfs(0.0, 0.0, 0.0, 0.0)
@@ -839,7 +835,8 @@ def ulcer_index(values: NDArray[np.float64], period: int | None = None) -> float
         dd = np.zeros(n)
         peak = values[0]
         for i in range(n):
-            peak = max(peak, values[i])
+            if values[i] > peak:
+                peak = values[i]
             if peak == 0:
                 dd[i] = 0
             else:
@@ -1052,7 +1049,9 @@ def total_return_percent(initial_value: float, pnl: float) -> float:
     return ((pnl + initial_value) / initial_value - 1) * 100
 
 
-def annual_total_return_percent(initial_value: float, pnl: float, bars_per_year: int, total_bars: int) -> float:
+def annual_total_return_percent(
+    initial_value: float, pnl: float, bars_per_year: int, total_bars: int
+) -> float:
     """Computes annualized total return as percentage.
 
     Args:
@@ -1178,7 +1177,8 @@ def _trade_stats(
         if pnl > 0:
             cur_wins += 1
             cur_losses = 0
-            max_wins = max(max_wins, cur_wins)
+            if cur_wins > max_wins:
+                max_wins = cur_wins
             total_profit += pnl
             profit_count += 1
             profit_pct_sum += return_pcts[i]
@@ -1190,7 +1190,8 @@ def _trade_stats(
         elif pnl < 0:
             cur_losses += 1
             cur_wins = 0
-            max_losses = max(max_losses, cur_losses)
+            if cur_losses > max_losses:
+                max_losses = cur_losses
             total_loss += pnl
             loss_count += 1
             loss_pct_sum += return_pcts[i]
@@ -1540,13 +1541,15 @@ class EvaluateMixin:
         )
         pf_conf = self._to_conf_intervals("Profit Factor", pf_intervals)
         sharpe_conf = self._to_conf_intervals("Sharpe Ratio", sharpe_intervals)
-        conf_intervals = pd.DataFrame.from_records(pf_conf + sharpe_conf, columns=ConfInterval._fields)
-        conf_intervals = conf_intervals.set_index(["name", "conf"])
+        conf_intervals = pd.DataFrame.from_records(
+            pf_conf + sharpe_conf, columns=ConfInterval._fields
+        )
+        conf_intervals.set_index(["name", "conf"], inplace=True)
         drawdown_conf = pd.DataFrame(
             zip(("99.9%", "99%", "95%", "90%"), *dd_metrics, strict=False),
             columns=("conf", "amount", "percent"),
         )
-        drawdown_conf = drawdown_conf.set_index("conf")
+        drawdown_conf.set_index("conf", inplace=True)
         bootstrap = BootstrapResult(
             conf_intervals=conf_intervals,
             drawdown_conf=drawdown_conf,
@@ -1570,7 +1573,9 @@ class EvaluateMixin:
         total_fees = fees[-1] if len(fees) else 0
         max_dd = max_drawdown(bar_changes)
         max_dd_pct, max_dd_index = max_drawdown_percent(bar_returns)
-        max_dd_date = bar_return_dates[max_dd_index].to_pydatetime() if max_dd_index is not None else None
+        max_dd_date = (
+            bar_return_dates[max_dd_index].to_pydatetime() if max_dd_index is not None else None
+        )
         sharpe = sharpe_ratio(bar_returns, bars_per_year)
         sortino = sortino_ratio(bar_returns, bars_per_year)
         pf = profit_factor(bar_changes)
@@ -1587,7 +1592,10 @@ class EvaluateMixin:
         # subtracting fees[0] keeps the identity exact even if the first
         # recorded bar carried fees.
         unrealized_pnl = (
-            market_values[-1] - market_values[0] - total_pnl + (float(fees[-1]) - float(fees[0]) if len(fees) else 0.0)
+            market_values[-1]
+            - market_values[0]
+            - total_pnl
+            + (float(fees[-1]) - float(fees[0]) if len(fees) else 0.0)
         )
         annual_return_pct = None
         annual_std_error = None

@@ -84,12 +84,16 @@ def _parse_asv_results(path: Path) -> dict[str, dict[str, float | int | None]]:
         result_vals = entries[result_idx]
         if bench_name.startswith("bench_backtest.Determinism."):
             time_val = None
-            track_val = result_vals[0] if isinstance(result_vals, list) and result_vals else result_vals
+            track_val = (
+                result_vals[0] if isinstance(result_vals, list) and result_vals else result_vals
+            )
         elif isinstance(result_vals, list) and len(result_vals) > 1:
             time_val = max(v for v in result_vals if v is not None)
             track_val = None
         else:
-            time_val = result_vals[0] if isinstance(result_vals, list) and result_vals else result_vals
+            time_val = (
+                result_vals[0] if isinstance(result_vals, list) and result_vals else result_vals
+            )
             track_val = None
         out[bench_name] = {
             "time": time_val,
@@ -99,7 +103,9 @@ def _parse_asv_results(path: Path) -> dict[str, dict[str, float | int | None]]:
     return out
 
 
-def _collect_from_results_dir(commit: str, machine: str | None) -> dict[str, dict[str, float | int | None]]:
+def _collect_from_results_dir(
+    commit: str, machine: str | None
+) -> dict[str, dict[str, float | int | None]]:
     if machine is None:
         machines = sorted(p.name for p in RESULTS_DIR.iterdir() if p.is_dir())
         if not machines:
@@ -120,7 +126,7 @@ def save_baseline(path: Path, commit: str, machine: str | None = None) -> None:
     print(f"Saved baseline ({len(metrics)} benchmarks) to {path}")
 
 
-def _fmt_time(value: float | None) -> str:
+def _fmt_time(value: float | int | None) -> str:
     if value is None:
         return "—"
     if isinstance(value, (int, float)) and value > 1:
@@ -130,7 +136,7 @@ def _fmt_time(value: float | None) -> str:
     return str(value)
 
 
-def _pct_change(base: float | None, cur: float | None) -> str:
+def _pct_change(base: float | int | None, cur: float | int | None) -> str:
     if base is None or cur is None or base == 0:
         return "—"
     return f"{((cur - base) / base) * 100:+.1f}%"
@@ -172,7 +178,7 @@ def print_diff(
             status = "OK" if b_hash == c_hash else "FAIL"
             if status == "FAIL":
                 failed = True
-            print(f"{name:<42} {b_hash!s:>10} {c_hash!s:>10} {status:>8}")
+            print(f"{name:<42} {str(b_hash):>10} {str(c_hash):>10} {status:>8}")
             continue
         change = _pct_change(b_time, c_time)
         print(f"{name:<42} {_fmt_time(b_time):>10} {_fmt_time(c_time):>10} {change:>8}")

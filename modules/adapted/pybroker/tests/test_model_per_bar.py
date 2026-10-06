@@ -36,7 +36,7 @@ from pybroker.scope import (
     get_signals,
 )
 
-from .fixtures import *
+from .fixtures import *  # noqa: F401
 
 
 @pytest.fixture(autouse=True)
@@ -104,7 +104,7 @@ def _build_per_bar_scope(data_source_df, symbols):
 
 
 class TestPredictionScopePerBar:
-    @pytest.fixture
+    @pytest.fixture()
     def per_bar_scope(self, data_source_df, symbols):
         return _build_per_bar_scope(data_source_df, symbols)
 
@@ -180,7 +180,7 @@ class TestPredictionScopePerBar:
 class TestPerBarScalarContract:
     """``predict_fn`` must yield the current bar's prediction, not bar 0's."""
 
-    @pytest.fixture
+    @pytest.fixture()
     def df(self):
         dates = pd.date_range("2020-01-01", periods=40)
         close = 100 + np.arange(40, dtype=float)
@@ -242,7 +242,7 @@ class TestPerBarScalarContract:
 class TestInputDataFnRowContract:
     """``input_data_fn`` must return one row per bar."""
 
-    @pytest.fixture
+    @pytest.fixture()
     def df(self):
         dates = pd.date_range("2020-01-01", periods=60)
         close = 100 + np.arange(60, dtype=float)
@@ -264,7 +264,9 @@ class TestInputDataFnRowContract:
         m = model(
             "row_contract",
             lambda s, t, u: object(),
-            predict_fn=((lambda _m, d: 1.0) if per_bar else (lambda _m, d: np.arange(len(d), dtype=float))),
+            predict_fn=(
+                (lambda _m, d: 1.0) if per_bar else (lambda _m, d: np.arange(len(d), dtype=float))
+            ),
             per_bar=per_bar,
             input_data_fn=lambda d: d.assign(r=d["close"].pct_change()).dropna(),
         )

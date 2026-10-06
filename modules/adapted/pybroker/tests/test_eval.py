@@ -85,7 +85,7 @@ def rand_values(value_type, request):
         return np.empty(0)
     if value_type == 0:
         return np.zeros(request.param)
-    if value_type == 1:
+    elif value_type == 1:
         return np.ones(request.param)
     return np.random.rand(request.param)
 
@@ -95,12 +95,12 @@ def calc_bootstrap(request):
     return request.param
 
 
-@pytest.fixture
+@pytest.fixture()
 def portfolio_df():
     return pd.read_pickle(os.path.join(os.path.dirname(__file__), "testdata/portfolio_df.pkl"))
 
 
-@pytest.fixture
+@pytest.fixture()
 def trades_df():
     return pd.read_pickle(os.path.join(os.path.dirname(__file__), "testdata/trades_df.pkl"))
 
@@ -120,7 +120,7 @@ def assert_metric(actual, expected):
 
 
 @pytest.mark.parametrize(
-    ("n_boot", "expected_msg"),
+    "n_boot, expected_msg",
     [
         (0, "Number of boostrap samples must be greater than 0."),
         (-1, "Number of boostrap samples must be greater than 0."),
@@ -151,7 +151,7 @@ def test_drawdown_conf(n_boot, rand_values):
 
 
 @pytest.mark.parametrize(
-    ("n_boot", "expected_msg"),
+    "n_boot, expected_msg",
     [
         (0, "Number of boostrap samples must be greater than 0."),
         (-1, "Number of boostrap samples must be greater than 0."),
@@ -201,8 +201,7 @@ def test_bca_boot_conf_does_not_corrupt_input_when_fn_raises():
     @njit
     def raises_midway(a):
         if len(a) == 6:
-            msg = "boom"
-            raise ValueError(msg)
+            raise ValueError("boom")
         return 0.0
 
     x = np.array([1.0, 2.0, 3.0, 4.0, 5.0, -1.0, -2.0])
@@ -223,7 +222,7 @@ def test_drawdown_conf_uses_full_history():
 
 
 @pytest.mark.parametrize(
-    ("values", "expected_pf"),
+    "values, expected_pf",
     [
         ([0.1, -0.2, 0.3, 0, -0.4, 0.5], 1.499999),
         ([1, 1, 1, 1], 40000000001),
@@ -239,7 +238,7 @@ def test_profit_factor(values, expected_pf):
 
 
 @pytest.mark.parametrize(
-    ("values", "obs", "expected_sharpe"),
+    "values, obs, expected_sharpe",
     [
         ([0.1, -0.2, 0.3, 0, -0.4, 0.5], None, 0.167443),
         (
@@ -258,7 +257,7 @@ def test_sharpe_ratio(values, obs, expected_sharpe):
 
 
 @pytest.mark.parametrize(
-    ("values", "obs", "expected_sortino"),
+    "values, obs, expected_sortino",
     [
         ([0.1, -0.2, 0.3, 0, -0.4, 0.5], None, 0.273861),
         (
@@ -320,7 +319,7 @@ def test_sortino_ratio_accounts_for_loss_depth():
 
 
 @pytest.mark.parametrize(
-    ("values", "expected_dd"),
+    "values, expected_dd",
     [
         ([0.1, 0.15, -0.05, 0.1, -0.25, -0.15, 0], -0.4),
         ([0.1, -0.4], -0.4),
@@ -336,7 +335,7 @@ def test_max_drawdown(values, expected_dd):
 
 
 @pytest.mark.parametrize(
-    ("values", "bars_per_year", "expected_calmar"),
+    "values, bars_per_year, expected_calmar",
     [
         ([0.1, 0.15, -0.05, 0.1, -0.25, -0.15, 0], 252, -2.75279396935151),
         ([0.1, -0.4], 252, -2.5),
@@ -354,7 +353,7 @@ def test_calmar_ratio(values, bars_per_year, expected_calmar):
 
 
 @pytest.mark.parametrize(
-    ("values", "expected_dd", "expected_index"),
+    "values, expected_dd, expected_index",
     [
         ([0, 0.1, 0.15, -0.05, 0.1, -0.25, -0.15, 0], -36.25, 6),
         ([0, -0.2], -20, 1),
@@ -375,7 +374,7 @@ def test_max_drawdown_percent(values, expected_dd, expected_index):
 
 
 @pytest.mark.parametrize(
-    ("values", "expected_iqr"),
+    "values, expected_iqr",
     [
         ([1, 3, 5, 7, 8, 10, 11, 13], 6.5),
         ([1], 0),
@@ -389,7 +388,7 @@ def test_iqr(values, expected_iqr):
 
 
 @pytest.mark.parametrize(
-    ("values", "expected_entropy"),
+    "values, expected_entropy",
     [
         ([0.1, 0.2, 0.3, -0.2, 0.11, -0.3, -0.4, 0, 0.1, 0.2, 0.2], 0.782775),
         ([1, 1, 1, 1], 0),
@@ -403,7 +402,7 @@ def test_relative_entropy(values, expected_entropy):
 
 
 @pytest.mark.parametrize(
-    ("values", "period", "expected_ui"),
+    "values, period, expected_ui",
     [
         # period=None measures drawdowns against the running peak over the
         # whole series.
@@ -427,14 +426,14 @@ def test_ulcer_index(values, period, expected_ui):
     assert truncate(ulcer_index(np.array(values), period), 6) == expected_ui
 
 
-@pytest.mark.parametrize(("values", "period"), [([100, 101, 102], 0), ([100, 101, 102], -1)])
+@pytest.mark.parametrize("values, period", [([100, 101, 102], 0), ([100, 101, 102], -1)])
 def test_ulcer_index_when_invalid_period_then_error(values, period):
     with pytest.raises(AssertionError, match=re.escape("n needs to be >= 1.")):
         ulcer_index(np.array(values), period)
 
 
 @pytest.mark.parametrize(
-    ("values", "period", "ui", "expected_upi"),
+    "values, period, ui, expected_upi",
     [
         # period=None divides the mean per-bar return percentage by the
         # whole-series ulcer_index.
@@ -454,8 +453,10 @@ def test_ulcer_index_when_invalid_period_then_error(values, period):
         ([], 14, None, 0),
         ([], 14, 0, 0),
         ([], 14, 1.5, 0),
+        ([100], 14, None, 0),
         ([100], 14, 0, 0),
         ([100], 14, 1.5, 0),
+        ([100], 1, None, 0),
         ([100, 101], 14, None, float("inf")),
         ([100, 101], 14, 0, float("inf")),
         ([100, 101, 102], 2, 0, float("inf")),
@@ -466,7 +467,7 @@ def test_upi(values, period, ui, expected_upi):
 
 
 @pytest.mark.parametrize(
-    ("values", "ui", "expected_upi"),
+    "values, ui, expected_upi",
     [
         # Annualized (CAGR) return percentage over the whole-series
         # ulcer_index: (102 / 100) ** (252 / 7) - 1 is a 103.99% CAGR.
@@ -485,14 +486,14 @@ def test_upi_annualized(values, ui, expected_upi):
     assert_metric(upi(np.array(values), ui=ui, bars_per_year=252), expected_upi)
 
 
-@pytest.mark.parametrize(("values", "period"), [([100, 101, 102], 0), ([100, 101, 102], -1)])
+@pytest.mark.parametrize("values, period", [([100, 101, 102], 0), ([100, 101, 102], -1)])
 def test_upi_when_invalid_period_then_error(values, period):
     with pytest.raises(AssertionError, match=re.escape("n needs to be >= 1.")):
         upi(np.array(values), period)
 
 
 @pytest.mark.parametrize(
-    ("values", "expected_win_rate", "expected_loss_rate"),
+    "values, expected_win_rate, expected_loss_rate",
     [
         ([0.1, 0.2, 0.3, -0.2, 0.11, -0.3, -0.4, 0, 0.1, 0.2, 0.2], 70, 30),
         ([0.1], 100, 0),
@@ -509,7 +510,7 @@ def test_win_loss_rate(values, expected_win_rate, expected_loss_rate):
 
 
 @pytest.mark.parametrize(
-    ("values", "expected_winning_trades", "expected_losing_trades"),
+    "values, expected_winning_trades, expected_losing_trades",
     [
         ([0.1, 0.2, 0.3, -0.2, 0.11, -0.3, -0.4, 0, 0.1, 0.2, 0.2], 7, 3),
         ([0.1], 1, 0),
@@ -526,7 +527,7 @@ def test_winning_losing_trades(values, expected_winning_trades, expected_losing_
 
 
 @pytest.mark.parametrize(
-    ("values", "expected_profit", "expected_loss"),
+    "values, expected_profit, expected_loss",
     [
         ([0.1, -0.2, 0.3, 0, -0.4, 0.5], 0.9, -0.6),
         ([0, 0, 0, 0, 0], 0, 0),
@@ -543,7 +544,7 @@ def test_total_profit_loss(values, expected_profit, expected_loss):
 
 
 @pytest.mark.parametrize(
-    ("values", "expected_profit", "expected_loss"),
+    "values, expected_profit, expected_loss",
     [
         ([0.1, -0.2, 0.3, 0, -0.4, 0.5], 0.3, -0.3),
         ([1, 1, 1, 1, 1], 1, 0),
@@ -560,7 +561,7 @@ def test_avg_profit_loss(values, expected_profit, expected_loss):
 
 
 @pytest.mark.parametrize(
-    ("values", "expected_win", "expected_loss"),
+    "values, expected_win, expected_loss",
     [
         ([0.1, 0.2, 0.3, -0.2, 0.11, -0.3, -0.4, 0, 0.1, 0.2, 0.2], 0.3, -0.4),
         ([1, 1, 1, 1, 1], 1, 0),
@@ -577,7 +578,7 @@ def test_largest_win_loss(values, expected_win, expected_loss):
 
 
 @pytest.mark.parametrize(
-    ("values", "expected_wins", "expected_losses"),
+    "values, expected_wins, expected_losses",
     [
         ([0.1, 0.2, 0.3, -0.2, 0.11, -0.3, -0.4, 0, 0.1, 0.2, 0.2], 3, 2),
         ([1, 1, 1, 1, 1], 5, 0),
@@ -594,7 +595,7 @@ def test_max_wins_losses(values, expected_wins, expected_losses):
 
 
 @pytest.mark.parametrize(
-    ("values", "expected_r2"),
+    "values, expected_r2",
     [
         ([1, 3, 5, 7, 8, 10, 11, 13], 0.992907),
         ([1], 0),
@@ -609,14 +610,14 @@ def test_r_squared(values, expected_r2):
     assert truncate(r2, 6) == expected_r2
 
 
-@pytest.mark.parametrize(("initial_value", "pnl", "expected_return"), [(100, 10, 10), (0, 10, 0)])
+@pytest.mark.parametrize("initial_value, pnl, expected_return", [(100, 10, 10), (0, 10, 0)])
 def test_total_return_percent(initial_value, pnl, expected_return):
     return_pct = total_return_percent(initial_value, pnl)
     assert truncate(return_pct, 2) == expected_return
 
 
 @pytest.mark.parametrize(
-    ("initial_value", "pnl", "bars_per_year", "total_bars", "expected_return"),
+    "initial_value, pnl, bars_per_year, total_bars, expected_return",
     [
         # 756 bar values span 755 return intervals.
         (100, 10, 252, 756, 3.23),
@@ -626,14 +627,16 @@ def test_total_return_percent(initial_value, pnl, expected_return):
         (100, 10, 252, 1, 0),
     ],
 )
-def test_annual_total_return_percent(initial_value, pnl, bars_per_year, total_bars, expected_return):
+def test_annual_total_return_percent(
+    initial_value, pnl, bars_per_year, total_bars, expected_return
+):
     return_pct = annual_total_return_percent(initial_value, pnl, bars_per_year, total_bars)
     assert truncate(return_pct, 2) == expected_return
 
 
 class TestEvaluateMixin:
     @pytest.mark.parametrize(
-        ("bars_per_year", "expected_sharpe", "expected_sortino"),
+        "bars_per_year, expected_sharpe, expected_sortino",
         [
             (None, 0.026013464180574847, 0.037930595687473444),
             (
@@ -688,7 +691,10 @@ class TestEvaluateMixin:
         assert metrics.initial_market_value == 500000
         assert metrics.end_market_value == 693111.87
         assert metrics.total_pnl == 165740.2
-        assert metrics.unrealized_pnl == metrics.end_market_value - metrics.initial_market_value - metrics.total_pnl
+        assert (
+            metrics.unrealized_pnl
+            == metrics.end_market_value - metrics.initial_market_value - metrics.total_pnl
+        )
         assert metrics.total_return_pct == 33.14804
         assert metrics.total_profit == 403511.07999999996
         assert metrics.total_loss == -237770.88
@@ -882,7 +888,9 @@ class TestEvaluateMixin:
         assert run(None).sharpe != run(None).sharpe
 
     @pytest.mark.parametrize("calc_bootstrap", [True, False])
-    def test_evaluate_preserves_global_numpy_random_state(self, portfolio_df, trades_df, calc_bootstrap):
+    def test_evaluate_preserves_global_numpy_random_state(
+        self, portfolio_df, trades_df, calc_bootstrap
+    ):
         """evaluate() used to seed the process-global NumPy RNG and only
         restore it on the bootstrap path, silently hijacking the caller's
         stream on every other path."""
@@ -1006,7 +1014,7 @@ def test_relative_entropy_ignores_non_finite_values():
 
 
 @pytest.mark.parametrize(
-    ("returns", "market_values", "label"),
+    "returns, market_values, label",
     [
         (np.zeros(50), np.full(50, 100_000.0), "no-trade"),
         (

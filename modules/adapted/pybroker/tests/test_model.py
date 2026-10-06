@@ -62,7 +62,7 @@ from pybroker.model import (
 from pybroker.parallel import set_parallel
 from pybroker.scope import ModelInputScope, param, register_columns
 
-from .fixtures import *
+from .fixtures import *  # noqa: F401
 
 TF_SECONDS = 60
 BETWEEN_TIME = ("10:00", "15:30")
@@ -73,7 +73,7 @@ def parallel_models(request):
     return request.param
 
 
-@pytest.fixture
+@pytest.fixture()
 def multi_worker_parallel_config():
     """Configures more than one worker for the duration of a test.
 
@@ -92,38 +92,38 @@ def multi_worker_parallel_config():
         parallel_mod._config = saved
 
 
-@pytest.fixture
+@pytest.fixture()
 def train_data(data_source_df):
     return data_source_df.iloc[: data_source_df.shape[0] // 2]
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_data(data_source_df):
     return data_source_df.iloc[data_source_df.shape[0] // 2 :]
 
 
-@pytest.fixture
+@pytest.fixture()
 def cache_date_fields(train_data):
     return CacheDateFields(
-        start_date=to_datetime(min(train_data["date"].unique())),
-        end_date=to_datetime(max(train_data["date"].unique())),
+        start_date=to_datetime(sorted(train_data["date"].unique())[0]),
+        end_date=to_datetime(sorted(train_data["date"].unique())[-1]),
         tf_seconds=TF_SECONDS,
         between_time=BETWEEN_TIME,
         days=None,
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def start_date(train_data):
-    return to_datetime(min(train_data["date"].unique()))
+    return to_datetime(sorted(train_data["date"].unique())[0])
 
 
-@pytest.fixture
+@pytest.fixture()
 def end_date(train_data):
-    return to_datetime(max(train_data["date"].unique()))
+    return to_datetime(sorted(train_data["date"].unique())[-1])
 
 
-@pytest.fixture
+@pytest.fixture()
 def model_loader():
     return model(
         "loader",
@@ -133,7 +133,7 @@ def model_loader():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def model_syms(train_data, model_source, model_loader):
     return [ModelSymbol(model_source.name, sym) for sym in train_data["symbol"].unique()] + [
         ModelSymbol(model_loader.name, sym) for sym in train_data["symbol"].unique()
@@ -141,8 +141,9 @@ def model_syms(train_data, model_source, model_loader):
 
 
 @pytest.mark.parametrize(
-    ("pretrained", "input_cols"),
+    "pretrained, input_cols",
     [
+        (True, False),
         (True, False),
     ],
 )
@@ -254,7 +255,8 @@ class TestModelSource:
         with pytest.raises(
             ValueError,
             match=re.escape(
-                "Pretrained model 'model_source' is not trained per interval and cannot be bound to intervals."
+                "Pretrained model 'model_source' is not trained per interval "
+                "and cannot be bound to intervals."
             ),
         ):
             source.intervals("weekly")
@@ -268,7 +270,9 @@ class TestModelSource:
     def test_model_trainer_call_with_kwargs(self, train_data, test_data):
         train_fn = Mock()
         kwargs = {"a": 1, "b": 2}
-        ModelTrainer("trainer", train_fn, [], None, None, False, kwargs)("SPY", train_data, test_data)
+        ModelTrainer("trainer", train_fn, [], None, None, False, kwargs)(
+            "SPY", train_data, test_data
+        )
         train_fn.assert_called_once_with("SPY", train_data, test_data, **kwargs)
 
     def test_model_trainer_repr(self):
@@ -325,20 +329,28 @@ class TestModelsMixin:
         self._assert_models(models, model_syms)
 
     @pytest.mark.usefixtures("setup_model_cache")
-    def test_train_models_when_empty_train_data(self, model_syms, test_data, ind_data, cache_date_fields):
+    def test_train_models_when_empty_train_data(
+        self, model_syms, test_data, ind_data, cache_date_fields
+    ):
         mixin = ModelsMixin()
-        models = mixin.train_models(model_syms, pd.DataFrame(), test_data, ind_data, cache_date_fields)
+        models = mixin.train_models(
+            model_syms, pd.DataFrame(), test_data, ind_data, cache_date_fields
+        )
         assert len(models) == 0
 
     @pytest.mark.usefixtures("setup_enabled_model_cache")
-    def test_train_models_when_cached(self, model_syms, train_data, test_data, ind_data, cache_date_fields):
+    def test_train_models_when_cached(
+        self, model_syms, train_data, test_data, ind_data, cache_date_fields
+    ):
         mixin = ModelsMixin()
         mixin.train_models(model_syms, train_data, test_data, ind_data, cache_date_fields)
         models = mixin.train_models(model_syms, train_data, test_data, ind_data, cache_date_fields)
         self._assert_models(models, model_syms)
 
     @pytest.mark.usefixtures("setup_enabled_model_cache")
-    def test_train_models_when_partial_cached(self, model_syms, train_data, test_data, ind_data, cache_date_fields):
+    def test_train_models_when_partial_cached(
+        self, model_syms, train_data, test_data, ind_data, cache_date_fields
+    ):
         mixin = ModelsMixin()
         mixin.train_models(model_syms[:1], train_data, test_data, ind_data, cache_date_fields)
         models = mixin.train_models(model_syms, train_data, test_data, ind_data, cache_date_fields)
@@ -359,7 +371,9 @@ class TestModelsMixin:
             indicators,
             pretrained=False,
         )
-        trainer_syms = sorted(ModelSymbol(trainer.name, sym) for sym in train_data["symbol"].unique())
+        trainer_syms = sorted(
+            ModelSymbol(trainer.name, sym) for sym in train_data["symbol"].unique()
+        )
         fake_results = [
             (
                 "sym",
@@ -433,15 +447,15 @@ class TestModelsMixin:
 
 
 class TestPooledModelsMixin:
-    @pytest.fixture
+    @pytest.fixture()
     def pooled_symbols(self):
         return frozenset({"SPY", "AAPL"})
 
-    @pytest.fixture
+    @pytest.fixture()
     def pooled_model_syms(self, pooled_symbols):
         return [ModelSymbol("pooled_model", sym) for sym in sorted(pooled_symbols)]
 
-    @pytest.fixture
+    @pytest.fixture()
     def pooled_model_groups(self, pooled_symbols):
         return {("pooled_model", 1): pooled_symbols}
 
@@ -477,7 +491,7 @@ class TestPooledModelsMixin:
         train_fn.assert_called_once()
         call_args = train_fn.call_args[0]
         assert len(call_args) == 3
-        symbols_arg, pooled_train, _pooled_test = call_args
+        symbols_arg, pooled_train, pooled_test = call_args
         assert symbols_arg == tuple(sorted(pooled_symbols))
         assert DataCol.SYMBOL.value in pooled_train.columns
         assert list(pooled_train[DataCol.SYMBOL.value].unique()) == list(symbols_arg)
@@ -968,10 +982,14 @@ class TestPooledModelsMixin:
             if model_sym in pooled_model_syms:
                 assert (
                     serial_models[model_sym].instance is parallel_models[model_sym].instance
-                    or serial_models[model_sym].instance.symbol == parallel_models[model_sym].instance.symbol
+                    or serial_models[model_sym].instance.symbol
+                    == parallel_models[model_sym].instance.symbol
                 )
             else:
-                assert serial_models[model_sym].instance.symbol == parallel_models[model_sym].instance.symbol
+                assert (
+                    serial_models[model_sym].instance.symbol
+                    == parallel_models[model_sym].instance.symbol
+                )
 
 
 class TestIntervalModels:
@@ -1066,7 +1084,9 @@ class TestIntervalModels:
         interval_data = IntervalData()
         for sym in symbols:
             sym_df = df[df[DataCol.SYMBOL.value] == sym].reset_index(drop=True)
-            interval_data.compressed[(sym, "weekly")] = compress_symbol_df(sym_df, "weekly", frozenset(), 86400.0)
+            interval_data.compressed[(sym, "weekly")] = compress_symbol_df(
+                sym_df, "weekly", frozenset(), 86400.0
+            )
         ind_syms = []
         for sym in symbols:
             ind_syms.append(IndicatorSymbol(indicator_interval_name(sma_ind.name, "weekly"), sym))
@@ -1151,7 +1171,9 @@ class TestIntervalModels:
 
     @pytest.mark.parametrize("interval", ["weekly", 5])
     @pytest.mark.parametrize("lookahead", [1, 2, 3])
-    def test_train_models_interval_honors_lookahead(self, scope, cache_date_fields, lookahead, interval):
+    def test_train_models_interval_honors_lookahead(
+        self, scope, cache_date_fields, lookahead, interval
+    ):
         sym = "SPY"
         dates = np.array(
             pd.date_range("2020-01-06", periods=30, freq="B"),
@@ -1159,7 +1181,9 @@ class TestIntervalModels:
         )
         df = self._make_symbol_df(sym, dates)
         interval_data = IntervalData()
-        interval_data.compressed[(sym, interval)] = compress_symbol_df(df, interval, frozenset(), 86400.0)
+        interval_data.compressed[(sym, interval)] = compress_symbol_df(
+            df, interval, frozenset(), 86400.0
+        )
         recorded = {}
 
         def train_fn(symbol, train_df, test_df):
@@ -1201,7 +1225,9 @@ class TestIntervalModels:
             assert np.array_equal(got_train, bar_dates[train_idx])
 
     @pytest.mark.parametrize("lookahead", [1, 2, 3])
-    def test_train_models_pooled_interval_honors_lookahead(self, scope, cache_date_fields, lookahead):
+    def test_train_models_pooled_interval_honors_lookahead(
+        self, scope, cache_date_fields, lookahead
+    ):
         # An every-5-bars interval bins each symbol from its own first bar,
         # so histories starting on different dates produce misaligned
         # compressed calendars and different first test compressed indices.
@@ -1215,7 +1241,9 @@ class TestIntervalModels:
         df = pd.concat(frames.values(), ignore_index=True)
         interval_data = IntervalData()
         for sym, sym_df in frames.items():
-            interval_data.compressed[(sym, interval)] = compress_symbol_df(sym_df, interval, frozenset(), 86400.0)
+            interval_data.compressed[(sym, interval)] = compress_symbol_df(
+                sym_df, interval, frozenset(), 86400.0
+            )
         recorded = {}
 
         def train_fn(symbols_arg, train_df, test_df):
@@ -1245,7 +1273,9 @@ class TestIntervalModels:
         first_test_indices = {}
         for sym, sym_df in frames.items():
             bar_dates = self._compressed_bar_dates(sym_df, interval)
-            sym_train = recorded["train"].loc[recorded["train"][sym_col] == sym, date_col].to_numpy()
+            sym_train = (
+                recorded["train"].loc[recorded["train"][sym_col] == sym, date_col].to_numpy()
+            )
             sym_test = recorded["test"].loc[recorded["test"][sym_col] == sym, date_col].to_numpy()
             assert len(sym_train) > 0
             assert len(sym_test) > 0
@@ -1262,7 +1292,9 @@ class TestIntervalModels:
         # both gaps.
         assert len(set(first_test_indices.values())) == len(frames)
 
-    def test_pooled_interval_cache_distinct_by_lookahead(self, scope, setup_enabled_model_cache, cache_date_fields):
+    def test_pooled_interval_cache_distinct_by_lookahead(
+        self, scope, setup_enabled_model_cache, cache_date_fields
+    ):
         interval = "weekly"
         dates = np.array(
             pd.date_range("2020-01-06", periods=20, freq="B"),
@@ -1273,7 +1305,9 @@ class TestIntervalModels:
         df = pd.concat(frames.values(), ignore_index=True)
         interval_data = IntervalData()
         for sym, sym_df in frames.items():
-            interval_data.compressed[(sym, interval)] = compress_symbol_df(sym_df, interval, frozenset(), 86400.0)
+            interval_data.compressed[(sym, interval)] = compress_symbol_df(
+                sym_df, interval, frozenset(), 86400.0
+            )
         calls = []
 
         def train_fn(symbols_arg, train_df, test_df):
@@ -1306,7 +1340,9 @@ class TestIntervalModels:
         assert len(calls) == 2
 
     @pytest.mark.parametrize("mode", ["per_symbol", "pooled", "lags"])
-    def test_train_models_interval_lookahead_empties_train_warns(self, scope, cache_date_fields, mode):
+    def test_train_models_interval_lookahead_empties_train_warns(
+        self, scope, cache_date_fields, mode
+    ):
         interval = 2
         dates = np.array(
             ["2020-01-06", "2020-01-07", "2020-01-08", "2020-01-09"],
@@ -1317,7 +1353,9 @@ class TestIntervalModels:
         df = pd.concat(frames.values(), ignore_index=True)
         interval_data = IntervalData()
         for sym, sym_df in frames.items():
-            interval_data.compressed[(sym, interval)] = compress_symbol_df(sym_df, interval, frozenset(), 86400.0)
+            interval_data.compressed[(sym, interval)] = compress_symbol_df(
+                sym_df, interval, frozenset(), 86400.0
+            )
         pooled_model_groups = None
         if mode == "pooled":
 
@@ -1382,7 +1420,9 @@ class TestIntervalModels:
         df = pd.concat(frames.values(), ignore_index=True)
         interval_data = IntervalData()
         for sym, sym_df in frames.items():
-            interval_data.compressed[(sym, interval)] = compress_symbol_df(sym_df, interval, frozenset(), 86400.0)
+            interval_data.compressed[(sym, interval)] = compress_symbol_df(
+                sym_df, interval, frozenset(), 86400.0
+            )
         train_frames = []
 
         def train_fn(symbols_arg, train_df, test_df):
@@ -1425,7 +1465,9 @@ class TestIntervalModels:
         assert kept.size == train_idx.size - 1
         assert test_idx[0] - kept[-1] == lookahead
 
-    def test_interval_cache_not_shared_across_lookaheads(self, scope, setup_enabled_model_cache, cache_date_fields):
+    def test_interval_cache_not_shared_across_lookaheads(
+        self, scope, setup_enabled_model_cache, cache_date_fields
+    ):
         sym = "SPY"
         interval = "weekly"
         dates = np.array(
@@ -1434,7 +1476,9 @@ class TestIntervalModels:
         )
         df = self._make_symbol_df(sym, dates)
         interval_data = IntervalData()
-        interval_data.compressed[(sym, interval)] = compress_symbol_df(df, interval, frozenset(), 86400.0)
+        interval_data.compressed[(sym, interval)] = compress_symbol_df(
+            df, interval, frozenset(), 86400.0
+        )
         base_calls = []
         tf_calls = []
 
@@ -1557,7 +1601,7 @@ def _model_inputs_equal(left, right) -> bool:
             return False
         left_arr = left.arrays[col]
         right_arr = right.arrays[col]
-        if object in (left_arr.dtype, right_arr.dtype):
+        if left_arr.dtype == object or right_arr.dtype == object:
             if not np.array_equal(left_arr, right_arr):
                 return False
         elif not np.array_equal(left_arr, right_arr, equal_nan=True):
@@ -1608,7 +1652,7 @@ def test_train_models_reuses_history_store(
         symbol_array_store_from_frame,
     )
 
-    sym = min(train_data["symbol"].unique())
+    sym = sorted(train_data["symbol"].unique())[0]
     # lags= is what actually reads the merged store, so without it this would
     # pass on laziness alone and never exercise the supplied store.
     model(
@@ -1651,7 +1695,7 @@ def test_train_models_skips_history_store_without_lags(
     cache_date_fields,
 ):
     """Only lagged models read the merged store, so it must stay unbuilt."""
-    sym = min(train_data["symbol"].unique())
+    sym = sorted(train_data["symbol"].unique())[0]
     model(
         "no_lags_model",
         lambda symbol, train_df, test_df: FakeModel(symbol, np.array([1.0])),
@@ -1755,7 +1799,9 @@ def test_logger_getstate_drops_progress_bar(scope):
     assert restored.logger._progress_bar is None
 
 
-def test_pooled_model_cache_key_carries_group_composition(scope, setup_enabled_model_cache, cache_date_fields):
+def test_pooled_model_cache_key_carries_group_composition(
+    scope, setup_enabled_model_cache, cache_date_fields
+):
     """A pooled model must not be served to a different symbol set.
 
     The model is stored under one plain key per group member, so a run over
@@ -1776,7 +1822,9 @@ def test_pooled_model_cache_key_carries_group_composition(scope, setup_enabled_m
         fields=cache_date_fields,
         pooled_symbols=frozenset({"SPY", "AAPL", "TSLA"}),
     )
-    per_symbol = ModelCacheKey.from_date_fields(symbol="SPY", model_name="pooled", fields=cache_date_fields)
+    per_symbol = ModelCacheKey.from_date_fields(
+        symbol="SPY", model_name="pooled", fields=cache_date_fields
+    )
     assert small != large
     assert small != per_symbol
     # Composition is order-independent.

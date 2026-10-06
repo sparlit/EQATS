@@ -36,6 +36,7 @@ This code is licensed under Apache 2.0 with Commons Clause license
 
 import math
 from collections import defaultdict
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from importlib import import_module
@@ -46,13 +47,13 @@ from typing import (
     Literal,
     NamedTuple,
     Never,
-    Optional,
-    Union,
 )
 
 import numpy as np
 import pandas as pd
+from diskcache import Cache
 from numba import njit
+from numpy.typing import NDArray
 
 from pybroker.common import (
     BarData,
@@ -76,11 +77,6 @@ from pybroker.interval import (
 from pybroker.log import Logger
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Mapping, Sequence
-
-    from diskcache import Cache
-    from numpy.typing import NDArray
-
     from pybroker.model import LagSeriesCache, ModelInput
     from pybroker.portfolio import Stop
 
@@ -211,8 +207,7 @@ class StaticScope:
         """Retrieves a :class:`pybroker.indicator.Indicator` from static
         scope."""
         if not self.has_indicator(name):
-            msg = f"Indicator {name!r} does not exist."
-            raise ValueError(msg)
+            raise ValueError(f"Indicator {name!r} does not exist.")
         return self._indicators[name]
 
     def get_indicator_names(self, model_name: str) -> tuple[str]:
@@ -237,8 +232,7 @@ class StaticScope:
         scope.
         """
         if not self.has_model_source(name):
-            msg = f"ModelSource {name!r} does not exist."
-            raise ValueError(msg)
+            raise ValueError(f"ModelSource {name!r} does not exist.")
         return self._model_sources[name]
 
     def register_custom_cols(self, names: str | Iterable[str], *args):
@@ -288,8 +282,7 @@ class StaticScope:
 
     def _verify_unfrozen_cols(self):
         if self._cols_frozen:
-            msg = "Cannot modify columns when strategy is running."
-            raise ValueError(msg)
+            raise ValueError("Cannot modify columns when strategy is running.")
 
     def freeze_data_cols(self):
         """Prevents additional data columns from being registered."""
@@ -332,8 +325,7 @@ class StaticScope:
         cols = self.default_data_cols | self.custom_data_cols
         ind_collisions = sorted(name for name in ind_names if name in cols)
         if ind_collisions:
-            msg = f"Indicator name(s) collide with data column(s): {ind_collisions}"
-            raise ValueError(msg)
+            raise ValueError(f"Indicator name(s) collide with data column(s): {ind_collisions}")
         taken = cols | ind_names
         pred_collisions = set()
         for name in model_names:
@@ -341,11 +333,15 @@ class StaticScope:
             # so those are reserved along with the base {name}_pred.
             prefix = f"{name}_pred"
             for existing in taken:
-                if existing == prefix or (existing.startswith(f"{prefix}_") and existing[len(prefix) + 1 :].isdigit()):
+                if existing == prefix or (
+                    existing.startswith(f"{prefix}_") and existing[len(prefix) + 1 :].isdigit()
+                ):
                     pred_collisions.add(existing)
         if pred_collisions:
-            msg = f"Model prediction column(s) collide with existing column(s): {sorted(pred_collisions)}"
-            raise ValueError(msg)
+            raise ValueError(
+                "Model prediction column(s) collide with existing "
+                f"column(s): {sorted(pred_collisions)}"
+            )
 
     def param(self, name: str, value: Any | None = _EMPTY_PARAM) -> Any | None:
         """Get or set a global parameter."""
@@ -369,8 +365,7 @@ class StaticScope:
     def get_hyperparam(self, name: str) -> Any:
         """Retrieves a hyperparam from static scope."""
         if not self.has_hyperparam(name):
-            msg = f"Hyperparam {name!r} does not exist."
-            raise ValueError(msg)
+            raise ValueError(f"Hyperparam {name!r} does not exist.")
         return self._hyperparams[name]
 
     def iter_hyperparams(self) -> Iterable[Any]:
@@ -508,7 +503,9 @@ class _StoreBacking:
         """Returns per-symbol column views into the backing buffers."""
         sym_arrays: dict[str, dict[str, NDArray]] = {}
         for sym, (start, stop) in self.offsets.items():
-            arrays: dict[str, NDArray] = {col: self.stack[c, start:stop] for c, col in enumerate(self.stack_cols)}
+            arrays: dict[str, NDArray] = {
+                col: self.stack[c, start:stop] for c, col in enumerate(self.stack_cols)
+            }
             for col, arr in self.other.items():
                 arrays[col] = arr[start:stop]
             sym_arrays[sym] = arrays
@@ -545,7 +542,11 @@ class SymbolArrayStore:
             return np.array([], dtype="datetime64[ns]")
         return np.unique(
             np.concatenate(
-                [arrays[date_col] for arrays in self.sym_arrays.values() if arrays.get(date_col) is not None]
+                [
+                    arrays[date_col]
+                    for arrays in self.sym_arrays.values()
+                    if arrays.get(date_col) is not None
+                ]
             )
         )
 
@@ -694,11 +695,15 @@ def symbol_array_store_from_indexed_df(df: pd.DataFrame) -> SymbolArrayStore:
     for sym in df.index.get_level_values(0).unique():
         sym_key = str(sym)
         sym_df = df.loc[pd.IndexSlice[sym_key, :]]
-        sym_arrays[sym_key] = {col: np.asarray(sym_df[col].to_numpy(copy=True)) for col in sym_df.columns}
+        sym_arrays[sym_key] = {
+            col: np.asarray(sym_df[col].to_numpy(copy=True)) for col in sym_df.columns
+        }
         if date_col not in sym_arrays[sym_key]:
             idx = sym_df.index
             if isinstance(idx, pd.MultiIndex):
-                sym_arrays[sym_key][date_col] = np.asarray(idx.get_level_values(-1).to_numpy(copy=True))
+                sym_arrays[sym_key][date_col] = np.asarray(
+                    idx.get_level_values(-1).to_numpy(copy=True)
+                )
             else:
                 sym_arrays[sym_key][date_col] = np.asarray(idx.to_numpy(copy=True))
     return SymbolArrayStore(frozenset(sym_arrays.keys()), sym_arrays)
@@ -977,8 +982,7 @@ class ColumnScope:
         if not names:
             return result
         if symbol not in self._symbols:
-            msg = f"Symbol not found: {symbol}."
-            raise ValueError(msg)
+            raise ValueError(f"Symbol not found: {symbol}.")
         sym_data = self._store.sym_arrays[symbol]
         for name in names:
             if name not in sym_data:
@@ -1002,8 +1006,7 @@ class ColumnScope:
             ``end_index`` (when specified).
         """
         if symbol not in self._symbols:
-            msg = f"Symbol not found: {symbol}."
-            raise ValueError(msg)
+            raise ValueError(f"Symbol not found: {symbol}.")
         array = self._store.sym_arrays[symbol].get(name)
         if array is None:
             return None
@@ -1012,15 +1015,14 @@ class ColumnScope:
     def fetch_value(self, symbol: str, name: str, end_index: int) -> float | None:
         """Returns the scalar value at ``end_index - 1`` without slicing."""
         if symbol not in self._symbols:
-            msg = f"Symbol not found: {symbol}."
-            raise ValueError(msg)
+            raise ValueError(f"Symbol not found: {symbol}.")
         array = self._store.sym_arrays[symbol].get(name)
         if array is None:
             return None
         if end_index <= 0:
-            msg = f"{name!r} value not found."
-            raise ValueError(msg)
-        end_index = min(end_index, len(array))
+            raise ValueError(f"{name!r} value not found.")
+        if end_index > len(array):
+            end_index = len(array)
         return float(array[end_index - 1])
 
     def bar_data_from_data_columns(self, symbol: str, end_index: int) -> BarData:
@@ -1038,8 +1040,7 @@ class ColumnScope:
         if bar_data_cols is None:
             bar_data_cols = static_scope.ordered_data_cols
         if symbol not in self._symbols:
-            msg = f"Symbol not found: {symbol}."
-            raise ValueError(msg)
+            raise ValueError(f"Symbol not found: {symbol}.")
         sym_data = self._store.sym_arrays[symbol]
         default_col_data: dict[str, NDArray | None] = {}
         custom_col_data: dict[str, NDArray] = {}
@@ -1102,49 +1103,46 @@ class IndicatorScope:
             # Interval series are indexed by compressed bar, so truncating one
             # with a base bar index would expose future data.
             base_name, _ = parse_indicator_interval_name(name)
-            msg = (
+            raise ValueError(
                 f"Indicator {name!r} is bound to interval {token!r} and "
                 "cannot be read from the base context. Use "
                 f"ctx.interval({token!r}).indicator({base_name!r}) instead."
             )
-            raise ValueError(msg)
         ind_sym = IndicatorSymbol(name, symbol)
         if ind_sym in self._sym_inds:
             cached = self._sym_inds[ind_sym]
             return cached if end_index is None else cached[:end_index]
         if ind_sym not in self._indicator_data:
             if token is not None:
-                msg = (
+                raise ValueError(
                     f"Indicator {name!r} not found for {symbol}. Indicators "
                     "are computed on an interval only when bound to it with "
                     f"Indicator.intervals({token!r}) — or, for a model's "
                     "input features, when the model is bound with "
                     f"ModelSource.intervals({token!r})."
                 )
-                raise ValueError(msg)
             if StaticScope.instance().has_indicator(name):
-                msg = (
+                raise ValueError(
                     f"Indicator {name!r} not found for {symbol}. Pass it to "
                     "add_execution(indicators=...) for this symbol's "
                     "execution. If it is bound with Indicator.intervals(), "
                     "include 'base' in the binding to compute it on the "
                     "base timeframe."
                 )
-                raise ValueError(msg)
-            msg = f"Indicator {name!r} not found for {symbol}."
-            raise ValueError(msg)
+            raise ValueError(f"Indicator {name!r} not found for {symbol}.")
         raw = self._indicator_data[ind_sym]
         if isinstance(raw, np.ndarray):
             ind_data = np.asarray(raw, dtype=np.float64)
         elif token is not None:
             ind_data = np.asarray(raw.to_numpy(copy=False), dtype=np.float64)
-        elif isinstance(raw, pd.Series):
-            ind_dates = raw.index.to_numpy(dtype="datetime64[ns]")
-            ind_values = raw.to_numpy(copy=False)
-            mask = np.isin(ind_dates, self._filter_dates)
-            ind_data = np.asarray(ind_values[mask], dtype=np.float64)
         else:
-            ind_data = np.asarray(raw, dtype=np.float64)
+            if isinstance(raw, pd.Series):
+                ind_dates = raw.index.to_numpy(dtype="datetime64[ns]")
+                ind_values = raw.to_numpy(copy=False)
+                mask = np.isin(ind_dates, self._filter_dates)
+                ind_data = np.asarray(ind_values[mask], dtype=np.float64)
+            else:
+                ind_data = np.asarray(raw, dtype=np.float64)
         self._sym_inds[ind_sym] = ind_data
         return ind_data if end_index is None else ind_data[:end_index]
 
@@ -1158,7 +1156,9 @@ class IndicatorScope:
         """
         return IndicatorSymbol(name, symbol) in self._indicator_data
 
-    def fetch_history(self, symbol: str, name: str, dates: NDArray[Any]) -> NDArray[np.float64] | None:
+    def fetch_history(
+        self, symbol: str, name: str, dates: NDArray[Any]
+    ) -> NDArray[np.float64] | None:
         """Aligns full-history indicator values to ``dates``.
 
         :meth:`fetch` masks base timeframe indicators to ``filter_dates``, so
@@ -1186,17 +1186,16 @@ class IndicatorScope:
             # with a base bar index would expose future data. fetch_full
             # bypasses the equivalent guard in fetch by passing
             # end_index=None, so it must be enforced here too.
-            msg = (
+            raise ValueError(
                 f"Indicator {name!r} is bound to interval {token!r} and "
                 "cannot be read from the base context. Use "
                 f"ctx.interval({token!r}).indicator({base_name!r}) instead."
             )
-            raise ValueError(msg)
         array = self.fetch_full(symbol, name)
         if end_index <= 0:
-            msg = f"{name!r} value not found."
-            raise ValueError(msg)
-        end_index = min(end_index, len(array))
+            raise ValueError(f"{name!r} value not found.")
+        if end_index > len(array):
+            end_index = len(array)
         return float(array[end_index - 1])
 
 
@@ -1234,8 +1233,9 @@ def _resolve_lag_cols(
         )
         return _require_lag_cols(resolved, trained_model, model_name)
     if trained_model.input_cols is None:
-        msg = f"Model {model_name!r} requires input columns from training before applying lags."
-        raise ValueError(msg)
+        raise ValueError(
+            f"Model {model_name!r} requires input columns from training before applying lags."
+        )
     # Indicators are stripped here as well as ``date``, matching
     # _lag_feature_cols. Without it a loader that reports its indicators among
     # its input columns lags them too, contradicting model()'s documented rule
@@ -1243,7 +1243,9 @@ def _resolve_lag_cols(
     # feature width depend on whether load_fn happened to return input_cols.
     date_col = DataCol.DATE.value
     indicators = frozenset(getattr(model_source, "indicators", ()) or ())
-    resolved = tuple(col for col in trained_model.input_cols if col != date_col and col not in indicators)
+    resolved = tuple(
+        col for col in trained_model.input_cols if col != date_col and col not in indicators
+    )
     return _require_lag_cols(resolved, trained_model, model_name)
 
 
@@ -1261,12 +1263,11 @@ def _require_lag_cols(
     """
     if resolved:
         return resolved
-    msg = (
+    raise ValueError(
         f"Model {model_name!r} uses lags but no lag columns could be "
         f"resolved from its input columns {trained_model.input_cols!r}. "
         "Pass lag_cols to pybroker.model() naming the columns to lag."
     )
-    raise ValueError(msg)
 
 
 class _PerBarPredictions:
@@ -1380,8 +1381,7 @@ class IntervalScope:
         interval = normalize_interval(interval)
         key = (symbol, interval)
         if key not in self._interval_data.compressed:
-            msg = f"Timeframe {interval!r} data not found for {symbol!r}."
-            raise ValueError(msg)
+            raise ValueError(f"Timeframe {interval!r} data not found for {symbol!r}.")
         data = self._interval_data.compressed[key]
         if len(data.completed) == 0:
             return 0
@@ -1411,14 +1411,14 @@ class IntervalScope:
         interval = normalize_interval(interval)
         key = (symbol, interval)
         if key not in self._interval_data.compressed:
-            msg = f"Timeframe {interval!r} data not found for {symbol!r}."
-            raise ValueError(msg)
+            raise ValueError(f"Timeframe {interval!r} data not found for {symbol!r}.")
         completed = self._interval_data.compressed[key].completed
         if end_index <= 0 or len(completed) == 0:
             return -1
         # Clamp instead of allowing a negative index to wrap around to the last
         # completed bar of the window, which would expose future data.
-        end_index = min(end_index, len(completed))
+        if end_index > len(completed):
+            end_index = len(completed)
         return int(completed[end_index - 1])
 
     def fetch_bar(
@@ -1434,8 +1434,7 @@ class IntervalScope:
         if cache_key not in self._bar_cache:
             key = (symbol, interval)
             if key not in self._interval_data.compressed:
-                msg = f"Timeframe {interval!r} data not found for {symbol!r}."
-                raise ValueError(msg)
+                raise ValueError(f"Timeframe {interval!r} data not found for {symbol!r}.")
             bars = self._interval_data.compressed[key].bars
             if col == DataCol.DATE.value:
                 data = bars.dates
@@ -1454,8 +1453,7 @@ class IntervalScope:
             elif col in bars.custom:
                 data = bars.custom[col]
             else:
-                msg = f"Column {col!r} not found for interval {interval!r}."
-                raise ValueError(msg)
+                raise ValueError(f"Column {col!r} not found for interval {interval!r}.")
             self._bar_cache[cache_key] = data
         data = self._bar_cache[cache_key]
         idx = self.completed_index(symbol, interval, end_index)
@@ -1519,12 +1517,11 @@ class IntervalScope:
         if model_sym not in self._sym_preds:
             input_ = self._prepare_full_input(symbol, interval, base_model_name)
             if input_.empty() or not input_.columns:
-                msg = (
+                raise ValueError(
                     f"No input data found for model {base_model_name!r}. "
                     "Consider passing input_data_fn to pybroker#model() if "
                     "custom columns were registered."
                 )
-                raise ValueError(msg)
             # Predicted from the first row with defined lag features, then
             # left-padded so the array stays indexed by compressed bar. Passing
             # the warmup rows through instead hands NaN features to the
@@ -1539,17 +1536,16 @@ class IntervalScope:
                 if len(tail) != len(input_) - warmup:
                     # Silently padding a wrong-length result would misalign
                     # pred[: idx + 1] with compressed bars for the whole run.
-                    msg = (
+                    raise ValueError(
                         f"predict for model {base_model_name!r} returned "
                         f"{len(tail)} predictions for "
                         f"{len(input_) - warmup} input rows."
                     )
-                    raise ValueError(msg)
                 # Padded along axis 0 only, keeping the estimator's own
                 # trailing shape and dtype: a classifier's predict_proba is
                 # (n_rows, n_classes), and coercing it to a float 1-D array
                 # raised on the concatenate.
-                pad = np.full((warmup, *tail.shape[1:]), np.nan)
+                pad = np.full((warmup,) + tail.shape[1:], np.nan)
                 pred = np.concatenate((pad, tail))
             else:
                 pred = self._run_predict(trained_model, input_)
@@ -1557,12 +1553,11 @@ class IntervalScope:
                     # Same hazard as the warmup branch above: a wrong-length
                     # result would misalign pred[: idx + 1] with compressed
                     # bars for the whole run.
-                    msg = (
+                    raise ValueError(
                         f"predict for model {base_model_name!r} returned "
                         f"{len(pred)} predictions for "
                         f"{len(input_)} input rows."
                     )
-                    raise ValueError(msg)
             self._sym_preds[model_sym] = pred
         pred = self._sym_preds[model_sym]
         return pred[: idx + 1]
@@ -1625,8 +1620,7 @@ class IntervalScope:
         if model_sym in self._sym_inputs:
             return self._sym_inputs[model_sym]
         if not self._scope.has_model_source(base_model_name):
-            msg = f"Model {base_model_name!r} not found."
-            raise ValueError(msg)
+            raise ValueError(f"Model {base_model_name!r} not found.")
         source = self._scope.get_model_source(base_model_name)
         model_input = self._build_compressed_model_input(symbol, interval, source)
         if model_sym not in self._models:
@@ -1639,8 +1633,10 @@ class IntervalScope:
             assert source.lags is not None
             for lag_col in lag_cols:
                 if lag_col not in model_input:
-                    msg = f"Missing lag column {lag_col!r} for input data to model {model_sym.model_name!r}."
-                    raise ValueError(msg)
+                    raise ValueError(
+                        f"Missing lag column {lag_col!r} for input data to "
+                        f"model {model_sym.model_name!r}."
+                    )
             self._ensure_lag_cache(symbol, interval, lag_cols, source.lags)
             model.apply_lags_to_model_input(
                 model_input,
@@ -1656,8 +1652,10 @@ class IntervalScope:
         if trained_model.input_cols is not None:
             for input_col in trained_model.input_cols:
                 if input_col not in model_input:
-                    msg = f"Missing column {input_col!r} for input data to model {model_sym.model_name!r}."
-                    raise ValueError(msg)
+                    raise ValueError(
+                        f"Missing column {input_col!r} for input data to "
+                        f"model {model_sym.model_name!r}."
+                    )
             model_input = model_input.select_columns(trained_model.input_cols)
         if not trained_model.input_cols or source._input_data_fn:
             model_input = model.apply_prepare_input_data(model_input, source.prepare_input_data)
@@ -1675,8 +1673,7 @@ class IntervalScope:
         interval = normalize_interval(interval)
         key = (symbol, interval)
         if key not in self._interval_data.compressed:
-            msg = f"Timeframe {interval!r} data not found for {symbol!r}."
-            raise ValueError(msg)
+            raise ValueError(f"Timeframe {interval!r} data not found for {symbol!r}.")
         bars = self._interval_data.compressed[key].bars
         # Cap at the window so cross-row user transforms (normalization,
         # ranking, fillna(mean)) cannot read compressed bars from a future
@@ -1697,7 +1694,9 @@ class IntervalScope:
             if col in bars.custom:
                 arrays[col] = bars.custom[col][:cap]
         for ind_name in source.indicators:
-            arrays[ind_name] = self._ind_scope.fetch_full(symbol, indicator_interval_name(ind_name, interval))[:cap]
+            arrays[ind_name] = self._ind_scope.fetch_full(
+                symbol, indicator_interval_name(ind_name, interval)
+            )[:cap]
         columns = tuple(arrays.keys())
         return model.model_input_cls(columns, arrays, dates)
 
@@ -1756,20 +1755,20 @@ class ModelInputScope:
     ) -> None:
         # Track the depth built per column: a shallower cache entry from
         # another model would otherwise be reused for a deeper request.
-        missing = tuple(col for col in lag_cols if self._lag_cache_depth.get((symbol, col), -1) < lags)
+        missing = tuple(
+            col for col in lag_cols if self._lag_cache_depth.get((symbol, col), -1) < lags
+        )
         if not missing:
             return
         if self._history_col_scope is None:
-            msg = f"History data required to compute lags for {symbol!r}."
-            raise ValueError(msg)
+            raise ValueError(f"History data required to compute lags for {symbol!r}.")
         dates = self._history_dates.get(symbol)
         if dates is not None:
             self._merge_lag_cache(symbol, missing, lags, dates)
             return
         dates = self._history_col_scope.fetch(symbol, DataCol.DATE.value)
         if dates is None:
-            msg = f"History dates not found for {symbol!r}."
-            raise ValueError(msg)
+            raise ValueError(f"History dates not found for {symbol!r}.")
         self._history_dates[symbol] = dates
         self._merge_lag_cache(symbol, missing, lags, dates)
 
@@ -1792,12 +1791,11 @@ class ModelInputScope:
                 # leave test bar 0 without the train window's lag values.
                 col_data = self._ind_scope.fetch_history(symbol, col, dates)
             if col_data is None:
-                msg = (
+                raise ValueError(
                     f"History column {col!r} not found for {symbol!r}. "
                     "lag_cols must name a data column or an Indicator "
                     "registered on the model."
                 )
-                raise ValueError(msg)
             column_arrays[col] = col_data
         model.merge_lag_series_cache_from_arrays(
             self._lag_series_cache,
@@ -1808,7 +1806,9 @@ class ModelInputScope:
             column_arrays,
         )
         for col in lag_cols:
-            self._lag_cache_depth[(symbol, col)] = max(self._lag_cache_depth.get((symbol, col), -1), lags)
+            self._lag_cache_depth[(symbol, col)] = max(
+                self._lag_cache_depth.get((symbol, col), -1), lags
+            )
 
     def fetch(self, symbol: str, name: str, end_index: int | None = None) -> pd.DataFrame:
         """Fetches model input data.
@@ -1845,27 +1845,26 @@ class ModelInputScope:
         """
         return self._fetch_model_input(symbol, name, end_index)
 
-    def _fetch_model_input(self, symbol: str, name: str, end_index: int | None = None) -> ModelInput:
+    def _fetch_model_input(
+        self, symbol: str, name: str, end_index: int | None = None
+    ) -> ModelInput:
         model = _model()
         model_sym = ModelSymbol(name, symbol)
         if model_sym in self._sym_inputs:
             model_input = self._sym_inputs[model_sym]
             return model_input if end_index is None else model_input.slice(end_index)
         if symbol not in self._col_scope._symbols:
-            msg = f"Symbol not found: {symbol}."
-            raise ValueError(msg)
+            raise ValueError(f"Symbol not found: {symbol}.")
         if not self._scope.has_model_source(name):
-            msg = f"Model {name!r} not found."
-            raise ValueError(msg)
+            raise ValueError(f"Model {name!r} not found.")
         model_source = self._scope.get_model_source(name)
         if model_sym not in self._models:
-            msg = (
+            raise ValueError(
                 f"Model {name!r} not found for {symbol}. Pass it to "
                 "add_execution(models=...) for this symbol's execution. If "
                 "it is bound with ModelSource.intervals(), include 'base' "
                 "in the binding to train it on the base timeframe."
             )
-            raise ValueError(msg)
         trained_model = self._models[model_sym]
         date_col = DataCol.DATE.value
         ind_names = self._scope.get_indicator_names(name)
@@ -1874,7 +1873,9 @@ class ModelInputScope:
         # built yet. That case also skips the branch below, which is the only
         # thing needing lag_cols this early, so defer it.
         defer_lag_cols = (
-            model_source.lags is not None and trained_model.lag_columns is None and trained_model.input_cols is None
+            model_source.lags is not None
+            and trained_model.lag_columns is None
+            and trained_model.input_cols is None
         )
         lag_cols = None if defer_lag_cols else _resolve_lag_cols(model_source, trained_model, name)
         if trained_model.input_cols is not None and not model_source._input_data_fn:
@@ -1888,7 +1889,9 @@ class ModelInputScope:
             # Registered columns first, in their canonical order, then any
             # remaining names in declaration order. Both are deterministic:
             # iterating the registered column set directly is not.
-            data_cols: Iterable[str] = tuple(dict.fromkeys([col for col in ordered if col in needed_set] + needed))
+            data_cols: Iterable[str] = tuple(
+                dict.fromkeys([col for col in ordered if col in needed_set] + needed)
+            )
         else:
             data_cols = self._scope.ordered_data_cols
         input_: dict[str, NDArray[Any]] = {}
@@ -1912,8 +1915,10 @@ class ModelInputScope:
             assert model_source.lags is not None
             for lag_col in lag_cols:
                 if lag_col not in model_input:
-                    msg = f"Missing lag column {lag_col!r} for input data to model {model_sym.model_name!r}."
-                    raise ValueError(msg)
+                    raise ValueError(
+                        f"Missing lag column {lag_col!r} for input data to "
+                        f"model {model_sym.model_name!r}."
+                    )
             self._ensure_lag_cache(symbol, lag_cols, model_source.lags)
             model.apply_lags_to_model_input(
                 model_input,
@@ -1926,11 +1931,15 @@ class ModelInputScope:
         if trained_model.input_cols is not None:
             for input_col in trained_model.input_cols:
                 if input_col not in model_input:
-                    msg = f"Missing column {input_col!r} for input data to model {model_sym.model_name!r}."
-                    raise ValueError(msg)
+                    raise ValueError(
+                        f"Missing column {input_col!r} for input data to "
+                        f"model {model_sym.model_name!r}."
+                    )
             model_input = model_input.select_columns(trained_model.input_cols)
         if not trained_model.input_cols or model_source._input_data_fn:
-            model_input = model.apply_prepare_input_data(model_input, model_source.prepare_input_data)
+            model_input = model.apply_prepare_input_data(
+                model_input, model_source.prepare_input_data
+            )
         self._sym_inputs[model_sym] = model_input
         return model_input if end_index is None else model_input.slice(end_index)
 
@@ -1977,23 +1986,23 @@ class PredictionScope:
             return self._sym_preds[model_sym][:end_index]
         model_input = self._input_scope._fetch_model_input(symbol, name)
         if model_input.empty() or not model_input.columns:
-            msg = (
+            raise ValueError(
                 f"No input data found for model {name!r}. Consider "
                 "passing input_data_fn to pybroker#model() if custom columns "
                 "were registered."
             )
-            raise ValueError(msg)
         if model_sym not in self._models:
-            msg = f"Model {name!r} not found for {symbol}."
-            raise ValueError(msg)
+            raise ValueError(f"Model {name!r} not found for {symbol}.")
         trained_model = self._models[model_sym]
         pred = self._run_predict(trained_model, model_input)
         if len(pred) != len(model_input):
             # Silently caching a wrong-length result would left-align the
             # predictions, so pred[:end_index] would serve a future bar's
             # prediction as the current bar's for the whole run.
-            msg = f"predict for model {name!r} returned {len(pred)} predictions for {len(model_input)} input rows."
-            raise ValueError(msg)
+            raise ValueError(
+                f"predict for model {name!r} returned {len(pred)} "
+                f"predictions for {len(model_input)} input rows."
+            )
         self._sym_preds[model_sym] = pred
         return pred[:end_index]
 
@@ -2045,12 +2054,11 @@ class PredictionScope:
             if predict_fn is not None and callable(predict_fn):
                 pred = trained_model.instance.predict(features)
             else:
-                msg = (
+                raise ValueError(
                     f"Model instance trained for {trained_model.name!r} "
                     "does not define a predict function. Please pass a "
                     "predict_fn to pybroker.model()."
                 )
-                raise ValueError(msg)
         pred_arr = np.asarray(pred)
         if pred_arr.ndim == 0:
             return np.array([pred_arr.item()])
@@ -2071,20 +2079,18 @@ class PredictionScope:
         pred = PredictionScope._run_predict(trained_model, input_)
         flat = np.asarray(pred).reshape(-1)
         if not flat.size:
-            msg = (
+            raise ValueError(
                 f"predict_fn for per_bar model {trained_model.name!r} "
                 "returned no predictions. Expected a scalar prediction for "
                 "the current bar."
             )
-            raise ValueError(msg)
-        if flat.size not in (1, n_rows):
-            msg = (
+        if flat.size != 1 and flat.size != n_rows:
+            raise ValueError(
                 f"predict_fn for per_bar model {trained_model.name!r} "
                 f"returned {flat.size} predictions for {n_rows} input rows. "
                 "Expected a scalar prediction for the current bar, e.g. "
                 "return preds[-1]."
             )
-            raise ValueError(msg)
         # The current bar is the last row of the input (and of the lag
         # feature matrix, which is sliced in lockstep), so take the last
         # prediction when predict_fn returns one value per row.
@@ -2153,20 +2159,20 @@ class PriceScope:
         date_arr = self._col_scope.fetch(symbol, DataCol.DATE.value)
         if date_arr is None or not len(date_arr):
             return False
-        end_index = min(end_index, len(date_arr))
+        if end_index > len(date_arr):
+            end_index = len(date_arr)
         return bool(date_arr[end_index - 1] == date)
 
     def _column_value(self, symbol: str, col: str) -> float:
         end_index = self._sym_end_index[symbol]
         if end_index <= 0:
-            msg = f"{col} price not found."
-            raise ValueError(msg)
+            raise ValueError(f"{col} price not found.")
         sym_data = self._col_scope.store.sym_arrays[symbol]
         if col not in sym_data:
-            msg = f"{col} price not found."
-            raise ValueError(msg)
+            raise ValueError(f"{col} price not found.")
         array = sym_data[col]
-        end_index = min(end_index, len(array))
+        if end_index > len(array):
+            end_index = len(array)
         return float(array[end_index - 1])
 
     def _round_float(self, fill_price: float) -> float:
@@ -2207,15 +2213,19 @@ class PriceScope:
             fill_price = (open_ + low + high + close) / 4.0
         else:
             _unreachable_price: Never = price
-            msg = f"Unknown price: {price!r}"
-            raise ValueError(msg)
+            raise ValueError(f"Unknown price: {price!r}")
         self._bar_cache[key] = fill_price
         return fill_price
 
     def fetch_float(
         self,
         symbol: str,
-        price: float | np.floating | Decimal | PriceType | Callable[[str, BarData], int | float | Decimal],
+        price: int
+        | float
+        | np.floating
+        | Decimal
+        | PriceType
+        | Callable[[str, BarData], int | float | Decimal],
     ) -> float:
         """Returns a bar price as ``float`` using the per-bar cache when possible."""
         if isinstance(price, PriceType):
@@ -2223,11 +2233,12 @@ class PriceScope:
         elif isinstance(price, (int, float, np.floating, Decimal)):
             fill_price = float(price)
         elif callable(price):
-            bar_data = self._col_scope.bar_data_from_data_columns(symbol, self._sym_end_index[symbol])
+            bar_data = self._col_scope.bar_data_from_data_columns(
+                symbol, self._sym_end_index[symbol]
+            )
             fill_price = float(price(symbol, bar_data))
         else:
-            msg = f"Unknown price: {type(price)!r}"
-            raise ValueError(msg)
+            raise ValueError(f"Unknown price: {type(price)!r}")
         return self._round_float(fill_price)
 
     def fetch_bar_ohlc(
@@ -2262,7 +2273,8 @@ class PriceScope:
         date_arr = cols[_COL_DATE]
         if date_arr is None:
             return None, None, None
-        end_index = min(end_index, len(date_arr))
+        if end_index > len(date_arr):
+            end_index = len(date_arr)
         idx = end_index - 1
         if date_arr[idx] != date:
             return None, None, None
@@ -2281,7 +2293,12 @@ class PriceScope:
     def fetch(
         self,
         symbol: str,
-        price: float | np.floating | Decimal | PriceType | Callable[[str, BarData], int | float | Decimal],
+        price: int
+        | float
+        | np.floating
+        | Decimal
+        | PriceType
+        | Callable[[str, BarData], int | float | Decimal],
     ) -> Decimal:
         return to_decimal(self.fetch_float(symbol, price))
 
@@ -2317,7 +2334,14 @@ class PendingOrder(NamedTuple):
     exec_date: np.datetime64
     shares: Decimal
     limit_price: Decimal | None
-    fill_price: int | float | np.floating | Decimal | PriceType | Callable[[str, BarData], int | float | Decimal]
+    fill_price: (
+        int
+        | float
+        | np.floating
+        | Decimal
+        | PriceType
+        | Callable[[str, BarData], int | float | Decimal]
+    )
     exec_bar: int
     timeout_bars: int | None
     stops: frozenset[Stop] | None
@@ -2380,7 +2404,12 @@ class PendingOrderScope:
         exec_date: np.datetime64,
         shares: Decimal,
         limit_price: Decimal | None,
-        fill_price: float | np.floating | Decimal | PriceType | Callable[[str, BarData], int | float | Decimal],
+        fill_price: int
+        | float
+        | np.floating
+        | Decimal
+        | PriceType
+        | Callable[[str, BarData], int | float | Decimal],
         exec_bar: int,
         timeout_bars: int | None,
         stops: frozenset[Stop] | None = None,
@@ -2475,16 +2504,17 @@ class PendingOrderScope:
             if order is not None and order.symbol == symbol:
                 return [order]
             return []
-        if order_id is not None:
+        elif order_id is not None:
             order = self._orders.get(order_id)
             if order is not None:
                 return [order]
             return []
-        if symbol is not None:
+        elif symbol is not None:
             if symbol not in self._sym_orders:
                 return []
             return list(self._sym_orders[symbol].values())
-        return self._orders.values()
+        else:
+            return self._orders.values()
 
 
 def get_signals(

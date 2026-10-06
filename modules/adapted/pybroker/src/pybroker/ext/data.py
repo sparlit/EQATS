@@ -30,7 +30,6 @@ This code is licensed under Apache 2.0 with Commons Clause license
 """
 
 from datetime import datetime
-from typing import Optional
 
 import pandas as pd
 import requests
@@ -80,8 +79,9 @@ def _fetch_akshare_symbol(
     try:
         import akshare
     except ImportError as exc:
-        msg = "AKShare requires akshare. Install with: python -m pip install 'akshare>=1.17.50'"
-        raise ImportError(msg) from exc
+        raise ImportError(
+            "AKShare requires akshare. Install with: python -m pip install 'akshare>=1.17.50'"
+        ) from exc
 
     try:
         return akshare.stock_zh_a_hist(
@@ -129,10 +129,10 @@ class AKShare(DataSource):
             # Raised rather than silently returning zero bars, matching
             # YQuery: an hourly backtest against a daily-only source is a
             # misconfiguration, not an empty market.
-            msg = (
-                f"Unsupported timeframe: '{formatted_tf}'.\nSupported timeframes: {list(AKShare._tf_to_period.keys())}."
+            raise ValueError(
+                f"Unsupported timeframe: '{formatted_tf}'.\n"
+                f"Supported timeframes: {list(AKShare._tf_to_period.keys())}."
             )
-            raise ValueError(msg)
         period = AKShare._tf_to_period[formatted_tf]
         frames = []
         for i in range(len(symbols_list)):
@@ -201,14 +201,15 @@ class YQuery(DataSource):
         try:
             from yahooquery import Ticker
         except ImportError as exc:
-            msg = (
+            raise ImportError(
                 "YQuery requires yahooquery in the same Python environment as "
                 "your notebook kernel. Install with: "
                 "python -m pip install 'yahooquery>=2.3.7'"
-            )
-            raise ImportError(msg) from exc
+            ) from exc
 
-        show_yf_progress_bar = not self._logger._disabled and not self._logger._progress_bar_disabled
+        show_yf_progress_bar = (
+            not self._logger._disabled and not self._logger._progress_bar_disabled
+        )
         ticker = Ticker(
             symbols,
             asynchronous=True,
@@ -217,8 +218,10 @@ class YQuery(DataSource):
         )
         timeframe = self._format_timeframe(timeframe)
         if timeframe not in self._tf_to_period:
-            msg = f"Unsupported timeframe: '{timeframe}'.\nSupported timeframes: {list(self._tf_to_period.keys())}."
-            raise ValueError(msg)
+            raise ValueError(
+                f"Unsupported timeframe: '{timeframe}'.\n"
+                f"Supported timeframes: {list(self._tf_to_period.keys())}."
+            )
         df = ticker.history(
             start=start_date,
             end=end_date,
@@ -229,8 +232,7 @@ class YQuery(DataSource):
             # yahooquery returns a dict of per-symbol error strings when
             # every request fails; reaching for .columns on it raised a bare
             # AttributeError naming nothing.
-            msg = f"yahooquery returned no data: {df!r}"
-            raise ValueError(msg)
+            raise ValueError(f"yahooquery returned no data: {df!r}")
         if df.columns.empty or df.empty:
             # Returned in the canonical schema: an empty frame that keeps
             # symbol and date as MultiIndex levels fails the required-column
@@ -238,7 +240,7 @@ class YQuery(DataSource):
             return pd.DataFrame(columns=_CANONICAL_COLUMNS)
         df = df.reset_index()
         df[DataCol.DATE.value] = pd.to_datetime(df[DataCol.DATE.value])
-        return df[
+        df = df[
             [
                 DataCol.SYMBOL.value,
                 DataCol.DATE.value,
@@ -249,3 +251,4 @@ class YQuery(DataSource):
                 DataCol.VOLUME.value,
             ]
         ]
+        return df

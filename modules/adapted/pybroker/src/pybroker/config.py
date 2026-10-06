@@ -32,7 +32,6 @@ This code is licensed under Apache 2.0 with Commons Clause license
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Optional, Union
 
 from pybroker.common import BarData, FeeInfo, FeeMode, PositionMode, PriceType
 
@@ -131,8 +130,12 @@ class StrategyConfig:
     sell_delay: int = field(default=1)
     bootstrap_samples: int = field(default=10_000)
     exit_on_last_bar: bool = field(default=False)
-    exit_cover_fill_price: PriceType | Callable[[str, BarData], int | float | Decimal] = field(default=PriceType.MIDDLE)
-    exit_sell_fill_price: PriceType | Callable[[str, BarData], int | float | Decimal] = field(default=PriceType.MIDDLE)
+    exit_cover_fill_price: PriceType | Callable[[str, BarData], int | float | Decimal] = field(
+        default=PriceType.MIDDLE
+    )
+    exit_sell_fill_price: PriceType | Callable[[str, BarData], int | float | Decimal] = field(
+        default=PriceType.MIDDLE
+    )
     bars_per_year: int | None = field(default=None)
     return_signals: bool = field(default=False)
     return_stops: bool = field(default=False)

@@ -153,7 +153,7 @@ class TestVolatilitySlippageModel:
 
     def test_sell_adverse(self):
         model = VolatilitySlippageModel(atr_period=1, scale=0.1)
-        _shares, price = model.apply_slippage(_fill_ctx("sell", atr=2.5))
+        shares, price = model.apply_slippage(_fill_ctx("sell", atr=2.5))
         assert price == Decimal("99.75")
 
     def test_matches_vect_atr(self):
@@ -366,7 +366,9 @@ class TestVolumeSlippageModel:
 
     def test_sell_price_impact_is_adverse(self):
         model = VolumeSlippageModel(price_impact=0.1, volume_limit=0.025)
-        shares, price = model.apply_slippage(_fill_ctx("sell", shares=Decimal(100_000), volume=1_000_000))
+        shares, price = model.apply_slippage(
+            _fill_ctx("sell", shares=Decimal(100_000), volume=1_000_000)
+        )
         assert shares == Decimal(25_000)
         ratio = 25_000 / 1_000_000
         expected_impact = 0.1 * ratio * ratio

@@ -65,13 +65,10 @@ import ast
 import builtins
 import re
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
 
 import nbformat
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
 
 WIKI_BOILERPLATE = (
     "This reference was generated from the local PyBroker documentation "
@@ -143,10 +140,12 @@ STUB_TOPICS: dict[str, str] = {
     ),
     "pybroker_strategy.pyi": ("Strategy, StrategyConfig, TestResult, and the optimization types."),
     "pybroker_types.pyi": (
-        "Enums, BarData, Portfolio, order/trade/position records, column/indicator scopes, and evaluation result types."
+        "Enums, BarData, Portfolio, order/trade/position records, "
+        "column/indicator scopes, and evaluation result types."
     ),
     "pybroker_model.pyi": (
-        "model()/indicator() factories, vector helpers, data sources, and top-level module functions."
+        "model()/indicator() factories, vector helpers, data sources, "
+        "and top-level module functions."
     ),
 }
 
@@ -399,16 +398,20 @@ def _index_entry(nb_path: Path, nb: nbformat.NotebookNode) -> str:
     # The FAQs page routes by question, so index its H3 questions too.
     max_level = 3 if nb_path.stem == "FAQs" else 2
     topics = _headings(nb, max_level)
-    return f"- `{fname}` - {title}; {_code_cell_count(nb)} code cells.\n  Topics: {'; '.join(topics)}."
+    return (
+        f"- `{fname}` - {title}; {_code_cell_count(nb)} code cells.\n  Topics: {'; '.join(topics)}."
+    )
 
 
 def _spliced_index(index_path: Path, entries: list[str]) -> str:
     text = index_path.read_text()
     pre, found_start, rest = text.partition(INDEX_ENTRIES_START)
-    _mid, found_end, post = rest.partition(INDEX_ENTRIES_END)
+    mid, found_end, post = rest.partition(INDEX_ENTRIES_END)
     if not found_start or not found_end:
-        msg = f"{index_path}: expected '{INDEX_ENTRIES_START}' and '{INDEX_ENTRIES_END}' section headers"
-        raise SystemExit(msg)
+        raise SystemExit(
+            f"{index_path}: expected '{INDEX_ENTRIES_START}' and "
+            f"'{INDEX_ENTRIES_END}' section headers"
+        )
     block = "\n\n".join(entries)
     return f"{pre}{INDEX_ENTRIES_START}\n\n{block}\n\n{INDEX_ENTRIES_END}{post}"
 
@@ -461,7 +464,9 @@ def _decorator_names(node: ast.FunctionDef) -> list[str]:
 
 
 def _is_public_def(node: ast.stmt) -> bool:
-    return isinstance(node, ast.FunctionDef) and (not node.name.startswith("_") or node.name == "__call__")
+    return isinstance(node, ast.FunctionDef) and (
+        not node.name.startswith("_") or node.name == "__call__"
+    )
 
 
 def _fn_bullet(node: ast.FunctionDef, skip_self: bool) -> str:
@@ -489,7 +494,11 @@ def _property_bullets(node: ast.FunctionDef) -> str:
 def _unwrap_field_default(value: ast.expr | None) -> str | None:
     if value is None:
         return None
-    if isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and value.func.id == "field":
+    if (
+        isinstance(value, ast.Call)
+        and isinstance(value.func, ast.Name)
+        and value.func.id == "field"
+    ):
         for kw in value.keywords:
             if kw.arg == "default":
                 return ast.unparse(kw.value)
@@ -530,7 +539,11 @@ def _is_fieldlike_class(cls: ast.ClassDef) -> bool:
 
 def _find_init(cls: ast.ClassDef) -> ast.FunctionDef | None:
     return next(
-        (node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == "__init__"),
+        (
+            node
+            for node in cls.body
+            if isinstance(node, ast.FunctionDef) and node.name == "__init__"
+        ),
         None,
     )
 
@@ -570,7 +583,12 @@ def _init_attrs(cls: ast.ClassDef) -> list[tuple[str, ast.expr]]:
                 attrs.append((name, node.annotation))
         elif isinstance(node, ast.Assign) and len(node.targets) == 1:
             name = self_attr(node.targets[0])
-            if name is not None and name not in seen and isinstance(node.value, ast.Name) and node.value.id in params:
+            if (
+                name is not None
+                and name not in seen
+                and isinstance(node.value, ast.Name)
+                and node.value.id in params
+            ):
                 seen.add(name)
                 attrs.append((name, params[node.value.id]))
     return attrs
@@ -746,7 +764,11 @@ def _stub_class(
             continue
         body += _stub_def(node, used)
     getattr_def = next(
-        (node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == "__getattr__"),
+        (
+            node
+            for node in cls.body
+            if isinstance(node, ast.FunctionDef) and node.name == "__getattr__"
+        ),
         None,
     )
     if getattr_def is not None:
@@ -763,12 +785,17 @@ def _stub_member(tree: ast.Module, rel: str, name: str) -> ast.stmt:
     for node in tree.body:
         if isinstance(node, (ast.ClassDef, ast.FunctionDef)) and node.name == name:
             return node
-        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == name for t in node.targets):
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == name for t in node.targets
+        ):
             return node
-        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == name:
+        if (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == name
+        ):
             return node
-    msg = f"{rel}: no top-level definition named {name!r} (update STUBS in this script)"
-    raise SystemExit(msg)
+    raise SystemExit(f"{rel}: no top-level definition named {name!r} (update STUBS in this script)")
 
 
 def _import_table(tree: ast.Module) -> dict[str, tuple[str, ...]]:
@@ -794,7 +821,9 @@ def _import_table(tree: ast.Module) -> dict[str, tuple[str, ...]]:
     return table
 
 
-def _format_stub_imports(import_entries: set[tuple[str, ...]], siblings: dict[str, set[str]]) -> list[str]:
+def _format_stub_imports(
+    import_entries: set[tuple[str, ...]], siblings: dict[str, set[str]]
+) -> list[str]:
     froms: dict[str, set[str]] = {}
     plains: set[str] = set()
     for entry in import_entries:
@@ -816,7 +845,10 @@ def _format_stub_imports(import_entries: set[tuple[str, ...]], siblings: dict[st
         dest.append(stmt)
     stdlib.sort()
     third.sort()
-    sibling_lines = [f"from {module} import {', '.join(sorted(names))}" for module, names in sorted(siblings.items())]
+    sibling_lines = [
+        f"from {module} import {', '.join(sorted(names))}"
+        for module, names in sorted(siblings.items())
+    ]
     groups = [group for group in (stdlib, third, sibling_lines) if group]
     lines: list[str] = []
     for i, group in enumerate(groups):
@@ -872,9 +904,14 @@ def _resolve_stub_imports(
                 node
                 for node in tree.body
                 if (
-                    isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == name for t in node.targets)
+                    isinstance(node, ast.Assign)
+                    and any(isinstance(t, ast.Name) and t.id == name for t in node.targets)
                 )
-                or (isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == name)
+                or (
+                    isinstance(node, ast.AnnAssign)
+                    and isinstance(node.target, ast.Name)
+                    and node.target.id == name
+                )
             ),
             None,
         )
@@ -889,11 +926,10 @@ def _resolve_stub_imports(
                     worklist.append((path, new_name))
             continue
         rel = path.relative_to(repo).as_posix()
-        msg = (
+        raise SystemExit(
             f"{fname}: cannot resolve name {name!r} (used via {rel}); "
             "add it to STUBS, STUB_OPAQUE, or the source imports"
         )
-        raise SystemExit(msg)
     return _format_stub_imports(import_entries, siblings), inline
 
 
@@ -908,8 +944,7 @@ def _render_stubs(repo: Path) -> dict[str, str]:
         for _, names in entries:
             for name in names:
                 if name in name_to_stub:
-                    msg = f"duplicate name in STUBS: {name}"
-                    raise SystemExit(msg)
+                    raise SystemExit(f"duplicate name in STUBS: {name}")
                 name_to_stub[name] = fname
     outputs: dict[str, str] = {}
     for fname, entries in STUBS.items():
@@ -931,7 +966,9 @@ def _render_stubs(repo: Path) -> dict[str, str]:
                         assert isinstance(ecls_node, ast.ClassDef)
                         for method in emethods:
                             mnode = next(
-                                n for n in ecls_node.body if isinstance(n, ast.FunctionDef) and n.name == method
+                                n
+                                for n in ecls_node.body
+                                if isinstance(n, ast.FunctionDef) and n.name == method
                             )
                             extra.append((mnode, eused, f"from {ecls} ({esrc})"))
                     block += _stub_class(node, module_used, extra, class_defined)
@@ -946,11 +983,13 @@ def _render_stubs(repo: Path) -> dict[str, str]:
         file_names = {name for _, names in entries for name in names} | class_defined
         if fname == STUB_OPAQUE_HOME:
             file_names |= STUB_OPAQUE
-        import_lines, inline = _resolve_stub_imports(fname, file_names, used, trees, tables, name_to_stub, repo)
+        import_lines, inline = _resolve_stub_imports(
+            fname, file_names, used, trees, tables, name_to_stub, repo
+        )
         parts = [STUB_HEADER, f'"""{STUB_TOPICS[fname]}"""', ""]
-        parts += [*import_lines, ""]
+        parts += import_lines + [""]
         if inline:
-            parts += [*inline, ""]
+            parts += inline + [""]
         if fname == STUB_OPAQUE_HOME:
             parts.append("# Opaque internal types (referenced by signatures only).")
             parts += [f"class {name}: ..." for name in sorted(STUB_OPAQUE)]
@@ -960,8 +999,7 @@ def _render_stubs(repo: Path) -> dict[str, str]:
         try:
             ast.parse(content)
         except SyntaxError as err:
-            msg = f"{fname}: generated stub does not parse: {err}"
-            raise SystemExit(msg)
+            raise SystemExit(f"{fname}: generated stub does not parse: {err}")
         outputs[fname] = content
     return outputs
 
@@ -977,11 +1015,13 @@ def _class_block(cls: ast.ClassDef, summarize: bool) -> list[str]:
     if sentence:
         lines += [sentence, ""]
     if summarize:
-        return [*lines, LOGGER_OMISSION_NOTE, ""]
+        return lines + [LOGGER_OMISSION_NOTE, ""]
     if _is_fieldlike_class(cls):
         bullets = _field_bullets(cls)
     else:
-        bullets = [f"- `{name}: {ast.unparse(annotation)}`" for name, annotation in _init_attrs(cls)]
+        bullets = [
+            f"- `{name}: {ast.unparse(annotation)}`" for name, annotation in _init_attrs(cls)
+        ]
     for node in cls.body:
         if not _is_public_def(node) or node.name == "__init__":
             continue
@@ -1000,7 +1040,7 @@ def _class_block(cls: ast.ClassDef, summarize: bool) -> list[str]:
             bullets.append(_fn_bullet(node, skip_self=True))
     if bullets:
         return lines + bullets + [""]
-    return [*lines, ""]
+    return lines + [""]
 
 
 def _render_api_module(repo: Path, module_path: Path, full_logger: bool) -> list[str]:
@@ -1014,14 +1054,14 @@ def _render_api_module(repo: Path, module_path: Path, full_logger: bool) -> list
     for node in tree.body:
         if isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
             if fn_run:
-                lines += [*fn_run, ""]
+                lines += fn_run + [""]
                 fn_run = []
             summarize = not full_logger and module_path.name == "log.py" and node.name == "Logger"
             lines += _class_block(node, summarize)
         elif _is_public_def(node):
             fn_run.append(_fn_bullet(node, skip_self=False))
     if fn_run:
-        lines += [*fn_run, ""]
+        lines += fn_run + [""]
     return lines
 
 
@@ -1029,7 +1069,7 @@ def _render_api(repo: Path, full_logger: bool) -> str:
     src = repo / "src" / "pybroker"
     modules = sorted(path for path in src.glob("*.py") if path.name != "__init__.py")
     modules += sorted(path for path in (src / "ext").glob("*.py") if path.name != "__init__.py")
-    lines = [*API_HEADER.splitlines(), ""]
+    lines = API_HEADER.splitlines() + [""]
     for module_path in modules:
         lines += _render_api_module(repo, module_path, full_logger)
     while lines and not lines[-1]:
@@ -1044,14 +1084,17 @@ def _build_outputs(repo: Path, only: str, full_logger: bool) -> tuple[dict[Path,
     stale: set[Path] = set()
     notebooks: list[tuple[Path, nbformat.NotebookNode]] = []
     if only in ("wiki", "index", "all"):
-        notebooks = [(path, nbformat.read(path, as_version=4)) for path in _notebook_paths(notebooks_dir)]
+        notebooks = [
+            (path, nbformat.read(path, as_version=4)) for path in _notebook_paths(notebooks_dir)
+        ]
     api_content = _render_api(repo, full_logger) if only in ("api", "all") else None
     stub_contents = _render_stubs(repo) if only in ("stubs", "all") else None
     for skill_name, cfg in SKILLS.items():
         references = repo / "skills" / skill_name / "references"
         if not references.is_dir():
-            msg = f"missing skill references dir: {references} (update SKILLS in this script)"
-            raise SystemExit(msg)
+            raise SystemExit(
+                f"missing skill references dir: {references} (update SKILLS in this script)"
+            )
         expected: set[Path] = set()
         entries: list[str] = []
         for nb_path, nb in notebooks:
@@ -1079,7 +1122,9 @@ def _build_outputs(repo: Path, only: str, full_logger: bool) -> tuple[dict[Path,
         if stub_contents is not None and cfg["stubs"]:
             for stub_name, content in stub_contents.items():
                 outputs[references / stub_name] = content
-            stale |= {path for path in references.glob("pybroker_*.pyi") if path.name not in stub_contents}
+            stale |= {
+                path for path in references.glob("pybroker_*.pyi") if path.name not in stub_contents
+            }
     return outputs, stale
 
 
