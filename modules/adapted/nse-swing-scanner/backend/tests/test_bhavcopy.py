@@ -31,9 +31,6 @@ from bhavcopy import (
     NSE_PROVIDER,
     YFINANCE_PROVIDER,
     _parse_bhavcopy,
-    _try_bse_archives,
-    _try_nse_archives,
-    _try_yfinance_traded_value,
     _yfinance_fetch_one,
     fetch_bhavcopy,
     lookup_delivery,
@@ -102,7 +99,13 @@ def test_fetch_bhavcopy_nse_path_when_nse_returns_data(monkeypatch):
         "source": f"{NSE_PROVIDER}:http://example/bhav.csv",
         "status": "ok",
         "as_of": "2026-07-03",
-        "data": {"RELIANCE": {"delivery_qty": 100, "delivery_value_inr": 5_000_000, "delivery_kind": "actual"}},
+        "data": {
+            "RELIANCE": {
+                "delivery_qty": 100,
+                "delivery_value_inr": 5_000_000,
+                "delivery_kind": "actual",
+            }
+        },
     }
     with (
         patch("bhavcopy._try_nse_archives", return_value=nse_payload),
@@ -164,7 +167,12 @@ def test_fetch_bhavcopy_all_providers_fail_returns_source_failed(monkeypatch):
     """When every provider fails, the result is source_failed with the chain recorded."""
     monkeypatch.delenv("NSE_SWING_NO_CACHE", raising=False)
     nse_failed = {"source": NSE_PROVIDER, "status": "source_failed", "data": {}, "error": "blocked"}
-    yf_failed = {"source": YFINANCE_PROVIDER, "status": "source_failed", "data": {}, "error": "yfinance down"}
+    yf_failed = {
+        "source": YFINANCE_PROVIDER,
+        "status": "source_failed",
+        "data": {},
+        "error": "yfinance down",
+    }
     bse_failed = {"source": BSE_PROVIDER, "status": "source_failed", "data": {}, "error": "blocked"}
     with (
         patch("bhavcopy._try_nse_archives", return_value=nse_failed),

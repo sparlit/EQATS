@@ -69,7 +69,6 @@ import argparse
 import json
 import os
 import sys
-from typing import List, Optional
 
 _SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 _BACKEND_DIR = os.path.dirname(_SCRIPTS_DIR)
@@ -94,7 +93,7 @@ DEFAULT_COOLDOWN_MIN = 45
 
 def parse_iso_utc(s: str) -> datetime.datetime | None:
     try:
-        dt = datetime.datetime.fromisoformat(s)
+        dt = datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
     except (TypeError, ValueError):
         return None
     if dt.tzinfo is None:
@@ -120,7 +119,8 @@ def read_marker(path: str) -> datetime.datetime | None:
     try:
         with open(path) as f:
             raw = f.read().strip()
-        return parse_iso_utc(raw)
+        dt = parse_iso_utc(raw)
+        return dt
     except OSError:
         return None
 
@@ -156,7 +156,9 @@ def is_scan_late(
         if generated_at is None:
             # No data at all: treat as late so the first-ever scan gets fetched.
             return True
-        next_expected = next_scheduled_window(generated_at) or (generated_at + datetime.timedelta(hours=12))
+        next_expected = next_scheduled_window(generated_at) or (
+            generated_at + datetime.timedelta(hours=12)
+        )
     return now > next_expected + grace
 
 

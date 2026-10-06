@@ -60,19 +60,21 @@ class TestExtractNextEarningsDate(unittest.TestCase):
         """Dict-shaped calendar (modern yfinance) must parse."""
         future = datetime.date.today() + datetime.timedelta(days=30)
         result = self._run_with_stub(self._fake_ticker({"Earnings Date": [future]}))
-        assert result == future.isoformat()
+        self.assertEqual(result, future.isoformat())
 
     def test_dict_calendar_past_only_returns_none(self):
         """Dict calendar with only past dates → None (no future date)."""
         past = datetime.date.today() - datetime.timedelta(days=10)
-        result = self._run_with_stub(self._fake_ticker({"Earnings Date": [past]}, earnings_dates_index=[]))
-        assert result is None
+        result = self._run_with_stub(
+            self._fake_ticker({"Earnings Date": [past]}, earnings_dates_index=[])
+        )
+        self.assertIsNone(result)
 
     def test_none_calendar_falls_back(self):
         """calendar=None must fall through to get_earnings_dates."""
         future = datetime.date.today() + datetime.timedelta(days=5)
         result = self._run_with_stub(self._fake_ticker(None, earnings_dates_index=[future]))
-        assert result == future.isoformat()
+        self.assertEqual(result, future.isoformat())
 
 
 class TestFetchEarningsUncached(unittest.TestCase):
@@ -80,33 +82,33 @@ class TestFetchEarningsUncached(unittest.TestCase):
         """No upcoming earnings date from yfinance → status='missing'."""
         with mock.patch.object(earnings, "_extract_next_earnings_date", return_value=None):
             result = earnings._fetch_earnings_uncached("RELIANCE.NS")
-        assert result["status"] == "missing"
-        assert result.get("data") is None
-        assert result["source"] == "yfinance:earnings"
+        self.assertEqual(result["status"], "missing")
+        self.assertIsNone(result.get("data"))
+        self.assertEqual(result["source"], "yfinance:earnings")
 
     def test_returns_ok_with_within_days(self):
         """When yfinance returns a near-future date, status='ok' + within_days
         matches the actual delta from real 'today' (no datetime mocking)."""
         with mock.patch.object(earnings, "_extract_next_earnings_date", return_value="2099-12-31"):
             result = earnings._fetch_earnings_uncached("RELIANCE.NS")
-        assert result["status"] == "ok"
-        assert result["data"]["earnings_date"] == "2099-12-31"
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["data"]["earnings_date"], "2099-12-31")
         # Far-future date → large positive within_days
-        assert result["data"]["within_days"] > 1000
+        self.assertGreater(result["data"]["within_days"], 1000)
 
     def test_handles_unparseable_iso(self):
         """Bad date string from yfinance → source_failed."""
         with mock.patch.object(earnings, "_extract_next_earnings_date", return_value="not-a-date"):
             result = earnings._fetch_earnings_uncached("RELIANCE.NS")
-        assert result["status"] == "source_failed"
-        assert result.get("data") is None
-        assert "Unparseable" in result.get("error", "")
+        self.assertEqual(result["status"], "source_failed")
+        self.assertIsNone(result.get("data"))
+        self.assertIn("Unparseable", result.get("error", ""))
 
     def test_fetch_earnings_envelope_includes_symbol(self):
         with mock.patch.object(earnings, "_extract_next_earnings_date", return_value=None):
             result = earnings.fetch_earnings("RELIANCE", "RELIANCE.NS")
-        assert result["symbol"] == "RELIANCE"
-        assert result["status"] == "missing"
+        self.assertEqual(result["symbol"], "RELIANCE")
+        self.assertEqual(result["status"], "missing")
 
 
 if __name__ == "__main__":

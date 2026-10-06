@@ -35,7 +35,6 @@ SCRIPTS_DIR = os.path.abspath(os.path.join(HERE, "..", "scripts"))
 if SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, SCRIPTS_DIR)
 
-import pytest
 import snapshot_writer  # noqa: E402
 
 
@@ -57,15 +56,15 @@ def _make_latest(generated_at: str, gate_pass: bool = True) -> dict:
 
 class TestSlotDerivation(unittest.TestCase):
     def test_am_slot(self):
-        assert snapshot_writer.slot_for_generated_at("2026-07-18T03:31:00+00:00") == "am"
-        assert snapshot_writer.slot_for_generated_at("2026-07-18T07:59:00+00:00") == "am"
+        self.assertEqual(snapshot_writer.slot_for_generated_at("2026-07-18T03:31:00+00:00"), "am")
+        self.assertEqual(snapshot_writer.slot_for_generated_at("2026-07-18T07:59:00+00:00"), "am")
 
     def test_pm_slot(self):
-        assert snapshot_writer.slot_for_generated_at("2026-07-18T10:31:00+00:00") == "pm"
-        assert snapshot_writer.slot_for_generated_at("2026-07-18T23:59:00+00:00") == "pm"
+        self.assertEqual(snapshot_writer.slot_for_generated_at("2026-07-18T10:31:00+00:00"), "pm")
+        self.assertEqual(snapshot_writer.slot_for_generated_at("2026-07-18T23:59:00+00:00"), "pm")
 
     def test_invalid_input_raises(self):
-        with pytest.raises(ValueError):
+        with self.assertRaises(ValueError):
             snapshot_writer.slot_for_generated_at("not-a-date")
 
 
@@ -77,31 +76,31 @@ class TestWriteSnapshot(unittest.TestCase):
             with open(latest, "w") as f:
                 json.dump(_make_latest("2026-07-18T10:31:00+00:00"), f)
 
-            fname, _idx = snapshot_writer.write_snapshot(
+            fname, idx = snapshot_writer.write_snapshot(
                 latest,
                 snaps,
                 slot="pm",
                 generated_at_iso="2026-07-18T10:31:00+00:00",
                 retention_days=90,
             )
-            assert fname == "2026-07-18-pm.json"
+            self.assertEqual(fname, "2026-07-18-pm.json")
             out = os.path.join(snaps, fname)
-            assert os.path.exists(out)
+            self.assertTrue(os.path.exists(out))
             # Minified (no newlines inside the JSON object)
             with open(out) as f:
                 text = f.read()
-            assert "\n" not in text.strip()
+            self.assertNotIn("\n", text.strip())
             # Reload parses cleanly
             with open(out) as f:
                 reloaded = json.load(f)
-            assert reloaded["stocks"][0]["symbol"] == "RELIANCE"
+            self.assertEqual(reloaded["stocks"][0]["symbol"], "RELIANCE")
 
             idx_path = os.path.join(snaps, "history_index.json")
             with open(idx_path) as f:
                 index = json.load(f)
-            assert len(index) == 1
-            assert index[0]["file"] == fname
-            assert index[0]["gate_pass_count"] == 1
+            self.assertEqual(len(index), 1)
+            self.assertEqual(index[0]["file"], fname)
+            self.assertEqual(index[0]["gate_pass_count"], 1)
 
     def test_overwrites_same_slot_same_day(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -110,19 +109,29 @@ class TestWriteSnapshot(unittest.TestCase):
             with open(latest, "w") as f:
                 json.dump(_make_latest("2026-07-18T10:31:00+00:00"), f)
             snapshot_writer.write_snapshot(
-                latest, snaps, slot="pm", generated_at_iso="2026-07-18T10:31:00+00:00", retention_days=90
+                latest,
+                snaps,
+                slot="pm",
+                generated_at_iso="2026-07-18T10:31:00+00:00",
+                retention_days=90,
             )
             with open(latest, "w") as f:
                 json.dump(_make_latest("2026-07-18T10:35:00+00:00"), f)
             snapshot_writer.write_snapshot(
-                latest, snaps, slot="pm", generated_at_iso="2026-07-18T10:35:00+00:00", retention_days=90
+                latest,
+                snaps,
+                slot="pm",
+                generated_at_iso="2026-07-18T10:35:00+00:00",
+                retention_days=90,
             )
-            files = [n for n in os.listdir(snaps) if n.endswith(".json") and n != "history_index.json"]
-            assert files == ["2026-07-18-pm.json"]
+            files = [
+                n for n in os.listdir(snaps) if n.endswith(".json") and n != "history_index.json"
+            ]
+            self.assertEqual(files, ["2026-07-18-pm.json"])
             idx_path = os.path.join(snaps, "history_index.json")
             with open(idx_path) as f:
                 index = json.load(f)
-            assert len(index) == 1
+            self.assertEqual(len(index), 1)
 
     def test_prune_drops_older_than_retention(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -155,16 +164,20 @@ class TestWriteSnapshot(unittest.TestCase):
 
             with open(latest, "w") as f:
                 json.dump(_make_latest(new_iso), f)
-            snapshot_writer.write_snapshot(latest, snaps, slot="pm", generated_at_iso=new_iso, retention_days=90)
+            snapshot_writer.write_snapshot(
+                latest, snaps, slot="pm", generated_at_iso=new_iso, retention_days=90
+            )
 
-            files = [n for n in os.listdir(snaps) if n.endswith(".json") and n != "history_index.json"]
-            assert f"{old_date}-pm.json" not in files
+            files = [
+                n for n in os.listdir(snaps) if n.endswith(".json") and n != "history_index.json"
+            ]
+            self.assertNotIn(f"{old_date}-pm.json", files)
             new_date = new_iso[:10]
-            assert f"{new_date}-pm.json" in files
+            self.assertIn(f"{new_date}-pm.json", files)
             with open(os.path.join(snaps, "history_index.json")) as f:
                 index = json.load(f)
-            assert len(index) == 1
-            assert index[0]["date"] == new_date
+            self.assertEqual(len(index), 1)
+            self.assertEqual(index[0]["date"], new_date)
 
 
 class TestCLI(unittest.TestCase):
@@ -186,8 +199,8 @@ class TestCLI(unittest.TestCase):
                     "90",
                 ]
             )
-            assert rc == 0
-            assert os.path.exists(os.path.join(snaps, "2026-07-18-am.json"))
+            self.assertEqual(rc, 0)
+            self.assertTrue(os.path.exists(os.path.join(snaps, "2026-07-18-am.json")))
 
     def test_cli_missing_latest(self):
         rc = snapshot_writer.main(
@@ -200,7 +213,7 @@ class TestCLI(unittest.TestCase):
                 "am",
             ]
         )
-        assert rc == 1
+        self.assertEqual(rc, 1)
 
 
 if __name__ == "__main__":

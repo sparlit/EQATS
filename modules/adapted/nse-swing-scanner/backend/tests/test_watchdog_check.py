@@ -27,7 +27,6 @@ decision logic that replaced the trigger-on-every-stale-tick behaviour
 (1.3.3 fix for duplicate queued scans).
 """
 import datetime
-import importlib.util
 import os
 import sys
 import tempfile
@@ -41,7 +40,6 @@ for p in (BACKEND_DIR, SCRIPTS_DIR):
         sys.path.insert(0, p)
 
 import watchdog_check  # noqa: E402
-from scan_schedule import next_scheduled_window  # noqa: E402
 
 UTC = datetime.UTC
 
@@ -57,25 +55,25 @@ def make_status(next_expected_iso):
 class TestIsScanLate(unittest.TestCase):
     def test_fresh_when_before_next_window(self):
         status = make_status("2026-09-01T10:30:00+00:00")
-        assert not watchdog_check.is_scan_late(status, None, dt(2026, 9, 1, 10, 0), 30)
+        self.assertFalse(watchdog_check.is_scan_late(status, None, dt(2026, 9, 1, 10, 0), 30))
 
     def test_fresh_within_grace_after_next_window(self):
         status = make_status("2026-09-01T03:30:00+00:00")
         # generated_at fallback not needed; next window in the future.
-        assert not watchdog_check.is_scan_late(status, None, dt(2026, 9, 1, 3, 40), 30)
+        self.assertFalse(watchdog_check.is_scan_late(status, None, dt(2026, 9, 1, 3, 40), 30))
 
     def test_late_past_grace(self):
         # next_expected 03:30 + 30 min grace; now 04:15 -> late.
         status = make_status("2026-09-01T03:30:00+00:00")
-        assert watchdog_check.is_scan_late(status, None, dt(2026, 9, 1, 4, 15), 30)
+        self.assertTrue(watchdog_check.is_scan_late(status, None, dt(2026, 9, 1, 4, 15), 30))
 
     def test_no_status_falls_back_to_generated_at_next_window(self):
         latest = {"generated_at": "2026-08-31T16:12:00+00:00"}
         # Monday 03:50: next window after generated_at is 10:30 — not late.
-        assert not watchdog_check.is_scan_late(None, latest, dt(2026, 8, 31, 17, 0), 30)
+        self.assertFalse(watchdog_check.is_scan_late(None, latest, dt(2026, 8, 31, 17, 0), 30))
 
     def test_no_data_at_all_is_late(self):
-        assert watchdog_check.is_scan_late(None, None, dt(2026, 9, 1, 4, 0), 30)
+        self.assertTrue(watchdog_check.is_scan_late(None, None, dt(2026, 9, 1, 4, 0), 30))
 
 
 class TestShouldTrigger(unittest.TestCase):
@@ -94,7 +92,7 @@ class TestShouldTrigger(unittest.TestCase):
             marker_dt=None,
             now=self.late_now,
         )
-        assert trigger
+        self.assertTrue(trigger)
 
     def test_never_triggers_when_queued(self):
         trigger, reason = watchdog_check.should_trigger(
@@ -104,8 +102,8 @@ class TestShouldTrigger(unittest.TestCase):
             marker_dt=None,
             now=self.late_now,
         )
-        assert not trigger
-        assert "queued" in reason
+        self.assertFalse(trigger)
+        self.assertIn("queued", reason)
 
     def test_never_triggers_when_in_progress(self):
         trigger, _ = watchdog_check.should_trigger(
@@ -115,7 +113,7 @@ class TestShouldTrigger(unittest.TestCase):
             marker_dt=None,
             now=self.late_now,
         )
-        assert not trigger
+        self.assertFalse(trigger)
 
     def test_cooldown_blocks_duplicate_trigger(self):
         marker = self.late_now - datetime.timedelta(minutes=10)
@@ -127,8 +125,8 @@ class TestShouldTrigger(unittest.TestCase):
             now=self.late_now,
             cooldown_min=45,
         )
-        assert not trigger
-        assert "cooldown" in reason
+        self.assertFalse(trigger)
+        self.assertIn("cooldown", reason)
 
     def test_cooldown_expired_allows_trigger(self):
         marker = self.late_now - datetime.timedelta(minutes=50)
@@ -140,7 +138,7 @@ class TestShouldTrigger(unittest.TestCase):
             now=self.late_now,
             cooldown_min=45,
         )
-        assert trigger
+        self.assertTrue(trigger)
 
     def test_fresh_scan_never_triggers(self):
         fresh_status = make_status("2026-09-02T03:30:00+00:00")
@@ -151,7 +149,7 @@ class TestShouldTrigger(unittest.TestCase):
             marker_dt=None,
             now=dt(2026, 9, 1, 5, 0),
         )
-        assert not trigger
+        self.assertFalse(trigger)
 
 
 class TestMarkerIO(unittest.TestCase):
@@ -160,17 +158,17 @@ class TestMarkerIO(unittest.TestCase):
             path = os.path.join(td, "marker")
             now = dt(2026, 9, 1, 4, 45)
             watchdog_check.write_marker(path, now)
-            assert watchdog_check.read_marker(path) == now
+            self.assertEqual(watchdog_check.read_marker(path), now)
 
     def test_read_marker_missing_file(self):
-        assert watchdog_check.read_marker("/nonexistent/marker") is None
+        self.assertIsNone(watchdog_check.read_marker("/nonexistent/marker"))
 
     def test_read_marker_corrupt_content(self):
         with tempfile.TemporaryDirectory() as td:
             path = os.path.join(td, "marker")
             with open(path, "w") as f:
                 f.write("not-a-date")
-            assert watchdog_check.read_marker(path) is None
+            self.assertIsNone(watchdog_check.read_marker(path))
 
 
 class TestMainExitCodes(unittest.TestCase):
@@ -190,7 +188,7 @@ class TestMainExitCodes(unittest.TestCase):
                     "2026-09-01T04:45:00+00:00",
                 ]
             )
-            assert code == 10
+            self.assertEqual(code, 10)
 
     def test_exit_0_when_run_in_progress(self):
         with tempfile.TemporaryDirectory() as td:
@@ -210,7 +208,7 @@ class TestMainExitCodes(unittest.TestCase):
                     "2026-09-01T04:45:00+00:00",
                 ]
             )
-            assert code == 0
+            self.assertEqual(code, 0)
 
 
 if __name__ == "__main__":

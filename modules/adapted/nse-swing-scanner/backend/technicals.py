@@ -37,7 +37,6 @@ before sizing a real position.
 ATR / target / stop: heuristic only. Not backtested. Documented in methodology.md.
 """
 
-from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -66,7 +65,8 @@ def compute_rsi(close: pd.Series, period: int = 14) -> pd.Series:
     avg_gain = gain.ewm(alpha=1 / period, min_periods=period, adjust=False).mean()
     avg_loss = loss.ewm(alpha=1 / period, min_periods=period, adjust=False).mean()
     rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
 
 
 def compute_atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
@@ -80,7 +80,8 @@ def compute_atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int =
         ],
         axis=1,
     ).max(axis=1)
-    return tr.ewm(alpha=1 / period, min_periods=period, adjust=False).mean()
+    atr = tr.ewm(alpha=1 / period, min_periods=period, adjust=False).mean()
+    return atr
 
 
 def _compute_technicals_impl(yf_ticker: str, period: str = "1y") -> dict:
@@ -117,7 +118,10 @@ def _compute_technicals_impl(yf_ticker: str, period: str = "1y") -> dict:
     # rows where Close is NaN so "current" refers to the last complete session.
     valid_close = hist["Close"].dropna()
     if len(valid_close) < 210:
-        return {"yf_ticker": yf_ticker, "error": f"insufficient_valid_history ({len(valid_close)} non-NaN bars)"}
+        return {
+            "yf_ticker": yf_ticker,
+            "error": f"insufficient_valid_history ({len(valid_close)} non-NaN bars)",
+        }
 
     # Truncate hist to the last valid bar so all downstream series agree.
     last_valid_idx = valid_close.index[-1]
@@ -147,7 +151,10 @@ def _compute_technicals_impl(yf_ticker: str, period: str = "1y") -> dict:
     recent = hist.tail(10).copy()
     recent["is_down"] = recent["Close"] < recent["Open"]
     down_days = recent[recent["is_down"]]
-    peak_down_volume = float(down_days["Volume"].max()) if not down_days.empty else float(recent["Volume"].max())
+    if not down_days.empty:
+        peak_down_volume = float(down_days["Volume"].max())
+    else:
+        peak_down_volume = float(recent["Volume"].max())
     volume_surge_factor = peak_down_volume / avg_vol_30 if avg_vol_30 > 0 else np.nan
 
     # Approximate traded-value proxy (NOT delivery value; delivery comes from bhavcopy)
@@ -158,7 +165,7 @@ def _compute_technicals_impl(yf_ticker: str, period: str = "1y") -> dict:
     # volume×close proxy for delivery. Take the trailing window FIRST, then drop
     # NaN rows inside it, so adv_sessions reflects how many bars actually contributed.
     adv_window = hist[["Volume", "Close"]].tail(ADV_LOOKBACK_SESSIONS).dropna()
-    adv_sessions = len(adv_window)
+    adv_sessions = int(len(adv_window))
     if adv_sessions >= ADV_MIN_SESSIONS:
         adv_value_inr = float((adv_window["Volume"] * adv_window["Close"]).mean())
     else:
@@ -244,7 +251,9 @@ def _compute_technicals_impl(yf_ticker: str, period: str = "1y") -> dict:
         "risk_reward_target_2": round(rr2, 2) if rr2 else None,
         "avg_vol_30d": round(avg_vol_30, 0),
         "peak_down_day_volume_10d": round(peak_down_volume, 0),
-        "volume_surge_factor": round(volume_surge_factor, 2) if not np.isnan(volume_surge_factor) else None,
+        "volume_surge_factor": round(volume_surge_factor, 2)
+        if not np.isnan(volume_surge_factor)
+        else None,
         "adtv_value_inr_approx": round(adtv_value_inr, 0),
         "adv_value_inr": round(adv_value_inr, 0) if adv_value_inr is not None else None,
         "adv_sessions": adv_sessions,

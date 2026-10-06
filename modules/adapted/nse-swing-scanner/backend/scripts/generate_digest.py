@@ -177,7 +177,9 @@ def _cell(tables, w, bucket, key):
     return tables.get((w, bucket), {}).get(key)
 
 
-def render_digest(week_label: str, perf, meta, rows, tables, week_rows_, site_base: str | None) -> str:
+def render_digest(
+    week_label: str, perf, meta, rows, tables, week_rows_, site_base: str | None
+) -> str:
     gen_at = perf.get("generated_at") or "unknown"
     total_pass = meta.get("total_passed")
     n_rows = len(rows)
@@ -282,7 +284,10 @@ def render_digest(week_label: str, perf, meta, rows, tables, week_rows_, site_ba
         ap(f"- Full attribution data: {base}/data/performance.json")
     else:
         ap("- Live dashboard: https://nse-swing-scanner.netlify.app")
-        ap("- Full attribution data: /data/performance.json (in-repo: `frontend/public/data/performance.json`)")
+        ap(
+            "- Full attribution data: /data/performance.json (in-repo: "
+            "`frontend/public/data/performance.json`)"
+        )
     ap("")
     ap(f"> {CAVEATS}")
     ap("")
@@ -293,8 +298,7 @@ def build_digest(perf_path: Path, week_label: str | None, site_base: str | None)
     perf, meta, rows = load_rows(perf_path)
     gen_at = perf.get("generated_at")
     if not gen_at:
-        msg = "performance.json has no generated_at — refusing to digest"
-        raise SystemExit(msg)
+        raise SystemExit("performance.json has no generated_at — refusing to digest")
     resolved_week = week_label or _iso_week(date.fromisoformat(gen_at[:10]))
     tables = band_tables(rows)
     if not tables:

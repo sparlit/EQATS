@@ -34,9 +34,7 @@ UNIVERSE_DEFAULT_SLEEP_BETWEEN_CALLS = 0.3  # seconds, per-yfinance-call courtes
 
 # Hard gate thresholds (non-negotiable safety filters)
 MIN_F_SCORE = 6  # relaxed from spec ">7" — see README
-MIN_DELIVERY_VALUE_INR = (
-    5_00_00_000  # Rs 5 crore, latest available trading day (only used when delivery_kind == "actual")
-)
+MIN_DELIVERY_VALUE_INR = 5_00_00_000  # Rs 5 crore, latest available trading day (only used when delivery_kind == "actual")
 MIN_HOLDINGS_CONVICTION_PCT = 50  # promoter + FII + DII > 50%
 
 # Liquidity Adequacy hard gate: 20d average traded value (volume × close) floor.

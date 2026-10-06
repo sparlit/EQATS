@@ -30,7 +30,6 @@ The liquidity hard gate relies on this field, so we pin its behavior:
 """
 import numpy as np
 import pandas as pd
-import pytest
 import technicals
 from settings import ADV_LOOKBACK_SESSIONS, ADV_MIN_SESSIONS
 
@@ -40,7 +39,7 @@ def _make_history(prices, volumes=None):
     if volumes is None:
         volumes = [1_000_000] * n
     dates = pd.date_range("2025-01-01", periods=n, freq="B")
-    return pd.DataFrame(
+    df = pd.DataFrame(
         {
             "Open": prices,
             "High": [p * 1.01 for p in prices],
@@ -50,6 +49,7 @@ def _make_history(prices, volumes=None):
         },
         index=dates,
     )
+    return df
 
 
 def _patch_history(monkeypatch, df):
@@ -60,7 +60,7 @@ def _patch_history(monkeypatch, df):
         def history(self, period=None, auto_adjust=None):
             return df
 
-    monkeypatch.setattr(technicals.yf, "Ticker", _FakeTicker)
+    monkeypatch.setattr(technicals.yf, "Ticker", lambda s: _FakeTicker(s))
 
 
 def test_adv_value_equals_mean_of_volume_times_close(monkeypatch):

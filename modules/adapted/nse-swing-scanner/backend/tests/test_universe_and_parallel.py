@@ -22,11 +22,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 """Tests for the new top-N universe + parallel run_scan."""
-import time
 from unittest.mock import patch
 
 import pandas as pd
-import pytest
 import scanner
 from universe import NIFTY_INDEX_URLS, fetch_universe
 
@@ -100,7 +98,12 @@ def _patched_shared_fetches():
             "fscore_f_score_components_available": 9,
             "pe5y_avg_pe_5y": 25.0,
             "pe5y_trailing_pe_check": 22.0,
-            "holdings_data": {"promoter_pct": 50.0, "fii_pct": 20.0, "dii_pct": 20.0, "conviction_pct": 90.0},
+            "holdings_data": {
+                "promoter_pct": 50.0,
+                "fii_pct": 20.0,
+                "dii_pct": 20.0,
+                "conviction_pct": 90.0,
+            },
             "holdings_status": "ok",
             "corporate_actions_data": {"has_excluded_action": False, "actions": []},
             "corporate_actions_status": "ok",
@@ -114,7 +117,12 @@ def _patched_shared_fetches():
         "fetch_holdings": {
             "status": "ok",
             "source": "screener.in",
-            "data": {"promoter_pct": 50.0, "fii_pct": 20.0, "dii_pct": 20.0, "conviction_pct": 90.0},
+            "data": {
+                "promoter_pct": 50.0,
+                "fii_pct": 20.0,
+                "dii_pct": 20.0,
+                "conviction_pct": 90.0,
+            },
         },
         "fetch_corporate_actions": {
             "status": "ok",
@@ -188,14 +196,22 @@ def test_run_scan_workers_capped_to_universe_size(monkeypatch):
     stubs = _patched_shared_fetches()
 
     monkeypatch.setattr(scanner, "fetch_universe", lambda *a, **k: fake_universe)
-    monkeypatch.setattr(scanner, "fetch_surveillance_list", lambda: stubs["fetch_surveillance_list"])
     monkeypatch.setattr(
-        scanner, "fetch_bhavcopy", lambda *, universe_symbols=None, universe_yf_tickers=None: stubs["fetch_bhavcopy"]
+        scanner, "fetch_surveillance_list", lambda: stubs["fetch_surveillance_list"]
     )
-    monkeypatch.setattr(scanner, "compute_nifty50_context", lambda: stubs["compute_nifty50_context"])
+    monkeypatch.setattr(
+        scanner,
+        "fetch_bhavcopy",
+        lambda *, universe_symbols=None, universe_yf_tickers=None: stubs["fetch_bhavcopy"],
+    )
+    monkeypatch.setattr(
+        scanner, "compute_nifty50_context", lambda: stubs["compute_nifty50_context"]
+    )
     monkeypatch.setattr(scanner, "fetch_holdings", lambda s: stubs["fetch_holdings"])
-    monkeypatch.setattr(scanner, "fetch_corporate_actions", lambda s: stubs["fetch_corporate_actions"])
-    monkeypatch.setattr(scanner, "evaluate_stock", stubs["evaluate_stock"])
+    monkeypatch.setattr(
+        scanner, "fetch_corporate_actions", lambda s: stubs["fetch_corporate_actions"]
+    )
+    monkeypatch.setattr(scanner, "evaluate_stock", lambda r, **k: stubs["evaluate_stock"](r, **k))
 
     # workers=20 should be silently capped to 3
     df = scanner.run_scan(top_n=100, workers=20, sleep_between_calls=0)
@@ -208,18 +224,25 @@ def test_run_scan_worker_exception_does_not_kill_scan(monkeypatch):
     stubs = _patched_shared_fetches()
 
     monkeypatch.setattr(scanner, "fetch_universe", lambda *a, **k: fake_universe)
-    monkeypatch.setattr(scanner, "fetch_surveillance_list", lambda: stubs["fetch_surveillance_list"])
     monkeypatch.setattr(
-        scanner, "fetch_bhavcopy", lambda *, universe_symbols=None, universe_yf_tickers=None: stubs["fetch_bhavcopy"]
+        scanner, "fetch_surveillance_list", lambda: stubs["fetch_surveillance_list"]
     )
-    monkeypatch.setattr(scanner, "compute_nifty50_context", lambda: stubs["compute_nifty50_context"])
+    monkeypatch.setattr(
+        scanner,
+        "fetch_bhavcopy",
+        lambda *, universe_symbols=None, universe_yf_tickers=None: stubs["fetch_bhavcopy"],
+    )
+    monkeypatch.setattr(
+        scanner, "compute_nifty50_context", lambda: stubs["compute_nifty50_context"]
+    )
     monkeypatch.setattr(scanner, "fetch_holdings", lambda s: stubs["fetch_holdings"])
-    monkeypatch.setattr(scanner, "fetch_corporate_actions", lambda s: stubs["fetch_corporate_actions"])
+    monkeypatch.setattr(
+        scanner, "fetch_corporate_actions", lambda s: stubs["fetch_corporate_actions"]
+    )
 
     def flaky_evaluate(rdict, **kwargs):
         if rdict["symbol"] == "SYM001":
-            msg = "simulated worker crash"
-            raise RuntimeError(msg)
+            raise RuntimeError("simulated worker crash")
         return stubs["evaluate_stock"](rdict, **kwargs)
 
     monkeypatch.setattr(scanner, "evaluate_stock", flaky_evaluate)
