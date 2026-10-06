@@ -1,5 +1,5 @@
 {
-  "current_index": 57,
+  "current_index": 58,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -461,7 +461,7 @@
       "name": "nse-var-dashboard",
       "target": "athreysethumadhavan-finance/nse-var-dashboard",
       "url": "https://github.com/athreysethumadhavan-finance/nse-var-dashboard",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
