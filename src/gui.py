@@ -6265,6 +6265,7 @@ class ScalperGui:
             return
         self.cred_text.delete("1.0", tk.END)
         import secrets
+
         from credential_manager import CredentialManager
 
         cm = CredentialManager()
