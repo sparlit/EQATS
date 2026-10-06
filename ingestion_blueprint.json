@@ -1,5 +1,5 @@
 {
-  "current_index": 128,
+  "current_index": 129,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1029,9 +1029,9 @@
       "name": "nse-preopen-data",
       "target": "ferozmd53/nse-preopen-data",
       "url": "https://github.com/ferozmd53/nse-preopen-data",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3070",
+      "merged": true
     },
     {
       "name": "ferrumfix",
