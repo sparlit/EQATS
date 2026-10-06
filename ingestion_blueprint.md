@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 424 | Current Index: 84
+Total Repositories: 424 | Current Index: 85
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -87,7 +87,7 @@ Total Repositories: 424 | Current Index: 84
 | 82 | bshada/nse-bse-api | Processed | https://github.com/sparlit/EQATS/pull/3021 |
 | 83 | bshada/nse-bse-mcp | Processed | https://github.com/sparlit/EQATS/pull/3022 |
 | 84 | buzzsubash/algo_trading_strategies_india | Completed | https://github.com/sparlit/EQATS/pull/3023 |
-| 85 | c3point/in-stock-screener | pending | None |
+| 85 | c3point/in-stock-screener | Completed | https://github.com/sparlit/EQATS/pull/3024 |
 | 86 | c3point/nse-support-tools | pending | None |
 | 87 | calumrussell/rotala | pending | None |
 | 88 | ccxt/ccxt | pending | None |
