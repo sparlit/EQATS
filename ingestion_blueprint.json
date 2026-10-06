@@ -1,5 +1,5 @@
 {
-  "current_index": 75,
+  "current_index": 76,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -605,7 +605,7 @@
       "name": "nse-trading-skills",
       "target": "bhala-srinivash/nse-trading-skills",
       "url": "https://github.com/bhala-srinivash/nse-trading-skills",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
