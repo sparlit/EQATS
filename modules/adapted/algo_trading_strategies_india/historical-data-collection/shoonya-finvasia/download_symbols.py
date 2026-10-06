@@ -73,8 +73,9 @@ def download_and_extract(url, extract_dir=".", retry_count=0):
                 safe_print(f"Retrying ({retry_count}/{MAX_RETRIES}) after {RETRY_DELAY}s...")
                 time.sleep(RETRY_DELAY)
                 return download_and_extract(url, extract_dir, retry_count)
-            safe_print(f"Error downloading file after {MAX_RETRIES} attempts: {e}")
-            return False
+            else:
+                safe_print(f"Error downloading file after {MAX_RETRIES} attempts: {e}")
+                return False
 
         file_size = int(response.headers.get("content-length", 0))
         safe_print(f"File size: {file_size / 1024 / 1024:.2f} MB")
@@ -93,7 +94,9 @@ def download_and_extract(url, extract_dir=".", retry_count=0):
                     # Report progress every 10% or 5 seconds
                     current_time = time.time()
                     progress = int((downloaded / file_size) * 100) if file_size > 0 else 0
-                    if (progress >= last_report + 10) or (current_time - start_time >= 5 and progress > last_report):
+                    if (progress >= last_report + 10) or (
+                        current_time - start_time >= 5 and progress > last_report
+                    ):
                         safe_print(
                             f"Download progress: {progress}% ({downloaded / 1024 / 1024:.2f} MB / {file_size / 1024 / 1024:.2f} MB)"
                         )
@@ -122,7 +125,9 @@ def download_and_extract(url, extract_dir=".", retry_count=0):
                     safe_print(f"Error: Corrupt zip file - first bad file: {test_result}")
                     if retry_count < MAX_RETRIES:
                         retry_count += 1
-                        safe_print(f"Retrying ({retry_count}/{MAX_RETRIES}) after {RETRY_DELAY}s...")
+                        safe_print(
+                            f"Retrying ({retry_count}/{MAX_RETRIES}) after {RETRY_DELAY}s..."
+                        )
                         time.sleep(RETRY_DELAY)
                         # Clean up corrupt file
                         if os.path.exists(filename):
@@ -160,7 +165,9 @@ def download_and_extract(url, extract_dir=".", retry_count=0):
             extracted_path = os.path.join(extract_dir, file_info.filename)
             if os.path.exists(extracted_path):
                 actual_files.append(file_info.filename)
-                safe_print(f"Extracted file: {file_info.filename} ({os.path.getsize(extracted_path) / 1024:.2f} KB)")
+                safe_print(
+                    f"Extracted file: {file_info.filename} ({os.path.getsize(extracted_path) / 1024:.2f} KB)"
+                )
 
         if not actual_files:
             safe_print(f"Warning: No files were extracted from {filename}")
@@ -175,7 +182,9 @@ def download_and_extract(url, extract_dir=".", retry_count=0):
             return False
 
         # Check if expected file exists
-        if expected_file not in actual_files and not os.path.exists(os.path.join(extract_dir, expected_file)):
+        if expected_file not in actual_files and not os.path.exists(
+            os.path.join(extract_dir, expected_file)
+        ):
             safe_print(f"Note: Expected file {expected_file} not found in extracted files.")
             safe_print(f"Using extracted files: {', '.join(actual_files)}")
 
@@ -261,7 +270,9 @@ def main():
             need_bse = not os.path.exists("BSE_symbols.txt")
 
             if not need_nse and not need_bse:
-                safe_print("Both NSE and BSE symbol files already exist. Use --force to redownload.")
+                safe_print(
+                    "Both NSE and BSE symbol files already exist. Use --force to redownload."
+                )
                 return 0
 
             # Download and extract both files
@@ -317,8 +328,9 @@ def main():
             if all_success:
                 safe_print("\nSuccessfully downloaded and verified all required symbol files.")
                 return 0
-            safe_print("\nFailed to download or verify one or more symbol files.")
-            return 1
+            else:
+                safe_print("\nFailed to download or verify one or more symbol files.")
+                return 1
 
     except Exception as e:
         # Make sure we restore stdout before printing

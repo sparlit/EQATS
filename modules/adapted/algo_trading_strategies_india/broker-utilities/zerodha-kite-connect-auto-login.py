@@ -27,7 +27,7 @@ Kite Connect Auto-Login Script
 Created by: Subash Krishnan
 
 Contact Information:
-- Phone/WhatsApp: +919605006699, +65-94675969
+- Phone/WhatsApp: +919605006699
 - Email: Available on LinkedIn
 
 Social Links:
@@ -160,7 +160,7 @@ class TelegramNotifier:
             response = requests.post(self.base_url, json=payload, timeout=10)
             return response.json()
         except Exception as e:
-            logging.exception(f"Failed to send Telegram message: {e}")
+            logging.error(f"Failed to send Telegram message: {e}")
             return None
 
 
@@ -180,7 +180,7 @@ class KiteAutoLogin:
             self.server.start()
             logging.info("Server started successfully")
         except Exception as e:
-            logging.exception(f"Failed to start server: {e}")
+            logging.error(f"Failed to start server: {e}")
             raise
 
     def stop_server(self):
@@ -202,7 +202,7 @@ class KiteAutoLogin:
             logging.info(f"Access token saved successfully to: {self.config.ACCESS_TOKEN_PATH}")
 
         except Exception as e:
-            logging.exception(f"Failed to save access token: {e}")
+            logging.error(f"Failed to save access token: {e}")
             raise
 
     def generate_totp(self):
@@ -211,7 +211,7 @@ class KiteAutoLogin:
             totp = pyotp.TOTP(self.config.TOTP_KEY)
             return totp.now()
         except Exception as e:
-            logging.exception(f"Failed to generate TOTP: {e}")
+            logging.error(f"Failed to generate TOTP: {e}")
             raise
 
     def perform_login(self):
@@ -219,7 +219,9 @@ class KiteAutoLogin:
         try:
             # Create session for login
             req_session = requests.Session()
-            req_session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"})
+            req_session.headers.update(
+                {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            )
 
             # Step 1: Login with credentials
             logging.info("Performing initial login...")
@@ -233,8 +235,7 @@ class KiteAutoLogin:
             )
 
             if login_response.status_code != 200:
-                msg = f"Login failed with status code: {login_response.status_code}"
-                raise Exception(msg)
+                raise Exception(f"Login failed with status code: {login_response.status_code}")
 
             login_data = login_response.json()
             request_id = login_data["data"]["request_id"]
@@ -246,24 +247,28 @@ class KiteAutoLogin:
 
             twofa_response = req_session.post(
                 self.config.TWOFA_URL,
-                data={"user_id": self.config.USER_ID, "request_id": request_id, "twofa_value": twofa_code},
+                data={
+                    "user_id": self.config.USER_ID,
+                    "request_id": request_id,
+                    "twofa_value": twofa_code,
+                },
                 timeout=30,
             )
 
             if twofa_response.status_code != 200:
-                msg = f"2FA failed with status code: {twofa_response.status_code}"
-                raise Exception(msg)
+                raise Exception(f"2FA failed with status code: {twofa_response.status_code}")
 
             logging.info("2FA authentication successful")
 
             # Step 3: Get request token
             logging.info("Getting request token...")
-            api_session = req_session.get(f"{self.config.CONNECT_URL}{self.config.API_KEY}", timeout=30)
+            api_session = req_session.get(
+                f"{self.config.CONNECT_URL}{self.config.API_KEY}", timeout=30
+            )
 
             # Extract request token from URL
             if "request_token=" not in api_session.url:
-                msg = "Request token not found in response URL"
-                raise Exception(msg)
+                raise Exception("Request token not found in response URL")
 
             request_token = api_session.url.split("request_token=")[1].split("&")[0]
             logging.info(f"Request token obtained: {request_token}")
@@ -286,8 +291,8 @@ class KiteAutoLogin:
             return request_token, access_token, kite
 
         except Exception as e:
-            error_message = f"❌ Desktop Connect Program Error: {e!s}"
-            logging.exception(error_message)
+            error_message = f"❌ Desktop Connect Program Error: {str(e)}"
+            logging.error(error_message)
             self.telegram.send_message(error_message, self.config.CHAT_ID_ERROR)
             raise
 
@@ -302,21 +307,22 @@ class KiteAutoLogin:
                 return self.perform_login()
 
             except Exception as e:
-                logging.exception(f"Login attempt {attempt + 1} failed: {e}")
+                logging.error(f"Login attempt {attempt + 1} failed: {e}")
 
                 if attempt < max_retries - 1:
                     logging.info(f"Retrying in {retry_delay} seconds...")
                     time.sleep(retry_delay)
                 else:
-                    logging.exception("All login attempts failed")
+                    logging.error("All login attempts failed")
                     raise
-        return None
 
     def run(self):
         """Main method to run the auto-login process"""
         try:
             # Start the server
-            logging.info(f"Starting Kite Auto-Login Server on http://{self.config.HOST}:{self.config.PORT}")
+            logging.info(
+                f"Starting Kite Auto-Login Server on http://{self.config.HOST}:{self.config.PORT}"
+            )
             self.start_server()
 
             # Perform auto-login
@@ -338,8 +344,8 @@ class KiteAutoLogin:
                 logging.warning(f"Failed to get user profile: {e}")
 
         except Exception as e:
-            error_message = f"❌ Desktop Connect Program Critical Error: {e!s}"
-            logging.exception(error_message)
+            error_message = f"❌ Desktop Connect Program Critical Error: {str(e)}"
+            logging.error(error_message)
             self.telegram.send_message(error_message, self.config.CHAT_ID_ERROR)
             print(f"Error: {e}")
 
@@ -356,7 +362,7 @@ def main():
     except KeyboardInterrupt:
         logging.info("Application interrupted by user")
     except Exception as e:
-        logging.exception(f"Application failed: {e}")
+        logging.error(f"Application failed: {e}")
 
 
 if __name__ == "__main__":
