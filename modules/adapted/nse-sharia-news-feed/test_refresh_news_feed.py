@@ -31,8 +31,7 @@ from unittest.mock import patch
 
 SCRIPT_PATH = Path(__file__).resolve().parent / "scripts" / "refresh_news_feed.py"
 SPEC = importlib.util.spec_from_file_location("refresh_news_feed", SCRIPT_PATH)
-assert SPEC
-assert SPEC.loader
+assert SPEC and SPEC.loader
 refresh_news_feed = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(refresh_news_feed)
 
@@ -52,17 +51,16 @@ class RefreshNewsFeedTest(unittest.TestCase):
     def test_google_news_item_preserves_reuters_source(self) -> None:
         articles = refresh_news_feed.parse_rss(REUTERS_RSS)
 
-        assert len(articles) == 1
-        assert "Iran threatens to hit Gulf states" in articles[0]["title"]
-        assert articles[0]["source"] == "Reuters"
+        self.assertEqual(len(articles), 1)
+        self.assertIn("Iran threatens to hit Gulf states", articles[0]["title"])
+        self.assertEqual(articles[0]["source"], "Reuters")
 
     def test_failed_source_is_reported_without_dropping_successful_items(self) -> None:
         feeds = ["https://dead.example/rss", "https://working.example/rss"]
 
         def fake_fetch(url: str, timeout: int = 20) -> str:
             if "dead" in url:
-                msg = "unavailable"
-                raise urllib.error.URLError(msg)
+                raise urllib.error.URLError("unavailable")
             return REUTERS_RSS
 
         with (
@@ -71,10 +69,10 @@ class RefreshNewsFeedTest(unittest.TestCase):
         ):
             articles, source_health = refresh_news_feed.fetch_articles()
 
-        assert len(articles) == 1
-        assert source_health[0]["status"] == "error"
-        assert source_health[1]["status"] == "ok"
-        assert source_health[1]["article_count"] == 1
+        self.assertEqual(len(articles), 1)
+        self.assertEqual(source_health[0]["status"], "error")
+        self.assertEqual(source_health[1]["status"], "ok")
+        self.assertEqual(source_health[1]["article_count"], 1)
 
     def test_fresh_metadata_replaces_retained_copy(self) -> None:
         retained = [
@@ -90,8 +88,8 @@ class RefreshNewsFeedTest(unittest.TestCase):
 
         articles = refresh_news_feed.merge_articles(retained, fresh)
 
-        assert articles[0]["description"] == "Fresh metadata"
-        assert articles[0]["source"] == "Reuters"
+        self.assertEqual(articles[0]["description"], "Fresh metadata")
+        self.assertEqual(articles[0]["source"], "Reuters")
 
 
 if __name__ == "__main__":
