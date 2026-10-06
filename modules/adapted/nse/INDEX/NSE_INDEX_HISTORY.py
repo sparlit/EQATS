@@ -53,8 +53,7 @@ def fetch_cookies():
     if response.status_code != requests.codes.ok:
         # logging.error("Fetched url: %s with status code: %s and response from server: %s" % (
         #     BASE_URL, response.status_code, response.content))
-        msg = "Please try again in a minute."
-        raise ValueError(msg)
+        raise ValueError("Please try again in a minute.")
     return response.cookies.get_dict()
 
 
@@ -83,10 +82,11 @@ def scrape_data(start_date, end_date, name, input_type="index"):
     }
 
     payload = {"cinfo": str(pld)}
-    response = requests.request("POST", HISTORICAL_DATA_URL, json=payload, timeout=30, headers=get_adjusted_headers())
+    response = requests.request(
+        "POST", HISTORICAL_DATA_URL, json=payload, timeout=30, headers=get_adjusted_headers()
+    )
     if response.status_code == requests.codes.ok:
         return pd.DataFrame(eval(json.loads(response.text)["d"]))
-    return None
 
 
 """### Scrape Directly to DataFrame """
