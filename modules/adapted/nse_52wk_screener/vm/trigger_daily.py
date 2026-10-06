@@ -117,7 +117,9 @@ def telegram(text):
     try:
         url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
         data = json.dumps({"chat_id": TG_CHAT, "text": text}).encode()
-        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+        req = urllib.request.Request(
+            url, data=data, headers={"Content-Type": "application/json"}, method="POST"
+        )
         urllib.request.urlopen(req, timeout=20).read()
         return True
     except Exception as e:
@@ -132,7 +134,9 @@ def newest_run_id():
 
 
 def dispatch():
-    status, _ = _gh("POST", f"/repos/{OWNER}/{REPO}/actions/workflows/{WF}/dispatches", body={"ref": "main"})
+    status, _ = _gh(
+        "POST", f"/repos/{OWNER}/{REPO}/actions/workflows/{WF}/dispatches", body={"ref": "main"}
+    )
     return status == 204
 
 
@@ -181,13 +185,15 @@ def test_alert():
     alert path without dispatching anything or touching data."""
     stamp = datetime.now(IST).strftime("%Y-%m-%d %H:%M IST")
     ok = telegram(
-        f"✅ NSE screener test alert — Telegram path OK ({stamp}). Daily-refresh failures will be reported here."
+        f"✅ NSE screener test alert — Telegram path OK ({stamp}). "
+        "Daily-refresh failures will be reported here."
     )
     if ok:
         print("Test alert sent — check the price-alerts channel.")
     else:
         print(
-            "Test alert NOT sent (see error above). Check TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID in vm/.env.",
+            "Test alert NOT sent (see error above). Check TELEGRAM_BOT_TOKEN / "
+            "TELEGRAM_CHAT_ID in vm/.env.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -202,7 +208,9 @@ def main():
         sys.exit(2)
 
     today = datetime.now(IST).strftime("%Y-%m-%d")
-    print(f"[{datetime.now(IST):%Y-%m-%d %H:%M IST}] triggering update-daily for {today}", flush=True)
+    print(
+        f"[{datetime.now(IST):%Y-%m-%d %H:%M IST}] triggering update-daily for {today}", flush=True
+    )
 
     last = ""
     for i in range(1, ATTEMPTS + 1):
@@ -216,7 +224,9 @@ def main():
                 print(f"  as_of check failed (non-fatal): {e}", flush=True)
             print(f"  snapshot as_of = {as_of}", flush=True)
             note = "" if as_of == today else " (no newer session — market holiday?)"
-            telegram(f"✅ NSE screener updated for {today} — snapshot as_of {as_of or 'unknown'}.{note}")
+            telegram(
+                f"✅ NSE screener updated for {today} — snapshot as_of {as_of or 'unknown'}.{note}"
+            )
             print("DONE: update succeeded", flush=True)
             return
         last = detail

@@ -52,7 +52,9 @@ IST = ZoneInfo("Asia/Kolkata")
 UNIVERSE_PATH = "data/nse_equity_list.csv"
 FO_PATH = "data/fo_stocks.csv"
 OUT_PATH = "data/price_bands.csv"
-SCRIP_MASTER = "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
+SCRIP_MASTER = (
+    "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
+)
 
 STANDARD_BANDS = [2, 5, 10, 20]
 FULL_BATCH = 50  # SmartAPI FULL-quote token limit per request
@@ -123,7 +125,7 @@ def _band_from(upper, close):
         return None
     raw = (upper - close) / close * 100.0
     nearest = min(STANDARD_BANDS, key=lambda b: abs(b - raw))
-    return nearest if abs(nearest - raw) <= 1.0 else round(raw)
+    return nearest if abs(nearest - raw) <= 1.0 else int(round(raw))
 
 
 def fetch_bands(obj, sym_token: dict[str, str]) -> dict[str, int]:
