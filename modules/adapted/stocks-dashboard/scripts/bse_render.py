@@ -30,19 +30,17 @@ Prints the PNG paths it wrote (the P&L-bearing pages). A caller (or agent) then 
 Revenue from Operations + Profit for the period for the quarter(s) shown, minding the unit (lakh/crore).
 """
 import datetime
-import io
 import os
 import re
 import sys
 import time
-import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bse_fetch as B
 import fitz
 
-RESULT_HEAD = re.compile(r"result|outcome of (the )?board|financial", re.IGNORECASE)
-PL_HINT = re.compile(r"profit|revenue from oper|total income|earnings per", re.IGNORECASE)
+RESULT_HEAD = re.compile(r"result|outcome of (the )?board|financial", re.I)
+PL_HINT = re.compile(r"profit|revenue from oper|total income|earnings per", re.I)
 
 # MATCH ON HEADLINE + NEWSSUB, NEVER HEADLINE ALONE. BSE's HEADLINE is often useless — GYANDEV filed its
 # June quarter under the headline "Please refer the attachment", NAM under "Pursuant to provision of
@@ -60,14 +58,14 @@ NOT_RESULT = re.compile(
     r"|newspaper (publication|advertisement)|trading window|book closure"
     r"|certificate under regulation|resignation|appointment"
     r"|\bagm\b|scrutini[sz]er|e-?voting|voting results?",
-    re.IGNORECASE,
+    re.I,
 )  # AGM vote tallies say "results"
-STRONG_RESULT = re.compile(r"financial results?|results? for the (quarter|period|half|year)", re.IGNORECASE)
+STRONG_RESULT = re.compile(r"financial results?|results? for the (quarter|period|half|year)", re.I)
 # A Reg-47 newspaper ad REPRINTS the results ("…advertisement relating to unaudited financial results") so it
 # passes STRONG_RESULT, and it is filed a day or two AFTER the real filing — newest-first put it on top, and
 # a renderer then showed the reader a newspaper page with no table (runbook §17c; UPROTECH 2026-08-09).
-NEWSPAPER = re.compile(r"newspaper|advertisement|paper (publication|cutting)", re.IGNORECASE)
-BOARD_OUTCOME = re.compile(r"outcome of (the )?board|board meeting outcome", re.IGNORECASE)
+NEWSPAPER = re.compile(r"newspaper|advertisement|paper (publication|cutting)", re.I)
+BOARD_OUTCOME = re.compile(r"outcome of (the )?board|board meeting outcome", re.I)
 
 
 def _rank(txt):
@@ -87,7 +85,8 @@ def _candidate(txt):
 
 
 def announcements(op, code, months=5):
-    hi = datetime.date.today()
+    # IST day (runners are UTC — a 00:00-05:30 IST run would end the window yesterday and miss after-midnight filings)
+    hi = (datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).date()
     lo = hi - datetime.timedelta(days=30 * months)
     url = (
         "https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=1&strCat=-1"
@@ -111,7 +110,9 @@ def announcements(op, code, months=5):
     # rendering their March quarter. Within one date, a real results filing still beats a CFO notice.
     # A newspaper ad is never the filing itself: it goes after every real candidate.
     rows = sorted(rows, key=lambda t: (t[0], -_rank(t[2])), reverse=True)
-    return [r for r in rows if not NEWSPAPER.search(r[2])] + [r for r in rows if NEWSPAPER.search(r[2])]
+    return [r for r in rows if not NEWSPAPER.search(r[2])] + [
+        r for r in rows if NEWSPAPER.search(r[2])
+    ]
 
 
 def fetch_pdf(op, att):
@@ -130,7 +131,11 @@ def fetch_pdf(op, att):
 
 def main():
     code = sys.argv[1]
-    outdir = sys.argv[2] if len(sys.argv) > 2 else os.path.join(os.environ.get("TEMP", "/tmp"), "bse_render")
+    outdir = (
+        sys.argv[2]
+        if len(sys.argv) > 2
+        else os.path.join(os.environ.get("TEMP", "/tmp"), "bse_render")
+    )
     os.makedirs(outdir, exist_ok=True)
     op = B.session()
     time.sleep(1)

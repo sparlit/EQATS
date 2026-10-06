@@ -205,7 +205,8 @@ def _num(v):
 # ---------------------------------------------------------------- MONEYCONTROL
 
 MC_SUGGEST = (
-    "https://www.moneycontrol.com/mccode/common/autosuggestion_solr.php?classic=true&query=%s&type=1&format=json"
+    "https://www.moneycontrol.com/mccode/common/autosuggestion_solr.php"
+    "?classic=true&query=%s&type=1&format=json"
 )
 MC_FEED = (
     "https://appfeeds.moneycontrol.com/jsonapi/stocks/quarterly_results_responsive"
@@ -227,7 +228,14 @@ def mc_id(sym):
     # our own request (measured 2026-08-12: M&M and J&KBANK both came back "no exact symbol match";
     # encoded they resolve to sc_id MM and JKB). Memory: feedback-url-encode-symbol-queries.
     # Cache key bumped to sugg1_ so bodies fetched with the broken URL are not replayed.
-    txt = _get("www.moneycontrol.com", MC_SUGGEST % quote(sym, safe=""), MC_PACE, "mc", "sugg1_" + sym, ttl=86400 * 30)
+    txt = _get(
+        "www.moneycontrol.com",
+        MC_SUGGEST % quote(sym, safe=""),
+        MC_PACE,
+        "mc",
+        "sugg1_" + sym,
+        ttl=86400 * 30,
+    )
     hit = None
     if txt:
         try:
@@ -277,7 +285,10 @@ MC_ROWS = {
     # depreciation is "depreciat" standalone and "Depreciation" consolidated. Hardcoding either
     # spelling makes the other basis read as "this site has no such row" -- absence dressed as a
     # clean miss (§61a mode 4). Both spellings are candidates; Gate D still has to prove the row.
-    "ebit_pre": ("P/L Before Other Inc. , Int., Excpt. Items & Tax", "P/L Before Other Inc., Int., Excpt. Items & Tax"),
+    "ebit_pre": (
+        "P/L Before Other Inc. , Int., Excpt. Items & Tax",
+        "P/L Before Other Inc., Int., Excpt. Items & Tax",
+    ),
     "ebit_post": ("P/L Before Int., Excpt. Items & Tax",),
     "dep": ("depreciat", "Depreciation"),
 }
@@ -327,14 +338,20 @@ def mc_row_values(r):
                     vals[field] = v
                     vals[field + "_label"] = lbl
                     break
-    pat = _num(r.get("Net Profit/(Loss) For the Period")) if "Net Profit/(Loss) For the Period" in r else None
+    pat = (
+        _num(r.get("Net Profit/(Loss) For the Period"))
+        if "Net Profit/(Loss) For the Period" in r
+        else None
+    )
     if pat is not None:
         tot = 0.0
         for lbl, sign in MC_TOPDOWN:
             v = _num(r[lbl]) if lbl in r else None
             tot += sign * (v or 0.0)
         vals["ebit_der"] = round(tot, 2)
-        vals["ebit_der_label"] = "derived: PAT+Tax+Interest-OtherInc-Exceptional-ExtraOrd-PriorYrAdj"
+        vals["ebit_der_label"] = (
+            "derived: PAT+Tax+Interest-OtherInc-Exceptional-ExtraOrd-PriorYrAdj"
+        )
     for field, (base, add) in MC_DERIVED.items():
         if vals.get(base) is not None and vals.get(add) is not None:
             vals[field] = round(vals[base] + vals[add], 2)
@@ -349,7 +366,11 @@ def mc_quarters(sym, con):
         return {}, "mc: no exact symbol match in autosuggest"
     tf = "cons_quarterly" if con else "quarterly"
     txt = _get(
-        "appfeeds.moneycontrol.com", MC_FEED % (ident["sc_id"], tf), MC_PACE, "mc", "q_{}_{}".format(ident["sc_id"], tf)
+        "appfeeds.moneycontrol.com",
+        MC_FEED % (ident["sc_id"], tf),
+        MC_PACE,
+        "mc",
+        "q_{}_{}".format(ident["sc_id"], tf),
     )
     if txt is None:
         return {}, "mc: BLOCKED-TRANSPORT (no 200 after retries)"
@@ -404,7 +425,8 @@ def tl_ids(refresh=False):
     txt = _get("trendlyne.com", TL_SITEMAP, TL_PACE, "tl", "sitemap_qr", ttl=86400 * 14)
     m = {}
     for tid, s, slug in re.findall(
-        r"<loc>https://trendlyne\.com/fundamentals/financials/(\d+)/([^/]+)/([^/]*)/</loc>", txt or ""
+        r"<loc>https://trendlyne\.com/fundamentals/financials/(\d+)/([^/]+)/([^/]*)/</loc>",
+        txt or "",
     ):
         # ★ THE SITEMAP IS XML, SO `&` ARRIVES AS `&amp;` (2026-08-26). Keying the map on the raw
         # match stored `M&amp;M`, and every caller passes our clean `M&M` -- so all ten ampersand
@@ -497,10 +519,16 @@ def _tt_slugs(refresh=False):
 
 
 def _tt_props(slug):
-    txt = _get("www.tickertape.in", f"https://www.tickertape.in/stocks/{slug}", TT_PACE, "tt", f"page_{slug}")
+    txt = _get(
+        "www.tickertape.in",
+        f"https://www.tickertape.in/stocks/{slug}",
+        TT_PACE,
+        "tt",
+        f"page_{slug}",
+    )
     if txt is None:
         return None
-    m = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', txt, re.DOTALL)
+    m = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', txt, re.S)
     if not m:
         return None
     try:
@@ -520,12 +548,17 @@ def tt_resolve(sym, name_hint=""):
         # a company NAME is only used to shortlist candidates; the ticker check below is the gate,
         # so borrowing the name from the other two sites cannot introduce a wrong binding.
         ids = tl_ids()
-        name_hint = ids[sym][1].replace("-", " ") if sym in ids else (mc_id(sym) or {}).get("name") or ""
+        if sym in ids:
+            name_hint = ids[sym][1].replace("-", " ")
+        else:
+            name_hint = (mc_id(sym) or {}).get("name") or ""
     slugs = _tt_slugs()
     toks = [
         t
         for t in re.split(r"[^a-z0-9]+", (name_hint or "").lower())
-        if len(t) > 2 and t not in ("ltd", "limited", "the", "india", "and", "company", "corporation", "industries")
+        if len(t) > 2
+        and t
+        not in ("ltd", "limited", "the", "india", "and", "company", "corporation", "industries")
     ]
     cands = []
     for s in slugs:
@@ -594,7 +627,12 @@ def tt_quarters(sym, con, name_hint=""):
                     break
         if vals:
             out[qe] = vals
-    note = "tt(%s): %d quarters %s..%s" % (src, len(out), min(out, default="-"), max(out, default="-"))
+    note = "tt(%s): %d quarters %s..%s" % (
+        src,
+        len(out),
+        min(out, default="-"),
+        max(out, default="-"),
+    )
     if other:
         note += "; company reports {} only".format("/".join(sorted(other)))
     return out, note
@@ -614,7 +652,11 @@ def mc_annuals(sym, con):
         return {}, "mc: no exact symbol match in autosuggest"
     tf = "cons_yearly" if con else "yearly"
     txt = _get(
-        "appfeeds.moneycontrol.com", MC_YEAR % (ident["sc_id"], tf), MC_PACE, "mc", "y_{}_{}".format(ident["sc_id"], tf)
+        "appfeeds.moneycontrol.com",
+        MC_YEAR % (ident["sc_id"], tf),
+        MC_PACE,
+        "mc",
+        "y_{}_{}".format(ident["sc_id"], tf),
     )
     if txt is None:
         return {}, "mc: BLOCKED-TRANSPORT"
@@ -636,7 +678,7 @@ def mc_annuals(sym, con):
 
 
 def tl_annuals(sym, con):
-    _q, note = tl_quarters(sym, con)  # primes the cache; payload holds both tables
+    q, note = tl_quarters(sym, con)  # primes the cache; payload holds both tables
     ids = tl_ids()
     if sym not in ids:
         return {}, note
@@ -717,4 +759,7 @@ if __name__ == "__main__":
             q, note = read(site, sym, con)
             print("%-3s %-3s %s" % (site, "CON" if con else "STD", note))
             for qe in sorted(q)[-3:]:
-                print("      %d %s" % (qe, {k: v for k, v in q[qe].items() if not k.endswith("_label")}))
+                print(
+                    "      %d %s"
+                    % (qe, {k: v for k, v in q[qe].items() if not k.endswith("_label")})
+                )

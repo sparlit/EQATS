@@ -89,7 +89,7 @@ def extract(o, code, since):
     ser = {}
     sup = {}
     for (qe, b), vals in obs.items():
-        v, s, _tot = T.consensus(vals)
+        v, s, tot = T.consensus(vals)
         ser[(qe, b)] = v
         sup[(qe, b)] = s
     return ser, anns, sup
@@ -121,7 +121,13 @@ def main():
                     agree += close(row[bi], ser[(qe, b)])
         rate = agree / ov if ov else 0
         med = statistics.median(
-            [abs(row[bi]) for row in ex.values() for bi in (1, 3) if row[bi] is not None and abs(row[bi]) > 0.01] or [0]
+            [
+                abs(row[bi])
+                for row in ex.values()
+                for bi in (1, 3)
+                if row[bi] is not None and abs(row[bi]) > 0.01
+            ]
+            or [0]
         )
 
         def ok(qe, b):  # corroborated (>=2 filings) and not a magnitude outlier (YTD/9M)
@@ -148,7 +154,10 @@ def main():
         json.dump(res, open(outf, "w"))  # incremental save (resumable)
     json.dump(res, open(outf, "w"))
     filled = sum(len(r["fills"]) for r in res.values())
-    print("BATCH %d-%d DONE: %d stocks, %d validated gap-fills" % (lo, hi, len(res), filled), flush=True)
+    print(
+        "BATCH %d-%d DONE: %d stocks, %d validated gap-fills" % (lo, hi, len(res), filled),
+        flush=True,
+    )
 
 
 if __name__ == "__main__":

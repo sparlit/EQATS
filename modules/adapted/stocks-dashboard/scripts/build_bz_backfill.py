@@ -97,7 +97,10 @@ CACHE = os.path.join(HERE, "_bz_scan")
 os.makedirs(CACHE, exist_ok=True)
 OUT = os.path.join(HERE, "bz_backfill.json.gz")
 BIN = os.path.join(ROOT, "docs", "sf_stock_data.bin")
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120 Safari/537.36"
+)
 MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
 local = threading.local()
 FAILED = []
@@ -109,7 +112,10 @@ def jar():
     j = http.cookiejar.CookieJar()
     try:
         op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(j))
-        op.open(urllib.request.Request("https://www.nseindia.com/", headers={"User-Agent": UA}), timeout=20).read()
+        op.open(
+            urllib.request.Request("https://www.nseindia.com/", headers={"User-Agent": UA}),
+            timeout=20,
+        ).read()
     except Exception:
         pass
     return j
@@ -117,7 +123,9 @@ def jar():
 
 def _get(url, j, timeout=45):
     op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(j))
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"})
+    req = urllib.request.Request(
+        url, headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"}
+    )
     with op.open(req, timeout=timeout) as r:
         return r.read()
 
@@ -125,12 +133,9 @@ def _get(url, j, timeout=45):
 def _urls(d):
     ddmmyyyy = d.strftime("%d%m%Y")
     new = f"https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_{ddmmyyyy}.csv"
-    old = "https://nsearchives.nseindia.com/content/historical/EQUITIES/%d/%s/cm%02d%s%dbhav.csv.zip" % (
-        d.year,
-        MON[d.month - 1],
-        d.day,
-        MON[d.month - 1],
-        d.year,
+    old = (
+        "https://nsearchives.nseindia.com/content/historical/EQUITIES/%d/%s/cm%02d%s%dbhav.csv.zip"
+        % (d.year, MON[d.month - 1], d.day, MON[d.month - 1], d.year)
     )
     return [new, old] if d.year >= 2020 else [old, new]
 
@@ -149,7 +154,11 @@ def _rows(text, keep):
         return -1
 
     iS, iSer = idx("SYMBOL"), idx("SERIES")
-    iC, iP, iT = idx("CLOSE_PRICE", "CLOSE"), idx("PREV_CLOSE", "PREVCLOSE"), idx("TURNOVER_LACS", "TOTTRDVAL")
+    iC, iP, iT = (
+        idx("CLOSE_PRICE", "CLOSE"),
+        idx("PREV_CLOSE", "PREVCLOSE"),
+        idx("TURNOVER_LACS", "TOTTRDVAL"),
+    )
     iH, iL, iO = idx("HIGH_PRICE", "HIGH"), idx("LOW_PRICE", "LOW"), idx("OPEN_PRICE", "OPEN")
     iV, iW, iD = idx("TTL_TRD_QNTY", "TOTTRDQTY"), idx("AVG_PRICE"), idx("DELIV_PER")
     if iS < 0 or iC < 0 or iSer < 0:
@@ -252,10 +261,14 @@ def scan(a, b, workers=3):
 
     done = 0
     with ThreadPoolExecutor(max_workers=workers) as ex:
-        for _ in ex.map(lambda x: fetch_day(x, keep, os.path.join(CACHE, x.strftime("%Y%m%d") + ".json")), todo):
+        for _ in ex.map(
+            lambda x: fetch_day(x, keep, os.path.join(CACHE, x.strftime("%Y%m%d") + ".json")), todo
+        ):
             done += 1
             if done % 100 == 0:
-                print("  %d/%d (transient failures %d)" % (done, len(todo), len(FAILED)), flush=True)
+                print(
+                    "  %d/%d (transient failures %d)" % (done, len(todo), len(FAILED)), flush=True
+                )
     print("scan done; transient failures (left uncached, re-run): %d" % len(FAILED), flush=True)
 
 
@@ -350,7 +363,8 @@ def load_scan(cal=None):
 
 
 def load_bin(path):
-    return json.loads(gzip.decompress(open(path, "rb").read()))
+    D = json.loads(gzip.decompress(open(path, "rb").read()))
+    return D
 
 
 def gaps(D, byday, sessions, cal):
@@ -471,7 +485,9 @@ def build(D, byday, sessions, cal, ca_path):
         want = s_pre / p_off
         f_ph = _snap(want)
         if f_ph is None:
-            skipped.append((sym, y0, f"scale {s_pre:.4f} (official {p_off:.4f}) matches no ca_factor product"))
+            skipped.append(
+                (sym, y0, f"scale {s_pre:.4f} (official {p_off:.4f}) matches no ca_factor product")
+            )
             continue
         pre = 1.0 / f_ph
 
@@ -488,7 +504,9 @@ def build(D, byday, sessions, cal, ca_path):
         lo, hi = 0.5, 2.0  # generous: circuit bands are +-20%, a T2T name can gap
         r_in = (block[0][1][2] * _p(block[0][0])) / (raw * p_off)
         if not (lo <= r_in <= hi):
-            skipped.append((sym, y0, "entry join implausible (%.3f) — unexplained action at %d" % (r_in, L)))
+            skipped.append(
+                (sym, y0, "entry join implausible (%.3f) — unexplained action at %d" % (r_in, L))
+            )
             continue
         j_after = bisect.bisect_right(ds, block[-1][0])
         if j_after < len(ds):  # the series resumes -> the far join has to reconcile too
@@ -526,10 +544,8 @@ def build(D, byday, sessions, cal, ca_path):
                             (
                                 sym,
                                 y0,
-                                (
-                                    f"bin scale after the hole {s_post:.4f} != block scale {_p(block[-1][0]):.4f} "
-                                    "(non-official factor outside the hole)"
-                                ),
+                                f"bin scale after the hole {s_post:.4f} != block scale {_p(block[-1][0]):.4f} "
+                                "(non-official factor outside the hole)",
                             )
                         )
                         continue
@@ -541,7 +557,8 @@ def build(D, byday, sessions, cal, ca_path):
                         (
                             sym,
                             y0,
-                            "exit join implausible (%.3f) at %d, no PREV_CLOSE to arbitrate" % (r_out, ds[j_after]),
+                            "exit join implausible (%.3f) at %d, no PREV_CLOSE to arbitrate"
+                            % (r_out, ds[j_after]),
                         )
                     )
                     continue
@@ -549,7 +566,11 @@ def build(D, byday, sessions, cal, ca_path):
         # pre-2018 block must be thinned the same way or the backfill would leave those symbols
         # denser than every other series in the file. Same rule the rebuild uses: first session of
         # each ISO week — and never a week the bin already has a bar in.
-        binweeks = {datetime.date(x // 10000, x // 100 % 100, x % 100).isocalendar()[:2] for x in ds if x < DAILY_FROM}
+        binweeks = {
+            datetime.date(x // 10000, x // 100 % 100, x % 100).isocalendar()[:2]
+            for x in ds
+            if x < DAILY_FROM
+        }
         block2, seenwk = [], set()
         for y, r in block:
             if y >= DAILY_FROM:
@@ -582,12 +603,19 @@ def build(D, byday, sessions, cal, ca_path):
             )
         via_n[via] += 1
         if f_ph != 1.0:  # recorded only once the block SURVIVES both continuity controls
-            phantom.append((sym, L, round(s_pre, 4), round(p_off, 4), round(pre, 6), len(bars), via))
-        ledger[sym].append({"from": prev_end.get(sym, 0), "after": L, "pre": round(pre, 6), "bars": bars})
+            phantom.append(
+                (sym, L, round(s_pre, 4), round(p_off, 4), round(pre, 6), len(bars), via)
+            )
+        ledger[sym].append(
+            {"from": prev_end.get(sym, 0), "after": L, "pre": round(pre, 6), "bars": bars}
+        )
         prev_end[sym] = block[-1][0]
         nbars += len(bars)
 
-    print("\nblocks: %d over %d symbols; bars %d" % (sum(len(v) for v in ledger.values()), len(ledger), nbars))
+    print(
+        "\nblocks: %d over %d symbols; bars %d"
+        % (sum(len(v) for v in ledger.values()), len(ledger), nbars)
+    )
     print(
         "symbols in BZ that have no series in the bin at all (not backfillable here): %d (%d bars)"
         % (len(orphan), sum(orphan.values()))
@@ -596,7 +624,8 @@ def build(D, byday, sessions, cal, ca_path):
         print("   " + ", ".join("%s:%d" % kv for kv in orphan.most_common(12)))
     print("\nPHANTOM corporate actions undone (%d):" % len(phantom))
     print(
-        "   %-12s %10s %9s %9s %8s %6s %s" % ("SYM", "anchorDay", "scaleWas", "official", "pre", "bars", "anchoredBy")
+        "   %-12s %10s %9s %9s %8s %6s %s"
+        % ("SYM", "anchorDay", "scaleWas", "official", "pre", "bars", "anchoredBy")
     )
     for p in phantom:
         print("   %-12s %10d %9.4f %9.4f %8.4f %6d %s" % p)
@@ -609,7 +638,9 @@ def build(D, byday, sessions, cal, ca_path):
         "(bounds-checked only)" % (exitchk.get("verified", 0), exitchk.get("unverified", 0))
     )
     if skipped:
-        print("\nSKIPPED blocks (anchor not established — reported, never guessed): %d" % len(skipped))
+        print(
+            "\nSKIPPED blocks (anchor not established — reported, never guessed): %d" % len(skipped)
+        )
         for s in skipped[:30]:
             print("   %-12s %10d  %s" % s)
     return {
@@ -647,7 +678,9 @@ def anchor_pass(D, byday, sessions, cal, workers=3):
     ap = os.path.join(CACHE, "_anchors.json")
     if os.path.exists(ap):
         got = json.load(open(ap))
-    todo = [y for y in sorted(need) if not os.path.exists(os.path.join(CACHE, "%d.anchor.json" % y))]
+    todo = [
+        y for y in sorted(need) if not os.path.exists(os.path.join(CACHE, "%d.anchor.json" % y))
+    ]
 
     def one(y):
         d = datetime.date(y // 10000, y // 100 % 100, y % 100)
@@ -667,7 +700,10 @@ def anchor_pass(D, byday, sessions, cal, workers=3):
         for r in json.load(open(p)):
             got.setdefault(r[0], {})[str(y)] = [r[2], r[3]]  # [close, prev_close]
     json.dump(got, open(ap, "w"))
-    print("boundary rows resolved for %d symbols (transient failures %d)" % (len(got), len(FAILED)), flush=True)
+    print(
+        "boundary rows resolved for %d symbols (transient failures %d)" % (len(got), len(FAILED)),
+        flush=True,
+    )
 
 
 def main():
@@ -686,7 +722,15 @@ def main():
     byday, sessions = load_scan(cal)
     print(
         "bin %s (end %s, %d symbols); bin calendar %d sessions (%d..%d), %d scan days with BZ rows"
-        % (binp, D.get("end"), len(D["data"]), len(cal), cal[0] if cal else 0, cal[-1] if cal else 0, len(sessions))
+        % (
+            binp,
+            D.get("end"),
+            len(D["data"]),
+            len(cal),
+            cal[0] if cal else 0,
+            cal[-1] if cal else 0,
+            len(sessions),
+        )
     )
     if "--anchors" in argv:
         anchor_pass(D, byday, sessions, cal)

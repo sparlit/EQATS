@@ -40,7 +40,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 def nextq(q):
     y, md = q // 10000, q % 10000
-    return {331: y * 10000 + 630, 630: y * 10000 + 930, 930: y * 10000 + 1231, 1231: (y + 1) * 10000 + 331}[md]
+    return {
+        331: y * 10000 + 630,
+        630: y * 10000 + 930,
+        930: y * 10000 + 1231,
+        1231: (y + 1) * 10000 + 331,
+    }[md]
 
 
 def cvl(s, qe):
@@ -73,7 +78,7 @@ def main():
 
     PFT = _re.compile(
         r"profit.{0,6}(after tax|for the (period|quarter|year))|profit after tax|net profit|profit/\(loss\)",
-        _re.IGNORECASE,
+        _re.I,
     )
     DEC = _re.compile(r"\(?-?[\d,]*\d\.\d\d\)?")
     cands = [p] if p is not None else []
@@ -95,7 +100,11 @@ def main():
         def piece(x0, x1, a, b, dpi):
             pm = pg.get_pixmap(dpi=dpi, clip=fitz.Rect(W * x0, H * a, W * x1, H * b))
             im = np.frombuffer(pm.samples, np.uint8).reshape(pm.height, pm.width, pm.n)
-            return cv2.cvtColor(im, cv2.COLOR_RGB2BGR) if pm.n == 3 else cv2.cvtColor(im, cv2.COLOR_RGBA2BGR)
+            return (
+                cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
+                if pm.n == 3
+                else cv2.cvtColor(im, cv2.COLOR_RGBA2BGR)
+            )
 
         def save(img, suf, Wt=2800):
             img = cv2.resize(img, (Wt, int(img.shape[0] * Wt / img.shape[1])))

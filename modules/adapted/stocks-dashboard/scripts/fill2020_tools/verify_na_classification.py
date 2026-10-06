@@ -46,7 +46,6 @@ This is an independent source deciding it, not our own stored data deciding it a
 
   python -X utf8 scripts/fill2020_tools/verify_na_classification.py [--limit N] [--year 2017]
 """
-import collections
 import json
 import os
 import sys
@@ -97,7 +96,10 @@ def main():
         d = [
             r[0]
             for r in rows
-            if len(r) > 3 and r[1] is not None and r[3] is not None and abs(r[3] - r[1]) > max(0.05, abs(r[1]) * 0.001)
+            if len(r) > 3
+            and r[1] is not None
+            and r[3] is not None
+            and abs(r[3] - r[1]) > max(0.05, abs(r[1]) * 0.001)
         ]
         if d:
             divq[s] = set(d)
@@ -165,8 +167,16 @@ def main():
                 cache[k] = ({}, {})
         acon, astd = cache[k]
         dk = "%d-03-31" % fy
-        lab_c = next((L for L in ("Sales", "Revenue") if any(L in r for r in acon.values())), None) if acon else None
-        lab_s = next((L for L in ("Sales", "Revenue") if any(L in r for r in astd.values())), None) if astd else None
+        lab_c = (
+            next((L for L in ("Sales", "Revenue") if any(L in r for r in acon.values())), None)
+            if acon
+            else None
+        )
+        lab_s = (
+            next((L for L in ("Sales", "Revenue") if any(L in r for r in astd.values())), None)
+            if astd
+            else None
+        )
         vc = (acon.get(dk) or {}).get(lab_c) if lab_c else None
         vs = (astd.get(dk) or {}).get(lab_s) if lab_s else None
         if vc is None or vs is None:
@@ -175,10 +185,20 @@ def main():
             continue
         if abs(vc - vs) > max(1.0, abs(vs) * 0.01):
             wrong.append((k, fy, qe, vs, vc, reason))
-            res["%s|%d" % (k, fy)] = {"verdict": "NA-IS-WRONG", "std_annual": vs, "con_annual": vc, "reason": reason}
+            res["%s|%d" % (k, fy)] = {
+                "verdict": "NA-IS-WRONG",
+                "std_annual": vs,
+                "con_annual": vc,
+                "reason": reason,
+            }
         else:
             stands += 1
-            res["%s|%d" % (k, fy)] = {"verdict": "NA-STANDS", "std_annual": vs, "con_annual": vc, "reason": reason}
+            res["%s|%d" % (k, fy)] = {
+                "verdict": "NA-STANDS",
+                "std_annual": vs,
+                "con_annual": vc,
+                "reason": reason,
+            }
     json.dump(res, open(OUT, "w"), indent=1)
 
     tested = len(wrong) + stands
@@ -187,10 +207,15 @@ def main():
     print("  NA-STANDS   : %d  consolidated == standalone, or no consolidated page" % stands)
     print("  no screener annual for that FY: %d" % nodata)
     if tested:
-        print("\n  => %.0f%% of the n/a classification is WRONG on this sample" % (100.0 * len(wrong) / tested))
+        print(
+            "\n  => %.0f%% of the n/a classification is WRONG on this sample"
+            % (100.0 * len(wrong) / tested)
+        )
     print("\nworst offenders (company DOES report consolidated, we marked it n/a):")
     for k, fy, qe, vs, vc, reason in sorted(wrong, key=lambda w: -abs(w[4] - w[3]))[:25]:
-        print("   %-12s FY%d  std annual %-12.1f con annual %-12.1f  (%s)" % (k, fy, vs, vc, reason))
+        print(
+            "   %-12s FY%d  std annual %-12.1f con annual %-12.1f  (%s)" % (k, fy, vs, vc, reason)
+        )
     print(f"\n-> {OUT}")
 
 

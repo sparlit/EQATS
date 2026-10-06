@@ -57,7 +57,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
 FUNDP = os.path.join(ROOT, "docs", "sf_fundamentals.json")
-REVOP = (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json"))
+REVOP = (
+    os.path.join(ROOT, "docs", "sf_revop.json"),
+    os.path.join(SCRIPTS, "revop_fundamentals.json"),
+)
 SUSPECTS = os.path.join(SCRIPTS, "_fund_suspect_cells.json")
 UNCONF = os.path.join(SCRIPTS, "_fund_unconfirmed_cells.json")
 REVOP_IDX = 5
@@ -95,7 +98,11 @@ def main():
         if a is None:
             print("%-12s %-9d  no authoritative value -- skipped" % (sym, qe))
             continue
-        tag = "screener confirms fundamentals" if (sym, qe) in CONFIRMED else "UNCONFIRMED (structural resync)"
+        tag = (
+            "screener confirms fundamentals"
+            if (sym, qe) in CONFIRMED
+            else "UNCONFIRMED (structural resync)"
+        )
         if (sym, qe) not in CONFIRMED:
             unconf.append(
                 {

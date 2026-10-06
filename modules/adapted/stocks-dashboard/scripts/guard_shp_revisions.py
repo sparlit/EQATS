@@ -54,6 +54,12 @@ for sym, qs in revs.items():
         ent = fix.get(sym, {}).get(key)
         if not ent or not FS.VALUE_HEAL_MARK.search(str(ent.get("why", ""))):
             continue
+        # §224: a re-filing row that equals its OWN document's adjudication ("<as-on>#rev", §164s part 11) is decided by that
+        # reading, whatever the store entry's `was` holds — HINDALCO Mar-2022: the store entry withdraws dii 21.5078 from the
+        # ORIGINAL (which names no NPS Trust / ICICI Pru Life), the re-filing names both and its #rev entry reads 21.5078.
+        rv = fix.get(sym, {}).get(key + "#rev")
+        if rv and rv.get("cell") and FS._rev_same(rc, rv["cell"]):
+            continue
         was, cell = ent.get("was"), ent.get("cell")
         if was and cell and not FS._same_cell(was, cell) and FS._same_cell(rc, was):
             bad.append(
@@ -88,15 +94,51 @@ for key, v in audit.items():
         continue
     want = (v.get("stored_fii") or 0.0) + (v.get("oth") or 0.0)
     if cur[1] + 0.03 < want:
-        bad.append(f"store {sym} {q} lost its foreign Any-Other block: fii {cur[1]}, adjudicated {want:.4f}")
+        bad.append(
+            f"store {sym} {q} lost its foreign Any-Other block: fii {cur[1]}, adjudicated {want:.4f}"
+        )
     else:
         n_ok += 1
+# §224 (2026-10-07): the re-filing rows proven wrong from the exchange record stay fixed IN THE FILE (build_stock_fin reads
+# shp_revisions.json raw, without load_revs): no row whose source is a dropped document, no row still on a re-dated `was`.
+raw = json.load(open(FS.REVS, encoding="utf-8")) if os.path.exists(FS.REVS) else {}
+rfx = FS.load_rev_fix()
+n_led = 0
+for k, ent in (rfx.get("drop") or {}).items():
+    n_led += 1
+    sym, key = k.split("|", 1)
+    rc = (raw.get(sym) or {}).get(key)
+    if not ent.get("file"):
+        bad.append(f"shp_rev_fix drop {k} has no file")
+    elif isinstance(rc, list) and len(rc) > 7 and ent["file"] in str(rc[7]):
+        bad.append(
+            "re-filing {} {} is back although §224 dropped its document {} ({})".format(
+                sym, key, ent["file"], ent.get("class")
+            )
+        )
+for k, ent in (rfx.get("redate") or {}).items():
+    n_led += 1
+    sym, key = k.split("|", 1)
+    rc = (raw.get(sym) or {}).get(key)
+    if not ent.get("was") or not ent.get("sub") or ent["sub"] >= ent["was"]:
+        bad.append(
+            "shp_rev_fix redate {} is malformed (was {}, sub {})".format(
+                k, ent.get("was"), ent.get("sub")
+            )
+        )
+    elif isinstance(rc, list) and len(rc) > 5 and str(rc[5]) == ent["was"]:
+        bad.append(
+            "re-filing {} {} is dated {} again although §224 proved {}".format(
+                sym, key, ent["was"], ent["sub"]
+            )
+        )
 if bad:
     for b in bad[:40]:
         print("GUARD FAIL:", b)
     print("guard_shp_revisions: %d problem(s)" % len(bad))
     sys.exit(1)
 print(
-    "guard_shp_revisions OK: %d sidecar rows checked against value heals, %d audited foreign blocks present in the store"
-    % (sum(len(q) for s, q in revs.items() if not s.startswith("_")), n_ok)
+    "guard_shp_revisions OK: %d sidecar rows checked against value heals, %d audited foreign blocks present in the store, "
+    "%d §224 date/drop fixes still in the file"
+    % (sum(len(q) for s, q in revs.items() if not s.startswith("_")), n_ok, n_led)
 )

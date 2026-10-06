@@ -74,8 +74,10 @@ def hl(s, dint):
     while k >= 0 and a[k] >= lo:
         ph = h[k] if h else c[k]
         pl = l[k] if l else c[k]
-        hi = max(hi, ph)
-        low = min(low, pl)
+        if ph > hi:
+            hi = ph
+        if pl < low:
+            low = pl
         k -= 1
     return hi, low
 

@@ -47,7 +47,6 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-import shp_dates as SD
 
 HIST = os.path.join(SCRIPTS, "shp_history.json")
 LEDGER = os.path.join(SCRIPTS, "shp_sub_dates.json")

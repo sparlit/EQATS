@@ -48,7 +48,10 @@ import urllib.request
 
 URL = "https://www.mql5.com/en/economic-calendar/india/bank-loan-growth-yy/export"
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "bank_credit.json")
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+)
 
 
 def fetch_tsv():
@@ -140,7 +143,8 @@ def main():
         json.dump(out, f, separators=(",", ":"), ensure_ascii=False)
     last = rows[-1]
     print(
-        f"wrote {len(rows)} rows ({added} new) -> docs/bank_credit.json | latest {last['date']} = {last['actual']}% y/y"
+        f"wrote {len(rows)} rows ({added} new) -> docs/bank_credit.json "
+        f"| latest {last['date']} = {last['actual']}% y/y"
     )
 
 

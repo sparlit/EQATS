@@ -54,7 +54,6 @@ three via PRE2015_LEDGERS). Refusals in scripts/pre2015_attempted_w.json.
 Run: python -X utf8 scripts/_stepw_nse_pre15.py [--only SYM,SYM] [--limit N] [--after SYM]
 """
 import datetime
-import itertools
 import json
 import os
 import re
@@ -100,15 +99,17 @@ DATE_RE = r"(\d{2})-([A-Za-z]{3})-(\d{4})"
 R_SALES_IND = re.compile(
     r"^net sales$|^sales of products/services$|^total income from operations$"
     r"|^net sales\s*/\s*income from operations$",
-    re.IGNORECASE,
+    re.I,
 )
-R_SALES_BANK = re.compile(r"^interest earned$", re.IGNORECASE)
-R_OP_BANK = re.compile(r"^operating profit$", re.IGNORECASE)
-R_PAT_IND = re.compile(r"^net profit\(\+\)/loss\(-\)$|^net profit\(\+\)/loss\(-\)for the period$", re.IGNORECASE)
-R_PAT_BANK = re.compile(r"^net profit$", re.IGNORECASE)
-R_EPS = re.compile(r"^basic eps \(in rs\.?\)$", re.IGNORECASE)
-R_EQCAP = re.compile(r"^paid-up equity share capital$", re.IGNORECASE)
-R_FV = re.compile(r"^face value of share \(in rs\.?\)$", re.IGNORECASE)
+R_SALES_BANK = re.compile(r"^interest earned$", re.I)
+R_OP_BANK = re.compile(r"^operating profit$", re.I)
+R_PAT_IND = re.compile(
+    r"^net profit\(\+\)/loss\(-\)$|^net profit\(\+\)/loss\(-\)for the period$", re.I
+)
+R_PAT_BANK = re.compile(r"^net profit$", re.I)
+R_EPS = re.compile(r"^basic eps \(in rs\.?\)$", re.I)
+R_EQCAP = re.compile(r"^paid-up equity share capital$", re.I)
+R_FV = re.compile(r"^face value of share \(in rs\.?\)$", re.I)
 
 
 def fy_of(qe):
@@ -163,9 +164,9 @@ def norm(cell):
 
 
 def cells_of(html):
-    t = re.sub(r"<script.*?</script>", " ", html, flags=re.DOTALL | re.IGNORECASE)
-    t = re.sub(r"<(td|th)[^>]*>", "|", t, flags=re.IGNORECASE)
-    t = re.sub(r"<tr[^>]*>", "\n", t, flags=re.IGNORECASE)
+    t = re.sub(r"<script.*?</script>", " ", html, flags=re.S | re.I)
+    t = re.sub(r"<(td|th)[^>]*>", "|", t, flags=re.I)
+    t = re.sub(r"<tr[^>]*>", "\n", t, flags=re.I)
     t = re.sub(r"<[^>]+>", " ", t).replace("&nbsp;", " ")
     t = re.sub(r"[ \t]+", " ", t)
     return [l for l in t.split("\n") if l.strip(" |")]
@@ -268,7 +269,9 @@ def gate_e(eps, eqcap, fv, pat):
     return (
         ok,
         implied,
-        "EPS-recon implied={:.2f} seen={:.2f} tol={:.2f} {}".format(implied, pat, tol, "OK" if ok else "FAIL"),
+        "EPS-recon implied={:.2f} seen={:.2f} tol={:.2f} {}".format(
+            implied, pat, tol, "OK" if ok else "FAIL"
+        ),
     )
 
 
@@ -322,7 +325,7 @@ def tiles(legs_by_qe, qs, annual):
     ordered = [legs_by_qe[qe] for qe in qs]
     if any(l.get("frm") is None or l.get("to") is None for l in ordered):
         return False
-    for a, b in itertools.pairwise(ordered):
+    for a, b in zip(ordered, ordered[1:], strict=False):
         da, db = a["to"], b["frm"]
         try:
             ay, am, ad = da // 10000, (da // 100) % 100, da % 100
@@ -380,7 +383,10 @@ def main():
     after = argv[argv.index("--after") + 1] if "--after" in argv else None
 
     chain2sym, target_cells = load_universe()
-    print("targets: %d symbols, %d cells" % (len(target_cells), sum(len(v) for v in target_cells.values())))
+    print(
+        "targets: %d symbols, %d cells"
+        % (len(target_cells), sum(len(v) for v in target_cells.values()))
+    )
     by_sym = enumerate_candidates(chain2sym)
     print(
         "candidates matched to a target symbol: %d symbols, %d rows"
@@ -450,7 +456,10 @@ def main():
         cands = by_sym.get(sym, [])
         if not cands:
             for qe in wanted:
-                attempts["%s|%d" % (sym, qe)] = {"reason": "no-nse-archive-rows-for-symbol", "need": wanted[qe]["need"]}
+                attempts["%s|%d" % (sym, qe)] = {
+                    "reason": "no-nse-archive-rows-for-symbol",
+                    "need": wanted[qe]["need"],
+                }
                 n_ref += 1
             continue
 
@@ -516,14 +525,20 @@ def main():
                         # joins the prefetch pool and drains its whole queue (observed hanging 1min+
                         # while still hammering wayback). _dump() closed its files already.
                         os._exit(2)
-                    print("  ...sustained failures, hard backoff %d/3 (%ds)" % (backoffs[0], 120), flush=True)
+                    print(
+                        "  ...sustained failures, hard backoff %d/3 (%ds)" % (backoffs[0], 120),
+                        flush=True,
+                    )
                     _dump(out, attempts)
                     time.sleep(120)
                     errs[0] = 0
                     fetch_incomplete_fys.update(needed_fys)  # see note below
                     break
                 if errs[0] >= 8:
-                    print(f"  ..skip {sym} (8 consecutive fetch failures) -- cells stay retryable", flush=True)
+                    print(
+                        f"  ..skip {sym} (8 consecutive fetch failures) -- cells stay retryable",
+                        flush=True,
+                    )
                     # CRITICAL: breaking out early leaves this symbol's remaining candidates
                     # UNFETCHED, but the refusal-recording block after this loop cannot tell
                     # "we looked and there was nothing" from "we never got to look". Without
@@ -597,7 +612,9 @@ def main():
                 prior_cum = chain if chain is not None else cum_to.get(prior)
                 if qe in cum_to and prior_cum is not None:
                     resolved[qe] = cumdiff(
-                        cum_to[qe], prior_cum, "{} minus {}".format(cum_to[qe]["link"], prior_cum["link"])
+                        cum_to[qe],
+                        prior_cum,
+                        "{} minus {}".format(cum_to[qe]["link"], prior_cum["link"]),
                     )
                 chain = None
 
@@ -605,16 +622,22 @@ def main():
                 if qe in resolved and resolved[qe].get("frm") is None:
                     resolved[qe]["frm"], resolved[qe]["to"] = quarter_bounds(fy, i)
 
-            fy_ok, fy_detail = False, "FY%d: legs present %s, no annual or not tiling" % (fy, sorted(resolved))
+            fy_ok, fy_detail = (
+                False,
+                "FY%d: legs present %s, no annual or not tiling" % (fy, sorted(resolved)),
+            )
             if tiles(resolved, qs, annual):
-                have_all = all(resolved[qe]["pat"] is not None for qe in qs) and annual["pat"] is not None
+                have_all = (
+                    all(resolved[qe]["pat"] is not None for qe in qs) and annual["pat"] is not None
+                )
                 if have_all:
                     qsum = sum(resolved[qe]["pat"] for qe in qs)
                     tol = max(3.0, 0.03 * max(abs(qsum), abs(annual["pat"])))
                     if abs(qsum - annual["pat"]) <= tol:
                         fy_ok, fy_detail = (
                             True,
-                            "FY%d identity OK: qsum=%.2f annual=%.2f (tol %.2f)" % (fy, qsum, annual["pat"], tol),
+                            "FY%d identity OK: qsum=%.2f annual=%.2f (tol %.2f)"
+                            % (fy, qsum, annual["pat"], tol),
                         )
                     else:
                         fy_detail = "FY%d identity FAILS: qsum=%.2f annual=%.2f (tol %.2f)" % (
@@ -641,12 +664,12 @@ def main():
                 elif stored_pat is not None:
                     if close_std(leg["pat"], stored_pat):
                         gate, pat = "S", stored_pat
-                        reason = "gate-S agree read={:.2f} stored={:.2f}".format(leg["pat"], stored_pat)
+                        reason = "gate-S agree read={:.2f} stored={:.2f}".format(
+                            leg["pat"], stored_pat
+                        )
                     else:
-                        reason = (
-                            "gate-S DISAGREE read={:.2f} stored={:.2f} -- Sec.45 adjudication, not auto-healed".format(
-                                leg["pat"], stored_pat
-                            )
+                        reason = "gate-S DISAGREE read={:.2f} stored={:.2f} -- Sec.45 adjudication, not auto-healed".format(
+                            leg["pat"], stored_pat
                         )
                 elif leg.get("derived") != "cumdiff" and fy_ok:
                     gate, pat = "F", leg["pat"]
@@ -655,7 +678,9 @@ def main():
                     gate, pat = "F", leg["pat"]
                     reason = "cumdiff leg ({}); {}".format(leg["link"], fy_detail)
                 elif leg.get("derived") != "cumdiff":
-                    eok, _implied, edetail = gate_e(leg.get("eps"), leg.get("eqcap"), leg.get("fv"), leg["pat"])
+                    eok, implied, edetail = gate_e(
+                        leg.get("eps"), leg.get("eqcap"), leg.get("fv"), leg["pat"]
+                    )
                     if eok:
                         gate, pat = "E", leg["pat"]
                         reason = f"GATE-F failed ({fy_detail}); {edetail}"
@@ -689,7 +714,11 @@ def main():
                 }
                 out.setdefault(sym, {})[str(qe)] = cell
                 n_land += 1
-                print("%-14s %d  gate=%s rev=%9s pat=%9.2f  %s" % (sym, qe, gate, sales, pat, reason[:70]), flush=True)
+                print(
+                    "%-14s %d  gate=%s rev=%9s pat=%9.2f  %s"
+                    % (sym, qe, gate, sales, pat, reason[:70]),
+                    flush=True,
+                )
                 if n_land % 50 == 0:
                     _dump(out, attempts)
 
@@ -698,12 +727,16 @@ def main():
                 continue
             if fy_of(qe) in fetch_incomplete_fys:
                 continue  # retryable (see note above) -- not every wanted cell needs a verdict THIS run
-            attempts["%s|%d" % (sym, qe)] = {"reason": "no-archive-rows-for-that-FY", "need": g["need"]}
+            attempts["%s|%d" % (sym, qe)] = {
+                "reason": "no-archive-rows-for-that-FY",
+                "need": g["need"],
+            }
             n_ref += 1
 
         if n_co % 10 == 0:
             print(
-                "--- checkpoint: %d/%d companies, landed=%d refused=%d ---" % (si, len(all_syms), n_land, n_ref),
+                "--- checkpoint: %d/%d companies, landed=%d refused=%d ---"
+                % (si, len(all_syms), n_land, n_ref),
                 flush=True,
             )
             _dump(out, attempts)

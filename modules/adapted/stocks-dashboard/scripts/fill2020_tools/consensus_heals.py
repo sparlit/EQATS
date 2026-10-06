@@ -121,19 +121,33 @@ def main():
             cands.append(("filing", C[k], "adjudicated"))
         srcs = {c[0].split(":")[0] for c in cands}
         if len(srcs) < 2:
-            review.append({"cell": k, "current": cur, "candidates": cands, "why": "only one independent source"})
+            review.append(
+                {
+                    "cell": k,
+                    "current": cur,
+                    "candidates": cands,
+                    "why": "only one independent source",
+                }
+            )
             continue
         # every pair must agree
         vals = [c[1] for c in cands]
         if not all(agree(v, vals[0]) for v in vals):
-            review.append({"cell": k, "current": cur, "candidates": cands, "why": "sources DISAGREE on the value"})
+            review.append(
+                {
+                    "cell": k,
+                    "current": cur,
+                    "candidates": cands,
+                    "why": "sources DISAGREE on the value",
+                }
+            )
             continue
         # NEVER write the MEAN of the candidates -- that invents a figure no source asserts
         # (HYUNDAI: arithmetic 16761.2 + agent 16974 averaged to 16867.60, which is neither).
         # Take the value from the strongest source that has an opinion, in evidence order:
         # the filing itself, then an agent's derived figure, then the pure arithmetic identity.
         rank = {"filing": 0, "agent": 1, "arithmetic": 2}
-        new = round(min(cands, key=lambda c: rank.get(c[0].split(":")[0], 9))[1], 2)
+        new = round(sorted(cands, key=lambda c: rank.get(c[0].split(":")[0], 9))[0][1], 2)
         if cur is None or new <= 0 or agree(new, cur):
             review.append(
                 {
@@ -162,7 +176,10 @@ def main():
         % (len(keys), len(apply_list), len(review))
     )
     for sym, qe, field, cur, new, cands in apply_list[:50]:
-        print("  %-12s %-9s %-5s %13.2f -> %-12.2f  [%s]" % (sym, qe, field, cur, new, ", ".join(c[0] for c in cands)))
+        print(
+            "  %-12s %-9s %-5s %13.2f -> %-12.2f  [%s]"
+            % (sym, qe, field, cur, new, ", ".join(c[0] for c in cands))
+        )
     if dry:
         json.dump(review, open(REVIEW, "w"), indent=1)
         print(f"\nDRY RUN -- nothing written. review list -> {os.path.basename(REVIEW)}")
@@ -193,7 +210,10 @@ def main():
     led.update(journal)
     json.dump(led, open(JOURNAL, "w"), indent=1, sort_keys=True)
     json.dump(review, open(REVIEW, "w"), indent=1)
-    print("journalled %d -> %s | %d held for review" % (len(journal), os.path.basename(JOURNAL), len(review)))
+    print(
+        "journalled %d -> %s | %d held for review"
+        % (len(journal), os.path.basename(JOURNAL), len(review))
+    )
 
 
 if __name__ == "__main__":

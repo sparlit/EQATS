@@ -59,7 +59,10 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 LEDGER = os.path.join(HERE, "pat_defects.json")
-TARGETS = [os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(HERE, "fundamentals.json")]
+TARGETS = [
+    os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+    os.path.join(HERE, "fundamentals.json"),
+]
 
 # fundamentals row: [qe, npStd, annStd, npCon, annCon]
 SLOTS = [("std", "stored_pat", "correct_pat", 1), ("con", "stored_pat_con", "correct_pat_con", 3)]
@@ -110,7 +113,9 @@ def apply_file(path, entries, write):
                     row[idx] = want
                     changed += 1
                 else:
-                    log.append((sym, qe, f"SKIP {basis}: holds {row[idx]!r}, ledger recorded {was!r}"))
+                    log.append(
+                        (sym, qe, f"SKIP {basis}: holds {row[idx]!r}, ledger recorded {was!r}")
+                    )
     if write and changed:
         json.dump(data, open(path, "w", encoding="utf-8"), separators=(",", ":"))
     return log, changed
@@ -124,7 +129,11 @@ def main():
     entries = load_ledger(only)
     print(
         "%d ledger cell(s)%s | %s"
-        % (len(entries), " for " + ",".join(sorted(only)) if only else "", "APPLY" if write else "DRY RUN")
+        % (
+            len(entries),
+            " for " + ",".join(sorted(only)) if only else "",
+            "APPLY" if write else "DRY RUN",
+        )
     )
     for path in TARGETS:
         log, changed = apply_file(path, entries, write)

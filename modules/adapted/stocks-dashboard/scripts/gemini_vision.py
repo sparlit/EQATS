@@ -65,7 +65,16 @@ _SCHEMA = {
         "yago_std": {"type": "NUMBER", "nullable": True},
         "note": {"type": "STRING"},
     },
-    "required": ["ok", "company_matches", "has_subsidiary", "cur_con", "yago_con", "cur_std", "yago_std", "note"],
+    "required": [
+        "ok",
+        "company_matches",
+        "has_subsidiary",
+        "cur_con",
+        "yago_con",
+        "cur_std",
+        "yago_std",
+        "note",
+    ],
 }
 
 _PROMPT = """These images are the quarterly results filing of an Indian INSURANCE company: %(company)s.
@@ -124,12 +133,17 @@ def _post(body):
         return None
     data = json.dumps(body).encode()
     for attempt in range(2):  # fail-fast: 1 retry only, capped backoff (never hang CI)
-        wait = _MIN_INTERVAL - (time.time() - _PACE["last"])  # pace: keep calls >= _MIN_INTERVAL apart
+        wait = _MIN_INTERVAL - (
+            time.time() - _PACE["last"]
+        )  # pace: keep calls >= _MIN_INTERVAL apart
         if wait > 0:
             time.sleep(wait)
         _PACE["last"] = time.time()
         req = urllib.request.Request(
-            _URL % (_MODEL, key), data=data, headers={"Content-Type": "application/json"}, method="POST"
+            _URL % (_MODEL, key),
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
         )
         try:
             raw = urllib.request.urlopen(req, timeout=90).read()
@@ -170,7 +184,17 @@ _CORP_SCHEMA = {
         "yago_con": {"type": "NUMBER", "nullable": True},
         "note": {"type": "STRING"},
     },
-    "required": ["ok", "company_matches", "cur_std", "cur_con", "prec_std", "prec_con", "yago_std", "yago_con", "note"],
+    "required": [
+        "ok",
+        "company_matches",
+        "cur_std",
+        "cur_con",
+        "prec_std",
+        "prec_con",
+        "yago_std",
+        "yago_con",
+        "note",
+    ],
 }
 
 _CORP_PROMPT = """These images are pages of a standard SEBI quarterly financial-results filing of the
@@ -208,10 +232,14 @@ def read_corp_results(company, cur_label, prec_label, yago_label, pngs):
     if not key or not pngs:
         return None
     parts = [
-        {"inline_data": {"mime_type": "image/png", "data": base64.standard_b64encode(p).decode()}} for p in pngs[:6]
+        {"inline_data": {"mime_type": "image/png", "data": base64.standard_b64encode(p).decode()}}
+        for p in pngs[:6]
     ]
     parts.append(
-        {"text": _CORP_PROMPT % {"company": company, "cur": cur_label, "prec": prec_label, "yago": yago_label}}
+        {
+            "text": _CORP_PROMPT
+            % {"company": company, "cur": cur_label, "prec": prec_label, "yago": yago_label}
+        }
     )
     body = {
         "contents": [{"role": "user", "parts": parts}],
@@ -240,12 +268,17 @@ def read_insurer(company, cur_label, yago_label, pngs, with_subsidiary=True):
     if not key or not pngs:
         return None
     parts = [
-        {"inline_data": {"mime_type": "image/png", "data": base64.standard_b64encode(p).decode()}} for p in pngs[:6]
+        {"inline_data": {"mime_type": "image/png", "data": base64.standard_b64encode(p).decode()}}
+        for p in pngs[:6]
     ]
     parts.append({"text": _PROMPT % {"company": company, "cur": cur_label, "yago": yago_label}})
     body = {
         "contents": [{"role": "user", "parts": parts}],
-        "generationConfig": {"temperature": 0, "response_mime_type": "application/json", "response_schema": _SCHEMA},
+        "generationConfig": {
+            "temperature": 0,
+            "response_mime_type": "application/json",
+            "response_schema": _SCHEMA,
+        },
     }
     d = _post(body)
     if d is None:

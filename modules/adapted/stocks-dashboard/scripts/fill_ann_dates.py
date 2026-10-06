@@ -71,7 +71,10 @@ def heal(data, label="sf_fundamentals"):
                 # shows no date) — it is NOT an impossible date and MUST stay untouched; only a real
                 # pre-quarter-end date (backfill placeholder / typo) gets demoted to the deadline.
                 if q[ai] and q[ai] <= q[0]:
-                    print("  %s: %s %d ann %d IMPOSSIBLE -> deadline %d" % (label, sym, q[0], q[ai], deadline(q[0])))
+                    print(
+                        "  %s: %s %d ann %d IMPOSSIBLE -> deadline %d"
+                        % (label, sym, q[0], q[ai], deadline(q[0]))
+                    )
                     q[ai] = deadline(q[0])
                     demoted += 1
     return fixed, demoted

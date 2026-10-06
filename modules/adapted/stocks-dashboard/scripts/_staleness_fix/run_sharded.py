@@ -65,7 +65,9 @@ print('SHARD {i} DONE')
         ]
         p = subprocess.Popen(cmd, cwd=os.path.dirname(os.path.dirname(here)))
         procs.append((i, p, len(shard_syms)))
-        time.sleep(2)  # stagger startup so the initial cookie-session fetches don't all land at once
+        time.sleep(
+            2
+        )  # stagger startup so the initial cookie-session fetches don't all land at once
 
     print(f"launched {n_shards} shards for {n} symbols:")
     for i, p, cnt in procs:

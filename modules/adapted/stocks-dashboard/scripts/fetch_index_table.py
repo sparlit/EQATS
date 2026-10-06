@@ -82,7 +82,10 @@ PEPB_KEEP = 750  # PE/PB/DY samples kept per index (~3y) for the valuation perce
 SPARK_N = 30  # sparkline length (trading sessions)
 
 MONTHS = {
-    m: i + 1 for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
+    m: i + 1
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    )
 }
 
 # ---- Display names: the live watch spells several indices in a terse ALL-CAPS
@@ -376,7 +379,11 @@ def _fetch_nse_valuation():
             "Accept": "application/json, text/plain, */*",
             "Referer": "https://www.nseindia.com/market-data/live-equity-market",
         }
-        j = json.loads(B._get("https://www.nseindia.com/api/allIndices", headers=hdr, jar=B.nse_jar(), timeout=30))
+        j = json.loads(
+            B._get(
+                "https://www.nseindia.com/api/allIndices", headers=hdr, jar=B.nse_jar(), timeout=30
+            )
+        )
     except Exception as e:
         print(f"NSE allIndices unavailable ({type(e).__name__}) — PE/PB/DY left to prior values")
         return {}, []
@@ -513,7 +520,11 @@ def main():
     n50 = nse.get("NIFTY 50") or {}
 
     def nifty_change(win_days, field):
-        return n50.get(field) if n50.get(field) is not None else change_back("NIFTY 50", n50_last, win_days)
+        return (
+            n50.get(field)
+            if n50.get(field) is not None
+            else change_back("NIFTY 50", n50_last, win_days)
+        )
 
     n50_1m = nifty_change(21, "c30")
     n50_1y = nifty_change(250, "c365")
@@ -593,7 +604,9 @@ def main():
     ist = dt.timezone(dt.timedelta(hours=5, minutes=30))
     now = dt.datetime.now(ist).strftime("%Y-%m-%dT%H:%M:%S+05:30")
     grp_order = {"broad": 0, "sectoral": 1, "strategy": 2, "thematic": 3, "other": 4}
-    out_indices.sort(key=lambda x: (grp_order.get(x["g"], 9), -(x["pc"] if x["pc"] is not None else -999)))
+    out_indices.sort(
+        key=lambda x: (grp_order.get(x["g"], 9), -(x["pc"] if x["pc"] is not None else -999))
+    )
 
     payload = {
         "asof": asof,

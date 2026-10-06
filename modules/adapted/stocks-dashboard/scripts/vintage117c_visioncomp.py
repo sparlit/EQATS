@@ -60,7 +60,9 @@ REVOP = os.path.join(ROOT, "docs", "sf_revop.json")
 SCAN = os.path.join(HERE, "_vintage117c_scan.json")
 RAW = os.path.join(HERE, "_vintage117c_raw.json")
 
-API = "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w?scrip_cd=%s&qtr=%s"
+API = (
+    "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w?scrip_cd=%s&qtr=%s"
+)
 MONTHS = {
     "Jan": 1,
     "Feb": 2,
@@ -88,15 +90,15 @@ SCRIP_OVERRIDE = {"ADVANTA": "532840", "DISHMAN": "532526", "CAPF": "532938"}
 R_REV = re.compile(
     r"net sales|revenue from operations|income from operations"
     r"|interest earned|^total income",
-    re.IGNORECASE,
+    re.I,
 )
-R_OP = re.compile(r"profit from operations before|operating profit before", re.IGNORECASE)
+R_OP = re.compile(r"profit from operations before|operating profit before", re.I)
 R_NP = re.compile(
     r"^net profit$|^net profit \(|net profit ?/ ?\(loss\) for the period"
     r"|from ordinary activities after tax",
-    re.IGNORECASE,
+    re.I,
 )
-R_EPS = re.compile(r"eps|earning[s]? per share", re.IGNORECASE)
+R_EPS = re.compile(r"eps|earning[s]? per share", re.I)
 
 
 def qid(qe):
@@ -220,7 +222,13 @@ def main():
     for _n, (k, t) in enumerate(todo, 1):
         sym, qe = t["sym"], t["qe"]
         code = codes.get(sym)
-        rec = {"sym": sym, "qe": qe, "basis": "std", "fill_rev": t.get("rev"), "fill_op": t.get("op")}
+        rec = {
+            "sym": sym,
+            "qe": qe,
+            "basis": "std",
+            "fill_rev": t.get("rev"),
+            "fill_op": t.get("op"),
+        }
         # live stored values
         rrow = (revop.get(sym) or {}).get(str(qe))
         frow = next((r for r in fund.get(sym, []) if r and r[0] == qe), None)
@@ -228,11 +236,15 @@ def main():
         rec["live_op"] = rrow[2] if rrow and len(rrow) > 2 else None
         rec["live_pat"] = frow[1] if frow and len(frow) > 1 else None
         if not code:
-            rec.update(state="done", verdict="no-scrip", why=bse_resolve.blocked(sym) or "absent from ISIN-guarded map")
+            rec.update(
+                state="done",
+                verdict="no-scrip",
+                why=bse_resolve.blocked(sym) or "absent from ISIN-guarded map",
+            )
             scan["cells"][k] = rec
             continue
         try:
-            fdict, _note = fetch(code, qid(qe))
+            fdict, note = fetch(code, qid(qe))
         except RuntimeError as ex:
             rec.update(state="pending", verdict="fetch-failed", why=str(ex))
             scan["cells"][k] = rec
@@ -241,7 +253,13 @@ def main():
         d0, d1 = parse_dt(fdict.get("Date Begin")), parse_dt(fdict.get("Date End"))
         raw[k] = fdict
         if d1 != qe:
-            rec.update(state="done", verdict="no-detres-row", why=f"Date End {d1} != qe", date_begin=d0, date_end=d1)
+            rec.update(
+                state="done",
+                verdict="no-detres-row",
+                why=f"Date End {d1} != qe",
+                date_begin=d0,
+                date_end=d1,
+            )
             scan["cells"][k] = rec
             json.dump(scan, open(SCAN, "w", encoding="utf-8"), indent=1)
             json.dump(raw, open(RAW, "w", encoding="utf-8"), indent=0)
@@ -262,10 +280,21 @@ def main():
                     continue
             return None
 
-        pbt = f1("Profit (+)/ Loss (-) from Ordinary Activities before Tax", "Profit before tax", "Profit Before Tax")
+        pbt = f1(
+            "Profit (+)/ Loss (-) from Ordinary Activities before Tax",
+            "Profit before tax",
+            "Profit Before Tax",
+        )
         oi = f1("Other Income") or 0.0
         fc = f1("Finance Costs", "Interest") or 0.0
-        da = f1("Depreciation and amortisation expense", "Depreciation and amortization expense", "Depreciation") or 0.0
+        da = (
+            f1(
+                "Depreciation and amortisation expense",
+                "Depreciation and amortization expense",
+                "Depreciation",
+            )
+            or 0.0
+        )
         if pbt is not None:
             ops.append(("derived:PBT-OI+FC", pbt - oi + fc))
             ops.append(("derived:PBT-OI+FC+DA", pbt - oi + fc + da))
@@ -293,11 +322,24 @@ def main():
                 verdicts[slot] = "NEAR"
         rec["verdicts"] = verdicts
         rec["state"] = "done"
-        rec["verdict"] = "FLAG" if "FLAG" in verdicts.values() else "NEAR" if "NEAR" in verdicts.values() else "clean"
+        rec["verdict"] = (
+            "FLAG"
+            if "FLAG" in verdicts.values()
+            else "NEAR"
+            if "NEAR" in verdicts.values()
+            else "clean"
+        )
         scan["cells"][k] = rec
         print(
             "%-14s %d  rev:%-15s op:%-15s pat:%-8s -> %s"
-            % (sym, qe, verdicts.get("rev"), verdicts.get("op"), verdicts.get("pat"), rec["verdict"]),
+            % (
+                sym,
+                qe,
+                verdicts.get("rev"),
+                verdicts.get("op"),
+                verdicts.get("pat"),
+                rec["verdict"],
+            ),
             flush=True,
         )
         json.dump(scan, open(SCAN, "w", encoding="utf-8"), indent=1)

@@ -78,7 +78,10 @@ def main():
         ok.append((sym, qe, field, cur, new, v))
 
     for sym, qe, field, cur, new, v in ok:
-        print("  %-12s %-9s %-5s %13.2f -> %-12.2f  (screener %s)" % (sym, qe, field, cur, new, v.get("screener")))
+        print(
+            "  %-12s %-9s %-5s %13.2f -> %-12.2f  (screener %s)"
+            % (sym, qe, field, cur, new, v.get("screener"))
+        )
     for k, w in skip:
         print("  skip %-28s %s" % (k, w))
     print("\nwould heal %d, skipped %d" % (len(ok), len(skip)))

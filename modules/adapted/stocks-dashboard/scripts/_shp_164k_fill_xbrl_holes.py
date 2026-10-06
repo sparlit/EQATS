@@ -63,7 +63,9 @@ def original(sym, qe):
         [
             r
             for r in rows
-            if (r.get("XbrlFile") or "").strip() and r.get("filing_date_time") and not r.get("revised_date_time")
+            if (r.get("XbrlFile") or "").strip()
+            and r.get("filing_date_time")
+            and not r.get("revised_date_time")
         ],
         key=lambda r: r["filing_date_time"],
     )
@@ -75,8 +77,6 @@ def original(sym, qe):
 
 
 def fetch(work, holes):
-    import bse_headers  # installs the honest header set on urllib requests to *.bseindia.com
-
     os.makedirs(os.path.join(work, "xbrl"), exist_ok=True)
     ok = bad = skip = 0
     t0 = time.time()
@@ -112,7 +112,11 @@ def fetch(work, holes):
             why[f"{s}|{qe}"] = "download failed"
         time.sleep(1.0)
         if i % 50 == 0:
-            print("  %d/%d ok=%d bad=%d skip=%d %.0fs" % (i, len(holes), ok, bad, skip, time.time() - t0), flush=True)
+            print(
+                "  %d/%d ok=%d bad=%d skip=%d %.0fs"
+                % (i, len(holes), ok, bad, skip, time.time() - t0),
+                flush=True,
+            )
     json.dump(why, open(os.path.join(work, "fetch_notes.json"), "w"), indent=1)
     print("FETCH DONE ok=%d bad=%d skip=%d no-original=%d" % (ok, bad, skip, len(why)), flush=True)
 

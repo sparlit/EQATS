@@ -33,8 +33,9 @@ adjudicated by §158 R1):
     foreign SWF / other foreign institution) -> fii;  placed under Foreign Companies / Bodies Corporate / NRI /
     other non-institutions -> stays public;
   * a holder absent from that filing: fii only when its own name carries an institution tag ((FPI)/(FII)/foreign
-    portfolio/foreign institutional/FVCI/foreign venture/foreign bank/sovereign) or the SW-2 curated verdict says
-    foreign; every other name is decided by its row LABEL — and every non-institution label is public;
+    portfolio/foreign institutional/FVCI/foreign venture/foreign bank/sovereign) or (§164r batch 7, 'Documents only') another
+    company's filing lists the same legal name under Institutions (Foreign) (shp_foreign_holder_evidence.json inst=true; the SW-2 curated verdict alone no longer counts);
+    every other name is decided by its row LABEL — and every non-institution label is public;
   * a whole row whose LABEL is FII-type (Foreign Portfolio Investors / FII / QFI / foreign institution ...) is fii,
     less any domestic-classified holder inside it.
 Nothing else moves: dii, mf, ins untouched; the change is a pure public -> fii move, so fii+dii+prom can only grow
@@ -55,14 +56,16 @@ import time
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(SCRIPTS)
 sys.path.insert(0, SCRIPTS)
+import contextlib
+
 import _shp_dii_rowfix as D
 import fetch_shareholding as F
 
 WORK = os.environ.get("FII_ROWFIX_WORK") or D.HERE
 MARK = "§159 row-level FII heal"
 INST_TAG = re.compile(
-    r"\((fpi|fii)\)|\bfpi\b|\bfii\b|foreign portfolio|foreign institutional|\bfvci\b|foreign venture|foreign bank|sovereign",
-    re.IGNORECASE,
+    r"\((fpi|fii|fdi)\)|\bfpi\b|\bfii\b|\bfdi\b|foreign direct|foreign portfolio|foreign institutional|\bfvci\b|foreign venture|foreign bank|sovereign",
+    re.I,
 )
 
 DII_AUDIT = os.path.join(SCRIPTS, "_shp_dii_rowfix_audit.json")
@@ -92,7 +95,7 @@ def pick_filing(sym, qe, cur, fl, led):
             return f, txt, bd, res, "dii-audit"
     ch = D.match_filing(fl, qe, cur)
     if ch:
-        return (*ch, "match")
+        return ch + ("match",)
     e = (led.get(sym) or {}).get(qe)
     depth = 0
     while isinstance(e, dict) and depth < 8:
@@ -100,7 +103,7 @@ def pick_filing(sym, qe, cur, fl, led):
         if was:
             ch = D.match_filing(fl, qe, was)
             if ch:
-                return (*ch, "ledger-was@%d" % depth)
+                return ch + ("ledger-was@%d" % depth,)
         e = e.get("superseded")
         depth += 1
     return None
@@ -151,7 +154,11 @@ def newmap_multi(sym, bse_rows):
                 continue
             cls = (
                 "fii"
-                if (ax.startswith(("ForeignPortfolioInvestor", "InstitutionsForeignPortfolioInvestor")) or ax in NEWFII)
+                if (
+                    ax.startswith("ForeignPortfolioInvestor")
+                    or ax.startswith("InstitutionsForeignPortfolioInvestor")
+                    or ax in NEWFII
+                )
                 else "public"
                 if ax in NEWPUB
                 else "domestic"
@@ -176,6 +183,12 @@ class FiiCtx(D.SymCtx):
         return best if abs(best[2] - hp) <= max(1.0, 0.25 * hp) else max(ents, key=lambda e: e[2])
 
     def hclass_p(self, hn, hp):
+        if D.fdi_line(self.sym, hn):
+            return (
+                "foreign",
+                "fii",
+                "new-format:ForeignDirectInvestment(any filing)",
+            )  # §164r batch 14 (user 2026-10-04 'yes go with A')
         if self.multi is None:
             self.multi, self.newfile = newmap_multi(self.sym, self.bse_rows)
             self.newmap = {
@@ -195,7 +208,7 @@ class FiiCtx(D.SymCtx):
                     if r >= 0.85 and (best is None or r > best[0]):
                         best = (r, v)
             if best:
-                cls, ax, _pct = self._pick(best[1], hp)
+                cls, ax, pct = self._pick(best[1], hp)
                 how = "new-format~:" + ax
         if how:
             c = "foreign" if cls in ("fii", "public") else "domestic"
@@ -203,7 +216,11 @@ class FiiCtx(D.SymCtx):
             self.memory[n] = (c, dest, how)
             return c, dest, how
         c, dest, src = D.holder_class(hn, self.verdicts, {})
-        if src == "curated":
+        if (
+            src == "curated"
+        ):  # §164r batch 7: a curated foreign verdict carries FII into later quarters only with an institution document
+            if c == "foreign":
+                dest = "fii" if D.inst_documented(hn) else "public"
             self.memory[n] = (c, dest, src)
             return c, dest, src
         if n in self.memory:
@@ -224,8 +241,10 @@ def eval_fii(ctx, qe, txt, bd, res, cur):
     ev = []
     for g in gn:
         lab = g["label"]
-        lab_fii = bool(D.LAB_FII.search(lab)) and not D.DOMLAB.search(lab) and not D.LAB_PUB.search(lab)
-        hs = [(hp, hn, *ctx.hclass_p(hn, hp)) for hp, hn in g["holders"]]
+        lab_fii = (
+            bool(D.LAB_FII.search(lab)) and not D.DOMLAB.search(lab) and not D.LAB_PUB.search(lab)
+        )
+        hs = [(hp, hn) + ctx.hclass_p(hn, hp) for hp, hn in g["holders"]]
         (sum(h[0] for h in hs) <= g["pct"] + 0.02)
         take = 0.0
         desc = []
@@ -237,7 +256,10 @@ def eval_fii(ctx, qe, txt, bd, res, cur):
                 h
                 for h in hs
                 if h[2] == "domestic"
-                or (h[3] == "public" and (h[4].startswith("new-format") or h[4] in ("memory", "memory~")))
+                or (
+                    h[3] == "public"
+                    and (h[4].startswith("new-format") or h[4] in ("memory", "memory~"))
+                )
             ]
             out = sum(h[0] for h in stay)
             take = max(0.0, g["pct"] - out)
@@ -257,12 +279,12 @@ def eval_fii(ctx, qe, txt, bd, res, cur):
                 if src.startswith("new-format") or src in ("memory", "memory~"):
                     go = dest == "fii"
                     how = src
-                elif c == "foreign" and src == "curated":
+                elif c == "foreign" and D.inst_documented(hn):
                     go = True
-                    how = "curated"
-                elif c == "foreign" and INST_TAG.search(hn):
+                    how = "documented-institution"  # §164r batch 7 'Documents only': not the curated list alone
+                elif c != "domestic" and INST_TAG.search(hn):
                     go = True
-                    how = "inst-tag"
+                    how = "inst-tag"  # §164r batch 8: the company's own tag is itself the mark (Blackstone Capital Partners (Singapore) VI FDI Two at SHK had no residency document)
                 else:
                     go = False
                     how = src or "label"
@@ -325,7 +347,9 @@ def classify(only=None, verbose=False):
                         stats["not_cached"] += 1
                     else:
                         stats["no_matching_filing"] += 1
-                        verbose and print(f"  {qe} NO MATCHING FILING stored={cur[:3]} files={[x[1] for x in fl]}")
+                        verbose and print(
+                            f"  {qe} NO MATCHING FILING stored={cur[:3]} files={[x[1] for x in fl]}"
+                        )
                 continue
             f, txt, bd, res, how = chosen
             r = eval_fii(ctx, qe, txt, bd, res, cur)
@@ -359,7 +383,10 @@ def classify(only=None, verbose=False):
             }
             stats["proposed"] += 1
         if si % 50 == 0:
-            print("  %d/%d %s %s %.0fs" % (si, len(syms), sym, dict(stats), time.time() - t0), file=sys.stderr)
+            print(
+                "  %d/%d %s %s %.0fs" % (si, len(syms), sym, dict(stats), time.time() - t0),
+                file=sys.stderr,
+            )
     outp = "fii_proposals_one.json" if only else "fii_proposals.json"
     json.dump(P, open(os.path.join(WORK, outp), "w"), indent=0)
     print("classify done", dict(stats))
@@ -420,7 +447,9 @@ def verify():
         if qb == "2022-09-30":
             for d, s, a, b in t0:
                 print("   %-12s %7.2f -> %7.2f (%+.2f)" % (s, a, b, d))
-    json.dump(H, open(os.path.join(WORK, "shp_history_fii_healed.json"), "w"), separators=(",", ":"))
+    json.dump(
+        H, open(os.path.join(WORK, "shp_history_fii_healed.json"), "w"), separators=(",", ":")
+    )
 
 
 def revfix():
@@ -435,17 +464,26 @@ def revfix():
         if not rc:
             continue
         stats["rev_rows"] += 1
-        if abs(float(rc[1]) - float(v["was"][1])) <= 0.0100001 and abs(float(rc[2]) - float(v["was"][2])) <= 0.0100001:
+        if (
+            abs(float(rc[1]) - float(v["was"][1])) <= 0.0100001
+            and abs(float(rc[2]) - float(v["was"][2])) <= 0.0100001
+        ):
             new = list(rc)
             new[1] = v["cell"][1]
-            out[k] = {"was": rc, "cell": new, "how": "same raw fii/dii as the original -> original's healed fii"}
+            out[k] = {
+                "was": rc,
+                "cell": new,
+                "how": "same raw fii/dii as the original -> original's healed fii",
+            }
             stats["same_raw"] += 1
             continue
         d = json.load(open(os.path.join(D.LISTS, sym + ".json")))
         bse_rows = d.get("Table") if isinstance(d, dict) else d
         fl = D.quarter_files(bse_rows).get(qe, [])
         ctx = FiiCtx(sym, bse_rows, verdicts)
-        chosen = D.match_filing([x for x in fl if x[1] != v["file"]], qe, rc) or D.match_filing(fl, qe, rc)
+        chosen = D.match_filing([x for x in fl if x[1] != v["file"]], qe, rc) or D.match_filing(
+            fl, qe, rc
+        )
         if not chosen:
             out[k] = {"was": rc, "how": "NO MATCHING DOCUMENT for the re-filing row (left as is)"}
             stats["no_doc"] += 1
@@ -487,7 +525,7 @@ def write(stamp=None):
     audit = {
         "_doc": [
             f"{MARK} ({stamp}), old-format XBRL era Jun-2015..Jun-2022, Nifty 500. FII = Institutions(Foreign) B2 (less depository receipts, §151) in every format.",
-            "R2-FII Non-institutions -> Any Other rows: a >=1% holder the filer's FIRST 2022-form filing places under Institutions(Foreign) (FDI/FPI/FVCI/foreign SWF) joins fii; one it places under Foreign Companies / Bodies Corporate / NRI / other non-institutions stays public; a holder absent from that filing joins fii only on an institution tag in its own name or a SW-2 curated foreign verdict, else its row label decides (every non-institution label is public). A row whose LABEL is FII-type (FPI/FII/QFI/foreign institution) is fii in full, less domestic-classified holders.",
+            "R2-FII Non-institutions -> Any Other rows: a >=1% holder the filer's FIRST 2022-form filing places under Institutions(Foreign) (FDI/FPI/FVCI/foreign SWF) joins fii; one it places under Foreign Companies / Bodies Corporate / NRI / other non-institutions stays public; a holder absent from that filing joins fii only on an institution tag in its own name or another company's filing listing it under Institutions (Foreign) (§164r batch 7: the curated list alone no longer counts), else its row label decides (every non-institution label is public). A row whose LABEL is FII-type (FPI/FII/QFI/foreign institution) is fii in full, less domestic-classified holders.",
             "Pure public -> fii move: dii, mf, ins untouched. Materiality 0.05 pp. Evidence per cell: file, every row hit with label, holders and the tier that decided each.",
         ],
         "cells": {},
@@ -505,7 +543,12 @@ def write(stamp=None):
             + "; ".join(" ".join(str(x) for x in e) for e in v["ev"])[:900]
             + ". Evidence: _shp_fii_rowfix_audit.json"
         )
-        ent = {"cell": list(v["cell"]), "was": list(cur), "src": "bsexbrl:{}".format(v["file"]), "why": why}
+        ent = {
+            "cell": list(v["cell"]),
+            "was": list(cur),
+            "src": "bsexbrl:{}".format(v["file"]),
+            "why": why,
+        }
         prior = (fix.get(sym) or {}).get(qe)
         if prior:
             if not F._cell_eq(cur, prior.get("cell")):
@@ -533,12 +576,19 @@ def write(stamp=None):
             if not rc or [round(float(x), 4) for x in rc[:5] if x is not None] != [
                 round(float(x), 4) for x in v["was"][:5] if x is not None
             ]:
-                audit["revisions"][k] = {"how": "sidecar row moved since revfix — left as is", "row": rc}
+                audit["revisions"][k] = {
+                    "how": "sidecar row moved since revfix — left as is",
+                    "row": rc,
+                }
                 continue
             new = list(rc)
             new[1] = v["cell"][1]
             if len(new) > 7 and isinstance(new[7], str) and "§159" not in new[7]:
-                new[7] = new[7] + " §159 heal:" + ("inherited" if v["how"].startswith("same raw") else "re-read")
+                new[7] = (
+                    new[7]
+                    + " §159 heal:"
+                    + ("inherited" if v["how"].startswith("same raw") else "re-read")
+                )
             revs[sym][qe] = new
             n_rev += 1
             audit["revisions"][k] = {"how": v["how"], "was": rc, "cell": new}
@@ -556,6 +606,193 @@ def write(stamp=None):
     )
 
 
+# §164r batch 14 (user 2026-10-04 'yes go with A'): the 2022-form rows (quarters and mid-quarter event rows). A holder the company files on
+# its FDI line in another of its filings (D.FDI_REG) but lists here on a PUBLIC line joins fii - the same holder counted the same way
+# in every quarter (JSWSTEEL Sep-2022: JFE Steel 15.00 under Foreign Companies, FDI line from Dec-2022; PPLPHARMA Jun-2026: CA Alchemy
+# 17.93 back under Foreign Companies after ten quarters on the FDI line). Public lines only (B4: Foreign Companies, Bodies Corporate,
+# NRIs, Foreign Nationals, Other Non-Institutions); the promoter lines (A2 'Any other' = OtherForeignShareholders, A2 individuals,
+# A1 rows) are never read. Pure public -> fii move from the holder's own share count; dii, mf, ins untouched. Materiality 0.05 pp.
+PUB22 = {
+    "ForeignCompanies",
+    "BodiesCorporate",
+    "OtherNonInstitutions",
+    "NonResidentIndians",
+    "ForeignNationals",
+}
+
+
+def _key_of(lab):
+    q = D.qe_of(lab)
+    if q:
+        return q
+    try:
+        return time.strftime("%Y-%m-%d", time.strptime((lab or "").strip(), "%d %b %Y"))
+    except ValueError:
+        return None
+
+
+def _holder_shares(txt):
+    """-> (total shares, [(axis, shares, kind, name)]) from the typed (holder) contexts of one 2022-form XBRL."""
+    import xml.etree.ElementTree as ET
+
+    root = ET.fromstring(txt)
+    strip = lambda t: t.split("}", 1)[-1]
+    ctx = {}
+    for c in root.iter():
+        if strip(c.tag) != "context":
+            continue
+        mems = []
+        typ = None
+        for m in c.iter():
+            st = strip(m.tag)
+            if st == "explicitMember":
+                mems.append((m.text or "").split(":")[-1].strip())
+            elif st == "typedMember":
+                typ = (
+                    (m.get("dimension") or "")
+                    .split(":")[-1]
+                    .replace("DetailsOfSharesHeldBy", "")
+                    .replace("DetailsSharesHeldBy", "")
+                    .replace("Axis", ""),
+                    "".join((x.text or "") for x in m.iter() if x is not m).strip(),
+                )
+        ctx[c.get("id")] = (
+            ("T", typ)
+            if typ
+            else (("W", None) if mems == ["ShareholdingPatternMember"] else (None, None))
+        )
+    R = {}
+    tot = None
+    for f in root.iter():
+        t = strip(f.tag)
+        k = ctx.get(f.get("contextRef"))
+        if not k or not k[0]:
+            continue
+        if k[0] == "W":
+            if t == "NumberOfShares":
+                with contextlib.suppress(TypeError, ValueError):
+                    tot = float(f.text)
+            continue
+        r = R.setdefault(k[1], {})
+        if t == "NumberOfShares":
+            with contextlib.suppress(TypeError, ValueError):
+                r["n"] = float(f.text)
+        elif t.startswith("NameOf"):
+            r["name"] = (f.text or "").strip()
+        elif t.startswith("WhetherACategory"):
+            r["kind"] = (f.text or "").strip()
+    return tot, [
+        (ax, v["n"], v.get("kind") or "", v.get("name") or "")
+        for (ax, val), v in R.items()
+        if "n" in v
+    ]
+
+
+def fdi22(only=None):
+    hist = json.load(open(os.path.join(REPO, "scripts", "shp_history.json")))
+    evt = json.load(open(os.path.join(REPO, "scripts", "shp_events.json")))
+    P = {}
+    stats = collections.Counter()
+    held = []
+    for sym in sorted(D.FDI_REG):
+        if only and sym not in only:
+            continue
+        lp = os.path.join(D.LISTS, sym + ".json")
+        if not os.path.exists(lp):
+            stats["no_bse_list"] += 1
+            continue
+        d = json.load(open(lp))
+        bse_rows = d.get("Table") if isinstance(d, dict) else d
+        byk = collections.defaultdict(list)
+        for r in bse_rows or []:
+            k = _key_of(r.get("qtr"))
+            f = (r.get("XbrlFile") or "").strip()
+            if k and f and k >= "2022-06-30":
+                byk[k].append(((r.get("filing_date_time") or ""), f))
+        for k, fl in sorted(byk.items()):
+            store = hist if k[5:] in ("03-31", "06-30", "09-30", "12-31") else evt
+            cur = (store.get(sym) or {}).get(k)
+            if not cur:
+                stats["no_store_row"] += 1
+                continue
+            hit = None
+            for _fd, f in sorted(
+                fl
+            ):  # earliest first: the store row is the original filing (§142k)
+                pth = D.find_file(f)
+                if not pth:
+                    continue
+                txt = open(pth, "rb").read()
+                if b"InstitutionsForeignMember" not in txt:
+                    continue
+                try:
+                    res = F.parse_shp(txt, k)
+                except Exception:
+                    res = None
+                if (
+                    res
+                    and abs((res["prom"] or 0) - (cur[0] or 0)) <= 0.06
+                    and abs((res["fii"] or 0) - (cur[1] or 0)) <= 0.06
+                ):
+                    hit = (f, txt)
+                    break
+            if not hit:
+                stats[
+                    "no_matching_filing" if any(D.find_file(f) for fd, f in fl) else "not_cached"
+                ] += 1
+                if any(D.find_file(f) for fd, f in fl):
+                    held.append(
+                        (
+                            sym,
+                            k,
+                            "stored row matches no 2022-form filing as filed (healed or re-filed)",
+                        )
+                    )
+                continue
+            f, txt = hit
+            tot, rows = _holder_shares(txt)
+            if not tot:
+                stats["no_total"] += 1
+                continue
+            best = {}
+            for ax, n, kind, nm in rows:
+                if ax not in PUB22 or not nm or kind.lower().startswith("categ"):
+                    continue
+                h = D.fdi_line(sym, nm)
+                if not h:
+                    continue
+                pc = 100.0 * n / tot
+                if pc > best.get(h["name"], (0,))[0]:
+                    best[h["name"]] = (pc, ax, nm, h["first"][0])
+            mv = sum(v[0] for v in best.values())
+            if mv < 0.05:
+                stats["unchanged"] += 1
+                continue
+            new = list(cur)
+            new[1] = round((cur[1] or 0) + mv, 4)
+            P[f"{sym}|{k}"] = {
+                "file": f,
+                "was": cur,
+                "cell": new,
+                "d_fii": round(mv, 4),
+                "ev": [
+                    (
+                        "FDI-holder-on-public-line",
+                        v[1],
+                        round(v[0], 4),
+                        v[2],
+                        f"FDI line first {v[3]}",
+                    )
+                    for v in sorted(best.values(), key=lambda x: -x[0])
+                ],
+            }
+            stats["proposed"] += 1
+    json.dump(P, open(os.path.join(WORK, "fii22_proposals.json"), "w"), indent=0)
+    json.dump(held, open(os.path.join(WORK, "fii22_held.json"), "w"), indent=0)
+    print("fdi22", dict(stats))
+    return P
+
+
 if __name__ == "__main__":
     st = sys.argv[1]
     if st == "classify":
@@ -568,3 +805,5 @@ if __name__ == "__main__":
         revfix()
     elif st == "write":
         write()
+    elif st == "fdi22":
+        fdi22(only=(sys.argv[2].split(",") if len(sys.argv) > 2 else None))

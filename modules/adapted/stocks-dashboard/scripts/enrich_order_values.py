@@ -60,31 +60,33 @@ ANN = dp("announcements.json")
 OUT = dp("order_values.json")
 PREF = "https://nsearchives.nseindia.com/corporate/"
 HDR = {"User-Agent": B.UA, "Referer": "https://www.nseindia.com/"}
-ORDER_RX = re.compile(r"orders?/contracts|order\(s\)\/contract", re.IGNORECASE)
+ORDER_RX = re.compile(r"orders?/contracts|order\(s\)\/contract", re.I)
 
 # ---- value extraction ------------------------------------------------------
 CCY = r"(?:Rs\.?|INR|₹|US\$|USD|\$|AUD|EUR|€)"
 UNIT = r"(?:cr(?:ore)?s?|lakhs?|lacs?|mn|million|bn|billion)"
 AMT = r"\d[\d,]*(?:\.\d+)?"
-MONEY = re.compile(rf"(~?\s*{CCY}\s*)?({AMT})(\s*/-)?\s*({UNIT})\b", re.IGNORECASE)
-MONEY2 = re.compile(rf"(~?\s*)(Rs\.?|INR|₹|US\$|USD|\$)\s*(\d[\d,]*(?:\.\d+)?)(?!\s*(?:{UNIT}))", re.IGNORECASE)
+MONEY = re.compile(rf"(~?\s*{CCY}\s*)?({AMT})(\s*/-)?\s*({UNIT})\b", re.I)
+MONEY2 = re.compile(
+    rf"(~?\s*)(Rs\.?|INR|₹|US\$|USD|\$)\s*(\d[\d,]*(?:\.\d+)?)(?!\s*(?:{UNIT}))", re.I
+)
 MONEY3 = re.compile(
     r"(~\s*)?(?:Rs\.?|INR|₹)?\s*(\d[\d, ]*\d)(?:\.\d+)?\s*(?:/-)?\s*"
     r"(?:\([^)]{0,25}\)\s*)?\((?:[^)]{0,80}?(?:Rupees|INR|Crores?|Lakhs?))\b",
-    re.IGNORECASE,
+    re.I,
 )
 KEYS = re.compile(
     r"order|contract|value|worth|aggregat|awarded|bagg|LOA|letter of (?:award|acceptance|intent)"
     r"|valued|total|receipt|received|secured|won|bag",
-    re.IGNORECASE,
+    re.I,
 )
 # a materiality/policy DEFINITION of "large order", not this order's value -> ignore that amount
 NEG = re.compile(
     r"means an order|large order means|materialit|whichever is (?:lower|higher)|threshold|"
     r"policy on|deems? material|exceed(?:s|ing) \d",
-    re.IGNORECASE,
+    re.I,
 )
-USD_TRAIL = re.compile(r"^\s*(?:USD|US ?Dollar|Dollar)", re.IGNORECASE)
+USD_TRAIL = re.compile(r"^\s*(?:USD|US ?Dollar|Dollar)", re.I)
 
 
 def _cur_from(ccy):
@@ -160,7 +162,11 @@ def extract(txt):
         base = v * (
             mult
             if cur == "₹"
-            else (1e6 if unit.startswith(("mn", "mil")) else (1e9 if unit.startswith(("bn", "bil")) else 1))
+            else (
+                1e6
+                if unit.startswith(("mn", "mil"))
+                else (1e9 if unit.startswith(("bn", "bil")) else 1)
+            )
         )  # US$ base = dollars
         score = (3 if KEYS.search(ctx) else 0) + min(v * mult / 1e7, 5) / 5.0
         if score > best_score:
@@ -173,7 +179,9 @@ def extract(txt):
                 "cr"
                 if unit.startswith("cr")
                 else (
-                    "lakh" if unit.startswith(("lac", "lakh")) else ("mn" if unit.startswith(("mn", "mil")) else "bn")
+                    "lakh"
+                    if unit.startswith(("lac", "lakh"))
+                    else ("mn" if unit.startswith(("mn", "mil")) else "bn")
                 ),
             )
             best_cr = _inr_cr(base, cur)
@@ -196,7 +204,7 @@ def extract(txt):
         if NEG.search(ctx):
             continue
         score = 1.0 + (3 if KEYS.search(ctx) else 0)
-        if re.search(r"\((?:Rupees|USD|US Dollars)\b", ctx, re.IGNORECASE):
+        if re.search(r"\((?:Rupees|USD|US Dollars)\b", ctx, re.I):
             score += 1
         score += min(v / 1e7, 5) / 5.0
         if score > best_score:
@@ -228,7 +236,7 @@ def main():
     ann = json.load(open(ANN, encoding="utf-8"))
     order_files = {}  # file -> True (only order-win PDFs)
     for r in ann.get("rows", []):
-        _sym, _co, _dt, desc, _cap, f = r
+        sym, co, dt, desc, cap, f = r
         if ORDER_RX.search(desc) and f and f.lower().endswith(".pdf"):
             order_files[f] = True
 
@@ -243,7 +251,10 @@ def main():
     import fitz
 
     todo = [f for f in order_files if f not in cache]
-    print("order PDFs: %d total, %d cached, %d to fetch" % (len(order_files), len(order_files) - len(todo), len(todo)))
+    print(
+        "order PDFs: %d total, %d cached, %d to fetch"
+        % (len(order_files), len(order_files) - len(todo), len(todo))
+    )
     ok = miss = err = 0
     for i, f in enumerate(todo, 1):
         if jar is None:

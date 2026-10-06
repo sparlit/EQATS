@@ -62,7 +62,6 @@ Resumable: checkpoints to scripts/_revop_progress.json every 10k files.
 """
 import concurrent.futures
 import contextlib
-import glob
 import html
 import json
 import os
@@ -75,7 +74,9 @@ import xbrl_symbol
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.join(HERE, "_xbrl_cache")
 OUT = os.path.join(HERE, "revop_fundamentals.json")
-DOCS_OUT = os.path.join(os.path.dirname(HERE), "docs", "sf_revop.json")  # web copy the daily cron maintains
+DOCS_OUT = os.path.join(
+    os.path.dirname(HERE), "docs", "sf_revop.json"
+)  # web copy the daily cron maintains
 PROG = os.path.join(HERE, "_revop_progress.json")
 FUND = os.path.join(HERE, "fundamentals.json")
 
@@ -86,14 +87,18 @@ MAX_QE = 20261231
 CR = 1e7  # rupees -> crore
 
 # --- compiled regexes -------------------------------------------------------------------
-RE_SYM = re.compile(r'<xbrli:identifier scheme="http://www\.nseindia\.com/NSESymbol">([^<]+)</xbrli:identifier>')
+RE_SYM = re.compile(
+    r'<xbrli:identifier scheme="http://www\.nseindia\.com/NSESymbol">([^<]+)</xbrli:identifier>'
+)
 RE_SYM2 = re.compile(r'<in-(?:bse-fin|capmkt):Symbol contextRef="OneD"[^>]*>([^<]+)<')
 
 
 # OneD / FourD context period (entity then period; DOTALL for pretty-printed INDAS)
 def _ctx_period_re(cid):
     return re.compile(
-        r'<xbrli:context id="' + cid + r'">.*?<xbrli:startDate>(\d{4}-\d{2}-\d{2})</xbrli:startDate>'
+        r'<xbrli:context id="'
+        + cid
+        + r'">.*?<xbrli:startDate>(\d{4}-\d{2}-\d{2})</xbrli:startDate>'
         r"<xbrli:endDate>(\d{4}-\d{2}-\d{2})</xbrli:endDate>",
         re.DOTALL,
     )
@@ -106,13 +111,16 @@ RE_CTX = {"OneD": RE_ONED, "FourD": RE_FOURD}
 # the newer ones do; instead they tag DateOf{Start,End}OfReportingPeriod per context. Read those.
 RE_DATE = {
     c: {
-        b: re.compile(r"DateOf" + b + r'OfReportingPeriod contextRef="' + c + r'"[^>]*>(\d{4}-\d{2}-\d{2})')
+        b: re.compile(
+            r"DateOf" + b + r'OfReportingPeriod contextRef="' + c + r'"[^>]*>(\d{4}-\d{2}-\d{2})'
+        )
         for b in ("Start", "End")
     }
     for c in ("OneD", "FourD")
 }
 RE_NAT = {
-    c: re.compile(r'NatureOfReportStandaloneConsolidated contextRef="' + c + r'">([^<]+)<') for c in ("OneD", "FourD")
+    c: re.compile(r'NatureOfReportStandaloneConsolidated contextRef="' + c + r'">([^<]+)<')
+    for c in ("OneD", "FourD")
 }
 RE_TS = re.compile(r"(\d{12,14})")
 
@@ -165,7 +173,9 @@ TAGS = (
 )  # GI: PAT
 RE_TAG = {
     t: {
-        c: re.compile(r"<in-(?:bse-fin|capmkt):" + t + r' contextRef="' + c + r'"[^>]*>([-0-9.eE+]+)<')
+        c: re.compile(
+            r"<in-(?:bse-fin|capmkt):" + t + r' contextRef="' + c + r'"[^>]*>([-0-9.eE+]+)<'
+        )
         for c in ("OneD", "FourD")
     }
     for t in TAGS
@@ -232,7 +242,10 @@ ORFO_AXIS = "DetailsOfOtherRevenueFromOperationsAxis"
 def _labelled_other_income(desc):
     """True only when the filer's own label for the component IS 'other income'.
     Deliberately strict: 'Other operating income' and 'Other financial charges' are REVENUE."""
-    return " ".join(re.sub(r"[^a-z ]", " ", (desc or "").lower()).split()) in ("other income", "other incomes")
+    return " ".join(re.sub(r"[^a-z ]", " ", (desc or "").lower()).split()) in (
+        "other income",
+        "other incomes",
+    )
 
 
 def orfo_other_income(xml, ctx):
@@ -257,10 +270,15 @@ def orfo_other_income(xml, ctx):
             continue
         esc = re.escape(cid)
         mv = re.search(
-            r'<in-(?:bse-fin|capmkt):OtherRevenueFromOperations contextRef="' + esc + r'"[^>]*>([-0-9.eE+]+)<', xml
+            r'<in-(?:bse-fin|capmkt):OtherRevenueFromOperations contextRef="'
+            + esc
+            + r'"[^>]*>([-0-9.eE+]+)<',
+            xml,
         )
         md = re.search(
-            r'<in-(?:bse-fin|capmkt):DescriptionOfOtherRevenueFromOperations contextRef="' + esc + r'"[^>]*>([^<]*)<',
+            r'<in-(?:bse-fin|capmkt):DescriptionOfOtherRevenueFromOperations contextRef="'
+            + esc
+            + r'"[^>]*>([^<]*)<',
             xml,
         )
         if mv and md and _labelled_other_income(md.group(1)):
@@ -286,7 +304,7 @@ def lender_ebit_na_symbols():
         base = {s for s in led.get("ebit", {}) if not s.startswith("_")}
         out |= base
         eng = open(os.path.join(os.path.dirname(HERE), "docs", "backtest-engine.js")).read()
-        m = _re.search(r"FUND_ALIAS\s*=\s*(\{.*?\})\s*;", eng, _re.DOTALL)
+        m = _re.search(r"FUND_ALIAS\s*=\s*(\{.*?\})\s*;", eng, _re.S)
         if m:
             alias = json.loads(_re.sub(r"(\w+)\s*:", r'"\1":', m.group(1)).replace("'", '"'))
             for s in base:
@@ -350,7 +368,13 @@ def metrics_for(xml, ctx):
         )
         op = (pbt - oi) if pbt is not None else None
         pat = fnum(xml, "ProfitLossAfterTaxAndExtraordinaryItems", ctx)
-        return (rev / CR, op / CR if op is not None else None, None, pat / CR if pat is not None else None, None)
+        return (
+            rev / CR,
+            op / CR if op is not None else None,
+            None,
+            pat / CR if pat is not None else None,
+            None,
+        )
     # GENERAL INSURER (IRDAI 'GI' format, e.g. ICICIGI/GODIGIT/STARHEALTH/NIACL):
     #   rev = PremiumEarned + IncomeFromInvestmentsNet + ShareholdersAccountIncomeFromInvestments
     #   op  = rev − OperatingExpenses − NonOperatingExpense
@@ -366,13 +390,21 @@ def metrics_for(xml, ctx):
         nonop = fnum(xml, "NonOperatingExpense", ctx) or 0.0
         op = (rev - opexp - nonop) if opexp is not None else None
         pat = fnum(xml, "ProfitLossAfterTax", ctx)
-        return (rev / CR, op / CR if op is not None else None, None, pat / CR if pat is not None else None, None)
+        return (
+            rev / CR,
+            op / CR if op is not None else None,
+            None,
+            pat / CR if pat is not None else None,
+            None,
+        )
     pat = fnum(xml, "ProfitLossForPeriod", ctx)
     if pat is None:
         pat = fnum(xml, "ProfitLossForThePeriod", ctx)  # banks tag with 'The'
     owners = fnum(xml, "ProfitOrLossAttributableToOwnersOfParent", ctx)
     if owners is None:
-        owners = fnum(xml, "ProfitLossAfterTaxesMinorityInterestAndShareOfProfitLossOfAssociates", ctx)
+        owners = fnum(
+            xml, "ProfitLossAfterTaxesMinorityInterestAndShareOfProfitLossOfAssociates", ctx
+        )
     ie = fnum(xml, "InterestEarned", ctx)
     bank_op = fnum(xml, "OperatingProfitBeforeProvisionAndContingencies", ctx)
     if ie is not None and bank_op is not None:  # bank format
@@ -435,10 +467,14 @@ def xbrl_revop(xml, basis_hint=None):
     Consumers decide whether to mix them with industrials (Results Season only aggregates fin rev/op
     inside bank universes)."""
     nat = {}
-    for m in re.finditer(r'NatureOfReportStandaloneConsolidated contextRef="([^"]+)"[^>]*>([^<]+)<', xml):
+    for m in re.finditer(
+        r'NatureOfReportStandaloneConsolidated contextRef="([^"]+)"[^>]*>([^<]+)<', xml
+    ):
         nat[m.group(1)] = m.group(2).strip().lower()
     hint = (basis_hint or "").lower()
-    fin = 1 if ("InterestEarned" in xml or "NetPremiumIncome" in xml or "PremiumEarned" in xml) else 0
+    fin = (
+        1 if ("InterestEarned" in xml or "NetPremiumIncome" in xml or "PremiumEarned" in xml) else 0
+    )
     rev_std = op_std = ebit_std = rev_con = op_con = ebit_con = None
     one_nat = nat.get("OneD", "") or hint
     # build_fundamentals.is_con_basis, never `"consol" in …`: NSE's hint label "Non-Consolidated" CONTAINS
@@ -621,7 +657,11 @@ def main():
             # Guard a mis-tagged owners=0 (real profit sits only in ProfitLossForPeriod) — same
             # guard as apply_owners_full.py: owners ~0 while total is material -> use total.
             ow, tot = r["con"]["owners"], r["con"]["pat"]
-            con_pat = tot if (ow is None or (abs(ow) < 0.005 and tot is not None and abs(tot) > 2)) else ow
+            con_pat = (
+                tot
+                if (ow is None or (abs(ow) < 0.005 and tot is not None and abs(tot) > 2))
+                else ow
+            )
             put(row, 5, con_pat)
         strip_lender_ebit(r["sym"], row)  # adjudicated no-ebit filers — see the guard's docstring
 
@@ -641,7 +681,10 @@ def main():
                 if processed % 10000 == 0:
                     json.dump(data, open(OUT, "w"), separators=(",", ":"))
                     json.dump({"done": start_i + processed}, open(PROG, "w"))
-                    print("  %d/%d files, %d symbols" % (start_i + processed, total, len(data)), flush=True)
+                    print(
+                        "  %d/%d files, %d symbols" % (start_i + processed, total, len(data)),
+                        flush=True,
+                    )
 
     nbad = normalize_ebit(data)
     if nbad:
@@ -652,7 +695,9 @@ def main():
     json.dump(data, open(OUT, "w"), separators=(",", ":"))
     if not limit:
         json.dump({"done": total}, open(PROG, "w"))
-        json.dump(data, open(DOCS_OUT, "w"), separators=(",", ":"))  # web copy (daily cron maintains it)
+        json.dump(
+            data, open(DOCS_OUT, "w"), separators=(",", ":")
+        )  # web copy (daily cron maintains it)
     print("Wrote %s + %s: %d symbols, %d files processed" % (OUT, DOCS_OUT, len(data), processed))
 
     validate(data)
@@ -668,10 +713,10 @@ def normalize_ebit(data):
     zero depreciation) is not disturbed."""
     EPS = 0.01
     n = 0
-    for qmap in data.values():
+    for _sym, qmap in data.items():
         if not isinstance(qmap, dict):
             continue
-        for row in qmap.values():
+        for _qe, row in qmap.items():
             if not isinstance(row, list) or len(row) < 9:
                 continue
             for op_i, eb_i in ((2, 7), (3, 8)):  # (opStd, ebitStd), (opCon, ebitCon)
@@ -711,7 +756,9 @@ def validate(data):
                 else:
                     bad += 1
                     if len(examples) < 12:
-                        examples.append("%s %d %s: parsed %.2f vs stored %.2f" % (sym, qe, lbl, got, stored))
+                        examples.append(
+                            "%s %d %s: parsed %.2f vs stored %.2f" % (sym, qe, lbl, got, stored)
+                        )
     tot = ok + bad
     print(
         "\nPAT validation vs fundamentals.json: %d/%d match within 2%% (%.1f%%), %d mismatches"

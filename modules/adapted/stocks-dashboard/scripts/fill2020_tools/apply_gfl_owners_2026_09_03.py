@@ -72,8 +72,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
 
-FUND = (os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(SCRIPTS, "fundamentals.json"))
-REVOP = (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json"))
+FUND = (
+    os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+    os.path.join(SCRIPTS, "fundamentals.json"),
+)
+REVOP = (
+    os.path.join(ROOT, "docs", "sf_revop.json"),
+    os.path.join(SCRIPTS, "revop_fundamentals.json"),
+)
 OWN_LEDGER = os.path.join(SCRIPTS, "owners_basis_heals.json")
 REVOP_LEDGER = os.path.join(SCRIPTS, "revop_cell_fix.json")
 FUND_IDX, REVOP_IDX = 3, 5
@@ -107,7 +113,9 @@ TOL = 0.02
 def guard_split():
     for qe, (tot, own, nci, _n) in FIX.items():
         if abs((own + nci) - tot) > 0.03:
-            sys.exit("IDENTITY BROKEN %d: owners %.2f + nci %.2f != total %.2f" % (qe, own, nci, tot))
+            sys.exit(
+                "IDENTITY BROKEN %d: owners %.2f + nci %.2f != total %.2f" % (qe, own, nci, tot)
+            )
 
 
 def apply_data(dry):
@@ -131,7 +139,10 @@ def apply_data(dry):
                         "GUARD %s %d idx%d: current %s, expected stored total %.2f -- refusing"
                         % (os.path.basename(path), qe, idx, cur, tot)
                     )
-                print("  %-28s %d idx%d: %.2f -> %.2f" % (os.path.relpath(path, ROOT), qe, idx, cur, own))
+                print(
+                    "  %-28s %d idx%d: %.2f -> %.2f"
+                    % (os.path.relpath(path, ROOT), qe, idx, cur, own)
+                )
                 if not dry:
                     row[idx] = own
                 n += 1
@@ -185,7 +196,8 @@ def merge_revop_ledger(dry):
                 "was": tot,
                 "fixed": own,
                 "why": (
-                    "§70 PAT mirror sync to the owners-basis heal of sf_fundamentals npCon (G1 2026-09-03). " + note
+                    "§70 PAT mirror sync to the owners-basis heal of sf_fundamentals npCon (G1 2026-09-03). "
+                    + note
                 ),
             }
         )

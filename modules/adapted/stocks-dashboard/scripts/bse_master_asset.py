@@ -45,8 +45,7 @@ from the RELEASE-id listing (the tag listing lags a re-upload by >1 h). `gh` pro
 import os as _o
 import sys as _s
 
-_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
-import bse_headers as BH  # §181 BSE headers
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))  # §181 BSE headers
 import argparse
 import datetime
 import gzip
@@ -75,7 +74,11 @@ def log(msg):
 
 
 def active_rows(rows):
-    return [r for r in rows if isinstance(r, dict) and r.get("Status") == "Active" and r.get("Segment") == "Equity"]
+    return [
+        r
+        for r in rows
+        if isinstance(r, dict) and r.get("Status") == "Active" and r.get("Segment") == "Equity"
+    ]
 
 
 def check(rows):
@@ -122,7 +125,11 @@ def push(src, source):
     with open(mp, "w", encoding="utf-8") as fh:
         json.dump(meta, fh, indent=1)
     for f in (gz, mp):
-        subprocess.run(["gh", "release", "upload", R.TAG, f, "--clobber", "-R", R.REPO], check=True, timeout=300)
+        subprocess.run(
+            ["gh", "release", "upload", R.TAG, f, "--clobber", "-R", R.REPO],
+            check=True,
+            timeout=300,
+        )
     log(
         "pushed %s (%s bytes, %d Active/Equity rows) + %s %s"
         % (ASSET, format(os.path.getsize(gz), ","), act, META, meta)
@@ -139,17 +146,20 @@ def pull(dest, tries):
         asset = fresh_asset(ASSET)
         routes = [("public URL", lambda: R.download_public(PUBLIC % ASSET, part))]
         if asset:
-            routes.append(("asset id {}".format(asset["id"]), lambda: R.download_by_id(asset["id"], part)))
+            routes.append(
+                ("asset id {}".format(asset["id"]), lambda: R.download_by_id(asset["id"], part))
+            )
         for name, fetch in routes:
             try:
                 fetch()
                 with open(part, "rb") as fh:
                     raw = fh.read()
                 if asset and len(raw) != asset["size"]:
-                    msg = "{} bytes but the release lists {} (stale copy)".format(
-                        format(len(raw), ","), format(asset["size"], ",")
+                    raise ValueError(
+                        "{} bytes but the release lists {} (stale copy)".format(
+                            format(len(raw), ","), format(asset["size"], ",")
+                        )
                     )
-                    raise ValueError(msg)
                 body = gzip.decompress(raw)
                 bad = check(json.loads(body))
                 if bad:
@@ -177,7 +187,10 @@ def pull(dest, tries):
                 age = ", %.1f h old" % ((datetime.datetime.utcnow() - dt).total_seconds() / 3600)
             except Exception:
                 pass
-            log("  %s: OK, %d Active/Equity rows -> %s" % (name, len(active_rows(json.loads(body))), dest))
+            log(
+                "  %s: OK, %d Active/Equity rows -> %s"
+                % (name, len(active_rows(json.loads(body))), dest)
+            )
             log(
                 "FALLBACK BSE MASTER in use: fetched {}{}, source: {} — every market cap on the site is as old as this copy".format(
                     meta.get("fetched_utc", "unknown"), age, meta.get("source", "unknown")
@@ -196,7 +209,9 @@ def main():
     p = sub.add_parser("push", help="upload SRC (a live /tmp/bse.json) as the fallback asset")
     p.add_argument("src")
     p.add_argument(
-        "--source", default="live api.bseindia.com ListofScripData", help="provenance written to the meta asset"
+        "--source",
+        default="live api.bseindia.com ListofScripData",
+        help="provenance written to the meta asset",
     )
     q = sub.add_parser("pull", help="download the fallback asset to DEST")
     q.add_argument("dest")

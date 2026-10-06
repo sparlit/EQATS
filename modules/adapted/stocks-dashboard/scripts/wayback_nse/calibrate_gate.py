@@ -91,7 +91,9 @@ def main():
                         a, b = k.rsplit("|", 1)
                         if b.isdigit():
                             excl.add((a, int(b)))
-        print(f"provenance filter: {len(excl)} aggregator-derived cells excluded from the TRUTH side")
+        print(
+            f"provenance filter: {len(excl)} aggregator-derived cells excluded from the TRUTH side"
+        )
     if "--exclude" in av:
         for path in av[av.index("--exclude") + 1].split(","):
             for k in json.load(open(path)).get("proposals") or {}:
@@ -110,7 +112,8 @@ def main():
     cands = [
         k
         for k in idx
-        if (k.split("|")[0], int(k.split("|")[1])) in std and (k.split("|")[0], int(k.split("|")[1])) not in excl
+        if (k.split("|")[0], int(k.split("|")[1])) in std
+        and (k.split("|")[0], int(k.split("|")[1])) not in excl
     ]
     random.seed(seed)
     random.shuffle(cands)

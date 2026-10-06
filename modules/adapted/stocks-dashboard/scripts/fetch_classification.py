@@ -96,7 +96,10 @@ if not (os.path.exists(BSE_JSON) and os.path.getsize(BSE_JSON) > 1000):
         "https://api.bseindia.com/BseIndiaAPI/api/ListofScripData/w?Group=&Scripcode=&industry=&segment=Equity&status=Active",
         BSE_JSON,
     )
-print(f"NSE master: {os.path.getsize(NSE_CSV)} bytes | BSE master: {os.path.getsize(BSE_JSON)} bytes", flush=True)
+print(
+    f"NSE master: {os.path.getsize(NSE_CSV)} bytes | BSE master: {os.path.getsize(BSE_JSON)} bytes",
+    flush=True,
+)
 
 bse = json.load(open(BSE_JSON, encoding="utf-8"))
 
@@ -146,9 +149,16 @@ for ticker in META:
         }
         nse_iss.discard(None)
         sid_iss = bse_resolve.issuer(code_isin.get(sid)) if sid else None
-        if sid and not (sid_iss and sid_iss in nse_iss):
-            if (sid_iss and nse_iss and sid_iss not in nse_iss) or bse_resolve.blocked(sym) or by_isin:
-                sid = None
+        if (
+            sid
+            and not (sid_iss and sid_iss in nse_iss)
+            and (
+                (sid_iss and nse_iss and sid_iss not in nse_iss)
+                or bse_resolve.blocked(sym)
+                or by_isin
+            )
+        ):
+            sid = None
         code = sid or by_isin
     if code:
         ticker_code[ticker] = code
@@ -204,13 +214,18 @@ for attempt in range(PASSES):
         break
     workers = 12 if attempt < 2 else 6
     t0 = time.time()
-    print(f"Pass {attempt + 1}/{PASSES}: fetching {len(todo)} codes ({workers} workers)", flush=True)
+    print(
+        f"Pass {attempt + 1}/{PASSES}: fetching {len(todo)} codes ({workers} workers)", flush=True
+    )
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
         for code, info in ex.map(fetch, todo):
             if info:
                 cls[code] = info
     got = sum(1 for c in todo if c in cls)
-    print(f"  cumulative {len(cls)}/{len(codes_needed)} (+{got} this pass) in {time.time() - t0:.0f}s", flush=True)
+    print(
+        f"  cumulative {len(cls)}/{len(codes_needed)} (+{got} this pass) in {time.time() - t0:.0f}s",
+        flush=True,
+    )
     miss = len(todo) - got
     if attempt < PASSES - 1 and miss > 50:
         time.sleep(5)
@@ -234,7 +249,10 @@ if len(out) < MIN_OK and OUT.exists():
     raise SystemExit(0)
 
 OUT.write_text(json.dumps(out, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
-print(f"\nWrote {OUT}  ({len(out)} tickers classified, {OUT.stat().st_size / 1024:.0f} KB)", flush=True)
+print(
+    f"\nWrote {OUT}  ({len(out)} tickers classified, {OUT.stat().st_size / 1024:.0f} KB)",
+    flush=True,
+)
 
 # --- 5. report level distributions (so we can choose grouping granularity) ---
 for lvl in ["macro", "sector", "igroup", "industry", "subgroup"]:

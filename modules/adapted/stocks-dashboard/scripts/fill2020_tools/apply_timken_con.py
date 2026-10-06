@@ -76,10 +76,8 @@ CELLS = {
         951.46,
         190.31,
         186.83,
-        (
-            "Mar-2026 filing p16 col3; same row set reproduces Mar-2026 (1089.83/158.31) and "
-            "Dec-2025 (779.67/54.56), both already stored"
-        ),
+        "Mar-2026 filing p16 col3; same row set reproduces Mar-2026 (1089.83/158.31) and "
+        "Dec-2025 (779.67/54.56), both already stored",
     ),
     "20250930": (
         786.35,
@@ -93,10 +91,8 @@ CELLS = {
         683.35,
         None,
         None,
-        (
-            "Dec-2025 filing p5 col3; stored revC 671.40 was a copy of revS 671.43. PAT row "
-            "truncates before this column so patC (74.31, also a copy; screener con 78) stays open"
-        ),
+        "Dec-2025 filing p5 col3; stored revC 671.40 was a copy of revS 671.43. PAT row "
+        "truncates before this column so patC (74.31, also a copy; screener con 78) stays open",
     ),
 }
 REV_SLOT, PATC_SLOT = 1, 5  # sf_revop: [revS, revC, opS, opC, patS, patC, ...]
@@ -106,8 +102,14 @@ FUND_PATC = 3  # sf_fundamentals row: [qe, patS, annS, patC, annC]
 def main():
     dry = "--apply" not in sys.argv
     journal = {}
-    revop_paths = (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json"))
-    fund_paths = (os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(SCRIPTS, "fundamentals.json"))
+    revop_paths = (
+        os.path.join(ROOT, "docs", "sf_revop.json"),
+        os.path.join(SCRIPTS, "revop_fundamentals.json"),
+    )
+    fund_paths = (
+        os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+        os.path.join(SCRIPTS, "fundamentals.json"),
+    )
 
     for path in revop_paths:
         if not os.path.exists(path):
@@ -137,7 +139,9 @@ def main():
                     "was": cur_rev,
                     "src": SRC,
                     "evidence": note,
-                    "reason": ("con revenue slot held a COPY of standalone" if copy else "cell was empty"),
+                    "reason": (
+                        "con revenue slot held a COPY of standalone" if copy else "cell was empty"
+                    ),
                     "applied": "2026-08-09",
                 }
             if pat is not None and row[PATC_SLOT] is not None and abs(row[PATC_SLOT] - was) <= 0.02:
@@ -170,12 +174,15 @@ def main():
                 "was": was,
                 "src": SRC,
                 "evidence": note,
-                "reason": "con slot held the STANDALONE value; TIMKEN filed standalone-only until Dec-2025",
+                "reason": "con slot held the STANDALONE value; TIMKEN "
+                "filed standalone-only until Dec-2025",
                 "applied": "2026-08-09",
             }
         if not dry:
             json.dump(d, open(path, "w"), separators=(",", ":"))
-        print("%-30s %s %d PAT cells" % (os.path.basename(path), "would fix" if dry else "fixed", n))
+        print(
+            "%-30s %s %d PAT cells" % (os.path.basename(path), "would fix" if dry else "fixed", n)
+        )
 
     for k, v in sorted(journal.items()):
         print("   %-24s %s -> %s" % (k, v.get("was"), v["now"]))

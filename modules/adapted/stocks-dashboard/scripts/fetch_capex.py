@@ -86,7 +86,10 @@ BAG_ARCHIVE = {  # document FY -> URL (verified 2026-09-07; 2016-17 is bag11.pdf
     "2015-16": "https://www.indiabudget.gov.in/budget2015-2016/ub2015-16/bag/bag1.pdf",
     "2014-15": "https://www.indiabudget.gov.in/budget2014-2015/ub2014-15/bag/bag1.pdf",
 }
-CGA_FIRST = (2017, 4)  # earliest month cga.nic.in serves (Apr-2016 and older 404, measured 2026-09-07)
+CGA_FIRST = (
+    2017,
+    4,
+)  # earliest month cga.nic.in serves (Apr-2016 and older 404, measured 2026-09-07)
 
 
 def get(url, timeout=60, binary=False):
@@ -124,8 +127,16 @@ def _nums_after(lines, k, n):
 
 
 ROW_PATTERNS = {  # first pattern that matches wins (older docs carry plan/non-plan sub-rows too)
-    "capex": [r"^19\.\s*Capital Expenditure", r"On Capital Account\s*\(11\+15\)", r"^1[0-9]\.\s*On Capital\s*Account"],
-    "rev": [r"^17\.\s*Revenue Expenditure", r"On Revenue Account\s*\(10\+13\)", r"^10\.\s*On Revenue Account"],
+    "capex": [
+        r"^19\.\s*Capital Expenditure",
+        r"On Capital Account\s*\(11\+15\)",
+        r"^1[0-9]\.\s*On Capital\s*Account",
+    ],
+    "rev": [
+        r"^17\.\s*Revenue Expenditure",
+        r"On Revenue Account\s*\(10\+13\)",
+        r"^10\.\s*On Revenue Account",
+    ],
     "te": [r"Total Expenditure"],
     "eff": [r"Effective Capital"],
     "fd": [r"^\d+\.\s*Fiscal Deficit"],
@@ -139,21 +150,24 @@ def parse_bag(pdf_bytes, doc_fy=None):
     d = fitz.open(stream=pdf_bytes, filetype="pdf")
     full = " ".join(" ".join(p.get_text().split()) for p in d)
     if not doc_fy:
-        m = re.search(r"BUDGET AT A GLANCE\s+(\d{4})-(\d{4})", full, re.IGNORECASE) or re.search(
+        m = re.search(r"BUDGET AT A GLANCE\s+(\d{4})-(\d{4})", full, re.I) or re.search(
             r"Budget at a Glance\s+(\d{4})-(\d{4})", full
         )
         if m:
             doc_fy = fy_label(int(m.group(1)))
     if not doc_fy:
-        msg = "could not read the document's FY from the PDF"
-        raise RuntimeError(msg)
+        raise RuntimeError("could not read the document's FY from the PDF")
     page = None
     for p in d:
         ls = _lines(p)
         # join split labels like '13. On Capital' + 'Account'
         j = []
         for l in ls:
-            if j and re.match(r"^\d{1,2}\.\s*On (Capital|Revenue)$", j[-1]) and re.match(r"^Account", l):
+            if (
+                j
+                and re.match(r"^\d{1,2}\.\s*On (Capital|Revenue)$", j[-1])
+                and re.match(r"^Account", l)
+            ):
                 j[-1] = j[-1] + " " + l
             else:
                 j.append(l)
@@ -166,8 +180,7 @@ def parse_bag(pdf_bytes, doc_fy=None):
             page = ls
             break
     if page is None:
-        msg_0 = f"no Budget-at-a-Glance table page found in {doc_fy}"
-        raise RuntimeError(msg_0)
+        raise RuntimeError(f"no Budget-at-a-Glance table page found in {doc_fy}")
     ncol = 5 if sum(1 for l in page[:60] if "Actuals" in l) >= 2 else 4
     y = fy_start(doc_fy)
     cols = [["act", fy_label(y - 2)], ["be", fy_label(y - 1)], ["re", fy_label(y - 1)]]
@@ -194,7 +207,8 @@ def parse_bag(pdf_bytes, doc_fy=None):
     ):
         gdp[fy_label(int(m.group(1)))] = int(m.group(2).replace(",", ""))
     for m in re.finditer(
-        r"(?:Advance|Provisional) Estimates (?:for|of) FY\s*(\d{4})-\d{2}\s*(?:of|at)\s*[₹`]?\s*([\d,]{6,})", full
+        r"(?:Advance|Provisional) Estimates (?:for|of) FY\s*(\d{4})-\d{2}\s*(?:of|at)\s*[₹`]?\s*([\d,]{6,})",
+        full,
     ):
         gdp.setdefault(fy_label(int(m.group(1))), int(m.group(2).replace(",", "")))
     return {"doc": doc_fy, "ncol": ncol, "cols": cols, "rows": rows, "gdp": gdp}
@@ -297,7 +311,12 @@ CGA_LABELS = {
 
 def cga_url(y, m):
     fy = y if m >= 4 else y - 1
-    return "https://cga.nic.in/writereaddata/MonthAccount/%d%d/DATA%02d%02d.htm" % (m, y, fy % 100, (fy + 1) % 100)
+    return "https://cga.nic.in/writereaddata/MonthAccount/%d%d/DATA%02d%02d.htm" % (
+        m,
+        y,
+        fy % 100,
+        (fy + 1) % 100,
+    )
 
 
 def _num(s):
@@ -308,22 +327,27 @@ def _num(s):
 
 def parse_cga(text, y, m):
     rows = []
-    for r in re.findall(r"<tr[^>]*>(.*?)</tr>", text, flags=re.DOTALL):
+    for r in re.findall(r"<tr[^>]*>(.*?)</tr>", text, flags=re.S):
         cells = [
             re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", c))).strip()
-            for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, flags=re.DOTALL)
+            for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, flags=re.S)
         ]
         cells = [c for c in cells if c]
         if cells:
             rows.append(cells)
     hdr = next((c for c in rows if any("Estimates" in x for x in c)), None)
     if not hdr:
-        msg = "no header row"
-        raise RuntimeError(msg)
+        raise RuntimeError("no header row")
     est = "RE" if "Revised" in hdr[0] else "BE"
     prov = any("Provisional" in x for x in hdr)
     fy = y if m >= 4 else y - 1
-    rec = {"ym": "%d-%02d" % (y, m), "fy": fy_label(fy), "est": est, "prov": prov, "src": cga_url(y, m)}
+    rec = {
+        "ym": "%d-%02d" % (y, m),
+        "fy": fy_label(fy),
+        "est": est,
+        "prov": prov,
+        "src": cga_url(y, m),
+    }
     n = 0
     for c in rows:
         if len(c) > 1 and re.fullmatch(r"\d+", c[0]) and c[1] in CGA_LABELS:
@@ -335,8 +359,7 @@ def parse_cga(text, y, m):
                 rec[key] = nums[1]
                 n += 1
     if "ce" not in rec or "ce_be" not in rec:
-        msg = "capital expenditure row missing"
-        raise RuntimeError(msg)
+        raise RuntimeError("capital expenditure row missing")
     rec["n"] = n
     return rec
 
@@ -381,7 +404,9 @@ def load_filings():
     cls = json.load(open(os.path.join(DOCS, "sector_classification.json"), encoding="utf-8"))
     names = {}
     try:
-        for r in json.load(open(os.path.join(DOCS, "search_index.json"), encoding="utf-8")).get("s", []):
+        for r in json.load(open(os.path.join(DOCS, "search_index.json"), encoding="utf-8")).get(
+            "s", []
+        ):
             names[r[0]] = r[1]
     except Exception:
         pass
@@ -506,7 +531,9 @@ def build_filings(FYS=(2021, 2022, 2023, 2024, 2025, 2026)):
             "n": len(members),
             "capex": [round(sum(best(s, fy)[0]["capex"] for s in members)) for fy in fys],
             "cfo": [round(sum((best(s, fy)[0].get("cfo") or 0) for s in members)) for fy in fys],
-            "cfo_n": [sum(1 for s in members if best(s, fy)[0].get("cfo") is not None) for fy in fys],
+            "cfo_n": [
+                sum(1 for s in members if best(s, fy)[0].get("cfo") is not None) for fy in fys
+            ],
         }
 
     n500_nonfin = [s for s in nonfin if s in n500]
@@ -597,7 +624,10 @@ def build_filings(FYS=(2021, 2022, 2023, 2024, 2025, 2026)):
         have = [s for s in syms if s in X]
         groups[gname] = {
             "syms": have,
-            "capex": {str(fy): round(sum((best(s, fy)[0] or {}).get("capex") or 0 for s in have)) for fy in FYS},
+            "capex": {
+                str(fy): round(sum((best(s, fy)[0] or {}).get("capex") or 0 for s in have))
+                for fy in FYS
+            },
             "n": {str(fy): sum(1 for s in have if best(s, fy)[0]) for fy in FYS},
         }
     res["groups"] = groups
@@ -622,9 +652,13 @@ def load_gdp():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument(
-        "--seed-budget", action="store_true", help="parse the whole Budget-at-a-Glance archive into the ledger"
+        "--seed-budget",
+        action="store_true",
+        help="parse the whole Budget-at-a-Glance archive into the ledger",
     )
-    ap.add_argument("--no-fetch", action="store_true", help="no network: rebuild from ledgers + filings")
+    ap.add_argument(
+        "--no-fetch", action="store_true", help="no network: rebuild from ledgers + filings"
+    )
     ap.add_argument("--no-filings", action="store_true")
     a = ap.parse_args()
     today = datetime.date.today()
@@ -660,9 +694,13 @@ def main():
     if not a.no_filings:
         print("Listed-company filings ...")
         filings = build_filings()
-        log.append("filings: all n={} capex={}".format(filings["all"]["n"], filings["all"]["capex"]))
+        log.append(
+            "filings: all n={} capex={}".format(filings["all"]["n"], filings["all"]["capex"])
+        )
 
-    ist = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5, minutes=30)))  # CI runners are UTC
+    ist = datetime.datetime.now(
+        datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+    )  # CI runners are UTC
     out = {
         "updated": ist.strftime("%Y-%m-%dT%H:%M IST"),
         "govt": {
@@ -678,7 +716,10 @@ def main():
     }
     # never publish a shrunken feed
     if prev.get("govt", {}).get("monthly") and len(monthly) < len(prev["govt"]["monthly"]):
-        print("ABORT: monthly series would shrink %d -> %d" % (len(prev["govt"]["monthly"]), len(monthly)))
+        print(
+            "ABORT: monthly series would shrink %d -> %d"
+            % (len(prev["govt"]["monthly"]), len(monthly))
+        )
         sys.exit(1)
     json.dump(out, open(OUT, "w", encoding="utf-8"), separators=(",", ":"), ensure_ascii=False)
     print(

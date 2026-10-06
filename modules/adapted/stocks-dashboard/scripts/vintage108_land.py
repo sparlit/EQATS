@@ -82,8 +82,8 @@ def main():
     p = json.load(open(src, encoding="utf-8"))
     print(f"source: {os.path.basename(src)}")
     print("proposals: %d npStd, %d revop" % (len(p["proposals"]), len(p["revop"])))
-    _a1, c1 = merge(FUND_LEDGER, p["proposals"], "fund_cell_fix", apply)
-    _a2, c2 = merge(REVOP_LEDGER, p["revop"], "revop_cell_fix", apply)
+    a1, c1 = merge(FUND_LEDGER, p["proposals"], "fund_cell_fix", apply)
+    a2, c2 = merge(REVOP_LEDGER, p["revop"], "revop_cell_fix", apply)
     if not apply:
         print("\n(dry run — pass --apply to write the ledgers)")
     if c1 or c2:

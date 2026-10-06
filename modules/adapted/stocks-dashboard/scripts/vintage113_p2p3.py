@@ -75,7 +75,9 @@ def main():
         hits = {"was": [], "fixed": []}
         for fn, d in sorted(reads.get(ck, {}).items()):
             for h in d.get("hits", []):
-                if h["kind"] not in ("owners", "owners~ocr", "owners=tot-nci") or h["block"] not in ("profit", "?"):
+                if h["kind"] not in ("owners", "owners~ocr", "owners=tot-nci") or h[
+                    "block"
+                ] not in ("profit", "?"):
                     continue
                 anc = A.anchor_cols(h["row"], SCALEF[h["scale"]], qe, d.get("ann"), fund, sym)
                 if any(a[2] == h["ix"] for a in anc):
@@ -152,7 +154,17 @@ def main():
     for k, x in sorted(out.items(), key=lambda t: (t[1]["verdict"], t[0])):
         print(
             "%-11s %-9s %-3s %-6s %-10s %-10s %-10s %-4s %s"
-            % (x["sym"], x["qe"], x["pri"], x["live_side"], x["live"], x["was"], x["fixed"], x["tier"], x["verdict"])
+            % (
+                x["sym"],
+                x["qe"],
+                x["pri"],
+                x["live_side"],
+                x["live"],
+                x["was"],
+                x["fixed"],
+                x["tier"],
+                x["verdict"],
+            )
         )
 
 

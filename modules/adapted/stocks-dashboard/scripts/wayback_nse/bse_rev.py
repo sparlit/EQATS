@@ -79,7 +79,7 @@ QEND = {(3, 31), (6, 30), (9, 30), (12, 31)}
 
 
 def _txt(raw):
-    t = re.sub(r"<script.*?</script>", " ", raw, flags=re.DOTALL)
+    t = re.sub(r"<script.*?</script>", " ", raw, flags=re.S)
     t = re.sub(r"<[^>]+>", " ", t)
     t = html.unescape(t).replace("\xa0", " ")
     return re.sub(r"\s+", " ", t)
@@ -99,7 +99,9 @@ def _date(s):
 
 def _num(t, label):
     # values print with or without decimals ("438.98", "439", "1,368.00")
-    m = re.search(r"(?<![A-Za-z,])" + re.escape(label) + r"\s+(-?[\d,]*\d(?:\.\d+)?)(?![\d.,]*%)", t)
+    m = re.search(
+        r"(?<![A-Za-z,])" + re.escape(label) + r"\s+(-?[\d,]*\d(?:\.\d+)?)(?![\d.,]*%)", t
+    )
     return float(m.group(1).replace(",", "")) if m else None
 
 
@@ -120,9 +122,14 @@ def read_page(raw, scripcd):
     if not (frm and to):
         return {"refuse": "period unparseable"}
     ms = re.search(r"Value\s*\(Rs\.?\s*([A-Za-z]+)\)", t)
-    div = {"million": 10.0, "millions": 10.0, "lakhs": 100.0, "lakh": 100.0, "crore": 1.0, "crores": 1.0}.get(
-        ms.group(1).lower() if ms else ""
-    )
+    div = {
+        "million": 10.0,
+        "millions": 10.0,
+        "lakhs": 100.0,
+        "lakh": 100.0,
+        "crore": 1.0,
+        "crores": 1.0,
+    }.get(ms.group(1).lower() if ms else "")
     if not div:
         return {"refuse": "G4 scale not declared/known: %s" % (ms.group(1) if ms else None)}
     bank = "Interest Earned" in t
@@ -188,7 +195,13 @@ def definition_votes(sym_keys, sc, qe, revop, std, excl, idx, fetch, window=8):
     for k in sym_keys:
         for q_s, row in (revop.get(k) or {}).items():
             q = int(q_s)
-            if row[0] is None or q == qe or (k, q) in excl or (k, q) not in std or qdist(q, qe) > window:
+            if (
+                row[0] is None
+                or q == qe
+                or (k, q) in excl
+                or (k, q) not in std
+                or qdist(q, qe) > window
+            ):
                 continue
             r = _read_any(idx, sc, q, fetch, want_months=3)
             if "refuse" in r or abs(r["pat"] - std[(k, q)]) > r["tol"]:
@@ -233,7 +246,7 @@ def build_index():
     )
     idx = collections.defaultdict(list)
     for ts, u in ok:
-        q = dict(re.findall(r"([a-z_]+)=([^&]*)", u.split("?", 1)[1], re.IGNORECASE))
+        q = dict(re.findall(r"([a-z_]+)=([^&]*)", u.split("?", 1)[1], re.I))
         sc, qu = q.get("scripcd"), q.get("quarter", "")
         m = re.match(r"([A-Z])([A-Z])(\d{4})-(\d{4})$", qu)
         if not sc or not m:
@@ -292,7 +305,8 @@ def _excl_set():
                     excl.add((a, int(b)))
     for k, v in json.load(open(os.path.join(SCRIPTS, "vision_rev_fills.json"))).items():
         if "|" in k and any(
-            w in json.dumps(v).lower() for w in ("moneycontrol", "screener", "trendlyne", "tickertape", "wayback")
+            w in json.dumps(v).lower()
+            for w in ("moneycontrol", "screener", "trendlyne", "tickertape", "wayback")
         ):
             a, b = k.split("|")[:2]
             excl.add((a, int(b)))
@@ -314,7 +328,9 @@ def stage(cells, orig, idx, fund, bse, inv, fetch=False, revop=None, excl=None):
                 continue
             codes = codes_for(sym, fk, bse, inv)
             if not codes:
-                why.append(f"{fk}: no BSE code in scripts/bse_scrips.json for the symbol or its predecessors")
+                why.append(
+                    f"{fk}: no BSE code in scripts/bse_scrips.json for the symbol or its predecessors"
+                )
                 continue
             for sc in codes:
                 if not idx.get("%s|%d" % (sc, qe)):
@@ -371,7 +387,12 @@ def stage(cells, orig, idx, fund, bse, inv, fetch=False, revop=None, excl=None):
                         bad = "leg ending %d: %s" % (cur, leg["refuse"])
                         break
                     if leg["from"] < c["from"] or leg["bank"] != c["bank"]:
-                        bad = "leg %d..%d does not nest in %d..%d" % (leg["from"], leg["to"], c["from"], c["to"])
+                        bad = "leg %d..%d does not nest in %d..%d" % (
+                            leg["from"],
+                            leg["to"],
+                            c["from"],
+                            c["to"],
+                        )
                         break
                     chain.append(leg)
                     if leg["from"] == c["from"]:
@@ -385,7 +406,8 @@ def stage(cells, orig, idx, fund, bse, inv, fetch=False, revop=None, excl=None):
                     continue
                 if sum(l["months"] for l in chain) != c["months"] - 3:
                     why.append(
-                        "%s: chain covers %dm, expected %dm" % (sc, sum(l["months"] for l in chain), c["months"] - 3)
+                        "%s: chain covers %dm, expected %dm"
+                        % (sc, sum(l["months"] for l in chain), c["months"] - 3)
                     )
                     continue
                 tol = max([c["tol"]] + [l["tol"] for l in chain])
@@ -397,7 +419,9 @@ def stage(cells, orig, idx, fund, bse, inv, fetch=False, revop=None, excl=None):
                         )
                     )
                     continue
-                common = {l: c["lines"][l] for l in c["lines"] if all(l in leg["lines"] for leg in chain)}
+                common = {
+                    l: c["lines"][l] for l in c["lines"] if all(l in leg["lines"] for leg in chain)
+                }
                 line, dwhy = choose_line(votes, common)
                 if not line:
                     why.append("%s: cumdiff %s (anchors used %d)" % (sc, dwhy, used))
@@ -417,10 +441,17 @@ def stage(cells, orig, idx, fund, bse, inv, fetch=False, revop=None, excl=None):
                     "anchors": used,
                     "tol": tol,
                     "period": "%d..%d (%s) MINUS %s"
-                    % (c["from"], c["to"], c["role"], " + ".join("%d..%d" % (l["from"], l["to"]) for l in chain)),
+                    % (
+                        c["from"],
+                        c["to"],
+                        c["role"],
+                        " + ".join("%d..%d" % (l["from"], l["to"]) for l in chain),
+                    ),
                     "legs": {
                         "cum": {"rev": c["lines"][line], "pat": c["pat"]},
-                        "prev": [{"rev": l["lines"][line], "pat": l["pat"], "ts": l["ts"]} for l in chain],
+                        "prev": [
+                            {"rev": l["lines"][line], "pat": l["pat"], "ts": l["ts"]} for l in chain
+                        ],
                     },
                     "name": c["name"],
                     "wayback": [c["ts"], c["url"]],
@@ -465,12 +496,17 @@ def evidence(p):
                 p["legs"]["cum"]["rev"],
                 p["legs"]["cum"]["pat"],
                 ", ".join(
-                    "rev {:.3f} / pat {:.3f} (web.archive.org/{})".format(l["rev"], l["pat"], l["ts"])
+                    "rev {:.3f} / pat {:.3f} (web.archive.org/{})".format(
+                        l["rev"], l["pat"], l["ts"]
+                    )
                     for l in p["legs"]["prev"]
                 ),
             )
         )
-    return s + "Reader + hold-out: scripts/wayback_nse/bse_rev.py --calib. rev-parity campaign 2026-09-05."
+    return (
+        s
+        + "Reader + hold-out: scripts/wayback_nse/bse_rev.py --calib. rev-parity campaign 2026-09-05."
+    )
 
 
 def emit(props, stamp):
@@ -486,7 +522,13 @@ def emit(props, stamp):
             "pat_seen": p["pat_seen"],
             "fin": p["fin"],
             "src": "wayback BSE qresann/result.asp {} scripcd={} {}={} pat={} ({}) [rev-parity {}]".format(
-                p["mode"], p["scripcd"], p["rev_label"], p["rev"], p["page_pat"], p["wayback"][0], stamp
+                p["mode"],
+                p["scripcd"],
+                p["rev_label"],
+                p["rev"],
+                p["page_pat"],
+                p["wayback"][0],
+                stamp,
             ),
         }
         led[key] = {
@@ -541,7 +583,8 @@ def calib(n, fetch):
                     excl.add((a, int(b)))
     for k, v in json.load(open(os.path.join(SCRIPTS, "vision_rev_fills.json"))).items():
         if "|" in k and any(
-            w in json.dumps(v).lower() for w in ("moneycontrol", "screener", "trendlyne", "tickertape", "wayback")
+            w in json.dumps(v).lower()
+            for w in ("moneycontrol", "screener", "trendlyne", "tickertape", "wayback")
         ):
             a, b = k.split("|")[:2]
             excl.add((a, int(b)))
@@ -557,7 +600,10 @@ def calib(n, fetch):
                     cands.append((s, q, sc, r[0]))
                     break
     random.Random(5).shuffle(cands)
-    print("candidate held cells with a same-quarter BSE capture: %d; testing %d" % (len(cands), min(n, len(cands))))
+    print(
+        "candidate held cells with a same-quarter BSE capture: %d; testing %d"
+        % (len(cands), min(n, len(cands)))
+    )
     res, mism = collections.Counter(), []
     for s, q, sc, stored_rev in cands[:n]:
         r = _read_any(idx, sc, q, fetch, want_months=3)
@@ -568,10 +614,10 @@ def calib(n, fetch):
             res["pat-anchor-miss"] += 1
             continue
         sym_keys = {s} | inv.get(s, set())
-        votes, _used = definition_votes(
+        votes, used = definition_votes(
             sym_keys, sc, q, revop, std, excl, idx, fetch
         )  # excludes q itself: leave-one-out
-        line, _dwhy = choose_line(votes, r["lines"])
+        line, dwhy = choose_line(votes, r["lines"])
         if not line:
             res["definition-refused"] += 1
             continue
@@ -615,10 +661,15 @@ def main():
     modes = collections.Counter(p["mode"] + ("/bank" if p["fin"] else "") for p in props.values())
     print(
         "proposals: %d %s by year %s"
-        % (len(props), dict(modes), dict(sorted(collections.Counter(p["qe"] // 10000 for p in props.values()).items())))
+        % (
+            len(props),
+            dict(modes),
+            dict(sorted(collections.Counter(p["qe"] // 10000 for p in props.values()).items())),
+        )
     )
     cls = collections.Counter(
-        re.sub(r"[\d.]+", "#", re.sub(r"^[A-Z0-9&_-]+: ", "", (w[-1] if w else "?")))[:70] for w in refs.values()
+        re.sub(r"[\d.]+", "#", re.sub(r"^[A-Z0-9&_-]+: ", "", (w[-1] if w else "?")))[:70]
+        for w in refs.values()
     )
     print("refusals: %d" % len(refs))
     for k, v in cls.most_common(20):
@@ -626,7 +677,6 @@ def main():
     out = av[av.index("--out") + 1] if "--out" in av else os.path.join(HERE, "_bse_rev_props.json")
     json.dump({"proposals": props, "refusals": refs}, open(out, "w"), indent=1, sort_keys=True)
     print("->", out)
-    return None
 
 
 if __name__ == "__main__":

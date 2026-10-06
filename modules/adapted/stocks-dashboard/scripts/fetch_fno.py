@@ -58,7 +58,9 @@ INDEX_UNDERLYINGS = {
 }
 
 print(f"Fetching {URL}...")
-r = subprocess.run(["curl", "-s", "-A", UA, "--max-time", "20", URL], capture_output=True, timeout=30)
+r = subprocess.run(
+    ["curl", "-s", "-A", UA, "--max-time", "20", URL], capture_output=True, timeout=30
+)
 text = r.stdout.decode("utf-8", errors="ignore")
 if len(text) < 1000:
     print(f"  WARN: response too short ({len(text)} bytes), keeping existing fno_list.json")

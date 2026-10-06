@@ -76,7 +76,10 @@ SKIPS = os.path.join(SCRIPTS, "_xbrl_comp_rev_skips.json")
 
 H = {"User-Agent": BF.UA, "Accept": "*/*", "Referer": "https://www.nseindia.com/"}
 MON = {
-    m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+    )
 }
 SLOT = {"std": {"rev": 0, "op": 2, "ebit": 7}, "con": {"rev": 1, "op": 3, "ebit": 8}}
 BAND_LO, BAND_HI = 0.2, 5.0
@@ -88,7 +91,9 @@ RE_CTX_BLOCK = re.compile(
     r"\s*<xbrli:endDate>(\d{4}-\d{2}-\d{2})</xbrli:endDate>",
     re.DOTALL,
 )
-RE_DATE_ANY = re.compile(r'DateOf(Start|End)OfReportingPeriod contextRef="([^"]+)"[^>]*>(\d{4}-\d{2}-\d{2})')
+RE_DATE_ANY = re.compile(
+    r'DateOf(Start|End)OfReportingPeriod contextRef="([^"]+)"[^>]*>(\d{4}-\d{2}-\d{2})'
+)
 
 
 def iso_qe(s):
@@ -108,19 +113,23 @@ def arm(cid):
         return
     esc = re.escape(cid)
     BR.RE_CTX[cid] = re.compile(
-        r'<xbrli:context id="' + esc + r'">.*?<xbrli:startDate>(\d{4}-\d{2}-\d{2})</xbrli:startDate>'
+        r'<xbrli:context id="'
+        + esc
+        + r'">.*?<xbrli:startDate>(\d{4}-\d{2}-\d{2})</xbrli:startDate>'
         r"\s*<xbrli:endDate>(\d{4}-\d{2}-\d{2})</xbrli:endDate>",
         re.DOTALL,
     )
     BR.RE_DATE[cid] = {
-        b: re.compile(r"DateOf" + b + r'OfReportingPeriod contextRef="' + esc + r'"[^>]*>(\d{4}-\d{2}-\d{2})')
+        b: re.compile(
+            r"DateOf" + b + r'OfReportingPeriod contextRef="' + esc + r'"[^>]*>(\d{4}-\d{2}-\d{2})'
+        )
         for b in ("Start", "End")
     }
     for t in BR.TAGS:
         BR.RE_TAG[t][cid] = re.compile(
             r"<in-(?:bse-fin|capmkt):" + t + r' contextRef="' + esc + r'"[^>]*>([-0-9.eE+]+)<'
         )
-    stem = cid.removesuffix("D")
+    stem = cid[:-1] if cid.endswith("D") else cid
     BR.RE_ORFO_CID[cid] = re.compile(r"^" + re.escape(stem) + r"Revenue\d+D$")
 
 
@@ -204,7 +213,9 @@ def main():
         if not os.path.exists(lp):
             continue
         rows = json.load(open(lp))
-        want = [("std", q) for q in targets[sym]["revS"]] + [("con", q) for q in targets[sym]["revC"]]
+        want = [("std", q) for q in targets[sym]["revS"]] + [
+            ("con", q) for q in targets[sym]["revC"]
+        ]
         for basis, qe in want:
             key = "%s|%d|%s" % (sym, qe, basis)
             if key in fills:
@@ -223,7 +234,13 @@ def main():
             for r in rows:
                 sqe = iso_qe(r.get("toDate"))
                 x = r.get("xbrl") or ""
-                if not sqe or sqe <= qe or sqe > qe + 10000 or not x or x.rstrip("/").endswith("/-"):
+                if (
+                    not sqe
+                    or sqe <= qe
+                    or sqe > qe + 10000
+                    or not x
+                    or x.rstrip("/").endswith("/-")
+                ):
                     continue
                 b = "con" if r.get("consolidated") == "Consolidated" else "std"
                 if b != basis:
@@ -260,7 +277,9 @@ def main():
                     rev, op, ebit, pat, owners = BR.metrics_for(xml, cid)
                     anchor = tag = None
                     for v, t in ((owners, "owners"), (pat, "pat")):
-                        if v is not None and abs(v - stored_pat) <= max(2.0, 0.03 * max(abs(v), abs(stored_pat))):
+                        if v is not None and abs(v - stored_pat) <= max(
+                            2.0, 0.03 * max(abs(v), abs(stored_pat))
+                        ):
                             anchor, tag = v, t
                             break
                     if anchor is None:
@@ -269,7 +288,15 @@ def main():
                     if rev is None:
                         why = f"comp:no-rev-tag (ctx {cid} of {fname})"
                         continue
-                    fin = 1 if ("InterestEarned" in xml or "NetPremiumIncome" in xml or "PremiumEarned" in xml) else 0
+                    fin = (
+                        1
+                        if (
+                            "InterestEarned" in xml
+                            or "NetPremiumIncome" in xml
+                            or "PremiumEarned" in xml
+                        )
+                        else 0
+                    )
                     got = {
                         "rev": round(rev, 2),
                         "op": None if op is None else round(op, 2),
@@ -310,8 +337,10 @@ def main():
                     continue
                 got["neighbour_ratio"] = round(ratio, 3)
                 if not (REVIEW_LO <= ratio <= REVIEW_HI):
-                    got["review"] = "{:.2f}x the {}-basis neighbour median ({:.2f} vs {:.2f})".format(
-                        ratio, basis, got["rev"], med
+                    got["review"] = (
+                        "{:.2f}x the {}-basis neighbour median ({:.2f} vs {:.2f})".format(
+                            ratio, basis, got["rev"], med
+                        )
                     )
             fills[key] = got
             nread += 1

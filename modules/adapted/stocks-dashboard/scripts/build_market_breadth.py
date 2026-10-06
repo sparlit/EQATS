@@ -67,7 +67,6 @@ import json
 import os
 from bisect import bisect_right
 from collections import deque
-from datetime import date
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -119,7 +118,10 @@ def main():
     dates = sorted(all_dates)
     didx = {d: i for i, d in enumerate(dates)}
     n = len(dates)
-    print("axis: %d trading days %d..%d (warm-up from %d)" % (n, dates[0], dates[-1], daily_from), flush=True)
+    print(
+        "axis: %d trading days %d..%d (warm-up from %d)" % (n, dates[0], dates[-1], daily_from),
+        flush=True,
+    )
 
     # which membership snapshot applies on each axis date (nearest prior). Guaranteed >= 0 by
     # the axis_from clamp above; assert it rather than trust the clamp silently.
@@ -199,8 +201,7 @@ def main():
     # --- trim: start once the 52w universe is representative; drop glitch dates ---
     start = next((i for i in range(n) if n52[i] >= MIN_UNIVERSE), None)
     if start is None:
-        msg = "breadth universe never reached MIN_UNIVERSE — check inputs"
-        raise SystemExit(msg)
+        raise SystemExit("breadth universe never reached MIN_UNIVERSE — check inputs")
     keep = [i for i in range(start, n) if obs[i] >= MIN_OBS_DATE]
 
     def pick(a):
@@ -209,7 +210,8 @@ def main():
     out = {
         "updated": end_iso,
         "dataEnd": end_iso,
-        "source": "NSE bhavcopy closes (corp-action adjusted), point-in-time Nifty 500; daily era %d+" % daily_from,
+        "source": "NSE bhavcopy closes (corp-action adjusted), point-in-time Nifty 500; daily era %d+"
+        % daily_from,
         "dmaWin": DMA_WIN,
         "hlWin": HL_WIN,
         "dates": pick(dates),
@@ -224,7 +226,11 @@ def main():
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, separators=(",", ":"))
     kb = os.path.getsize(OUT) / 1024.0
-    print("Wrote %s (%.0f KB, %d days %d..%d)" % (OUT, kb, len(keep), out["dates"][0], out["dates"][-1]), flush=True)
+    print(
+        "Wrote %s (%.0f KB, %d days %d..%d)"
+        % (OUT, kb, len(keep), out["dates"][0], out["dates"][-1]),
+        flush=True,
+    )
 
     # --- sanity report ---
     p, dts = out["pct200"], out["dates"]
@@ -244,11 +250,19 @@ def main():
         ),
         flush=True,
     )
-    print("pct200 min %.1f%% on %d | max %.1f%% on %d" % (p[imin], dts[imin], p[imax], dts[imax]), flush=True)
+    print(
+        "pct200 min %.1f%% on %d | max %.1f%% on %d" % (p[imin], dts[imin], p[imax], dts[imax]),
+        flush=True,
+    )
     worst_lo = max(range(len(p)), key=lambda i: out["lo"][i])
     print(
         "most new 52w lows: %d on %d | most new highs: %d on %d"
-        % (out["lo"][worst_lo], dts[worst_lo], max(out["hi"]), dts[max(range(len(p)), key=lambda i: out["hi"][i])]),
+        % (
+            out["lo"][worst_lo],
+            dts[worst_lo],
+            max(out["hi"]),
+            dts[max(range(len(p)), key=lambda i: out["hi"][i])],
+        ),
         flush=True,
     )
 

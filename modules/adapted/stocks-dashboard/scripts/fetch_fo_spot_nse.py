@@ -75,7 +75,12 @@ def main():
                 try:
                     ohlc = [
                         round(float(row[k]), 2)
-                        for k in ("Open Index Value", "High Index Value", "Low Index Value", "Closing Index Value")
+                        for k in (
+                            "Open Index Value",
+                            "High Index Value",
+                            "Low Index Value",
+                            "Closing Index Value",
+                        )
                     ]
                 except (ValueError, KeyError):
                     continue

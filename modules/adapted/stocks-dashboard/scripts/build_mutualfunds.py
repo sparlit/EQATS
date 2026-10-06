@@ -47,7 +47,15 @@ print(f"Building MF dashboard for {len(mf)} schemes...")
 # ---------------------------------------------------------------------------
 import re as _re
 
-GROUP_ORDER = ["Equity", "Hybrid", "Debt", "Index / Other", "Commodities", "Solution Oriented", "Uncategorized"]
+GROUP_ORDER = [
+    "Equity",
+    "Hybrid",
+    "Debt",
+    "Index / Other",
+    "Commodities",
+    "Solution Oriented",
+    "Uncategorized",
+]
 SUB_ORDER = {
     "Equity": [
         "Large Cap",
@@ -211,7 +219,9 @@ print("  Category groups: " + ", ".join(f"{g}={_dist[g]}" for g in GROUP_ORDER i
 raw = json.dumps(mf, separators=(",", ":")).encode()
 gz = gzip.compress(raw, compresslevel=9)
 b64 = base64.b64encode(gz).decode()
-print(f"  Raw {len(raw) / 1024:.1f} KB → gzip {len(gz) / 1024:.1f} KB → b64 {len(b64) / 1024:.1f} KB")
+print(
+    f"  Raw {len(raw) / 1024:.1f} KB → gzip {len(gz) / 1024:.1f} KB → b64 {len(b64) / 1024:.1f} KB"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -234,7 +244,9 @@ if HISTSRC.exists():
     # into the HTML, which forced every first-time visitor to download it all up front.
     hist_gz = base64.b64decode(hist_b64)
     (OUT.parent / "mf_history.bin").write_bytes(hist_gz)
-    print(f"  History: wrote external mf_history.bin ({len(hist_gz) / 1024 / 1024:.1f} MB, lazy-loaded)")
+    print(
+        f"  History: wrote external mf_history.bin ({len(hist_gz) / 1024 / 1024:.1f} MB, lazy-loaded)"
+    )
     # The page needs the covered date span up front to bound the date pickers, but the history
     # itself only loads on first use — so bake the span in here rather than after the fetch.
     _hd = json.loads(gzip.decompress(hist_gz))["dates"]
@@ -893,7 +905,10 @@ document.addEventListener('DOMContentLoaded', () => {
 </html>
 """
 HTML = (
-    HTML.replace("__B64__", b64).replace("__GEN__", gen).replace("__HIST_LO__", hist_lo).replace("__HIST_HI__", hist_hi)
+    HTML.replace("__B64__", b64)
+    .replace("__GEN__", gen)
+    .replace("__HIST_LO__", hist_lo)
+    .replace("__HIST_HI__", hist_hi)
 )
 OUT.write_text(HTML, encoding="utf-8")
 print(f"Wrote {OUT} ({OUT.stat().st_size / 1024:.1f} KB)")

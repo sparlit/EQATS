@@ -72,7 +72,10 @@ EV = (
 
 def main():
     dry = "--apply" not in sys.argv
-    for path in (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json")):
+    for path in (
+        os.path.join(ROOT, "docs", "sf_revop.json"),
+        os.path.join(SCRIPTS, "revop_fundamentals.json"),
+    ):
         d = json.load(open(path))
         row = d.get(SYM, {}).get(QE)
         if not row:

@@ -27,7 +27,6 @@ Counts every missing std/con net-profit cell 20020331..20141231 for _full_union_
 resolved to current symbols. Reports how much data already exists vs must be fetched.
 Writes _wf_gaps_0214.json + _wf_bins_0214.json (NOT the live loop's files)."""
 import json
-import os
 
 data = json.load(open("../docs/sf_fundamentals.json"))
 rmap = json.load(open("_rename_map.json"))

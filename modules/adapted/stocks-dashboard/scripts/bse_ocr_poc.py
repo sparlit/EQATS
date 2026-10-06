@@ -43,7 +43,6 @@ the announcement-attachment route instead (fetch_insurers.py / fetch_bse_fund.py
 """
 import gzip
 import io
-import json
 import os
 import re
 import sys
@@ -119,7 +118,7 @@ def extract(sym, code):
     z = zipfile.ZipFile(io.BytesIO(get("https://www.bseindia.com" + link, b=True)))
     pdfs = [n for n in z.namelist() if n.lower().endswith(".pdf") and "present" not in n.lower()]
     pick = (
-        next((n for n in pdfs if re.search(r"standalone|\bsa\b", n, re.IGNORECASE)), None)
+        next((n for n in pdfs if re.search(r"standalone|\bsa\b", n, re.I)), None)
         or next((n for n in pdfs if "financ" in n.lower() or "result" in n.lower()), None)
         or (pdfs[0] if pdfs else None)
     )
@@ -132,19 +131,22 @@ def extract(sym, code):
         res, _ = OCR(png)
         if not res:
             continue
-        boxes = [{"t": t, "x": sum(p[0] for p in b) / 4, "y": sum(p[1] for p in b) / 4} for b, t, sc in res]
+        boxes = [
+            {"t": t, "x": sum(p[0] for p in b) / 4, "y": sum(p[1] for p in b) / 4}
+            for b, t, sc in res
+        ]
         unit = (
             0.01
-            if any(re.search(r"in lakh", bx["t"], re.IGNORECASE) for bx in boxes)
-            else (1.0 if any(re.search(r"in crore", bx["t"], re.IGNORECASE) for bx in boxes) else None)
+            if any(re.search(r"in lakh", bx["t"], re.I) for bx in boxes)
+            else (1.0 if any(re.search(r"in crore", bx["t"], re.I) for bx in boxes) else None)
         )
         lbl = None
         for pat in PAT:
             cand = [
                 bx
                 for bx in boxes
-                if re.search(pat, bx["t"], re.IGNORECASE)
-                and not re.search(r"before tax|comprehensive|exceptional", bx["t"], re.IGNORECASE)
+                if re.search(pat, bx["t"], re.I)
+                and not re.search(r"before tax|comprehensive|exceptional", bx["t"], re.I)
             ]
             if cand:
                 lbl = cand[0]
@@ -156,16 +158,26 @@ def extract(sym, code):
         nums = [n for n in nums if n is not None]
         open(f"_ocr_{sym}.png", "wb").write(png)
         cr = (nums[0] * unit) if (nums and unit) else None
-        return (sym, code, qlabel, cr, lbl["t"][:42], ("Lakh" if unit == 0.01 else "Crore" if unit == 1 else "?"))
+        return (
+            sym,
+            code,
+            qlabel,
+            cr,
+            lbl["t"][:42],
+            ("Lakh" if unit == 0.01 else "Crore" if unit == 1 else "?"),
+        )
     return (sym, code, qlabel, None, "no PAT label found", None)
 
 
 def main():
     syms = [s for s in INSURERS if not sys.argv[1:] or s[0] in sys.argv[1:]]
-    print("%-12s %-8s %-10s %-14s %-6s %s" % ("SYMBOL", "SCRIP", "FY", "NETPROFIT(cr)", "UNIT", "MATCHED LABEL"))
+    print(
+        "%-12s %-8s %-10s %-14s %-6s %s"
+        % ("SYMBOL", "SCRIP", "FY", "NETPROFIT(cr)", "UNIT", "MATCHED LABEL")
+    )
     for sym, code in syms:
         try:
-            _s, _c, q, cr, lbl, unit = extract(sym, code)
+            s, c, q, cr, lbl, unit = extract(sym, code)
             print(
                 "%-12s %-8d %-10s %-14s %-6s %s"
                 % (sym, code, q, (f"{cr:.2f}") if cr is not None else "FAIL", unit or "-", lbl)
@@ -177,7 +189,6 @@ def main():
             return 1
         except Exception as e:
             print("%-12s %-8d ERROR %s" % (sym, code, str(e)[:50]))
-    return None
 
 
 if __name__ == "__main__":

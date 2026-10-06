@@ -47,17 +47,16 @@ Run:  python -X utf8 scripts/fetch_bse_bhav.py [--since YYYYMMDD] [--days N] [--
 import os as _o
 import sys as _s
 
-_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
-import bse_headers as BH  # §181 BSE headers
-import os
-import sys
-import json
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))  # §181 BSE headers
+import bisect
+import csv
+import datetime
 import gzip
 import io
-import csv
+import json
+import os
+import sys
 import time
-import datetime
-import bisect
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bse_fetch as B
@@ -112,7 +111,13 @@ def save_seen():
     for code, row in SEEN.items():
         if code not in cur or row[4] >= cur[code][4]:
             cur[code] = row
-    json.dump(cur, open(SEEN_OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    json.dump(
+        cur,
+        open(SEEN_OUT, "w", encoding="utf-8"),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
 
 
 def save_prices(d):
@@ -218,7 +223,7 @@ def day_closes(op, d):
         raw = B.get(op, BHAV % ymd, b=True)
     except Exception:
         return None
-    if not raw or raw[:2] == b"<!" or (raw[:2] == b"PK" and b"html" in raw[:200].lower()):
+    if not raw or raw[:2] == b"<!" or raw[:2] == b"PK" and b"html" in raw[:200].lower():
         return None
     try:
         rd = csv.DictReader(io.StringIO(raw.decode("utf8", "ignore")))
@@ -266,7 +271,9 @@ def main():
     if "--since" in sys.argv:
         start = datetime.datetime.strptime(sys.argv[sys.argv.index("--since") + 1], "%Y%m%d").date()
     elif data["end"]:
-        start = datetime.datetime.strptime(str(data["end"]), "%Y%m%d").date() + datetime.timedelta(days=1)
+        start = datetime.datetime.strptime(str(data["end"]), "%Y%m%d").date() + datetime.timedelta(
+            days=1
+        )
     else:
         ndays = int(sys.argv[sys.argv.index("--days") + 1]) if "--days" in sys.argv else 400
         start = today - datetime.timedelta(days=ndays)
@@ -390,7 +397,11 @@ def main():
     catch = data.setdefault("catchup", {})
     fresh = sorted(c for c in codes if c not in px and c not in catch)
     if fresh:
-        cdays = int(sys.argv[sys.argv.index("--catchup-days") + 1]) if "--catchup-days" in sys.argv else 180
+        cdays = (
+            int(sys.argv[sys.argv.index("--catchup-days") + 1])
+            if "--catchup-days" in sys.argv
+            else 180
+        )
         earliest = min((s["d"][0] for s in px.values() if s["d"]), default=None)
         lo = today - datetime.timedelta(days=cdays)
         if earliest:
@@ -436,13 +447,22 @@ def main():
     # converge to the floor over time WITHOUT re-fetching the days already stored above it.
     if "--backfill-floor" in sys.argv:
         bf_floor = int(sys.argv[sys.argv.index("--backfill-floor") + 1])
-        bf_days = int(sys.argv[sys.argv.index("--backfill-days") + 1]) if "--backfill-days" in sys.argv else 90
+        bf_days = (
+            int(sys.argv[sys.argv.index("--backfill-days") + 1])
+            if "--backfill-days" in sys.argv
+            else 90
+        )
         floor_date = datetime.date(bf_floor // 10000, bf_floor // 100 % 100, bf_floor % 100)
         cur = min((s["d"][0] for s in px.values() if s["d"]), default=None)
         if cur is None or cur <= bf_floor:
-            print("  backfill: nothing to do (floor %d already reached; earliest=%s)" % (bf_floor, cur))
+            print(
+                "  backfill: nothing to do (floor %d already reached; earliest=%s)"
+                % (bf_floor, cur)
+            )
         else:
-            d = datetime.date(cur // 10000, cur // 100 % 100, cur % 100) - datetime.timedelta(days=1)
+            d = datetime.date(cur // 10000, cur // 100 % 100, cur % 100) - datetime.timedelta(
+                days=1
+            )
             scanned = added = 0
             while d >= floor_date and scanned < bf_days:
                 scanned += 1
@@ -473,7 +493,10 @@ def main():
                             time.sleep(0.2)
                 time.sleep(0.15)
                 d -= datetime.timedelta(days=1)
-            print("  backfill: scanned %d calendar days below %d, added %d trading days" % (scanned, cur, added))
+            print(
+                "  backfill: scanned %d calendar days below %d, added %d trading days"
+                % (scanned, cur, added)
+            )
 
     data["end"] = last
     save_prices(data)  # closes are safe on disk before the delivery pass touches anything

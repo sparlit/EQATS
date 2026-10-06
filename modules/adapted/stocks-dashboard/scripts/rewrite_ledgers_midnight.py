@@ -61,7 +61,9 @@ def parse_ts(ts):
     m = TS_RE.match(str(ts or ""))
     if not m:
         return None, None
-    return int(m.group(1)) * 10000 + int(m.group(2)) * 100 + int(m.group(3)), int(m.group(4)) * 60 + int(m.group(5))
+    return int(m.group(1)) * 10000 + int(m.group(2)) * 100 + int(m.group(3)), int(
+        m.group(4)
+    ) * 60 + int(m.group(5))
 
 
 def legacy(d, mins):
@@ -102,7 +104,11 @@ def rewrite_shp(path, apply):
         target = None
         if sub == legacy(d, mins) or (e.get("gated_1530") and 0 < (dt(sub) - dt(d)).days <= 4):
             target = d
-        elif e.get("gated_1530") and isinstance(e.get("was"), int) and 0 < (dt(sub) - dt(e["was"])).days <= 4:
+        elif (
+            e.get("gated_1530")
+            and isinstance(e.get("was"), int)
+            and 0 < (dt(sub) - dt(e["was"])).days <= 4
+        ):
             target = e["was"]
             c["rewritten_to_was"] += 1
         if target is not None:
@@ -118,7 +124,9 @@ def rewrite_shp(path, apply):
         else:
             c["anomaly_untouched"] += 1
             if len(samples["anomaly"]) < 4:
-                samples["anomaly"].append((k, {x: e.get(x) for x in ("sub", "was", "ts", "src", "prov")}))
+                samples["anomaly"].append(
+                    (k, {x: e.get(x) for x in ("sub", "was", "ts", "src", "prov")})
+                )
     print(f"{os.path.basename(path)}: {dict(c)}")
     for kind, s in samples.items():
         for x in s:
@@ -131,7 +139,9 @@ def rewrite_shp(path, apply):
 # A reviewer's note links the BSE timestamp to the date it stamped with an arrow, in a few spellings:
 #   "NEWS_DT 2018-05-28T20:46:06.323 -> gated 20180529"      "Sat 2022-11-12T12:55 -> Mon 20221114"
 #   "2025-05-29T16:49 post-close -> 2025-05-30"              — timestamp, ≤60 chars, "->", optional word, date
-EXACT_RE = re.compile(r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})[^\n]{0,60}?->\s*(?:[A-Za-z]+\s+)?(\d{4})-?(\d{2})-?(\d{2})\b")
+EXACT_RE = re.compile(
+    r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})[^\n]{0,60}?->\s*(?:[A-Za-z]+\s+)?(\d{4})-?(\d{2})-?(\d{2})\b"
+)
 
 
 def month_end_evidence():
@@ -168,7 +178,10 @@ def rewrite_ann_fills(path, apply):
         if e.get("rule") == RULE:
             c["already"] += 1
             continue
-        hits = [(ts, int(y + m + dd)) for ts, y, m, dd in EXACT_RE.findall(json.dumps(e, ensure_ascii=False))]
+        hits = [
+            (ts, int(y + m + dd))
+            for ts, y, m, dd in EXACT_RE.findall(json.dumps(e, ensure_ascii=False))
+        ]
         mine = [ts for ts, g in hits if g == ann]
         if not mine:
             # Pass 2 — no arrow in the note: use the month-end BSE evidence (only the month-end class can
@@ -186,9 +199,13 @@ def rewrite_ann_fills(path, apply):
                     e["ann_1530"] = ann
                     e["ann"] = me
                     e["rule"] = RULE
-                    e["evidence_1530"] = "BSE Result broadcasts on %d all after 15:30 (filing_times_cache)" % me
+                    e["evidence_1530"] = (
+                        "BSE Result broadcasts on %d all after 15:30 (filing_times_cache)" % me
+                    )
                 continue
-            c["no_arrow_in_note_left_as_is" if not hits else "note_ts_for_other_date_left_as_is"] += 1
+            c[
+                "no_arrow_in_note_left_as_is" if not hits else "note_ts_for_other_date_left_as_is"
+            ] += 1
             if len(samples["unmatched"]) < 3:
                 samples["unmatched"].append((k, ann, str(e.get("src"))[:160]))
             continue
@@ -221,7 +238,7 @@ def rewrite_bse_fills(path, apply):
     L = json.load(open(path, encoding="utf-8"))
     c = collections.Counter()
     for e in L:
-        d, _mins = parse_ts(e.get("filed"))
+        d, mins = parse_ts(e.get("filed"))
         ann = e.get("ann")
         if d is None or not isinstance(ann, int):
             c["no_ts"] += 1

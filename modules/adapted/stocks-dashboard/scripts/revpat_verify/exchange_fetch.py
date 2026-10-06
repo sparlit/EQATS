@@ -128,7 +128,9 @@ def _cache_path(name):
 # --------------------------------------------------------------------------------------------
 # ROUTE 1 -- BSE detailed-results JSON (standalone only)
 # --------------------------------------------------------------------------------------------
-BSE_API = "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w?scrip_cd=%s&qtr=%s"
+BSE_API = (
+    "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w?scrip_cd=%s&qtr=%s"
+)
 
 
 def bse_qid(qe):
@@ -166,7 +168,9 @@ def _bse_scrip_master():
             data = r.read()
         js = json.loads(data.decode("utf-8", "replace"))
         if len(js) < 4000:  # §0 rate-limit-stub guard: a healthy pull is ~4,900 rows
-            raise RuntimeError("bse-scrip-master suspiciously small (%d rows) -- rate limit stub?" % len(js))
+            raise RuntimeError(
+                "bse-scrip-master suspiciously small (%d rows) -- rate limit stub?" % len(js)
+            )
         open(path, "w", encoding="utf-8").write(json.dumps(js))
     js = json.loads(open(path, encoding="utf-8").read())
     return {row["scrip_id"].strip().upper(): row["SCRIP_CD"] for row in js if row.get("scrip_id")}
@@ -221,16 +225,20 @@ def _qe_of(ymd_tuple):
 def bse_read(symbol, qe, basis, source_url_holder):
     """route 1. Only ever answers basis='std' -- see module docstring / capability_card.md §A."""
     if basis == "con":
-        return None, (
+        return (
+            None,
             "route-does-not-serve-consolidated (measured: no working consolidated "
-            "variant found for Corp_detailedResult_Transpose_ng -- capability_card.md §A)"
+            "variant found for Corp_detailedResult_Transpose_ng -- capability_card.md §A)",
         )
     q = bse_qid(qe)
     if not q:
         return None, "qe-not-a-quarter-end-month-or-outside-detres-id-range"
     scrip = resolve_bse_scrip(symbol)
     if not scrip:
-        return None, "no-bse-scrip-code (active-equity master only; delisted names unresolved -- not attempted)"
+        return (
+            None,
+            "no-bse-scrip-code (active-equity master only; delisted names unresolved -- not attempted)",
+        )
     url = BSE_API % (scrip, q)
     source_url_holder.append(url)
     try:
@@ -239,7 +247,10 @@ def bse_read(symbol, qe, basis, source_url_holder):
         return None, f"fetch-error:{type(ex).__name__}"
     t1 = rows.get("table1") or []
     if not t1:
-        return None, "empty-table1 (no filing at this scrip_cd/qid, or a 162-byte-style rate-limit stub)"
+        return (
+            None,
+            "empty-table1 (no filing at this scrip_cd/qid, or a 162-byte-style rate-limit stub)",
+        )
     f = {}
     for row in t1:
         d = (row.get("fld_desc") or "").strip()
@@ -339,7 +350,9 @@ def _nse_list_fetch(symbol):
     url = NSE_LIST_API % urllib.parse.quote(symbol.upper(), safe="")
     r = s.get(
         url,
-        headers={"Referer": "https://www.nseindia.com/companies-listing/corporate-filings-financial-results"},
+        headers={
+            "Referer": "https://www.nseindia.com/companies-listing/corporate-filings-financial-results"
+        },
         timeout=20,
     )
     if r.status_code in (401, 403, 429):
@@ -400,7 +413,9 @@ def nse_read(symbol, qe, basis, source_url_holder):
             "ANY basis -- xbrl may be a placeholder '/-', or this basis was simply not "
             "filed)" % (basis, n_any_basis)
         )
-    cands.sort(key=lambda r: r.get("filingDate") or "", reverse=True)  # latest filing wins (revisions)
+    cands.sort(
+        key=lambda r: r.get("filingDate") or "", reverse=True
+    )  # latest filing wins (revisions)
     last_reason = None
     for r in cands:
         url = r["xbrl"]
@@ -449,7 +464,9 @@ def nse_read(symbol, qe, basis, source_url_holder):
                 if nat is None or ("consol" in nat) == want_con:
                     chosen_ctx = "OneD"
                     nat_used = (
-                        nat if nat is not None else f"(untagged in OneD; trusting list row's own declared {basis})"
+                        nat
+                        if nat is not None
+                        else f"(untagged in OneD; trusting list row's own declared {basis})"
                     )
         if chosen_ctx is None:
             fourd_note = ""
@@ -461,7 +478,7 @@ def nse_read(symbol, qe, basis, source_url_holder):
                 )
             last_reason = f"OneD-does-not-confirm-3mo+basis-{basis}-in-{fname}{fourd_note}"
             continue
-        rev, _op, _ebit, pat_total, pat_owners = BR.metrics_for(xml, chosen_ctx)
+        rev, op, ebit, pat_total, pat_owners = BR.metrics_for(xml, chosen_ctx)
         if rev is None and pat_total is None and pat_owners is None:
             last_reason = f"no-usable-tags-in-chosen-context:{chosen_ctx}"
             continue
@@ -469,18 +486,21 @@ def nse_read(symbol, qe, basis, source_url_holder):
             pat, pat_src = (
                 (
                     pat_owners,
-                    (
-                        "owners-attributable (ProfitOrLossAttributableToOwnersOfParent "
-                        "or bank ProfitLossAfterTaxesMinorityInterestAndShareOfProfitLossOfAssociates)"
-                    ),
+                    "owners-attributable (ProfitOrLossAttributableToOwnersOfParent "
+                    "or bank ProfitLossAfterTaxesMinorityInterestAndShareOfProfitLossOfAssociates)",
                 )
                 if pat_owners is not None
-                else (pat_total, ("period-total (owners tag absent -- NOT owners-attributable, flagged)"))
+                else (
+                    pat_total,
+                    "period-total (owners tag absent -- NOT owners-attributable, flagged)",
+                )
             )
         else:
             pat, pat_src = pat_total, "period-total (== owners for standalone: no NCI)"
         if pat is not None and abs(pat) < 1e-9:
-            last_reason = f"blank-zero-PAT-in-{chosen_ctx}-context (template row, not a result -- §53b.1)"
+            last_reason = (
+                f"blank-zero-PAT-in-{chosen_ctx}-context (template row, not a result -- §53b.1)"
+            )
             continue
         if pat is None:
             last_reason = "no-PAT-tag-in-chosen-context"
@@ -491,7 +511,11 @@ def nse_read(symbol, qe, basis, source_url_holder):
             parsed = BR.parse_file(_cache_path(fname), fname)
             slot = (parsed or {}).get("con" if want_con else "std")
             if slot:
-                nightly_pat = slot.get("owners") if want_con and slot.get("owners") is not None else slot.get("pat")
+                nightly_pat = (
+                    slot.get("owners")
+                    if want_con and slot.get("owners") is not None
+                    else slot.get("pat")
+                )
                 nightly = {"rev": slot.get("rev"), "pat": nightly_pat}
         except Exception:
             pass

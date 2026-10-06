@@ -57,7 +57,11 @@ Q2018 = [20180331, 20180630, 20180930, 20181231]
 
 
 def main():
-    qes = {int(q) for q in sys.argv[sys.argv.index("--qe") + 1].split(",")} if "--qe" in sys.argv else set(Q2018)
+    qes = (
+        {int(q) for q in sys.argv[sys.argv.index("--qe") + 1].split(",")}
+        if "--qe" in sys.argv
+        else set(Q2018)
+    )
     band = float(sys.argv[sys.argv.index("--band") + 1]) if "--band" in sys.argv else 3.0
     targets = json.load(open(TARGETS))
     revop = json.load(open(REVOP))

@@ -74,7 +74,8 @@ def main():
         cur[sym] = {"name": m.get("name"), "industry": m.get("industry") or m.get("sector")}
     if not cur:
         sys.exit(
-            f"ABORT: currently-listed universe ({slim_path} meta) came out EMPTY — refusing to mark every symbol dead."
+            f"ABORT: currently-listed universe ({slim_path} meta) came out EMPTY — refusing to mark "
+            "every symbol dead."
         )
     print("currently-listed universe: %d symbols (from %s)" % (len(cur), slim_path))
 
@@ -85,7 +86,11 @@ def main():
     # deliberately frozen snapshot isn't declared dead wholesale (§11 / §94).
     cut = B.alive_cutoff(big.get("end"))
     if cut is None:
-        sys.exit("ABORT: bin has no usable `end` ({!r}) — cannot judge series freshness.".format(big.get("end")))
+        sys.exit(
+            "ABORT: bin has no usable `end` ({!r}) — cannot judge series freshness.".format(
+                big.get("end")
+            )
+        )
     print(
         "alive also requires a bar on/after %d (%dd before the bin's end %s)"
         % (cut, B.ALIVE_RECENCY_DAYS, big.get("end"))
@@ -110,7 +115,8 @@ def main():
     after_alive = sum(1 for m in meta.values() if m.get("alive"))
     print(
         "meta entries: %d   changed: %d   alive before: %d   alive after: %d   "
-        "(in dash_slim but series stale -> dead: %d)" % (len(meta), changed, before_alive, after_alive, n_stale)
+        "(in dash_slim but series stale -> dead: %d)"
+        % (len(meta), changed, before_alive, after_alive, n_stale)
     )
     # Sanity circuit-breaker. It guards ONE failure mode — the empty/degenerate `cur` this script
     # exists to undo — so it must measure the MEMBERSHIP half, not the final alive count. Those are
@@ -122,7 +128,8 @@ def main():
     if matched < len(meta) * 0.5:
         sys.exit(
             "ABORT: only %d/%d bin symbols matched the currently-listed universe (<50%%) — "
-            "suspiciously low, refusing to write. Investigate before re-running." % (matched, len(meta))
+            "suspiciously low, refusing to write. Investigate before re-running."
+            % (matched, len(meta))
         )
 
     blob = gzip.compress(json.dumps(big, separators=(",", ":")).encode(), 6)

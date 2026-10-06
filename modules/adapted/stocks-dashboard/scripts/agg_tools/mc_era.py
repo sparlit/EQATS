@@ -239,7 +239,16 @@ def main():
         if (i + 1) % 25 == 0 or i == len(syms) - 1:
             print(
                 "[%3d/%3d] %-12s gaps=%-3d have=%-3d  (%.0fs)  running %d/%d"
-                % (i + 1, len(syms), sym, rec["gaps"], rec.get("have", 0), time.time() - t0, tot_hit, tot_gap)
+                % (
+                    i + 1,
+                    len(syms),
+                    sym,
+                    rec["gaps"],
+                    rec.get("have", 0),
+                    time.time() - t0,
+                    tot_hit,
+                    tot_gap,
+                )
             )
             sys.stdout.flush()
             json.dump(res, open(a.out, "w"), indent=1, sort_keys=True)

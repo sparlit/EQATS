@@ -195,6 +195,11 @@ BASIS_KEYED = [
     ("con_nofile_retractions.json", "revop", "was", {"opC": 3}),
     ("con_nofile_retractions.json", "revop", "was", {"patC": 5}),
     ("con_nofile_retractions.json", "revop", "was", {"ebitC": 8}),
+    # §213 (2026-09-28): operating profit / EBIT written into EMPTY slots of SME rows proven to be half-years, from the
+    # filing whose first column is the half (fill_sme_halfyear_pnl.py). Keys "SYM|QE|std|con"; an entry carries op / ebit
+    # only when that script wrote it. Registered at creation.
+    ("sme_halfyear_fills.json", "revop", "op", {"std": 2, "con": 3}),
+    ("sme_halfyear_fills.json", "revop", "ebit", {"std": 7, "con": 8}),
 ]
 # "revS"/"revC" are accepted as basis tokens alongside "std"/"con": several ledgers key their third
 # part by FIELD rather than by BASIS, and the loop below silently `continue`s on any token it cannot
@@ -248,7 +253,10 @@ def main():
     reverted = []
 
     def live_value(payload, sym, qe, slot):
-        row = (revop.get(sym) or {}).get(str(qe)) if payload == "revop" else (fmap.get(sym) or {}).get(int(qe))
+        if payload == "revop":
+            row = (revop.get(sym) or {}).get(str(qe))
+        else:
+            row = (fmap.get(sym) or {}).get(int(qe))
         return row[slot] if row and len(row) > slot else None
 
     for entry in BASIS_KEYED:
@@ -330,7 +338,16 @@ def main():
         (
             "revop_cell_fix.json",
             "revop",
-            {"std": 0, "con": 1, "op_std": 2, "op_con": 3, "pat_std": 4, "pat_con": 5, "ebit_std": 7, "ebit_con": 8},
+            {
+                "std": 0,
+                "con": 1,
+                "op_std": 2,
+                "op_con": 3,
+                "pat_std": 4,
+                "pat_con": 5,
+                "ebit_std": 7,
+                "ebit_con": 8,
+            },
         ),
     ):
         p3 = os.path.join(HERE, name)
@@ -345,11 +362,17 @@ def main():
             sym, qe, want = f.get("sym"), str(f.get("qe")), f.get("fixed")
             if slot is None or sym is None or qe is None:
                 continue
-            row = (revop.get(sym) or {}).get(qe) if payload == "revop" else (fmap.get(sym) or {}).get(int(qe))
+            row = (
+                (revop.get(sym) or {}).get(qe)
+                if payload == "revop"
+                else (fmap.get(sym) or {}).get(int(qe))
+            )
             cur = row[slot] if row and len(row) > slot else None
             if want is None:  # a null `fixed` is a RETRACTION: asserts absence
                 if cur is not None:
-                    resurrected.append((name, sym, qe, f.get("basis"), cur, "ledger retracts this cell"))
+                    resurrected.append(
+                        (name, sym, qe, f.get("basis"), cur, "ledger retracts this cell")
+                    )
                 continue
             checked += 1
             if cur is None:
@@ -413,10 +436,16 @@ def main():
         print("checked %d ledgered cells against the served payloads" % checked)
         print("  MISSING     (clobbered):            %d" % len(missing))
         print("  DRIFT       (superseded/corrected): %d" % len(drift))
-        print("  REVERTED    (a correction was undone — the payload holds the ledger's `was`): %d" % len(reverted))
+        print(
+            "  REVERTED    (a correction was undone — the payload holds the ledger's `was`): %d"
+            % len(reverted)
+        )
         print("  RESURRECTED (a refused value is live again): %d" % len(resurrected))
         if odd_keys:
-            print("  skipped %d non-quarter ledger key(s) — retracted/annotation entries, not claims:" % len(odd_keys))
+            print(
+                "  skipped %d non-quarter ledger key(s) — retracted/annotation entries, not claims:"
+                % len(odd_keys)
+            )
             for k in odd_keys[:8]:
                 print(f"     skip    {k}")
         for m in missing[:15]:
@@ -458,7 +487,10 @@ def main():
                 row[slot] = want
         json.dump(revop, open(REVOP, "w"), separators=(",", ":"))
         json.dump(fund, open(FUND, "w"), separators=(",", ":"))
-        print("repaired %d cells into the served payloads (commit + push them, then re-run to confirm)" % len(missing))
+        print(
+            "repaired %d cells into the served payloads "
+            "(commit + push them, then re-run to confirm)" % len(missing)
+        )
 
     # Reverted cells ARE safely repairable — unlike DRIFT, the ledger's own `was` proves nobody
     # adjudicated a different number, they were simply overwritten with the value the correction
@@ -466,12 +498,19 @@ def main():
     # overwrites a populated one, and those deserve separate consent.
     if reverted and "--repair-reverted" in sys.argv:
         for name, sym, qe, basis, prev, want, payload, slot in reverted:
-            row = (revop.get(sym) or {}).get(str(qe)) if payload == "revop" else (fmap.get(sym) or {}).get(int(qe))
+            row = (
+                (revop.get(sym) or {}).get(str(qe))
+                if payload == "revop"
+                else (fmap.get(sym) or {}).get(int(qe))
+            )
             if row and len(row) > slot and row[slot] is not None and abs(row[slot] - prev) <= TOL:
                 row[slot] = want
         json.dump(revop, open(REVOP, "w"), separators=(",", ":"))
         json.dump(fund, open(FUND, "w"), separators=(",", ":"))
-        print("restored %d reverted cells from the ledgers (commit + push, then re-run)" % len(reverted))
+        print(
+            "restored %d reverted cells from the ledgers (commit + push, then re-run)"
+            % len(reverted)
+        )
 
     # Emptying a slot is destructive and a held flag can itself be wrong (measured: of the three
     # holds another session added on 2026-08-11, SHREECEM 2018-06 was refuted by Moneycontrol's own
@@ -479,11 +518,23 @@ def main():
     # of --repair; it needs its own flag, and the operator is expected to have read the held reason.
     if resurrected and "--repair-held" in sys.argv:
         for name, sym, qe, basis, want, _why in resurrected:
-            for payload, slot in (("revop", BASIS_SLOT.get(basis)), ("fund", {"std": 1, "con": 3}.get(basis))):
+            for payload, slot in (
+                ("revop", BASIS_SLOT.get(basis)),
+                ("fund", {"std": 1, "con": 3}.get(basis)),
+            ):
                 if slot is None:
                     continue
-                row = (revop.get(sym) or {}).get(str(qe)) if payload == "revop" else (fmap.get(sym) or {}).get(int(qe))
-                if row and len(row) > slot and row[slot] is not None and abs(row[slot] - want) <= TOL:
+                row = (
+                    (revop.get(sym) or {}).get(str(qe))
+                    if payload == "revop"
+                    else (fmap.get(sym) or {}).get(int(qe))
+                )
+                if (
+                    row
+                    and len(row) > slot
+                    and row[slot] is not None
+                    and abs(row[slot] - want) <= TOL
+                ):
                     row[slot] = None
         json.dump(revop, open(REVOP, "w"), separators=(",", ":"))
         json.dump(fund, open(FUND, "w"), separators=(",", ":"))
@@ -503,7 +554,9 @@ def main():
             for _l in lines:
                 print(_l)
     except Exception as e:  # never let the guard wedge the detector it rides on
-        print(f"  (phantom-key guard errored: {type(e).__name__}: {e} — run scripts/phantom_key_guard.py by hand)")
+        print(
+            f"  (phantom-key guard errored: {type(e).__name__}: {e} — run scripts/phantom_key_guard.py by hand)"
+        )
 
     sys.exit(1 if (missing or resurrected or not phantom_ok) else 0)
 

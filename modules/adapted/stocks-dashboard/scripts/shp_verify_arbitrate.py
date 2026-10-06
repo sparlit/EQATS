@@ -73,7 +73,9 @@ def load_hist(pin):
     import subprocess
 
     r = subprocess.run(
-        ["git", "show", f"{pin}:scripts/shp_history.json"], capture_output=True, cwd=os.path.dirname(HERE)
+        ["git", "show", f"{pin}:scripts/shp_history.json"],
+        capture_output=True,
+        cwd=os.path.dirname(HERE),
     )
     if r.returncode:
         sys.exit(f"cannot read shp_history.json at {pin}")
@@ -99,7 +101,10 @@ def bse_quarters(code, cache):
         return cache[code]
     import urllib.request
 
-    url = f"https://api.bseindia.com/BseIndiaAPI/api/SHPQNewFormat/w?scripcode={code}&qtrid=0.00&QryType=0"
+    url = (
+        "https://api.bseindia.com/BseIndiaAPI/api/SHPQNewFormat/w"
+        f"?scripcode={code}&qtrid=0.00&QryType=0"
+    )
     try:
         req = urllib.request.Request(url, headers=BH.HEADERS)  # honest BSE header set (§181)
         rows = json.loads(urllib.request.urlopen(req, timeout=45).read()).get("Table", [])
@@ -115,7 +120,7 @@ def bse_quarters(code, cache):
         for m, dd in MON.items():
             if q.startswith(m):
                 with contextlib.suppress(Exception):
-                    out[f"{q.rsplit(maxsplit=1)[-1]}-{dd}"] = r
+                    out[f"{q.split()[-1]}-{dd}"] = r
     cache[code] = out
     time.sleep(2.0)
     return out
@@ -141,7 +146,9 @@ def main():
     ap.add_argument("--pin", default="93de247c")
     ap.add_argument("--limit", type=int, default=0, help="max cells to arbitrate (0 = all)")
     ap.add_argument(
-        "--include-confirmed", action="store_true", help="also re-check cells the sites already confirmed (spot-audit)"
+        "--include-confirmed",
+        action="store_true",
+        help="also re-check cells the sites already confirmed (spot-audit)",
     )
     a = ap.parse_args()
 
@@ -182,10 +189,16 @@ def main():
             HIST.get(sym, {}).get(qe)
             filed, rung, evid, subs = None, "", "", []
 
-            hits = [h for h in by_sym.get(sym.upper(), []) if str(h.get("xbrl") or "").startswith("http")]
+            hits = [
+                h
+                for h in by_sym.get(sym.upper(), [])
+                if str(h.get("xbrl") or "").startswith("http")
+            ]
             if hits:
                 subs = [str(h.get("submissionDate")) for h in hits]
-                hits.sort(key=lambda h: str(h.get("submissionDate") or ""))  # newest submission wins
+                hits.sort(
+                    key=lambda h: str(h.get("submissionDate") or "")
+                )  # newest submission wins
                 try:
                     filed = F.parse_shp(F.fetch_xbrl(hits[-1]["xbrl"], jar), qe)
                     rung, evid = "nse", hits[-1]["xbrl"]
@@ -197,7 +210,10 @@ def main():
                     try:
                         filed = F.parse_shp(bse_fetch(q["XbrlFile"].strip()), qe)
                         rung = "bse"
-                        evid = "https://www.bseindia.com/XBRLFILES/SHPXBRLDataXML/" + q["XbrlFile"].strip()
+                        evid = (
+                            "https://www.bseindia.com/XBRLFILES/SHPXBRLDataXML/"
+                            + q["XbrlFile"].strip()
+                        )
                     except Exception as e:
                         print(f"     {sym} {qe} bse failed: {e}")
 
@@ -225,7 +241,11 @@ def main():
                     else:
                         band = TOL if f != "nsh" else max(1.0, 0.01 * abs(float(r["ours"])))
                         same = abs(float(fv) - float(r["ours"])) <= band
-                        rec["verdict"] = "OURS_CONFIRMED" if same else ("REVISION" if len(subs) > 1 else "OURS_WRONG")
+                        rec["verdict"] = (
+                            "OURS_CONFIRMED"
+                            if same
+                            else ("REVISION" if len(subs) > 1 else "OURS_WRONG")
+                        )
                 out.append(rec)
             done += 1
         if a.limit and done >= a.limit:

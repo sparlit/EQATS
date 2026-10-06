@@ -115,7 +115,9 @@ check(
 
 # 5. strict path unchanged: a normal one-page consolidated BS
 pdf = mkpdf(
-    YE, "Consolidated Balance Sheet as at 31 March 2025\nTotal assets 100\nTrade payables 5\nTotal equity 60", CF_CON
+    YE,
+    "Consolidated Balance Sheet as at 31 March 2025\nTotal assets 100\nTrade payables 5\nTotal equity 60",
+    CF_CON,
 )
 r = F.locate(pdf, 2025)
 check("strict single-page consolidated BS unchanged", r == ("c", [1], 2))
@@ -130,7 +132,8 @@ pdf = mkpdf(
 )
 r = F.locate(pdf, 2025, "s")
 check(
-    "want_basis='s' -> standalone BS + standalone CF", r is not None and r[0] == "s" and list(r[1]) == [1] and r[2] == 2
+    "want_basis='s' -> standalone BS + standalone CF",
+    r is not None and r[0] == "s" and list(r[1]) == [1] and r[2] == 2,
 )
 r = F.locate(pdf, 2025, "c")
 check(
@@ -201,7 +204,10 @@ pdf = mkpdf(
     "Statement of Cash Flows for the year ended 31 March 2025\nNet cash from operating activities 90",
 )
 r = F.locate(pdf, 2025)
-check("single-basis filing: an unlabelled cash-flow page still pairs with the consolidated BS", r == ("c", [1], 2))
+check(
+    "single-basis filing: an unlabelled cash-flow page still pairs with the consolidated BS",
+    r == ("c", [1], 2),
+)
 
 # 9. not the FY-end filing -> None, whatever the markers say
 pdf = mkpdf(

@@ -134,7 +134,11 @@ def main():
             for idx, pi, lbl in ((4, 0, "std"), (5, 1, "con")):
                 mirror = row[idx]
                 auth = (patf.get(sym, {}).get(q) or (None, None))[pi]
-                if mirror is not None and auth is not None and abs(mirror - auth) > max(0.5, abs(auth) * 0.005):
+                if (
+                    mirror is not None
+                    and auth is not None
+                    and abs(mirror - auth) > max(0.5, abs(auth) * 0.005)
+                ):
                     hits[sym]["S2_store_split"].append("%d:%s" % (q, lbl))
 
         for fld, ser in series.items():
@@ -152,12 +156,14 @@ def main():
                 if med > 1:
                     r = abs(v) / med
                     if r > 8 or r < 0.125:
-                        hits[sym]["S3_scale"].append("%d:%s:x%.0f" % (q, fld, r if r > 1 else -1 / r))
+                        hits[sym]["S3_scale"].append(
+                            "%d:%s:x%.0f" % (q, fld, r if r > 1 else -1 / r)
+                        )
             # S4 -- a quarter equal to the sum of its fiscal year's earlier quarters (YTD stored as Q)
             byfy = collections.defaultdict(list)
             for q, v in vals:
                 byfy[fy_of(q)].append((q, v))
-            for qv in byfy.values():
+            for _fy, qv in byfy.items():
                 if len(qv) < 3:
                     continue
                 qv.sort()
@@ -173,7 +179,13 @@ def main():
                     if "%s|%d" % (sym, q) not in gset and "%s|%d" % (sym, q - 10000) not in gset:
                         hits[sym]["S5_repeat_yoy"].append("%d:%s" % (q, fld))
 
-    W = {"S1_con_copy": 3, "S2_store_split": 5, "S3_scale": 4, "S4_ytd_as_quarter": 4, "S5_repeat_yoy": 2}
+    W = {
+        "S1_con_copy": 3,
+        "S2_store_split": 5,
+        "S3_scale": 4,
+        "S4_ytd_as_quarter": 4,
+        "S5_repeat_yoy": 2,
+    }
     ranked = []
     for sym, h in hits.items():
         score = sum(W[k] * min(len(v), 12) for k, v in h.items())
@@ -211,9 +223,12 @@ def main():
     if a.csv:
         with open(a.csv, "w", newline="", encoding="utf-8") as fh:
             w = csv.writer(fh)
-            w.writerow(["rank", "sym", "score", "in_n500", *sorted(W)])
+            w.writerow(["rank", "sym", "score", "in_n500"] + sorted(W))
             for i, r in enumerate(ranked, 1):
-                w.writerow([i, r["sym"], r["score"], r["in_n500"]] + [r["counts"].get(k, 0) for k in sorted(W)])
+                w.writerow(
+                    [i, r["sym"], r["score"], r["in_n500"]]
+                    + [r["counts"].get(k, 0) for k in sorted(W)]
+                )
 
     print("universe: %d symbols | flagged: %d" % (len(revop), len(ranked)))
     print(f"cells by screen: {dict(tot)}")
@@ -226,7 +241,9 @@ def main():
                 r["sym"],
                 r["score"],
                 "Y" if r["in_n500"] else "",
-                ", ".join("%s=%d" % (k.split("_", 1)[1], v) for k, v in sorted(r["counts"].items())),
+                ", ".join(
+                    "%s=%d" % (k.split("_", 1)[1], v) for k, v in sorted(r["counts"].items())
+                ),
             )
         )
     print(f"\nwrote {a.out}")

@@ -96,12 +96,21 @@ def main():
         s, q, ours_v, site_v = r["sym"], r["qe"], r["ours"], r["site"]
         tag = "%s|%d" % (s, q)
         if r.get("excusal_for_symbol") != "ALLOWED":  # H1
-            refused.append((tag, "H1 verdict not credible: " + r.get("excusal_for_symbol", "?")[:60]))
+            refused.append(
+                (tag, "H1 verdict not credible: " + r.get("excusal_for_symbol", "?")[:60])
+            )
             continue
         if abs(r["site_annual"]) < MIN_ANNUAL:  # H5
-            refused.append((tag, "H5 annual {:.2f} is inside the identity's own floor".format(r["site_annual"])))
+            refused.append(
+                (
+                    tag,
+                    "H5 annual {:.2f} is inside the identity's own floor".format(r["site_annual"]),
+                )
+            )
             continue
-        if abs(r["sum_with_our_value"] - r["site_annual"]) <= max(1.0, abs(r["site_annual"]) * 0.02):
+        if abs(r["sum_with_our_value"] - r["site_annual"]) <= max(
+            1.0, abs(r["site_annual"]) * 0.02
+        ):
             refused.append((tag, "H3 identity break is not material"))  # H3
             continue
         if abs(site_v - ours_v) <= max(0.05, abs(ours_v) * 0.01):  # H4
@@ -116,12 +125,20 @@ def main():
             if mine is not None and theirs is not None and G._agree(mine, theirs) == "no":
                 bad_nb.append({"qe": x, "ours": mine, "site": theirs})
         if bad_nb:
-            refused.append((tag, "H2 site also differs at %s -- vintage, not a defect" % [b["qe"] for b in bad_nb]))
+            refused.append(
+                (
+                    tag,
+                    "H2 site also differs at %s -- vintage, not a defect"
+                    % [b["qe"] for b in bad_nb],
+                )
+            )
             continue
 
         row = next((x for x in work.get(s, []) if x[0] == q), None)
         if row is None or row[1] is None or abs(row[1] - ours_v) > TOL:
-            refused.append((tag, f"guard: live value {row[1] if row else None} != recorded was {ours_v}"))
+            refused.append(
+                (tag, f"guard: live value {row[1] if row else None} != recorded was {ours_v}")
+            )
             continue
         plan.append((s, q, ours_v, site_v))
         row[1] = site_v

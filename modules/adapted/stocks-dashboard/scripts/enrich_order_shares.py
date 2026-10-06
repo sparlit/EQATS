@@ -58,7 +58,7 @@ def dp(f):
 
 
 OUT = dp("order_shares.json")
-ORDER_RX = re.compile(r"orders?/contracts|order\(s\)\/contract", re.IGNORECASE)
+ORDER_RX = re.compile(r"orders?/contracts|order\(s\)\/contract", re.I)
 H = {"User-Agent": B.UA, "Accept": "application/json", "Referer": "https://www.nseindia.com/"}
 RE_PU = re.compile(r"PaidUpValueOfEquityShareCapital[^>]*>([^<]+)<")
 RE_FV = re.compile(r"FaceValueOfEquityShareCapital[^>]*>([^<]+)<")
@@ -95,7 +95,9 @@ def shares_from_xbrl(sym, jar):
         if not u.startswith("http"):
             continue
         try:
-            xml = B._get(u, headers={"User-Agent": B.UA, "Referer": "https://www.nseindia.com/"}, timeout=40)
+            xml = B._get(
+                u, headers={"User-Agent": B.UA, "Referer": "https://www.nseindia.com/"}, timeout=40
+            )
         except Exception:
             continue
         pu, fv = RE_PU.search(xml), RE_FV.search(xml)
@@ -140,7 +142,10 @@ def main():
             print("WARN cache unreadable:", ex)
 
     todo = [s for s in sorted(gap) if s not in cache]
-    print("mcap-gap order names: %d (%d cached, %d to fetch)" % (len(gap), len(gap) - len(todo), len(todo)))
+    print(
+        "mcap-gap order names: %d (%d cached, %d to fetch)"
+        % (len(gap), len(gap) - len(todo), len(todo))
+    )
     jar = None
     ok = miss = err = 0
     for sym in todo:

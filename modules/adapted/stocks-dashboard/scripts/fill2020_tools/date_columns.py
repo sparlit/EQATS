@@ -80,18 +80,21 @@ import re
 NUMERIC = re.compile(r"^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$")
 # 31st December, 2018 / December 31, 2018 / 31 Dec 2018
 MONTHS = {
-    m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1
+    )
 }
-DAYMON = re.compile(r"^(\d{1,2})(?:st|nd|rd|th)?$", re.IGNORECASE)
+DAYMON = re.compile(r"^(\d{1,2})(?:st|nd|rd|th)?$", re.I)
 YEAR = re.compile(r"^(20\d{2})$")
 
 # span words that mean this column is NOT a single quarter
 CUMULATIVE = re.compile(
     r"nine|six|half|year\s*to\s*date|y\.?t\.?d|twelve|\byear\s+ended|"
     r"period\s+ended.*month",
-    re.IGNORECASE,
+    re.I,
 )
-QUARTERLY = re.compile(r"quarter|three\s*month|3\s*month", re.IGNORECASE)
+QUARTERLY = re.compile(r"quarter|three\s*month|3\s*month", re.I)
 LAST_DAY = {3: 31, 6: 30, 9: 30, 12: 31}
 
 
@@ -225,11 +228,11 @@ def quarter_columns(page, ytol=3.0):
     return best
 
 
-BASIS_CON = re.compile(r"c[o0]ns[o0]lidated", re.IGNORECASE)
+BASIS_CON = re.compile(r"c[o0]ns[o0]lidated", re.I)
 BASIS_NOT_CON = re.compile(
     r"n[o0]n[\s-]*c[o0]ns[o0]lidated|un[\s-]*c[o0]ns[o0]lidated|"
     r"standal[o0]ne",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -272,4 +275,4 @@ def page_shows(page, want):
     it can read the standalone block while believing it read the consolidated one.
     """
     b = page_basis(page)
-    return b in (want, "both")
+    return b == want or b == "both"

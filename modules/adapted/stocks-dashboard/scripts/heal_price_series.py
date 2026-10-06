@@ -76,13 +76,17 @@ LEDGER = os.path.join(ROOT, "scripts", "price_gap_fills.json")
 DAY = 86400
 NEIGH = 6  # shared sessions either side that must agree to prove the same basis
 MIN_ANCHORS = 3
-HOLIDAYS = os.path.join(ROOT, "scripts", "fo_spot_nse.json")  # "_holidays": no F&O bhavcopy = exchange closed
+HOLIDAYS = os.path.join(
+    ROOT, "scripts", "fo_spot_nse.json"
+)  # "_holidays": no F&O bhavcopy = exchange closed
 CARRY_FLOOR = 0.90  # phantom signature: share of a session's bars that repeat the previous close
-MIN_PHANTOM_BARS = 100  # below this the carry-forward share is noise (lone pre-2020 weekly bars) — leave alone
+MIN_PHANTOM_BARS = (
+    100  # below this the carry-forward share is noise (lone pre-2020 weekly bars) — leave alone
+)
 
 
 def paise(close):
-    return round(close * 100)
+    return int(round(close * 100))
 
 
 def main():
@@ -90,6 +94,15 @@ def main():
         payload = json.load(fh)
     start_ts = payload["startTs"]
     series = payload["series"]
+    # Nifty 500 members whose Yahoo series fill_prices_from_sf.py REPLACED with the NSE-bhavcopy store
+    # (§214a F1). The floor and ledger passes below re-add bars from the last published build / the Yahoo
+    # gap ledger — Yahoo-basis closes — so they skip these rows (one source per ticker). The phantom pass
+    # still applies: it only drops, and a Yahoo tail bar on an exchange holiday is exactly its case.
+    replaced = {
+        t
+        for t, m in (payload.get("meta") or {}).items()
+        if (m or {}).get("srcFrom") == "yahoo-replaced"
+    }
 
     def off(ts):
         return int((ts - start_ts) // DAY)
@@ -123,7 +136,7 @@ def main():
         try:
             with open(HOLIDAYS, encoding="utf-8") as fh:
                 holidays = set(json.load(fh).get("_holidays") or [])
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             print(f"heal: could not read {HOLIDAYS} ({exc}) — PHANTOM PASS SKIPPED", flush=True)
     dropped = {}  # date -> bars removed
     for o in sorted(off2ts):
@@ -181,9 +194,12 @@ def main():
     else:
         try:
             slim = json.loads(gzip.decompress(open(SLIM, "rb").read()))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             slim = None
-            print(f"heal: could not read committed dash_slim.bin ({exc}) — FLOOR PASS SKIPPED", flush=True)
+            print(
+                f"heal: could not read committed dash_slim.bin ({exc}) — FLOOR PASS SKIPPED",
+                flush=True,
+            )
         if slim is not None and slim.get("startTs") != start_ts:
             print(
                 f"heal: committed dash_slim startTs={slim.get('startTs')} != fresh {start_ts} "
@@ -200,8 +216,13 @@ def main():
             # snapshot, which differs from the final close by design — the guard then
             # blocked every refresh for two days. Anchors come from sessions that were
             # complete when committed. DATA_RUNBOOK 1b (2026-09-09).
-            slim_newest = max((max(cs["d"]) for cs in slim["series"].values() if cs["d"]), default=None)
+            slim_newest = max(
+                (max(cs["d"]) for cs in slim["series"].values() if cs["d"]), default=None
+            )
             for tkr, cs in slim["series"].items():
+                if tkr in replaced:
+                    stat["skip_replaced_by_store"] += 1
+                    continue
                 mine = fresh.get(tkr)
                 if not mine:
                     stat["ticker_absent_from_fetch"] += 1
@@ -209,7 +230,10 @@ def main():
                 theirs = dict(zip(cs["d"], cs["p"], strict=False))
                 anchors = {o: p for o, p in theirs.items() if o != slim_newest}
                 floor_from = min(mine)
-                gaps = [o for o in theirs if o not in mine and floor_from <= o < newest]
+                # `<= newest` (was `< newest` until 2026-09-29): the NEWEST session is floored too. At 00:04 IST
+                # on 09-29 Yahoo served 09-28 with close=null for ~3,500 tickers; 09-28 was the fetch's newest
+                # session, so the strict bound let a published full session collapse 5,032 -> 1,490 (runbook §1b-iv).
+                gaps = [o for o in theirs if o not in mine and floor_from <= o <= newest]
                 for o in gaps:
                     if o not in off2ts:
                         stat["skip_no_session_ts"] += 1
@@ -224,6 +248,9 @@ def main():
         with open(LEDGER, encoding="utf-8") as fh:
             fills = json.load(fh).get("fills", {})
         for tkr, rows in fills.items():
+            if tkr in replaced:
+                stat["ledger_skip_replaced_by_store"] += 1
+                continue
             mine = fresh.get(tkr)
             if not mine:
                 stat["ledger_ticker_absent"] += 1
@@ -274,7 +301,7 @@ def main():
         flush=True,
     )
     for key in sorted(k for k in stat if k.startswith(("skip_", "ledger_", "ticker_"))):
-        if stat[key] and key != "ledger_filled":
+        if stat[key] and key not in ("ledger_filled",):
             print(f"       {key}: {stat[key]}", flush=True)
     if per_session:
         print("       per session (bars re-added):", flush=True)
@@ -283,7 +310,8 @@ def main():
 
     if dropped:
         print(
-            "       phantom sessions dropped: " + ", ".join(f"{d} (-{n})" for d, n in sorted(dropped.items())),
+            "       phantom sessions dropped: "
+            + ", ".join(f"{d} (-{n})" for d, n in sorted(dropped.items())),
             flush=True,
         )
     if total or dropped:

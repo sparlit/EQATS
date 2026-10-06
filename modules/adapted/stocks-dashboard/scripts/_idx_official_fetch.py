@@ -141,7 +141,11 @@ LIVE = {
 # captures; a directory prefix query returns every capture of every list file in one call.)
 _ENUM = {}
 _ENUM_LOCK = threading.Lock()
-DIRS = ("niftyindices.com/IndexConstituent/", "nseindia.com/content/indices/", "archives.nseindia.com/content/indices/")
+DIRS = (
+    "niftyindices.com/IndexConstituent/",
+    "nseindia.com/content/indices/",
+    "archives.nseindia.com/content/indices/",
+)
 
 
 def cdx_dir(d):
@@ -152,7 +156,9 @@ def cdx_dir(d):
     last = None
     for i in range(6):
         try:
-            rows = json.load(urllib.request.urlopen(urllib.request.Request(q, headers=UA), timeout=180))[1:]
+            rows = json.load(
+                urllib.request.urlopen(urllib.request.Request(q, headers=UA), timeout=180)
+            )[1:]
             print("  CDX %s: %d captures" % (d, len(rows)), flush=True)
             return rows
         except Exception as e:
@@ -184,9 +190,15 @@ def cdx(path):
     )
     for i in range(4):
         try:
-            rows = json.load(urllib.request.urlopen(urllib.request.Request(q, headers=UA), timeout=90))[1:]
+            rows = json.load(
+                urllib.request.urlopen(urllib.request.Request(q, headers=UA), timeout=90)
+            )[1:]
             if rows:
-                print("  per-file CDX %s: %d captures the directory listing lacked" % (path, len(rows)), flush=True)
+                print(
+                    "  per-file CDX %s: %d captures the directory listing lacked"
+                    % (path, len(rows)),
+                    flush=True,
+                )
             return [("", ts, orig) for ts, orig in rows]
         except Exception:
             time.sleep(6 * (i + 1))
@@ -210,7 +222,11 @@ def parse_csv(txt):
         if len(row) <= si:
             continue
         v = row[si].strip()
-        if not v or v.lower() in ("symbol", "series", "eq") or row[0].strip() in ("", "Company Name"):
+        if (
+            not v
+            or v.lower() in ("symbol", "series", "eq")
+            or row[0].strip() in ("", "Company Name")
+        ):
             continue
         if row[0].strip().lower().startswith("constituents"):
             continue
@@ -220,7 +236,8 @@ def parse_csv(txt):
 
 def read_capture(ts, orig):
     raw = urllib.request.urlopen(
-        urllib.request.Request(f"https://web.archive.org/web/{ts}id_/{orig}", headers=UA), timeout=45
+        urllib.request.Request(f"https://web.archive.org/web/{ts}id_/{orig}", headers=UA),
+        timeout=45,
     ).read()
     if raw[:2] == b"\x1f\x8b":  # some captures are stored gzip-encoded (2026-08-27 bank list)
         raw = gzip.decompress(raw)
@@ -233,8 +250,7 @@ if len(sys.argv) >= 3 and sys.argv[1] == "--only":
     only = sys.argv[2:]
     bad = [t for t in only if t not in TIERS]
     if bad:
-        msg = "unknown tier(s) {} - known: {}".format(bad, ", ".join(TIERS))
-        raise SystemExit(msg)
+        raise SystemExit("unknown tier(s) {} - known: {}".format(bad, ", ".join(TIERS)))
 
 try:
     _prev = json.load(open(OUT))
@@ -262,7 +278,9 @@ def fetch_tier(tier):
             if len(s) >= mn:
                 got[d] = s
     try:
-        raw = cr.get(LIVE[tier], impersonate="chrome", timeout=30, headers={"Accept-Encoding": "identity"}).text
+        raw = cr.get(
+            LIVE[tier], impersonate="chrome", timeout=30, headers={"Accept-Encoding": "identity"}
+        ).text
         s = parse_csv(raw)
         if len(s) >= mn:
             got["LIVE"] = s
@@ -270,7 +288,9 @@ def fetch_tier(tier):
         pass
     dates = sorted(got)
     print(
-        "%-24s %2d snapshots: %s" % (tier, len(got), ", ".join("%s(%d)" % (d, len(got[d])) for d in dates)), flush=True
+        "%-24s %2d snapshots: %s"
+        % (tier, len(got), ", ".join("%s(%d)" % (d, len(got[d])) for d in dates)),
+        flush=True,
     )
     return tier, got
 

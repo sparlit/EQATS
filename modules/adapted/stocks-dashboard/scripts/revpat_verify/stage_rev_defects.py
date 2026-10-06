@@ -143,17 +143,22 @@ def main():
     print("STAGED %d %s revenue corrections:" % (len(staged), a.sym.upper()))
     for q, e in sorted(staged.items()):
         print(
-            "   %s  %10s -> %-10s  (ours == %s)" % (q, e["bad_rev"], e["correct_rev"], str(e["ours_matches_row"])[:60])
+            "   %s  %10s -> %-10s  (ours == %s)"
+            % (q, e["bad_rev"], e["correct_rev"], str(e["ours_matches_row"])[:60])
         )
     print(
         "CONTROL quarters that came back confirmed: %s"
         % (
             ", ".join(controls)
             if controls
-            else "NONE -- a defect finding without a passing control is indistinguishable from a broken method"
+            else "NONE -- a defect finding without a passing "
+            "control is indistinguishable from a broken method"
         )
     )
-    print("DROPPED %d: %s" % (len(dropped), "; ".join("{} {}".format(d["qe"], d["why"]) for d in dropped)))
+    print(
+        "DROPPED %d: %s"
+        % (len(dropped), "; ".join("{} {}".format(d["qe"], d["why"]) for d in dropped))
+    )
     print(f"\nwrote {a.out}  (inert)")
 
 

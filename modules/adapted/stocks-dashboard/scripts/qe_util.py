@@ -56,7 +56,12 @@ def is_qe(qe):
 def prevq(qe):
     """20260930 -> 20260630; 20260331 -> 20251231."""
     y, md = qe // 10000, qe % 10000
-    return {331: (y - 1) * 10000 + 1231, 630: y * 10000 + 331, 930: y * 10000 + 630, 1231: y * 10000 + 930}[md]
+    return {
+        331: (y - 1) * 10000 + 1231,
+        630: y * 10000 + 331,
+        930: y * 10000 + 630,
+        1231: y * 10000 + 930,
+    }[md]
 
 
 def yago(qe):
@@ -81,7 +86,7 @@ def last_qe_before(yyyymmdd):
     return max(c for c in cands if datetime.date(c // 10000, c // 100 % 100, c % 100) < d)
 
 
-_QTR_ANCHOR = re.compile(r"\bquarter|\bthree months|\b3 months", re.IGNORECASE)  # \b: not "Headquarter"
+_QTR_ANCHOR = re.compile(r"\bquarter|\bthree months|\b3 months", re.I)  # \b: not "Headquarter"
 
 
 def _normalise(text):
@@ -92,7 +97,10 @@ def _normalise(text):
     s = re.sub(r"(?i)(\d)(st|nd|rd|th)(?=[a-z])", r"\1\2 ", s)
     s = re.sub(r"(?i)(quarter)(?=ended)", r"\1 ", s)
     s = re.sub(r"(?i)(the)(?=quarter)", r"\1 ", s)  # 'FoRTHEQUARTER' (not 'Headquarter')
-    return re.sub(r"(?i)\b(\d{1,2})[\-/]([a-z]{3,9})[\-/](\d{4})\b", r"\1 \2 \3", s)  # 30-Sep-2026 / 30/Sep/2026
+    s = re.sub(
+        r"(?i)\b(\d{1,2})[\-/]([a-z]{3,9})[\-/](\d{4})\b", r"\1 \2 \3", s
+    )  # 30-Sep-2026 / 30/Sep/2026
+    return s
 
 
 def stated_quarter(text):

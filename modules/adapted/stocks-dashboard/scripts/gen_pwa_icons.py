@@ -41,7 +41,7 @@ C2 = (124, 58, 237)
 
 
 def lerp(a, b, t):
-    return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
+    return tuple(int(round(a[i] + (b[i] - a[i]) * t)) for i in range(3))
 
 
 def grad_color(t):

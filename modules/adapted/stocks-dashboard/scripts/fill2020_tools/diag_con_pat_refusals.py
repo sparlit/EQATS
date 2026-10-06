@@ -43,7 +43,9 @@ SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
 sys.path.insert(0, SCRIPTS)
 
-_spec = importlib.util.spec_from_file_location("nar", os.path.join(SCRIPTS, "_nse_archive_revop.py"))
+_spec = importlib.util.spec_from_file_location(
+    "nar", os.path.join(SCRIPTS, "_nse_archive_revop.py")
+)
 NAR = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(NAR)
 NAR.JAR = NAR.BF.nse_jar()
@@ -56,7 +58,7 @@ DOCS = os.path.join(ROOT, "docs", "sf_fundamentals.json")
 R_INTEREST = re.compile(
     r"profit|loss|minority|associat|earning per|face value|equity|revenue|"
     r"income from operations|interest earned|tax",
-    re.IGNORECASE,
+    re.I,
 )
 
 CLASSES = {
@@ -88,9 +90,9 @@ def main():
     work = []
     for k, v in sorted(reads.items()):
         cls = classify(v)
-        if cls == "filled":
+        if cls in ("filled",):
             continue
-        if want not in ("all", cls):
+        if want != "all" and cls != want:
             continue
         sym, qe = k.split("|")
         if only and sym not in only:
@@ -116,7 +118,9 @@ def main():
             print(f"   FETCH FAIL {type(ex).__name__}")
             continue
         meta, rows = NAR.parse_detail(html)
-        m = re.search(r"Cumulative\s*/\s*Non-?Cumulative\s*\|?\s*(Non-?Cumulative|Cumulative)", html, re.IGNORECASE)
+        m = re.search(
+            r"Cumulative\s*/\s*Non-?Cumulative\s*\|?\s*(Non-?Cumulative|Cumulative)", html, re.I
+        )
         print(
             "   meta: basis={!r} period={!r} symbol={!r} unit={!r} div={} cumul={!r} fmt={!r}".format(
                 meta.get("Consolidated / Non-Consolidated"),

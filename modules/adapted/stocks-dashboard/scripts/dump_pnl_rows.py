@@ -38,9 +38,11 @@ import fitz
 HERE = os.path.dirname(os.path.abspath(__file__))
 data = json.load(open(os.path.join(os.path.dirname(HERE), "docs", "sf_fundamentals.json")))
 NUM = re.compile(r"^\(?-?[\d,]+\.?\d*\)?$")
-OWN = re.compile(r"(owners|equity holders) of", re.IGNORECASE)
-PFT = re.compile(r"profit\s*/?\s*\(?\s*loss\)?\s*(after tax\s*)?(for|of)\s*the\s*(period|year|quarter)", re.IGNORECASE)
-NETP = re.compile(r"net\s+profit", re.IGNORECASE)
+OWN = re.compile(r"(owners|equity holders) of", re.I)
+PFT = re.compile(
+    r"profit\s*/?\s*\(?\s*loss\)?\s*(after tax\s*)?(for|of)\s*the\s*(period|year|quarter)", re.I
+)
+NETP = re.compile(r"net\s+profit", re.I)
 
 
 def unit_of(doc):

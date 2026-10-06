@@ -69,7 +69,11 @@ def le(o, t):
 
 
 def members(dstr):
-    snap = max((h for h in HIST if h["effectiveDate"] <= dstr), key=lambda h: h["effectiveDate"], default=None)
+    snap = max(
+        (h for h in HIST if h["effectiveDate"] <= dstr),
+        key=lambda h: h["effectiveDate"],
+        default=None,
+    )
     return set(snap["symbols"]) if snap else set()
 
 
@@ -78,7 +82,10 @@ def prof(FUND, s, di):
     if not arr:
         return None
     for npi, ai in ((3, 4), (1, 2)):
-        cur = next((q for q in reversed(arr) if q[npi] is not None and q[ai] is not None and q[ai] <= di), None)
+        cur = next(
+            (q for q in reversed(arr) if q[npi] is not None and q[ai] is not None and q[ai] <= di),
+            None,
+        )
         if not cur:
             continue
         be = cur[0] - 10000
@@ -125,7 +132,7 @@ def qualify(FUND, endymd):
         f = factors(s, asof)
         if not f:
             continue
-        _p, d52, d52low = f
+        p, d52, d52low = f
         if not (d52 <= 10 and d52low >= 100):
             continue
         py = prof(FUND, s, endymd)
@@ -152,7 +159,10 @@ MONTHS = [
 ]
 
 print("reverted %d con quarters to total PAT for BEFORE\n" % reverted)
-print("%-18s %5s %5s  %-7s  %s" % ("MONTH", "bef", "aft", "membship", "set changes (membership added/removed)"))
+print(
+    "%-18s %5s %5s  %-7s  %s"
+    % ("MONTH", "bef", "aft", "membship", "set changes (membership added/removed)")
+)
 print("-" * 90)
 anychange = False
 detail = []
@@ -170,7 +180,10 @@ for ymd, lbl in MONTHS:
         note = "(no membership change)"
     else:
         anychange = True
-    print("%-18s %5d %5d  %-7s  %s" % (lbl, len(b), len(a), "same" if len(a) == len(b) else "DIFF", note))
+    print(
+        "%-18s %5d %5d  %-7s  %s"
+        % (lbl, len(b), len(a), "same" if len(a) == len(b) else "DIFF", note)
+    )
     detail.append((lbl, b, a, added, removed))
 
 print("\n=== ANY MEMBERSHIP CHANGE: %s ===" % ("YES" if anychange else "NO"))

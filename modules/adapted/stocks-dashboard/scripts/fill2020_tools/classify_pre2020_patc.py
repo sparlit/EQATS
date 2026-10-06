@@ -60,7 +60,10 @@ SCRIPTS = os.path.dirname(HERE)
 SP = "/private/tmp/claude-501/-Users-dhruvan-stocks-dashboard/792ed9c0-939c-4ae3-9fca-5a27480bf0d9/scratchpad"
 LISTS = os.path.join(SCRIPTS, "_nselist")
 MON = {
-    m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+    )
 }
 
 
@@ -121,7 +124,13 @@ def main():
         # ledger candidate only when EVERY open cell of the company is NEVER_YET-consistent
         never_cells = [q for q in qes if verdicts["%s|%d" % (sym, q)] == "NEVER_YET"]
         if never_cells:
-            n_mar_only = len([q for q in con if q % 10000 == 331 and (first_qtrly_con is None or q < first_qtrly_con)])
+            n_mar_only = len(
+                [
+                    q
+                    for q in con
+                    if q % 10000 == 331 and (first_qtrly_con is None or q < first_qtrly_con)
+                ]
+            )
             ledger_cand[sym] = {
                 "first_con_qe": first_qtrly_con,
                 "cells": never_cells,
@@ -143,7 +152,10 @@ def main():
 
     print("cells classified: %d  %s" % (sum(counts.values()), counts))
     print("companies with no index cache (harvest failed): %d %s" % (len(nolist), nolist[:8]))
-    print("fill queue: %d cells (%d with a real XBRL URL)" % (len(fillq), sum(1 for f in fillq if f["xbrl"])))
+    print(
+        "fill queue: %d cells (%d with a real XBRL URL)"
+        % (len(fillq), sum(1 for f in fillq if f["xbrl"]))
+    )
     print(
         "ledger candidates: %d companies / %d never-filed cells"
         % (len(ledger_cand), sum(len(v["cells"]) for v in ledger_cand.values()))
@@ -173,7 +185,10 @@ def main():
             n_never += 1
     nc["never_filed_con"] = sorted(never)
     json.dump(nc, open(ncp, "w"), indent=1, sort_keys=True)
-    print("APPLIED: %d started_filing_con entries, %d never_filed_con additions" % (n_started, n_never))
+    print(
+        "APPLIED: %d started_filing_con entries, %d never_filed_con additions"
+        % (n_started, n_never)
+    )
 
 
 if __name__ == "__main__":

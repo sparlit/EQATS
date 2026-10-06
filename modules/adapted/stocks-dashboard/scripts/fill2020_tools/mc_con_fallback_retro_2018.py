@@ -156,10 +156,19 @@ def main():
     for k, r in hold:
         print(
             "  HOLD %-22s con %12.2f == std   differs in %2d other quarters %s  [mc=%s]"
-            % (k, r["con"], r["company_quarters_where_con_differs"], r["examples"][:2], r["by_moneycontrol"])
+            % (
+                k,
+                r["con"],
+                r["company_quarters_where_con_differs"],
+                r["examples"][:2],
+                r["by_moneycontrol"],
+            )
         )
     for k, r in keep:
-        print("  keep %-22s con %12.2f == std   (never differs)  [mc=%s]" % (k, r["con"], r["by_moneycontrol"]))
+        print(
+            "  keep %-22s con %12.2f == std   (never differs)  [mc=%s]"
+            % (k, r["con"], r["by_moneycontrol"])
+        )
     json.dump({"hold": dict(hold), "keep": dict(keep)}, open(OUT, "w"), indent=1, sort_keys=True)
 
     if not apply_it:

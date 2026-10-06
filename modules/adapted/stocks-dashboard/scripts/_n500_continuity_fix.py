@@ -43,7 +43,6 @@ out of the reconstructed file and share its symbol vocabulary; no re-mapping.
 
 Run: python -X utf8 scripts/_n500_continuity_fix.py [--write] [--idx "Nifty 500"]
 """
-import itertools
 import json
 import os
 import sys
@@ -76,7 +75,7 @@ def main():
         return out
 
     added = {}
-    for a, b in itertools.pairwise(cps):
+    for a, b in zip(cps, cps[1:], strict=False):
         A, B = bydate[a], bydate[b]
         both = A & B
         never_out = both - excluded_between(a, b)
@@ -93,8 +92,14 @@ def main():
     for s in segs:
         d = s["effectiveDate"]
         if "2015" <= d[:4] <= "2019":
-            print("%-12s %4d -> %4d" % (d, len({x.strip().upper() for x in s["symbols"]}), len(bydate[d])))
-    print("\nsymbols restored: %d (over %d snapshot-slots)" % (len(added), sum(len(v) for v in added.values())))
+            print(
+                "%-12s %4d -> %4d"
+                % (d, len({x.strip().upper() for x in s["symbols"]}), len(bydate[d]))
+            )
+    print(
+        "\nsymbols restored: %d (over %d snapshot-slots)"
+        % (len(added), sum(len(v) for v in added.values()))
+    )
     top = sorted(added.items(), key=lambda kv: -len(kv[1]))[:15]
     for s, ds in top:
         print("   %-12s %2d snaps  %s .. %s" % (s, len(ds), ds[0], ds[-1]))

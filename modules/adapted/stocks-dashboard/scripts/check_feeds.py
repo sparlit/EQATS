@@ -67,12 +67,17 @@ def last_commit_age_hours(relpath):
     """Hours since the file's last commit on main (API in CI, git locally)."""
     try:
         if IN_CI:
-            c = api(f"https://api.github.com/repos/{REPO}/commits?path={relpath}&per_page=1&sha=main")
+            c = api(
+                f"https://api.github.com/repos/{REPO}/commits?path={relpath}&per_page=1&sha=main"
+            )
             if not c:
                 return None
             return (NOW - iso_to_epoch(c[0]["commit"]["committer"]["date"])) / 3600
         out = subprocess.run(
-            ["git", "log", "-1", "--format=%ct", "--", relpath], capture_output=True, text=True, cwd=ROOT
+            ["git", "log", "-1", "--format=%ct", "--", relpath],
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
         ).stdout.strip()
         return (NOW - int(out)) / 3600 if out else None
     except Exception as e:
@@ -113,7 +118,10 @@ def check_feed(f):
         age = last_commit_age_hours(relpath)
         r["age_hours"] = round(age, 1) if age is not None else None
         if age is not None and age > f["max_age_hours"]:
-            r.update(status="stale", detail=f"last commit {age / 24:.1f} d ago (limit {f['max_age_hours'] / 24:.1f} d)")
+            r.update(
+                status="stale",
+                detail=f"last commit {age / 24:.1f} d ago (limit {f['max_age_hours'] / 24:.1f} d)",
+            )
     return r
 
 
@@ -136,7 +144,9 @@ def check_special(s):
             rel = api(f"https://api.github.com/repos/{s['repo']}/releases/tags/{s['tag']}")
             # The tag listing's `assets` can lag a re-upload by >1 h (DATA_RUNBOOK §146), so take
             # only the release id from it and list the assets by id, which stays fresh.
-            assets = api(f"https://api.github.com/repos/{s['repo']}/releases/{rel['id']}/assets?per_page=100")
+            assets = api(
+                f"https://api.github.com/repos/{s['repo']}/releases/{rel['id']}/assets?per_page=100"
+            )
             asset = next((a for a in assets if a["name"] == s["asset"]), None)
             if not asset:
                 r.update(status="missing", detail=f"asset {s['asset']} not found")
@@ -167,7 +177,9 @@ def check_special(s):
                 r.update(status="missing", detail=f"no rows matching '{s['match']}' at all")
             else:
                 newest = max(dts)[:19]  # "YYYY-MM-DD HH:MM:SS" IST
-                epoch = time.mktime(time.strptime(newest, "%Y-%m-%d %H:%M:%S")) - time.timezone - 19800
+                epoch = (
+                    time.mktime(time.strptime(newest, "%Y-%m-%d %H:%M:%S")) - time.timezone - 19800
+                )
                 age = (NOW - epoch) / 3600
                 r["age_hours"] = round(age, 1)
                 if age > s["max_age_hours"]:
@@ -187,7 +199,9 @@ def check_special(s):
             a = audit()
             r["bytes"] = a["baked"]
             if not a["ok"]:
-                r.update(status="drift" if a["status"] == "drift" else a["status"], detail=a["detail"])
+                r.update(
+                    status="drift" if a["status"] == "drift" else a["status"], detail=a["detail"]
+                )
         elif s["type"] == "supabase_rpc":
             req = urllib.request.Request(
                 s["url"],

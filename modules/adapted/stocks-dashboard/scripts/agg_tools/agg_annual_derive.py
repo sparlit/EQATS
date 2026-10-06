@@ -86,7 +86,7 @@ def derive(sym, qe, field, sites=("mc", "tl", "tt")):
         rec = {}
         try:
             ann, anote = A.read_annual(site, sym, con)
-            q, _qnote = A.read(site, sym, con)
+            q, qnote = A.read(site, sym, con)
         except Exception as e:
             out["sites"][site] = {"note": f"EXC {type(e).__name__}: {e}"}
             continue
@@ -133,7 +133,8 @@ def derive(sym, qe, field, sites=("mc", "tl", "tt")):
                 continue
             if near_bad:
                 rec.setdefault("rejected", []).append(
-                    "%s: GATE-A2 restated FY within %dy of target: %s" % (cand, GUARD_FY, "; ".join(near_bad[:2]))
+                    "%s: GATE-A2 restated FY within %dy of target: %s"
+                    % (cand, GUARD_FY, "; ".join(near_bad[:2]))
                 )
                 continue
             # ---- Gate A5 : the site's own quarters vs its own annual, target FY + neighbours
@@ -142,13 +143,16 @@ def derive(sym, qe, field, sites=("mc", "tl", "tt")):
                 for t, f2 in (("target", fy), ("prev", fy - 10000), ("next", fy + 10000))
             }
             if "RESTATED" in a5.values():
-                rec.setdefault("rejected", []).append(f"{cand}: GATE-A5 site's own FY identity fails ({a5})")
+                rec.setdefault("rejected", []).append(
+                    f"{cand}: GATE-A5 site's own FY identity fails ({a5})"
+                )
                 continue
             # ---- Gate S : the siblings we subtract must be the SAME vintage as their annual
             sib_bad = [
                 "%d ours=%.2f site=%.2f" % (x, ours[x], (q.get(x) or {})[cand])
                 for x in sibs
-                if (q.get(x) or {}).get(cand) is not None and not _close(ours[x], (q.get(x) or {})[cand])
+                if (q.get(x) or {}).get(cand) is not None
+                and not _close(ours[x], (q.get(x) or {})[cand])
             ]
             if sib_bad:
                 rec.setdefault("rejected", []).append(
@@ -185,7 +189,8 @@ def derive(sym, qe, field, sites=("mc", "tl", "tt")):
                     "distant_restated_FYs": bad,
                     "site_prints_quarter": xchk,
                     "a5": a5,
-                    "verdict": "PASS (annual FY%d %.2f - our 3 siblings; %d FYs reproduce)" % (fy, target, agree),
+                    "verdict": "PASS (annual FY%d %.2f - our 3 siblings; %d FYs reproduce)"
+                    % (fy, target, agree),
                 }
             )
             break
@@ -199,7 +204,7 @@ def derive(sym, qe, field, sites=("mc", "tl", "tt")):
         out["state"] = "REJECT-CROSS-SITE"
         out["notes"] = [f"sites disagree on the derived value: {vals}"]
         return None, out
-    site = min(passers, key=lambda s: -passers[s]["agreeing_FYs"])
+    site = sorted(passers, key=lambda s: -passers[s]["agreeing_FYs"])[0]
     val = passers[site]["value"]
 
     other = G.ours_series(sym, G.OTHER[field]).get(qe)
@@ -221,7 +226,9 @@ def derive(sym, qe, field, sites=("mc", "tl", "tt")):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cells", required=True)
-    ap.add_argument("--skip-filled", default=os.path.join(os.path.dirname(HERE), "agg_cell_fills.json"))
+    ap.add_argument(
+        "--skip-filled", default=os.path.join(os.path.dirname(HERE), "agg_cell_fills.json")
+    )
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     cells = json.load(open(a.cells))

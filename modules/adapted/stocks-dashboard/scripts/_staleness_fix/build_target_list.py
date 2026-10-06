@@ -58,7 +58,9 @@ def main():
         if rows:
             targets[sym] = rows
     json.dump(targets, open("scripts/_staleness_fix/target_list.json", "w"))
-    print(f"{n} target cells across {len(targets)} symbols -> scripts/_staleness_fix/target_list.json")
+    print(
+        f"{n} target cells across {len(targets)} symbols -> scripts/_staleness_fix/target_list.json"
+    )
 
 
 if __name__ == "__main__":

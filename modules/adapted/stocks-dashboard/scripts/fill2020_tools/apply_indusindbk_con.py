@@ -72,29 +72,29 @@ SYM = "INDUSINDBK"
 CELLS = {
     "20230331": (
         10020.71,
-        ("printed in BOTH the Mar-23 audited and Jun-23 con statements; con PAT 2043.36 == stored exactly in both"),
+        "printed in BOTH the Mar-23 audited and Jun-23 con statements; "
+        "con PAT 2043.36 == stored exactly in both",
     ),
     "20230630": (10729.65, "Jun-23 con statement current col; con PAT 2124.44 == stored exactly"),
     "20221231": (
         9457.41,
-        (
-            "Mar-23 con statement preceding-quarter col; con PAT 1963.54 == stored "
-            "exactly; == stored revS (elimination parity)"
-        ),
+        "Mar-23 con statement preceding-quarter col; con PAT 1963.54 == stored "
+        "exactly; == stored revS (elimination parity)",
     ),
     "20220930": (
         8708.03,
-        (
-            "FY-identity: printed FY23 con 36367.92 minus printed Jun-22 8181.77, "
-            "Dec-22 9457.41, Mar-23 10020.71 (§45); == stored revS"
-        ),
+        "FY-identity: printed FY23 con 36367.92 minus printed Jun-22 8181.77, "
+        "Dec-22 9457.41, Mar-23 10020.71 (§45); == stored revS",
     ),
 }
 
 
 def main():
     dry = "--apply" not in sys.argv
-    for path in (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json")):
+    for path in (
+        os.path.join(ROOT, "docs", "sf_revop.json"),
+        os.path.join(SCRIPTS, "revop_fundamentals.json"),
+    ):
         d = json.load(open(path))
         for qe, (val, _) in sorted(CELLS.items()):
             row = d.get(SYM, {}).get(qe)
@@ -108,7 +108,10 @@ def main():
                 continue
             row[1] = val
             d[SYM][qe] = row
-            print("%-26s %s %s revC=%s" % (os.path.basename(path), qe, "would fill" if dry else "filled", val))
+            print(
+                "%-26s %s %s revC=%s"
+                % (os.path.basename(path), qe, "would fill" if dry else "filled", val)
+            )
         if not dry:
             json.dump(d, open(path, "w"), separators=(",", ":"))
     if not dry:

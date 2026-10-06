@@ -82,7 +82,11 @@ def suspects_for(sym, field, sites=("mc", "tl")):
         if not series:
             continue
         for cand in G.FIELD_CANDS[field]:
-            hits = [(q, ours[q], series[q][cand]) for q in series if q in ours and series[q].get(cand) is not None]
+            hits = [
+                (q, ours[q], series[q][cand])
+                for q in series
+                if q in ours and series[q].get(cand) is not None
+            ]
             if len(hits) < 4:
                 continue
             bad = [h for h in hits if G._agree(h[1], h[2]) == "no"]
@@ -126,8 +130,7 @@ def main():
     elif a.coverage:
         cells = open_cells_from_coverage(a.coverage, a.lo, a.hi)
     else:
-        msg = "need --cells or --coverage"
-        raise SystemExit(msg)
+        raise SystemExit("need --cells or --coverage")
     if a.syms:
         want = set(a.syms.split(","))
         cells = [c for c in cells if c[0] in want]
@@ -161,7 +164,9 @@ def main():
                 field,
                 rep["state"],
                 rep.get("chosen", {}).get("site", "")
-                or "; ".join(v.get("verdict", v.get("note", ""))[:60] for v in rep["sites"].values())[:110],
+                or "; ".join(
+                    v.get("verdict", v.get("note", ""))[:60] for v in rep["sites"].values()
+                )[:110],
             )
         )
         sys.stdout.flush()

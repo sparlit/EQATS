@@ -66,7 +66,10 @@ FUND = os.path.join(ROOT, "docs", "sf_fundamentals.json")
 if not os.path.exists(FUND):
     FUND = os.path.join(HERE, "fundamentals.json")
 
-SLOTS = {"std": {"rev": 0, "op": 2, "pat": 4, "ebit": 7}, "con": {"rev": 1, "op": 3, "pat": 5, "ebit": 8}}
+SLOTS = {
+    "std": {"rev": 0, "op": 2, "pat": 4, "ebit": 7},
+    "con": {"rev": 1, "op": 3, "pat": 5, "ebit": 8},
+}
 
 # Compare against the ADJACENT quarters, never the symbol's whole-series median, and never
 # require a minimum number of quarters. Both of those hide real cases:
@@ -128,7 +131,10 @@ def main():
     for sym, qe, basis, ev in sorted(hits):
         print("  %-12s %s %-3s" % (sym, qe, basis))
         for name, v, lvl, lg in ev:
-            print("       %-5s %16.2f  vs adjacent %10.2f   x%-9.0f log10=%.2f" % (name, v, lvl, abs(v) / lvl, lg))
+            print(
+                "       %-5s %16.2f  vs adjacent %10.2f   x%-9.0f log10=%.2f"
+                % (name, v, lvl, abs(v) / lvl, lg)
+            )
 
     # --- net profit (sf_fundamentals): a separate parser and a separate file, same disease ---
     fund = json.load(open(FUND, encoding="utf-8"))
@@ -147,7 +153,10 @@ def main():
                     fhits.append((sym, qe, bi, v, lvl))
     print("\n=== sf_fundamentals (net profit): %d suspect cell(s)\n" % len(fhits))
     for sym, qe, bi, v, lvl in sorted(fhits):
-        print("  %-12s %s %-3s np=%14.2f  vs adjacent %10.2f  x%.0f" % (sym, qe, bi, v, lvl, abs(v) / lvl))
+        print(
+            "  %-12s %s %-3s np=%14.2f  vs adjacent %10.2f  x%.0f"
+            % (sym, qe, bi, v, lvl, abs(v) / lvl)
+        )
 
 
 if __name__ == "__main__":

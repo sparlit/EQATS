@@ -45,16 +45,20 @@ ro = json.load(open(os.path.join(HERE, "_reattr_owners.json")))
 scrips = json.load(open(os.path.join(HERE, "bse_scrips.json")))["by_id"]
 OUTF = os.path.join(HERE, "_nci_detect.json")
 NUM = re.compile(r"^\(?-?[\d,]+\.?\d*\)?$")
-OWN = re.compile(r"(owners|equity ?holders) of the (parent|company|holding)", re.IGNORECASE)
-PFT = re.compile(r"(net\s+)?profit\s*/?\s*\(?\s*loss\)?\s*(after tax\s*)?(for|of)\s*the\s*(period|year)", re.IGNORECASE)
-NCIL = re.compile(r"non[- ]?controlling interest|minority interest", re.IGNORECASE)
+OWN = re.compile(r"(owners|equity ?holders) of the (parent|company|holding)", re.I)
+PFT = re.compile(
+    r"(net\s+)?profit\s*/?\s*\(?\s*loss\)?\s*(after tax\s*)?(for|of)\s*the\s*(period|year)", re.I
+)
+NCIL = re.compile(r"non[- ]?controlling interest|minority interest", re.I)
 
 covered = {k.split("|")[0] for k in ro}
 idx = json.load(open(os.path.join(HERE, "indices_history.json")))["Nifty 500"]
 M = set()
 for x in idx:
     M.update(x["symbols"])
-absent = sorted(s for s in M if data.get(s) and any(r[3] is not None for r in data[s]) and s not in covered)
+absent = sorted(
+    s for s in M if data.get(s) and any(r[3] is not None for r in data[s]) and s not in covered
+)
 
 EXTRA = {"GSPL": 532702, "PEL": 500302}
 
@@ -117,7 +121,10 @@ def analyze(pdf):
         low = doc[p].get_text().lower()
         if "consolidated" in low:
             con = True
-        elif re.search(r"standalone\s+(statement|financial|results)", low) and "consolidated" not in low:
+        elif (
+            re.search(r"standalone\s+(statement|financial|results)", low)
+            and "consolidated" not in low
+        ):
             con = False
         if not con:
             continue
@@ -180,7 +187,8 @@ def main():
             mat = abs(pct) >= 3 and abs(total - owners) >= 3
             out[s] = {"total": total, "owners": owners, "nci_pct": pct, "material": mat}
             print(
-                "  %-12s total=%s owners=%s nci=%.1f%% %s" % (s, total, owners, pct, "MATERIAL" if mat else ""),
+                "  %-12s total=%s owners=%s nci=%.1f%% %s"
+                % (s, total, owners, pct, "MATERIAL" if mat else ""),
                 flush=True,
             )
         else:

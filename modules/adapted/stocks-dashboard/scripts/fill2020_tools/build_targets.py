@@ -54,9 +54,21 @@ def scrip_map():
     _scrip_extra.json is a flat {SYM: code} of hand-resolved and delisted names (§52b)."""
     out = {}
     with contextlib.suppress(Exception):
-        out.update({k.upper(): int(v) for k, v in load("scripts/bse_scrips.json")["by_id"].items() if str(v).isdigit()})
+        out.update(
+            {
+                k.upper(): int(v)
+                for k, v in load("scripts/bse_scrips.json")["by_id"].items()
+                if str(v).isdigit()
+            }
+        )
     with contextlib.suppress(Exception):
-        out.update({k.upper(): int(v) for k, v in load("scripts/_scrip_extra.json").items() if str(v).isdigit()})
+        out.update(
+            {
+                k.upper(): int(v)
+                for k, v in load("scripts/_scrip_extra.json").items()
+                if str(v).isdigit()
+            }
+        )
     return out
 
 
@@ -99,7 +111,10 @@ def main():
         d = [
             r[0]
             for r in rows
-            if len(r) > 3 and r[1] is not None and r[3] is not None and abs(r[3] - r[1]) > max(0.05, abs(r[1]) * 0.001)
+            if len(r) > 3
+            and r[1] is not None
+            and r[3] is not None
+            and abs(r[3] - r[1]) > max(0.05, abs(r[1]) * 0.001)
         ]
         if d:
             divq[s] = set(d)
@@ -158,7 +173,10 @@ def main():
         json.dump(out, f, indent=1, sort_keys=True)
     print("targets: %d  -> %s" % (len(out), out_p))
     if noscrip:
-        print("no BSE scrip for %d symbols (skipped): %s" % (len(noscrip), ", ".join(sorted(noscrip)[:12])))
+        print(
+            "no BSE scrip for %d symbols (skipped): %s"
+            % (len(noscrip), ", ".join(sorted(noscrip)[:12]))
+        )
 
 
 if __name__ == "__main__":

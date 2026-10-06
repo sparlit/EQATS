@@ -65,8 +65,18 @@ def main():
         d = bf.get(e["scrip"], {}).get(sqe) or {}
         return d.get("src") == "vision"
 
-    stat = {"declared": len(rows), "filled": 0, "pending": 0, "no_pdf": 0, "bse_dup": 0, "vision": 0}
-    ex = {"NSE": {"declared": 0, "filled": 0, "open": 0}, "BSE": {"declared": 0, "filled": 0, "open": 0}}
+    stat = {
+        "declared": len(rows),
+        "filled": 0,
+        "pending": 0,
+        "no_pdf": 0,
+        "bse_dup": 0,
+        "vision": 0,
+    }
+    ex = {
+        "NSE": {"declared": 0, "filled": 0, "open": 0},
+        "BSE": {"declared": 0, "filled": 0, "open": 0},
+    }
     out_rows = []
     for e in rows:
         s = e["status"]
@@ -85,13 +95,27 @@ def main():
     # biggest first — the ones that matter most are the ones you want to see at the top
     out_rows.sort(key=lambda r: -(r[3] or 0))
     # "open" = declared but no numbers yet, i.e. what the routine still owes you
-    stat["open"] = stat["pending"] + stat["no_pdf"] + stat.get("unknown_qe", 0)  # same meaning as byExch.open
+    stat["open"] = (
+        stat["pending"] + stat["no_pdf"] + stat.get("unknown_qe", 0)
+    )  # same meaning as byExch.open
 
-    # LATE FILERS for the two quarters before the current one — the vision routine reads them too
-    # (results_pending.find_pending_late, runbook §187), so the page must show what it still owes there.
+    # EARLY + LATE FILERS for every other quarter — the vision routine reads them too
+    # (results_pending.find_pending_ahead / find_pending_late, runbook §187/§218), so the page must show what it
+    # still owes there: quarters newer than the current one (a season's first filers), then every older quarter.
     late = []
     qr = _load("quarterly_results.json") or {}
-    for lq in (qr.get("quarters") or [])[1:3]:
+    _cur = int((qr.get("quarters") or [0])[0])
+    _ahead = sorted(
+        {
+            int(r[3])
+            for r in ((_load("results_feed.json") or {}).get("rows") or [])
+            if isinstance(r[3], int)
+            and _cur < r[3] <= int(time.strftime("%Y%m%d"))
+            and r[3] % 10000 in (331, 630, 930, 1231)
+        },
+        reverse=True,
+    )
+    for lq in _ahead + list((qr.get("quarters") or [])[1:13]):
         _, lrows = classify(lq, unknown=False)
         lopen = [
             [e["sym"], e["name"], e["exch"], round(e["mcap"] or 0, 1), e["ann"], e["status"]]
@@ -102,7 +126,9 @@ def main():
         if lopen:
             late.append({"qe": lq, "qlabel": qlabel(lq), "rows": lopen})
     doc = {
-        "updated": time.strftime("%Y-%m-%d %H:%M IST", time.gmtime(time.time() + 5.5 * 3600)),  # runners are UTC
+        "updated": time.strftime(
+            "%Y-%m-%d %H:%M IST", time.gmtime(time.time() + 5.5 * 3600)
+        ),  # runners are UTC
         "qe": qe,
         "qlabel": qlabel(qe),
         "stat": stat,
@@ -111,6 +137,27 @@ def main():
         "rows": out_rows,
         "late": late,
     }
+    # Results-season state (runbook §222): the page shows the vision routine's next slot from it, so the page and
+    # the routine can never disagree. Never let the state block the coverage build.
+    try:
+        from season_state import evaluate as _season
+
+        _s = _season()
+        doc["season"] = {
+            "state": _s["state"],
+            "reason": _s["reason"],
+            "window": _s["window"],
+            "counts": _s["counts"],
+            "vision_slots_ist": _s["vision"]["slots_ist"],
+            "vision_runs_per_day": _s["vision"]["runs_per_day"],
+        }
+    except Exception as _ex:
+        doc["season"] = {
+            "state": "unknown",
+            "error": str(_ex)[:160],
+            "vision_slots_ist": ["00:15"],
+            "vision_runs_per_day": 1,
+        }
     json.dump(doc, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     print(
         "WROTE %s: %s — %d declared, %d filled, %d open (%d pending, %d no-pdf), %d of the filled came from vision"

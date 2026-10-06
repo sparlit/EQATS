@@ -40,7 +40,6 @@ import json
 import os
 import subprocess
 import sys
-import threading
 import time
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
@@ -55,7 +54,9 @@ START, END = datetime.date(2023, 12, 3), datetime.date(2007, 1, 1)
 
 def get(url):
     r = subprocess.run(
-        ["curl", "-s", "--max-time", "60", "-A", BH.UA, *BH.CURL_ARGS, url], capture_output=True, timeout=75
+        ["curl", "-s", "--max-time", "60", "-A", BH.UA, *BH.CURL_ARGS, url],
+        capture_output=True,
+        timeout=75,
     )
     return r.stdout
 
@@ -89,7 +90,8 @@ def day(d):
             continue
         sig = hashlib.sha1(
             "|".join(
-                "{}:{}".format(r.get("SC_CODE", "").strip(), r.get("CLOSE", "").strip()) for r in rows[:400]
+                "{}:{}".format(r.get("SC_CODE", "").strip(), r.get("CLOSE", "").strip())
+                for r in rows[:400]
             ).encode()
         ).hexdigest()
         di = None
@@ -123,7 +125,9 @@ while d >= END:
     if d.weekday() < 5:
         days.append(d)
     d -= datetime.timedelta(days=1)
-print("scanning %d weekdays %s -> %s for %d codes" % (len(days), START, END, len(CODES)), flush=True)
+print(
+    "scanning %d weekdays %s -> %s for %d codes" % (len(days), START, END, len(CODES)), flush=True
+)
 done = 0
 t0 = time.time()
 with ThreadPoolExecutor(max_workers=4) as ex:
@@ -158,7 +162,8 @@ for c in sorted(CODES):
 json.dump(res, open(os.path.join(SC, "_bse_archive_hits.json"), "w"), indent=1)
 nofile = sum(1 for d in days if cache[d] is None)
 print(
-    "done in %.0fs: %d/%d codes found; %d weekdays had no file" % (time.time() - t0, len(res), len(CODES), nofile),
+    "done in %.0fs: %d/%d codes found; %d weekdays had no file"
+    % (time.time() - t0, len(res), len(CODES), nofile),
     flush=True,
 )
 for c, v in sorted(res.items(), key=lambda kv: kv[1]["d"], reverse=True):

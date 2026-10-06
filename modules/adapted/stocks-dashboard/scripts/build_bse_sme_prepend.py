@@ -76,7 +76,10 @@ def ohlc_rows(codes):
         rows = list(csv.reader(io.StringIO(raw.decode("latin1"))))
         h = [x.strip() for x in rows[0]]
         if "SC_CODE" in h:
-            ix = {c: h.index(c) for c in ("SC_CODE", "OPEN", "HIGH", "LOW", "CLOSE", "NO_OF_SHRS", "NET_TURNOV")}
+            ix = {
+                c: h.index(c)
+                for c in ("SC_CODE", "OPEN", "HIGH", "LOW", "CLOSE", "NO_OF_SHRS", "NET_TURNOV")
+            }
             td = h.index("TRADING_DATE") if "TRADING_DATE" in h else None
             for r in rows[1:]:
                 if len(r) < len(h) - 3:
@@ -86,13 +89,21 @@ def ohlc_rows(codes):
                     continue
                 if td is not None and r[td].strip():
                     try:
-                        if int(datetime.datetime.strptime(r[td].strip(), "%d-%b-%y").strftime("%Y%m%d")) != k:
+                        if (
+                            int(
+                                datetime.datetime.strptime(r[td].strip(), "%d-%b-%y").strftime(
+                                    "%Y%m%d"
+                                )
+                            )
+                            != k
+                        ):
                             break
                     except ValueError:
                         continue  # a record broken across lines (newline inside a name) — rows_of skips it too
                 with contextlib.suppress(ValueError):
                     out[code][k] = tuple(
-                        float(r[ix[x]] or 0) for x in ("OPEN", "HIGH", "LOW", "CLOSE", "NO_OF_SHRS", "NET_TURNOV")
+                        float(r[ix[x]] or 0)
+                        for x in ("OPEN", "HIGH", "LOW", "CLOSE", "NO_OF_SHRS", "NET_TURNOV")
                     )
         else:
             ix = {
@@ -119,7 +130,14 @@ def ohlc_rows(codes):
                 with contextlib.suppress(ValueError):
                     out[code][k] = tuple(
                         float(r[ix[x]] or 0)
-                        for x in ("OpnPric", "HghPric", "LwPric", "ClsPric", "TtlTradgVol", "TtlTrfVal")
+                        for x in (
+                            "OpnPric",
+                            "HghPric",
+                            "LwPric",
+                            "ClsPric",
+                            "TtlTradgVol",
+                            "TtlTrfVal",
+                        )
                     )
     return out
 
@@ -131,7 +149,10 @@ def main():
     T = json.loads(gzip.open(tape).read())
     BS = json.loads(gzip.open(os.path.join(HERE, "bse_sme_backfill.json.gz")).read())["series"]
     isin2sym = {m["isin"]: s for s, m in T["meta"].items() if m.get("isin")}
-    code2sym = {str(v): k for k, v in json.load(open(os.path.join(HERE, "bse_scrips.json")))["by_id"].items()}
+    code2sym = {
+        str(v): k
+        for k, v in json.load(open(os.path.join(HERE, "bse_scrips.json")))["by_id"].items()
+    }
     try:
         led = json.load(gzip.open(OUT, "rt", encoding="utf-8"))
     except (OSError, ValueError):
@@ -143,7 +164,9 @@ def main():
     if "--equity-l" in a:
         import csv as _csv
 
-        for r in _csv.DictReader(open(a[a.index("--equity-l") + 1], encoding="utf-8", errors="replace")):
+        for r in _csv.DictReader(
+            open(a[a.index("--equity-l") + 1], encoding="utf-8", errors="replace")
+        ):
             r = {k.strip(): (v or "").strip() for k, v in r.items()}
             if r.get("SYMBOL") and r.get("ISIN NUMBER"):
                 nse_isin[r["SYMBOL"]] = r["ISIN NUMBER"]
@@ -168,17 +191,30 @@ def main():
             if e and e["d"] and bs["d"][0] < e["d"][0]:
                 BS[code] = bs
                 isin2sym.setdefault(i, sym)
-        print("mainboard: %d BSE series in the cache, %d start before their NSE symbol's tape" % (len(allser), len(BS)))
+        print(
+            "mainboard: %d BSE series in the cache, %d start before their NSE symbol's tape"
+            % (len(allser), len(BS))
+        )
     # §199 rename guard: new symbol -> [(old symbol, change date)] from NSE's symbol-change master
     ren = {}
     mon = {
         m: i + 1
-        for i, m in enumerate(("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"))
+        for i, m in enumerate(
+            ("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")
+        )
     }
     try:
-        for r in csv.reader(open(os.path.join(HERE, "symchg.csv"), encoding="utf-8", errors="replace")):
+        for r in csv.reader(
+            open(os.path.join(HERE, "symchg.csv"), encoding="utf-8", errors="replace")
+        ):
             c = [x.strip() for x in r]
-            if len(c) >= 4 and c[1] and c[2] and len(c[3].split("-")) == 3 and c[3].split("-")[1].upper() in mon:
+            if (
+                len(c) >= 4
+                and c[1]
+                and c[2]
+                and len(c[3].split("-")) == 3
+                and c[3].split("-")[1].upper() in mon
+            ):
                 dd, mm, yy = c[3].split("-")
                 ren.setdefault(c[2].upper(), []).append(
                     (c[1].upper(), int(yy) * 10000 + mon[mm.upper()] * 100 + int(dd))
@@ -200,7 +236,8 @@ def main():
         prev = [
             (o, dch)
             for o, dch in ren.get(sym, ())
-            if (T["data"].get(o) or {}).get("d") and 0 <= _od(dch) - _od(T["data"][o]["d"][-1]) <= 45
+            if (T["data"].get(o) or {}).get("d")
+            and 0 <= _od(dch) - _od(T["data"][o]["d"][-1]) <= 45
         ]
         if prev:
             print(
@@ -211,7 +248,8 @@ def main():
         ni, bi = nse_isin.get(sym, ""), bs.get("isin", "")
         if not ni or not bi or ni[:7] != bi[:7]:
             print(
-                "  SKIP %-12s identity: NSE ISIN %s vs BSE %s ISIN %s" % (sym, ni or "unknown", code, bi or "unknown")
+                "  SKIP %-12s identity: NSE ISIN %s vs BSE %s ISIN %s"
+                % (sym, ni or "unknown", code, bi or "unknown")
             )
             continue
         cand[sym] = (code, bs, e)
@@ -251,7 +289,9 @@ def main():
             # is baked into years of history; the seam keeps the real day-1 gap. anchor.raw = stored/product so the
             # consumer's stored/raw rescale equals the product; bse_raw keeps BSE's printed close for provenance.
             rat = sorted(
-                c_ / R[d_][3] for d_, c_ in list(zip(e["d"], e["c"], strict=False))[:10] if d_ in R and R[d_][3] > 0
+                c_ / R[d_][3]
+                for d_, c_ in list(zip(e["d"], e["c"], strict=False))[:10]
+                if d_ in R and R[d_][3] > 0
             )
             med = rat[len(rat) // 2] if rat else 0
             if not rat or abs(med / exp - 1) > 0.03:
@@ -273,7 +313,11 @@ def main():
             s = exp
         elif abs(s / exp - 1) > 0.03:
             refused.append(
-                (sym, "rescale %.4f not explained by NSE corporate actions after %d (product %.4f)" % (s, a0, exp))
+                (
+                    sym,
+                    "rescale %.4f not explained by NSE corporate actions after %d (product %.4f)"
+                    % (s, a0, exp),
+                )
             )
             continue
         splits = [(d, f) for d, f in bs.get("splits", []) if d <= a0]
@@ -310,7 +354,14 @@ def main():
             # price bands cap a normal session far below this, so any bar-to-bar move outside [0.7, 1/0.7] is treated
             # as an unconfirmed action: keep only the bars after the last one, and refuse a block whose SEAM (last
             # BSE bar on the NSE level vs the NSE first close) breaks the same band.
-            cut = max((i for i in range(1, len(bars)) if not 0.7 <= bars[i][1] / bars[i - 1][1] <= 1 / 0.7), default=0)
+            cut = max(
+                (
+                    i
+                    for i in range(1, len(bars))
+                    if not 0.7 <= bars[i][1] / bars[i - 1][1] <= 1 / 0.7
+                ),
+                default=0,
+            )
             if cut:
                 start = max(start, bars[cut - 1][0])
                 bars = bars[cut:]
@@ -333,7 +384,16 @@ def main():
             "anchor": anchor,
             "meta": {"isin": bs.get("isin")},
             "note": "%s %s: %d bars %d -> %d; splits %s; truncated after unconfirmed move %s; rescale %.4f"
-            % (board, code, len(bars), bars[0][0], bars[-1][0], splits or "none", start or "none", s),
+            % (
+                board,
+                code,
+                len(bars),
+                bars[0][0],
+                bars[-1][0],
+                splits or "none",
+                start or "none",
+                s,
+            ),
         }
         made.append((sym, code, len(bars), bars[0][0], bars[-1][0], round(s, 4), start or ""))
     for m in made:

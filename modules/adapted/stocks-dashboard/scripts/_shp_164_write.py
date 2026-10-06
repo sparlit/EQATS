@@ -30,7 +30,6 @@ Usage: _shp_164_write.py <label> <proposals.json> [more.json ...]"""
 import json
 import os
 import sys
-import time
 
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(SCRIPTS)
@@ -50,7 +49,11 @@ def main(label, paths):
     fix = led.setdefault("fix", {})
     ascii_only = "\\u00" in raw
     hist = json.load(open(os.path.join(SCRIPTS, "shp_history.json")))
-    audit = json.load(open(AUDIT, encoding="utf-8")) if os.path.exists(AUDIT) else {"_doc": [], "cells": {}}
+    audit = (
+        json.load(open(AUDIT, encoding="utf-8"))
+        if os.path.exists(AUDIT)
+        else {"_doc": [], "cells": {}}
+    )
     audit.setdefault("cells", {})
     audit.setdefault("_doc", [])
     n_new = n_sup = n_skip = 0

@@ -60,22 +60,25 @@ DOCS_FUND = os.path.join(ROOT, "docs", "sf_fundamentals.json")
 SCRIPS = os.path.join(HERE, "bse_scrips.json")
 
 # --- row label classifiers (applied in PRIORITY order: NCI, then OWNERS, then TOTAL) --------
-_NCI = re.compile(r"(non[- ]?controlling|minority)\s*interest", re.IGNORECASE)
+_NCI = re.compile(r"(non[- ]?controlling|minority)\s*interest", re.I)
 # owners / equity-holders attribution line (Format A "Owners of the Company" sub-line, or the
 # LUPIN-style "Net profit after taxes attributable to owners of the Company")
 _OWN = re.compile(
-    r"(owners?|equity ?(holders?|shareholders?))\s*(of\s*(the\s*)?)?(company|parent|holding|group)", re.IGNORECASE
+    r"(owners?|equity ?(holders?|shareholders?))\s*(of\s*(the\s*)?)?(company|parent|holding|group)",
+    re.I,
 )
-_OWN2 = re.compile(r"attributable.{0,25}(owners?|equity ?holders?|shareholders?)", re.IGNORECASE)
+_OWN2 = re.compile(r"attributable.{0,25}(owners?|equity ?holders?|shareholders?)", re.I)
 # the group total profit line (pre-attribution): "Profit for the period", "Profit after tax",
 # possibly "... and before non-controlling interest"
-_TOTAL = re.compile(r"(profit|loss)[\s/()a-z]{0,40}(for the (period|quarter|year|half)|after tax)", re.IGNORECASE)
+_TOTAL = re.compile(
+    r"(profit|loss)[\s/()a-z]{0,40}(for the (period|quarter|year|half)|after tax)", re.I
+)
 # lines that must NEVER be read as the group-total line
 _VETO_TOTAL = re.compile(
     r"before tax|comprehensive|segment|exceptional|\bother\b|per share|earnings per"
     r"|\beps\b|ratio|paid.?up|dividend|reserve|revenue|income from|expense"
     r"|total tax|deferred|associate",
-    re.IGNORECASE,
+    re.I,
 )
 _NUM = re.compile(r"^\(?-?[\d,]+\.?\d*\)?$")
 
@@ -124,7 +127,9 @@ def row_numbers(line):
 
 
 def label_of(line):
-    return " ".join(w[4] for w in sorted(line, key=lambda w: w[0]) if not _isnum(w[4])).strip().lower()
+    return (
+        " ".join(w[4] for w in sorted(line, key=lambda w: w[0]) if not _isnum(w[4])).strip().lower()
+    )
 
 
 def classify(lab):
@@ -185,7 +190,9 @@ def extract_blocks(pdf, ocr=False):
             elif k == "total":
                 totals.append(nums)
         if owners and ncis:
-            blocks.append({"page": p, "con": bool(con), "totals": totals, "owners": owners, "ncis": ncis})
+            blocks.append(
+                {"page": p, "con": bool(con), "totals": totals, "owners": owners, "ncis": ncis}
+            )
     return blocks
 
 
@@ -256,7 +263,9 @@ def reconcile(block, stored, tol_abs=0.11, tol_rel=0.0002):
         if abs(r["owners"] - stored) < 0.011:
             continue  # owners == total: no owners-vs-total defect, nothing to heal
         # prefer explicit-total proposals when the owners value coincides
-        if r["owners"] not in uniq or (r["explicit_total"] and not uniq[r["owners"]]["explicit_total"]):
+        if r["owners"] not in uniq or (
+            r["explicit_total"] and not uniq[r["owners"]]["explicit_total"]
+        ):
             uniq[r["owners"]] = r
     return list(uniq.values())
 
@@ -303,12 +312,16 @@ def verify_cell(o, scrips, fund, sym, qe, ocr=False, pause=1.0):
         blocks = extract_blocks(pdf, ocr=False)
         props = []
         for b in blocks:
-            props += [dict(p, page=b["page"], con=b["con"], ann=annd, att=att) for p in reconcile(b, stored)]
+            props += [
+                dict(p, page=b["page"], con=b["con"], ann=annd, att=att)
+                for p in reconcile(b, stored)
+            ]
         if not props and ocr:
             blocks = extract_blocks(pdf, ocr=True)
             for b in blocks:
                 props += [
-                    dict(p, page=b["page"], con=b["con"], ann=annd, att=att, via="ocr") for p in reconcile(b, stored)
+                    dict(p, page=b["page"], con=b["con"], ann=annd, att=att, via="ocr")
+                    for p in reconcile(b, stored)
                 ]
         if props:
             # prefer consolidated-page proposals

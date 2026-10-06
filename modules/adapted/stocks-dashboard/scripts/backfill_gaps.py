@@ -103,7 +103,11 @@ def fetch_old(sym, jar):
         if not qe or not xb.startswith("http"):
             continue
         byq.setdefault(qe, []).append(
-            {"ann": bf.iso(r.get("broadCastDate")) or "99999999", "xbrl": xb, "basis": r.get("consolidated", "")}
+            {
+                "ann": bf.iso(r.get("broadCastDate")) or "99999999",
+                "xbrl": xb,
+                "basis": r.get("consolidated", ""),
+            }
         )
     out = []
     for qe in sorted(byq):
@@ -120,7 +124,9 @@ def fetch_old(sym, jar):
                     xml = open(cf, encoding="utf-8").read()
                 else:
                     xml = bf._get(
-                        f["xbrl"], headers={"User-Agent": bf.UA, "Referer": "https://www.nseindia.com/"}, timeout=30
+                        f["xbrl"],
+                        headers={"User-Agent": bf.UA, "Referer": "https://www.nseindia.com/"},
+                        timeout=30,
                     )
                     open(cf, "w", encoding="utf-8").write(xml)
                     time.sleep(0.15)
@@ -162,7 +168,8 @@ def main():
         return meta.get(s, {}).get("alive") is not False
 
     targets = sorted(
-        [s for s, a in data.items() if a and gap_count(a) > 0 and live(s)], key=lambda s: -gap_count(data[s])
+        [s for s, a in data.items() if a and gap_count(a) > 0 and live(s)],
+        key=lambda s: -gap_count(data[s]),
     )
     print(
         "gapped live symbols to backfill: %d (total missing quarters: %d)"
@@ -204,7 +211,8 @@ def main():
                 if done % 50 == 0 or done == len(targets):
                     flush()
                     print(
-                        "  ...%d/%d  symbols improved=%d  quarters filled=%d" % (done, len(targets), filled, quarters)
+                        "  ...%d/%d  symbols improved=%d  quarters filled=%d"
+                        % (done, len(targets), filled, quarters)
                     )
     flush()
     print("DONE. filled %d quarters across %d symbols." % (quarters, filled))

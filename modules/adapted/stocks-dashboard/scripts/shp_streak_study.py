@@ -60,7 +60,9 @@ import _n500_member_bin as N5  # §48: the point-in-time Nifty 500 source
 # Fetch it once into the cache folder:  python3 -c "import sys;sys.path.insert(0,'scripts');import fetch_live_sf as f;
 #   f.DST='<home>/stocks-cache/sf-live/sf_stock_data.bin';f.main()"
 _LIVE = os.path.expanduser("~/stocks-cache/sf-live/sf_stock_data.bin")
-BIN = os.environ.get("SF_BIN") or (_LIVE if os.path.exists(_LIVE) else os.path.join(ROOT, "docs", "sf_stock_data.bin"))
+BIN = os.environ.get("SF_BIN") or (
+    _LIVE if os.path.exists(_LIVE) else os.path.join(ROOT, "docs", "sf_stock_data.bin")
+)
 ENGINE = os.path.join(ROOT, "docs", "shp_engine.json")
 RENAME = os.path.join(HERE, "_rename_map.json")
 BENCH = os.path.join(ROOT, "docs", "nifty500.json")
@@ -106,7 +108,17 @@ def prev_qe(q):
 def main():
     D = json.loads(gzip.decompress(open(BIN, "rb").read()))
     data, bin_end = D["data"], D.get("end")
-    print("bin", BIN, "symbols", len(data), "end", bin_end, "dailyFrom", D.get("dailyFrom"), flush=True)
+    print(
+        "bin",
+        BIN,
+        "symbols",
+        len(data),
+        "end",
+        bin_end,
+        "dailyFrom",
+        D.get("dailyFrom"),
+        flush=True,
+    )
     bin_end_i = int(str(bin_end).replace("-", ""))
     ren = json.load(open(RENAME))
 
@@ -119,7 +131,7 @@ def main():
 
     # trading axis = union of dates of symbols with long daily histories (>= 2000 bars)
     ax = set()
-    for o in data.values():
+    for _s, o in data.items():
         if len(o["d"]) >= 2000:
             ax.update(o["d"])
     axis = sorted(x for x in ax if x >= 20010101)
@@ -205,7 +217,11 @@ def main():
             sf = pf + 1 if (dfii is not None and dfii >= MIN_STEP) else 0
             sd = pd + 1 if (ddii is not None and ddii >= MIN_STEP) else 0
             sc = pc + 1 if (dfii is not None and dfii <= -MIN_STEP) else 0
-            sb = pb + 1 if (dfii is not None and ddii is not None and dfii >= MIN_STEP and ddii >= MIN_STEP) else 0
+            sb = (
+                pb + 1
+                if (dfii is not None and ddii is not None and dfii >= MIN_STEP and ddii >= MIN_STEP)
+                else 0
+            )
             fst[q] = sf
             dst[q] = sd
             cst[q] = sc
@@ -213,7 +229,12 @@ def main():
             # next quarter's move (for continuation stats) — NOT used for returns
             nx = byqe.get(add_q(q))
             ndfii = None
-            if nx is not None and (q, add_q(q)) != FMT_BOUNDARY and nx[1] is not None and fii is not None:
+            if (
+                nx is not None
+                and (q, add_q(q)) != FMT_BOUNDARY
+                and nx[1] is not None
+                and fii is not None
+            ):
                 ndfii = nx[1] - fii
             vis = sub if sub != UNDATED else add_days(q, CONV_DAYS)
             dated = sub != UNDATED
@@ -279,10 +300,18 @@ def main():
     cmed = {k: median(v) for k, v in coh.items()}
     cmean = {k: sum(v) / len(v) for k, v in coh.items()}
     for ev in events:
-        ev["ex"] = {h: (ev["r"][h] - cmed[(ev["q"], h)]) if ev["r"][h] is not None else None for h in HORIZONS}
-        ev["exm"] = {h: (ev["r"][h] - cmean[(ev["q"], h)]) if ev["r"][h] is not None else None for h in HORIZONS}
+        ev["ex"] = {
+            h: (ev["r"][h] - cmed[(ev["q"], h)]) if ev["r"][h] is not None else None
+            for h in HORIZONS
+        }
+        ev["exm"] = {
+            h: (ev["r"][h] - cmean[(ev["q"], h)]) if ev["r"][h] is not None else None
+            for h in HORIZONS
+        }
         ev["exb"] = {
-            h: (ev["r"][h] - ev["b"][h]) if (ev["r"][h] is not None and ev["b"][h] is not None) else None
+            h: (ev["r"][h] - ev["b"][h])
+            if (ev["r"][h] is not None and ev["b"][h] is not None)
+            else None
             for h in HORIZONS
         }
     json.dump(events, open(os.path.join(OUTDIR, "events.json"), "w"), separators=(",", ":"))
@@ -312,7 +341,13 @@ def stats(vals):
     sd = math.sqrt(sum((x - m) ** 2 for x in vals) / (n - 1)) if n > 1 else 0.0
     t = m / (sd / math.sqrt(n)) if sd > 0 else 0.0
     hit = sum(1 for x in vals if x > 0) / n * 100
-    return {"n": n, "mean": round(m, 2), "med": round(median(vals), 2), "hit": round(hit, 1), "t": round(t, 2)}
+    return {
+        "n": n,
+        "mean": round(m, 2),
+        "med": round(median(vals), 2),
+        "hit": round(hit, 1),
+        "t": round(t, 2),
+    }
 
 
 def cluster_ci(evs, h, key="ex", B=400, seed=7):
@@ -381,7 +416,10 @@ def qboot(trip, idx, B=400, seed=7, med=False):
 
 def table(title, groups, evs, keyfn, h, exkey="ex", order=None, ci=False):
     if exkey == "exb":
-        print("\n### %s — horizon %dd — excess vs NIFTY 500 index over the exact window (2012+)" % (title, h))
+        print(
+            "\n### %s — horizon %dd — excess vs NIFTY 500 index over the exact window (2012+)"
+            % (title, h)
+        )
         print("%-34s %7s %8s %8s %6s %7s" % ("bucket", "n", "mean", "median", "hit%", "t"))
         rows = collections.defaultdict(list)
         for e in evs:
@@ -392,7 +430,10 @@ def table(title, groups, evs, keyfn, h, exkey="ex", order=None, ci=False):
         for k in order or sorted(rows):
             if k in rows:
                 st = stats(rows[k])
-                print("%-34s %7d %8.2f %8.2f %6.1f %7.2f" % (k, st["n"], st["mean"], st["med"], st["hit"], st["t"]))
+                print(
+                    "%-34s %7d %8.2f %8.2f %6.1f %7.2f"
+                    % (k, st["n"], st["mean"], st["med"], st["hit"], st["t"])
+                )
         return
     trip = rebase(evs, h)  # cohort = THIS table's population, same quarter
     print(
@@ -401,7 +442,16 @@ def table(title, groups, evs, keyfn, h, exkey="ex", order=None, ci=False):
     )
     print(
         "%-34s %7s %8s %8s %6s %7s %-18s %s"
-        % ("bucket", "n", "mean", "median", "hit%", "t", "CI95 mean" if ci else "", "CI95 median" if ci else "")
+        % (
+            "bucket",
+            "n",
+            "mean",
+            "median",
+            "hit%",
+            "t",
+            "CI95 mean" if ci else "",
+            "CI95 median" if ci else "",
+        )
     )
     rows = collections.defaultdict(list)
     for t in trip:
@@ -459,9 +509,25 @@ def report(events, bin_end):
 
     order = ["0", "1", "2", "3", "4", "5", "6+"]
     for h in HORIZONS:
-        table("FII raising streak (all eras, all filers)", None, events, S, h, order=order, ci=(h in (91, 182, 365)))
+        table(
+            "FII raising streak (all eras, all filers)",
+            None,
+            events,
+            S,
+            h,
+            order=order,
+            ci=(h in (91, 182, 365)),
+        )
     for h in (91, 182, 365):
-        table("FII streak — N500 members only", None, [e for e in events if e["n500"]], S, h, order=order, ci=True)
+        table(
+            "FII streak — N500 members only",
+            None,
+            [e for e in events if e["n500"]],
+            S,
+            h,
+            order=order,
+            ci=True,
+        )
         table(
             "FII streak — NON-members (small/mid, Sep-2019+)",
             None,
@@ -473,7 +539,14 @@ def report(events, bin_end):
         )
     for er in sorted(byera):
         for h in (182, 365):
-            table(f"FII streak — era {er}", None, [e for e in events if era(e["q"]) == er], S, h, order=order)
+            table(
+                f"FII streak — era {er}",
+                None,
+                [e for e in events if era(e["q"]) == er],
+                S,
+                h,
+                order=order,
+            )
 
     # collapsed: streak>=3 vs streak 0 vs cut streak
     def grp(e):
@@ -492,7 +565,15 @@ def report(events, bin_end):
     for h in HORIZONS:
         table("Collapsed groups", None, events, grp, h, ci=True)
     for h in (182, 365):
-        table("Collapsed — excess vs NIFTY 500 index (2012+)", None, events, grp, h, exkey="exb", ci=True)
+        table(
+            "Collapsed — excess vs NIFTY 500 index (2012+)",
+            None,
+            events,
+            grp,
+            h,
+            exkey="exb",
+            ci=True,
+        )
 
     # DII
     def SD(e):
@@ -525,7 +606,6 @@ def report(events, bin_end):
         ]:
             if lo <= d < hi:
                 return lab
-        return None
 
     for h in (91, 182, 365):
         table("Size of the quarter FII change (pp)", None, events, jb, h, ci=True)
@@ -547,7 +627,6 @@ def report(events, bin_end):
         ]:
             if lo <= d < hi:
                 return lab
-        return None
 
     for h in (91, 182, 365):
         table("Size of the quarter DII change (pp)", None, events, jbd, h, ci=True)
@@ -557,7 +636,7 @@ def report(events, bin_end):
         if e["dfii"] is not None:
             byq[e["q"]].append(e)
     top = set()
-    for lst in byq.values():
+    for _q, lst in byq.items():
         lst.sort(key=lambda e: -e["dfii"])
         for e in lst[:20]:
             top.add(id(e))
@@ -566,7 +645,9 @@ def report(events, bin_end):
             "Top-20 FII jumps of each quarter vs rest",
             None,
             events,
-            lambda e: ("top20 FII jump" if id(e) in top else "rest") if e["dfii"] is not None else None,
+            lambda e: (
+                ("top20 FII jump" if id(e) in top else "rest") if e["dfii"] is not None else None
+            ),
             h,
             ci=True,
         )
@@ -577,7 +658,11 @@ def report(events, bin_end):
             return None
         if e["dprom"] is None:
             return "jump>=2pp, promoter delta unknown"
-        return "jump>=2pp, promoter moved >=1pp" if abs(e["dprom"]) >= 1 else "jump>=2pp, promoter steady"
+        return (
+            "jump>=2pp, promoter moved >=1pp"
+            if abs(e["dprom"]) >= 1
+            else "jump>=2pp, promoter steady"
+        )
 
     for h in (182, 365):
         table("FII jump >= 2pp split by promoter movement", None, events, jump_clean, h, ci=True)
@@ -587,7 +672,13 @@ def report(events, bin_end):
         if e["sf"] < 3:
             return None
         f = e["fii"]
-        return "streak3+, FII<2%" if f < 2 else "streak3+, FII 2-10%" if f < 10 else "streak3+, FII>=10%"
+        return (
+            "streak3+, FII<2%"
+            if f < 2
+            else "streak3+, FII 2-10%"
+            if f < 10
+            else "streak3+, FII>=10%"
+        )
 
     for h in (182, 365):
         table("FII streak 3+ by FII level", None, events, lvl, h, ci=True)
@@ -603,7 +694,10 @@ def report(events, bin_end):
             byk[k][0] += 1
     for k in order:
         if k in byk:
-            print("  streak %-3s n=%6d  raised again %.1f%%" % (k, byk[k][1], byk[k][0] / byk[k][1] * 100))
+            print(
+                "  streak %-3s n=%6d  raised again %.1f%%"
+                % (k, byk[k][1], byk[k][0] / byk[k][1] * 100)
+            )
     # year-by-year consistency, streak>=3 vs all, 182d
     print("\n### Year by year: mean 182d excess of FII streak>=3 (n) — consistency check")
     base = [e for e in events if e["dfii"] is not None]
@@ -625,12 +719,35 @@ def report(events, bin_end):
     # ---- FII-OWNED stocks only (level >= 1%): does the streak add anything among institutionally held names?
     owned = [e for e in events if e["fii"] is not None and e["fii"] >= 1 and e["dfii"] is not None]
     for h in (91, 182, 365):
-        table("FII streak — ONLY stocks with FII >= 1% (cohort = same)", None, owned, S, h, order=order, ci=True)
+        table(
+            "FII streak — ONLY stocks with FII >= 1% (cohort = same)",
+            None,
+            owned,
+            S,
+            h,
+            order=order,
+            ci=True,
+        )
     ownedN = [e for e in owned if e["n500"]]
     for h in (182, 365):
-        table("FII streak — N500 members with FII >= 1% (cohort = same)", None, ownedN, S, h, order=order, ci=True)
+        table(
+            "FII streak — N500 members with FII >= 1% (cohort = same)",
+            None,
+            ownedN,
+            S,
+            h,
+            order=order,
+            ci=True,
+        )
     for er in sorted(byera):
-        table(f"FII streak — FII>=1%, era {er}", None, [e for e in owned if era(e["q"]) == er], S, 365, order=order)
+        table(
+            f"FII streak — FII>=1%, era {er}",
+            None,
+            [e for e in owned if era(e["q"]) == er],
+            S,
+            365,
+            order=order,
+        )
 
     # ---- momentum control: is a streak just "the stock already went up"?
     def mom_tercile(evs, h):
@@ -681,10 +798,11 @@ def report(events, bin_end):
         ]:
             if lo <= r < hi:
                 return lab
-        return None
 
     for h in (91, 182, 365):
-        table("Relative FII jump (% of prior stake), prior FII >= 2%", None, events, rel, h, ci=True)
+        table(
+            "Relative FII jump (% of prior stake), prior FII >= 2%", None, events, rel, h, ci=True
+        )
     for er in sorted(byera):
         table(
             f"FII jump >= 2pp vs rest — era {er}",
@@ -719,7 +837,10 @@ def report(events, bin_end):
         print(
             f"\n### {title} — RAW 12-month return, pooled (timing-confounded; see same-quarter tables for the fair test)"
         )
-        print("%-18s %7s %9s %9s %10s %10s %10s" % ("bucket", "n", "median%", "mean%", "P(>+50%)", "P(2x)", "P(<-30%)"))
+        print(
+            "%-18s %7s %9s %9s %10s %10s %10s"
+            % ("bucket", "n", "median%", "mean%", "P(>+50%)", "P(2x)", "P(<-30%)")
+        )
         rows = collections.defaultdict(list)
         for e in events:
             if not sel(e) or e["r"][365] is None:
@@ -747,7 +868,9 @@ def report(events, bin_end):
     def own(e):
         return e["dfii"] is not None and e["fii"] is not None and e["fii"] >= 1
 
-    odds("FII streak, stocks with FII >= 1%, all eras", own, lambda e: bucket_streak(e["sf"]), order)
+    odds(
+        "FII streak, stocks with FII >= 1%, all eras", own, lambda e: bucket_streak(e["sf"]), order
+    )
     odds(
         "FII streak, stocks with FII >= 1%, era C Sep-2019+",
         lambda e: own(e) and e["q"] >= 20190930,

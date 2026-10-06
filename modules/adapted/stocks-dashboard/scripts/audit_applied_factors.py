@@ -96,7 +96,9 @@ def od(y):
 
 def load_bins(d):
     ser = {}
-    files = sorted(glob.glob(os.path.join(d, "sf_deep_*.bin"))) + sorted(glob.glob(os.path.join(d, "sf_recent_*.bin")))
+    files = sorted(glob.glob(os.path.join(d, "sf_deep_*.bin"))) + sorted(
+        glob.glob(os.path.join(d, "sf_recent_*.bin"))
+    )
     if not files:
         sys.exit(f"no sf_deep_*/sf_recent_* bins in {d}")
     for f in files:
@@ -144,7 +146,9 @@ def applied_events(ser, only=None):
             k = bisect.bisect_left(big, i)  # big[k-1] < i <= big[k]
             lo = big[k - 1] + 1 if k > 0 else 0  # first bar after the previous boundary
             k2 = bisect.bisect_right(big, i)  # first boundary strictly after i
-            hi = big[k2] + 1 if k2 < len(big) else len(cum)  # post window stops at the next boundary
+            hi = (
+                big[k2] + 1 if k2 < len(big) else len(cum)
+            )  # post window stops at the next boundary
             found = []
             for how, (p0, p1) in (("unbounded", (0, len(cum))), ("bounded", (lo, hi))):
                 pre = [y[1] for y in cum[max(p0, i - WIN + 1) : i + 1]]
@@ -189,7 +193,14 @@ def applied_events(ser, only=None):
 # applied between the two bars. Exact at any price (CCCL's Rs0.20 ticks) and at any spacing (NATNLSTEEL's
 # factors one bar apart), with no turnover noise.
 TAPE = os.path.join(HERE, "_raw_tape")
-EQ_SERIES = ("EQ", "BE", "BZ", "SM", "ST", "SZ")  # priority order for a symbol printed in more than one series
+EQ_SERIES = (
+    "EQ",
+    "BE",
+    "BZ",
+    "SM",
+    "ST",
+    "SZ",
+)  # priority order for a symbol printed in more than one series
 
 
 def _merge_aliases():
@@ -198,7 +209,9 @@ def _merge_aliases():
     src = open(os.path.join(HERE, "update_sf_data.py")).read()
     blk = src[src.index("MANUAL_MERGE = {") : src.index("MANUAL_MERGE.update(SEAM_MERGES)")]
     pairs = [(n, o) for n, o in re.findall(r'"([A-Z0-9&\-]+)":\s*"([A-Z0-9&\-]+)"', blk)]
-    pairs += [(n, o) for n, o in re.findall(r'"([A-Z0-9&\-]+)":\s*\{"old":\s*"([A-Z0-9&\-]+)"', blk)]
+    pairs += [
+        (n, o) for n, o in re.findall(r'"([A-Z0-9&\-]+)":\s*\{"old":\s*"([A-Z0-9&\-]+)"', blk)
+    ]
     al = collections.defaultdict(list)
     for o, n in rm.items():
         if o != n:
@@ -240,13 +253,15 @@ def load_tape(names):
             t[3].append(r[3])
         if k % 1000 == 0:
             print("  tape %d/%d files" % (k, len(files)), flush=True)
-    return {s: {t[0][i]: (t[1][i], t[2][i], t[3][i]) for i in range(len(t[0]))} for s, t in tape.items()}, files
+    return {
+        s: {t[0][i]: (t[1][i], t[2][i], t[3][i]) for i in range(len(t[0]))} for s, t in tape.items()
+    }, files
 
 
 def applied_events_tape(ser, tape, alias):
     out, blips, covered = [], [], set()
     for s, e in ser.items():
-        names = [s, *alias.get(s, [])]
+        names = [s] + alias.get(s, [])
         bars = []
         for y in sorted(e):
             c = e[y][0]
@@ -259,7 +274,9 @@ def applied_events_tape(ser, tape, alias):
                     break
         if len(bars) < 2:
             continue
-        covered.add((s, bars[0][0], bars[-1][0]))  # the span the exact witness reaches for this symbol
+        covered.add(
+            (s, bars[0][0], bars[-1][0])
+        )  # the span the exact witness reaches for this symbol
         # greedy single-scale runs
         segs = []
         for k, (y, c, r, *_rest) in enumerate(bars):
@@ -349,14 +366,14 @@ def ledgers():
     for x in json.load(open(os.path.join(HERE, "ca_open_arbitrated.json")))["events"]:
         led[x[0]].add(("ca_open_arbitrated", int(x[1])))
     src = open(os.path.join(HERE, "update_sf_data.py")).read()
-    m = re.search(r"MANUAL_RIGHTS = (\[.*?\n\])", src, re.DOTALL)
+    m = re.search(r"MANUAL_RIGHTS = (\[.*?\n\])", src, re.S)
     for t in ast.literal_eval(re.sub(r"#.*", "", m.group(1))):
         led[t[0]].add(("MANUAL_RIGHTS", int(t[1])))
     pc = collections.defaultdict(set)
     for s, v in json.load(open(os.path.join(HERE, "phantom_crashes.json"))).items():
         for x in v:
             pc[s].add(int(x))
-    m = re.search(r"LEGACY_FALSE_CA = (\[.*?\n\])", src, re.DOTALL)
+    m = re.search(r"LEGACY_FALSE_CA = (\[.*?\n\])", src, re.S)
     for s, x in ast.literal_eval(re.sub(r"#.*", "", m.group(1))):
         pc[s].add(x)
     return off, noa, led, pc
@@ -369,7 +386,10 @@ def yahoo():
     for k, s in Y["series"].items():
         if k.endswith(".NS"):
             out[k[:-3]] = (
-                [int(datetime.datetime.utcfromtimestamp(ts + o * 86400).strftime("%Y%m%d")) for o in s["d"]],
+                [
+                    int(datetime.datetime.utcfromtimestamp(ts + o * 86400).strftime("%Y%m%d"))
+                    for o in s["d"]
+                ],
                 [p / 100 for p in s["p"]],
             )
     return out
@@ -381,7 +401,9 @@ def classify(ev, off, noa, led, pc, Y):
 
     for r in ev:
         s, a, b = r["sym"], r["a"], r["b"]
-        r["official"] = sorted({x for x in off[s] if near(x[0], a, b)})  # corp_actions + hist list the same row twice
+        r["official"] = sorted(
+            {x for x in off[s] if near(x[0], a, b)}
+        )  # corp_actions + hist list the same row twice
         r["noadjust"] = sorted(x for x in noa[s] if near(x, a, b))
         r["ledger"] = sorted(x for x in led[s] if near(x[1], a, b))
         r["crash_listed"] = sorted(x for x in pc[s] if near(x, a, b))
@@ -409,7 +431,9 @@ def classify(ev, off, noa, led, pc, Y):
         r["class"] = cls
         r["in_inference_domain"] = not (0.75 <= r["raw"] <= 1.30)
         # §87c open gate on the drop bar: (raw open / raw prev) / F
-        r["open_gate"] = round((r["open_b"] / r["adj_a"]), 4) if r.get("open_b") and r["adj_a"] else None
+        r["open_gate"] = (
+            round((r["open_b"] / r["adj_a"]), 4) if r.get("open_b") and r["adj_a"] else None
+        )
         y = Y.get(s)
         if not y:
             r["yahoo"] = "no-series"
@@ -457,7 +481,9 @@ def main():
         def inside(s, a, b):
             return s in span and span[s][0] <= a and b <= span[s][1]
 
-        ev += applied_events(ser, only=lambda s, a, b: not inside(s, a, b))  # turnover witness where no tape reaches
+        ev += applied_events(
+            ser, only=lambda s, a, b: not inside(s, a, b)
+        )  # turnover witness where no tape reaches
     else:
         ev = applied_events(ser)
     off, noa, led, pc = ledgers()

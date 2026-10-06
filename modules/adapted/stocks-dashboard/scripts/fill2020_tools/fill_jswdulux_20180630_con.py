@@ -128,7 +128,10 @@ def main():
     prov, pin = load(prov_p), load(pin_p)
 
     changed = []
-    for label, store, path in (("scripts/fundamentals.json", fs, fund_s), ("docs/sf_fundamentals.json", fd, fund_d)):
+    for label, store, path in (
+        ("scripts/fundamentals.json", fs, fund_s),
+        ("docs/sf_fundamentals.json", fd, fund_d),
+    ):
         rows = store.get(SYM)
         if not rows:
             print(f"  !! {label} has no {SYM}")
@@ -139,7 +142,9 @@ def main():
             return 1
         print("  %-28s before: %s" % (label, row))
         if row[3] is not None and abs(row[3] - CON) > 0.011:
-            print(f"     !! con slot already holds {row[3]}, NOT {CON} — stopping, this needs a human")
+            print(
+                f"     !! con slot already holds {row[3]}, NOT {CON} — stopping, this needs a human"
+            )
             return 1
         if row[3] is None:
             if apply:
@@ -160,7 +165,10 @@ def main():
             "caveat": CAVEAT,
             "campaign": "con-yoy-triad",
             "fill_pass": "2026-08-17 jswdulux-h1-closeout",
-            "prior_per_file": {"docs/sf_fundamentals.json": None, "scripts/fundamentals.json": None},
+            "prior_per_file": {
+                "docs/sf_fundamentals.json": None,
+                "scripts/fundamentals.json": None,
+            },
         }
         print(
             "  scripts/conpat_filing_fills.json   + JSWDULUX|20180630|con (provenance, registered in verify_fills_live)"

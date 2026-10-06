@@ -82,7 +82,8 @@ def days(a, b):
 
     try:
         return (
-            datetime.date(b // 10000, (b // 100) % 100, b % 100) - datetime.date(a // 10000, (a // 100) % 100, a % 100)
+            datetime.date(b // 10000, (b // 100) % 100, b % 100)
+            - datetime.date(a // 10000, (a // 100) % 100, a % 100)
         ).days
     except Exception:
         return None
@@ -105,7 +106,9 @@ def main():
         "  "
         + ", ".join(
             "%s=%d" % (k, n)
-            for k, n in Counter(v.get("verdict", "?").split("=")[0] for v in done.values()).most_common()
+            for k, n in Counter(
+                v.get("verdict", "?").split("=")[0] for v in done.values()
+            ).most_common()
         )
     )
     for b in ("std", "con"):
@@ -127,15 +130,21 @@ def main():
         for key, v in sorted(nse[basis].items()):
             sym, qe = v["sym"], v["qe"]
             vints = [
-                x for x in v.get("vintages", []) if x.get("pat") is not None and x.get("cumulative") != "Cumulative"
+                x
+                for x in v.get("vintages", [])
+                if x.get("pat") is not None and x.get("cumulative") != "Cumulative"
             ]
             if len(vints) < 2:
                 if v.get("verdict") in ("single-vintage-mismatch", "stored-in-neither"):
-                    byproduct[_subclass(v, scan.get(key, {}), fund, basis)].append(key + "|" + basis)
+                    byproduct[_subclass(v, scan.get(key, {}), fund, basis)].append(
+                        key + "|" + basis
+                    )
                 continue
             asf = vints[0]
             seq = read_seq.get((sym, qe, basis))
-            rest = next((x for x in vints[1:] if str(x.get("seq")) == str(seq)), None) if seq else None
+            rest = (
+                next((x for x in vints[1:] if str(x.get("seq")) == str(seq)), None) if seq else None
+            )
             frow = next((r for r in fund.get(sym, []) if r[0] == qe), None)
             rrow = (revop.get(sym) or {}).get(str(qe)) or []
             ann = frow[2 if basis == "std" else 4] if frow and len(frow) > 4 else None
@@ -156,7 +165,12 @@ def main():
                     ev.append("PROV")
                 if basis == "std" and det is not None and agree(det, asf["pat"]):
                     ev.append("DETRES")
-            if cur is not None and pat_rest and not near(cur, asf["pat"]) and near(cur, pat_rest["pat"]):
+            if (
+                cur is not None
+                and pat_rest
+                and not near(cur, asf["pat"])
+                and near(cur, pat_rest["pat"])
+            ):
                 gap = days(ann, pat_rest.get("filed")) if ann else None
                 if contradicted:
                     queues[f"pat-{basis}-detres-contradicts-nse-as-filed"].append(key)
@@ -166,7 +180,20 @@ def main():
                     queues[f"pat-{basis}-restatement-gap-too-small"].append(key)
                 else:
                     fund_props.append(
-                        _entry(sym, qe, basis, cur, asf["pat"], asf, pat_rest, ann, gap, ev, det, "Net Profit")
+                        _entry(
+                            sym,
+                            qe,
+                            basis,
+                            cur,
+                            asf["pat"],
+                            asf,
+                            pat_rest,
+                            ann,
+                            gap,
+                            ev,
+                            det,
+                            "Net Profit",
+                        )
                     )
             elif cur is not None and not near(cur, asf["pat"]):
                 queues[f"pat-{basis}-store-matches-no-vintage"].append(key)
@@ -223,7 +250,8 @@ def main():
                     else:
                         dv, _ = _fnum(
                             fdet,
-                            "Profit from Operations before Other Income, Interest and Exceptional Items",
+                            "Profit from Operations before Other Income, Interest "
+                            "and Exceptional Items",
                             "Operating Profit before Provisions and Contingencies",
                         )
                     dv = None if dv is None else dv / 10.0
@@ -261,7 +289,10 @@ def main():
             # the PAT mirror in sf_revop must move with the fund heal, never on its own
             mslot = REVOP_SLOT[f"pat_{basis}"]
             if (
-                any(p["sym"] == sym and p["qe"] == "%d" % qe and p["basis"] == basis for p in fund_props)
+                any(
+                    p["sym"] == sym and p["qe"] == "%d" % qe and p["basis"] == basis
+                    for p in fund_props
+                )
                 and len(rrow) > mslot
                 and rrow[mslot] is not None
                 and near(rrow[mslot], cur)
@@ -289,12 +320,16 @@ def main():
         % (
             len(fund_props),
             len({p["sym"] for p in fund_props}),
-            ", ".join("%s=%d" % (b, sum(1 for p in fund_props if p["basis"] == b)) for b in ("std", "con")),
+            ", ".join(
+                "%s=%d" % (b, sum(1 for p in fund_props if p["basis"] == b)) for b in ("std", "con")
+            ),
         )
     )
     for b, n in Counter(p["basis"] for p in revop_props).most_common():
         print("  revop_cell_fix %-8s: %d" % (b, n))
-    print("  evidence: {}".format(dict(Counter("+".join(p["_ev"]["evidence"]) for p in fund_props))))
+    print(
+        "  evidence: {}".format(dict(Counter("+".join(p["_ev"]["evidence"]) for p in fund_props)))
+    )
     print("\nQUEUES (not proposed — each says why):")
     for q, ks in sorted(queues.items(), key=lambda x: -len(x[1])):
         print("  %-44s %d" % (q, len(ks)))
@@ -306,7 +341,8 @@ def main():
     prop_syms = {p["sym"] for p in fund_props}
     print(
         "\nAnchor refusals already on disk (§108 signature 1): %d cells / %d symbols; "
-        "%d of those symbols are proposed here" % (len(ref), len(ref_syms), len(ref_syms & prop_syms))
+        "%d of those symbols are proposed here"
+        % (len(ref), len(ref_syms), len(ref_syms & prop_syms))
     )
 
     json.dump(
@@ -403,7 +439,11 @@ def _subclass(v, sc, fund, basis):
     if any(abs(ratio - p) <= 0.02 * p for p in POWERS):
         return "scale-step (§74)"
     if other is not None and abs(other - v["stored"]) <= 0.011:
-        return "std slot holds the CON value (§59)" if basis == "std" else "con slot is a STD copy (con-copy class)"
+        return (
+            "std slot holds the CON value (§59)"
+            if basis == "std"
+            else "con slot is a STD copy (con-copy class)"
+        )
     # detres is STANDALONE-ONLY (§42). The scan ledger is keyed SYM|QE with no basis in the key,
     # so reading it for a `con` cell compares BSE's standalone figure with NSE's consolidated one —
     # of course they differ, and 108 consolidated cells were filed under "the two readers disagree"

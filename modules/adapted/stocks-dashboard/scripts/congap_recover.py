@@ -49,15 +49,30 @@ targets = json.load(open(os.path.join(HERE, "_congap_targets.json")))
 OUTF = os.path.join(HERE, "_congap_recovered.json")
 VPDF = os.path.join(HERE, "_vpdf")
 os.makedirs(VPDF, exist_ok=True)
-DEFUNCT = {"DHFL", "HDFC", "ROLTA", "JPINFRATEC", "TATAMTRDVR", "CONSOFINVT", "EROSMEDIA", "UNITECH", "GVKPIL"}
+DEFUNCT = {
+    "DHFL",
+    "HDFC",
+    "ROLTA",
+    "JPINFRATEC",
+    "TATAMTRDVR",
+    "CONSOFINVT",
+    "EROSMEDIA",
+    "UNITECH",
+    "GVKPIL",
+}
 
 NUM = re.compile(r"^\(?-?[\d,]+\.?\d*\)?$")
-OWN = re.compile(r"(owners|equity ?holders|equityholders|attributab)", re.IGNORECASE)
+OWN = re.compile(r"(owners|equity ?holders|equityholders|attributab)", re.I)
 
 
 def prevq(qe):
     y, md = qe // 10000, qe % 10000
-    return {331: (y - 1) * 10000 + 1231, 630: y * 10000 + 331, 930: y * 10000 + 630, 1231: y * 10000 + 930}[md]
+    return {
+        331: (y - 1) * 10000 + 1231,
+        630: y * 10000 + 331,
+        930: y * 10000 + 630,
+        1231: y * 10000 + 930,
+    }[md]
 
 
 def qe_from_ann(a):
@@ -75,7 +90,12 @@ def qe_from_ann(a):
 
 def window(q):
     y, md = q // 10000, q % 10000
-    hi = {331: y * 10000 + 831, 630: y * 10000 + 1130, 930: (y + 1) * 10000 + 301, 1231: (y + 1) * 10000 + 601}[md]
+    hi = {
+        331: y * 10000 + 831,
+        630: y * 10000 + 1130,
+        930: (y + 1) * 10000 + 301,
+        1231: (y + 1) * 10000 + 601,
+    }[md]
     return str(q), str(hi)
 
 
@@ -185,7 +205,11 @@ def double_anchor(nums, cprev, cyago):
         return None
     for div in (1.0, 100.0, 10.0):
         c = [round(v / div, 2) for v in nums]
-        if len(c) > 2 and abs(c[1] - cprev) <= abs(cprev) * 0.03 and abs(c[2] - cyago) <= abs(cyago) * 0.03:
+        if (
+            len(c) > 2
+            and abs(c[1] - cprev) <= abs(cprev) * 0.03
+            and abs(c[2] - cyago) <= abs(cyago) * 0.03
+        ):
             return c[0], f"BOTH prev~{cprev:.1f} yago~{cyago:.1f} /{div:g}"
     return None
 
@@ -202,7 +226,7 @@ def anchor_pdf(pdf, cprev, cyago):
                 return a  # owners row + double anchor = best
             if best is None:
                 best = a
-    return best or (None, "no-double-anchor")
+    return best if best else (None, "no-double-anchor")
 
 
 def main():
@@ -266,7 +290,8 @@ def main():
         if done % 10 == 0:
             save()
             print(
-                "  ...%d/%d processed, %d double-anchored (last %s|%d=%s)" % (n + 1, len(work), ok, sym, q, val),
+                "  ...%d/%d processed, %d double-anchored (last %s|%d=%s)"
+                % (n + 1, len(work), ok, sym, q, val),
                 flush=True,
             )
     save()

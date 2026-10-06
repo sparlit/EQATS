@@ -56,7 +56,10 @@ def best_page(doc):
         low = t.lower()
         if re.search(r"consolidated", low):
             con = True
-        elif re.search(r"standalone\s+(statement|financial|results|ind)", low) and "consolidated" not in low:
+        elif (
+            re.search(r"standalone\s+(statement|financial|results|ind)", low)
+            and "consolidated" not in low
+        ):
             con = False
         if not con:
             continue

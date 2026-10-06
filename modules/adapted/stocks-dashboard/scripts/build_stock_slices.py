@@ -108,12 +108,21 @@ SF_BIN = os.environ.get("SF_BIN") or os.path.join(DOCS, "sf_stock_data.bin")
 CORE_BIN = os.path.join(DOCS, "stock_data.bin")
 
 TAIL = 400  # bars carrying h/l/v/dv/t — 52 weeks (~250 sessions) is the deepest window
-SCHEMA = 2  # 2: activity feeds (act/ann/ins/dls/dsc/nr/rp) + peers — additive, sv=1 readers unaffected
+SCHEMA = (
+    2  # 2: activity feeds (act/ann/ins/dls/dsc/nr/rp) + peers — additive, sv=1 readers unaffected
+)
 
 ANN_CAP, INS_CAP, DLS_CAP, DSC_CAP = 30, 30, 30, 20
 PEER_N = 8  # same-industry rows besides the stock itself
 
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
+
+
+def _px100(x):
+    """price x100 (paise) as the engine holds it: an integer for a 2-decimal price, up to 4 paise decimals for the adjusted store
+    (4 decimals, 6 below Rs 1 — runbook §179f) — ints stay ints so unchanged prices keep their exact bytes."""
+    v = round(x * 100, 4)
+    return int(v) if v == int(v) else v
 
 
 def slug(sym):
@@ -158,14 +167,21 @@ def build_activity(end):
     for r in jload(os.path.join(DOCS, "deals.json"), "bulk/block deals").get("rows") or ():
         # [date, kind, sym, name, client, side, qty, price]
         add("dls", r[2], [r[0], r[1], _trim(r[4], 60), r[5], r[6], r[7]])
-    for s in jload(os.path.join(DOCS, "live_tracking.json"), "strategy picks").get("strategies") or ():
+    for s in (
+        jload(os.path.join(DOCS, "live_tracking.json"), "strategy picks").get("strategies") or ()
+    ):
         # a symbol sitting in a tracked strategy's CURRENT basket — [name, live ret %, since, as-of day]
         for p in (s.get("latest") or {}).get("picks") or ():
             if p.get("s"):
                 add(
                     "strat",
                     p["s"],
-                    [_trim(s.get("name"), 60), s.get("ret"), s.get("since"), (s.get("latest") or {}).get("day")],
+                    [
+                        _trim(s.get("name"), 60),
+                        s.get("ret"),
+                        s.get("since"),
+                        (s.get("latest") or {}).get("day"),
+                    ],
                 )
     for g in jload(os.path.join(DOCS, "discovery.json"), "discovery triggers").get("groups") or ():
         for b in g.get("buckets") or ():
@@ -183,7 +199,14 @@ def build_activity(end):
                 ):
                     add("dsc", r[0], [r[4], title, _trim(r[5], 120), r[6]])
 
-    caps = {"act": None, "ann": ANN_CAP, "ins": INS_CAP, "dls": DLS_CAP, "dsc": DSC_CAP, "strat": 12}
+    caps = {
+        "act": None,
+        "ann": ANN_CAP,
+        "ins": INS_CAP,
+        "dls": DLS_CAP,
+        "dsc": DSC_CAP,
+        "strat": 12,
+    }
     for sym, d in A.items():
         for k, rows in d.items():
             if k == "dsc":  # one bucket can list a filing twice
@@ -203,7 +226,9 @@ def build_activity(end):
             d[k] = rows
 
     nr = {}
-    for r in jload(os.path.join(DOCS, "results_calendar.json"), "results calendar").get("rows") or ():
+    for r in (
+        jload(os.path.join(DOCS, "results_calendar.json"), "results calendar").get("rows") or ()
+    ):
         # [sym, name, date, purpose]
         if "result" in str(r[3] or "").lower() and r[2] >= end:
             if r[0] not in nr or r[2] < nr[r[0]]:
@@ -212,7 +237,9 @@ def build_activity(end):
         A.setdefault(sym, {})["nr"] = dt
 
     rp = {}
-    for r in jload(os.path.join(DOCS, "results_feed.json"), "results filing PDFs").get("rows") or ():
+    for r in (
+        jload(os.path.join(DOCS, "results_feed.json"), "results filing PDFs").get("rows") or ()
+    ):
         # [sym, name, ts, qEnd, caption, url]
         if r[0] not in rp or r[2] > rp[r[0]][0]:
             rp[r[0]] = [r[2], r[3], r[5]]
@@ -257,14 +284,19 @@ def fill_missing_mcaps(core, data):
             continue
         # update in place — the entry carries name/industry/52w fields other readers may want
         core.setdefault(key, {"symbol": sym}).update(
-            {"mcap": round(n * closes[-1] / 1e7, 2), "latest": closes[-1], "mcapSrc": "shp:" + str(rec[1])}
+            {
+                "mcap": round(n * closes[-1] / 1e7, 2),
+                "latest": closes[-1],
+                "mcapSrc": "shp:" + str(rec[1]),
+            }
         )
         filled += 1
     # SME listings with no filing yet: screener-derived counts (scripts/shares_fill_screener.json,
     # §145), used only for symbols the filing ledger above has no count for.
-    sc = (jload(os.path.join(HERE, "shares_fill_screener.json"), "screener share-count fallback") or {}).get(
-        "fills"
-    ) or {}
+    sc = (
+        jload(os.path.join(HERE, "shares_fill_screener.json"), "screener share-count fallback")
+        or {}
+    ).get("fills") or {}
     for sym, rec in sc.items():
         n = (rec or {}).get("shares")
         if not n or sym in (shares or {}):
@@ -366,12 +398,20 @@ def peers_for(sym, m, stats, groups, meta):
     if len([x for x in pool if x != sym]) < 3 and wide and wide != fine:
         label, pool = wide, (by_wide.get(wide) or ())
     rows, rnd = [], lambda v, p: None if v is None else round(v, p)
-    for s in [sym, *[x for x in pool if x != sym][:PEER_N]]:
+    for s in [sym] + [x for x in pool if x != sym][:PEER_N]:
         st = stats.get(s)
         if not st:
             continue
         nm = meta.get(s, {}).get("name") or s
-        rows.append([s, _trim(nm, 28), (None if st[0] is None else round(st[0])), rnd(st[1], 1), rnd(st[2], 1)])
+        rows.append(
+            [
+                s,
+                _trim(nm, 28),
+                (None if st[0] is None else int(round(st[0]))),
+                rnd(st[1], 1),
+                rnd(st[2], 1),
+            ]
+        )
     return {"g": label, "r": rows} if len(rows) > 1 else None
 
 
@@ -380,7 +420,9 @@ def members_as_of(snaps, date_str):
     (falling back to the oldest, as backtest-engine.js's lastSnap does)."""
     best = None
     for s in snaps or ():
-        if s.get("effectiveDate", "") <= date_str and (best is None or s["effectiveDate"] > best["effectiveDate"]):
+        if s.get("effectiveDate", "") <= date_str and (
+            best is None or s["effectiveDate"] > best["effectiveDate"]
+        ):
             best = s
     if best is None and snaps:
         best = snaps[0]
@@ -393,7 +435,7 @@ def build_slice(sym, o, m, end, ts, chips, fno, core):
     # Day offsets exactly as backtest-engine.js computes them (floor((utc - startTs)/DAY)),
     # then delta-encoded — a run of 1s and 3s gzips to nothing, absolute offsets do not.
     offs = [(_days(y) * 86400 - ts) // 86400 for y in o["d"]]
-    p = [round(c * 100) for c in o["c"]]
+    p = [_px100(c) for c in o["c"]]
 
     out = {
         "sv": SCHEMA,
@@ -419,8 +461,8 @@ def build_slice(sym, o, m, end, ts, chips, fno, core):
     # and converting the per-mil high/low into x100 paise moved 52-week lows on sub-₹10 names.
     if o.get("h") and o.get("l"):
         out["hl"] = 1  # exact intraday high/low…
-        out["h"] = [round(x * 100) for x in o["h"][-k:]]  # …stored x100, as loadSF does
-        out["l"] = [round(x * 100) for x in o["l"][-k:]]
+        out["h"] = [_px100(x) for x in o["h"][-k:]]  # …stored x100, as loadSF does
+        out["l"] = [_px100(x) for x in o["l"][-k:]]
     elif o.get("hb") and o.get("lb"):
         out["hb"] = o["hb"][-k:]  # legacy per-mil offsets from close
         out["lb"] = o["lb"][-k:]
@@ -475,7 +517,10 @@ def main():
     SF = json.loads(gzip.decompress(open(SF_BIN, "rb").read()))
     data, meta, end = SF["data"], SF.get("meta", {}), SF.get("end") or ""
     if len(data) < 3000:
-        sys.exit("ABORT: sf payload has only %d symbols — refusing to publish truncated slices" % len(data))
+        sys.exit(
+            "ABORT: sf payload has only %d symbols — refusing to publish truncated slices"
+            % len(data)
+        )
 
     # stock_data.bin supplies the time base, index/F&O membership and market cap. Reading
     # it here is what lets the PAGE stop reading it: 17 MB of downloads become 3 fields.
@@ -486,7 +531,9 @@ def main():
     idx_hist = CORE.get("indicesHistory", {})
     fno_syms = members_as_of(CORE.get("fnoHistory", []), end)
     idx_mem = {name: members_as_of(snaps, end) for name, snaps in idx_hist.items()}
-    print("  ts=%d  end=%s  indices=%d  fno=%d" % (ts, end, len(idx_mem), len(fno_syms)), flush=True)
+    print(
+        "  ts=%d  end=%s  indices=%d  fno=%d" % (ts, end, len(idx_mem), len(fno_syms)), flush=True
+    )
     fill_missing_mcaps(core_meta, data)  # before peer stats AND slices — both read core_meta
 
     print("cutting activity feeds + peer stats …", flush=True)
@@ -512,7 +559,8 @@ def main():
             separators=(",", ":"),
         )
     print(
-        "  pe_ttm.json: %d of %d symbols priced (rest have no contiguous TTM or no mcap)" % (len(pe_only), len(pstats)),
+        "  pe_ttm.json: %d of %d symbols priced (rest have no contiguous TTM or no mcap)"
+        % (len(pe_only), len(pstats)),
         flush=True,
     )
 
@@ -531,7 +579,9 @@ def main():
             sys.exit(f"ABORT: slug collision {sl!r}: {seen_slug[sl]} and {sym}")
         seen_slug[sl] = sym
         chips = sorted(name for name, mem in idx_mem.items() if sym in mem)
-        payload = build_slice(sym, data[sym], meta.get(sym, {}), end, ts, chips, sym in fno_syms, core_meta)
+        payload = build_slice(
+            sym, data[sym], meta.get(sym, {}), end, ts, chips, sym in fno_syms, core_meta
+        )
         for k, v in (ACT.get(sym) or {}).items():  # act/ann/ins/dls/dsc lists + nr/rp scalars
             payload[k] = v
         pr = peers_for(sym, meta.get(sym, {}), pstats, groups, meta)

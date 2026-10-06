@@ -67,7 +67,12 @@ def fy_of(qe):
 
 
 def fy_quarters(fy):
-    return [(fy - 1) * 10000 + 630, (fy - 1) * 10000 + 930, (fy - 1) * 10000 + 1231, fy * 10000 + 331]
+    return [
+        (fy - 1) * 10000 + 630,
+        (fy - 1) * 10000 + 930,
+        (fy - 1) * 10000 + 1231,
+        fy * 10000 + 331,
+    ]
 
 
 def close(a, b, tol=0.015, floor=1.0):
@@ -96,8 +101,16 @@ def main():
             except Exception:
                 cache[ck] = ({}, {})
         sq, sa = cache[ck]
-        lab = next((L for L in ("Sales", "Revenue") if any(L in r for r in sq.values())), None) if sq else None
-        alab = next((L for L in ("Sales", "Revenue") if any(L in r for r in sa.values())), None) if sa else None
+        lab = (
+            next((L for L in ("Sales", "Revenue") if any(L in r for r in sq.values())), None)
+            if sq
+            else None
+        )
+        alab = (
+            next((L for L in ("Sales", "Revenue") if any(L in r for r in sa.values())), None)
+            if sa
+            else None
+        )
         mine = revop.get(sym) or {}
         slot = SLOT[field]
         rec = {"sym": sym, "field": field, "qe": qe, "ours": ours, "screener": scr}
@@ -137,7 +150,8 @@ def main():
                 rec.update(
                     bucket="CUMULATIVE",
                     suggested=round(ours - sum(vals), 2),
-                    reason="ours == earlier quarters of FY%d (%.2f) + screener %.2f" % (fy, sum(vals), scr),
+                    reason="ours == earlier quarters of FY%d (%.2f) + screener %.2f"
+                    % (fy, sum(vals), scr),
                 )
                 out.append(rec)
                 continue

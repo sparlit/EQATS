@@ -40,7 +40,6 @@ Cache: scripts/_seq_audit_rows.json  {key: {"code": scrip, "lo": int, "hi": int,
 import datetime
 import json
 import os
-import re
 import sys
 import time
 
@@ -86,7 +85,7 @@ def main():
     today = int(datetime.date.today().strftime("%Y%m%d"))
 
     def gap(k):
-        _sym, qe = k.split("|")
+        sym, qe = k.split("|")
         a = seq[k]["ann"]
         return (BB.qe_date(int(a)) - BB.qe_date(int(qe))).days
 
@@ -131,7 +130,10 @@ def main():
         done += 1
         if done % 10 == 0:
             BB.jsave(CACHE, cache)
-            print("… %d/%d fetched (last %s: %d rows, %d pages)" % (done, len(todo), k, len(rows), pages))
+            print(
+                "… %d/%d fetched (last %s: %d rows, %d pages)"
+                % (done, len(todo), k, len(rows), pages)
+            )
         time.sleep(0.6)
     BB.jsave(CACHE, cache)
     print("DONE: %d fetched this run, cache now %d/%d keys" % (done, len(cache), len(seq)))

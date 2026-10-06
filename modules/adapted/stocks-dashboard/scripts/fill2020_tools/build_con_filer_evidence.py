@@ -116,7 +116,10 @@ def main():
         div = [
             r[0]
             for r in fund.get(sym, [])
-            if len(r) > 3 and r[1] is not None and r[3] is not None and abs(r[3] - r[1]) > max(0.05, abs(r[1]) * 0.001)
+            if len(r) > 3
+            and r[1] is not None
+            and r[3] is not None
+            and abs(r[3] - r[1]) > max(0.05, abs(r[1]) * 0.001)
         ]
         # a stored con REVENUE that differs from std is equally conclusive
         for q, row in (revop.get(sym) or {}).items():
@@ -137,8 +140,16 @@ def main():
             acon, astd = SF.annuals(sym, con=True), SF.annuals(sym, con=False)
         except Exception:
             acon, astd = {}, {}
-        lc = next((L for L in ("Sales", "Revenue") if any(L in r for r in acon.values())), None) if acon else None
-        ls = next((L for L in ("Sales", "Revenue") if any(L in r for r in astd.values())), None) if astd else None
+        lc = (
+            next((L for L in ("Sales", "Revenue") if any(L in r for r in acon.values())), None)
+            if acon
+            else None
+        )
+        ls = (
+            next((L for L in ("Sales", "Revenue") if any(L in r for r in astd.values())), None)
+            if astd
+            else None
+        )
         hits = []
         if lc and ls:
             for dk in sorted(set(acon) & set(astd)):
@@ -149,7 +160,7 @@ def main():
                     hits.append(int(dk[:4]))
         if hits:
             srcs.append("E2 screener con annual != std in FY%d..FY%d" % (min(hits), max(hits)))
-            first_fy = min(first_fy or 9999, *hits)
+            first_fy = min(first_fy or 9999, min(hits))
 
         out[sym] = {"files_con": bool(srcs), "sources": srcs, "first_con_fy": first_fy}
         json.dump(out, open(OUT, "w"), indent=1, sort_keys=True)

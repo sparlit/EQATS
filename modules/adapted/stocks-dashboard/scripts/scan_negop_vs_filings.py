@@ -94,7 +94,11 @@ def screen(rv, fund, xe):
                 prof = pbt if pbt is not None else pat
                 if prof is None or prof <= 0:
                     continue
-                base = pbet if pbet is not None else (pbt - (li.get("exc") or 0) if pbt is not None else None)
+                base = (
+                    pbet
+                    if pbet is not None
+                    else (pbt - (li.get("exc") or 0) if pbt is not None else None)
+                )
                 opc = None
                 if base is not None and li.get("oi") is not None:
                     opc = round(base + (li.get("fc") or 0) + (li.get("dep") or 0) - li["oi"], 2)
@@ -131,7 +135,9 @@ def xbrl_index(cands, ren):
     import build_revop as BR
 
     if not os.path.isdir(CACHE):
-        sys.exit(f"XBRL cache not found at {CACHE} -- set XBRL_CACHE (it lives in the MAIN checkout)")
+        sys.exit(
+            f"XBRL cache not found at {CACHE} -- set XBRL_CACHE (it lives in the MAIN checkout)"
+        )
     rev_map = collections.defaultdict(set)
     for old, new in ren.items():
         rev_map[new].add(old)
@@ -150,7 +156,9 @@ def xbrl_index(cands, ren):
             cur[o] = s
     pat = 'NSESymbol">(' + "|".join(re.escape(n).replace("&", "&amp;") for n in sorted(cur)) + ")<"
     r = subprocess.run(["grep", "-rlE", pat, "."], cwd=CACHE, capture_output=True, text=True)
-    files = sorted((l.removeprefix("./") for l in r.stdout.split() if l), key=BR.ts_key)
+    files = sorted(
+        (l[2:] if l.startswith("./") else l for l in r.stdout.split() if l), key=BR.ts_key
+    )
     idx = collections.defaultdict(list)
     for f in files:
         try:
@@ -164,7 +172,8 @@ def xbrl_index(cands, ren):
             d = p.get(b)
             if d:
                 idx["{}|{}|{}".format(sym, p["qe"], b[0])].append(
-                    [p["ts"], f] + [None if d[k] is None else round(d[k], 2) for k in ("rev", "op", "ebit")]
+                    [p["ts"], f]
+                    + [None if d[k] is None else round(d[k], 2) for k in ("rev", "op", "ebit")]
                 )
     for k in idx:
         idx[k].sort(key=lambda e: e[0])
@@ -201,7 +210,10 @@ def main():
         "op < 0 while PBT/PAT > 0: %d cells, %d symbols   (cached XBRLs read for candidates: %d)"
         % (len(out), len({o["sym"] for o in out}), nfiles)
     )
-    for name, pop in (("ALL", out), ("STRONG (op < -50% of revenue)", [o for o in out if o["strong"]])):
+    for name, pop in (
+        ("ALL", out),
+        ("STRONG (op < -50% of revenue)", [o for o in out if o["strong"]]),
+    ):
         c = collections.Counter(o["cls"] for o in pop)
         print(
             "  %-30s %5d cells %4d symbols  %s"
@@ -224,7 +236,10 @@ def main():
                 len(L),
                 "; ".join(
                     "{}{} op {} ref {}".format(
-                        o["qe"], o["b"], o["op"], o["xop"] if o["cls"] == "WRONG-vs-xbrl" else o["opc"]
+                        o["qe"],
+                        o["b"],
+                        o["op"],
+                        o["xop"] if o["cls"] == "WRONG-vs-xbrl" else o["opc"],
                     )
                     for o in L[:4]
                 )

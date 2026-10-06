@@ -199,7 +199,9 @@ def check_series(series, ours, cand, qe, field=""):
         checked += 1
         if _agree(mine, theirs) == "no":
             txt = "%d ours=%s site=%s (%dq away)" % (q, mine, theirs, dist)
-            (bad_local if dist <= LOCAL_Q else bad_guard if dist <= GUARD_Q else bad_far).append(txt)
+            (bad_local if dist <= LOCAL_Q else bad_guard if dist <= GUARD_Q else bad_far).append(
+                txt
+            )
             continue
         matched += 1
         worst = max(worst, abs(mine - theirs))
@@ -209,7 +211,10 @@ def check_series(series, ours, cand, qe, field=""):
     near = any(
         abs(qidx(q) - ti) <= NEAR_Q
         for q, row in series.items()
-        if q != qe and ours.get(q) is not None and row.get(cand) is not None and _agree(ours[q], row[cand]) != "no"
+        if q != qe
+        and ours.get(q) is not None
+        and row.get(cand) is not None
+        and _agree(ours[q], row[cand]) != "no"
     )
     why = ""
     if bad_local:
@@ -226,7 +231,10 @@ def check_series(series, ours, cand, qe, field=""):
     elif bad_guard:
         why = "GATE-A3: restatement boundary inside +-%dq: %s" % (GUARD_Q, "; ".join(bad_guard[:3]))
     elif checked and nbad / float(checked + nbad) > GLOBAL_MAX_BAD:
-        why = "GATE-A4: %d/%d of the whole series disagrees -- different entity/basis" % (nbad, checked + nbad)
+        why = "GATE-A4: %d/%d of the whole series disagrees -- different entity/basis" % (
+            nbad,
+            checked + nbad,
+        )
     return {
         "ok": not why,
         "matched": matched,
@@ -247,7 +255,15 @@ def check(sym, qe, field, sites=("mc", "tl", "tt"), name_hint=""):
     con = field.endswith("C")
     ours = ours_series(sym, field)
     other = ours_series(sym, OTHER[field])
-    out = {"sym": sym, "qe": qe, "field": field, "sites": {}, "value": None, "state": "NOT-FOUND", "notes": []}
+    out = {
+        "sym": sym,
+        "qe": qe,
+        "field": field,
+        "sites": {},
+        "value": None,
+        "state": "NOT-FOUND",
+        "notes": [],
+    }
     passers = {}
     for site in sites:
         try:
@@ -261,7 +277,11 @@ def check(sym, qe, field, sites=("mc", "tl", "tt"), name_hint=""):
             continue
         row = series.get(qe)
         if not row:
-            rec["verdict"] = "quarter %d absent (site holds %s..%s)" % (qe, min(series), max(series))
+            rec["verdict"] = "quarter %d absent (site holds %s..%s)" % (
+                qe,
+                min(series),
+                max(series),
+            )
             out["sites"][site] = rec
             continue
         best = None
@@ -294,11 +314,9 @@ def check(sym, qe, field, sites=("mc", "tl", "tt"), name_hint=""):
                     )
                 }
             )
-            rec["verdict"] = "PASS gate A/A2/A3/A4 on %r (%d local + %d total anchors, worst %.2f)" % (
-                best["label"],
-                best["local"],
-                best["matched"],
-                best["worst"],
+            rec["verdict"] = (
+                "PASS gate A/A2/A3/A4 on %r (%d local + %d total anchors, worst %.2f)"
+                % (best["label"], best["local"], best["matched"], best["worst"])
             )
             passers[site] = best
         out["sites"][site] = rec
@@ -316,7 +334,9 @@ def check(sym, qe, field, sites=("mc", "tl", "tt"), name_hint=""):
         return None, out
 
     # prefer the passer with the most LOCAL anchors, tie-broken by the finer precision
-    site = min(passers, key=lambda s: (-passers[s]["local"], -passers[s]["matched"], passers[s]["worst"]))
+    site = sorted(
+        passers, key=lambda s: (-passers[s]["local"], -passers[s]["matched"], passers[s]["worst"])
+    )[0]
     val = passers[site]["value"]
 
     # ---- Gate B: a printed zero is 'not reported' until something else says it is a real nil
@@ -324,7 +344,9 @@ def check(sym, qe, field, sites=("mc", "tl", "tt"), name_hint=""):
         peer = other.get(qe)
         if peer is None or abs(peer) > 1.0:
             out["state"] = "REJECT-ZERO-SENTINEL"
-            out["notes"].append(f"GATE-B: site prints 0 and nothing corroborates a real nil (other basis = {peer})")
+            out["notes"].append(
+                f"GATE-B: site prints 0 and nothing corroborates a real nil (other basis = {peer})"
+            )
             return None, out
         out["notes"].append(f"GATE-B: zero allowed, other basis also ~0 ({peer})")
 
@@ -338,7 +360,9 @@ def check(sym, qe, field, sites=("mc", "tl", "tt"), name_hint=""):
         return None, out
 
     out["value"] = val
-    out["state"] = "FILLED-EXACT" if passers[site]["precision"] == "site-exact" else "FILLED-ROUNDED"
+    out["state"] = (
+        "FILLED-EXACT" if passers[site]["precision"] == "site-exact" else "FILLED-ROUNDED"
+    )
     out["chosen"] = {
         "site": site,
         "row": passers[site]["label"],

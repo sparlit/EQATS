@@ -73,12 +73,23 @@ import shp_dates as SD
 RESULTS = os.path.join(HERE, "ann2014_results.json")
 CACHE = os.path.join(HERE, "_ann2014_cache")
 LEDGER = os.path.join(SCRIPTS, "shp_sub_dates.json")
-QES = [20131231, 20140331, 20140630, 20140930, 20141231, 20150331, 20150630, 20150930, 20151231, 20160331]
+QES = [
+    20131231,
+    20140331,
+    20140630,
+    20140930,
+    20141231,
+    20150331,
+    20150630,
+    20150930,
+    20151231,
+    20160331,
+]
 WINDOW_DAYS = 90
 _lk = threading.Lock()
 
 MON = r"(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)"
-P_MONTH = re.compile(MON + r"\.?\s+(\d{1,2})\s*,?\s*(\d{4})", re.IGNORECASE)
+P_MONTH = re.compile(MON + r"\.?\s+(\d{1,2})\s*,?\s*(\d{4})", re.I)
 P_NUM = re.compile(r"\b(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})\b")
 
 
@@ -153,7 +164,11 @@ def fetch_one(sym, qe, code, stored_sub):
     dated = sorted(m for m in matches if m[0])
     if not dated:
         if matches:
-            return sym, qe, {"verdict": "period-unparsed", "n_shp": len(shp), "sample": matches[0][1]}
+            return (
+                sym,
+                qe,
+                {"verdict": "period-unparsed", "n_shp": len(shp), "sample": matches[0][1]},
+            )
         return sym, qe, {"verdict": "period-mismatch", "n_shp": len(shp)}
     ts = dated[0][0]  # earliest matching broadcast = first disclosure
     sub, gated = SD.visible_date(ts)
@@ -167,7 +182,14 @@ def fetch_one(sym, qe, code, stored_sub):
     return (
         sym,
         qe,
-        {"verdict": "dated", "ts": ts, "sub": sub, "gated_1530": gated, "headline": dated[0][1], "stored": stored_sub},
+        {
+            "verdict": "dated",
+            "ts": ts,
+            "sub": sub,
+            "gated_1530": gated,
+            "headline": dated[0][1],
+            "stored": stored_sub,
+        },
     )
 
 

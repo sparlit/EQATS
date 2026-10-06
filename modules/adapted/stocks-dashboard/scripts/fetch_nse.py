@@ -60,9 +60,10 @@ MON = {
     "nov": 11,
     "dec": 12,
 }
-GOOD = re.compile(r"financial result|integrated filing|outcome of board", re.IGNORECASE)
+GOOD = re.compile(r"financial result|integrated filing|outcome of board", re.I)
 BAD = re.compile(
-    r"newspaper|analyst|investor (presentation|meet)|intimation|schedule|transcript|press release", re.IGNORECASE
+    r"newspaper|analyst|investor (presentation|meet)|intimation|schedule|transcript|press release",
+    re.I,
 )
 
 
@@ -103,7 +104,9 @@ def con_score(pdf):
     sc = 0
     for p in range(min(len(doc), 60)):
         low = doc[p].get_text().lower()
-        if "consolidated" in low and re.search(r"profit.{0,12}(after tax|for the (period|quarter|year))", low):
+        if "consolidated" in low and re.search(
+            r"profit.{0,12}(after tax|for the (period|quarter|year))", low
+        ):
             sc += 1
     return sc
 
@@ -128,7 +131,6 @@ def main():
                 import time as _t
 
                 _t.sleep(3)
-        return None
 
     sget("https://www.nseindia.com/")
     log = (
@@ -136,8 +138,6 @@ def main():
         if os.path.exists(os.path.join(HERE, "_fetchnse_log.json"))
         else {}
     )
-    import time as _t
-
     for sym, qes in TARGETS.items():
         ref = {"Referer": f"https://www.nseindia.com/get-quotes/equity?symbol={sym}"}
         with contextlib.suppress(Exception):
@@ -195,13 +195,21 @@ def main():
                     pass
             if best:
                 open(os.path.join(VPDF, "%s_%d_nse.pdf" % (sym, qe)), "wb").write(best[0])
-                print("GOT %-11s %d  conpages=%d  %dKB  %s" % (sym, qe, best[2], len(best[0]) // 1024, best[1]))
+                print(
+                    "GOT %-11s %d  conpages=%d  %dKB  %s"
+                    % (sym, qe, best[2], len(best[0]) // 1024, best[1])
+                )
                 log["%s|%d" % (sym, qe)] = "got"
             else:
                 print("MISS %-11s %d  (%d cands mapped)" % (sym, qe, len(cands)))
                 log["%s|%d" % (sym, qe)] = "miss"
     json.dump(log, open(os.path.join(HERE, "_fetchnse_log.json"), "w"))
-    print("DONE", sum(1 for v in log.values() if v == "got"), "/", sum(len(v) for v in TARGETS.values()))
+    print(
+        "DONE",
+        sum(1 for v in log.values() if v == "got"),
+        "/",
+        sum(len(v) for v in TARGETS.values()),
+    )
 
 
 if __name__ == "__main__":

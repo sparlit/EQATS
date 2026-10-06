@@ -135,7 +135,11 @@ def main():
                 continue
             rel = (mine - sv) / abs(sv)
             mypat, spat = patf.get(sym, {}).get(q), sp
-            patok = mypat is not None and spat not in (None, 0) and abs((mypat - spat) / abs(spat)) <= PAT_OK
+            patok = (
+                mypat is not None
+                and spat not in (None, 0)
+                and abs((mypat - spat) / abs(spat)) <= PAT_OK
+            )
             if (sym, q) in clean_cells:  # this exact cell was read and confirmed
                 continue
             rows.append({"qe": q, "ours": mine, "site": sv, "rel": rel, "pat_agrees": patok})
@@ -176,9 +180,18 @@ def main():
                     "worst_pct": round(100 * min(r["rel"] for r in best), 1),
                     "median_pct": round(100 * statistics.median(r["rel"] for r in best), 1),
                     "pat_agrees_throughout": all(r["pat_agrees"] for r in best),
-                    "kind": ("run+isolated" if run_cells and lone else ("run" if run_cells else "isolated_material")),
+                    "kind": (
+                        "run+isolated"
+                        if run_cells and lone
+                        else ("run" if run_cells else "isolated_material")
+                    ),
                     "cells": [
-                        {"qe": r["qe"], "ours": r["ours"], "site": r["site"], "pct": round(100 * r["rel"], 1)}
+                        {
+                            "qe": r["qe"],
+                            "ours": r["ours"],
+                            "site": r["site"],
+                            "pct": round(100 * r["rel"], 1),
+                        }
                         for r in best
                     ],
                 }
@@ -197,7 +210,10 @@ def main():
                 "lone": LONE,
                 "abs_floor_cr": ABS_FLOOR_CR,
             },
-            "confirmed_instances": ["HUDCO 2022-06-30 (Interest Income sub-line)", "AADHARHFC 2023-24"],
+            "confirmed_instances": [
+                "HUDCO 2022-06-30 (Interest Income sub-line)",
+                "AADHARHFC 2023-24",
+            ],
             "warning": "a flag is a place to LOOK. Only a filing read decides.",
             "symbols_compared": len(site),
             "suppressed_adjudicated_clean": sorted(clean),
@@ -215,7 +231,15 @@ def main():
             w.writerow(["sym", "financial", "run_len", "from", "to", "worst_pct", "median_pct"])
             for c in cands:
                 w.writerow(
-                    [c["sym"], c["is_financial"], c["run_len"], c["from"], c["to"], c["worst_pct"], c["median_pct"]]
+                    [
+                        c["sym"],
+                        c["is_financial"],
+                        c["run_len"],
+                        c["from"],
+                        c["to"],
+                        c["worst_pct"],
+                        c["median_pct"],
+                    ]
                 )
 
     print(
@@ -226,7 +250,10 @@ def main():
         "candidates with a run of >=%d consecutive quarters below, PAT agreeing: %d (%d financial)"
         % (MIN_RUN, len(cands), len(fin))
     )
-    print("\n  %-13s %3s %4s %-9s %-9s %7s %7s" % ("sym", "fin", "run", "from", "to", "worst", "median"))
+    print(
+        "\n  %-13s %3s %4s %-9s %-9s %7s %7s"
+        % ("sym", "fin", "run", "from", "to", "worst", "median")
+    )
     for c in cands[:30]:
         print(
             "  %-13s %3s %4d %-9d %-9d %6.1f%% %6.1f%%"

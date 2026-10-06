@@ -133,8 +133,8 @@ def score_day(arr, i, meta_ok):
     return [
         round(close, 2),
         chg,
-        round(vol),
-        round(avg),
+        int(round(vol)),
+        int(round(avg)),
         round(ratio, 1),
         round(turn, 2),
         (round(dp, 1) if dp is not None else None),
@@ -218,7 +218,8 @@ def main():
                 a[2] = max(a[2], r[4])
                 a[3] = max(a[3], days[i])
     repeat = sorted(
-        ([s, a[0], a[1], round(a[2], 1), a[3]] for s, a in rep.items() if a[1] >= 2), key=lambda z: (-z[2], -z[3])
+        ([s, a[0], a[1], round(a[2], 1), a[3]] for s, a in rep.items() if a[1] >= 2),
+        key=lambda z: (-z[2], -z[3]),
     )
 
     ratios = [x[6] for x in rows]
@@ -266,7 +267,10 @@ def main():
         flush=True,
     )
     for x in rows[:6]:
-        print("  %-11s %6.1fx  vol %9d avg %8d  ₹%8.1f cr  %s" % (x[0], x[6], x[4], x[5], x[7], x[9]), flush=True)
+        print(
+            "  %-11s %6.1fx  vol %9d avg %8d  ₹%8.1f cr  %s" % (x[0], x[6], x[4], x[5], x[7], x[9]),
+            flush=True,
+        )
 
 
 if __name__ == "__main__":

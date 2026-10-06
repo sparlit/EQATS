@@ -100,7 +100,10 @@ ROOT = os.path.dirname(HERE)
 CACHE = os.path.join(HERE, "_sme_scan")
 OUT = os.path.join(HERE, "sme_backfill.json.gz")
 BIN = os.path.join(ROOT, "docs", "sf_stock_data.bin")
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120 Safari/537.36"
+)
 MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
 SME_SERIES = ("SM", "ST", "SZ")
 MAIN_SERIES = ("EQ", "BE", "BZ")
@@ -113,7 +116,10 @@ def jar():
     j = http.cookiejar.CookieJar()
     try:
         op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(j))
-        op.open(urllib.request.Request("https://www.nseindia.com/", headers={"User-Agent": UA}), timeout=20).read()
+        op.open(
+            urllib.request.Request("https://www.nseindia.com/", headers={"User-Agent": UA}),
+            timeout=20,
+        ).read()
     except Exception:
         pass
     return j
@@ -121,7 +127,9 @@ def jar():
 
 def _get(url, j, timeout=45):
     op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(j))
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"})
+    req = urllib.request.Request(
+        url, headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"}
+    )
     with op.open(req, timeout=timeout) as r:
         return r.read()
 
@@ -129,12 +137,9 @@ def _get(url, j, timeout=45):
 def _urls(d):
     ddmmyyyy = d.strftime("%d%m%Y")
     new = f"https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_{ddmmyyyy}.csv"
-    old = "https://nsearchives.nseindia.com/content/historical/EQUITIES/%d/%s/cm%02d%s%dbhav.csv.zip" % (
-        d.year,
-        MON[d.month - 1],
-        d.day,
-        MON[d.month - 1],
-        d.year,
+    old = (
+        "https://nsearchives.nseindia.com/content/historical/EQUITIES/%d/%s/cm%02d%s%dbhav.csv.zip"
+        % (d.year, MON[d.month - 1], d.day, MON[d.month - 1], d.year)
     )
     return [new, old] if d.year >= 2020 else [old, new]
 
@@ -173,9 +178,18 @@ def _parse(text):
         return -1
 
     iS, iSer = idx("SYMBOL"), idx("SERIES")
-    iC, iP, iT = idx("CLOSE_PRICE", "CLOSE"), idx("PREV_CLOSE", "PREVCLOSE"), idx("TURNOVER_LACS", "TOTTRDVAL")
+    iC, iP, iT = (
+        idx("CLOSE_PRICE", "CLOSE"),
+        idx("PREV_CLOSE", "PREVCLOSE"),
+        idx("TURNOVER_LACS", "TOTTRDVAL"),
+    )
     iH, iL, iO = idx("HIGH_PRICE", "HIGH"), idx("LOW_PRICE", "LOW"), idx("OPEN_PRICE", "OPEN")
-    iV, iW, iD, iI = idx("TTL_TRD_QNTY", "TOTTRDQTY"), idx("AVG_PRICE"), idx("DELIV_PER"), idx("ISIN")
+    iV, iW, iD, iI = (
+        idx("TTL_TRD_QNTY", "TOTTRDQTY"),
+        idx("AVG_PRICE"),
+        idx("DELIV_PER"),
+        idx("ISIN"),
+    )
     if iS < 0 or iC < 0 or iSer < 0:
         return None
 
@@ -280,7 +294,10 @@ def scan(a, b, workers=6):
         if not os.path.exists(os.path.join(CACHE, x.strftime("%Y%m%d") + ".json"))
         and not os.path.exists(os.path.join(CACHE, x.strftime("%Y%m%d") + ".miss"))
     ]
-    print("scan %s..%s: %d days, %d to fetch, %d workers" % (a, b, len(days), len(todo), workers), flush=True)
+    print(
+        "scan %s..%s: %d days, %d to fetch, %d workers" % (a, b, len(days), len(todo), workers),
+        flush=True,
+    )
     done = 0
     t0 = time.time()
     with ThreadPoolExecutor(max_workers=workers) as ex:
@@ -288,7 +305,8 @@ def scan(a, b, workers=6):
             done += 1
             if done % 100 == 0:
                 print(
-                    "  %d/%d  (%.0fs, transient failures %d)" % (done, len(todo), time.time() - t0, len(FAILED)),
+                    "  %d/%d  (%.0fs, transient failures %d)"
+                    % (done, len(todo), time.time() - t0, len(FAILED)),
                     flush=True,
                 )
     print(
@@ -395,7 +413,9 @@ def build(bin_path):
     # now also asks index=sme, so future runs may carry some; inference covers the rest)
     try:
         _ca = json.load(open(os.path.join(HERE, "corp_actions.json")))
-        CA_OFF = {s: sorted((int(e[0]), e[1]) for e in v) for s, v in _ca.get("factors", {}).items()}
+        CA_OFF = {
+            s: sorted((int(e[0]), e[1]) for e in v) for s, v in _ca.get("factors", {}).items()
+        }
         NOADJ = {s: set(v) for s, v in _ca.get("noadjust", {}).items()}
     except Exception as e:
         CA_OFF = {}
@@ -405,7 +425,7 @@ def build(bin_path):
     for ymd, obj in days:
         lacs = obj.get("turnover_col") != "TOTTRDVAL"  # old zip = raw rupees -> lacs (§88a)
         for r in obj["sme"]:
-            sym, ser, c, p, t, h, l, o, v, dlv, vw, isin, _dash = r
+            sym, ser, c, p, t, h, l, o, v, dlv, vw, isin, dash = r
             t_l = t if lacs else t / 1e5
             acc.setdefault(sym, []).append((ymd, c, p, round(t_l, 1), h, l, o, v, dlv, vw))
             if isin:
@@ -437,19 +457,26 @@ def build(bin_path):
         acc = merged
         print(
             "  merged %d renamed SME tickers: %s"
-            % (len(rename_to), ", ".join("{}->{}".format(*kv) for kv in list(rename_to.items())[:8]))
+            % (
+                len(rename_to),
+                ", ".join("{}->{}".format(*kv) for kv in list(rename_to.items())[:8]),
+            )
         )
     # the bin
     D = json.loads(gzip.decompress(open(bin_path, "rb").read()))
     data, meta = D["data"], D["meta"]
     bin_isin = {m.get("isin"): k for k, m in meta.items() if isinstance(m, dict) and m.get("isin")}
     try:
-        rename = json.load(open(os.path.join(HERE, "_rename_map.json"), encoding="utf-8"))  # NSE old -> new symbol
+        rename = json.load(
+            open(os.path.join(HERE, "_rename_map.json"), encoding="utf-8")
+        )  # NSE old -> new symbol
     except Exception as e:
         rename = {}
         print(f"  (_rename_map.json unavailable: {e} — successors found by key/ISIN only)")
     bin_end = int(D["end"].replace("-", ""))
-    print("bin: %s end=%s symbols=%d" % (os.path.basename(bin_path), D["end"], len(data)), flush=True)
+    print(
+        "bin: %s end=%s symbols=%d" % (os.path.basename(bin_path), D["end"], len(data)), flush=True
+    )
     names = names_from_nse_lists()
     ledger = {
         "built": datetime.date.today().isoformat(),
@@ -464,7 +491,9 @@ def build(bin_path):
         for rec in sorted(acc[sym]):
             obs[rec[0]] = rec  # same-day dedup: last (highest) wins, as the full build
         obs = [obs[k] for k in sorted(obs)]
-        obs = [o for o in obs if o[0] <= bin_end]  # bars past the bin's end belong to the daily walk
+        obs = [
+            o for o in obs if o[0] <= bin_end
+        ]  # bars past the bin's end belong to the daily walk
         if not obs:
             stats["empty"] += 1
             continue
@@ -489,7 +518,12 @@ def build(bin_path):
                 while oi < len(offlist) and offlist[oi][0] <= ymd:
                     cand = offlist[oi][1]
                     oi += 1
-                    if 0.75 <= (r / cand) <= 1.30 or (base and o > 0 and 0.88 <= (o / base) / cand <= 1.12):
+                    if (
+                        0.75 <= (r / cand) <= 1.30
+                        or base
+                        and o > 0
+                        and 0.88 <= (o / base) / cand <= 1.12
+                    ):
                         f = cand
                         applied += 1
                 if f is None:
@@ -585,7 +619,8 @@ def build(bin_path):
         if bars[-1][0] >= F:
             stats["overlap"] += 1
             reasons.append(
-                "%s->%s: ledger runs to %d but bin starts %d — overlap, skipped" % (sym, target, bars[-1][0], F)
+                "%s->%s: ledger runs to %d but bin starts %d — overlap, skipped"
+                % (sym, target, bars[-1][0], F)
             )
             continue
         # the main-board row on F is filed under the symbol that traded THAT day — the SME symbol itself when the
@@ -607,7 +642,11 @@ def build(bin_path):
                 % (sym, target, F, prev_F, last_raw, obs[-1][0])
             )
             continue
-        ledger["prepend"][sym] = {"target": target, "bars": bars, "anchor": {"ymd": F, "raw": raw_F, "prev": prev_F}}
+        ledger["prepend"][sym] = {
+            "target": target,
+            "bars": bars,
+            "anchor": {"ymd": F, "raw": raw_F, "prev": prev_F},
+        }
         stats["prepend"] += 1
         stats["prepend_bars"] += len(bars)
     blob = gzip.compress(json.dumps(ledger, separators=(",", ":")).encode(), 9)
@@ -639,7 +678,10 @@ def build(bin_path):
 def verify():
     led = json.load(gzip.open(OUT, "rt", encoding="utf-8"))
     cr, pr = led["create"], led["prepend"]
-    print("ledger built %s scanned %s: create=%d prepend=%d" % (led["built"], led["scanned"], len(cr), len(pr)))
+    print(
+        "ledger built %s scanned %s: create=%d prepend=%d"
+        % (led["built"], led["scanned"], len(cr), len(pr))
+    )
     nb = sum(len(v["bars"]) for v in cr.values())
     print("  create bars: %d" % nb)
     for s in ("SUNLITE", "THEJO", "VETO"):
@@ -661,8 +703,16 @@ def verify():
             )
     for s, v in list(pr.items())[:5]:
         b = v["bars"]
-        print("  prepend %s->%s: %d bars %d..%d anchor %s" % (s, v["target"], len(b), b[0][0], b[-1][0], v["anchor"]))
-    bad = [(s, i) for s, v in cr.items() for i in range(1, len(v["bars"])) if v["bars"][i][0] <= v["bars"][i - 1][0]]
+        print(
+            "  prepend %s->%s: %d bars %d..%d anchor %s"
+            % (s, v["target"], len(b), b[0][0], b[-1][0], v["anchor"])
+        )
+    bad = [
+        (s, i)
+        for s, v in cr.items()
+        for i in range(1, len(v["bars"]))
+        if v["bars"][i][0] <= v["bars"][i - 1][0]
+    ]
     print("  non-monotonic dates: %d" % len(bad))
 
 

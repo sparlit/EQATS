@@ -161,13 +161,19 @@ for rel in FUND_TWINS:
             problems.append(f"{rel} {qe}: row missing (ann fix)")
             continue
         if not close(r[1], e["pat_is"]):
-            problems.append("{} {}: ANN-FIX PAT GUARD FAILED npStd={} expected {}".format(rel, qe, r[1], e["pat_is"]))
+            problems.append(
+                "{} {}: ANN-FIX PAT GUARD FAILED npStd={} expected {}".format(
+                    rel, qe, r[1], e["pat_is"]
+                )
+            )
             continue
         if r[2] == e["now"]:
             skipped.append("{} {} ann already {}".format(rel, qe, e["now"]))
             continue
         if r[2] != e["was"]:
-            problems.append("{} {}: ANN GUARD FAILED ann={} expected {}".format(rel, qe, r[2], e["was"]))
+            problems.append(
+                "{} {}: ANN GUARD FAILED ann={} expected {}".format(rel, qe, r[2], e["was"])
+            )
             continue
         r[2] = e["now"]
         plan.append((rel, qe, "annStd", e["was"], e["now"]))
@@ -182,10 +188,16 @@ for rel in FUND_TWINS:
             skipped.append("{} {} npStd already {}".format(rel, qe, e["now"]))
             continue
         if not close(r[1], e["was"]):
-            problems.append("{} {}: PAT GUARD FAILED npStd={} expected {}".format(rel, qe, r[1], e["was"]))
+            problems.append(
+                "{} {}: PAT GUARD FAILED npStd={} expected {}".format(rel, qe, r[1], e["was"])
+            )
             continue
         if r[2] != e["ann_is"]:
-            problems.append("{} {}: PAT-FIX ANN GUARD FAILED ann={} expected {}".format(rel, qe, r[2], e["ann_is"]))
+            problems.append(
+                "{} {}: PAT-FIX ANN GUARD FAILED ann={} expected {}".format(
+                    rel, qe, r[2], e["ann_is"]
+                )
+            )
             continue
         r[1] = e["now"]
         plan.append((rel, qe, "npStd", e["was"], e["now"]))
@@ -224,7 +236,9 @@ for rel in REVOP_TWINS:
             skipped.append("{} {} patS already {}".format(rel, qe, e["now"]))
             continue
         if c[4] is not None and not close(c[4], e["was"]):
-            problems.append("{} {}: MIRROR GUARD FAILED patS={} expected {}".format(rel, qe, c[4], e["was"]))
+            problems.append(
+                "{} {}: MIRROR GUARD FAILED patS={} expected {}".format(rel, qe, c[4], e["was"])
+            )
             continue
         prev = c[4]
         c[4] = e["now"]
@@ -258,7 +272,10 @@ for rel in orig:
     if stray:
         problems.append(f"{rel}: BLAST RADIUS stray diffs {sorted(stray)[:8]}")
 
-print("planned edits: %d   skipped(already-correct): %d   problems: %d" % (len(plan), len(skipped), len(problems)))
+print(
+    "planned edits: %d   skipped(already-correct): %d   problems: %d"
+    % (len(plan), len(skipped), len(problems))
+)
 for p in plan:
     print("  EDIT", p)
 for s in skipped:
@@ -321,7 +338,11 @@ dump("scripts/rev_defects.json", rd)
 mh_path = os.path.join(HERE, "stdpat_mirror_heals.json")
 mh = json.load(open(mh_path, encoding="utf-8"))
 for qe, e in MIRROR.items():
-    mh[f"{SYM}|{qe}"] = {"patS": e["now"], "was_mirror": e["was"], "verdict": "kalyani_series_closeout"}
+    mh[f"{SYM}|{qe}"] = {
+        "patS": e["now"],
+        "was_mirror": e["was"],
+        "verdict": "kalyani_series_closeout",
+    }
 json.dump(mh, open(mh_path, "w", encoding="utf-8"), indent=1, sort_keys=True)
 
 al = load("scripts/ann_date_fills.json")

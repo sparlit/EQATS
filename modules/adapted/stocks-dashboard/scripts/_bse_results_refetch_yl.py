@@ -62,18 +62,20 @@ OUTDIR = os.path.join(HERE, "_bse_refetch_pdfs_yl")
 os.makedirs(OUTDIR, exist_ok=True)
 MANIFEST = os.path.join(HERE, "_bse_refetch_manifest_yl.json")
 
-R_RESULT = re.compile(r"result|financial|outcome", re.IGNORECASE)
+R_RESULT = re.compile(r"result|financial|outcome", re.I)
 R_NOT = re.compile(
     r"newspaper|advertis|investor (present|meet)|analyst|transcript|schedule of|"
     r"trading window|material subsidiar|appointment|resignation|allotment|"
     r"annual report|agm|postal ballot|credit rating|acquisition",
-    re.IGNORECASE,
+    re.I,
 )
 
 
 def shift(yyyymmdd, days):
     d = str(yyyymmdd)
-    return (datetime.date(int(d[:4]), int(d[4:6]), int(d[6:8])) + datetime.timedelta(days=days)).strftime("%Y%m%d")
+    return (
+        datetime.date(int(d[:4]), int(d[4:6]), int(d[6:8])) + datetime.timedelta(days=days)
+    ).strftime("%Y%m%d")
 
 
 def main():
@@ -129,7 +131,7 @@ def main():
                 t = doc[i].get_text()
                 if len(t.strip()) > 200:
                     textpages.append(i)
-                    if re.search(r"standalone|unconsolidated", t, re.IGNORECASE):
+                    if re.search(r"standalone|unconsolidated", t, re.I):
                         stdpages.append(i)
             doc.close()
             cands.append(
@@ -152,11 +154,21 @@ def main():
         for c in cands:
             print(
                 "      %s %2dpg text%s std%s  %s"
-                % (c["date"], c["pages"], c["text_pages"][:3], c["standalone_text_pages"][:3], c["subject"][:52]),
+                % (
+                    c["date"],
+                    c["pages"],
+                    c["text_pages"][:3],
+                    c["standalone_text_pages"][:3],
+                    c["subject"][:52],
+                ),
                 flush=True,
             )
         json.dump(man, open(MANIFEST, "w"), indent=1, sort_keys=True)
-    n_std = sum(1 for v in man.values() if any(c.get("standalone_text_pages") for c in v.get("candidates", [])))
+    n_std = sum(
+        1
+        for v in man.values()
+        if any(c.get("standalone_text_pages") for c in v.get("candidates", []))
+    )
     print("DONE: %d cells, %d now have a standalone TEXT page" % (len(man), n_std), flush=True)
 
 

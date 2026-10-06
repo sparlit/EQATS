@@ -63,7 +63,10 @@ def norm_name(s):
 
 
 def mc_query(q):
-    u = f"https://www.moneycontrol.com/mccode/common/autosuggestion_solr.php?classic=true&query={q}&type=1&format=json"
+    u = (
+        "https://www.moneycontrol.com/mccode/common/autosuggestion_solr.php"
+        f"?classic=true&query={q}&type=1&format=json"
+    )
     try:
         r = cr.get(u, headers=UA, impersonate="chrome", timeout=25)
         d = json.loads(r.text)
@@ -108,7 +111,8 @@ def main():
             have.setdefault(norm(k), {}).update(v)
     skip = {(norm(s), qe) for s, qs in skipf.items() for qe in qs}
     snaps = sorted(
-        (s["effectiveDate"], [norm(x) for x in s["symbols"] if not x.startswith("DUMMY")]) for s in ih["Nifty 500"]
+        (s["effectiveDate"], [norm(x) for x in s["symbols"] if not x.startswith("DUMMY")])
+        for s in ih["Nifty 500"]
     )
 
     def members(qe):
@@ -120,8 +124,16 @@ def main():
                 break
         return best
 
-    qes = ["%d%s" % (y, sfx) for y in range(2002, 2017) for sfx in ("-03-31", "-06-30", "-09-30", "-12-31")]
-    qes = [q for q in qes if "2002-12-31" <= q <= "2016-03-31" and q not in ("2015-12-31", "2016-03-31")]
+    qes = [
+        "%d%s" % (y, sfx)
+        for y in range(2002, 2017)
+        for sfx in ("-03-31", "-06-30", "-09-30", "-12-31")
+    ]
+    qes = [
+        q
+        for q in qes
+        if "2002-12-31" <= q <= "2016-03-31" and q not in ("2015-12-31", "2016-03-31")
+    ]
     missing_by_sym = {}
     for qe in qes:
         for s in members(qe):
@@ -144,7 +156,11 @@ def main():
                 rows2 = [parse_row(r) for r in mc_query(lname.split()[0] if lname else sym)]
                 rows2 = [r for r in rows2 if r]
                 nn = norm_name(lname)
-                cand = [r for r in rows2 if nn and (nn in norm_name(r["name"]) or norm_name(r["name"]) in nn)]
+                cand = [
+                    r
+                    for r in rows2
+                    if nn and (nn in norm_name(r["name"]) or norm_name(r["name"]) in nn)
+                ]
                 if len(cand) == 1:
                     hit = dict(cand[0], via="mc:name")
         if hit:
@@ -175,7 +191,10 @@ def main():
         % (len(evidence), len(unres), dict(stats), len(front))
     )
     left = sorted(set(unres) - set(evidence))
-    print("still unresolved (%d): %s%s" % (len(left), ", ".join(left[:15]), " ..." if len(left) > 15 else ""))
+    print(
+        "still unresolved (%d): %s%s"
+        % (len(left), ", ".join(left[:15]), " ..." if len(left) > 15 else "")
+    )
 
 
 if __name__ == "__main__":

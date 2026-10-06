@@ -27,7 +27,6 @@ import collections
 import json
 import math
 import os
-import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 A = json.load(open(os.path.join(HERE, "_audit.json")))

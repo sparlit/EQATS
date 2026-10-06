@@ -152,7 +152,9 @@ def main():
             if not row or len(row) <= 5 or row[5] is None:
                 continue
             if abs(row[5] - was) > TOL:
-                print(f"  .. {k} {qe} patC mirror is {row[5]}, not the total {was} — left alone for a human")
+                print(
+                    f"  .. {k} {qe} patC mirror is {row[5]}, not the total {was} — left alone for a human"
+                )
                 continue
             print("  %-8s %s patC mirror %s -> %s" % (k, qe, row[5], owners))
             if apply:
@@ -184,7 +186,9 @@ def main():
         json.dump(st[k], open(paths[k], "w"), separators=(",", ":"))
     for k in ("pin", "patdef"):
         json.dump(st[k], open(paths[k], "w"), indent=1, sort_keys=True)
-    print("\nWROTE 6 files. The four 2018-19 con fills are now free to land on the same convention.")
+    print(
+        "\nWROTE 6 files. The four 2018-19 con fills are now free to land on the same convention."
+    )
     return 0
 
 

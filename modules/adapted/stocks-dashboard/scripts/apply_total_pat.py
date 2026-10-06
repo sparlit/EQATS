@@ -45,7 +45,9 @@ F = os.path.join(ROOT, "docs", "sf_fundamentals.json")
 
 def main():
     live = json.load(open(F))
-    changes = json.load(open(os.path.join(HERE, "_reattr_changes.json")))  # [sym, qe, total, owners, minority]
+    changes = json.load(
+        open(os.path.join(HERE, "_reattr_changes.json"))
+    )  # [sym, qe, total, owners, minority]
     total = {(c[0], c[1]): c[2] for c in changes}
     changed = 0
     stocks = set()
@@ -59,7 +61,10 @@ def main():
     tmp = F + ".tmp"
     json.dump(live, open(tmp, "w"), separators=(",", ":"))
     os.replace(tmp, F)
-    print("Switched npCon to TOTAL PAT for %d consolidated quarters across %d stocks." % (changed, len(stocks)))
+    print(
+        "Switched npCon to TOTAL PAT for %d consolidated quarters across %d stocks."
+        % (changed, len(stocks))
+    )
 
 
 if __name__ == "__main__":

@@ -143,7 +143,9 @@ def cmd_targets():
         for qe in sorted(cells):
             rows.append([sym, qe, code, H.norm(sym) in n5])
     rows.sort(key=lambda r: (not r[3], r[0], r[1]))  # N500-ever first
-    json.dump({"rows": rows, "unresolved_scripcode": sorted(unresolved)}, open(TARGETS, "w"), indent=0)
+    json.dump(
+        {"rows": rows, "unresolved_scripcode": sorted(unresolved)}, open(TARGETS, "w"), indent=0
+    )
     print(
         "targets: %d cells (%d N500-ever) across %d symbols; %d symbols unresolved"
         % (len(rows), sum(1 for r in rows if r[3]), len({r[0] for r in rows}), len(unresolved))
@@ -186,10 +188,15 @@ def extract(txt):
             elif tag == "NumberOfShares":
                 with contextlib.suppress(TypeError, ValueError):
                     sh[kind[1]] = int(float(str(f.text).strip()))
-        # A filer often splits one typed holder across TWO contexts (name on "X", numbers on
-        # "D_X") that share the same typed VALUE — key by that value, not the context id.
-        elif tag in ("NameOfTheShareholder", "ShareholdingAsAPercentageOfTotalNumberOfShares", "NumberOfShares"):
-            tvals[ctx[cid][1]].setdefault(tag, str(f.text or "").strip())
+        else:
+            # A filer often splits one typed holder across TWO contexts (name on "X", numbers on
+            # "D_X") that share the same typed VALUE — key by that value, not the context id.
+            if tag in (
+                "NameOfTheShareholder",
+                "ShareholdingAsAPercentageOfTotalNumberOfShares",
+                "NumberOfShares",
+            ):
+                tvals[ctx[cid][1]].setdefault(tag, str(f.text or "").strip())
     oth = []
     for marker, tv in tvals.items():
         if "OtherInstitutions" not in marker:
@@ -244,7 +251,14 @@ def fetch_one(sym, qe, code, hist_cell):
         ex = extract(txt)
     except Exception as e:
         return {"sym": sym, "qe": qe, "code": code, "absent": f"xbrl-parse-fail {e!r}"}
-    return {"sym": sym, "qe": qe, "code": code, "file": (row.get("XbrlFile") or "").strip(), "stored": hist_cell, **ex}
+    return {
+        "sym": sym,
+        "qe": qe,
+        "code": code,
+        "file": (row.get("XbrlFile") or "").strip(),
+        "stored": hist_cell,
+        **ex,
+    }
 
 
 def cmd_fetch(threads, limit):
@@ -261,7 +275,8 @@ def cmd_fetch(threads, limit):
     ab = open(ABSENT, "a", encoding="utf-8")
     with ThreadPoolExecutor(max_workers=threads) as ex:
         futs = {
-            ex.submit(fetch_one, sym, qe, code, (hist.get(sym) or {}).get(qe)): (sym, qe) for sym, qe, code, _ in todo
+            ex.submit(fetch_one, sym, qe, code, (hist.get(sym) or {}).get(qe)): (sym, qe)
+            for sym, qe, code, _ in todo
         }
         for i, fu in enumerate(as_completed(futs)):
             try:
@@ -279,7 +294,10 @@ def cmd_fetch(threads, limit):
                     cen.flush()
                     ab.flush()
                     rate = (i + 1) / max(1e-9, time.time() - t0)
-                    print("  %d/%d (%.1f/s, ok %d, absent %d)" % (i + 1, len(todo), rate, n_ok, n_ab), flush=True)
+                    print(
+                        "  %d/%d (%.1f/s, ok %d, absent %d)" % (i + 1, len(todo), rate, n_ok, n_ab),
+                        flush=True,
+                    )
     cen.close()
     ab.close()
     print("fetch done: ok %d, absent %d" % (n_ok, n_ab))
@@ -292,7 +310,7 @@ FOREIGN_PAT = re.compile(
     r"FRANCE|GERMANY|SWEDEN|FINLAND|DENMARK|SWITZERLAND|UK|USA|U\.S\.A|HONG\s?KONG|CAYMAN|DUBAI|"
     r"ABU DHABI|QATAR|KUWAIT|SAUDI|OMAN|BAHRAIN|MALAYSIA|INDONESIA|THAILAND|TAIWAN|CHINA|"
     r"AUSTRALIA|CANADA|IRELAND|BELGIUM|ITALY|SPAIN|NORWAY|AKTIEBOLAG|KABUSHIKI|OVERSEAS?)\b",
-    re.IGNORECASE,
+    re.I,
 )
 DOMESTIC_PAT = re.compile(
     r"\b(LIFE INSURANCE CORPORATION|GENERAL INSURANCE CORPORATION|NEW INDIA ASSURANCE|"
@@ -301,7 +319,7 @@ DOMESTIC_PAT = re.compile(
     r"NPS TRUST|PENSION FUND\b.*INDIA|UTI\b|IDBI|IFCI|NABARD|SIDBI|EXIM BANK|LIC OF INDIA|"
     r"STRESSED ASSETS?|SASF|IIBI|ICICI|HDFC|SBI\b|STATE BANK|PUNJAB NATIONAL|BANK OF (INDIA|"
     r"BARODA|MAHARASHTRA)|CANARA BANK|UNION BANK|ADMINISTRATOR OF THE SPECIFIED UNDERTAKING)\b",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -320,11 +338,9 @@ def load_audit():
         return json.load(open(AUDIT, encoding="utf-8"))
     return {
         "_doc": [
-            (
-                "SW-2 quantmac r5: Any-Other-institutions block classification + per-cell "
-                "verdicts. name_verdicts holds the curated per-holder-name class "
-                "(foreign/domestic) — hand-reviewed; the regexes only PROPOSE."
-            )
+            "SW-2 quantmac r5: Any-Other-institutions block classification + per-cell "
+            "verdicts. name_verdicts holds the curated per-holder-name class "
+            "(foreign/domestic) — hand-reviewed; the regexes only PROPOSE."
         ],
         "name_verdicts": {},
         "cells": {},
@@ -355,7 +371,11 @@ def cmd_adjudicate(write_audit=True):
             continue
         # block + domestic sums, share-count precision when complete
         dom2 = sum(cat.get(m) or 0.0 for m in DOM_MEMBERS)
-        have_sh = total and (OTH in sh) and all((m in sh) or ((cat.get(m) or 0) == 0) for m in DOM_MEMBERS)
+        have_sh = (
+            total
+            and (OTH in sh)
+            and all((m in sh) or ((cat.get(m) or 0) == 0) for m in DOM_MEMBERS)
+        )
         if have_sh:
             oth = round(sh[OTH] / total * 100, 4)
             dom = round(sum(sh.get(m, 0) for m in DOM_MEMBERS) / total * 100, 4)
@@ -377,7 +397,12 @@ def cmd_adjudicate(write_audit=True):
             continue
         if abs(dii - (dom + oth)) > max(tol, TOL2):
             stats["stored-matches-neither"] += 1
-            cells[f"{sym}|{qe}"] = {"verdict": "mismatch-other-source", "stored_dii": dii, "dom": dom, "oth": oth}
+            cells[f"{sym}|{qe}"] = {
+                "verdict": "mismatch-other-source",
+                "stored_dii": dii,
+                "dom": dom,
+                "oth": oth,
+            }
             continue
         # stored dii == dom + block. Classify the block by its named holders.
         named = [(nm, pct or 0.0) for nm, pct, _ in r.get("oth_names", [])]
@@ -386,7 +411,14 @@ def cmd_adjudicate(write_audit=True):
         for nm, p in named:
             names_seen[nm] = max(names_seen[nm], p)
         key = f"{sym}|{qe}"
-        base = {"stored_dii": dii, "stored_fii": fii, "dom": dom, "oth": oth, "names": named, "file": r.get("file")}
+        base = {
+            "stored_dii": dii,
+            "stored_fii": fii,
+            "dom": dom,
+            "oth": oth,
+            "names": named,
+            "file": r.get("file"),
+        }
         if not named or cover < oth - NAME_COVER_SLACK:
             stats["names-insufficient-HOLD"] += 1
             cells[key] = dict(base, verdict="names-insufficient")
@@ -425,14 +457,32 @@ def cmd_adjudicate(write_audit=True):
         for qe, key, v in lst:
             if v["verdict"] not in ("names-insufficient", "name-unknown"):
                 continue
-            near = {vd for qs, oth, vd in seeds if abs(qs - QSEQ(qe)) <= 2 and abs(oth - v["oth"]) <= 0.5}
+            near = {
+                vd
+                for qs, oth, vd in seeds
+                if abs(qs - QSEQ(qe)) <= 2 and abs(oth - v["oth"]) <= 0.5
+            }
             if near == {"foreign-confirmed"}:
-                stats[("names-insufficient-HOLD" if v["verdict"] == "names-insufficient" else "name-unknown-HOLD")] -= 1
+                stats[
+                    (
+                        "names-insufficient-HOLD"
+                        if v["verdict"] == "names-insufficient"
+                        else "name-unknown-HOLD"
+                    )
+                ] -= 1
                 stats["FOREIGN-heal-continuity"] += 1
                 v["verdict"] = "foreign-confirmed"
-                v["basis"] = "same-symbol block continuity (adjacent quarter named-foreign, same size)"
+                v["basis"] = (
+                    "same-symbol block continuity (adjacent quarter named-foreign, same size)"
+                )
             elif near == {"domestic-kept"}:
-                stats[("names-insufficient-HOLD" if v["verdict"] == "names-insufficient" else "name-unknown-HOLD")] -= 1
+                stats[
+                    (
+                        "names-insufficient-HOLD"
+                        if v["verdict"] == "names-insufficient"
+                        else "name-unknown-HOLD"
+                    )
+                ] -= 1
                 stats["domestic-kept-continuity"] += 1
                 v["verdict"] = "domestic-kept"
                 v["basis"] = "same-symbol block continuity"
@@ -440,7 +490,8 @@ def cmd_adjudicate(write_audit=True):
     for k in sorted(stats):
         print("  %-28s %d" % (k, stats[k]))
     unknown = sorted(
-        ((nm, p) for nm, p in names_seen.items() if classify_name(nm, curated) == "unknown"), key=lambda x: -x[1]
+        ((nm, p) for nm, p in names_seen.items() if classify_name(nm, curated) == "unknown"),
+        key=lambda x: -x[1],
     )
     print("== UNRESOLVED names (max pct) — curate into name_verdicts ==")
     for nm, p in unknown[:80]:
@@ -488,7 +539,8 @@ def cmd_apply(write=False):
         }
         n_new += 1
     print(
-        "apply: %d new heals, %d already ledgered%s" % (n_new, n_skip, "" if write else " (DRY RUN — nothing written)")
+        "apply: %d new heals, %d already ledgered%s"
+        % (n_new, n_skip, "" if write else " (DRY RUN — nothing written)")
     )
     if write:
         json.dump(led, open(CELL_FIX, "w", encoding="utf-8"), indent=1, ensure_ascii=False)

@@ -85,7 +85,10 @@ def main():
     got = [r for r in b.values() if r.get("mc")]
     print(
         "\nfields available on the %d reached cells: %s"
-        % (len(got), Counter(f for r in got for f in r["mc"] if not f.endswith("_label")).most_common())
+        % (
+            len(got),
+            Counter(f for r in got for f in r["mc"] if not f.endswith("_label")).most_common(),
+        )
     )
     json.dump({"cells": b}, open(os.path.join(HERE, "_vintage109_byprod.json"), "w"), indent=1)
     print("merged MC readings into _vintage109_byprod.json")

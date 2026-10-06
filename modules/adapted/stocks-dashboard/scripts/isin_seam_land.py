@@ -78,9 +78,13 @@ def live_meta_symbols():
 
     alive, total, source, stamp = C.load_meta()
     age = C.stamp_age(stamp)
-    if total < C.MIN_SYMBOLS or len(alive) < C.MIN_ALIVE or age is None or age > C.MAX_META_AGE_DAYS:
-        msg = f"META unusable ({source}, stamp {stamp}, age {age}) — refusing to judge"
-        raise SystemExit(msg)
+    if (
+        total < C.MIN_SYMBOLS
+        or len(alive) < C.MIN_ALIVE
+        or age is None
+        or age > C.MAX_META_AGE_DAYS
+    ):
+        raise SystemExit(f"META unusable ({source}, stamp {stamp}, age {age}) — refusing to judge")
     return alive
 
 
@@ -124,7 +128,12 @@ def alias_dead(write):
     rmap = json.load(open(MAP))
     alive, total, source, stamp = C.load_meta()
     age = C.stamp_age(stamp)
-    if total < C.MIN_SYMBOLS or len(alive) < C.MIN_ALIVE or age is None or age > C.MAX_META_AGE_DAYS:
+    if (
+        total < C.MIN_SYMBOLS
+        or len(alive) < C.MIN_ALIVE
+        or age is None
+        or age > C.MAX_META_AGE_DAYS
+    ):
         print(f"META unusable ({source}, {stamp}, age {age}) — refusing to judge")
         return 1
     cur, _, _ = C.read_baked(C.TARGETS[0])
@@ -144,7 +153,10 @@ def alias_dead(write):
         else:
             want[old] = target
 
-    print("META: %s (cut from %s, %d d old) — %d alive | baked now: %d" % (source, stamp, age, len(alive), len(cur)))
+    print(
+        "META: %s (cut from %s, %d d old) — %d alive | baked now: %d"
+        % (source, stamp, age, len(alive), len(cur))
+    )
     print("dead-target entries to hand-add: %d" % len(want))
     for o in sorted(want):
         print("   %-12s -> %s" % (o, want[o]))

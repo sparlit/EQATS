@@ -60,15 +60,25 @@ def block_rows(code, qe):
     if not html:
         return None
     cs = _cells(html)
-    bi = next((i for i, c in enumerate(cs) if re.search(r"\(B\)\s*Public Shareholding", c, re.IGNORECASE)), None)
+    bi = next(
+        (i for i, c in enumerate(cs) if re.search(r"\(B\)\s*Public Shareholding", c, re.I)), None
+    )
     if bi is None:
         return None
     lo = next(
-        (i for i in range(bi, len(cs)) if re.search(r"^\(1\)\s*Institutions?$|^Institutions$", cs[i], re.IGNORECASE)),
+        (
+            i
+            for i in range(bi, len(cs))
+            if re.search(r"^\(1\)\s*Institutions?$|^Institutions$", cs[i], re.I)
+        ),
         bi,
     )
     hi = next(
-        (j for j in range(lo + 1, min(lo + 200, len(cs))) if re.fullmatch(r"Sub\s*Total", cs[j], re.IGNORECASE)),
+        (
+            j
+            for j in range(lo + 1, min(lo + 200, len(cs)))
+            if re.fullmatch(r"Sub\s*Total", cs[j], re.I)
+        ),
         min(lo + 200, len(cs)),
     )
     out, i = {}, lo
@@ -95,7 +105,7 @@ def pick(rows, *pats):
     best = None
     for lab, v in (rows or {}).items():
         for p in pats:
-            if re.search(p, lab, re.IGNORECASE):
+            if re.search(p, lab, re.I):
                 if best is None or v[2] > best[2]:
                     best = v
                 break
@@ -116,7 +126,9 @@ holder = json.load(open(os.path.join(HERE, "holder_arbitration.json")))
 # The reference history must be the PRE-heal one: a proof quarter has to carry a value this
 # campaign did not write, or the test cites itself. Point ZFII_BASE_HIST at a snapshot taken
 # before the heal; the checked-in history is only correct here on a first run.
-before = json.load(open(os.environ.get("ZFII_BASE_HIST") or os.path.join(SP, "shp_history.json"), encoding="utf-8"))
+before = json.load(
+    open(os.environ.get("ZFII_BASE_HIST") or os.path.join(SP, "shp_history.json"), encoding="utf-8")
+)
 
 # the cells whose split is in dispute: every x_sym-dependent heal + every holder HOLD
 disputed = sorted(set(holder))
@@ -152,13 +164,26 @@ for sym in syms:
         # that is a regime change, not a contradiction.
         if f and (f[2] or 0) > 0.05:
             other_regime.append(
-                {"qe": pq, "foreign_row": f[2], "any_other": o[2] if o else None, "stored_fii": cell[1]}
+                {
+                    "qe": pq,
+                    "foreign_row": f[2],
+                    "any_other": o[2] if o else None,
+                    "stored_fii": cell[1],
+                }
             )
             continue
         if not o:
             continue
         if abs(o[2] - cell[1]) <= TOL:
-            hits.append({"qe": pq, "any_other": o[2], "stored_fii": cell[1], "holders": o[0], "stored_sub": cell[5]})
+            hits.append(
+                {
+                    "qe": pq,
+                    "any_other": o[2],
+                    "stored_fii": cell[1],
+                    "holders": o[0],
+                    "stored_sub": cell[5],
+                }
+            )
         elif cell[2] is not None and abs(o[2] - cell[2]) <= TOL:
             anti.append({"qe": pq, "any_other": o[2], "stored_dii": cell[2]})
         else:
@@ -172,7 +197,13 @@ for sym in syms:
                 }
             )
     verdict = "FULL" if hits and not anti else ("DOMESTIC" if anti and not hits else "HOLD")
-    proof[sym] = {"verdict": verdict, "hits": hits, "anti": anti, "other_regime_quarters": other_regime, "cells": qs}
+    proof[sym] = {
+        "verdict": verdict,
+        "hits": hits,
+        "anti": anti,
+        "other_regime_quarters": other_regime,
+        "cells": qs,
+    }
     print(
         "%-11s %-8s  same-regime proofs=%d anti=%d (itemised-regime qtrs ignored: %d)\n"
         "              %s"

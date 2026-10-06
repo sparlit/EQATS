@@ -73,7 +73,11 @@ META = {
     "niftydy": {"label": "Nifty 50 dividend yield", "unit": "%", "src": "NSE / niftyindices"},
     "repo": {"label": "RBI repo rate", "unit": "%", "src": "RBI (mql5)"},
     "cpi": {"label": "CPI inflation", "unit": "% y/y", "src": "MOSPI (mql5), monthly"},
-    "iip": {"label": "Industrial production (IIP)", "unit": "% y/y", "src": "MOSPI (mql5), monthly"},
+    "iip": {
+        "label": "Industrial production (IIP)",
+        "unit": "% y/y",
+        "src": "MOSPI (mql5), monthly",
+    },
     "gdp": {"label": "GDP growth", "unit": "% y/y", "src": "MOSPI (mql5), quarterly"},
     "m3": {"label": "Money supply M3", "unit": "% y/y", "src": "RBI (mql5), weekly"},
     "deposits": {"label": "Deposit growth", "unit": "% y/y", "src": "RBI (mql5), weekly"},
@@ -92,7 +96,11 @@ META = {
     "usffr": {"label": "US Fed funds rate", "unit": "%", "src": "Fed (mql5)"},
     "uscpi": {"label": "US CPI inflation", "unit": "% y/y", "src": "BLS (mql5)"},
     "gdpn": {"label": "India nominal GDP", "unit": "Rs lakh cr", "src": "MOSPI, FY (seeded)"},
-    "mcaptot": {"label": "Listed market cap", "unit": "Rs lakh cr", "src": "our tracked universe, daily"},
+    "mcaptot": {
+        "label": "Listed market cap",
+        "unit": "Rs lakh cr",
+        "src": "our tracked universe, daily",
+    },
 }
 
 # Yahoo symbol -> series key (URL-encoded symbol)
@@ -214,7 +222,9 @@ def fetch_mql5(country, slug):
 def fetch_fred(sid):
     """{date: value} from a FRED CSV (skips '.' missing markers)."""
     b = (
-        urllib.request.urlopen(urllib.request.Request(FRED + sid, headers={"User-Agent": UA}), timeout=20)
+        urllib.request.urlopen(
+            urllib.request.Request(FRED + sid, headers={"User-Agent": UA}), timeout=20
+        )
         .read()
         .decode("utf-8", "replace")
     )
@@ -236,7 +246,9 @@ def fetch_nifty_valuation(jar):
         "Accept": "application/json, text/plain, */*",
         "Referer": "https://www.nseindia.com/market-data/live-equity-market",
     }
-    j = json.loads(B._get("https://www.nseindia.com/api/allIndices", headers=hdr, jar=jar, timeout=30))
+    j = json.loads(
+        B._get("https://www.nseindia.com/api/allIndices", headers=hdr, jar=jar, timeout=30)
+    )
     today = datetime.date.today().isoformat()
     out = {}
     for d in j.get("data", []):
@@ -263,8 +275,7 @@ def fetch_mcap_total():
         raise ValueError("dash_slim mcap rows too few: %d" % n)
     lakh_cr = tot / 1e5  # mcap is Rs cr -> Rs lakh cr
     if not (100 < lakh_cr < 5000):
-        msg = f"mcap total implausible: {lakh_cr:.1f} lakh cr"
-        raise ValueError(msg)
+        raise ValueError(f"mcap total implausible: {lakh_cr:.1f} lakh cr")
     return {datetime.date.today().isoformat(): lakh_cr}
 
 
@@ -351,7 +362,9 @@ def main():
         sys.exit(1)
 
     out["updated"] = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-    out["source"] = "Yahoo Finance, mql5 economic calendar (RBI/MOSPI), FRED, NSE allIndices / niftyindices"
+    out["source"] = (
+        "Yahoo Finance, mql5 economic calendar (RBI/MOSPI), FRED, NSE allIndices / niftyindices"
+    )
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, separators=(",", ":"), ensure_ascii=False)

@@ -78,7 +78,13 @@ def main():
             continue
         if new is None or new <= 0:
             skip.append(
-                (sym, qe, field, (f"residual {new} not positive -- a SIBLING quarter is the wrong one, not this cell"))
+                (
+                    sym,
+                    qe,
+                    field,
+                    f"residual {new} not positive -- a SIBLING quarter is the "
+                    "wrong one, not this cell",
+                )
             )
             continue
         if new >= cur:
@@ -94,7 +100,10 @@ def main():
     for s, q, f, w in skip:
         print("  skip %-12s %-9s %-5s %s" % (s, q, f, w))
     print("\nwould heal %d, skipped %d" % (len(ok), len(skip)))
-    print("by quarter:", dict(sorted(collections.Counter(q for _s, q, _f, _c, _n, _b, _w in ok).items())))
+    print(
+        "by quarter:",
+        dict(sorted(collections.Counter(q for _s, q, _f, _c, _n, _b, _w in ok).items())),
+    )
     if dry:
         print("DRY RUN -- nothing written.")
         return

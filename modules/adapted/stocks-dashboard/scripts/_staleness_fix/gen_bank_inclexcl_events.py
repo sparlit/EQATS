@@ -80,8 +80,7 @@ def to_iso(v):
     s = str(v).strip()
     if len(s) == 10 and s[2] == "-" and s[5] == "-":  # dd-mm-yyyy (the PSU Bank sheet style)
         return s[6:] + "-" + s[3:5] + "-" + s[:2]
-    msg = f"unparsed date {v!r}"
-    raise SystemExit(msg)
+    raise SystemExit(f"unparsed date {v!r}")
 
 
 def main():
@@ -94,14 +93,14 @@ def main():
         if not sym:
             unmapped.append(name)
             continue
-        kind = "inc" if "inclusion" in desc.lower() else "exc" if "exclusion" in desc.lower() else None
+        kind = (
+            "inc" if "inclusion" in desc.lower() else "exc" if "exclusion" in desc.lower() else None
+        )
         if not kind:
-            msg = f"unknown description {desc!r}"
-            raise SystemExit(msg)
+            raise SystemExit(f"unknown description {desc!r}")
         events.append([to_iso(dv), sym, kind])
     if unmapped:
-        msg = f"unmapped register names: {unmapped}"
-        raise SystemExit(msg)
+        raise SystemExit(f"unmapped register names: {unmapped}")
     events.sort()
     out = {
         "events": events,

@@ -85,6 +85,9 @@ for i in range(10):
         break
     except PermissionError:
         time.sleep(1 + i)
-print("merged: +%d added, %d updated-newer, %d kept; cells %d -> %d" % (added, updated, kept, before, after))
+print(
+    "merged: +%d added, %d updated-newer, %d kept; cells %d -> %d"
+    % (added, updated, kept, before, after)
+)
 for qe in sorted(per_q):
     print("  %s +%d" % (qe, per_q[qe]))

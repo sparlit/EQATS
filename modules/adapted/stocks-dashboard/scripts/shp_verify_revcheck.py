@@ -109,20 +109,28 @@ def main():
             rows = [r for r in qcache[code] if r.get("qtr") == qlbl]
             withfile = [r for r in rows if (r.get("XbrlFile") or "").strip()]
             rec["bse_rows"] = len(rows)
-            rec["revised"] = [r.get("revised_date_time") for r in rows if r.get("revised_date_time")]
+            rec["revised"] = [
+                r.get("revised_date_time") for r in rows if r.get("revised_date_time")
+            ]
             if not withfile:
                 rec["verdict"] = "BSE_ABSENT"
             else:
                 # BSE's list keeps original+revision; the row with a revised_date_time carries the
                 # CURRENT (revised) document in XbrlFile. Prefer it; else the first row with a file.
                 pick = next(
-                    (r for r in rows if r.get("revised_date_time") and (r.get("XbrlFile") or "").strip()), withfile[0]
+                    (
+                        r
+                        for r in rows
+                        if r.get("revised_date_time") and (r.get("XbrlFile") or "").strip()
+                    ),
+                    withfile[0],
                 )
                 try:
                     cell = F.parse_shp(
-                        get("https://www.bseindia.com/XBRLFILES/SHPXBRLDataXML/" + pick["XbrlFile"].strip()).decode(
-                            "utf-8", "ignore"
-                        ),
+                        get(
+                            "https://www.bseindia.com/XBRLFILES/SHPXBRLDataXML/"
+                            + pick["XbrlFile"].strip()
+                        ).decode("utf-8", "ignore"),
                         qe,
                     )
                     time.sleep(2.0)
@@ -158,10 +166,14 @@ def main():
                     rec["verdict"] = worst
         tally[rec["verdict"]] += 1
         out.append(rec)
-        print("  %-12s %s  %-16s rev=%s" % (sym, qe, rec["verdict"], bool(rec.get("revised"))), flush=True)
+        print(
+            "  %-12s %s  %-16s rev=%s" % (sym, qe, rec["verdict"], bool(rec.get("revised"))),
+            flush=True,
+        )
 
     with open(a.out, "w", encoding="utf-8") as f:
-        f.writelines(json.dumps(r, separators=(",", ":")) + "\n" for r in out)
+        for r in out:
+            f.write(json.dumps(r, separators=(",", ":")) + "\n")
     print("\n%d documents re-checked -> %s" % (len(out), a.out))
     for k, v in tally.most_common():
         print("  %-18s %4d" % (k, v))

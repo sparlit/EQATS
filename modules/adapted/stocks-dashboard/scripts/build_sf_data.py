@@ -109,7 +109,10 @@ def veto_stale_alive(data, meta, end, days=ALIVE_RECENCY_DAYS):
     every night (the daily updater does)."""
     cutoff = alive_cutoff(end, days)
     if cutoff is None:
-        print(f"  ⚠ alive-recency: bin has no usable `end` ({end!r}) — flags left untouched", flush=True)
+        print(
+            f"  ⚠ alive-recency: bin has no usable `end` ({end!r}) — flags left untouched",
+            flush=True,
+        )
         return 0
     n = 0
     for sym, m in meta.items():
@@ -126,7 +129,10 @@ def jar():
     j = http.cookiejar.CookieJar()
     try:
         op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(j))
-        op.open(urllib.request.Request("https://www.nseindia.com/", headers={"User-Agent": UA}), timeout=20).read()
+        op.open(
+            urllib.request.Request("https://www.nseindia.com/", headers={"User-Agent": UA}),
+            timeout=20,
+        ).read()
     except Exception:
         pass
     return j
@@ -134,7 +140,9 @@ def jar():
 
 def get(url, j, timeout=30):
     op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(j))
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"})
+    req = urllib.request.Request(
+        url, headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"}
+    )
     with op.open(req, timeout=timeout) as r:
         return r.read()
 
@@ -152,7 +160,11 @@ def parse_rows(text):
         return -1
 
     iS, iSer = idx("SYMBOL"), idx("SERIES")
-    iC, iP, iT = idx("CLOSE_PRICE", "CLOSE"), idx("PREV_CLOSE", "PREVCLOSE"), idx("TURNOVER_LACS", "TOTTRDVAL")
+    iC, iP, iT = (
+        idx("CLOSE_PRICE", "CLOSE"),
+        idx("PREV_CLOSE", "PREVCLOSE"),
+        idx("TURNOVER_LACS", "TOTTRDVAL"),
+    )
     iH, iL, iO = idx("HIGH_PRICE", "HIGH"), idx("LOW_PRICE", "LOW"), idx("OPEN_PRICE", "OPEN")
     iV, iN = idx("TTL_TRD_QNTY", "TOTTRDQTY"), idx("NO_OF_TRADES", "TOTALTRADES")
     iD, iW, iI = idx("DELIV_PER"), idx("AVG_PRICE"), idx("ISIN")
@@ -364,12 +376,9 @@ def fetch_day(d, j):
             pass
     ddmmyyyy = d.strftime("%d%m%Y")
     new = f"https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_{ddmmyyyy}.csv"
-    old = "https://nsearchives.nseindia.com/content/historical/EQUITIES/%d/%s/cm%02d%s%dbhav.csv.zip" % (
-        d.year,
-        MON[d.month - 1],
-        d.day,
-        MON[d.month - 1],
-        d.year,
+    old = (
+        "https://nsearchives.nseindia.com/content/historical/EQUITIES/%d/%s/cm%02d%s%dbhav.csv.zip"
+        % (d.year, MON[d.month - 1], d.day, MON[d.month - 1], d.year)
     )
     misdirect = None
     for url in [new, old] if d.year >= 2020 else [old, new]:
@@ -415,7 +424,9 @@ def needs_fetch(d):
         return True
     try:
         rows = json.load(open(cf))
-        return bool(rows) and len(rows[0]) < 14  # pre-v5 cache (no `seg` col / SME-less, or BZ-less) -> refetch
+        return (
+            bool(rows) and len(rows[0]) < 14
+        )  # pre-v5 cache (no `seg` col / SME-less, or BZ-less) -> refetch
     except Exception:
         return True
 
@@ -495,7 +506,10 @@ def main():
         all_days.append(d)
         d += datetime.timedelta(days=1)
     todo = [d for d in all_days if needs_fetch(d)]
-    print("Trading-day candidates: %d | needing (re)fetch: %d" % (len(all_days), len(todo)), flush=True)
+    print(
+        "Trading-day candidates: %d | needing (re)fetch: %d" % (len(all_days), len(todo)),
+        flush=True,
+    )
     if todo:
         prefetch_parallel(todo)
 
@@ -554,7 +568,9 @@ def main():
     for isin, syms in by_isin.items():
         if len(syms) < 2:
             continue
-        canon = max(syms, key=lambda s: max(o[0] for o in acc[s]))  # latest-trading ticker = current
+        canon = max(
+            syms, key=lambda s: max(o[0] for o in acc[s])
+        )  # latest-trading ticker = current
         for s in syms:
             if s != canon:
                 rename_to[s] = canon
@@ -616,7 +632,10 @@ def main():
             merged[sym] = [dd[k] for k in sorted(dd)]
         acc = merged
         ex = ", ".join(f"{o}->{n}" for o, n in list(rename_to.items())[:6])
-        print("Merged %d renamed tickers into their current symbol (e.g. %s)" % (len(rename_to), ex), flush=True)
+        print(
+            "Merged %d renamed tickers into their current symbol (e.g. %s)" % (len(rename_to), ex),
+            flush=True,
+        )
     # export old->current map so membership (build_membership_v2) keys on the SAME current tickers
     # the merged price series uses — otherwise renamed stocks vanish from historical backtests.
     json.dump(rename_to, open(os.path.join(HERE, "_rename_map.json"), "w"))
@@ -630,7 +649,9 @@ def main():
     # Delisted-symbol industry/name ledger (see its own _doc). Missing file is not fatal — the
     # build degrades to exactly the previous behaviour rather than aborting on a metadata nicety.
     try:
-        INDUSTRY_FILLS = (json.load(open(os.path.join(HERE, "industry_fills.json"))) or {}).get("fills") or {}
+        INDUSTRY_FILLS = (json.load(open(os.path.join(HERE, "industry_fills.json"))) or {}).get(
+            "fills"
+        ) or {}
         print("  industry_fills: %d delisted symbols" % len(INDUSTRY_FILLS))
     except Exception as e:
         INDUSTRY_FILLS = {}
@@ -638,7 +659,9 @@ def main():
 
     cur = {}
     try:
-        slim = json.loads(gzip.decompress(open(os.path.join(ROOT, "docs", "dash_slim.bin"), "rb").read()))
+        slim = json.loads(
+            gzip.decompress(open(os.path.join(ROOT, "docs", "dash_slim.bin"), "rb").read())
+        )
         cur = current_universe(slim.get("meta") or {}, isin_of)
     except Exception as e:
         print("  (current meta unavailable:", e, ")")
@@ -698,7 +721,8 @@ def main():
         CA_OFF = {s: sorted(map(tuple, v)) for s, v in _ca.get("factors", {}).items()}
         NOADJ = {s: set(v) for s, v in _ca.get("noadjust", {}).items()}
         print(
-            "Official corporate actions: %d split/bonus symbols, %d demerger symbols" % (len(CA_OFF), len(NOADJ)),
+            "Official corporate actions: %d split/bonus symbols, %d demerger symbols"
+            % (len(CA_OFF), len(NOADJ)),
             flush=True,
         )
     except Exception as e:
@@ -760,11 +784,11 @@ def main():
                         applied_off += 1
                         open_rescued += 1
                         if len(open_log) < 40:
-                            open_log.append((sym, ymd, cand, round(r, 4), round((o / base) / cand, 4)))
+                            open_log.append(
+                                (sym, ymd, cand, round(r, 4), round((o / base) / cand, 4))
+                            )
                     else:
-                        bad_recon += (
-                            1  # official ratio doesn't reconcile with the drop -> falls to the no-record rule below
-                        )
+                        bad_recon += 1  # official ratio doesn't reconcile with the drop -> falls to the no-record rule below
                 if f is None:
                     nd = NOADJ.get(sym)
                     if nd and not (0.75 <= r <= 1.30) and any(ymd - 3 <= e <= ymd for e in nd):
@@ -820,7 +844,17 @@ def main():
         ops = [round(cs[i] * k * orr[i], 2) for i in range(len(ds))]
         vws = [round(cs[i] * k * vr[i], 2) for i in range(len(ds))]
         cs = [round(x * k, 2) for x in cs]
-        data[sym] = {"d": ds, "c": cs, "t": ts, "h": hs, "l": ls, "op": ops, "v": vol, "dv": dv, "vw": vws}
+        data[sym] = {
+            "d": ds,
+            "c": cs,
+            "t": ts,
+            "h": hs,
+            "l": ls,
+            "op": ops,
+            "v": vol,
+            "dv": dv,
+            "vw": vws,
+        }
         # membership AND freshness — see ALIVE_RECENCY_DAYS. `ds` is this symbol's date list, so
         # ds[-1] is its last bar; `alive_cut` is None only if END is unparseable (never here).
         alive = (sym in cur) and (alive_cut is None or ds[-1] >= alive_cut)
@@ -847,9 +881,15 @@ def main():
         flush=True,
     )
     if open_log:
-        print("  OPEN-arbitrated official actions (sym, ex, factor, close-ratio, open-gate):", flush=True)
+        print(
+            "  OPEN-arbitrated official actions (sym, ex, factor, close-ratio, open-gate):",
+            flush=True,
+        )
         for s, y, cf, rr, og in open_log:
-            print("    %-12s %d  f=%.6f  close r=%.4f  open/prev/f=%.4f" % (s, y, cf, rr, og), flush=True)
+            print(
+                "    %-12s %d  f=%.6f  close r=%.4f  open/prev/f=%.4f" % (s, y, cf, rr, og),
+                flush=True,
+            )
     apply_dv_fill(data)
     print(
         "  §161: %d big move(s) since %d with NO official record kept RAW; %d pre-%d move(s) still "

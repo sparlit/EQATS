@@ -35,6 +35,29 @@ by design. Without this pass those rows would ship metadata-only ("—" prices) 
 RULE: fill ONLY where Yahoo's series is empty — never mix two sources inside one ticker (the two
 adjust splits on different bases). Provenance rides on meta[ticker]["src"] = "nse-bhavcopy".
 
+NIFTY 500 REPLACE (DATA_RUNBOOK §214a F1, user 2026-09-28 "F1 option 1"): for every `.NS` ticker that was
+EVER a Nifty 500 member (scripts/indices_history.json), the Yahoo history is REPLACED by the store's series.
+The second-reader audit (§214 px_nse_yahoo), re-read against NSE bhavcopies, NSE/BSE corporate-action
+records and Screener, found Yahoo wrong in 2,658 stretches of 263 members: splits adjusted only back to
+1 January of the ex year (TRENT, MOTILALOFS, CGCL, GPIL, CONCOR), splits applied twice (LMW, VOLTAS, ABB),
+whole sessions repeating the prior close (18-Mar-2025 for 492 members), time-shifted weekly bars, frozen
+series. Yahoo still serves every one of them live, so only a replacement sticks.
+  * History = the store: NSE official closes under our split/bonus AND demerger/rights ledgers, i.e. the
+    series the stock page and backtests already read. The store is published ~20:45 IST
+    (refresh-backtest-data.yml) and this job runs 15:30-17:00 IST, so the store ends at the previous
+    session: Yahoo's bars dated AFTER the store's last session (normally today's one bar) are kept as the
+    tail (meta tailYahoo = how many).
+  * SEAM GATE: the tail is only safe on the same basis. Of the last 5 sessions both carry up to the store's
+    end, >= 4 must agree within 1 % (one stale Yahoo print passes). A split whose ex-date falls in that
+    window and that only one side has applied fails it, and the ticker KEEPS its Yahoo series this run.
+  * A symbol whose store series ends > 10 days before the store's end (suspended) keeps Yahoo.
+  * scripts/dash_px_keep_yahoo.json: members whose STORE carries a verified >= 10 % error that Yahoo does
+    not (old splits missing from our ledgers, §214a L1). They keep Yahoo until the store is healed.
+  * Provenance: meta src "nse-bhavcopy" + srcFrom "yahoo-replaced". heal_price_series.py skips these rows
+    (its floor re-adds bars from the last published build and would mix the two sources back in).
+The store is STREAMED one symbol at a time (xcheck.common.iter_section): json.loads of the whole 582 MB
+bin builds ~10 GB of Python objects.
+
 SHAPE: exactly what fetch_all emits — [[unix_ts, close], ...], WEEKLY closes before 2020-01-01
 (one bar per ISO week, stamped on that week's Monday 09:15 IST, the week's LAST close — Yahoo's
 1wk convention) and DAILY closes from 2020-01-01 (stamped 09:15 IST = 03:45 UTC, Yahoo's
@@ -49,44 +72,104 @@ import os as _o
 import sys as _s
 
 _s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
-import bse_headers as BH  # §181 BSE headers
-import os
-import sys
-import json
-import gzip
-import time
-import datetime
-import urllib.request
-from pathlib import Path
 import contextlib
+import datetime
+import gzip
+import json
+import os
+import time
+from pathlib import Path
+
+import bse_headers as BH  # §181 BSE headers
+from xcheck import (
+    common as XC,
+)  # streaming reader of the price bin (iter_section / late_value / sf_path)
 
 ROOT = Path(__file__).resolve().parent.parent
 PAYLOAD = ROOT / "scripts" / "stock_data.json"
-RELEASE_URL = "https://github.com/dhruvan246/stocks-dashboard/releases/download/data/sf_stock_data.bin"
 DAILY_FROM = 20200101
 END_TS_NOW = int(time.time())
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+INDICES_HISTORY = ROOT / "scripts" / "indices_history.json"
+KEEP_YAHOO = ROOT / "scripts" / "dash_px_keep_yahoo.json"
+SEAM_N, SEAM_OK, SEAM_TOL = 5, 4, 0.01  # of the last 5 shared sessions, >= 4 within 1 %
+STALE_DAYS = 10  # store series ending this long before the store's end = suspended
 
 
-def load_bin():
+def bin_path():
+    """Local path of the store: SF_BIN when set, else the release asset downloaded (and checked to be a
+    complete gzip) by xcheck.common.sf_path — 3 tries, then SystemExit (the workflow step is non-fatal)."""
     p = os.environ.get("SF_BIN")
-    if p:
-        print(f"sf-fill: base = local file {p}", flush=True)
-        return json.loads(gzip.decompress(open(p, "rb").read()))
-    last = None
-    for attempt in range(3):
-        try:
-            raw = urllib.request.urlopen(
-                urllib.request.Request(RELEASE_URL, headers={"User-Agent": "Mozilla/5.0"}), timeout=180
-            ).read()
-            print("sf-fill: base = release asset (%.1f MB)" % (len(raw) / 1048576), flush=True)
-            return json.loads(gzip.decompress(raw))
-        except Exception as e:
-            last = e
-            print("sf-fill: release fetch attempt %d failed (%s)" % (attempt + 1, e), flush=True)
-            time.sleep(10)
-    msg = f"sf-fill: could not fetch the release asset after 3 tries ({last})"
-    raise SystemExit(msg)
+    print("sf-fill: base = %s" % (("local file " + p) if p else "release asset"), flush=True)
+    p = XC.sf_path()
+    print(f"sf-fill: store file {p} ({os.path.getsize(p) / 1048576:.1f} MB gz)", flush=True)
+    return p
+
+
+def ymd_int(v):
+    """20260925 from 20260925 / "2026-09-25" / "20260925"."""
+    return int(str(v).replace("-", ""))
+
+
+def ymd_of_ts(ts):
+    d = datetime.datetime.fromtimestamp(ts, IST).date()
+    return d.year * 10000 + d.month * 100 + d.day
+
+
+def n500_replace_set(meta, series):
+    """{ticker: symbol} for every `.NS` ticker with a Yahoo series whose symbol was EVER in the Nifty 500
+    (every snapshot in scripts/indices_history.json), minus the keep-Yahoo ledger. Also returns the ledger."""
+    try:
+        ih = json.loads(INDICES_HISTORY.read_text(encoding="utf-8"))["Nifty 500"]
+    except Exception as e:
+        print(
+            f"sf-fill: WARNING {INDICES_HISTORY} unreadable ({e}) — Nifty 500 replacement skipped",
+            flush=True,
+        )
+        return {}, {}
+    ever = set()
+    for snap in ih:
+        ever.update(snap.get("symbols") or [])
+    try:
+        keep = json.loads(KEEP_YAHOO.read_text(encoding="utf-8")).get("keep") or {}
+    except FileNotFoundError:
+        keep = {}
+    out = {}
+    for t, m in meta.items():
+        if not t.endswith(".NS") or not series.get(t):
+            continue
+        sym = ((m or {}).get("symbol") or t[:-3]).upper()
+        if sym in ever and sym not in keep:
+            out[t] = sym
+    return out, keep
+
+
+def replace_one(t, e, series, cal, end):
+    """Replace ticker t's Yahoo series with the store entry e (+ Yahoo's bars after `end`).
+    Returns (None, n_tail, dropped) on success, (reason, detail, 0) when the ticker keeps Yahoo."""
+    ybars = series[t]
+    if not e.get("d"):
+        return "no store series", "", 0
+    last = e["d"][-1]
+    if (
+        datetime.date(end // 10000, end // 100 % 100, end % 100)
+        - datetime.date(last // 10000, last // 100 % 100, last % 100)
+    ).days > STALE_DAYS:
+        return "store series ends %d" % last, "", 0
+    yd = {ymd_of_ts(ts): c for ts, c in ybars if ts >= ts_of(DAILY_FROM)}
+    shared = [
+        (d, c)
+        for d, c in zip(e["d"], e["c"], strict=False)
+        if DAILY_FROM <= d <= end and c and d in yd and yd[d]
+    ]
+    seam = shared[-SEAM_N:]
+    good = sum(1 for d, c in seam if abs(yd[d] / c - 1) <= SEAM_TOL)
+    if len(seam) < 3 or good < min(SEAM_OK, len(seam)):
+        return "seam", " ".join("%d:%.2f/%.2f" % (d, yd[d], c) for d, c in seam), 0
+    bars, dropped = series_from(e, cal)
+    tail = [b for b in ybars if ymd_of_ts(b[0]) > end]
+    series[t] = bars + tail
+    return None, len(tail), dropped
 
 
 def ts_of(ymd, weekday_monday=False):
@@ -120,8 +203,14 @@ def series_from(e, cal=None):
     """bin entry {d:[ymd], c:[adj close]} -> [[ts, close]] in fetch_all's weekly-then-daily shape.
     `cal` = the Yahoo session calendar (yahoo_calendar); daily bars on dates outside it are dropped.
     Returns (bars, dropped)."""
-    weekly, daily, dropped = {}, [], 0  # weekly: (iso year, iso week) -> bar; bars arrive in date order,
-    for ymd, c in zip(e["d"], e["c"], strict=False):  # so the last assignment per week is that week's LAST close
+    weekly, daily, dropped = (
+        {},
+        [],
+        0,
+    )  # weekly: (iso year, iso week) -> bar; bars arrive in date order,
+    for ymd, c in zip(
+        e["d"], e["c"], strict=False
+    ):  # so the last assignment per week is that week's LAST close
         if c is None or c <= 0:
             continue
         if ymd >= DAILY_FROM:
@@ -174,7 +263,9 @@ def ca_factor(r):
     return 1.0
 
 
-CA_LEDGER = ROOT / "scripts" / "bse_ca_checks.json"  # {"code|ymd": verdict} — BSE's own record per candidate step
+CA_LEDGER = (
+    ROOT / "scripts" / "bse_ca_checks.json"
+)  # {"code|ymd": verdict} — BSE's own record per candidate step
 
 
 def bse_official(code, ymd, cache):
@@ -187,7 +278,10 @@ def bse_official(code, ymd, cache):
     if key in cache:
         return cache[key]
     d = datetime.date(ymd // 10000, ymd // 100 % 100, ymd % 100)
-    f, t = (d - datetime.timedelta(days=7)).strftime("%Y%m%d"), (d + datetime.timedelta(days=7)).strftime("%Y%m%d")
+    f, t = (
+        (d - datetime.timedelta(days=7)).strftime("%Y%m%d"),
+        (d + datetime.timedelta(days=7)).strftime("%Y%m%d"),
+    )
     url = (
         f"https://api.bseindia.com/BseIndiaAPI/api/DefaultData/w?Fdate={f}&Purposecode=&ScripCode={code}"
         f"&segment=0&strSearch=S&TDate={t}"
@@ -196,17 +290,27 @@ def bse_official(code, ymd, cache):
         import subprocess
 
         out = subprocess.run(
-            ["curl", "-s", "--max-time", "30", "-A", BH.UA, *BH.CURL_ARGS, url], capture_output=True, timeout=45
+            ["curl", "-s", "--max-time", "30", "-A", BH.UA, *BH.CURL_ARGS, url],
+            capture_output=True,
+            timeout=45,
         ).stdout
         rows = json.loads(out or b"[]")
     except Exception:
         return "unknown"  # not cached: retried next run
-    purposes = " | ".join(str(r.get("Purpose") or "") for r in rows) if isinstance(rows, list) else ""
+    purposes = (
+        " | ".join(str(r.get("Purpose") or "") for r in rows) if isinstance(rows, list) else ""
+    )
     low = purposes.lower()
-    v = "split_bonus" if ("split" in low or "bonus" in low) else ("other" if purposes.strip() else "none")
+    v = (
+        "split_bonus"
+        if ("split" in low or "bonus" in low)
+        else ("other" if purposes.strip() else "none")
+    )
     cache[key] = v
     print(
-        "  bse-fill: %s step on %d -> BSE record: %s (%s)" % (code, ymd, v, purposes.strip() or "nothing"), flush=True
+        "  bse-fill: %s step on %d -> BSE record: %s (%s)"
+        % (code, ymd, v, purposes.strip() or "nothing"),
+        flush=True,
     )
     return v
 
@@ -305,56 +409,105 @@ def main():
     payload = json.loads(PAYLOAD.read_text())
     meta, series = payload["meta"], payload["series"]
     todo = [t for t in meta if t.endswith(".NS") and not series.get(t)]
-    print("sf-fill: %d .NS tickers with no Yahoo series (of %d)" % (len(todo), len(meta)), flush=True)
+    print(
+        "sf-fill: %d .NS tickers with no Yahoo series (of %d)" % (len(todo), len(meta)), flush=True
+    )
     cal = yahoo_calendar(meta, series)
     if len(cal) < 200:
         print(
-            "sf-fill: WARNING only %d Yahoo daily sessions in this payload — calendar alignment skipped" % len(cal),
+            "sf-fill: WARNING only %d Yahoo daily sessions in this payload — calendar alignment skipped"
+            % len(cal),
             flush=True,
         )
         cal = None
     fill_bse(meta, series, cal)  # BSE rows first: needs no download
-    if not todo:
+    # The Nifty 500 replace set is taken before any .NS fill: it is defined by the Yahoo series it replaces.
+    repl, keep = n500_replace_set(meta, series)
+    if cal is not None:
+        cal = yahoo_calendar(meta, series)
+        if len(cal) < 200:
+            # a Yahoo build with fewer than 200 daily sessions is not a calendar anyone should follow —
+            # fill uncut and say so, rather than emit 200-bar stubs for every SME name
+            print(
+                "sf-fill: WARNING only %d Yahoo daily sessions in this payload — calendar alignment skipped"
+                % len(cal),
+                flush=True,
+            )
+            cal = None
+        else:
+            print(
+                "sf-fill: Yahoo calendar = %d daily sessions (%d..%d); filled bars outside it are dropped"
+                % (len(cal), min(cal), max(cal)),
+                flush=True,
+            )
+    if repl and cal is None:
+        # without the calendar a replaced series would carry sessions no Yahoo row has (Budget Sunday …)
+        # and guard_sessions reads those as half-loaded days: ship Yahoo for this run instead
+        print(
+            "sf-fill: WARNING no usable Yahoo calendar — Nifty 500 replacement SKIPPED this run (%d Yahoo series ship)"
+            % len(repl),
+            flush=True,
+        )
+        repl = {}
+    if not todo and not repl:
         payload["series"] = series
         PAYLOAD.write_text(json.dumps(payload, separators=(",", ":")))
-        print("sf-fill: no .NS gaps")
+        print("sf-fill: no .NS gaps and nothing to replace")
         return
-    cal = yahoo_calendar(meta, series) if cal is not None else None
-    if len(cal) < 200:
-        # a Yahoo build with fewer than 200 daily sessions is not a calendar anyone should follow —
-        # fill uncut and say so, rather than emit 200-bar stubs for every SME name
-        print(
-            "sf-fill: WARNING only %d Yahoo daily sessions in this payload — calendar alignment skipped" % len(cal),
-            flush=True,
-        )
-        cal = None
-    else:
-        print(
-            "sf-fill: Yahoo calendar = %d daily sessions (%d..%d); filled bars outside it are dropped"
-            % (len(cal), min(cal), max(cal)),
-            flush=True,
-        )
-    D = load_bin()
-    data = D.get("data") or {}
-    filled, absent, short, dropped_total, dropped_days = 0, [], [], 0, {}
+    path = bin_path()
+    end = ymd_int(XC.late_value(path, "end"))
+    want = {}  # symbol -> [(job, ticker)]
     for t in todo:
-        sym = (meta[t].get("symbol") or t[:-3]).upper()
-        e = data.get(sym)
-        if not e or not e.get("d"):
-            absent.append(sym)
+        want.setdefault((meta[t].get("symbol") or t[:-3]).upper(), []).append(("fill", t))
+    for t, sym in repl.items():
+        want.setdefault(sym, []).append(("repl", t))
+    seen = set()
+    filled, absent, short, dropped_total, dropped_days = 0, [], [], 0, {}
+    replaced, kept, tails, rep_dropped = 0, [], {}, 0
+    for sym, raw in XC.iter_section(path, "data"):
+        jobs = want.get(sym)
+        if not jobs:
             continue
-        ser, dropped = series_from(e, cal)
-        if not long_enough(ser, END_TS_NOW):
-            short.append(sym)
+        seen.add(sym)
+        e = json.loads(raw)
+        for job, t in jobs:
+            if job == "repl":
+                why, info, dropped = replace_one(t, e, series, cal, end)
+                if why:
+                    kept.append((sym, why, info))
+                    continue
+                meta[t]["src"] = "nse-bhavcopy"  # provenance: the store's series …
+                meta[t]["srcFrom"] = (
+                    "yahoo-replaced"  # … replacing a Yahoo one (heal_price_series skips it)
+                )
+                meta[t]["tailYahoo"] = info  # Yahoo bars kept after the store's last session
+                replaced += 1
+                rep_dropped += dropped
+                tails[info] = tails.get(info, 0) + 1
+                continue
+            if not e.get("d"):
+                absent.append(sym)
+                continue
+            ser, dropped = series_from(e, cal)
+            if not long_enough(ser, END_TS_NOW):
+                short.append(sym)
+                continue
+            series[t] = ser
+            meta[t]["src"] = "nse-bhavcopy"  # provenance: not a Yahoo series
+            filled += 1
+            dropped_total += dropped
+            if cal is not None and dropped:
+                for ymd in e["d"]:
+                    if ymd >= DAILY_FROM and ymd not in cal:
+                        dropped_days[ymd] = dropped_days.get(ymd, 0) + 1
+    for sym, jobs in want.items():
+        if sym in seen:
             continue
-        series[t] = ser
-        meta[t]["src"] = "nse-bhavcopy"  # provenance: not a Yahoo series
-        filled += 1
-        dropped_total += dropped
-        if cal is not None and dropped:
-            for ymd in e["d"]:
-                if ymd >= DAILY_FROM and ymd not in cal:
-                    dropped_days[ymd] = dropped_days.get(ymd, 0) + 1
+        for job, t in jobs:
+            if job == "repl":
+                kept.append((sym, "not in the store", ""))
+            else:
+                absent.append(sym)
     payload["series"] = series
     PAYLOAD.write_text(json.dumps(payload, separators=(",", ":")))
     print(
@@ -362,12 +515,14 @@ def main():
         "%d bars on %d non-Yahoo sessions dropped%s"
         % (
             filled,
-            D.get("end"),
+            end,
             len(absent),
             len(short),
             dropped_total,
             len(dropped_days),
-            (" (" + ", ".join("%d x%d" % kv for kv in sorted(dropped_days.items())[-8:]) + ")") if dropped_days else "",
+            (" (" + ", ".join("%d x%d" % kv for kv in sorted(dropped_days.items())[-8:]) + ")")
+            if dropped_days
+            else "",
         ),
         flush=True,
     )
@@ -376,7 +531,29 @@ def main():
     if short:
         print("  too short: {}".format(", ".join(sorted(short)[:40])))
     print(
-        "sf-fill: payload now %d tickers with prices of %d" % (sum(1 for t in meta if series.get(t)), len(meta)),
+        "sf-fill: Nifty 500 REPLACE: %d of %d ever-member Yahoo series replaced by the store (end %d); Yahoo tail bars "
+        "after it: %s; %d store bars on non-Yahoo sessions dropped; %d kept Yahoo by ledger (%s)"
+        % (
+            replaced,
+            len(repl),
+            end,
+            ", ".join("%d bar(s) x%d" % kv for kv in sorted(tails.items())) or "none",
+            rep_dropped,
+            len(keep),
+            ", ".join(sorted(keep)) or "-",
+        ),
+        flush=True,
+    )
+    if kept:
+        print(
+            "sf-fill: WARNING %d member(s) KEPT their Yahoo series this run:" % len(kept),
+            flush=True,
+        )
+        for sym, why, info in sorted(kept)[:40]:
+            print(f"  {sym}: {why} {info}", flush=True)
+    print(
+        "sf-fill: payload now %d tickers with prices of %d"
+        % (sum(1 for t in meta if series.get(t)), len(meta)),
         flush=True,
     )
 

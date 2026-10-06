@@ -82,7 +82,12 @@ LEDGER = os.path.join(SCRIPTS, "named_rev_cell_fills.json")
 QE = "20250331"
 
 CELLS = {
-    "AIIL": ("revC", 1452.0, "crore-rounded", "screener.in gate 11/11, row 'Revenue' (NBFC layout)"),
+    "AIIL": (
+        "revC",
+        1452.0,
+        "crore-rounded",
+        "screener.in gate 11/11, row 'Revenue' (NBFC layout)",
+    ),
     "BALKRISIND": (
         "revC",
         2752.38,
@@ -95,7 +100,12 @@ CELLS = {
         "filing-exact",
         "Mar-2026 filing p16 comparative '(a) Revenue from operations'; screener target 2753",
     ),
-    "CYIENT": ("revC", 1909.0, "crore-rounded", "screener.in gate 12/12; BSE announcement API throttled at run time"),
+    "CYIENT": (
+        "revC",
+        1909.0,
+        "crore-rounded",
+        "screener.in gate 12/12; BSE announcement API throttled at run time",
+    ),
     "KNRCON": (
         "revC",
         975.0,
@@ -126,7 +136,12 @@ CELLS = {
         "crore-rounded",
         "screener.in gate 11/11; BSE announcement API throttled at run time",
     ),
-    "WESTLIFE": ("revS", 0.29, "filing-exact", "Jun-2025 filing p3 preceding-quarter column, 28.94 lakh"),
+    "WESTLIFE": (
+        "revS",
+        0.29,
+        "filing-exact",
+        "Jun-2025 filing p3 preceding-quarter column, 28.94 lakh",
+    ),
 }
 SLOT = {"revS": 0, "revC": 1}
 
@@ -135,7 +150,10 @@ def main():
     dry = "--apply" not in sys.argv
     wrote, skipped = 0, []
     journal = {}
-    for path in (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json")):
+    for path in (
+        os.path.join(ROOT, "docs", "sf_revop.json"),
+        os.path.join(SCRIPTS, "revop_fundamentals.json"),
+    ):
         d = json.load(open(path))
         n = 0
         for sym, (field, val, prec, ev) in sorted(CELLS.items()):

@@ -54,7 +54,9 @@ def main():
             added += 1
     json.dump(d, open(P, "w", encoding="utf8"), indent=1, sort_keys=True)
     total = sum(len(v) for v in d.values())
-    print("added %d (%d already present); total %d cells across %d syms" % (added, dup, total, len(d)))
+    print(
+        "added %d (%d already present); total %d cells across %d syms" % (added, dup, total, len(d))
+    )
 
 
 if __name__ == "__main__":

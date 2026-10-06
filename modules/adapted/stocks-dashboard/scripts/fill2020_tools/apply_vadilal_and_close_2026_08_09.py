@@ -42,8 +42,14 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
-FUND = (os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(SCRIPTS, "fundamentals.json"))
-REVOP = (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json"))
+FUND = (
+    os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+    os.path.join(SCRIPTS, "fundamentals.json"),
+)
+REVOP = (
+    os.path.join(ROOT, "docs", "sf_revop.json"),
+    os.path.join(SCRIPTS, "revop_fundamentals.json"),
+)
 SUSPECTS = os.path.join(SCRIPTS, "_fund_suspect_cells.json")
 
 SYM, QE, WAS_FUND, WAS_REVOP, NOW = "VADILALIND", 20251231, -0.15, 2.49, -0.16
@@ -76,7 +82,11 @@ def main():
     for paths, idx, keyed in ((FUND, 3, False), (REVOP, 5, True)):
         for path in paths:
             d = json.load(open(path, encoding="utf-8"))
-            row = (d.get(SYM) or {}).get(str(QE)) if keyed else next((r for r in d.get(SYM, []) if r[0] == QE), None)
+            row = (
+                (d.get(SYM) or {}).get(str(QE))
+                if keyed
+                else next((r for r in d.get(SYM, []) if r[0] == QE), None)
+            )
             if not row or len(row) <= idx:
                 continue
             cur = row[idx]
@@ -85,7 +95,9 @@ def main():
             exp = WAS_REVOP if keyed else WAS_FUND
             if abs(cur - exp) > 0.005:
                 sys.exit(f"GUARD {SYM} in {os.path.basename(path)}: {cur} expected {exp}")
-            print("  %-24s %-26s %s -> %s" % ("%s|%d" % (SYM, QE), os.path.basename(path), cur, NOW))
+            print(
+                "  %-24s %-26s %s -> %s" % ("%s|%d" % (SYM, QE), os.path.basename(path), cur, NOW)
+            )
             row[idx] = NOW
             n += 1
             if not dry:

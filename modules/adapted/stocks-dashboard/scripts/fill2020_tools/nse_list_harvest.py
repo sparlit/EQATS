@@ -60,7 +60,10 @@ CACHE = os.path.join(SCRIPTS, "_nselist")
 TARGETS = os.path.join(HERE, "_rev2020_targets.json")
 H = {"User-Agent": BF.UA, "Accept": "*/*", "Referer": "https://www.nseindia.com/"}
 MON = {
-    m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+    )
 }
 
 
@@ -105,7 +108,7 @@ def cache_path(sym):
 def fetch_list(sym, jar):
     """Rows for sym AND every era symbol, merged. Raises only if EVERY variant failed."""
     rows, errs = [], []
-    for s in [sym, *aliases(sym)]:
+    for s in [sym] + aliases(sym):
         url = (
             "https://www.nseindia.com/api/corporates-financial-results"
             "?index=equities&symbol={}&period=Quarterly".format(urllib.parse.quote(s, safe=""))
@@ -128,9 +131,10 @@ def fetch_list(sym, jar):
     # results live only under /api/integrated-filing-results (rows carry qe_Date + the same
     # per-basis xbrl). Normalize those into the classic row shape so every consumer of this cache
     # (con_nofile_identity's E-gates, nse_xbrl_rev) sees one continuous filing record.
-    for s in [sym, *aliases(sym)]:
-        url = "https://www.nseindia.com/api/integrated-filing-results?index=equities&period=Quarterly&symbol={}".format(
-            urllib.parse.quote(s, safe="")
+    for s in [sym] + aliases(sym):
+        url = (
+            "https://www.nseindia.com/api/integrated-filing-results"
+            "?index=equities&period=Quarterly&symbol={}".format(urllib.parse.quote(s, safe=""))
         )
         got = None
         for _ in (1, 2):
@@ -154,7 +158,9 @@ def fetch_list(sym, jar):
                     "_integrated": True,
                     "symbol": r.get("symbol"),
                     "toDate": m.group(0),
-                    "consolidated": "Consolidated" if basis == "Consolidated" else "Non-Consolidated",
+                    "consolidated": "Consolidated"
+                    if basis == "Consolidated"
+                    else "Non-Consolidated",
                     "audited": r.get("audited"),
                     "xbrl": r.get("xbrl"),
                     "pdf_attach": r.get("pdf_attach"),

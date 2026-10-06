@@ -101,7 +101,13 @@ def _req(u, ref="https://www.bseindia.com/corporates/ann.html"):
     if BH.is_bse(u):  # honest BSE header set (§181) -- no browser impersonation
         return urllib.request.Request(u, headers=dict(BH.HEADERS, Referer=ref))
     return urllib.request.Request(
-        u, headers={"User-Agent": UA, "Accept": "*/*", "Referer": ref, "Origin": "https://www.bseindia.com"}
+        u,
+        headers={
+            "User-Agent": UA,
+            "Accept": "*/*",
+            "Referer": ref,
+            "Origin": "https://www.bseindia.com",
+        },
     )
 
 
@@ -111,7 +117,9 @@ _opener = None
 def opener():
     global _opener
     if _opener is None:
-        _opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        _opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
+        )
         _opener.open(_req("https://www.bseindia.com/"), timeout=30).read()
     return _opener
 
@@ -147,7 +155,9 @@ def is_candidate(row):
 # ---------------------------------------------------------------- scripcode resolution chain
 def _norm_name(x):
     x = (x or "").lower()
-    x = re.sub(r"\b(ltd|limited|india|indian|the|company|co|corp|corporation|pvt|private|and|&)\b", " ", x)
+    x = re.sub(
+        r"\b(ltd|limited|india|indian|the|company|co|corp|corporation|pvt|private|and|&)\b", " ", x
+    )
     return re.sub(r"[^a-z0-9]", "", x)
 
 
@@ -229,7 +239,8 @@ MAX_PAGES_PER_SYMBOL = 120
 
 def fetch_symbol_rows(scripcode, d1, d2, log=None):
     today = datetime.date.today().strftime("%Y%m%d")
-    d2 = min(d2, today)
+    if d2 > today:
+        d2 = today
     out, page = [], 1
     while True:
         if log:
@@ -243,8 +254,10 @@ def fetch_symbol_rows(scripcode, d1, d2, log=None):
         tbl = j.get("Table", []) or []
         t1 = j.get("Table1", [])
         if not t1 and tbl:
-            msg = f"degenerate BSE response (Table1 empty, {len(tbl)} null-ish rows) at page {page} d1={d1} d2={d2}"
-            raise RuntimeError(msg)
+            raise RuntimeError(
+                f"degenerate BSE response (Table1 empty, {len(tbl)} null-ish rows) "
+                f"at page {page} d1={d1} d2={d2}"
+            )
         total = (t1[0].get("ROWCNT") if t1 else 0) or 0
         for row in tbl:
             if is_candidate(row):
@@ -253,8 +266,7 @@ def fetch_symbol_rows(scripcode, d1, d2, log=None):
             break
         page += 1
         if page > MAX_PAGES_PER_SYMBOL:
-            msg = f"page cap exceeded (total={total} rows)"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"page cap exceeded (total={total} rows)")
     return out
 
 
@@ -286,14 +298,24 @@ def match_targets(rows, targets):
             # no basis word must always outrank a re-publication that has one.
             row_, cls_, _ = c
             txt = ((row_.get("NEWSSUB") or "") + (row_.get("HEADLINE") or "")).lower()
-            return (CLASS_RANK.get(cls_, 9), 0 if basis_word in txt else 1, row_.get("NEWS_DT") or "9999")
+            return (
+                CLASS_RANK.get(cls_, 9),
+                0 if basis_word in txt else 1,
+                row_.get("NEWS_DT") or "9999",
+            )
 
         row, cls, dates = min(cands, key=_key)
         matches[f"{qe}|{basis}"] = [row.get("NEWS_DT"), row.get("NEWSSUB"), cls, sorted(dates)]
     return matches
 
 
-def main(target_list_path=TARGET_LIST, out_path=OUT_PATH, progress_path=PROGRESS_PATH, raw_path=RAW_PATH, limit=None):
+def main(
+    target_list_path=TARGET_LIST,
+    out_path=OUT_PATH,
+    progress_path=PROGRESS_PATH,
+    raw_path=RAW_PATH,
+    limit=None,
+):
     targets = json.load(open(target_list_path))
     M = load_scripcode_maps()
     results = json.load(open(out_path)) if os.path.exists(out_path) else {}
@@ -312,17 +334,25 @@ def main(target_list_path=TARGET_LIST, out_path=OUT_PATH, progress_path=PROGRESS
         log(f"START {sym} ({done + 1}/{len(symbols)})")
         rows_targets = targets[sym]
         scripcode, src = resolve_scripcode(sym, M)
-        entry = {"scripcode": scripcode, "scripcode_src": src, "candidates_seen": 0, "matches": {}, "error": None}
+        entry = {
+            "scripcode": scripcode,
+            "scripcode_src": src,
+            "candidates_seen": 0,
+            "matches": {},
+            "error": None,
+        }
         if scripcode is None:
             entry["error"] = src  # 'nse-only' | 'unresolved-alias'
             log(f"  SKIP {sym}: {src}")
         else:
             qes = [r[0] for r in rows_targets]
             d1 = (
-                datetime.date(qes[0] // 10000, (qes[0] // 100) % 100, qes[0] % 100) - datetime.timedelta(days=10)
+                datetime.date(qes[0] // 10000, (qes[0] // 100) % 100, qes[0] % 100)
+                - datetime.timedelta(days=10)
             ).strftime("%Y%m%d")
             d2 = (
-                datetime.date(qes[-1] // 10000, (qes[-1] // 100) % 100, qes[-1] % 100) + datetime.timedelta(days=120)
+                datetime.date(qes[-1] // 10000, (qes[-1] // 100) % 100, qes[-1] % 100)
+                + datetime.timedelta(days=120)
             ).strftime("%Y%m%d")
             try:
                 rows = fetch_symbol_rows(scripcode, d1, d2, log=log)
@@ -330,9 +360,16 @@ def main(target_list_path=TARGET_LIST, out_path=OUT_PATH, progress_path=PROGRESS
                 entry["matches"] = match_targets(rows, rows_targets)
                 with open(raw_path, "a") as rf:  # F4: never crawl twice for a matcher tweak
                     rf.write(
-                        json.dumps({"sym": sym, "scripcode": scripcode, "rows": rows}, separators=(",", ":")) + "\n"
+                        json.dumps(
+                            {"sym": sym, "scripcode": scripcode, "rows": rows},
+                            separators=(",", ":"),
+                        )
+                        + "\n"
                     )
-                log(f"  DONE {sym}: {len(rows)} candidates, {len(entry['matches'])}/{len(rows_targets)} matched")
+                log(
+                    f"  DONE {sym}: {len(rows)} candidates, "
+                    f"{len(entry['matches'])}/{len(rows_targets)} matched"
+                )
             except Exception as e:
                 entry["error"] = f"{type(e).__name__}: {e}"
                 log(f"  FAILED {sym}: {entry['error']}")

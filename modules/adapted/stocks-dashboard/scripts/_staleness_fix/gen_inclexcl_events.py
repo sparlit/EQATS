@@ -165,7 +165,11 @@ def norm(x):
     x = (x or "").lower()
     x = re.sub(r"\(.*?\)", " ", x)
     x = x.replace("pharmaceuticals", "pharma").replace("laboratories", "lab")
-    x = re.sub(r"\b(ltd|limited|india|indian|the|company|co|corp|corporation|pvt|private|and|&|of)\b", " ", x)
+    x = re.sub(
+        r"\b(ltd|limited|india|indian|the|company|co|corp|corporation|pvt|private|and|&|of)\b",
+        " ",
+        x,
+    )
     return re.sub(r"[^a-z0-9]", "", x)
 
 
@@ -213,7 +217,9 @@ def main():
     try:
         import gzip as _gz
 
-        _sf = json.loads(_gz.decompress(open(os.path.join(ROOT, "docs", "sf_stock_data.bin"), "rb").read()))["data"]
+        _sf = json.loads(
+            _gz.decompress(open(os.path.join(ROOT, "docs", "sf_stock_data.bin"), "rb").read())
+        )["data"]
         SPAN = {k: (o["d"][0], o["d"][-1]) for k, o in _sf.items() if o.get("d")}
         del _sf
     except Exception as e:
@@ -280,7 +286,7 @@ def main():
         print(f"(register_names_era.json not loaded: {_e})")
     ERA_CUTOFF = "2015-03-23"
     _rev = {}
-    for _o in RENAME:
+    for _o, _n in RENAME.items():
         _rev.setdefault(to_current(_o), set()).add(_o)
 
     def _covers(sym, d):
@@ -335,7 +341,7 @@ def main():
         if n in MANUAL:
             return MANUAL[n]
         e = era_sym(n, d)
-        return e or name_map.get(n)
+        return e if e else name_map.get(n)
 
     era_used = collections.Counter()
     for d, n, k in raw:

@@ -156,26 +156,45 @@ def main():
         if ver.get(k):
             print("   %-12s %5d" % (k, ver[k]))
     if comparable:
-        print("   -> of %d comparable pairs, %.1f%% fully clean" % (comparable, 100.0 * ver["OK"] / comparable))
-    print("\nSUSPECT CELLS while the company WAS a member: %d (across %d pairs)" % (len(cells), len(iso_pairs)))
+        print(
+            "   -> of %d comparable pairs, %.1f%% fully clean"
+            % (comparable, 100.0 * ver["OK"] / comparable)
+        )
+    print(
+        "\nSUSPECT CELLS while the company WAS a member: %d (across %d pairs)"
+        % (len(cells), len(iso_pairs))
+    )
     by_year = collections.Counter(str(c["qe"])[:4] for c in cells)
     print("   by year:", dict(sorted(by_year.items())))
     print("   by field:", dict(collections.Counter(c["field"] for c in cells)))
     print(
         "\nFY totals while a member: %d reproduced, %d mismatched%s"
-        % (ok_fy, bad_fy, " (%.1f%% clean)" % (100.0 * ok_fy / (ok_fy + bad_fy)) if ok_fy + bad_fy else "")
+        % (
+            ok_fy,
+            bad_fy,
+            " (%.1f%% clean)" % (100.0 * ok_fy / (ok_fy + bad_fy)) if ok_fy + bad_fy else "",
+        )
     )
 
     cells.sort(key=lambda c: -abs(c["diff_pct"] or 0))
     print("\nWorst 30 suspect cells (member at the time):")
-    print("   %-12s %-9s %-5s %14s %14s %9s" % ("sym", "quarter", "field", "ours", "screener", "diff%"))
+    print(
+        "   %-12s %-9s %-5s %14s %14s %9s"
+        % ("sym", "quarter", "field", "ours", "screener", "diff%")
+    )
     for c in cells[:30]:
         print(
             "   %-12s %-9d %-5s %14.2f %14.2f %8.1f%%"
             % (c["sym"], c["qe"], c["field"], c["ours"], c["screener"], c["diff_pct"] or 0)
         )
     json.dump(
-        {"cells": cells, "verdicts": dict(ver), "fy_ok": ok_fy, "fy_bad": bad_fy, "members_ever": sorted(ever)},
+        {
+            "cells": cells,
+            "verdicts": dict(ver),
+            "fy_ok": ok_fy,
+            "fy_bad": bad_fy,
+            "members_ever": sorted(ever),
+        },
         open("/tmp/audit_n500.json", "w"),
         indent=1,
     )

@@ -94,7 +94,9 @@ def fund_row(d, sym, qe):
 # ---------------- fund-side heals (the 17 screen cells + the companions) --------------------
 entries = []
 for k, e in sorted(V["cells"].items()):
-    if e.get("fix") and not e.get("retired"):  # retired: §203 — the verdict was another company's figure
+    if e.get("fix") and not e.get(
+        "retired"
+    ):  # retired: §203 — the verdict was another company's figure
         entries.append((k, e["fix"], "screen"))
 for k, e in sorted(V["companions"].items()):
     if not e.get("retired"):
@@ -114,11 +116,15 @@ for k, fix, kind in entries:
                 skipped.append(f"{rel} {k} {slot_name} already {now}")
                 continue
             if not close(cur, was):
-                problems.append(f"{rel} {k} {slot_name}: GUARD FAILED - current {cur}, expected was={was}")
+                problems.append(
+                    f"{rel} {k} {slot_name}: GUARD FAILED - current {cur}, expected was={was}"
+                )
                 continue
             row[idx] = now
             expect[rel].add((sym, int(qe)))
-            plan.append("%-32s %-11s %s %-4s %12s -> %-8s [%s]" % (rel, sym, qe, slot_name, was, now, kind))
+            plan.append(
+                "%-32s %-11s %s %-4s %12s -> %-8s [%s]" % (rel, sym, qe, slot_name, was, now, kind)
+            )
 
 # ---------------- mirror-side heals (sf_revop patS/patC) ------------------------------------
 for k, fix in sorted(V["mirror"].items()):
@@ -141,11 +147,15 @@ for k, fix in sorted(V["mirror"].items()):
                 skipped.append(f"{rel} {k} {slot_name} is null (not created - §73a)")
                 continue
             if not close(cur, was):
-                problems.append(f"{rel} {k} {slot_name}: GUARD FAILED - current {cur}, expected was={was}")
+                problems.append(
+                    f"{rel} {k} {slot_name}: GUARD FAILED - current {cur}, expected was={was}"
+                )
                 continue
             cell[idx] = now
             expect[rel].add((sym, qe))
-            plan.append("%-32s %-11s %s %-4s %12s -> %-8s [mirror]" % (rel, sym, qe, slot_name, was, now))
+            plan.append(
+                "%-32s %-11s %s %-4s %12s -> %-8s [mirror]" % (rel, sym, qe, slot_name, was, now)
+            )
 
 
 # ---------------- blast radius ---------------------------------------------------------------
@@ -176,14 +186,18 @@ for rel in orig:
     unexpected = got - expect[rel]
     if unexpected:
         problems.append(
-            "%s BLAST RADIUS: %d unintended cell(s) changed: %s" % (rel, len(unexpected), sorted(unexpected)[:8])
+            "%s BLAST RADIUS: %d unintended cell(s) changed: %s"
+            % (rel, len(unexpected), sorted(unexpected)[:8])
         )
 
 print("=" * 100)
 for line in plan:
     print("  " + line)
 print("-" * 100)
-print("planned slot-writes: %d   skipped: %d   problems: %d" % (len(plan), len(skipped), len(problems)))
+print(
+    "planned slot-writes: %d   skipped: %d   problems: %d"
+    % (len(plan), len(skipped), len(problems))
+)
 for s in skipped:
     print("  skip: " + s)
 for p in problems:

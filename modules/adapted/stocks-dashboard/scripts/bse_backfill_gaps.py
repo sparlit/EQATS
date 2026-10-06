@@ -141,7 +141,11 @@ def main():
         got = {q: (s, c) for q, s, c, *_ in arr}
         hit = {q: got.get(q) for q in work[sym]}
         done += 1
-        print("  [%d/%d] %-12s %d filings -> %d q  gaps:%s" % (done, len(syms), sym, nfl, len(arr), hit), flush=True)
+        print(
+            "  [%d/%d] %-12s %d filings -> %d q  gaps:%s"
+            % (done, len(syms), sym, nfl, len(arr), hit),
+            flush=True,
+        )
         time.sleep(0.5)
     print("DONE", flush=True)
 

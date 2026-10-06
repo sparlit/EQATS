@@ -42,7 +42,6 @@ import gzip
 import json
 import os
 import re
-import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -68,7 +67,7 @@ def main():
         re.search(
             r"^const FUND_ALIAS = (\{.*?\});$",
             open(os.path.join(ROOT, "docs", "backtest-engine.js"), encoding="utf-8").read(),
-            re.MULTILINE,
+            re.M,
         ).group(1)
     )
     V = json.load(open(os.path.join(HERE, "_isin_seam_verdicts.json")))
@@ -135,7 +134,10 @@ def main():
         % (len(trunc), sorted(y for y, *_ in trunc)[len(trunc) // 2])
     )
     for y, k, nf, of_, n in trunc[:12]:
-        print("    %-12s starts %d, its own tape starts %d (%d yr, %d bars behind)" % (k, nf, of_, y, n))
+        print(
+            "    %-12s starts %d, its own tape starts %d (%d yr, %d bars behind)"
+            % (k, nf, of_, y, n)
+        )
 
 
 if __name__ == "__main__":

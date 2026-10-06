@@ -51,7 +51,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def _req(u, ref="https://www.bseindia.com/corporates/ann.html"):
-    return urllib.request.Request(u, headers=dict(BH.HEADERS, Referer=ref))  # honest BSE header set (§181)
+    return urllib.request.Request(
+        u, headers=dict(BH.HEADERS, Referer=ref)
+    )  # honest BSE header set (§181)
 
 
 op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
@@ -132,7 +134,11 @@ def main_result_dates():
     except (OSError, ValueError):
         store = {}
     try:
-        monthend = set(json.loads(gzip.decompress(open(os.path.join(HERE, "filing_times_cache.json.gz"), "rb").read())))
+        monthend = set(
+            json.loads(
+                gzip.decompress(open(os.path.join(HERE, "filing_times_cache.json.gz"), "rb").read())
+            )
+        )
     except (OSError, ValueError):
         monthend = set()
     ist_today = time.strftime("%Y%m%d", time.gmtime(time.time() + 5.5 * 3600))
@@ -157,7 +163,9 @@ def main_result_dates():
                 gzip.compress(json.dumps(store, separators=(",", ":"), sort_keys=True).encode())
             )
         time.sleep(0.3)
-    open(RESULT_CACHE, "wb").write(gzip.compress(json.dumps(store, separators=(",", ":"), sort_keys=True).encode()))
+    open(RESULT_CACHE, "wb").write(
+        gzip.compress(json.dumps(store, separators=(",", ":"), sort_keys=True).encode())
+    )
     print("done; result-time days stored:", len(store), "| failed this run:", fails, flush=True)
 
 
@@ -179,7 +187,6 @@ def main():
         json.dump(store, open(path, "w"), separators=(",", ":"))
         time.sleep(0.3)
     print("done; total dates stored:", len(store), flush=True)
-    return None
 
 
 if __name__ == "__main__":

@@ -123,20 +123,25 @@ def main():
                 if len(r) > idx and r[idx] is not None:
                     key = (sym, r[idx])
                     if key in bump:
-                        log.append({"sym": sym, "qe": qe, "field": fld, "old": r[idx], "new": bump[key]})
+                        log.append(
+                            {"sym": sym, "qe": qe, "field": fld, "old": r[idx], "new": bump[key]}
+                        )
     json.dump(log, open(os.path.join(HERE, "_gate_bumps.json"), "w"), separators=(",", ":"))
     print(f"\nrow-cells to bump: {len(log)} (written to scripts/_gate_bumps.json)")
 
     # JSL proof
     jsl = [b for b in log if b["sym"] == "JSL" and b["old"] == 20201030]
-    print("JSL Oct-2020 bump:", jsl or "NOT FOUND")
+    print("JSL Oct-2020 bump:", jsl if jsl else "NOT FOUND")
 
     if not apply:
         print("\n(dry run — pass --apply to rewrite both fundamentals files)")
         return
 
     # Apply to BOTH files identically, in place, ann-date cells only.
-    for path in (os.path.join(DOCS, "sf_fundamentals.json"), os.path.join(HERE, "fundamentals.json")):
+    for path in (
+        os.path.join(DOCS, "sf_fundamentals.json"),
+        os.path.join(HERE, "fundamentals.json"),
+    ):
         d = load(path)
         cnt = 0
         for sym, rows in d.items():

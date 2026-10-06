@@ -57,11 +57,11 @@ sys.argv = _argv
 
 OUT = os.path.join(HERE, "ca_rights_terp_evidence.json")
 RIGHTS_RE = re.compile(
-    r"rights?\s*-?\s*(\d+)\s*:\s*(\d+)(?:.*?premium\s*(?:of\s*)?(?:r[se]\.?\s*)?([\d.]+))?", re.IGNORECASE
+    r"rights?\s*-?\s*(\d+)\s*:\s*(\d+)(?:.*?premium\s*(?:of\s*)?(?:r[se]\.?\s*)?([\d.]+))?", re.I
 )
 FV_RE = re.compile(
     r"(?:(?:f(?:ace)?\s*v(?:alue)?.*?(?:split|splt|spl\b|sub.?division))|consolidat).*?(?:r[se]\.?\s*)?([\d.]+)\s*/?-?\s*(?:per share\s*)?to\s*(?:r[se]\.?\s*)?([\d.]+)",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -71,11 +71,18 @@ def equity_l(jar):
         "https://archives.nseindia.com/content/equities/EQUITY_L.csv",
     ):
         try:
-            txt = F._get(url, headers={"User-Agent": F.UA, "Referer": "https://www.nseindia.com/"}, jar=jar, timeout=60)
+            txt = F._get(
+                url,
+                headers={"User-Agent": F.UA, "Referer": "https://www.nseindia.com/"},
+                jar=jar,
+                timeout=60,
+            )
             rows = list(csv.DictReader(io.StringIO(txt)))
             if rows:
                 key = next(k for k in rows[0] if "FACE" in k.upper())
-                return {r["SYMBOL"].strip(): float(r[key]) for r in rows if r.get(key, "").strip()}, url
+                return {
+                    r["SYMBOL"].strip(): float(r[key]) for r in rows if r.get(key, "").strip()
+                }, url
         except Exception as e:
             str(e)[:60]
     return {}, "EQUITY_L unreachable"
@@ -95,11 +102,17 @@ def main():
         if not rrows:
             continue
         s = e["sym"]
-        ev = {k: e.get(k) for k in ("sym", "a", "b", "F", "raw", "adj_a", "adj_b", "raw_ratio_bhav")}
+        ev = {
+            k: e.get(k) for k in ("sym", "a", "b", "F", "raw", "adj_a", "adj_b", "raw_ratio_bhav")
+        }
         ev["rights_rows"] = rrows
         m = RIGHTS_RE.search(rrows[0]["subject"])
         ev["terms"] = (
-            {"B": int(m.group(1)), "A": int(m.group(2)), "premium": float(m.group(3)) if m.group(3) else None}
+            {
+                "B": int(m.group(1)),
+                "A": int(m.group(2)),
+                "premium": float(m.group(3)) if m.group(3) else None,
+            }
             if m
             else None
         )
@@ -108,19 +121,32 @@ def main():
         # every face-value change AFTER the rights ex-date, from the NSE feed (both boards, all aliases)
         moves = []
         for board in ("equities", "sme"):
-            _st, rows = V.nse_rows(jar, s, board)
+            st, rows = V.nse_rows(jar, s, board)
             time.sleep(0.35)
             for x in rows:
                 ex = F.iso(x.get("exDate"))
                 subj = x.get("subject") or ""
-                mm = FV_RE.search(re.sub(r"tor([se])", r" to r\1", subj))  # "Rs10tors2" era spelling
+                mm = FV_RE.search(
+                    re.sub(r"tor([se])", r" to r\1", subj)
+                )  # "Rs10tors2" era spelling
                 if ex and mm and int(ex) > e["b"]:
-                    moves.append({"ex": int(ex), "from": float(mm.group(1)), "to": float(mm.group(2)), "subject": subj})
+                    moves.append(
+                        {
+                            "ex": int(ex),
+                            "from": float(mm.group(1)),
+                            "to": float(mm.group(2)),
+                            "subject": subj,
+                        }
+                    )
         ev["fv_moves"] = sorted(moves, key=lambda x: x["ex"])
         bh = (e.get("bhav") or {}).get(str(e["a"]))
         ev["cum"] = bh.get("close") if isinstance(bh, dict) else None
         miss = [k for k in ("terms", "fv_now", "cum") if not ev.get(k)]
-        if ev.get("terms") and ev["terms"]["premium"] is None and "premium" not in rrows[0]["subject"].lower():
+        if (
+            ev.get("terms")
+            and ev["terms"]["premium"] is None
+            and "premium" not in rrows[0]["subject"].lower()
+        ):
             miss.append("premium not stated")
         if not miss:
             fv = ev["fv_now"]
@@ -153,7 +179,11 @@ def main():
             flush=True,
         )
     json.dump(
-        {"generated": datetime.datetime.utcnow().isoformat() + "Z", "equity_l": fvsrc, "events": out},
+        {
+            "generated": datetime.datetime.utcnow().isoformat() + "Z",
+            "equity_l": fvsrc,
+            "events": out,
+        },
         open(OUT, "w"),
         indent=0,
     )

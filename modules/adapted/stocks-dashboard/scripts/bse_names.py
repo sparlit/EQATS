@@ -95,7 +95,8 @@ def check(paths):
             bad += 1
             print(
                 "BSE NAME MARKER: %s carries %d name(s) ending in %r, e.g. %s — a writer bypassed "
-                "bse_names.clean_scrip_name() (DATA_RUNBOOK §204)" % (p, len(hits), MARKER, hits[:5])
+                "bse_names.clean_scrip_name() (DATA_RUNBOOK §204)"
+                % (p, len(hits), MARKER, hits[:5])
             )
         else:
             print(f"bse_names: {p} clean (0 names ending in {MARKER!r})")

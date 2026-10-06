@@ -56,14 +56,15 @@ MONTHS = {
 }
 BAD = re.compile(
     r"newspaper|analyst|investor (presentation|meet)|intimation of|transcript|press release|earnings call|trading window|record date|investor presentation",
-    re.IGNORECASE,
+    re.I,
 )
 GOOD = re.compile(
-    r"financial result|integrated filing|outcome of board|statement of|unaudited|audited result", re.IGNORECASE
+    r"financial result|integrated filing|outcome of board|statement of|unaudited|audited result",
+    re.I,
 )
 PFT = re.compile(
     r"profit.{0,14}(after tax|before tax|for the (period|quarter|year))|profit after tax|net profit|profit/\(loss\)|total comprehensive",
-    re.IGNORECASE,
+    re.I,
 )
 DEC = re.compile(r"\(?-?[\d,]*\d\.\d\d\)?")
 
@@ -135,7 +136,6 @@ def main():
                 import time as _t
 
                 _t.sleep(3)
-        return None
 
     sget("https://www.nseindia.com/")
     got = 0
@@ -192,7 +192,11 @@ def main():
                 break  # consolidated page with target date — done
         if best and bestrank >= 1:
             open(os.path.join(VPDF, "%s_%d_nse.pdf" % (sym, qe)), "wb").write(best[0])
-            print("GOT %-11s %d  rank=%d  %dKB  %s" % (sym, qe, bestrank, len(best[0]) // 1024, best[1]), flush=True)
+            print(
+                "GOT %-11s %d  rank=%d  %dKB  %s"
+                % (sym, qe, bestrank, len(best[0]) // 1024, best[1]),
+                flush=True,
+            )
             log[key] = "got-con" if bestrank == 2 else "got-std"
             got += 1
         else:

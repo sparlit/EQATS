@@ -183,7 +183,9 @@ def main():
             done += 1
             if done % 200 == 0:
                 print(
-                    "  %d/%d  transient %d  misdirect %d" % (done, len(todo), len(FAILED), len(MISDIRECT)), flush=True
+                    "  %d/%d  transient %d  misdirect %d"
+                    % (done, len(todo), len(FAILED), len(MISDIRECT)),
+                    flush=True,
                 )
     have = sum(os.path.exists(os.path.join(TAPE, "%d.json.gz" % y)) for y in ss)
     miss = sum(os.path.exists(os.path.join(TAPE, "%d.miss" % y)) for y in ss)

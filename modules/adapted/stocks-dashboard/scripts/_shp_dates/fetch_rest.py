@@ -78,7 +78,11 @@ def main():
         if sym in have:
             continue
         if any(
-            isinstance(q, list) and len(q) > 3 and q[0] >= 20160101 and q[3] and not SD.is_convention(q[0], q[3])
+            isinstance(q, list)
+            and len(q) > 3
+            and q[0] >= 20160101
+            and q[3]
+            and not SD.is_convention(q[0], q[3])
             for q in rows
         ):
             need.append(sym)
@@ -98,7 +102,12 @@ def main():
             try:
                 table = json.loads(m.get(API + str(sc), timeout=30))["Table"]
                 with open(raw_p, "a") as f:
-                    f.write(json.dumps({"sym": sym, "scripcode": sc, "table": table}, separators=(",", ":")) + "\n")
+                    f.write(
+                        json.dumps(
+                            {"sym": sym, "scripcode": sc, "table": table}, separators=(",", ":")
+                        )
+                        + "\n"
+                    )
                 entry["resolved"] = {str(k): v for k, v in SD.resolve_rows(table).items()}
             except Exception as e:
                 entry["error"] = f"{type(e).__name__}: {e}"

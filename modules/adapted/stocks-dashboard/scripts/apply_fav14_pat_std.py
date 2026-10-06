@@ -40,7 +40,10 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-TWINS = [os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(HERE, "fundamentals.json")]
+TWINS = [
+    os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+    os.path.join(HERE, "fundamentals.json"),
+]
 LED = json.load(open(os.path.join(HERE, "fav14_pat_std_fills.json")))["fills"]
 DRY = "--apply" not in sys.argv
 
@@ -62,7 +65,9 @@ for sym, qs in LED.items():
             would += 1
         elif len(r) > 1 and r[1] is not None and abs(r[1] - pat) > max(0.5, abs(r[1]) * 0.03):
             conflicts.append((sym, qe, r[1], pat))
-print(("DRY " if DRY else "") + f"fills to apply: {would} | conflicts (left alone): {len(conflicts)}")
+print(
+    ("DRY " if DRY else "") + f"fills to apply: {would} | conflicts (left alone): {len(conflicts)}"
+)
 for c in conflicts[:15]:
     print("  CONFLICT", c)
 if DRY:

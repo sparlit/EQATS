@@ -120,7 +120,7 @@ def main():
         print("\ncontact sheet -> %s  (doc %d, %d pages at 70dpi)" % (OUTDIR, i, min(len(d), 14)))
         return
 
-    i, annd, sub, d = next(t for t in docs if doc_i is None or t[0] == doc_i)
+    i, annd, sub, d = [t for t in docs if doc_i is None or t[0] == doc_i][0]
     pg = d[page_no]
     clip = None
     if band:
@@ -130,7 +130,8 @@ def main():
     pm = pg.get_pixmap(dpi=220, clip=clip)
     fp = os.path.join(
         OUTDIR,
-        "%s_%d_doc%d_p%02d_hi%s.png" % (sym, qe, i, page_no, ("_{}".format(band.replace(",", "-"))) if band else ""),
+        "%s_%d_doc%d_p%02d_hi%s.png"
+        % (sym, qe, i, page_no, ("_{}".format(band.replace(",", "-"))) if band else ""),
     )
     pm.save(fp)
     print("wrote %s  (%dx%d)" % (fp, pm.width, pm.height))

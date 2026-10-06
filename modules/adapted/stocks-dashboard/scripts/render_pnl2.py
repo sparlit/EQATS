@@ -28,7 +28,6 @@ penalize covers, press releases, notes, segment pages. Renders the top page; for
 separate consolidated statement, also the 2nd distinct high-scoring page. Run after gaps recompute.
 Run: python -X utf8 render_pnl2.py
 """
-import glob
 import json
 import os
 import re

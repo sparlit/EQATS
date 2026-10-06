@@ -65,7 +65,11 @@ def main():
     codes = json.load(open(MC.CODES))
     renames = json.load(open(RENAMES)) if os.path.exists(RENAMES) else {}
     failed = sorted([s for s, v in codes.items() if v is None])
-    print("re-resolving %d written-off symbols (url-encode + unescape + rename fallback)" % len(failed), flush=True)
+    print(
+        "re-resolving %d written-off symbols "
+        "(url-encode + unescape + rename fallback)" % len(failed),
+        flush=True,
+    )
 
     won = {}
     for i, sym in enumerate(failed, 1):
@@ -73,7 +77,10 @@ def main():
         if code:
             via = renames.get(sym)
             won[sym] = {"sc_id": code, "via_rename": via}
-            print("  RESOLVED %-14s -> %-8s %s" % (sym, code, ("via rename " + via) if via else ""), flush=True)
+            print(
+                "  RESOLVED %-14s -> %-8s %s" % (sym, code, ("via rename " + via) if via else ""),
+                flush=True,
+            )
         MC._jitter(0.4, 0.9)
         if i % 25 == 0:
             json.dump(codes, open(MC.CODES, "w"), indent=1, sort_keys=True)

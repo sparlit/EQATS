@@ -94,7 +94,7 @@ def rowmap(rows):
 def grab(d, pats):
     for p in pats:
         for k, v in d.items():
-            if re.search(p, k, re.IGNORECASE):
+            if re.search(p, k, re.I):
                 return v, k
     return None, None
 
@@ -119,7 +119,9 @@ def main():
     land = ref = 0
     fv_seen = {}
     for si, sym in enumerate(syms, 1):
-        want = {int(q) for q in gaps[sym] if str(q) not in out.get(sym, {}) and f"{sym}|{q}" not in att}
+        want = {
+            int(q) for q in gaps[sym] if str(q) not in out.get(sym, {}) and f"{sym}|{q}" not in att
+        }
         if not want:
             continue
         try:
@@ -164,7 +166,11 @@ def main():
             except Exception:
                 continue  # transient -> stays retryable
             meta, prows = N.parse_detail(html)
-            basis = "con" if "Non" not in (meta.get("Consolidated / Non-Consolidated") or "Non") else "std"
+            basis = (
+                "con"
+                if "Non" not in (meta.get("Consolidated / Non-Consolidated") or "Non")
+                else "std"
+            )
             if basis != "std":
                 continue  # this dataset's cells are STANDALONE
             div = meta.get("div", 100.0) or 100.0
@@ -174,7 +180,9 @@ def main():
             eq, _ = grab(d, [r"paid-up equity share capital"])
             fv, _ = grab(d, [r"face value"])
             if None in (pat, eps, eq, fv):
-                att["%s|%d" % (sym, qe)] = {"reason": f"gate-F inputs missing (pat={pat} eps={eps} eq={eq} fv={fv})"}
+                att["%s|%d" % (sym, qe)] = {
+                    "reason": f"gate-F inputs missing (pat={pat} eps={eps} eq={eq} fv={fv})"
+                }
                 ref += 1
                 continue
             # per-share rows are NOT in lakhs -- undo parse_detail's blanket unit division
@@ -187,14 +195,18 @@ def main():
                 # split/consolidation in the window can never be papered over.
                 fv_r = fv_seen.get(sym)
                 if not fv_r:
-                    att["%s|%d" % (sym, qe)] = {"reason": "gate-F face-value non-positive and none borrowable"}
+                    att["%s|%d" % (sym, qe)] = {
+                        "reason": "gate-F face-value non-positive and none borrowable"
+                    }
                     ref += 1
                     continue
             # A near-zero EPS cannot prove anything: the 0.05 floor tolerance would let almost any
             # implied value through (AKSHOPTFBR Sep-2006 "passed" as 0.00 == -0.00). Refuse rather
             # than bank a degenerate match.
             if abs(eps_r) < 0.10:
-                att["%s|%d" % (sym, qe)] = {"reason": f"gate-F EPS too small to prove ({eps_r:.4f})"}
+                att["%s|%d" % (sym, qe)] = {
+                    "reason": f"gate-F EPS too small to prove ({eps_r:.4f})"
+                }
                 ref += 1
                 continue
             shares = eq / fv_r
@@ -212,7 +224,9 @@ def main():
                 continue
             isbank = meta.get("fmt") == "Banking"
             isfin = isbank or any(
-                c[6] == 1 for c in (revop_now.get(sym) or {}).values() if len(c) > 6 and c[6] is not None
+                c[6] == 1
+                for c in (revop_now.get(sym) or {}).values()
+                if len(c) > 6 and c[6] is not None
             )
             if isbank:
                 rev = N.pick(prows, N.R_REV_BANK)
@@ -225,7 +239,11 @@ def main():
             if rev is None and isfin:
                 rev = N.pick(prows, N.R_REV_TOTINC)
             stored = fmap.get(sym, {}).get(qe)
-            if stored and stored[1] is not None and abs(stored[1] - pat) > max(2.0, 0.03 * abs(pat)):
+            if (
+                stored
+                and stored[1] is not None
+                and abs(stored[1] - pat) > max(2.0, 0.03 * abs(pat))
+            ):
                 att["%s|%d" % (sym, qe)] = {
                     "reason": f"gate-F disagrees with stored PAT ({stored[1]:.2f} vs {pat:.2f})"
                 }

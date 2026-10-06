@@ -40,7 +40,7 @@ for f in glob.glob(os.path.join(HERE, "_bse_bulk", "[0-9]*_[0-9]*.json")):
             empties.append(sym)
 out = json.load(open("_bse_triage.json")) if os.path.exists("_bse_triage.json") else {}
 o = V.session()
-MF = re.compile(r"mutual fund|permitted|etf|index fund|liquidbees|gold bees|nifty", re.IGNORECASE)
+MF = re.compile(r"mutual fund|permitted|etf|index fund|liquidbees|gold bees|nifty", re.I)
 for i, sym in enumerate(empties):
     if sym in out:
         continue

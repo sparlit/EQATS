@@ -62,7 +62,7 @@ REVOP_DOCS = os.path.join(ROOT, "docs", "sf_revop.json")
 REVOP_SCR = os.path.join(SCRIPTS, "revop_fundamentals.json")
 LEDGER = os.path.join(SCRIPTS, "sweep_rev_fills.json")
 SLOT = {"revS": 0, "revC": 1}
-TOTAL_ROW = re.compile(r"t[o0]tal\s+(inc[o0]me|revenue)|^\s*t[o0]tal\b", re.IGNORECASE)
+TOTAL_ROW = re.compile(r"t[o0]tal\s+(inc[o0]me|revenue)|^\s*t[o0]tal\b", re.I)
 LAST_DAY = {3: 31, 6: 30, 9: 30, 12: 31}
 BAND_LO, BAND_HI, NEIGH = 0.2, 5.0, 8
 
@@ -98,7 +98,11 @@ def main():
             reject.append((key, val, "G1 no same-basis neighbour to band against"))
             continue
         near.sort()
-        med = near[len(near) // 2] if len(near) % 2 else (near[len(near) // 2 - 1] + near[len(near) // 2]) / 2.0
+        med = (
+            near[len(near) // 2]
+            if len(near) % 2
+            else (near[len(near) // 2 - 1] + near[len(near) // 2]) / 2.0
+        )
         if not (BAND_LO * med <= val <= BAND_HI * med):
             reject.append((key, val, f"G1 band: {val:.2f} vs median {med:.2f}"))
             continue
@@ -110,7 +114,10 @@ def main():
         if ck not in scr_cache:
             scr_cache[ck] = (SF.quarters(sym, con=con), SF.annuals(sym, con=con))
         sq, sa = scr_cache[ck]
-        label = next((L for L in ("Sales", "Revenue") if any(L in row for row in (sq or {}).values())), "Sales")
+        label = next(
+            (L for L in ("Sales", "Revenue") if any(L in row for row in (sq or {}).values())),
+            "Sales",
+        )
         dk = "%d-%02d-%02d" % (qe // 10000, (qe // 100) % 100, qe % 100)
         vote, why = None, "no screener coverage"
         theirs = (sq.get(dk) or {}).get(label) if sq else None
@@ -118,14 +125,20 @@ def main():
             vote = abs(val - theirs) <= max(1.0, abs(theirs) * 0.01)
             why = f"screener quarter {dk} = {theirs} vs {val}"
         elif sa:
-            alab = next((L for L in ("Sales", "Revenue") if any(L in row for row in sa.values())), None)
+            alab = next(
+                (L for L in ("Sales", "Revenue") if any(L in row for row in sa.values())), None
+            )
             fy = qe if qe % 10000 == 331 else (qe // 10000 + 1) * 10000 + 331
             tot = (sa.get("%d-03-31" % (fy // 10000)) or {}).get(alab) if alab else None
             sibs = [q for q in fy_quarters(fy) if q != qe]
             if tot is not None and all(q in mine for q in sibs):
                 s = sum(mine[q] for q in sibs) + val
                 vote = abs(s - tot) <= max(2.0, abs(tot) * 0.01)
-                why = "FY%d identity: 3 siblings + this = %.2f vs screener annual %s" % (fy // 10000, s, tot)
+                why = "FY%d identity: 3 siblings + this = %.2f vs screener annual %s" % (
+                    fy // 10000,
+                    s,
+                    tot,
+                )
         if vote is False:
             reject.append((key, val, f"G3 {why}"))
             continue
@@ -146,7 +159,8 @@ def main():
         accept[key] = rec
 
     print(
-        "ACCEPT %d   REVIEW %d   REJECT %d" % (len({k for k in accept if k.count("|") == 2}), len(review), len(reject))
+        "ACCEPT %d   REVIEW %d   REJECT %d"
+        % (len({k for k in accept if k.count("|") == 2}), len(review), len(reject))
     )
     for k, v, w in reject[:12]:
         print("  reject  %-28s %-11s %s" % (k, v, w))

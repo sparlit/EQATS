@@ -47,7 +47,6 @@ import datetime
 import gzip
 import json
 import os
-import subprocess
 import sys
 import threading
 import time
@@ -92,7 +91,8 @@ def main():
             have.setdefault(norm(k), {}).update(v)
 
     snaps = sorted(
-        (s["effectiveDate"], [norm(x) for x in s["symbols"] if not x.startswith("DUMMY")]) for s in ih["Nifty 500"]
+        (s["effectiveDate"], [norm(x) for x in s["symbols"] if not x.startswith("DUMMY")])
+        for s in ih["Nifty 500"]
     )
 
     def members(qe):
@@ -123,7 +123,9 @@ def main():
                 continue
             code = None
             if s in override:
-                code = int(override[s]["scripcode"] if isinstance(override[s], dict) else override[s])
+                code = int(
+                    override[s]["scripcode"] if isinstance(override[s], dict) else override[s]
+                )
             elif s in by_id:
                 code = by_id[s]
             elif s in era:
@@ -145,7 +147,7 @@ def main():
             with _lk:
                 held["absent"] += 1
             return
-        cols, _nm = parse_new(html)
+        cols, nm = parse_new(html)
         if cols is None:
             with _lk:
                 held["absent"] += 1
@@ -163,7 +165,13 @@ def main():
                 held["no-subtotal"] += 1
             return
         mf = val("mf") or 0.0
-        dom = mf + (val("banks") or 0.0) + (val("ins") or 0.0) + (val("govt") or 0.0) + (val("vcf") or 0.0)
+        dom = (
+            mf
+            + (val("banks") or 0.0)
+            + (val("ins") or 0.0)
+            + (val("govt") or 0.0)
+            + (val("vcf") or 0.0)
+        )
         r = round(inst - dom, 2)
         if r < -0.5 or r > 100.0:
             with _lk:
@@ -281,7 +289,8 @@ def main():
                             "sym": sym,
                             "derived_mar16_fii": drv,
                             "stored_jun16_fii": 0.0,
-                            "note": "stored Jun-16 zero is not an anchor — see scripts/_shp_zero_fii_audit.json",
+                            "note": "stored Jun-16 zero is not an anchor — see "
+                            "scripts/_shp_zero_fii_audit.json",
                         }
                     )
                 del qs["2016-03-31"]
@@ -318,7 +327,10 @@ def main():
     total = sum(len(v) for v in res.values())
     with gzip.open(out, "wt", encoding="utf-8") as fh:
         json.dump({"_built": "seam_derive (aspx inst_sub inversion)", "fills": res}, fh)
-    print("ledger -> %s (%d syms, %d cells: %d new this run + %d carried forward)" % (out, len(res), total, n2, kept))
+    print(
+        "ledger -> %s (%d syms, %d cells: %d new this run + %d carried forward)"
+        % (out, len(res), total, n2, kept)
+    )
 
 
 if __name__ == "__main__":

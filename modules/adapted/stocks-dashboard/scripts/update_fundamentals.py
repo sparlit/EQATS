@@ -54,7 +54,6 @@ Run: python -X utf8 update_fundamentals.py
 import datetime
 import json
 import os
-import re
 import sys
 import time
 
@@ -75,15 +74,20 @@ def gated_ann(bstr):
     nightly now runs that mirror instead. Name kept (one call site); guard_visibility_rule.py asserts
     this behaviour on every fundamentals run. Returns YYYYMMDD str, or "99999999" when no date."""
     d = B.iso(bstr)  # YYYYMMDD (date part) or None
-    return d or "99999999"
+    return d if d else "99999999"
 
 
-from build_revop import strip_lender_ebit, xbrl_revop  # revenue + operating profit from the SAME filing XBRL
+from build_revop import (  # revenue + operating profit from the SAME filing XBRL
+    strip_lender_ebit,
+    xbrl_revop,
+)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 DOCS = os.path.join(ROOT, "docs", "sf_fundamentals.json")
-REVOP = os.path.join(ROOT, "docs", "sf_revop.json")  # parallel rev/op dataset for the Results Season chart
+REVOP = os.path.join(
+    ROOT, "docs", "sf_revop.json"
+)  # parallel rev/op dataset for the Results Season chart
 MARK = os.path.join(ROOT, "docs", ".fund_updated")
 WINDOW_DAYS = 120  # wide overlap: a full quarter, so even if the workflow misses a few runs the
 # next one self-heals. Cheap because we SKIP the iXBRL fetch for quarters/bases
@@ -95,7 +99,9 @@ def main():
         os.remove(MARK)
     data = json.load(open(DOCS))
     try:
-        revop = json.load(open(REVOP))  # {SYM:{QE:[revStd,revCon,opStd,opCon,patStd,patCon,fin,ebitStd,ebitCon]}}
+        revop = json.load(
+            open(REVOP)
+        )  # {SYM:{QE:[revStd,revCon,opStd,opCon,patStd,patCon,fin,ebitStd,ebitCon]}}
     except Exception:
         revop = {}
     jar = B.nse_jar()
@@ -154,7 +160,10 @@ def main():
 
             s = cr.Session(impersonate="chrome")
             s.get("https://www.nseindia.com/", timeout=30)
-            s.get("https://www.nseindia.com/companies-listing/corporate-filings-financial-results", timeout=30)
+            s.get(
+                "https://www.nseindia.com/companies-listing/corporate-filings-financial-results",
+                timeout=30,
+            )
             _cffi["s"] = s
         r = _cffi["s"].get(url, headers=h, timeout=150)
         if r.status_code != 200:
@@ -184,9 +193,10 @@ def main():
             except urllib.error.HTTPError as e:
                 if e.code not in (502, 503, 504) or tries == 2:
                     raise
-                print("  [worker] HTTP %d (transient) — retrying in %ds" % (e.code, 10 * (tries + 1)))
+                print(
+                    "  [worker] HTTP %d (transient) — retrying in %ds" % (e.code, 10 * (tries + 1))
+                )
                 time.sleep(10 * (tries + 1))
-        return None
 
     rows = []
     prefer = ["urllib"]  # sticky: lead with whichever transport last worked
@@ -222,9 +232,10 @@ def main():
                     else:
                         body = worker_get(idx, page)
                     parsed = json.loads(body)
-                    if isinstance(parsed, dict) and parsed.get("error"):  # Worker's structured failure
-                        msg = "worker: {}".format(parsed["error"])
-                        raise RuntimeError(msg)
+                    if isinstance(parsed, dict) and parsed.get(
+                        "error"
+                    ):  # Worker's structured failure
+                        raise RuntimeError("worker: {}".format(parsed["error"]))
                     jb = parsed
                     prefer[0] = transport
                     break
@@ -234,7 +245,10 @@ def main():
                         % (idx, page, attempt + 1, transport, body[:150])
                     )
                 except Exception as e:
-                    print("  [%s] page %d attempt %d [%s] failed: %s" % (idx, page, attempt + 1, transport, e))
+                    print(
+                        "  [%s] page %d attempt %d [%s] failed: %s"
+                        % (idx, page, attempt + 1, transport, e)
+                    )
             if jb is None:
                 dead = page == 1  # page 1 dead = the board yielded nothing at all
                 break  # deeper page dead = keep what we have (window overlaps self-heal)
@@ -267,7 +281,11 @@ def main():
         if "governance" in (r.get("type", "") or "").lower():
             continue  # Governance filing has no P&L
         byq.setdefault((sym, qe), []).append(
-            {"ann": gated_ann(r.get("broadcast_Date")), "xbrl": xb, "basis": r.get("consolidated", "")}
+            {
+                "ann": gated_ann(r.get("broadcast_Date")),
+                "xbrl": xb,
+                "basis": r.get("consolidated", ""),
+            }
         )
 
     changed = newsyms = revop_changed = 0
@@ -279,7 +297,9 @@ def main():
         rStd = rCon = oStd = oCon = eStd = eCon = None
         rFin = 0
         for f in sorted(filings, key=lambda x: x["ann"]):
-            is_con = B.is_con_basis(f.get("basis"))  # NOT `"consol" in ...` -- see build_fundamentals.is_con_basis
+            is_con = B.is_con_basis(
+                f.get("basis")
+            )  # NOT `"consol" in ...` -- see build_fundamentals.is_con_basis
             # Skip the ~1 MB iXBRL fetch only when BOTH net-profit AND rev/op for this basis are
             # already known (a bank is "known" once flagged fin). Keeps the wide window cheap.
             pat_have = (is_con and (con is not None or (existing and existing[3] is not None))) or (
@@ -295,7 +315,9 @@ def main():
                 continue
             try:
                 xml = B._get(
-                    f["xbrl"], headers={"User-Agent": B.UA, "Referer": "https://www.nseindia.com/"}, timeout=30
+                    f["xbrl"],
+                    headers={"User-Agent": B.UA, "Referer": "https://www.nseindia.com/"},
+                    timeout=30,
                 )
             except Exception:
                 continue
@@ -381,7 +403,7 @@ def main():
     # the other basis HAS the date, copy it. Without this the engine skips that quarter (needs
     # annDate<=rebalance) and silently uses a STALE older quarter -> wrong profitYoY. Common for
     # insurers (IRDAI format) + recent IPOs, e.g. NIACL Q4FY24 npCon present, annCon null. (2026-06-23)
-    for _rec in data.values():
+    for _sym, _rec in data.items():
         for _r in _rec:
             if len(_r) < 5:
                 continue

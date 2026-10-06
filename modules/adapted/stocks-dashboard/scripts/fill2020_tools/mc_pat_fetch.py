@@ -100,7 +100,8 @@ def pat_series(code, basis, ours):
         score = sum(
             1
             for qe, v in (ours or {}).items()
-            if qe in cand and abs(cand[qe] - v) <= max(MC.TOL_ABS, MC.TOL_REL * max(abs(v), abs(cand[qe])))
+            if qe in cand
+            and abs(cand[qe] - v) <= max(MC.TOL_ABS, MC.TOL_REL * max(abs(v), abs(cand[qe])))
         )
         # preference order breaks ties, reproduction wins outright
         if score > best_score:
@@ -113,7 +114,11 @@ def band_ok(ours, qe, v):
     vals = sorted(abs(x) for _, x in near)
     if not vals:
         return True, None
-    med = vals[len(vals) // 2] if len(vals) % 2 else (vals[len(vals) // 2 - 1] + vals[len(vals) // 2]) / 2.0
+    med = (
+        vals[len(vals) // 2]
+        if len(vals) % 2
+        else (vals[len(vals) // 2 - 1] + vals[len(vals) // 2]) / 2.0
+    )
     if med < BAND_FLOOR:  # a band around near-zero PATs proves nothing
         return True, None
     r = abs(v) / med
@@ -183,13 +188,17 @@ def main():
                 "sc_id": code,
                 "basis": basis,
                 "neighbour_ratio": ratio,
-                "gate": "%d anchors, %d distant disagreements, none within ±6 quarters" % (len(match), len(bad)),
+                "gate": "%d anchors, %d distant disagreements, none within ±6 quarters"
+                % (len(match), len(bad)),
                 "src": "moneycontrol appfeeds quarterly_results_responsive limit=400",
             }
             read += 1
             got += 1
         if got:
-            print("%-13s %-3s +%-3d PAT cells (%s, %d anchors)" % (sym, basis, got, label, len(ours)), flush=True)
+            print(
+                "%-13s %-3s +%-3d PAT cells (%s, %d anchors)" % (sym, basis, got, label, len(ours)),
+                flush=True,
+            )
         if n % 25 == 0:
             json.dump(fills, open(FILLS, "w"), indent=1, sort_keys=True)
             json.dump(skips, open(SKIPS, "w"), indent=0, sort_keys=True)

@@ -94,7 +94,10 @@ def main():
                 cv, _, _ = T.consensus(obs.get((qe, "c"), []))
                 arr.append([qe, sv, cv, anns.get(qe, 0)])
             res[sym] = arr
-            print("  [%d/%d] %-12s %d quarters" % (lo + i + 1, lo + len(stocks), sym, len(arr)), flush=True)
+            print(
+                "  [%d/%d] %-12s %d quarters" % (lo + i + 1, lo + len(stocks), sym, len(arr)),
+                flush=True,
+            )
         except Exception as e:
             print("  %-12s ERR %s" % (sym, type(e).__name__), flush=True)
             res[sym] = []

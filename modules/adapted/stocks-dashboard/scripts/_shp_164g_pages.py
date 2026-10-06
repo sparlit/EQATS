@@ -42,21 +42,19 @@ import types as _t
 import urllib.error as _ue
 import urllib.request as _ur
 
-import bse_headers  # §181: the repo's honest header set (own UA, Accept-Language, Referer) on every *.bseindia.com urllib request
-
 _UA = "stocks-dashboard-data-fetch/1.0 (+personal research; contact via github dhruvan246)"
 
 
 class _Resp:
-    def __init__(self, code, body):
-        self.status_code = code
-        self.content = body
-        self.text = body.decode("utf-8", "ignore")
+    def __init__(s, code, body):
+        s.status_code = code
+        s.content = body
+        s.text = body.decode("utf-8", "ignore")
 
-    def json(self):
+    def json(s):
         import json as _j
 
-        return _j.loads(self.text)
+        return _j.loads(s.text)
 
 
 def _plain_get(url, headers=None, impersonate=None, timeout=60, **k):
@@ -65,7 +63,10 @@ def _plain_get(url, headers=None, impersonate=None, timeout=60, **k):
     for a in range(3):
         try:
             r = _ur.urlopen(
-                _ur.Request(url, headers={"User-Agent": _UA, "Referer": "https://www.bseindia.com/"}), timeout=timeout
+                _ur.Request(
+                    url, headers={"User-Agent": _UA, "Referer": "https://www.bseindia.com/"}
+                ),
+                timeout=timeout,
             )
             body = r.read()
             _tm.sleep(0.8)
@@ -124,7 +125,9 @@ def export(out):
     for k, v in sorted(P.items()):
         cur = v["was"]
         new = v["cell"]
-        src = "bseaspx:{}".format(v["file"].replace(".html.gz", "")) + (" shpperent" if v.get("shpperent") else "")
+        src = "bseaspx:{}".format(v["file"].replace(".html.gz", "")) + (
+            " shpperent" if v.get("shpperent") else ""
+        )
         why = (
             "§164g page-era re-read of a former Nifty 500 member ({}; §160 rules — DII = Institutions(Domestic), FII = "
             "Institutions(Foreign) in every format): fii {:.2f} -> {:.2f}, dii {:.2f} -> {:.2f}{}. ".format(

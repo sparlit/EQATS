@@ -67,7 +67,10 @@ def jar():
     j = http.cookiejar.CookieJar()
     try:
         op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(j))
-        op.open(urllib.request.Request("https://www.nseindia.com/", headers={"User-Agent": UA}), timeout=20).read()
+        op.open(
+            urllib.request.Request("https://www.nseindia.com/", headers={"User-Agent": UA}),
+            timeout=20,
+        ).read()
     except Exception:
         pass
     return j
@@ -75,7 +78,9 @@ def jar():
 
 def get(url, j, timeout=30):
     op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(j))
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"})
+    req = urllib.request.Request(
+        url, headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"}
+    )
     with op.open(req, timeout=timeout) as r:
         return r.read()
 
@@ -119,12 +124,9 @@ def parse_rows(text):
 def fetch_day(d, j):
     ddmmyyyy = d.strftime("%d%m%Y")
     new = f"https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_{ddmmyyyy}.csv"
-    old = "https://nsearchives.nseindia.com/content/historical/EQUITIES/%d/%s/cm%02d%s%dbhav.csv.zip" % (
-        d.year,
-        MON[d.month - 1],
-        d.day,
-        MON[d.month - 1],
-        d.year,
+    old = (
+        "https://nsearchives.nseindia.com/content/historical/EQUITIES/%d/%s/cm%02d%s%dbhav.csv.zip"
+        % (d.year, MON[d.month - 1], d.day, MON[d.month - 1], d.year)
     )
     # newer dates: try new csv first; older: try zip first
     order = [new, old] if d.year >= 2020 else [old, new]
@@ -175,7 +177,10 @@ def main():
         b64 = re.search(r'<script id="compressedData"[^>]*>([A-Za-z0-9+/=]+)</script>', h).group(1)
         D = json.loads(gzip.decompress(base64.b64decode(b64)))
         for m in D["meta"].values():
-            cur[m["symbol"]] = {"name": m.get("name"), "industry": m.get("industry") or m.get("sector")}
+            cur[m["symbol"]] = {
+                "name": m.get("name"),
+                "industry": m.get("industry") or m.get("sector"),
+            }
     except Exception as e:
         print("  (could not load current meta:", e, ")")
 
@@ -205,11 +210,14 @@ def main():
             "ind": (cur.get(sym) or {}).get("industry") or "Unknown",
             "alive": alive,
         }
-    print("Kept %d symbols (>=20 days); %d are DELISTED/absent-from-current-data" % (len(data), dead))
+    print(
+        "Kept %d symbols (>=20 days); %d are DELISTED/absent-from-current-data" % (len(data), dead)
+    )
 
     blob = gzip.compress(
         json.dumps(
-            {"start": START.isoformat(), "end": END.isoformat(), "meta": meta, "data": data}, separators=(",", ":")
+            {"start": START.isoformat(), "end": END.isoformat(), "meta": meta, "data": data},
+            separators=(",", ":"),
         ).encode(),
         6,
     )

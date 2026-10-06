@@ -160,13 +160,18 @@ def cmd_map():
         gzip.decompress(
             urllib.request.urlopen(
                 urllib.request.Request(
-                    "https://dhruvan246.github.io/stocks-dashboard/dash_slim.bin", headers={"User-Agent": UA}
+                    "https://dhruvan246.github.io/stocks-dashboard/dash_slim.bin",
+                    headers={"User-Agent": UA},
                 ),
                 timeout=90,
             ).read()
         )
     )
-    snaps = [s for s in D["indicesHistory"]["Nifty 500"] if "2009-01-01" <= s["effectiveDate"] <= "2017-01-01"]
+    snaps = [
+        s
+        for s in D["indicesHistory"]["Nifty 500"]
+        if "2009-01-01" <= s["effectiveDate"] <= "2017-01-01"
+    ]
     members = set()
     for s in snaps:
         members.update(s["symbols"])
@@ -199,7 +204,9 @@ def cmd_map():
 
     # company names for the name-match fallback (shp_history _names + slug list from CDX)
     try:
-        names = json.load(open(os.path.join(HERE, "shp_history.json"), encoding="utf-8")).get("_names", {})
+        names = json.load(open(os.path.join(HERE, "shp_history.json"), encoding="utf-8")).get(
+            "_names", {}
+        )
     except Exception:
         names = {}
     cdx = json.load(open(CDX_FILE))
@@ -248,10 +255,17 @@ def cmd_map():
         out[sym] = entry
         if (i + 1) % 25 == 0:
             json.dump(out, open(MAP_FILE, "w"), indent=0)
-            print("  ...%d/%d mapped (%d ok)" % (i + 1, len(todo), sum(1 for v in out.values() if v)), flush=True)
+            print(
+                "  ...%d/%d mapped (%d ok)" % (i + 1, len(todo), sum(1 for v in out.values() if v)),
+                flush=True,
+            )
     json.dump(out, open(MAP_FILE, "w"), indent=0)
     ok = sum(1 for v in out.values() if v)
-    print("MAP DONE: %d/%d resolved (%d unmapped — reported, not guessed)" % (ok, len(out), len(out) - ok), flush=True)
+    print(
+        "MAP DONE: %d/%d resolved (%d unmapped — reported, not guessed)"
+        % (ok, len(out), len(out) - ok),
+        flush=True,
+    )
 
 
 # ---------------------------------------------------------------- frontier
@@ -289,7 +303,9 @@ def cmd_frontier():
         by_qtr_bucket = {}
         for ts, orig in sorted(generic[slug]):
             d = datetime.date(int(ts[:4]), int(ts[4:6]), int(ts[6:8]))
-            approx_q = 29 + (d.year - 2001) * 4 + (d.month - 1) // 3 - 1  # quarter probably displayed
+            approx_q = (
+                29 + (d.year - 2001) * 4 + (d.month - 1) // 3 - 1
+            )  # quarter probably displayed
             if approx_q in seen_q or approx_q in by_qtr_bucket:
                 continue
             by_qtr_bucket[approx_q] = (ts, orig)
@@ -298,7 +314,8 @@ def cmd_frontier():
     json.dump(frontier, open(FRONTIER_FILE, "w"), indent=0)
     n_exp = sum(1 for f in frontier if f["qtrid"] is not None)
     print(
-        "FRONTIER: %d fetches (%d explicit-qtrid, %d generic)" % (len(frontier), n_exp, len(frontier) - n_exp),
+        "FRONTIER: %d fetches (%d explicit-qtrid, %d generic)"
+        % (len(frontier), n_exp, len(frontier) - n_exp),
         flush=True,
     )
 
@@ -331,7 +348,9 @@ def parse_mc_page(html, expect_code=None, expect_syms=(), slug=None):
         html,
     )
     if not tm:
-        tm2 = re.search(r"Shareholding Pattern\s*-\s*((?:March|June|September|December)\s+20\d\d)", html)
+        tm2 = re.search(
+            r"Shareholding Pattern\s*-\s*((?:March|June|September|December)\s+20\d\d)", html
+        )
         if not tm2:
             return None
         title_co, qlabel = None, tm2.group(1)
@@ -378,7 +397,7 @@ def parse_mc_page(html, expect_code=None, expect_syms=(), slug=None):
         return None
 
     def find_row(label_rx, lo=0, hi=None):
-        rx = re.compile(label_rx, re.IGNORECASE)
+        rx = re.compile(label_rx, re.I)
         for i in range(lo, hi if hi is not None else len(cells)):
             if rx.search(cells[i]):
                 p = pair(row_nums(i))
@@ -400,10 +419,10 @@ def parse_mc_page(html, expect_code=None, expect_syms=(), slug=None):
     blk_lo = blk_hi = None
     for rx in (r"\(1\)\s*Institutions?\s*$", r"^Institutions$"):  # prefer the explicit (1) marker
         for i, c in enumerate(cells):
-            if re.search(rx, c, re.IGNORECASE):
+            if re.search(rx, c, re.I):
                 blk_lo = i
                 for j in range(i + 1, min(i + 160, len(cells))):
-                    if re.fullmatch(r"Sub\s*Total", cells[j], re.IGNORECASE):
+                    if re.fullmatch(r"Sub\s*Total", cells[j], re.I):
                         blk_hi = j + 1
                         break
                 break
@@ -463,8 +482,7 @@ def wb_fetch(ts, orig):
                 raise
             print(f"  net-error ({e!r}), sleeping 25s", flush=True)
             time.sleep(25)
-    msg = f"gave up on {url}"
-    raise RuntimeError(msg)
+    raise RuntimeError(f"gave up on {url}")
 
 
 def cmd_sample(n):
@@ -473,7 +491,9 @@ def cmd_sample(n):
     picks = frontier[:: max(1, len(frontier) // n)][:n]
     for f in picks:
         html, cached = wb_fetch(f["ts"], f["url"])
-        res = parse_mc_page(html, expect_code=scrips.get(f["sym"]), expect_syms=(f["sym"],), slug=f["slug"])
+        res = parse_mc_page(
+            html, expect_code=scrips.get(f["sym"]), expect_syms=(f["sym"],), slug=f["slug"]
+        )
         print(
             f["sym"],
             f["slug"],
@@ -501,7 +521,10 @@ def cmd_harvest(workers=5):
     done_urls = set(parsed.get("_done", []))
     cells = parsed.get("cells", {})
     todo = [f for f in frontier if (f["ts"] + "|" + f["url"]) not in done_urls]
-    print("harvest: %d queued, %d already done, %d workers" % (len(todo), len(done_urls), workers), flush=True)
+    print(
+        "harvest: %d queued, %d already done, %d workers" % (len(todo), len(done_urls), workers),
+        flush=True,
+    )
 
     import threading
     from concurrent.futures import ThreadPoolExecutor
@@ -520,7 +543,9 @@ def cmd_harvest(workers=5):
                     print("  FETCH FAIL {}: {!r}".format(f["url"][:90], e), flush=True)
             return
         res = (
-            parse_mc_page(html, expect_code=scrips.get(f["sym"]), expect_syms=(f["sym"],), slug=f["slug"])
+            parse_mc_page(
+                html, expect_code=scrips.get(f["sym"]), expect_syms=(f["sym"],), slug=f["slug"]
+            )
             if html
             else None
         )
@@ -535,7 +560,8 @@ def cmd_harvest(workers=5):
             if state["n"] % 100 == 0:
                 json.dump({"_done": sorted(done_urls), "cells": cells}, open(PARSED_FILE, "w"))
                 print(
-                    "  ...%d/%d fetched, %d cells, %d fails" % (state["n"], len(todo), len(cells), state["fail"]),
+                    "  ...%d/%d fetched, %d cells, %d fails"
+                    % (state["n"], len(todo), len(cells), state["fail"]),
                     flush=True,
                 )
         if not cached:
@@ -573,13 +599,16 @@ def cmd_nshpass():
         except Exception:
             continue
         seen += 1
-        res = parse_mc_page(page, expect_code=scrips.get(f["sym"]), expect_syms=(f["sym"],), slug=f["slug"])
+        res = parse_mc_page(
+            page, expect_code=scrips.get(f["sym"]), expect_syms=(f["sym"],), slug=f["slug"]
+        )
         if not res or not (29 <= res["qtrid"] <= 89):
             continue
         import html as _h
 
         cells = [
-            re.sub(r"[\s\xa0]+", " ", _h.unescape(c)).strip() for c in re.sub(r"<[^>]+>", "\x01", page).split("\x01")
+            re.sub(r"[\s\xa0]+", " ", _h.unescape(c)).strip()
+            for c in re.sub(r"<[^>]+>", "\x01", page).split("\x01")
         ]
         cells = [c for c in cells if c]
         n = None
@@ -696,15 +725,17 @@ def cmd_ledger():
     if mAB is None or len(diffs["AB"]) < 50:
         raise SystemExit("STOP: too little seam overlap (%d) to calibrate" % len(diffs["AB"]))
     if gABC is None or len(gdr["AB"]) < 5:
-        msg = "STOP: no GDR-subset overlap — cannot discriminate the two column conventions"
-        raise SystemExit(msg)
+        raise SystemExit(
+            "STOP: no GDR-subset overlap — cannot discriminate the two column conventions"
+        )
     use_abc = gABC <= gAB
     col = 1 if use_abc else 0
     print("chosen column convention:", "%of(A+B+C)" if use_abc else "%of(A+B)", flush=True)
     # Drift over ~3 quarters is expected; a definition mismatch would show up far larger than this.
     if min(mAB, mABC) > 4.0:
-        msg_0 = f"STOP: best convention still has median seam {min(mAB, mABC):.2f}pp — definitions don't line up, refusing to write"
-        raise SystemExit(msg_0)
+        raise SystemExit(
+            f"STOP: best convention still has median seam {min(mAB, mABC):.2f}pp — definitions don't line up, refusing to write"
+        )
 
     fills = defaultdict(dict)
     dropped = Counter()
@@ -806,7 +837,9 @@ def cmd_ledger():
     )
     if derived_cells:
         if seam_med is None or len(seam) < 25:
-            print("  seam sample too small (%d) — dropping every derived cell" % len(seam), flush=True)
+            print(
+                "  seam sample too small (%d) — dropping every derived cell" % len(seam), flush=True
+            )
             keep = set()
         elif seam_med > SEAM_MAX_MEDIAN:
             print(
@@ -831,7 +864,8 @@ def cmd_ledger():
         "derived_88_89": len(derived_cells),
         "derived_seam_median_pp": seam_med,
         "source": "wayback moneycontrol company-facts",
-        "date_convention": "QE+%dd (SEBI Clause-35 deadline) — APPROXIMATE, no real filing dates exist" % LAG_DAYS,
+        "date_convention": "QE+%dd (SEBI Clause-35 deadline) — APPROXIMATE, no real filing dates exist"
+        % LAG_DAYS,
         "column_convention": "%of(A+B+C)" if use_abc else "%of(A+B)",
         "seam_median_pp": {"all_AB": mAB, "all_ABC": mABC, "gdr_AB": gAB, "gdr_ABC": gABC},
         "companies": len(fills),

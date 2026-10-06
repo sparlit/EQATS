@@ -50,7 +50,9 @@ import csv
 import json
 import os
 
-TREE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root of THIS checkout
+TREE = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)  # repo root of THIS checkout
 SITE_WINDOW = 20240331  # earliest quarter >=2 sites can speak to (P1 findings 1)
 
 
@@ -146,7 +148,9 @@ def main():
                         "fundamentals_authoritative": auth,
                         "revop_mirror": mirror,
                         "abs_delta": round(abs(mirror - auth), 3),
-                        "rel_delta_pct": round(100 * (mirror - auth) / abs(auth), 2) if auth else None,
+                        "rel_delta_pct": round(100 * (mirror - auth) / abs(auth), 2)
+                        if auth
+                        else None,
                         "in_n500_at_qe": n500,
                         "site_window": q >= SITE_WINDOW,
                         "priority": pri,
@@ -159,7 +163,9 @@ def main():
     rows_out.sort(key=lambda r: (r["priority"], -r["abs_delta"]))
     byp = collections.Counter(r["priority"] for r in rows_out)
     byb = collections.Counter(r["basis"] for r in rows_out)
-    fps = collections.Counter(t for r in rows_out for t in r["fingerprints"] if not t.startswith("ratio_"))
+    fps = collections.Counter(
+        t for r in rows_out for t in r["fingerprints"] if not t.startswith("ratio_")
+    )
 
     doc = {
         "_meta": {

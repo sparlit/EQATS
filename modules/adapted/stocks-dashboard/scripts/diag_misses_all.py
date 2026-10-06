@@ -79,8 +79,10 @@ def hl(s, dint):
     while k >= 0 and a[k] >= lo:
         ph = h[k] if h else c[k]
         pl = l[k] if l else c[k]
-        hi = max(hi, ph)
-        low = min(low, pl)
+        if ph > hi:
+            hi = ph
+        if pl < low:
+            low = pl
         k -= 1
     return hi, low
 
@@ -109,7 +111,9 @@ def why(s, dint, M):
             if not cur:
                 continue
             bq = cur[0] - 10000
-            base = next((q for q in arr if q[0] == bq and len(q) > npi and q[npi] is not None), None)
+            base = next(
+                (q for q in arr if q[0] == bq and len(q) > npi and q[npi] is not None), None
+            )
             if not base:
                 continue
             if base[npi] == 0:
@@ -141,7 +145,10 @@ for d in DATES:
     ours = set(mine.get(d, []))
     miss = [x for x in sf if x not in ours]
     extra = [x for x in ours if x not in tl.get(d, [])]
-    print("=== %s : TL-SF=%d ours=%d match=%d" % (d, len(sf), len(ours), len([x for x in sf if x in ours])))
+    print(
+        "=== %s : TL-SF=%d ours=%d match=%d"
+        % (d, len(sf), len(ours), len([x for x in sf if x in ours]))
+    )
     for m in miss:
         print("   MISS %-11s -> %s" % (m, why(m, int(d.replace("-", "")), M)))
     if extra:

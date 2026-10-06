@@ -42,8 +42,10 @@ import fitz
 HERE = os.path.dirname(os.path.abspath(__file__))
 data = json.load(open(os.path.join(os.path.dirname(HERE), "docs", "sf_fundamentals.json")))
 NUM = re.compile(r"^\(?-?[\d,]+\.?\d*\)?$")
-OWN = re.compile(r"(owners|equity holders) of the (parent|company|holding|group)", re.IGNORECASE)
-PFT = re.compile(r"profit\s*/?\s*\(?\s*loss\)?\s*(after tax\s*)?(for|of)\s*the\s*(period|year|quarter)", re.IGNORECASE)
+OWN = re.compile(r"(owners|equity holders) of the (parent|company|holding|group)", re.I)
+PFT = re.compile(
+    r"profit\s*/?\s*\(?\s*loss\)?\s*(after tax\s*)?(for|of)\s*the\s*(period|year|quarter)", re.I
+)
 
 
 def to_val(w):
@@ -75,7 +77,12 @@ def neighbors(arr, qe):
 
 def prevq(qe):
     y, md = qe // 10000, qe % 10000
-    return {331: (y - 1) * 10000 + 1231, 630: y * 10000 + 331, 930: y * 10000 + 630, 1231: y * 10000 + 930}.get(md, 0)
+    return {
+        331: (y - 1) * 10000 + 1231,
+        630: y * 10000 + 331,
+        930: y * 10000 + 630,
+        1231: y * 10000 + 930,
+    }.get(md, 0)
 
 
 def rows_with_nums(doc):
@@ -96,7 +103,12 @@ def rows_with_nums(doc):
             cells = sorted(rows[y])
             txt = " ".join(w for _, w in cells)
             l = txt.lower()
-            if "before" in l or "comprehensive" in l or "segment" in l or "equity attributable" in l:
+            if (
+                "before" in l
+                or "comprehensive" in l
+                or "segment" in l
+                or "equity attributable" in l
+            ):
                 continue
             if OWN.search(l) or PFT.search(l):
                 nums = [to_val(w) for _, w in cells if NUM.match(w.replace(",", ""))]
@@ -112,7 +124,10 @@ def anchor_match(nums, cprev, cyago):
         for tgt, idx, name in [(cprev, 1, "col1=conPrev"), (cyago, 2, "col2=yrago")]:
             if tgt is None or idx >= len(cols):
                 continue
-            ok = abs(cols[idx] - tgt) < 1 if abs(tgt) < 1 else abs(cols[idx] - tgt) <= max(1.0, abs(tgt) * 0.04)
+            if abs(tgt) < 1:
+                ok = abs(cols[idx] - tgt) < 1
+            else:
+                ok = abs(cols[idx] - tgt) <= max(1.0, abs(tgt) * 0.04)
             if ok:
                 return cols[0], f"{name}({cols[idx]}~{tgt},/{div:g})"
     return None

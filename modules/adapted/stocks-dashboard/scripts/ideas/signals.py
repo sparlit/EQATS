@@ -25,7 +25,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 listed Indian beneficiaries and sufferers, via docs/ideas/commodity_map.json. This is the file the daily research run reads
 first and the Commodity Watch page shows at the top. Usage: python3 scripts/ideas/signals.py -> docs/ideas/signals.json
 """
-import csv
 import datetime
 import gzip
 import json
@@ -115,7 +114,10 @@ def trade_group(prefixes, side):
         if top is None or (r[vf][-1] or 0) > top[1]:
             top = (hs, r[vf][-1] or 0, r["d"], r["u"])
     dropped = [t[0] for t in picked if t not in keep]
-    P = [round(V[i] * 1e6 / Q[i], 4) if Q[i] > 0 and V[i] >= 0.05 else None for i in range(len(months))]
+    P = [
+        round(V[i] * 1e6 / Q[i], 4) if Q[i] > 0 and V[i] >= 0.05 else None
+        for i in range(len(months))
+    ]
     last = len(months) - 1
 
     def at(n):
@@ -196,7 +198,8 @@ def hist_stats(series, step=False):
     # misdated to 2020, and the 'a year ago' lookup took the last list entry before the cut - the misdated
     # one - turning a -11.5% year into +17.4%.
     v = sorted(
-        ((it[0], it[1], it[2] if len(it) > 2 else None) for it in series if it[1] is not None), key=lambda t: t[0]
+        ((it[0], it[1], it[2] if len(it) > 2 else None) for it in series if it[1] is not None),
+        key=lambda t: t[0],
     )
     if len(v) < 2:
         return None
@@ -209,11 +212,25 @@ def hist_stats(series, step=False):
             return older[-1] if older else None
         # an observation series: the reading nearest the window's start, either side, if one is close enough
         # (six months back from 30 Jun is 31 Dec, 181 days; a 182-day cut lands on 30 Dec)
-        near = [t for t in v[:-1] if abs((datetime.date.fromisoformat(t[0]) - cut_d).days) <= max(4, days * 0.1)]
-        return min(near, key=lambda t: abs((datetime.date.fromisoformat(t[0]) - cut_d).days)) if near else None
+        near = [
+            t
+            for t in v[:-1]
+            if abs((datetime.date.fromisoformat(t[0]) - cut_d).days) <= max(4, days * 0.1)
+        ]
+        return (
+            min(near, key=lambda t: abs((datetime.date.fromisoformat(t[0]) - cut_d).days))
+            if near
+            else None
+        )
 
     out, breaks = {}, {}
-    for name, days in (("chg_1w", 7), ("chg_1m", 30), ("chg_3m", 91), ("chg_6m", 182), ("chg_1y", 365)):
+    for name, days in (
+        ("chg_1w", 7),
+        ("chg_1m", 30),
+        ("chg_3m", 91),
+        ("chg_6m", 182),
+        ("chg_1y", 365),
+    ):
         o = back(days)
         out[name] = pct(last, o[1]) if o else None
         if o and last_b and o[2] and o[2] != last_b:
@@ -313,15 +330,19 @@ def main():
         india = []
         for src, rx in g.get("india", []):
             for r in ind_src.get(src, []):
-                label = " ".join(str(r.get(k)) for k in ("city", "market", "name", "grade") if r.get(k))
+                label = " ".join(
+                    str(r.get(k)) for k in ("city", "market", "name", "grade") if r.get(k)
+                )
                 if (
-                    not re.search(rx, str(r.get("name") or r.get("grade") or ""), re.IGNORECASE)
+                    not re.search(rx, str(r.get("name") or r.get("grade") or ""), re.I)
                     or r.get("price") is None
                 ):
                     continue
                 # NMDC carries its own history (its price letters are the series); the other sources publish
                 # only today's print, so their history is the one we have been recording since 2026-09-22.
-                key = " | ".join(str(r.get(k)) for k in ("city", "market", "name", "grade", "slug") if r.get(k))
+                key = " | ".join(
+                    str(r.get(k)) for k in ("city", "market", "name", "grade", "slug") if r.get(k)
+                )
                 series = r.get("history") or ihist.get((src, key)) or []
                 row = {
                     "source": src,
@@ -383,9 +404,13 @@ def main():
                     if t:
                         d[side] = t
                 if "imp" in d or "exp" in d:
-                    big = max((d[k] for k in ("imp", "exp") if k in d), key=lambda t: t["value_3m_avg"])
+                    big = max(
+                        (d[k] for k in ("imp", "exp") if k in d), key=lambda t: t["value_3m_avg"]
+                    )
                     d["name"] = big["top"]["d"]
-                    d["value_3m_avg"] = round(sum(d[k]["value_3m_avg"] for k in ("imp", "exp") if k in d), 1)
+                    d["value_3m_avg"] = round(
+                        sum(d[k]["value_3m_avg"] for k in ("imp", "exp") if k in d), 1
+                    )
                     tr.append(d)
             tr.sort(key=lambda d: -d["value_3m_avg"])
             if tr:
@@ -399,7 +424,12 @@ def main():
         for t in te:
             for k, thr in (("chg_1m", 10), ("chg_1y", 30)):
                 if t.get(k) is not None:
-                    cands.append((max(min(t[k], 300), -100) / thr, f"{t['name']} (global) {k[4:]} {t[k]:+.1f}%"))
+                    cands.append(
+                        (
+                            max(min(t[k], 300), -100) / thr,
+                            f"{t['name']} (global) {k[4:]} {t[k]:+.1f}%",
+                        )
+                    )
         for w in wp:
             for k, thr in (("chg_1m", 3), ("chg_3m", 8), ("chg_12m", 15)):
                 if w.get(k) is not None:
@@ -414,7 +444,9 @@ def main():
                 for k, thr, cap in (("chg_1m", 10, 60), ("chg_3m", 15, 150), ("chg_sy", 30, 300)):
                     if t.get(k) is None:
                         continue
-                    if k == "chg_1m" and (t.get("chg_3m") is None or (t["chg_3m"] > 0) != (t[k] > 0)):
+                    if k == "chg_1m" and (
+                        t.get("chg_3m") is None or (t["chg_3m"] > 0) != (t[k] > 0)
+                    ):
                         continue  # a one-month jump counts only when the 3-month move agrees (single lumpy shipments)
                     cands.append(
                         (

@@ -51,7 +51,6 @@ Anti-traps carried over from the runbook:
   * FY/YTD columns -- the period gate reads the statement title, and the YTD column is excluded by
     the anchor test rather than by position alone.
 """
-import io
 import json
 import os
 import re
@@ -75,20 +74,22 @@ OUT = os.path.join(HERE, "_probe.json")
 
 
 # --- basis markers, corruption-tolerant (runbook §51b: "Standalone" extracts as "Slondolone") ---
-R_STD = re.compile(r"s[tl][ao]nd[ao]l[o0]ne", re.IGNORECASE)
-R_CON = re.compile(r"c[o0]ns[o0][li1]id[ao][lt]", re.IGNORECASE)
+R_STD = re.compile(r"s[tl][ao]nd[ao]l[o0]ne", re.I)
+R_CON = re.compile(r"c[o0]ns[o0][li1]id[ao][lt]", re.I)
 NUM = re.compile(r"^\(?-?[\d,]+\.?\d*\)?$")
 _PL = r"(net\s+)?profit\s*(/|\s)?\s*\(?\s*(loss|llossl|\(loss\))?\s*\)?\s*"
-R_PAT = re.compile(_PL + r"(after tax\s*)?(for|of)\s+the\s+(period|quarter|year)", re.IGNORECASE)
-R_PAT2 = re.compile(r"^\s*" + _PL + r"(after\s+tax|after\s+taxe?s?|for\s+the\s+period)", re.IGNORECASE)
-R_OWN = re.compile(r"(owners?|equity ?holders?|shareholders?) of the (parent|company|holding)", re.IGNORECASE)
-R_NCI = re.compile(r"non[- ]?controlling interest|minority interest", re.IGNORECASE)
-R_BEFORE = re.compile(r"before\s+tax|before\s+except|comprehensive|per\s+share|eps", re.IGNORECASE)
+R_PAT = re.compile(_PL + r"(after tax\s*)?(for|of)\s+the\s+(period|quarter|year)", re.I)
+R_PAT2 = re.compile(r"^\s*" + _PL + r"(after\s+tax|after\s+taxe?s?|for\s+the\s+period)", re.I)
+R_OWN = re.compile(
+    r"(owners?|equity ?holders?|shareholders?) of the (parent|company|holding)", re.I
+)
+R_NCI = re.compile(r"non[- ]?controlling interest|minority interest", re.I)
+R_BEFORE = re.compile(r"before\s+tax|before\s+except|comprehensive|per\s+share|eps", re.I)
 UNITS = [
-    (re.compile(r"in\s*(rs\.?|₹|inr)?\s*\.?\s*lakh", re.IGNORECASE), 100.0),
-    (re.compile(r"in\s*(rs\.?|₹|inr)?\s*\.?\s*(million|mn\b|mio)", re.IGNORECASE), 10.0),
-    (re.compile(r"in\s*(rs\.?|₹|inr)?\s*\.?\s*(crore|cr\.?\b)", re.IGNORECASE), 1.0),
-    (re.compile(r"in\s*(rs\.?|₹|inr)?\s*\.?\s*(thousand|'000|`000)", re.IGNORECASE), 10000.0),
+    (re.compile(r"in\s*(rs\.?|₹|inr)?\s*\.?\s*lakh", re.I), 100.0),
+    (re.compile(r"in\s*(rs\.?|₹|inr)?\s*\.?\s*(million|mn\b|mio)", re.I), 10.0),
+    (re.compile(r"in\s*(rs\.?|₹|inr)?\s*\.?\s*(crore|cr\.?\b)", re.I), 1.0),
+    (re.compile(r"in\s*(rs\.?|₹|inr)?\s*\.?\s*(thousand|'000|`000)", re.I), 10000.0),
 ]
 MON = {1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
 
@@ -162,7 +163,9 @@ def rows_of(page):
         # x is the token's RIGHT edge: statement numbers are right-aligned, and so are the header
         # date cells, so right edges are what line a value up with its column. (Using left edges
         # here while the header used right edges put every column ~32pt out and matched nothing.)
-        nums = [(w[2], tv(w[4])) for w in ws if NUM.match(w[4].replace(",", "")) and w[0] >= lx - 2.0]
+        nums = [
+            (w[2], tv(w[4])) for w in ws if NUM.match(w[4].replace(",", "")) and w[0] >= lx - 2.0
+        ]
         nums = [(x, v) for x, v in nums if v is not None]
         out.append((lab.strip(), nums, y))
     return out
@@ -255,7 +258,7 @@ def _dates_in(toks):
     return ded
 
 
-R_TITLEISH = re.compile(r"result|quarter ended on|statement of|for the (quarter|period|year)", re.IGNORECASE)
+R_TITLEISH = re.compile(r"result|quarter ended on|statement of|for the (quarter|period|year)", re.I)
 
 
 def header_cols(doc, secs, p, maxrows=22):
@@ -366,7 +369,7 @@ def sections(doc, maxp=40):
 R_REV = re.compile(
     r"^\s*(total\s+)?(revenue|income)\s+from\s+operations|^\s*revenue\s+from\s+oper|"
     r"^\s*(i+\s*[.)]?\s*)?total\s+income\b",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -426,7 +429,12 @@ def anchors(rows_stored, qe, basis):
         v = r[1] if basis == "std" else (r[3] if len(r) > 3 else None)
         if v is None:
             continue
-        div = r[1] is not None and len(r) > 3 and r[3] is not None and abs(r[3] - r[1]) > max(0.05, 0.001 * abs(r[1]))
+        div = (
+            r[1] is not None
+            and len(r) > 3
+            and r[3] is not None
+            and abs(r[3] - r[1]) > max(0.05, 0.001 * abs(r[1]))
+        )
         out[k] = (v, div)
     return out
 
@@ -442,7 +450,11 @@ def rev_anchors(sym, qe, slot):
         r = rv.get(str(qshift(qe, k)))
         if not r or r[slot] is None:
             continue
-        div = r[0] is not None and r[1] is not None and abs(r[1] - r[0]) > max(0.05, 0.001 * abs(r[0]))
+        div = (
+            r[0] is not None
+            and r[1] is not None
+            and abs(r[1] - r[0]) > max(0.05, 0.001 * abs(r[0]))
+        )
         out[k] = (r[slot], div)
     return out
 
@@ -477,14 +489,21 @@ def column_evidence(rowsets, div, ancs, tcol=0):
         if not vals:
             continue
         scaled = [v / div for v in vals]
-        for col in range(min(len(scaled), 6)):
+        for col in range(0, min(len(scaled), 6)):
             if col == tcol:
                 continue
             for off, (av, dv) in anc.items():
                 if exact(scaled[col], av):
                     hits.setdefault((col, off), []).append(
                         "%s col%d==stored[%+d]=%.2f%s%s"
-                        % (kind, col, off, av, " DIVERGENT" if dv else "", " MATERIAL" if abs(av) >= 5 else "")
+                        % (
+                            kind,
+                            col,
+                            off,
+                            av,
+                            " DIVERGENT" if dv else "",
+                            " MATERIAL" if abs(av) >= 5 else "",
+                        )
                     )
     return hits
 
@@ -506,7 +525,8 @@ def try_read(vals, div, anc, stored_self=None):
         for off in (-1, -2, -3, -4, -5, -8):
             if off in anc and close(scaled[col], anc[off][0]):
                 notes.append(
-                    "col%d==stored[%+d]=%.2f%s" % (col, off, anc[off][0], " (divergent)" if anc[off][1] else "")
+                    "col%d==stored[%+d]=%.2f%s"
+                    % (col, off, anc[off][0], " (divergent)" if anc[off][1] else "")
                 )
                 hits += 1
                 strong += 1 if anc[off][1] else 0
@@ -518,18 +538,22 @@ def try_read(vals, div, anc, stored_self=None):
         )
     if abs(scaled[0]) < 1e-9:
         return None, "blank-template(zero)"  # runbook §53b
-    return round(scaled[0], 2), {"anchors": notes, "strong": strong, "scaled": [round(x, 2) for x in scaled[:6]]}
+    return round(scaled[0], 2), {
+        "anchors": notes,
+        "strong": strong,
+        "scaled": [round(x, 2) for x in scaled[:6]],
+    }
 
 
 R_EXCL = re.compile(
     r"xbrl|investor\s*present|press\s*release|media\s*release|earnings\s*call|"
     r"transcript|newspaper|analyst|intimation of|prior intimation",
-    re.IGNORECASE,
+    re.I,
 )
 R_INCL = re.compile(
     r"financial\s*result|board\s*meeting\s*outcome|outcome of (the )?board|"
     r"un-?audited|audited.*result",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -547,7 +571,9 @@ def is_candidate(r):
     sub, ns = (r.get("SUBCATNAME") or ""), (r.get("NEWSSUB") or "")
     if R_EXCL.search(ns) or R_EXCL.search(sub):
         return False
-    return bool(V.is_result(r) or R_INCL.search(ns) or R_INCL.search(sub) or "result" in sub.lower())
+    return bool(
+        V.is_result(r) or R_INCL.search(ns) or R_INCL.search(sub) or "result" in sub.lower()
+    )
 
 
 def find_filing(o, code, qe, cache):
@@ -562,7 +588,8 @@ def find_filing(o, code, qe, cache):
         for pg in (1, 2, 3):
             u = (
                 "https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=%d"
-                "&strCat=-1&strPrevDate=%d&strScrip=%s&strSearch=P&strToDate=%d&strType=C" % (pg, lo, code, hi)
+                "&strCat=-1&strPrevDate=%d&strScrip=%s&strSearch=P&strToDate=%d&strType=C"
+                % (pg, lo, code, hi)
             )
             try:
                 rows = json.loads(V.get(o, u)).get("Table", [])
@@ -613,7 +640,8 @@ def period_ok(doc, qe):
     txt = " ".join(doc[p].get_text() for p in range(min(len(doc), 6))).lower()
     txt = re.sub(r"\s+", " ", txt)
     pat = re.compile(
-        r"(quarter|period|three months)[^.]{0,60}?(ended|ending)[^.]{0,30}?%s[^.]{0,12}?%d" % (names[m], y)
+        r"(quarter|period|three months)[^.]{0,60}?(ended|ending)[^.]{0,30}?%s[^.]{0,12}?%d"
+        % (names[m], y)
     )
     mm = pat.search(txt)
     return (bool(mm), mm.group(0)[:90] if mm else "")
@@ -627,11 +655,15 @@ def calibrate(sym, qe, code, rows, dr):
         hit_s, hit_c = close(dr["rev"], rv[0]), (rv[1] is not None and close(dr["rev"], rv[1]))
         if hit_s and not hit_c:
             notes.append(
-                "CAL-REV pass: detres rev {:.2f} == stored revStd {:.2f} (revCon {})".format(dr["rev"], rv[0], rv[1])
+                "CAL-REV pass: detres rev {:.2f} == stored revStd {:.2f} (revCon {})".format(
+                    dr["rev"], rv[0], rv[1]
+                )
             )
             verdict = "standalone"
         elif hit_c and not hit_s:
-            notes.append("CAL-REV FAIL: detres rev {:.2f} == stored revCON {:.2f}".format(dr["rev"], rv[1]))
+            notes.append(
+                "CAL-REV FAIL: detres rev {:.2f} == stored revCON {:.2f}".format(dr["rev"], rv[1])
+            )
             verdict = "consolidated"
         elif hit_s and hit_c:
             notes.append("CAL-REV tie: stored revStd == revCon here, uninformative")
@@ -658,16 +690,19 @@ def calibrate(sym, qe, code, rows, dr):
             if close(c["pat"], r[1]) and not close(c["pat"], r[3]):
                 votes["standalone"] += 1
                 notes.append(
-                    "CAL-PAT std @%d: detres %.2f == stored std %.2f (con %.2f)" % (qshift(qe, k), c["pat"], r[1], r[3])
+                    "CAL-PAT std @%d: detres %.2f == stored std %.2f (con %.2f)"
+                    % (qshift(qe, k), c["pat"], r[1], r[3])
                 )
             elif close(c["pat"], r[3]) and not close(c["pat"], r[1]):
                 votes["consolidated"] += 1
                 notes.append(
-                    "CAL-PAT CON @%d: detres %.2f == stored CON %.2f (std %.2f)" % (qshift(qe, k), c["pat"], r[3], r[1])
+                    "CAL-PAT CON @%d: detres %.2f == stored CON %.2f (std %.2f)"
+                    % (qshift(qe, k), c["pat"], r[3], r[1])
                 )
             else:
                 notes.append(
-                    "CAL-PAT none @%d: detres %.2f vs std %.2f / con %.2f" % (qshift(qe, k), c["pat"], r[1], r[3])
+                    "CAL-PAT none @%d: detres %.2f vs std %.2f / con %.2f"
+                    % (qshift(qe, k), c["pat"], r[1], r[3])
                 )
         if votes["standalone"] > votes["consolidated"]:
             verdict = "standalone"
@@ -687,7 +722,13 @@ def probe(sym, qe, fund, o, lcache, want_pages=False):
         return {"verdict": "NO-STORED-ROW"}
     stored_std, stored_con = row[1], row[3]
     code, csrc = SC.code_for(sym)
-    res = {"stored_std": stored_std, "stored_con": stored_con, "routes": [], "scrip": code, "scrip_src": csrc}
+    res = {
+        "stored_std": stored_std,
+        "stored_con": stored_con,
+        "routes": [],
+        "scrip": code,
+        "scrip_src": csrc,
+    }
     if not code:
         res["routes"].append("bse-scrip:unresolved (live master + delisted/suspended master)")
         res["verdict"] = "INCONCLUSIVE"
@@ -703,7 +744,9 @@ def probe(sym, qe, fund, o, lcache, want_pages=False):
             std_d = dr["pat"]
     elif dr:
         res["routes"].append(
-            "detres(§42): span={} end={} -> not a 3-month row for this quarter".format(dr.get("span"), dr.get("end"))
+            "detres(§42): span={} end={} -> not a 3-month row for this quarter".format(
+                dr.get("span"), dr.get("end")
+            )
         )
     else:
         res["routes"].append("detres(§42): no row")
@@ -739,7 +782,8 @@ def probe(sym, qe, fund, o, lcache, want_pages=False):
         textpages = sum(1 for p in range(len(doc)) if len(doc[p].get_text().strip()) > 400)
         if textpages < 2:
             res["routes"].append(
-                "scanned-no-text-layer:%s(ann=%d,%d/%d text pages)" % (att[:32], ann, textpages, len(doc))
+                "scanned-no-text-layer:%s(ann=%d,%d/%d text pages)"
+                % (att[:32], ann, textpages, len(doc))
             )
             continue
         pok, psnip = period_ok(doc, qe)
@@ -756,7 +800,7 @@ def probe(sym, qe, fund, o, lcache, want_pages=False):
             if not pc:
                 continue
             order = {"owners": 0, "period": 1, "period-continuing": 2}
-            kind, lab, nums = min(pc, key=lambda t: order.get(t[0], 3))
+            kind, lab, nums = sorted(pc, key=lambda t: order.get(t[0], 3))[0]
             cols, hpage = header_cols(doc, secs, p)
             rv = rev_rows(page)
             raw, why = col_value(nums, cols, qe) if cols else (None, "no header dates found")
@@ -767,7 +811,10 @@ def probe(sym, qe, fund, o, lcache, want_pages=False):
             # single coincidental hit cannot carry a read (LICI's consolidated page has a segment
             # column that lands within tolerance of a year-ago PAT by chance).
             ev, strong = [], 0
-            for rowname, rnums, anc in (("pat", nums, anc_p[basis]), ("rev", rv[0][2] if rv else [], anc_r[basis])):
+            for rowname, rnums, anc in (
+                ("pat", nums, anc_p[basis]),
+                ("rev", rv[0][2] if rv else [], anc_r[basis]),
+            ):
                 for cx, cd in cols:
                     if cd == qe or not rnums:
                         continue
@@ -781,7 +828,14 @@ def probe(sym, qe, fund, o, lcache, want_pages=False):
                     if exact(got / div, av):
                         ev.append(
                             "%s col(%d)==stored[%+d]=%.2f%s%s"
-                            % (rowname, cd, k, av, " DIVERGENT" if dv else "", " MATERIAL" if abs(av) >= 5 else "")
+                            % (
+                                rowname,
+                                cd,
+                                k,
+                                av,
+                                " DIVERGENT" if dv else "",
+                                " MATERIAL" if abs(av) >= 5 else "",
+                            )
                         )
                         strong += 1 if (dv or abs(av) >= 5) else 0
             # TIER A -- the column map is confirmed by other columns reproducing stored values.
@@ -822,7 +876,9 @@ def probe(sym, qe, fund, o, lcache, want_pages=False):
             if cur is None or rank > cur["_rank"]:
                 rec["_rank"] = rank
                 found[basis] = rec
-        res["routes"].append("pdf:%s ann=%d period_ok=%s pages=%d %s" % (att[:36], ann, pok, len(doc), psnip))
+        res["routes"].append(
+            "pdf:%s ann=%d period_ok=%s pages=%d %s" % (att[:36], ann, pok, len(doc), psnip)
+        )
         if found:
             cand = {
                 "ann": ann,
@@ -832,7 +888,9 @@ def probe(sym, qe, fund, o, lcache, want_pages=False):
                 "std": found.get("std"),
                 "con": found.get("con"),
             }
-            score = sum(1 for b in ("std", "con") if found.get(b) and found[b].get("value") is not None)
+            score = sum(
+                1 for b in ("std", "con") if found.get(b) and found[b].get("value") is not None
+            )
             if best is None or score > best[0]:
                 best = (score, cand)
         if best and best[0] == 2:
@@ -872,7 +930,10 @@ def main():
     args = sys.argv[1:]
     fund = json.load(open(FUND))
     if "--cells" in args:
-        cells = [(c.split(":")[0], int(c.split(":")[1])) for c in args[args.index("--cells") + 1].split(",")]
+        cells = [
+            (c.split(":")[0], int(c.split(":")[1]))
+            for c in args[args.index("--cells") + 1].split(",")
+        ]
     else:
         cells = [(c["sym"], c["qe"]) for c in json.load(open(os.path.join(HERE, "_sample.json")))]
     out = json.load(open(OUT)) if os.path.exists(OUT) else {}
@@ -909,7 +970,11 @@ def main():
     import collections
 
     print(
-        "\n" + " | ".join("%s=%d" % kv for kv in collections.Counter(v["verdict"] for v in out.values()).most_common())
+        "\n"
+        + " | ".join(
+            "%s=%d" % kv
+            for kv in collections.Counter(v["verdict"] for v in out.values()).most_common()
+        )
     )
 
 

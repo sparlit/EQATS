@@ -28,7 +28,6 @@ subsidiary (explicit no-sub notes for IRFC/BDL/NETWEB/ATHERENERG; no consolidate
 """
 import json
 import os
-import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS = os.path.join(os.path.dirname(HERE), "docs", "sf_fundamentals.json")

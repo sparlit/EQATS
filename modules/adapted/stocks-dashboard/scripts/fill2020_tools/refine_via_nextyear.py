@@ -47,7 +47,9 @@ import fetch_insurers as FI  # noqa: E402
 import fitz  # noqa: E402
 from refine_from_filing import hunt  # noqa: E402
 
-_s = importlib.util.spec_from_file_location("brg", os.path.join(WT, "scripts", "backfill_revop_gaps.py"))
+_s = importlib.util.spec_from_file_location(
+    "brg", os.path.join(WT, "scripts", "backfill_revop_gaps.py")
+)
 BRG = importlib.util.module_from_spec(_s)
 _s.loader.exec_module(BRG)
 

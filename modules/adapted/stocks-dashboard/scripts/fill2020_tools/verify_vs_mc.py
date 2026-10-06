@@ -96,7 +96,9 @@ def campaign_cells():
 
 
 def main():
-    min_agree = int(sys.argv[sys.argv.index("--min-agree") + 1]) if "--min-agree" in sys.argv else 10
+    min_agree = (
+        int(sys.argv[sys.argv.index("--min-agree") + 1]) if "--min-agree" in sys.argv else 10
+    )
     revop = json.load(open(REVOP))
     codes = json.load(open(CODES)) if os.path.exists(CODES) else {}
     cells = campaign_cells()
@@ -166,7 +168,16 @@ def main():
     for sym, qe, basis, r in weak:
         print(
             "    %-12s %d %s  ours %12.2f  mc %12.2f  (%.2f%%)  MC %d ok / %d bad — no conclusion"
-            % (sym, qe, basis, r["ours"], r["mc"], r["delta_pct"], r["mc_reproduces"], r["mc_disagrees_elsewhere"])
+            % (
+                sym,
+                qe,
+                basis,
+                r["ours"],
+                r["mc"],
+                r["delta_pct"],
+                r["mc_reproduces"],
+                r["mc_disagrees_elsewhere"],
+            )
         )
     print(f"\nwrote {os.path.basename(OUT)}")
 

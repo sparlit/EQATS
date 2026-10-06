@@ -72,7 +72,8 @@ def d52(s, dn):
     k = i
     while k >= 0 and a[k] >= lo:
         ph = c[k] * (1000 + hb[k]) / 1000 if hb else c[k]
-        hi = max(hi, ph)
+        if ph > hi:
+            hi = ph
         k -= 1
     if hi <= 0:
         return None

@@ -71,7 +71,11 @@ def main():
         if not row:
             cnt["no MC reading"] += 1
             continue
-        mc = row.get("pat_own") if (basis == "con" and row.get("pat_own") is not None) else row.get("pat_total")
+        mc = (
+            row.get("pat_own")
+            if (basis == "con" and row.get("pat_own") is not None)
+            else row.get("pat_total")
+        )
         if near(mc, p["fixed"]):
             cnt["MC == the AS-FILED value (heal target)"] += 1
         elif near(mc, p["was"]):
@@ -83,7 +87,10 @@ def main():
     print("MC calibrated on %d §109 heals with a known as-filed answer:" % len(props["proposals"]))
     tot = sum(v for k, v in cnt.items() if k != "no MC reading")
     for k, n in cnt.most_common():
-        print("   %-46s %4d %s" % (k, n, "" if k == "no MC reading" else "(%.1f%% of reached)" % (100.0 * n / tot)))
+        print(
+            "   %-46s %4d %s"
+            % (k, n, "" if k == "no MC reading" else "(%.1f%% of reached)" % (100.0 * n / tot))
+        )
     print("\nthe cells where MC is NOT on the as-filed value:")
     for e in ex[:25]:
         print("   %-13s %-9s %-4s was=%-10s fixed=%-10s mc=%s" % e)

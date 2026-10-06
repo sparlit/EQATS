@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 #!/usr/bin/env python3
 """Build a single-file HTML dashboard with gzip+base64 embedded data, decompressed
    client-side via the browser's native DecompressionStream API."""
-import base64
 import gzip
 import json
 from datetime import datetime
@@ -64,12 +63,14 @@ for tkr, pairs in payload["series"].items():
         while i > 0 and pairs[i - 1][1] == pairs[i][1]:
             i -= 1
         if pairs[-1][0] - pairs[i][0] >= FROZEN_MIN_DAYS * DAY and tkr in payload["meta"]:
-            payload["meta"][tkr]["frozenSince"] = datetime.fromtimestamp(pairs[i][0]).strftime("%Y-%m-%d")
+            payload["meta"][tkr]["frozenSince"] = datetime.fromtimestamp(pairs[i][0]).strftime(
+                "%Y-%m-%d"
+            )
             frozen += 1
     ds, ps = [], []
     for ts, close in pairs:
         ds.append(int((ts - start_ts) // DAY))
-        ps.append(round(close * 100))
+        ps.append(int(round(close * 100)))
     compact_series[tkr] = {"d": ds, "p": ps}
 
     # 52w-high pass — only meaningful with at least 30 data points in the last year
@@ -105,7 +106,10 @@ shares_path = ROOT / "scripts" / "shares_outstanding.json"
 # shares_outstanding.json has no count, so a real filing always wins.
 try:
     screener_fill = (
-        json.loads((ROOT / "scripts" / "shares_fill_screener.json").read_text(encoding="utf-8")).get("fills") or {}
+        json.loads(
+            (ROOT / "scripts" / "shares_fill_screener.json").read_text(encoding="utf-8")
+        ).get("fills")
+        or {}
     )
 except Exception:
     screener_fill = {}
@@ -113,7 +117,12 @@ except Exception:
 # (scripts/fill_bse_share_counts.py), keyed by dashboard TICKER — a BSE scrip_id can equal an
 # unrelated NSE symbol, so the two NSE-keyed ledgers above are never used for a .BO row (§76).
 try:
-    bse_fill = json.loads((ROOT / "scripts" / "shares_bse_only.json").read_text(encoding="utf-8")).get("fills") or {}
+    bse_fill = (
+        json.loads((ROOT / "scripts" / "shares_bse_only.json").read_text(encoding="utf-8")).get(
+            "fills"
+        )
+        or {}
+    )
 except Exception:
     bse_fill = {}
 print(f"frozen-price rows (no change for >= {FROZEN_MIN_DAYS}d while still printing): {frozen}")
@@ -141,13 +150,18 @@ if shares_path.exists():
                 if got and got[0]:
                     n, src = got[0], "shp:" + got[1]  # provenance — not a BSE-reported cap
                 elif (screener_fill.get(sym) or {}).get("shares"):
-                    n, src = screener_fill[sym]["shares"], "screener:" + str(screener_fill[sym].get("asof"))
+                    n, src = (
+                        screener_fill[sym]["shares"],
+                        "screener:" + str(screener_fill[sym].get("asof")),
+                    )
             if not src:
                 continue
             mcap = n * px / 1e7  # shares x rupees -> rupees crore
             if mcap <= 0:
                 continue
-            meta["mcap"] = round(mcap, 2) if mcap >= 0.01 else round(mcap, 6)  # a Rs 4,980 cap is not "0.00" (§145)
+            meta["mcap"] = (
+                round(mcap, 2) if mcap >= 0.01 else round(mcap, 6)
+            )  # a Rs 4,980 cap is not "0.00" (§145)
             meta["mcapSrc"] = src
             if src.startswith("screener"):
                 filled_sc += 1
@@ -553,6 +567,14 @@ async function loadAndInit() {
           symbols: s.symbols.map(x => META[x] ? x : (boKey[x] || x)) }));
       }
     } catch (e) { console.warn('BSE SME IPO history unavailable', e); }
+    // Nifty SME Emerge (runbook §210): point-in-time history 2020→ from NSE Indices' press releases, in its own file for
+    // the same reason. Its symbols are bare NSE tickers in today's spelling — the filter below matches them like Nifty's.
+    try {
+      const hs = await (await fetch('./nse_sme_emerge/history.json', { cache: 'no-store' })).json();
+      const sn = hs && hs['Nifty SME Emerge'];
+      if (Array.isArray(sn) && sn.length)
+        INDICES_HISTORY['Nifty SME Emerge'] = sn.map(s => ({ effectiveDate: s.effectiveDate, symbols: s.symbols }));
+    } catch (e) { console.warn('Nifty SME Emerge history unavailable', e); }
     FNO_TODAY = new Set(D.fnoToday || []);
     FNO_HISTORY = D.fnoHistory || [];
 
@@ -598,7 +620,7 @@ async function loadAndInit() {
     const PREFERRED = ['Nifty 50','Nifty Next 50','Nifty 100','Nifty 200','Nifty 500',
                        'Nifty Midcap 50','Nifty Midcap 100','Nifty Midcap 150',
                        'Nifty Smallcap 50','Nifty Smallcap 100','Nifty Smallcap 250',
-                       'Nifty LargeMidcap 250','Nifty MidSmallcap 400','BSE SME IPO'];
+                       'Nifty LargeMidcap 250','Nifty MidSmallcap 400','Nifty SME Emerge','BSE SME IPO'];
     const inPref = PREFERRED.filter(x => indexCounts[x]);
     const rest   = Object.keys(indexCounts).filter(x => !PREFERRED.includes(x)).sort();
     for (const ix of inPref.concat(rest)) {

@@ -122,7 +122,9 @@ def main():
                 continue
             sym, qe = v["sym"], v["qe"]
             vints = [
-                x for x in v.get("vintages", []) if x.get("pat") is not None and x.get("cumulative") != "Cumulative"
+                x
+                for x in v.get("vintages", [])
+                if x.get("pat") is not None and x.get("cumulative") != "Cumulative"
             ]
             if not vints:
                 queues["no-readable-vintage"].append(key + "|" + basis)
@@ -145,7 +147,7 @@ def main():
                     continue
             else:
                 m = mccon.get(key) or {}
-                if m.get("verdict") == "mc-con-is-std-fallback":
+                if m.get("verdict") in ("mc-con-is-std-fallback",):
                     queues["con-mc-is-std-fallback (§85)"].append(key + "|" + basis)
                     continue
                 if m.get("verdict") in ("no-mc-quarter", "no-mc-id") or m.get("mc_con") is None:
@@ -165,9 +167,10 @@ def main():
             if basis != "std":  # std's second reader IS detres, as-filed
                 lag = filing_lag(qe, asf.get("filed"))
                 if lag is None or lag > MAX_FILING_LAG_DAYS:
-                    queues["target-page-filed-%dd+-after-qe — may BE the restatement" % MAX_FILING_LAG_DAYS].append(
-                        f"{key}|{basis} (lag {lag})"
-                    )
+                    queues[
+                        "target-page-filed-%dd+-after-qe — may BE the restatement"
+                        % MAX_FILING_LAG_DAYS
+                    ].append(f"{key}|{basis} (lag {lag})")
                     continue
 
             # label, for the runbook — the ACTION is the same either way
@@ -176,7 +179,11 @@ def main():
             if any(abs(ratio - p) <= 0.02 * p for p in POWERS):
                 cls = "scale-step (§74)"
             elif other is not None and abs(other - cur) <= 0.011:
-                cls = "the std slot held the CON figure (§59)" if basis == "std" else "the con slot was a STD copy"
+                cls = (
+                    "the std slot held the CON figure (§59)"
+                    if basis == "std"
+                    else "the con slot was a STD copy"
+                )
             else:
                 cls = "the store matched no filed figure"
             seen[cls] += 1
@@ -185,7 +192,14 @@ def main():
                 "Runbook §109e by-product: the stored value matches NO vintage NSE holds for "
                 "this quarter. NSE's earliest-filed page ({}, {}, seq {}) reads Net Profit {} cr; "
                 "{} independently reads {} cr; the store held {}. Class: {}.".format(
-                    asf.get("filed"), asf.get("indAs"), asf.get("seq"), asf["pat"], sname, round(second, 2), cur, cls
+                    asf.get("filed"),
+                    asf.get("indAs"),
+                    asf.get("seq"),
+                    asf["pat"],
+                    sname,
+                    round(second, 2),
+                    cur,
+                    cls,
                 )
             )
             fund_props.append(
@@ -275,7 +289,9 @@ def main():
         % (
             len(fund_props),
             len({p["sym"] for p in fund_props}),
-            ", ".join("%s=%d" % (b, sum(1 for p in fund_props if p["basis"] == b)) for b in ("std", "con")),
+            ", ".join(
+                "%s=%d" % (b, sum(1 for p in fund_props if p["basis"] == b)) for b in ("std", "con")
+            ),
         )
     )
     for b, n in Counter(p["basis"] for p in revop_props).most_common():

@@ -44,7 +44,10 @@ import bse_headers as BH  # §181 BSE headers (append: never shadow local module
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CACHE = os.path.join(HERE, "_scrip_master.json")
-URL = "https://api.bseindia.com/BseIndiaAPI/api/ListofScripData/w?Group=&Scripcode=&industry=&segment=Equity&status=%s"
+URL = (
+    "https://api.bseindia.com/BseIndiaAPI/api/ListofScripData/w?Group=&Scripcode=&industry="
+    "&segment=Equity&status=%s"
+)
 FLOOR = 3000
 
 
@@ -75,9 +78,14 @@ def master():
             code = (r.get("SCRIP_CD") or r.get("Scrip_Cd") or "").strip()
             if sid and code:
                 out.setdefault(sid, code)
-        print("   scrip master %-10r -> %d rows (total %d)" % (status, len(rows), len(out)), flush=True)
+        print(
+            "   scrip master %-10r -> %d rows (total %d)" % (status, len(rows), len(out)),
+            flush=True,
+        )
     if len(out) < FLOOR:  # §0: validate the COUNT, never the exit code
-        raise RuntimeError("scrip master only %d rows -- refusing to cache a throttled fetch" % len(out))
+        raise RuntimeError(
+            "scrip master only %d rows -- refusing to cache a throttled fetch" % len(out)
+        )
     json.dump(out, open(CACHE, "w"), sort_keys=True)
     return out
 

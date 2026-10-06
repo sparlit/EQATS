@@ -92,7 +92,9 @@ for sym, params in HOLES.items():
             continue
         e = led[param].get(sym)
         if not e:
-            print(f"SKIP: {sym} has no existing {param} entry - not an L5 case, needs fresh adjudication")
+            print(
+                f"SKIP: {sym} has no existing {param} entry - not an L5 case, needs fresh adjudication"
+            )
             continue
         old_from, old_to = e.get("from"), e.get("to")
         new_from, new_to = min(frm, old_from), max(to, old_to)

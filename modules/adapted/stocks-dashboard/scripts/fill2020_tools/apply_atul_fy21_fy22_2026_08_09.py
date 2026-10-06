@@ -53,8 +53,14 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
-FUND = (os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(SCRIPTS, "fundamentals.json"))
-REVOP = (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json"))
+FUND = (
+    os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+    os.path.join(SCRIPTS, "fundamentals.json"),
+)
+REVOP = (
+    os.path.join(ROOT, "docs", "sf_revop.json"),
+    os.path.join(SCRIPTS, "revop_fundamentals.json"),
+)
 LEDGER = os.path.join(SCRIPTS, "owners_basis_heals.json")
 FUND_IDX, REVOP_IDX = 3, 5
 
@@ -63,7 +69,13 @@ FIX = {
     20200630: (117.94, 0.16, 117.78, 117.94, "held the TOTAL"),
     20210331: (176.67, 1.62, 175.05, 176.67, "held the TOTAL"),
     20210630: (165.15, -0.79, 165.94, 165.15, "held the TOTAL"),
-    20210930: (146.12, -0.51, 146.63, 148.82, "held 148.82 -- neither the period nor the owners figure"),
+    20210930: (
+        146.12,
+        -0.51,
+        146.63,
+        148.82,
+        "held 148.82 -- neither the period nor the owners figure",
+    ),
     20211231: (156.91, 1.48, 155.43, 156.91, "held the TOTAL"),
 }
 IDENTITIES = [
@@ -104,7 +116,9 @@ def main():
                 if cur is not None and abs(cur - o) < 0.005:
                     continue
                 if not keyed and cur is not None and abs(cur - was) > 0.005:
-                    sys.exit("GUARD %d in %s: %s, expected %s" % (qe, os.path.basename(path), cur, was))
+                    sys.exit(
+                        "GUARD %d in %s: %s, expected %s" % (qe, os.path.basename(path), cur, was)
+                    )
                 prior.setdefault(str(qe), {})[os.path.basename(path)] = cur
                 row[idx] = o
                 n += 1

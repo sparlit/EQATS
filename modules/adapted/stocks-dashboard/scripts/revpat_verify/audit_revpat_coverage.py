@@ -44,9 +44,10 @@ import contextlib
 import csv
 import json
 import os
-import sys
 
-TREE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root of THIS checkout
+TREE = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)  # repo root of THIS checkout
 OUT = os.path.dirname(os.path.abspath(__file__))
 
 ERAS = [
@@ -88,7 +89,10 @@ def main():
         return s
 
     snaps = sorted(
-        (s["effectiveDate"], [norm(x) for x in s["symbols"] if not str(x).upper().startswith("DUMMY")])
+        (
+            s["effectiveDate"],
+            [norm(x) for x in s["symbols"] if not str(x).upper().startswith("DUMMY")],
+        )
         for s in IH["Nifty 500"]
     )
     print("N500 snapshots: %d, %s .. %s" % (len(snaps), snaps[0][0], snaps[-1][0]))
@@ -193,14 +197,20 @@ def main():
     den = tot["den"] or 1
     emit(
         "| **ALL** | **{}** | {} |".format(
-            "{:,}".format(tot["den"]), " | ".join("**%.1f%%**" % (100.0 * tot[f] / den) for f in FIELDS)
+            "{:,}".format(tot["den"]),
+            " | ".join("**%.1f%%**" % (100.0 * tot[f] / den) for f in FIELDS),
         )
     )
     emit("")
     emit("Absolute cells held: " + ", ".join("{}={}".format(f, f"{tot[f]:,}") for f in FIELDS))
-    emit("Absolute cells MISSING: " + ", ".join("{}={}".format(f, "{:,}".format(tot["den"] - tot[f])) for f in FIELDS))
+    emit(
+        "Absolute cells MISSING: "
+        + ", ".join("{}={}".format(f, "{:,}".format(tot["den"] - tot[f])) for f in FIELDS)
+    )
 
-    with open(os.path.join(OUT, "coverage_by_quarter.csv"), "w", newline="", encoding="utf-8") as fh:
+    with open(
+        os.path.join(OUT, "coverage_by_quarter.csv"), "w", newline="", encoding="utf-8"
+    ) as fh:
         w = csv.writer(fh)
         w.writerow(["qe", "n500_members"] + FIELDS + [f + "_pct" for f in FIELDS])
         for q, n, c in per_q:

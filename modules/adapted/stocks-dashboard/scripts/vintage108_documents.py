@@ -84,12 +84,12 @@ _SUBCAT_OK = {"financial results", "limited review report", "board meeting", "re
 _HIT = re.compile(
     r"(financial result|outcome of board meeting|board meeting outcome"
     r"|(?:un)?audited.*result|limited review)",
-    re.IGNORECASE,
+    re.I,
 )
 _VETO = re.compile(
     r"(xbrl|investor presentation|earnings call|transcript|newspaper|analyst"
     r"|audio|postal|agm|annual report|allotment|scrutiniz)",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -124,7 +124,7 @@ def result_filings(o, code, lo, hi):
 PROFIT = re.compile(
     r"net\s+profit|profit\s*(/|\(|\s)*\s*\(?loss\)?\s+(for|after)|"
     r"profit\s+after\s+tax|profit\s+for\s+the\s+period",
-    re.IGNORECASE,
+    re.I,
 )
 NUMTOK = re.compile(r"-?\(?\d[\d,]*\.?\d*\)?")
 
@@ -155,7 +155,7 @@ def numbers_on_profit_rows(pdf):
                 continue
             nums = []
             for t in NUMTOK.findall(line):
-                neg = t.startswith(("(", "-"))
+                neg = t.startswith("(") or t.startswith("-")
                 try:
                     v = float(t.strip("()-").replace(",", ""))
                 except ValueError:
@@ -249,7 +249,9 @@ def main():
 
     out = json.load(open(OUT, encoding="utf-8")) if os.path.exists(OUT) else {}
     todo = [t for t in targets if t not in out][:limit]
-    print("document adjudication: %d cells (%d already done)" % (len(todo), len(targets) - len(todo)))
+    print(
+        "document adjudication: %d cells (%d already done)" % (len(todo), len(targets) - len(todo))
+    )
     o = FI.bse_session()
     for _i, key in enumerate(todo, 1):
         c = scan.get(key)
@@ -262,8 +264,14 @@ def main():
             "  %-22s original=%s year_later=%s"
             % (
                 key,
-                sum(1 for d in (f.get("original", {}).get("docs") or []) if d.get("detres_appears")),
-                sum(1 for d in (f.get("year_later", {}).get("docs") or []) if d.get("stored_appears")),
+                sum(
+                    1 for d in (f.get("original", {}).get("docs") or []) if d.get("detres_appears")
+                ),
+                sum(
+                    1
+                    for d in (f.get("year_later", {}).get("docs") or [])
+                    if d.get("stored_appears")
+                ),
             )
         )
         json.dump(out, open(OUT, "w"), indent=1)

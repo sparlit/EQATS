@@ -61,7 +61,9 @@ def _anchor(r, c):
     return [
         k
         for k in ks
-        if r.get("assets") and c.get("assets") and abs(r["assets"] / k - c["assets"]) <= 0.005 * abs(c["assets"])
+        if r.get("assets")
+        and c.get("assets")
+        and abs(r["assets"] / k - c["assets"]) <= 0.005 * abs(c["assets"])
     ]
 
 
@@ -109,7 +111,9 @@ def main(args):
                 # STORED cell's, and the first cash-flow page of the same basis after it
                 doc = F.fitz.open(stream=pdf, filetype="pdf")
                 texts = [doc[k].get_text() for k in range(len(doc))]
-                bs = F.bs_pages_for_key(doc, texts, {"assets": c.get("assets"), "ppe": c.get("ppe")})
+                bs = F.bs_pages_for_key(
+                    doc, texts, {"assets": c.get("assets"), "ppe": c.get("ppe")}
+                )
                 doc.close()
                 if bs:
                     cf = next(
@@ -159,7 +163,13 @@ def main(args):
             sup = dict(base, role="supplement", **{f: s.get(f) for f in SUPP_FIELDS})
             entries.append(sup)
             if c.get("m") == "text":
-                entries.append(dict(base, role="correct", **{f: s.get(f) for f in ("cfo", "cfi", "cff", "cf_tax")}))
+                entries.append(
+                    dict(
+                        base,
+                        role="correct",
+                        **{f: s.get(f) for f in ("cfo", "cfi", "cff", "cf_tax")},
+                    )
+                )
             seen["read"] = seen.get("read", 0) + 1
     json.dump(entries, open(out, "w"), indent=0)
     print("re-read:", seen, "-> %d entries in %s" % (len(entries), out))
