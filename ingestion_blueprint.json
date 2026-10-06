@@ -1,5 +1,5 @@
 {
-  "current_index": 102,
+  "current_index": 103,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -821,9 +821,9 @@
       "name": "tropix",
       "target": "dallyshalla/tropix",
       "url": "https://github.com/dallyshalla/tropix",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3043",
+      "merged": true
     },
     {
       "name": "geger",
