@@ -1,5 +1,5 @@
 {
-  "current_index": 101,
+  "current_index": 102,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -813,9 +813,9 @@
       "name": "apcacli",
       "target": "d-e-s-o/apcacli",
       "url": "https://github.com/d-e-s-o/apcacli",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3042",
+      "merged": true
     },
     {
       "name": "tropix",
