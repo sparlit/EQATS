@@ -1,5 +1,5 @@
 {
-  "current_index": 109,
+  "current_index": 110,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -877,9 +877,9 @@
       "name": "openbook",
       "target": "degensugarboo/openbook",
       "url": "https://github.com/degensugarboo/openbook",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3050",
+      "merged": true
     },
     {
       "name": "nse-screener",
