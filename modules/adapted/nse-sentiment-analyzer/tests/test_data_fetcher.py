@@ -285,12 +285,16 @@ class TestRelevanceFilter:
     def test_ticker_in_title(self):
         from data_fetcher import _relevant
 
-        assert _relevant("RELIANCE", "Reliance Industries", "RELIANCE hits new high on strong Q1 results", "")
+        assert _relevant(
+            "RELIANCE", "Reliance Industries", "RELIANCE hits new high on strong Q1 results", ""
+        )
 
     def test_company_name_in_body(self):
         from data_fetcher import _relevant
 
-        assert _relevant("TCS", "Tata Consultancy Services", "IT stocks rally", "Tata Consultancy wins $2B deal")
+        assert _relevant(
+            "TCS", "Tata Consultancy Services", "IT stocks rally", "Tata Consultancy wins $2B deal"
+        )
 
     def test_unrelated_headline(self):
         from data_fetcher import _relevant
@@ -310,7 +314,9 @@ class TestRelevanceFilter:
         we test a ticker that genuinely doesn't appear in the text."""
         from data_fetcher import _relevant
 
-        assert not _relevant("TCS", "Tata Consultancy Services", "Gold prices surge on global cues", "")
+        assert not _relevant(
+            "TCS", "Tata Consultancy Services", "Gold prices surge on global cues", ""
+        )
 
 
 class TestNewsCaching:
@@ -338,7 +344,7 @@ class TestNewsCaching:
         mock_ddgs = mocker.patch("data_fetcher.DDGS")
         mocker.patch("data_fetcher.cache_set")
 
-        articles, cascade_pool, _stats, dissemination_clusters, dissemination_score = search_news(
+        articles, cascade_pool, stats, dissemination_clusters, dissemination_score = search_news(
             "RELIANCE", "Reliance Industries", max_results=5
         )
         assert len(articles) == 1
@@ -362,7 +368,9 @@ class TestNewsCaching:
         mocker.patch("data_fetcher.DDGS", side_effect=Exception("No DDGS"))
         mocker.patch("data_fetcher.cache_set")
 
-        articles, cascade_pool, _stats, _, _ = search_news("RELIANCE", "Reliance Industries", max_results=5)
+        articles, cascade_pool, stats, _, _ = search_news(
+            "RELIANCE", "Reliance Industries", max_results=5
+        )
         assert articles == []
         assert cascade_pool == []
 

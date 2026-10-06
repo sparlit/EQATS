@@ -63,13 +63,16 @@ from sentiment import get_weighted_signal
 
 class TestWeightedSignal:
     def test_empty_scores(self):
-        signal, compound, _emoji, _breakdown = get_weighted_signal([])
+        signal, compound, emoji, breakdown = get_weighted_signal([])
         assert signal == "NEUTRAL ⚪"
         assert compound == 0.0
 
     def test_single_source(self):
-        scores = [{"compound": 0.8, "source": "Economic Times"}, {"compound": 0.6, "source": "Economic Times"}]
-        _signal, compound, _emoji, breakdown = get_weighted_signal(scores)
+        scores = [
+            {"compound": 0.8, "source": "Economic Times"},
+            {"compound": 0.6, "source": "Economic Times"},
+        ]
+        signal, compound, emoji, breakdown = get_weighted_signal(scores)
         assert compound > 0.5
         assert len(breakdown) == 1
         assert breakdown[0]["source"] == "Economic Times"
@@ -80,7 +83,7 @@ class TestWeightedSignal:
             {"compound": 0.8, "source": "Economic Times"},  # weight 1.0
             {"compound": -0.8, "source": "DuckDuckGo"},
         ]  # weight 0.5
-        signal, compound, _emoji, _breakdown = get_weighted_signal(scores)
+        signal, compound, emoji, breakdown = get_weighted_signal(scores)
         # Weighted: (1.0 * 0.8 + 0.5 * -0.8) / 1.5 = 0.267 → positive
         assert compound > 0
         assert "BULLISH" in signal or "NEUTRAL" in signal
@@ -91,13 +94,16 @@ class TestWeightedSignal:
             {"compound": -0.7, "source": "Economic Times"},  # weight 1.0
             {"compound": 0.9, "source": "DuckDuckGo"},
         ]  # weight 0.5
-        _signal, compound, _emoji, _breakdown = get_weighted_signal(scores)
+        signal, compound, emoji, breakdown = get_weighted_signal(scores)
         # Weighted: (1.0 * -0.7 + 0.5 * 0.9) / 1.5 = -0.167 → slightly negative/neutral
         assert compound < 0
 
     def test_missing_source_defaults(self):
-        scores = [{"compound": 0.5, "source": "Unknown Source"}, {"compound": -0.5, "source": "Unknown Source"}]
-        _signal, _compound, _emoji, breakdown = get_weighted_signal(scores)
+        scores = [
+            {"compound": 0.5, "source": "Unknown Source"},
+            {"compound": -0.5, "source": "Unknown Source"},
+        ]
+        signal, compound, emoji, breakdown = get_weighted_signal(scores)
         assert len(breakdown) == 1
         # Unknown sources get weight 0.5
         assert breakdown[0]["weight"] == 0.5
@@ -109,7 +115,7 @@ class TestWeightedSignal:
             {"compound": 0.2, "source": "Economic Times"},
             {"compound": 0.3, "source": "DuckDuckGo"},
         ]
-        _signal, _compound, _emoji, breakdown = get_weighted_signal(scores)
+        signal, compound, emoji, breakdown = get_weighted_signal(scores)
         weights = [s["weight"] for s in breakdown]
         assert weights == sorted(weights, reverse=True), "Breakdown not sorted by weight"
 

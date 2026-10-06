@@ -57,7 +57,9 @@ logger = logging.getLogger(__name__)
 # ─── Config ───
 ADAPTIVE_CACHE_FILE = DATA_DIR / "adaptive_clusters.json"
 CLUSTER_MIN_SAMPLES = 2  # DBSCAN min_samples
-CLUSTER_EPS = 0.40  # TF-IDF cosine distance threshold - tighter for better discrimination (beats vs misses)
+CLUSTER_EPS = (
+    0.40  # TF-IDF cosine distance threshold - tighter for better discrimination (beats vs misses)
+)
 MAX_CLUSTERS = 50  # prevent unbounded growth
 CALIBRATION_WINDOW_HOURS = 72  # recalibrate every 3 days
 MIN_CLUSTER_SIZE_FOR_CALIBRATION = 3
@@ -509,7 +511,9 @@ class AdaptiveClusterLearner:
     """
 
     def __init__(self) -> None:
-        self.clusters: dict[int, dict[str, Any]] = {}  # cluster_id -> {centroid, headlines, reactions, weight}
+        self.clusters: dict[
+            int, dict[str, Any]
+        ] = {}  # cluster_id -> {centroid, headlines, reactions, weight}
         # Use TfidfVectorizer with custom tokenization for Indian financial text
         import re
 
@@ -526,7 +530,9 @@ class AdaptiveClusterLearner:
             bigrams = [f"{tokens[i]}_{tokens[i + 1]}" for i in range(len(tokens) - 1)]
 
             # Create financial trigrams
-            trigrams = [f"{tokens[i]}_{tokens[i + 1]}_{tokens[i + 2]}" for i in range(len(tokens) - 2)]
+            trigrams = [
+                f"{tokens[i]}_{tokens[i + 1]}_{tokens[i + 2]}" for i in range(len(tokens) - 2)
+            ]
 
             # Financial n-grams with special handling for key phrases
             all_grams = unigrams + bigrams + trigrams
@@ -560,7 +566,9 @@ class AdaptiveClusterLearner:
             if ADAPTIVE_CACHE_FILE.exists():
                 with open(ADAPTIVE_CACHE_FILE, encoding="utf-8") as f:
                     data = json.load(f)
-                    self.clusters = {int(k): _deserialize_cluster(v) for k, v in data.get("clusters", {}).items()}
+                    self.clusters = {
+                        int(k): _deserialize_cluster(v) for k, v in data.get("clusters", {}).items()
+                    }
                     self._last_calibration = data.get("last_calibration", 0.0)
                     # Re-fit vectorizer on stored headlines to match vocabulary
                     all_headlines = []
@@ -631,7 +639,7 @@ class AdaptiveClusterLearner:
 
     def _vectorize(self, text: str) -> np.ndarray:
         """Vectorize a single headline using HashingVectorizer (no fitting needed)."""
-        return cast("np.ndarray", self.vectorizer.transform([text]).toarray()[0])
+        return cast(np.ndarray, self.vectorizer.transform([text]).toarray()[0])
 
     def _cosine_sim(self, a: np.ndarray, b: np.ndarray) -> float:
         """Cosine similarity between two vectors."""
@@ -640,7 +648,9 @@ class AdaptiveClusterLearner:
             return 0.0
         return float(np.dot(a, b) / (na * nb))
 
-    def _find_or_create_cluster(self, headline: str, price_move_1h: float = 0.0, price_move_4h: float = 0.0) -> int:
+    def _find_or_create_cluster(
+        self, headline: str, price_move_1h: float = 0.0, price_move_4h: float = 0.0
+    ) -> int:
         """Assign headline to nearest cluster or create new one."""
         vec = self._vectorize(headline)
 
@@ -667,25 +677,28 @@ class AdaptiveClusterLearner:
             cluster["centroid"] = ((n - 1) * old_centroid + vec) / n
             cluster["count"] = n
             return best_id
-        # Create new cluster
-        if len(self.clusters) >= MAX_CLUSTERS:
-            # Evict least useful cluster (lowest weight * count)
-            evict_id = min(
-                self.clusters.keys(),
-                key=lambda k: self.clusters[k].get("weight", 0.5) * self.clusters[k].get("count", 1),
-            )
-            del self.clusters[evict_id]
+        else:
+            # Create new cluster
+            if len(self.clusters) >= MAX_CLUSTERS:
+                # Evict least useful cluster (lowest weight * count)
+                evict_id = min(
+                    self.clusters.keys(),
+                    key=lambda k: (
+                        self.clusters[k].get("weight", 0.5) * self.clusters[k].get("count", 1)
+                    ),
+                )
+                del self.clusters[evict_id]
 
-        cid = self._get_next_cluster_id()
-        self.clusters[cid] = {
-            "centroid": vec.tolist(),
-            "headlines": [headline],
-            "reactions_1h": [price_move_1h] if price_move_1h != 0.0 else [],
-            "reactions_4h": [price_move_4h] if price_move_4h != 0.0 else [],
-            "count": 1,
-            "weight": 0.5,  # neutral prior
-        }
-        return cid
+            cid = self._get_next_cluster_id()
+            self.clusters[cid] = {
+                "centroid": vec.tolist(),
+                "headlines": [headline],
+                "reactions_1h": [price_move_1h] if price_move_1h != 0.0 else [],
+                "reactions_4h": [price_move_4h] if price_move_4h != 0.0 else [],
+                "count": 1,
+                "weight": 0.5,  # neutral prior
+            }
+            return cid
 
     def update(self, headline: str, price_move_1h: float = 0.0, price_move_4h: float = 0.0) -> None:
         """Feed a headline + observed price reaction into the learner."""
@@ -761,7 +774,7 @@ class AdaptiveClusterLearner:
                 return
 
             # For each cluster, compute how well its average reaction predicts actual moves
-            for cluster in self.clusters.values():
+            for _cid, cluster in self.clusters.items():
                 if "centroid" not in cluster or not cluster["reactions_1h"]:
                     continue
 
@@ -790,7 +803,9 @@ class AdaptiveClusterLearner:
                     # Magnitude accuracy: how close is magnitude?
                     magnitude_errors = [abs(cluster_mean - a) for a in cluster_actuals]
                     mean_magnitude_error = np.mean(magnitude_errors)
-                    magnitude_accuracy = max(0, 1 - (mean_magnitude_error / (abs(cluster_mean) + 1)))
+                    magnitude_accuracy = max(
+                        0, 1 - (mean_magnitude_error / (abs(cluster_mean) + 1))
+                    )
 
                     # Combined weight: direction accuracy weighted more heavily
                     cluster["weight"] = float(0.7 * direction_accuracy + 0.3 * magnitude_accuracy)
@@ -954,7 +969,9 @@ class DisseminationClusterer:
 
         # Filter groups with at least 2 articles
         valid_groups = {
-            sig: idxs for sig, idxs in signature_groups.items() if len(idxs) >= DISSEMINATION_MIN_CLUSTER_SIZE
+            sig: idxs
+            for sig, idxs in signature_groups.items()
+            if len(idxs) >= DISSEMINATION_MIN_CLUSTER_SIZE
         }
 
         if not valid_groups:
@@ -966,7 +983,9 @@ class DisseminationClusterer:
 
         for sig, indices in valid_groups.items():
             sources = list({articles[i].get("source", "Unknown") for i in indices})
-            tickers = list({t for i in indices for t in articles[i].get("ticker", "").upper().split() if t})
+            tickers = list(
+                {t for i in indices for t in articles[i].get("ticker", "").upper().split() if t}
+            )
             entities = list(sig)
 
             # Dissemination score = normalized size * source diversity
@@ -1059,7 +1078,10 @@ def calibrate_adaptive_learner(
 
 # ─── Integration helpers for data_fetcher.py ───
 def extract_price_moves_for_learning(
-    ticker: str, headline_time: datetime, hist_1h: list[dict[str, Any]], hist_4h: list[dict[str, Any]]
+    ticker: str,
+    headline_time: datetime,
+    hist_1h: list[dict[str, Any]],
+    hist_4h: list[dict[str, Any]],
 ) -> tuple[float, float]:
     """
     Given a headline timestamp and recent price history, compute the 1h and 4h

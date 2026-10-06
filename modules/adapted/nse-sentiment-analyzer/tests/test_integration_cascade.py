@@ -120,8 +120,7 @@ class TestCascadeIntegration:
                     "ticker_impact",
                 }
                 assert affected["ticker_impact"] in (1, -1)
-                assert isinstance(affected["reason"], str)
-                assert affected["reason"]
+                assert isinstance(affected["reason"], str) and affected["reason"]
 
     def test_cascade_no_relevant_news(self):
         # Arrange: a headline with no commodity/macro driver keywords.
@@ -180,7 +179,7 @@ class TestCascadeIntegration:
         assert "Aluminum" in drivers
         assert "Crude Oil" not in drivers  # CASCADE_MAP has no HINDALCO entry there
 
-        aluminum = next(r for r in result if r["driver"] == "Aluminum")
+        aluminum = [r for r in result if r["driver"] == "Aluminum"][0]
         hindalco_entries = [a for a in aluminum["affects"] if a["ticker"] == "HINDALCO"]
         assert len(hindalco_entries) == 1
         hindalco = hindalco_entries[0]

@@ -159,10 +159,10 @@ class TestClassifyHeadline:
 
     def test_sue_litigation(self):
         """'sued' with word boundary should not match inside 'issue'."""
-        event_sued, _base_sued = classify_headline("Company sued over patent infringement", "")
+        event_sued, base_sued = classify_headline("Company sued over patent infringement", "")
         assert event_sued == "LITIGATION"
 
-        event_issue, _base_issue = classify_headline("Company announces bonus issue", "")
+        event_issue, base_issue = classify_headline("Company announces bonus issue", "")
         assert event_issue == "BUYBACK_DIVIDEND"  # Not LITIGATION
 
 
