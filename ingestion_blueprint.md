@@ -82,7 +82,7 @@ Total Repositories: 424 | Current Index: 80
 | 77 | bhumi008007/stock_prediction | Processed | https://github.com/sparlit/EQATS/pull/3016 |
 | 78 | bitbytelabio/tradingview-rs | Completed | https://github.com/sparlit/EQATS/pull/3017 |
 | 79 | blitzarx1/netstrat | Processed | https://github.com/sparlit/EQATS/pull/3018 |
-| 80 | bohr1005/xcrypto | Processed | None |
+| 80 | bohr1005/xcrypto | Processed | https://github.com/sparlit/EQATS/pull/3019 |
 | 81 | braverock/nse | pending | None |
 | 82 | bshada/nse-bse-api | pending | None |
 | 83 | bshada/nse-bse-mcp | pending | None |
