@@ -1,5 +1,5 @@
 {
-  "current_index": 126,
+  "current_index": 127,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1013,7 +1013,7 @@
       "name": "nse-sharia-news-feed",
       "target": "feroz-ghub-26/nse-sharia-news-feed",
       "url": "https://github.com/feroz-ghub-26/nse-sharia-news-feed",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },

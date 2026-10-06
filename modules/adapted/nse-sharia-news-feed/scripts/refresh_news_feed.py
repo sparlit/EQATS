@@ -30,12 +30,9 @@ import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 from collections import OrderedDict
-from datetime import UTC, datetime, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
 
 RSS_FEEDS = [
     "https://news.google.com/rss/search?q=site%3Areuters.com%20(Iran%20OR%20Hormuz%20OR%20%22Middle%20East%22%20OR%20%22Red%20Sea%22%20OR%20oil%20OR%20shipping%20OR%20sanctions)%20when%3A2d&hl=en-US&gl=US&ceid=US%3Aen",
@@ -164,7 +161,8 @@ def load_existing(path: Path) -> list[dict[str, str]]:
             {
                 "title": title,
                 "description": str(item.get("description", "")).strip(),
-                "publication_date": str(item.get("publication_date", "")).strip() or datetime.now(UTC).isoformat(),
+                "publication_date": str(item.get("publication_date", "")).strip()
+                or datetime.now(UTC).isoformat(),
                 "link": str(item.get("link", "")).strip(),
                 "source": str(item.get("source", "rss")).strip() or "rss",
             }
@@ -173,7 +171,9 @@ def load_existing(path: Path) -> list[dict[str, str]]:
     return cleaned
 
 
-def merge_articles(existing: Iterable[dict[str, str]], fresh: Iterable[dict[str, str]]) -> list[dict[str, str]]:
+def merge_articles(
+    existing: Iterable[dict[str, str]], fresh: Iterable[dict[str, str]]
+) -> list[dict[str, str]]:
     merged: OrderedDict[str, dict[str, str]] = OrderedDict()
 
     def add(items: Iterable[dict[str, str]]) -> None:
