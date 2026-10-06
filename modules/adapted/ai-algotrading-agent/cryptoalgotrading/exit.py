@@ -36,10 +36,7 @@ def cross_smas(data, smas=None, emas=None):
         emas = [10]
     if smas is None:
         smas = [10, 20]
-    if (
+    return bool(
         data.Last.rolling(smas[0]).mean().iloc[-1] < data.Last.rolling(smas[1]).mean().iloc[-1]
         and data.Last.rolling(smas[0]).mean().iloc[-2] > data.Last.rolling(smas[1]).mean().iloc[-2]
-    ):
-        return True
-
-    return False
+    )

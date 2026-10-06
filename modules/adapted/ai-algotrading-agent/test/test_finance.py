@@ -25,7 +25,7 @@ import unittest
 
 import pandas as pd
 from cryptoalgotrading.finance import bollinger_bands
-from numpy import nan
+from numpy import nan as nan
 from pandas.util.testing import assert_frame_equal
 
 

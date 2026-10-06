@@ -25,10 +25,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import logging as log
 import time
-from typing import Tuple
 
-from binance.client import Client as Bnb
-from cryptoalgotrading import aux, lib_bittrex, var
+import cryptoalgotrading.aux as aux
+import cryptoalgotrading.lib_bittrex as lib_bittrex
+import cryptoalgotrading.var as var
 
 
 class Bittrex:
@@ -50,7 +50,9 @@ class Bittrex:
         return self.conn.get_balances()
 
     def get_coin_balance(self, coin):
-        return self.conn.get_balance(coin)["result"]["Available"], self.conn.get_balance(coin)["result"]["Pending"]
+        return self.conn.get_balance(coin)["result"]["Available"], self.conn.get_balance(coin)[
+            "result"
+        ]["Pending"]
 
     def buy(self, coin, amount, price):
         """
@@ -81,14 +83,17 @@ class Bittrex:
                     # Couldn't buy at desired rate.
                     return False, cancel["message"]
 
-                # Returns True and price payed for coin.
-                return True, [order["result"]["PricePerUnit"], order["result"]["Quantity"]]
+                else:
+                    # Returns True and price payed for coin.
+                    return True, [order["result"]["PricePerUnit"], order["result"]["Quantity"]]
 
-            # Buy_limit didn't went as predicted.
-            return False, res["message"]
+            else:
+                # Buy_limit didn't went as predicted.
+                return False, res["message"]
 
-        # Insufficient funds.
-        return False, "Cash under Minimum limit."
+        else:
+            # Insufficient funds.
+            return False, "Cash under Minimum limit."
 
     def sell(self, coin, quantity, rate):
 
@@ -144,12 +149,13 @@ class Binance:
 
         if not coins:
             return self.assets
-        if isinstance(coins, list):
+        elif isinstance(coins, list):
             tmp_dict = {}
             for coin in coins:
                 tmp_dict[coin] = self.assets[coin]
             return tmp_dict
-        return self.assets[coins]
+        else:
+            return self.assets[coins]
 
     def buy(
         self,
@@ -195,7 +201,9 @@ class Binance:
         else:
             try:
                 buy_order = self.conn.order_limit_buy(
-                    symbol=coin, price=price, quantity=round(quantity_to_buy / price, self.coin_precision[currency])
+                    symbol=coin,
+                    price=price,
+                    quantity=round(quantity_to_buy / price, self.coin_precision[currency]),
                 )
             except Exception as e:
                 return False, {"error": e}
@@ -258,7 +266,9 @@ class Binance:
         return {
             "symbol": d["symbol"],
             "precision": d["quoteAssetPrecision"],
-            "lot_size": float(next(a["stepSize"] for a in d["filters"] if a["filterType"] == "LOT_SIZE")),
+            "lot_size": float(
+                [a["stepSize"] for a in d["filters"] if a["filterType"] == "LOT_SIZE"][0]
+            ),
             "more": d,
         }
 
