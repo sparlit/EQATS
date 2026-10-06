@@ -854,8 +854,8 @@
       "target": "debopam-d/project-nifty",
       "url": "https://github.com/debopam-d/project-nifty",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3047",
+      "merged": true
     },
     {
       "name": "ibx",
