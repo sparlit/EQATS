@@ -1,5 +1,5 @@
 {
-  "current_index": 77,
+  "current_index": 78,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -621,9 +621,9 @@
       "name": "tradingview-rs",
       "target": "bitbytelabio/tradingview-rs",
       "url": "https://github.com/bitbytelabio/tradingview-rs",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3017",
+      "merged": true
     },
     {
       "name": "netstrat",
