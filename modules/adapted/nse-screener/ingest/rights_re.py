@@ -56,7 +56,6 @@ archives inside each RE trading window.
 import io
 import sys
 import time
-import zipfile
 from datetime import timedelta
 
 import pandas as pd
@@ -65,10 +64,16 @@ from ingest import nse, renames
 import config
 
 DIR = config.DATA_DIR / "rights_re"
-OLD_URL = "https://nsearchives.nseindia.com/content/historical/EQUITIES/{yyyy}/{mon}/cm{ddmonyyyy}bhav.csv.zip"
+OLD_URL = (
+    "https://nsearchives.nseindia.com/content/historical/EQUITIES/"
+    "{yyyy}/{mon}/cm{ddmonyyyy}bhav.csv.zip"
+)
 NEW_URL = "https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_{ddmmyyyy}.csv"
 RE_SERIES = {f"E{i}" for i in range(1, 10)}  # E1..E9 = rights entitlements
-CA_URL = "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date={frm}&to_date={to}"
+CA_URL = (
+    "https://www.nseindia.com/api/corporates-corporateActions"
+    "?index=equities&from_date={frm}&to_date={to}"
+)
 
 
 def windows() -> None:
@@ -100,7 +105,10 @@ def windows() -> None:
             if dd.weekday() < 5:
                 days.add(dd)
     pd.Series(sorted(days)).to_frame("date").to_parquet(DIR / "fetch_plan.parquet", index=False)
-    print(f"rights issues: {len(ri)} {ri['record_date'].min().date()} → {ri['record_date'].max().date()}")
+    print(
+        f"rights issues: {len(ri)} "
+        f"{ri['record_date'].min().date()} → {ri['record_date'].max().date()}"
+    )
     print(f"unique trading days to fetch: {len(days)}")
 
 
@@ -123,7 +131,11 @@ def _fetch_raw(d) -> pd.DataFrame | None:
         )
     else:
         r = nse.get(
-            OLD_URL.format(yyyy=d.strftime("%Y"), mon=d.strftime("%b").upper(), ddmonyyyy=d.strftime("%d%b%Y").upper()),
+            OLD_URL.format(
+                yyyy=d.strftime("%Y"),
+                mon=d.strftime("%b").upper(),
+                ddmonyyyy=d.strftime("%d%b%Y").upper(),
+            ),
             timeout=config.TIMEOUT,
         )
         if r.status_code != 200:
@@ -166,13 +178,13 @@ def harvest() -> None:
         n += 1
         if n % 100 == 0:
             if rows:
-                done = pd.concat([done, *rows], ignore_index=True)
+                done = pd.concat([done] + rows, ignore_index=True)
                 done.to_parquet(done_file, index=False)
                 rows = []
             print(f"  {n} days fetched, {len(done)} RE rows stored", flush=True)
         time.sleep(0.45)
     if rows:
-        done = pd.concat([done, *rows], ignore_index=True)
+        done = pd.concat([done] + rows, ignore_index=True)
     if len(done):
         done.to_parquet(done_file, index=False)
         print(f"RE harvest done: {len(done)} rows, {done['symbol'].nunique()} instruments")

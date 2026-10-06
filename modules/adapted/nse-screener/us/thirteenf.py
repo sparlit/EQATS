@@ -29,7 +29,6 @@ For each pre-registered fund: all 13F-HR filings (originals, not
 amendments), the information-table XML parsed to issuer/value rows,
 keyed to the FILING date. ~1,200 polite requests (<10/s per SEC rules).
 """
-import json
 import re
 import time
 import xml.etree.ElementTree as ET
@@ -71,7 +70,10 @@ def resolve_ciks() -> dict:
     out = {}
     for name in FUNDS:
         q = name.replace(" ", "+").replace("&", "%26")
-        r = get(f"https://www.sec.gov/cgi-bin/browse-edgar?company={q}&type=13F-HR&action=getcompany&output=atom")
+        r = get(
+            f"https://www.sec.gov/cgi-bin/browse-edgar?company={q}"
+            f"&type=13F-HR&action=getcompany&output=atom"
+        )
         m = re.search(r"CIK=(\d+)", r.text)
         if m:
             out[name] = int(m.group(1))
@@ -119,7 +121,9 @@ def infotable(cik: int, acc: str) -> pd.DataFrame | None:
             if t in ("nameOfIssuer", "value", "putCall") and sub.text:
                 d[t] = sub.text.strip()
         if d.get("nameOfIssuer") and "putCall" not in d:
-            rows.append({"issuer": d["nameOfIssuer"].upper(), "value": float(d.get("value", 0) or 0)})
+            rows.append(
+                {"issuer": d["nameOfIssuer"].upper(), "value": float(d.get("value", 0) or 0)}
+            )
     if not rows:
         return None
     return pd.DataFrame(rows).groupby("issuer", as_index=False)["value"].sum()

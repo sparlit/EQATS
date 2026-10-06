@@ -34,7 +34,10 @@ from ingest import nse
 
 import config
 
-URL = "https://www.nseindia.com/api/corporate-announcements?index=equities&from_date={frm}&to_date={to}"
+URL = (
+    "https://www.nseindia.com/api/corporate-announcements"
+    "?index=equities&from_date={frm}&to_date={to}"
+)
 DIR = config.DATA_DIR / "ann_full"
 RISKY = ("rating", "director", "auditor", "resign", "key managerial")
 

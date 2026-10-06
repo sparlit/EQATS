@@ -74,13 +74,16 @@ def month_end_catchup():
         and not (ROOT / "data" / "bhav" / f"{prev_end.isoformat()}.parquet").exists()
         and (today - prev_end).days < 3
     ):
-        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')} AUTO-CATCHUP waiting for {prev_end} bhav before logging")
+        print(
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M')} AUTO-CATCHUP "
+            f"waiting for {prev_end} bhav before logging"
+        )
         return
     r = subprocess.run(
         [
             str(ROOT / ".venv" / "bin" / "python"),
             "-c",
-            (f"from screener.paper_log import snapshot; snapshot(asof='{prev_end.isoformat()}')"),
+            f"from screener.paper_log import snapshot; snapshot(asof='{prev_end.isoformat()}')",
         ],
         cwd=ROOT,
         capture_output=True,
@@ -107,7 +110,11 @@ def panel_catchup():
     if last >= weekdays_ago(2):
         return
     r = subprocess.run(
-        [str(ROOT / ".venv" / "bin" / "python"), "daily.py"], cwd=ROOT, capture_output=True, text=True, timeout=3600
+        [str(ROOT / ".venv" / "bin" / "python"), "daily.py"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=3600,
     )
     tag = "PANEL-CATCHUP ok" if r.returncode == 0 else "PANEL-CATCHUP FAILED"
     print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')} {tag} (panel was {last})")
@@ -122,7 +129,11 @@ def main():
     check("panel", bool(bhav), "no bhav files at all")
     if bhav:
         last = date.fromisoformat(bhav[-1].stem)
-        check("panel-freshness", last >= weekdays_ago(3), f"latest bhav is {last} (>3 trading days old)")
+        check(
+            "panel-freshness",
+            last >= weekdays_ago(3),
+            f"latest bhav is {last} (>3 trading days old)",
+        )
 
     # 2. daily cron ran recently and cleanly
     clog = ROOT / "cron.log"
@@ -162,17 +173,22 @@ def main():
         req = urllib.request.Request(
             "https://deshpanda.github.io/nse-screener/", headers={"User-Agent": "health-check"}
         )
-        live = re.search(r"<title>([^<]+)", urllib.request.urlopen(req, timeout=30).read().decode()).group(1)
+        live = re.search(
+            r"<title>([^<]+)", urllib.request.urlopen(req, timeout=30).read().decode()
+        ).group(1)
         check(
             "site-deploy",
             live == local,
-            f"live title {live!r} != local {local!r} — Pages deploy stale/failed; push an empty commit to retrigger",
+            f"live title {live!r} != local {local!r} — Pages deploy "
+            f"stale/failed; push an empty commit to retrigger",
         )
     except Exception:
         pass  # offline is not a failure
 
     # 6. git remote reachable with cron-like env (publish path works)
-    r = subprocess.run(["git", "fetch", "origin", "--dry-run"], cwd=ROOT, capture_output=True, timeout=60)
+    r = subprocess.run(
+        ["git", "fetch", "origin", "--dry-run"], cwd=ROOT, capture_output=True, timeout=60
+    )
     check("git-remote", r.returncode == 0, r.stderr.decode()[:80] if r.returncode else "")
 
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -183,7 +199,8 @@ def main():
             [
                 "osascript",
                 "-e",
-                (f'display notification "{msg}" with title "nse-screener: HEALTH CHECK FAILED" sound name "Basso"'),
+                f'display notification "{msg}" with title '
+                f'"nse-screener: HEALTH CHECK FAILED" sound name "Basso"',
             ]
         )
         sys.exit(1)

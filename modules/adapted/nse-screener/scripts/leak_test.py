@@ -95,7 +95,8 @@ def main():
         edge = tot - bh
         base = edge if base is None else base
         print(
-            f"  +{d:2d}d: v4 {tot:+9.1f}%  index {bh:+7.1f}%  edge {edge:+8.1f}pt  ({100 * edge / base:5.1f}% retained)"
+            f"  +{d:2d}d: v4 {tot:+9.1f}%  index {bh:+7.1f}%  "
+            f"edge {edge:+8.1f}pt  ({100 * edge / base:5.1f}% retained)"
         )
     print("\nA leak would hold ~100% retention at every delay.")
 

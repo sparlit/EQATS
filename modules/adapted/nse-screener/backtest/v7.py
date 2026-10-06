@@ -50,7 +50,9 @@ def sue_frame(dates: pd.DatetimeIndex, trailing: int = 8, simple_yoy: bool = Fal
 
     g = fr.groupby("symbol")
     fr["yoy"] = fr["net_profit"] - g["net_profit"].shift(4)
-    fr["sig"] = fr.groupby("symbol")["yoy"].transform(lambda s: s / s.rolling(trailing, min_periods=6).std())
+    fr["sig"] = fr.groupby("symbol")["yoy"].transform(
+        lambda s: s / s.rolling(trailing, min_periods=6).std()
+    )
     if simple_yoy:  # grid variant: plain % growth vs |base|
         base = g["net_profit"].shift(4)
         fr["sig"] = fr["yoy"] / base.abs().replace(0, np.nan)
@@ -112,11 +114,18 @@ def run() -> None:
         corr = ref["eq"]["ret"].corr(r_st["eq"]["ret"])
         print(f"   corr(v4, v7-standalone) monthly: {corr:.2f}  (sleeve criterion: < 0.6)")
         print("   --- grid ---")
-        monthly.report("pool_60", monthly.simulate(p, ctx, regime_filter=True, select_fn=overlay(sue, pool=60)))
-        monthly.report("sue_6q", monthly.simulate(p, ctx, regime_filter=True, select_fn=overlay(sue6)))
-        monthly.report("simple_yoy", monthly.simulate(p, ctx, regime_filter=True, select_fn=overlay(yoy)))
         monthly.report(
-            "require_pos_np", monthly.simulate(p, ctx, regime_filter=True, select_fn=overlay(sue, need_pos=True))
+            "pool_60", monthly.simulate(p, ctx, regime_filter=True, select_fn=overlay(sue, pool=60))
+        )
+        monthly.report(
+            "sue_6q", monthly.simulate(p, ctx, regime_filter=True, select_fn=overlay(sue6))
+        )
+        monthly.report(
+            "simple_yoy", monthly.simulate(p, ctx, regime_filter=True, select_fn=overlay(yoy))
+        )
+        monthly.report(
+            "require_pos_np",
+            monthly.simulate(p, ctx, regime_filter=True, select_fn=overlay(sue, need_pos=True)),
         )
 
 

@@ -127,11 +127,15 @@ def simulate(
             else:
                 rets.append(path.iloc[-1] / po - 1)
 
-        churn = len(set(new) - set(holdings)) / max(1, len(new)) if new else (1.0 if holdings else 0.0)
+        churn = (
+            len(set(new) - set(holdings)) / max(1, len(new)) if new else (1.0 if holdings else 0.0)
+        )
         gross = float(np.mean(rets)) if rets else 0.0
         net = expo * (gross - churn * 2 * cost)
         equity *= 1 + net
-        rows.append({"date": t1, "ret": net, "equity": equity, "n": len(new), "churn": round(churn, 2)})
+        rows.append(
+            {"date": t1, "ret": net, "equity": equity, "n": len(new), "churn": round(churn, 2)}
+        )
         holdings = new
 
     eq = pd.DataFrame(rows).set_index("date")
@@ -171,7 +175,10 @@ def report(name: str, r: dict) -> dict:
 
 
 def main() -> None:
-    for label, start, end in (("IN-SAMPLE 2023-26", "2022-01-01", None), ("OUT-OF-SAMPLE 2017-22", None, "2022-12-31")):
+    for label, start, end in (
+        ("IN-SAMPLE 2023-26", "2022-01-01", None),
+        ("OUT-OF-SAMPLE 2017-22", None, "2022-12-31"),
+    ):
         print(f"\n=== {label} ===")
         p = features._panel(start, end)
         ctx = features._context(p)
@@ -184,7 +191,9 @@ def main() -> None:
             report("floor_2.5cr", simulate(p, ctx, turnover_floor=250)),
             report("floor_10cr", simulate(p, ctx, turnover_floor=1000)),
         ]
-        pd.DataFrame(rows).to_csv(config.DATA_DIR / f"v4_{label.split()[0].lower()}.csv", index=False)
+        pd.DataFrame(rows).to_csv(
+            config.DATA_DIR / f"v4_{label.split()[0].lower()}.csv", index=False
+        )
 
 
 if __name__ == "__main__":

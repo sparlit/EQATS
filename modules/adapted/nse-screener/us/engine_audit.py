@@ -28,7 +28,6 @@ against the published US momentum record. Not a strategy.
     python -m us.engine_audit --fetch    # deep prices (restartable) + French
     python -m us.engine_audit            # run the audit
 """
-import io
 import sys
 import time
 import zipfile
@@ -67,7 +66,9 @@ def fetch_deep() -> None:
         if part.exists():
             continue
         batch = tickers[i : i + 50]
-        df = yf.download(batch, start=START, auto_adjust=True, progress=False, group_by="ticker", threads=True)
+        df = yf.download(
+            batch, start=START, auto_adjust=True, progress=False, group_by="ticker", threads=True
+        )
         frames = []
         for t in batch:
             try:
@@ -86,7 +87,9 @@ def fetch_deep() -> None:
         )
         out.to_parquet(part, index=False)
         print(
-            f"  batch {i:4d}: {out['symbol'].nunique() if len(out) else 0}/{len(batch)} tickers with data", flush=True
+            f"  batch {i:4d}: {out['symbol'].nunique() if len(out) else 0}"
+            f"/{len(batch)} tickers with data",
+            flush=True,
         )
         time.sleep(1)
     print("deep fetch complete")
@@ -98,7 +101,9 @@ def fetch_french() -> None:
         dst = FRENCH / name
         if dst.exists():
             continue
-        r = requests.get(FF + name, timeout=120, headers={"User-Agent": "research contact@deshpanda.dev"})
+        r = requests.get(
+            FF + name, timeout=120, headers={"User-Agent": "research contact@deshpanda.dev"}
+        )
         r.raise_for_status()
         dst.write_bytes(r.content)
         print(f"fetched {name} ({len(r.content) // 1024} KB)")
@@ -141,9 +146,15 @@ def load_panel():
     close = px.pivot_table(index="date", columns="symbol", values="close")
     open_ = px.pivot_table(index="date", columns="symbol", values="open")
     m = pd.read_csv(DATA / "sp500_hist.csv", parse_dates=["date"])
-    m["set"] = m["tickers"].map(lambda s: frozenset(t.strip().replace(".", "-") for t in s.split(",")))
+    m["set"] = m["tickers"].map(
+        lambda s: frozenset(t.strip().replace(".", "-") for t in s.split(","))
+    )
     members = m.set_index("date")["set"].sort_index().reindex(close.index, method="ffill")
-    p = {"close": close, "open": open_, "turnover_lacs": pd.DataFrame(1e9, index=close.index, columns=close.columns)}
+    p = {
+        "close": close,
+        "open": open_,
+        "turnover_lacs": pd.DataFrame(1e9, index=close.index, columns=close.columns),
+    }
     ctx = {"bench": close["SPY"].ffill(), "stocks": [c for c in close.columns if c != "SPY"]}
     return p, ctx, members
 
@@ -162,8 +173,13 @@ def era(ours: pd.Series, mkt: pd.Series, lo: str, hi: str) -> float:
 def main():
     vw10, ew10, mkt = load_french()
     p, ctx, members = load_panel()
-    print(f"panel: {p['close'].shape[1]} symbols, {p['close'].index[0].date()} → {p['close'].index[-1].date()}")
-    res = monthly.simulate(p, ctx, top_n=20, skip=21, cost=0.0025, regime_filter=False, select_fn=member_top(members))
+    print(
+        f"panel: {p['close'].shape[1]} symbols, "
+        f"{p['close'].index[0].date()} → {p['close'].index[-1].date()}"
+    )
+    res = monthly.simulate(
+        p, ctx, top_n=20, skip=21, cost=0.0025, regime_filter=False, select_fn=member_top(members)
+    )
     ours = res["eq"]["ret"].copy()
     # simulate() indexes each row by t1 = the month-end the return ENDS
     # at — French's convention already; just snap to calendar month-end

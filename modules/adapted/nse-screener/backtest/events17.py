@@ -28,7 +28,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 Note: the 'order wins >= crore' grid cell is untestable (attachment text
 not retained in the slim store) — disclosed, skipped.
 """
-from pathlib import Path
 
 import pandas as pd
 from backtest import features
@@ -112,7 +111,9 @@ def main():
             report(f"{kind} 63d", run_kind(w[w["kind"] == kind], *args), nm)
             report(f"{kind} hold_21", run_kind(w[w["kind"] == kind], *args, hold=21), nm)
             report(f"{kind} hold_126", run_kind(w[w["kind"] == kind], *args, hold=126), nm)
-        strict = w[(w["kind"] == "buyback") & w["desc"].str.lower().str.contains("buyback", na=False)]
+        strict = w[
+            (w["kind"] == "buyback") & w["desc"].str.lower().str.contains("buyback", na=False)
+        ]
         report("buyback strict-category", run_kind(strict, *args), nm)
 
 

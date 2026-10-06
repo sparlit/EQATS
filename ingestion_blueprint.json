@@ -1,5 +1,5 @@
 {
-  "current_index": 110,
+  "current_index": 111,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -885,7 +885,7 @@
       "name": "nse-screener",
       "target": "deshpanda/nse-screener",
       "url": "https://github.com/deshpanda/nse-screener",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },

@@ -62,7 +62,14 @@ def deal_outcomes(hold: int = 63):
         if pd.isna(p0) or pd.isna(p1) or p0 <= 0:
             continue
         b = bench_c.iloc[pos + hold] / bench_o.iloc[pos] - 1
-        rows.append({"date": r["date"], "symbol": sym, "client": r["client_name"], "excess": 100 * (p1 / p0 - 1 - b)})
+        rows.append(
+            {
+                "date": r["date"],
+                "symbol": sym,
+                "client": r["client_name"],
+                "excess": 100 * (p1 / p0 - 1 - b),
+            }
+        )
     return pd.DataFrame(rows).sort_values("date").reset_index(drop=True)
 
 
@@ -85,7 +92,11 @@ def run_variant(deals, min_n=10, min_t=1.0, top_decile=False, lag_days=95):
             proven = m > 0 and t >= min_t
             if top_decile:
                 means = [np.mean(v) for v in hist.values() if len(v) >= min_n]
-                proven = len(past) >= min_n and len(means) >= 10 and np.mean(past) >= np.quantile(means, 0.9)
+                proven = (
+                    len(past) >= min_n
+                    and len(means) >= 10
+                    and np.mean(past) >= np.quantile(means, 0.9)
+                )
         if proven:
             k = r["symbol"]
             if (d - last_evt.get(k, pd.Timestamp("1900-01-01"))).days > 92:

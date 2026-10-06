@@ -40,11 +40,16 @@ from ingest import nse
 
 import config
 
-OLD_URL = "https://nsearchives.nseindia.com/content/historical/EQUITIES/{yyyy}/{mon}/cm{ddmonyyyy}bhav.csv.zip"
+OLD_URL = (
+    "https://nsearchives.nseindia.com/content/historical/EQUITIES/"
+    "{yyyy}/{mon}/cm{ddmonyyyy}bhav.csv.zip"
+)
 
 
 def fetch(d: date) -> pd.DataFrame | None:
-    url = OLD_URL.format(yyyy=d.strftime("%Y"), mon=d.strftime("%b").upper(), ddmonyyyy=d.strftime("%d%b%Y").upper())
+    url = OLD_URL.format(
+        yyyy=d.strftime("%Y"), mon=d.strftime("%b").upper(), ddmonyyyy=d.strftime("%d%b%Y").upper()
+    )
     r = nse.get(url, timeout=config.TIMEOUT)
     if r.status_code == 404:
         return None  # holiday / weekend
@@ -61,7 +66,9 @@ def fetch(d: date) -> pd.DataFrame | None:
             "close": df["CLOSE"],
             "volume": df["TOTTRDQTY"].astype("float64"),
             "turnover_lacs": df["TOTTRDVAL"] / 1e5,  # rupees → lakhs, verified
-            "trades": (df["TOTALTRADES"] if "TOTALTRADES" in df.columns else np.nan),  # absent pre-~2011
+            "trades": (
+                df["TOTALTRADES"] if "TOTALTRADES" in df.columns else np.nan
+            ),  # absent pre-~2011
             "deliv_qty": np.nan,
             "deliv_pct": np.nan,
         }

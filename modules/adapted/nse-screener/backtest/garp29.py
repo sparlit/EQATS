@@ -47,7 +47,11 @@ def ttm_frame() -> pd.DataFrame:
     d = pd.read_parquet(config.DATA_DIR / "fr_xbrl" / "parsed.parquet")
     d = d.dropna(subset=["eps", "q_end", "broadcast"])
     d["symbol"] = renames.canonical(d["symbol"].astype(str))
-    d = d.sort_values("broadcast").drop_duplicates(["symbol", "q_end"], keep="last").sort_values(["symbol", "q_end"])
+    d = (
+        d.sort_values("broadcast")
+        .drop_duplicates(["symbol", "q_end"], keep="last")
+        .sort_values(["symbol", "q_end"])
+    )
     rows = []
     for sym, g in d.groupby("symbol"):
         g = g.reset_index(drop=True)
@@ -60,7 +64,14 @@ def ttm_frame() -> pd.DataFrame:
             prev = w8["eps"].iloc[:4].sum()
             if ttm <= 0 or prev <= 0:
                 continue
-            rows.append({"symbol": sym, "avail": w8["broadcast"].iloc[4:].max(), "ttm": ttm, "growth": ttm / prev - 1})
+            rows.append(
+                {
+                    "symbol": sym,
+                    "avail": w8["broadcast"].iloc[4:].max(),
+                    "ttm": ttm,
+                    "growth": ttm / prev - 1,
+                }
+            )
     return pd.DataFrame(rows).sort_values("avail")
 
 
@@ -69,9 +80,15 @@ def build_picks(mcap_floor: float) -> dict:
     f = ttm_frame()
     closes = raw_close_panel()  # month-end raw closes
     sh = implied_shares()
-    sh_piv = sh.pivot_table(index="broadcast", columns="symbol", values="shares", aggfunc="last").sort_index()
-    ttm_piv = f.pivot_table(index="avail", columns="symbol", values="ttm", aggfunc="last").sort_index()
-    g_piv = f.pivot_table(index="avail", columns="symbol", values="growth", aggfunc="last").sort_index()
+    sh_piv = sh.pivot_table(
+        index="broadcast", columns="symbol", values="shares", aggfunc="last"
+    ).sort_index()
+    ttm_piv = f.pivot_table(
+        index="avail", columns="symbol", values="ttm", aggfunc="last"
+    ).sort_index()
+    g_piv = f.pivot_table(
+        index="avail", columns="symbol", values="growth", aggfunc="last"
+    ).sort_index()
     picks = {}
     for t in closes.index:
         if not len(ttm_piv.loc[:t]):
@@ -85,7 +102,14 @@ def build_picks(mcap_floor: float) -> dict:
         pe = px / ttm
         peg = pe / (100 * gr)
         mcap = px * shares
-        ok = (pe > 0) & (pe < PE_MAX) & (gr > G_MIN) & (peg > 0) & (peg < PEG_MAX) & (mcap > mcap_floor)
+        ok = (
+            (pe > 0)
+            & (pe < PE_MAX)
+            & (gr > G_MIN)
+            & (peg > 0)
+            & (peg < PEG_MAX)
+            & (mcap > mcap_floor)
+        )
         q = peg[ok.fillna(False)].dropna().nsmallest(TOP_BY_PEG)
         picks[pd.Timestamp(t.date())] = list(q.index)
     return picks
@@ -103,7 +127,9 @@ def main():
     picks_p = build_picks(MCAP_PRIMARY)
     picks_l = build_picks(MCAP_LITERAL)
     sizes = pd.Series({t: len(v) for t, v in picks_p.items()})
-    print(f"primary qualifiers/month: median {sizes.median():.0f} min {sizes.min()} max {sizes.max()}")
+    print(
+        f"primary qualifiers/month: median {sizes.median():.0f} min {sizes.min()} max {sizes.max()}"
+    )
     for label, start, end in (
         ("IS 2023-26 (DECISION)", "2022-01-01", None),
         ("OOS 2019H2-22 (single shot)", "2018-07-01", "2022-12-31"),
@@ -111,9 +137,18 @@ def main():
         print(f"\n=== {label} ===")
         p = features._panel(start, end)
         ctx = features._context(p)
-        monthly.report("garp_primary", monthly.simulate(p, ctx, regime_filter=False, select_fn=garp_select(picks_p)))
-        monthly.report("garp_regime", monthly.simulate(p, ctx, regime_filter=True, select_fn=garp_select(picks_p)))
-        monthly.report("garp_literal_5B", monthly.simulate(p, ctx, regime_filter=False, select_fn=garp_select(picks_l)))
+        monthly.report(
+            "garp_primary",
+            monthly.simulate(p, ctx, regime_filter=False, select_fn=garp_select(picks_p)),
+        )
+        monthly.report(
+            "garp_regime",
+            monthly.simulate(p, ctx, regime_filter=True, select_fn=garp_select(picks_p)),
+        )
+        monthly.report(
+            "garp_literal_5B",
+            monthly.simulate(p, ctx, regime_filter=False, select_fn=garp_select(picks_l)),
+        )
 
 
 if __name__ == "__main__":

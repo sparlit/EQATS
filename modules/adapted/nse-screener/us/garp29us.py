@@ -76,14 +76,19 @@ def fetch_raw() -> None:
 
 
 def eps_frame() -> pd.DataFrame:
-    df = pd.concat(map(pd.read_parquet, sorted((config.DATA_DIR / "sec_fund").glob("*.parquet"))), ignore_index=True)
+    df = pd.concat(
+        map(pd.read_parquet, sorted((config.DATA_DIR / "sec_fund").glob("*.parquet"))),
+        ignore_index=True,
+    )
     df = df[df["qtrs"] == "1"]
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
     df["ddate"] = pd.to_datetime(df["ddate"], format="%Y%m%d", errors="coerce")
     df["filed"] = pd.to_datetime(df["filed"], format="%Y%m%d", errors="coerce")
     df = df.dropna(subset=["value", "ddate", "filed"])
     df["pref"] = (df["tag"] == "EarningsPerShareDiluted").astype(int)
-    df = df.sort_values(["pref", "filed"], ascending=[False, True]).drop_duplicates(["cik", "ddate"], keep="first")
+    df = df.sort_values(["pref", "filed"], ascending=[False, True]).drop_duplicates(
+        ["cik", "ddate"], keep="first"
+    )
     tickers = json.loads((DATA / "company_tickers.json").read_text())
     cik2tkr = {str(v["cik_str"]): v["ticker"].replace(".", "-") for v in tickers.values()}
     df["symbol"] = df["cik"].astype(str).str.lstrip("0").map(cik2tkr)
@@ -98,7 +103,14 @@ def eps_frame() -> pd.DataFrame:
             ttm, prev = w8["value"].iloc[4:].sum(), w8["value"].iloc[:4].sum()
             if ttm <= 0 or prev <= 0:
                 continue
-            rows.append({"symbol": sym, "avail": w8["filed"].iloc[4:].max(), "ttm": ttm, "growth": ttm / prev - 1})
+            rows.append(
+                {
+                    "symbol": sym,
+                    "avail": w8["filed"].iloc[4:].max(),
+                    "ttm": ttm,
+                    "growth": ttm / prev - 1,
+                }
+            )
     return pd.DataFrame(rows).sort_values("avail")
 
 
@@ -108,8 +120,12 @@ def build_picks() -> dict:
     raw = pd.read_parquet(RAW)
     raw["date"] = pd.to_datetime(raw["date"], utc=True).dt.tz_localize(None)
     px = raw.pivot_table(index="date", columns="symbol", values="close")
-    ttm_p = f.pivot_table(index="avail", columns="symbol", values="ttm", aggfunc="last").sort_index()
-    g_p = f.pivot_table(index="avail", columns="symbol", values="growth", aggfunc="last").sort_index()
+    ttm_p = f.pivot_table(
+        index="avail", columns="symbol", values="ttm", aggfunc="last"
+    ).sort_index()
+    g_p = f.pivot_table(
+        index="avail", columns="symbol", values="growth", aggfunc="last"
+    ).sort_index()
     picks = {}
     for t in px.index:
         if not len(ttm_p.loc[:t]):
@@ -147,7 +163,9 @@ def main():
             mask &= idx <= end
         q = {k: v.loc[mask.values] for k, v in p.items()}
         c = {"bench": ctx["bench"].loc[mask.values], "stocks": ctx["stocks"]}
-        monthly.report("garp_us_primary", monthly.simulate(q, c, regime_filter=False, select_fn=sel))
+        monthly.report(
+            "garp_us_primary", monthly.simulate(q, c, regime_filter=False, select_fn=sel)
+        )
         monthly.report("garp_us_regime", monthly.simulate(q, c, regime_filter=True, select_fn=sel))
 
 

@@ -37,7 +37,10 @@ from ingest import nse
 
 import config
 
-URL = "https://www.nseindia.com/api/historicalOR/bulk-block-short-deals?optionType={kind}&from={frm}&to={to}&csv=true"
+URL = (
+    "https://www.nseindia.com/api/historicalOR/bulk-block-short-deals"
+    "?optionType={kind}&from={frm}&to={to}&csv=true"
+)
 
 COLS = {
     "date": "date",
@@ -75,7 +78,9 @@ def store_month(year: int, month: int) -> bool:
     out = config.DATA_DIR / "deals_hist" / f"{year}-{month:02d}.parquet"
     if out.exists():
         return True
-    frames = [f for k in ("bulk", "block") if (f := fetch_month(year, month, k)) is not None and len(f)]
+    frames = [
+        f for k in ("bulk", "block") if (f := fetch_month(year, month, k)) is not None and len(f)
+    ]
     if not frames:
         return False
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -86,8 +91,7 @@ def store_month(year: int, month: int) -> bool:
 def load_all() -> pd.DataFrame:
     files = sorted((config.DATA_DIR / "deals_hist").glob("*.parquet"))
     if not files:
-        msg = "No deals history. Run: python -m ingest.deals_hist"
-        raise SystemExit(msg)
+        raise SystemExit("No deals history. Run: python -m ingest.deals_hist")
     return pd.concat(map(pd.read_parquet, files), ignore_index=True)
 
 
