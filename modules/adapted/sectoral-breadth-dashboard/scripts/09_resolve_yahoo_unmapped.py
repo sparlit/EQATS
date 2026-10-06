@@ -31,7 +31,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import random
 import time
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -102,7 +102,9 @@ def ensure_columns(frame: pd.DataFrame) -> pd.DataFrame:
         if column not in data.columns:
             data[column] = ""
         data[column] = text_series(data[column])
-    data["yahoo_attempt_count"] = pd.to_numeric(data["yahoo_attempt_count"], errors="coerce").fillna(0).astype(int)
+    data["yahoo_attempt_count"] = (
+        pd.to_numeric(data["yahoo_attempt_count"], errors="coerce").fillna(0).astype(int)
+    )
     return data
 
 
@@ -130,7 +132,9 @@ def load_mapping() -> pd.DataFrame:
     for column in YAHOO_MAPPING_COLUMNS:
         if column not in mapping.columns:
             mapping[column] = ""
-    mapping["attempt_count"] = pd.to_numeric(mapping["attempt_count"], errors="coerce").fillna(0).astype(int)
+    mapping["attempt_count"] = (
+        pd.to_numeric(mapping["attempt_count"], errors="coerce").fillna(0).astype(int)
+    )
     return mapping[YAHOO_MAPPING_COLUMNS]
 
 
@@ -160,7 +164,9 @@ def write_final_unmapped(master: pd.DataFrame) -> pd.DataFrame:
         "yahoo_failure_reason",
     ]
     columns = [column for column in columns if column in unresolved.columns]
-    unresolved = unresolved[columns].drop_duplicates("isin", keep="last").sort_values(["symbol", "isin"])
+    unresolved = (
+        unresolved[columns].drop_duplicates("isin", keep="last").sort_values(["symbol", "isin"])
+    )
     unresolved.to_csv(YAHOO_UNMAPPED_FILE, index=False)
     return unresolved
 
@@ -168,17 +174,16 @@ def write_final_unmapped(master: pd.DataFrame) -> pd.DataFrame:
 def main() -> None:
     print("========== YAHOO FALLBACK START ==========")
     if not MASTER_FILE.exists():
-        msg = f"Missing master file: {MASTER_FILE}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Missing master file: {MASTER_FILE}")
     if not STILL_UNMAPPED_FILE.exists():
-        msg = f"Missing BSE exception report: {STILL_UNMAPPED_FILE}. Run script 08 first."
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(
+            f"Missing BSE exception report: {STILL_UNMAPPED_FILE}. Run script 08 first."
+        )
 
     master = ensure_columns(pd.read_parquet(MASTER_FILE))
     bse_unmapped = pd.read_csv(STILL_UNMAPPED_FILE, dtype=str).fillna("")
     if "isin" not in bse_unmapped.columns:
-        msg = f"BSE exception report has no ISIN column: {STILL_UNMAPPED_FILE}"
-        raise ValueError(msg)
+        raise ValueError(f"BSE exception report has no ISIN column: {STILL_UNMAPPED_FILE}")
     bse_isins = set(text_series(bse_unmapped["isin"])) - {""}
 
     candidates = master[
@@ -207,7 +212,9 @@ def main() -> None:
         isin = clean(row["isin"])
         ticker = f"{symbol}.NS"
         prior_attempts = int(master.at[index, "yahoo_attempt_count"])
-        print(f"[{number}/{len(candidates)}] {symbol} | {ticker} | prior attempts: {prior_attempts}")
+        print(
+            f"[{number}/{len(candidates)}] {symbol} | {ticker} | prior attempts: {prior_attempts}"
+        )
 
         info, failure_reason = fetch_yahoo_info(ticker)
         yahoo_sector = clean(info.get("sector"))
@@ -228,18 +235,26 @@ def main() -> None:
             # hierarchy. Preserve BSE/NSE taxonomy as blank/retryable until it
             # is genuinely available, while retaining Yahoo facts for review.
             master.at[index, "classification_status"] = "YAHOO_RETRY"
-            master.at[index, "classification_source"] = "Yahoo Finance profile (hierarchy incomplete)"
+            master.at[index, "classification_source"] = (
+                "Yahoo Finance profile (hierarchy incomplete)"
+            )
             master.at[index, "classification_failure_reason"] = (
                 "Yahoo provided sector/industry but no verified Basic Industry mapping"
             )
             master.at[index, "yahoo_failure_reason"] = ""
             status = "YAHOO_RETRY"
             reason = master.at[index, "classification_failure_reason"]
-            print(f"  Yahoo profile saved | Sector: {yahoo_sector or '—'} | Industry: {yahoo_industry or '—'}")
+            print(
+                f"  Yahoo profile saved | Sector: {yahoo_sector or '—'} | Industry: {yahoo_industry or '—'}"
+            )
         else:
             master.at[index, "classification_status"] = "YAHOO_RETRY"
-            master.at[index, "classification_failure_reason"] = failure_reason or "Yahoo returned no sector or industry"
-            master.at[index, "yahoo_failure_reason"] = master.at[index, "classification_failure_reason"]
+            master.at[index, "classification_failure_reason"] = (
+                failure_reason or "Yahoo returned no sector or industry"
+            )
+            master.at[index, "yahoo_failure_reason"] = master.at[
+                index, "classification_failure_reason"
+            ]
             status = "YAHOO_RETRY"
             reason = master.at[index, "yahoo_failure_reason"]
             print(f"  Still retryable: {reason}")
@@ -263,10 +278,18 @@ def main() -> None:
         time.sleep(REQUEST_DELAY_SECONDS)
 
     mapping = pd.concat([mapping, pd.DataFrame(records)], ignore_index=True)
-    mapping["attempt_count"] = pd.to_numeric(mapping["attempt_count"], errors="coerce").fillna(0).astype(int)
-    mapping = mapping.drop_duplicates("isin", keep="last").sort_values(["symbol", "isin"]).reset_index(drop=True)
+    mapping["attempt_count"] = (
+        pd.to_numeric(mapping["attempt_count"], errors="coerce").fillna(0).astype(int)
+    )
+    mapping = (
+        mapping.drop_duplicates("isin", keep="last")
+        .sort_values(["symbol", "isin"])
+        .reset_index(drop=True)
+    )
     master = (
-        master.drop_duplicates("isin", keep="last").sort_values(["symbol", "series", "isin"]).reset_index(drop=True)
+        master.drop_duplicates("isin", keep="last")
+        .sort_values(["symbol", "series", "isin"])
+        .reset_index(drop=True)
     )
     master.to_parquet(MASTER_FILE, index=False)
     mapping.to_csv(YAHOO_MAPPING_FILE, index=False)
@@ -274,7 +297,9 @@ def main() -> None:
 
     print("========== YAHOO FALLBACK COMPLETE ==========")
     print(f"Candidates processed this run: {len(records):,}")
-    print(f"Complete Sector/Industry/Basic Industry mappings: {int(complete_hierarchy(master).sum()):,}")
+    print(
+        f"Complete Sector/Industry/Basic Industry mappings: {int(complete_hierarchy(master).sum()):,}"
+    )
     print(f"Still incomplete/retryable: {len(unresolved):,}")
     print(f"Updated master: {MASTER_FILE}")
     print(f"Yahoo audit: {YAHOO_MAPPING_FILE}")

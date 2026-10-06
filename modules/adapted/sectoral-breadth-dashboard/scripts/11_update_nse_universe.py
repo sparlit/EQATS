@@ -32,7 +32,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import time
 import urllib.error
 import urllib.request
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from io import StringIO
 from pathlib import Path
 
@@ -110,7 +110,13 @@ def download_recent_bhavcopy() -> tuple[pd.DataFrame, pd.Timestamp]:
         try:
             text = request_text(url)
             frame = pd.read_csv(StringIO(text))
-        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError, OSError) as exc:
+        except (
+            urllib.error.HTTPError,
+            urllib.error.URLError,
+            TimeoutError,
+            ValueError,
+            OSError,
+        ) as exc:
             print(f"Bhavcopy unavailable for {candidate.isoformat()}: {type(exc).__name__}")
             time.sleep(1)
             continue
@@ -140,8 +146,9 @@ def download_recent_bhavcopy() -> tuple[pd.DataFrame, pd.Timestamp]:
         if not frame.empty:
             return frame, pd.Timestamp(candidate)
 
-    msg = f"Could not download a usable NSE EQ bhavcopy. Attempted dates: {', '.join(attempted)}"
-    raise RuntimeError(msg)
+    raise RuntimeError(
+        f"Could not download a usable NSE EQ bhavcopy. Attempted dates: {', '.join(attempted)}"
+    )
 
 
 def ensure_master_schema(frame: pd.DataFrame) -> pd.DataFrame:
@@ -185,11 +192,10 @@ def main() -> None:
     print("========== NSE UNIVERSE UPDATE START ==========")
 
     if not MASTER_FILE.exists():
-        msg = (
+        raise FileNotFoundError(
             f"Missing classified master file: {MASTER_FILE}. "
             "Run scripts/05_download_nse_master.py and the mapping pipeline first."
         )
-        raise FileNotFoundError(msg)
 
     current = ensure_master_schema(pd.read_parquet(MASTER_FILE))
     current = current[(current["isin"] != "") & (current["symbol"] != "")].copy()

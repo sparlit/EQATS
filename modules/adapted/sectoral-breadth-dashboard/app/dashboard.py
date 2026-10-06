@@ -27,7 +27,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 # Fast snapshot-only Streamlit dashboard with intraday support and deep linking.
 
 
-import json
 from pathlib import Path
 
 import pandas as pd
@@ -107,7 +106,7 @@ def clean_text(value: object) -> str:
     if value is None or pd.isna(value):
         return "Unclassified"
     text = str(value).strip()
-    return text or "Unclassified"
+    return text if text else "Unclassified"
 
 
 def number(value: object, default: float = 0.0) -> float:
@@ -141,7 +140,7 @@ def format_integer(value: object) -> str:
     if value is None or pd.isna(value):
         return "—"
     try:
-        return f"{round(float(value)):,}"
+        return f"{int(round(float(value))):,}"
     except (TypeError, ValueError):
         return "—"
 
@@ -225,7 +224,8 @@ def apply_chart_style(figure: go.Figure, height: int) -> go.Figure:
 def load_dates(path: str, modified: float) -> list[pd.Timestamp]:
     frame = pd.read_parquet(path)
     return sorted(
-        pd.Timestamp(value).normalize() for value in pd.to_datetime(frame["date"], errors="coerce").dropna().unique()
+        pd.Timestamp(value).normalize()
+        for value in pd.to_datetime(frame["date"], errors="coerce").dropna().unique()
     )
 
 
@@ -244,8 +244,7 @@ def snapshot_path(selected_date: pd.Timestamp, filename: str) -> Path:
 def load_selected_snapshot(selected_date: pd.Timestamp, filename: str) -> pd.DataFrame:
     path = snapshot_path(selected_date, filename)
     if not path.exists():
-        msg = f"Prepared snapshot is unavailable: {path.relative_to(ROOT)}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Prepared snapshot is unavailable: {path.relative_to(ROOT)}")
     return load_snapshot(str(path), path.stat().st_mtime)
 
 
@@ -257,7 +256,9 @@ def load_trend(group_kind: str, selected_date: pd.Timestamp, group_name: str) ->
     history = load_snapshot(str(path), path.stat().st_mtime)
     if group_kind not in history.columns or "date" not in history.columns:
         return pd.DataFrame()
-    result = history[(history[group_kind].map(clean_text) == group_name) & (history["date"] <= selected_date)].copy()
+    result = history[
+        (history[group_kind].map(clean_text) == group_name) & (history["date"] <= selected_date)
+    ].copy()
     return result.sort_values("date").tail(30)
 
 
@@ -276,10 +277,12 @@ def global_date_picker(dates: list[pd.Timestamp]) -> pd.Timestamp:
     selected = resolve_date(st.session_state[state_key], dates)
     st.session_state[state_key] = selected
 
-    previous, calendar, next_button, label, _spacer = st.columns([0.28, 1.15, 0.28, 1.45, 3.84])
+    previous, calendar, next_button, label, spacer = st.columns([0.28, 1.15, 0.28, 1.45, 3.84])
     index = dates.index(selected)
     with previous:
-        if st.button("‹", key="global_previous_date", disabled=index == 0, use_container_width=True):
+        if st.button(
+            "‹", key="global_previous_date", disabled=index == 0, use_container_width=True
+        ):
             st.session_state[state_key] = dates[index - 1]
             st.rerun()
     with calendar:
@@ -292,7 +295,9 @@ def global_date_picker(dates: list[pd.Timestamp]) -> pd.Timestamp:
             format="DD/MM/YYYY",
         )
     with next_button:
-        if st.button("›", key="global_next_date", disabled=index == len(dates) - 1, use_container_width=True):
+        if st.button(
+            "›", key="global_next_date", disabled=index == len(dates) - 1, use_container_width=True
+        ):
             st.session_state[state_key] = dates[index + 1]
             st.rerun()
 
@@ -318,7 +323,9 @@ def show_table(data: pd.DataFrame, height: int, chart_links: bool = False) -> No
         if chart_links and "Chart" in view.columns
         else {}
     )
-    st.dataframe(view, use_container_width=True, hide_index=True, height=height, column_config=config)
+    st.dataframe(
+        view, use_container_width=True, hide_index=True, height=height, column_config=config
+    )
 
 
 def select_group_everywhere(group_kind: str, group_name: str) -> None:
@@ -339,9 +346,12 @@ def render_improver_cards(frame: pd.DataFrame, group_column: str, title: str) ->
     data = data[data["members"] >= 5]
 
     data["_score"] = pd.to_numeric(data[score_column], errors="coerce").fillna(0.0)
-    data["_change"] = pd.to_numeric(data.get("leadership_change_5d", 0), errors="coerce").fillna(0.0)
+    data["_change"] = pd.to_numeric(data.get("leadership_change_5d", 0), errors="coerce").fillna(
+        0.0
+    )
     data["_priority"] = pd.to_numeric(
-        data.get("improver_priority", 0.65 * data["_score"] + 0.35 * data["_change"].clip(lower=0)), errors="coerce"
+        data.get("improver_priority", 0.65 * data["_score"] + 0.35 * data["_change"].clip(lower=0)),
+        errors="coerce",
     ).fillna(0.0)
     data = (
         data[data["_change"] > 0]
@@ -361,7 +371,11 @@ def render_improver_cards(frame: pd.DataFrame, group_column: str, title: str) ->
             f"<div class='improver-card' style='border-left-color:{status_color};'><div style='display:flex;justify-content:space-between;gap:12px;align-items:start;'><div style='min-width:0;'><div class='improver-name'>{rank + 1}. {name}</div><div class='improver-meta'><span class='status-pill' style='color:{status_color};background:{status_bg};'>{status}</span> | {members} Members</div></div><div style='display:flex;gap:18px;flex-shrink:0;'><div class='improver-number' style='color:{score_color(row['_score'])};'>{format_number(row['_score'])}<div class='improver-meta'>Current score</div></div><div class='improver-number' style='color:{change_color(row['_change'])};'>{format_signed(row['_change'])}<div class='improver-meta'>5-session change</div></div></div></div></div>",
             unsafe_allow_html=True,
         )
-        if st.button("↗ Jump to Constituents + Chart", key=f"open_imp_{group_column}_{rank}_{name}", type="tertiary"):
+        if st.button(
+            "↗ Jump to Constituents + Chart",
+            key=f"open_imp_{group_column}_{rank}_{name}",
+            type="tertiary",
+        ):
             select_group_everywhere(group_column, name)
 
 
@@ -372,15 +386,21 @@ def render_leadership_table(frame: pd.DataFrame, group_column: str, title: str) 
 
     data = frame.copy()
     data["_score"] = pd.to_numeric(data[score_column], errors="coerce").fillna(0.0)
-    data["_change"] = pd.to_numeric(data.get("leadership_change_5d", 0), errors="coerce").fillna(0.0)
+    data["_change"] = pd.to_numeric(data.get("leadership_change_5d", 0), errors="coerce").fillna(
+        0.0
+    )
     data["members"] = pd.to_numeric(data.get("members", 0), errors="coerce").fillna(0).astype(int)
 
     # Split the dataset: >= 5 members vs < 5 members
     main_data = (
-        data[data["members"] >= 5].sort_values(["_score", "_change"], ascending=[False, False]).reset_index(drop=True)
+        data[data["members"] >= 5]
+        .sort_values(["_score", "_change"], ascending=[False, False])
+        .reset_index(drop=True)
     )
     small_data = (
-        data[data["members"] < 5].sort_values(["_score", "_change"], ascending=[False, False]).reset_index(drop=True)
+        data[data["members"] < 5]
+        .sort_values(["_score", "_change"], ascending=[False, False])
+        .reset_index(drop=True)
     )
 
     def build_table(df: pd.DataFrame, table_title: str, is_main: bool):
@@ -403,24 +423,31 @@ def render_leadership_table(frame: pd.DataFrame, group_column: str, title: str) 
                 cols = st.columns([0.6, 2.5, 1, 1.2, 1.2, 2.0, 1.5])
                 cols[0].markdown(f"<div class='table-row'>{idx + 1}</div>", unsafe_allow_html=True)
                 cols[1].markdown(
-                    f"<div class='table-row'><b>{clean_text(row[group_column])}</b></div>", unsafe_allow_html=True
+                    f"<div class='table-row'><b>{clean_text(row[group_column])}</b></div>",
+                    unsafe_allow_html=True,
                 )
                 cols[2].markdown(
-                    f"<div class='table-row'>{format_integer(row['members'])}</div>", unsafe_allow_html=True
+                    f"<div class='table-row'>{format_integer(row['members'])}</div>",
+                    unsafe_allow_html=True,
                 )
                 cols[3].markdown(
                     f"<div class='table-row' style='color:{score_color(row['_score'])}'><b>{format_number(row['_score'])}</b></div>",
                     unsafe_allow_html=True,
                 )
                 cols[4].markdown(
-                    f"<div class='table-row'>{change_indicator(row['_change'])}</div>", unsafe_allow_html=True
+                    f"<div class='table-row'>{change_indicator(row['_change'])}</div>",
+                    unsafe_allow_html=True,
                 )
                 cols[5].markdown(
                     f"<div class='table-row' style='font-size:0.8rem; color:{MUTED};'>{leadership_status(row['_score'], row['_change'])[0]}</div>",
                     unsafe_allow_html=True,
                 )
                 key_prefix = "main" if is_main else "small"
-                if cols[6].button("↗ Constituents", key=f"tbl_btn_{group_column}_{key_prefix}_{idx}", type="tertiary"):
+                if cols[6].button(
+                    "↗ Constituents",
+                    key=f"tbl_btn_{group_column}_{key_prefix}_{idx}",
+                    type="tertiary",
+                ):
                     select_group_everywhere(group_column, row[group_column])
 
     # Render Main Table
@@ -431,9 +458,12 @@ def render_leadership_table(frame: pd.DataFrame, group_column: str, title: str) 
         build_table(small_data, f"Small {title} (< 5 Stocks)", is_main=False)
 
 
-def render_constituents(stock: pd.DataFrame, groups: pd.DataFrame, group_column: str, title: str) -> None:
+def render_constituents(
+    stock: pd.DataFrame, groups: pd.DataFrame, group_column: str, title: str
+) -> None:
     st.markdown(
-        f"<div id='constituents_anchor_{group_column}' style='padding-top:20px;'></div>", unsafe_allow_html=True
+        f"<div id='constituents_anchor_{group_column}' style='padding-top:20px;'></div>",
+        unsafe_allow_html=True,
     )
     st.markdown(f"### {title} Constituents")
     if group_column not in stock.columns or group_column not in groups.columns:
@@ -441,9 +471,12 @@ def render_constituents(stock: pd.DataFrame, groups: pd.DataFrame, group_column:
 
     # Dropdown includes ALL industries (both large and small)
     ordered = groups.copy()
-    ordered["_change"] = pd.to_numeric(ordered.get("leadership_change_5d", 0), errors="coerce").fillna(0.0)
+    ordered["_change"] = pd.to_numeric(
+        ordered.get("leadership_change_5d", 0), errors="coerce"
+    ).fillna(0.0)
     options = [
-        clean_text(value) for value in ordered.sort_values("_change", ascending=False)[group_column].dropna().unique()
+        clean_text(value)
+        for value in ordered.sort_values("_change", ascending=False)[group_column].dropna().unique()
     ]
 
     state_key = f"selected_{group_column}_constituents"
@@ -498,7 +531,11 @@ def render_constituents(stock: pd.DataFrame, groups: pd.DataFrame, group_column:
 
 
 def render_trend(
-    groups: pd.DataFrame, selected_date: pd.Timestamp, group_kind: str, group_column: str, title: str
+    groups: pd.DataFrame,
+    selected_date: pd.Timestamp,
+    group_kind: str,
+    group_column: str,
+    title: str,
 ) -> None:
     st.markdown(f"### Selected {title.lower()} trend")
     if group_column not in groups.columns:
@@ -506,15 +543,23 @@ def render_trend(
 
     ranked = groups.copy()
     ranked["_score"] = pd.to_numeric(ranked.get("leadership_score", 0), errors="coerce").fillna(0.0)
-    ranked["_change"] = pd.to_numeric(ranked.get("leadership_change_5d", 0), errors="coerce").fillna(0.0)
+    ranked["_change"] = pd.to_numeric(
+        ranked.get("leadership_change_5d", 0), errors="coerce"
+    ).fillna(0.0)
     ranked["_priority"] = pd.to_numeric(
-        ranked.get("improver_priority", 0.65 * ranked["_score"] + 0.35 * ranked["_change"].clip(lower=0)),
+        ranked.get(
+            "improver_priority", 0.65 * ranked["_score"] + 0.35 * ranked["_change"].clip(lower=0)
+        ),
         errors="coerce",
     ).fillna(0.0)
 
     options = [
         clean_text(v)
-        for v in ranked.sort_values(["_priority", "_change"], ascending=[False, False])[group_column].dropna().unique()
+        for v in ranked.sort_values(["_priority", "_change"], ascending=[False, False])[
+            group_column
+        ]
+        .dropna()
+        .unique()
     ]
     state_key = f"selected_{group_column}_constituents"
     trend_key = f"selected_{group_column}_trend"
@@ -523,7 +568,11 @@ def render_trend(
         st.session_state[trend_key] = options[0] if options else "Unclassified"
 
     selected = st.selectbox(
-        f"View trend for {title}", options, key=trend_key, on_change=sync_state, args=(trend_key, state_key)
+        f"View trend for {title}",
+        options,
+        key=trend_key,
+        on_change=sync_state,
+        args=(trend_key, state_key),
     )
 
     selected_row = ranked[ranked[group_column].map(clean_text) == selected]
@@ -543,7 +592,9 @@ def render_trend(
     history = load_trend(group_kind, selected_date, selected)
     if history.empty:
         return
-    history["_score"] = pd.to_numeric(history.get("leadership_score", 0), errors="coerce").fillna(0.0)
+    history["_score"] = pd.to_numeric(history.get("leadership_score", 0), errors="coerce").fillna(
+        0.0
+    )
 
     fig = go.Figure(
         go.Scatter(
@@ -563,7 +614,11 @@ def render_trend(
 
 
 def render_group_tab(
-    groups: pd.DataFrame, stock: pd.DataFrame, selected_date: pd.Timestamp, group_column: str, title: str
+    groups: pd.DataFrame,
+    stock: pd.DataFrame,
+    selected_date: pd.Timestamp,
+    group_column: str,
+    title: str,
 ) -> None:
     render_improver_cards(groups, group_column, title)
     render_leadership_table(groups, group_column, title)
@@ -581,8 +636,12 @@ def top_setups_tab(selected_date: pd.Timestamp, basic: pd.DataFrame) -> None:
 
     if not basic.empty and "basic_industry" in basic.columns and "members" in basic.columns:
         member_map = basic.set_index("basic_industry")["members"].to_dict()
-        established["Ind. Members"] = established.get("basic_industry", pd.Series()).map(lambda x: member_map.get(x, 0))
-        ipo["Ind. Members"] = ipo.get("basic_industry", pd.Series()).map(lambda x: member_map.get(x, 0))
+        established["Ind. Members"] = established.get("basic_industry", pd.Series()).map(
+            lambda x: member_map.get(x, 0)
+        )
+        ipo["Ind. Members"] = ipo.get("basic_industry", pd.Series()).map(
+            lambda x: member_map.get(x, 0)
+        )
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Established qualified", format_integer(len(established)))
@@ -653,7 +712,9 @@ def render_intraday_tab():
 def main() -> None:
     handle_scroll()
     if not DATES_FILE.exists() or not SNAPSHOT_ROOT.exists():
-        st.error("Prepared snapshot data is not available yet. Run the EOD GitHub Actions workflow.")
+        st.error(
+            "Prepared snapshot data is not available yet. Run the EOD GitHub Actions workflow."
+        )
         st.stop()
 
     dates = load_dates(str(DATES_FILE), DATES_FILE.stat().st_mtime)
@@ -669,13 +730,15 @@ def main() -> None:
         else pd.DataFrame()
     )
 
-    tabs = st.tabs(["Industry Monitor", "Sector", "Industry", "Top Setups", "Intraday (Live)", "Methodology"])
+    tabs = st.tabs(
+        ["Industry Monitor", "Sector", "Industry", "Top Setups", "Intraday (Live)", "Methodology"]
+    )
     with tabs[0]:
         render_group_tab(basic, stock, selected_date, "basic_industry", "Basic Industry")
     with tabs[1]:
-        render_group_tab(sector, stock, selected_date, "sector", "Sector") if not sector.empty else st.info(
-            "Sector snapshot missing."
-        )
+        render_group_tab(
+            sector, stock, selected_date, "sector", "Sector"
+        ) if not sector.empty else st.info("Sector snapshot missing.")
     with tabs[2]:
         render_group_tab(industry, stock, selected_date, "industry", "Industry")
     with tabs[3]:

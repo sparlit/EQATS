@@ -30,7 +30,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import time
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from io import StringIO
 from pathlib import Path
 
@@ -90,8 +90,7 @@ def download_nse_csv() -> str:
             text = response.content.decode("utf-8-sig", errors="replace")
             header = text.splitlines()[0].upper() if text.splitlines() else ""
             if "SYMBOL" not in header or "ISIN" not in header:
-                msg = "NSE returned an unexpected response instead of EQUITY_L.csv"
-                raise ValueError(msg)
+                raise ValueError("NSE returned an unexpected response instead of EQUITY_L.csv")
             return text
         except Exception as exc:
             last_error = exc
@@ -99,8 +98,7 @@ def download_nse_csv() -> str:
             if attempt < 3:
                 time.sleep(attempt * 5)
 
-    msg = f"Could not download NSE equity master: {last_error}"
-    raise RuntimeError(msg)
+    raise RuntimeError(f"Could not download NSE equity master: {last_error}")
 
 
 def main() -> None:
@@ -122,8 +120,9 @@ def main() -> None:
     required = ["symbol", "company_name", "series", "isin"]
     missing = [column for column in required if column not in data.columns]
     if missing:
-        msg = f"Unexpected NSE master columns. Missing: {missing}; found: {list(data.columns)}"
-        raise ValueError(msg)
+        raise ValueError(
+            f"Unexpected NSE master columns. Missing: {missing}; found: {list(data.columns)}"
+        )
 
     for column in required:
         data[column] = clean_series(data[column])
