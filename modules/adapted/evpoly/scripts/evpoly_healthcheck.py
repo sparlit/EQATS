@@ -41,10 +41,8 @@ import json
 import os
 import sqlite3
 import subprocess
-import sys
 import time
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 EVPOLY_DIR = os.path.abspath(os.path.join(ROOT, ".."))
@@ -231,7 +229,8 @@ def _latest_strategy_decisions(con: sqlite3.Connection, limit: int = 200) -> lis
 
 def _latest_trade_events(con: sqlite3.Connection, limit: int = 300) -> list[dict[str, Any]]:
     rows = con.execute(
-        "SELECT id, ts_ms, period_timestamp, timeframe, event_type, reason FROM trade_events ORDER BY id DESC LIMIT ?",
+        "SELECT id, ts_ms, period_timestamp, timeframe, event_type, reason "
+        "FROM trade_events ORDER BY id DESC LIMIT ?",
         (int(limit),),
     ).fetchall()
     return [dict(r) for r in rows]
@@ -270,12 +269,18 @@ def main() -> int:
         decisions = _latest_strategy_decisions(con)
         events = _latest_trade_events(con)
         reporting_cutover_ts_ms, include_legacy_default = _reporting_scope_from_env()
-        canonical_fill_by_strategy = _canonical_fill_by_strategy(con, reporting_cutover_ts_ms, include_legacy_default)
-        canonical_fill_by_timeframe = _canonical_fill_by_timeframe(con, reporting_cutover_ts_ms, include_legacy_default)
+        canonical_fill_by_strategy = _canonical_fill_by_strategy(
+            con, reporting_cutover_ts_ms, include_legacy_default
+        )
+        canonical_fill_by_timeframe = _canonical_fill_by_timeframe(
+            con, reporting_cutover_ts_ms, include_legacy_default
+        )
         canonical_activity_by_strategy = _canonical_activity_by_strategy(
             con, reporting_cutover_ts_ms, include_legacy_default
         )
-        parallel_overlap_recent = _parallel_overlap_groups_recent(con, reporting_cutover_ts_ms, include_legacy_default)
+        parallel_overlap_recent = _parallel_overlap_groups_recent(
+            con, reporting_cutover_ts_ms, include_legacy_default
+        )
     finally:
         con.close()
 
@@ -303,7 +308,11 @@ def main() -> int:
         warns.append("no_recent_strategy_decision:1h")
 
     # Entry activity: require at least one recent ENTRY_SUBMIT in last 30 trade events.
-    recent_entry = [e for e in events[:60] if str(e.get("event_type")) in {"ENTRY_SUBMIT", "ENTRY_ACK", "ENTRY_FILL"}]
+    recent_entry = [
+        e
+        for e in events[:60]
+        if str(e.get("event_type")) in {"ENTRY_SUBMIT", "ENTRY_ACK", "ENTRY_FILL"}
+    ]
     if not recent_entry:
         warns.append("no_recent_entry_events")
 

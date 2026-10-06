@@ -37,18 +37,22 @@ class LocalSetupTests(unittest.TestCase):
 
     def test_eoa_does_not_need_hosted_credentials(self):
         audit = self.audit("POLY_SIGNATURE_TYPE=0\nEVPOLY_ALPHA_AUTO_ONBOARD=false\n")
-        assert audit["blocking_missing_labels"] == []
-        assert audit["manual_missing_labels"] == []
+        self.assertEqual(audit["blocking_missing_labels"], [])
+        self.assertEqual(audit["manual_missing_labels"], [])
 
     def test_proxy_can_trade_without_optional_relayer_credentials(self):
         audit = self.audit("POLY_SIGNATURE_TYPE=1\nPOLY_PROXY_WALLET_ADDRESS=0x" + "2" * 40)
-        assert audit["blocking_missing_labels"] == []
-        assert audit["manual_missing_labels"] == ["Relayer API Key", "Relayer API Key Address"]
+        self.assertEqual(audit["blocking_missing_labels"], [])
+        self.assertEqual(
+            audit["manual_missing_labels"], ["Relayer API Key", "Relayer API Key Address"]
+        )
 
     def test_deposit_mode_is_preserved_and_requires_its_funder(self):
-        assert self.audit("POLY_SIGNATURE_TYPE=3\n")["blocking_missing_labels"] == ["Deposit Wallet"]
+        self.assertEqual(
+            self.audit("POLY_SIGNATURE_TYPE=3\n")["blocking_missing_labels"], ["Deposit Wallet"]
+        )
         audit = self.audit("POLY_SIGNATURE_TYPE=3\nPOLY_DEPOSIT_WALLET_ADDRESS=0x" + "3" * 40)
-        assert audit["manual_missing_labels"] == []
+        self.assertEqual(audit["manual_missing_labels"], [])
 
 
 if __name__ == "__main__":
