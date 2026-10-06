@@ -35,8 +35,16 @@ from data_fetcher import search_news
 from sentiment import analyze_headline_sentiment, get_sia, get_weighted_signal
 
 FAKE_RSS_ITEMS = [
-    {"title": "TCS reports strong growth in quarterly profit", "source": "reuters", "link": "http://x/1"},
-    {"title": "Infosys faces sell-off as investors exit IT stocks", "source": "bloomberg", "link": "http://x/2"},
+    {
+        "title": "TCS reports strong growth in quarterly profit",
+        "source": "reuters",
+        "link": "http://x/1",
+    },
+    {
+        "title": "Infosys faces sell-off as investors exit IT stocks",
+        "source": "bloomberg",
+        "link": "http://x/2",
+    },
     {"title": "Markets trade flat ahead of Fed decision", "source": "cnbc", "link": "http://x/3"},
 ]
 
@@ -47,7 +55,12 @@ class MockFeed:
 
 
 def _mock_rss_parse(*args, **kwargs):
-    return MockFeed([{"title": e["title"], "link": e["link"], "summary": "", "published": ""} for e in FAKE_RSS_ITEMS])
+    return MockFeed(
+        [
+            {"title": e["title"], "link": e["link"], "summary": "", "published": ""}
+            for e in FAKE_RSS_ITEMS
+        ]
+    )
 
 
 class TestPipelineChain:
@@ -55,7 +68,11 @@ class TestPipelineChain:
 
     def _run_chain(self, headlines_with_sources):
         sia = get_sia()
-        return [analyze_headline_sentiment(h, body="", sia=sia, source=src) for h, src in headlines_with_sources]
+        scores = [
+            analyze_headline_sentiment(h, body="", sia=sia, source=src)
+            for h, src in headlines_with_sources
+        ]
+        return scores
 
     def test_search_news_output_feeds_sentiment_directly(self):
         """The tuple search_news() returns must satisfy what the
@@ -70,17 +87,18 @@ class TestPipelineChain:
         assert len(articles) == len(FAKE_RSS_ITEMS)
         for item in articles:
             # contract: title/body/date/url/source keys
-            assert isinstance(item.get("title"), str)
-            assert item["title"].strip()
-            assert "source" in item
-            assert "url" in item
+            assert isinstance(item.get("title"), str) and item["title"].strip()
+            assert "source" in item and "url" in item
         # cascade pool includes everything retrieved
         assert len(cascade_pool) >= len(articles)
         assert isinstance(source_health, dict)
 
     def test_bullish_and_bearish_flow_to_opposite_signals(self):
         scores = self._run_chain(
-            [(FAKE_RSS_ITEMS[0]["title"], "reuters"), ("Infosys stock crashes after downgrade", "bloomberg")]
+            [
+                (FAKE_RSS_ITEMS[0]["title"], "reuters"),
+                ("Infosys stock crashes after downgrade", "bloomberg"),
+            ]
         )
         compounds = [s["compound"] for s in scores]
         assert compounds[0] > 0, f"growth headline should score positive, got {compounds[0]}"
@@ -96,13 +114,13 @@ class TestPipelineChain:
 
     def test_full_chain_produces_valid_signal(self):
         scores = self._run_chain([(e["title"], e["source"]) for e in FAKE_RSS_ITEMS])
-        signal, blended, _emoji, breakdown = get_weighted_signal(scores)
+        signal, blended, emoji, breakdown = get_weighted_signal(scores)
         assert signal is not None
         assert -1.0 <= blended <= 1.0
         assert len(breakdown) > 0
 
     def test_empty_headline_list_degrades_gracefully(self):
-        signal, blended, _emoji, breakdown = get_weighted_signal([])
+        signal, blended, emoji, breakdown = get_weighted_signal([])
         # Must not crash; any sane neutral representation is acceptable
         assert breakdown is not None or signal is not None or blended is not None
 
@@ -118,5 +136,5 @@ class TestPipelineChain:
 
     def test_unknown_source_uses_default_weight(self):
         scores = [{"compound": 0.5, "source": "totally-unknown-blog"}]
-        _signal, blended, _emoji, _breakdown = get_weighted_signal(scores)
+        signal, blended, emoji, breakdown = get_weighted_signal(scores)
         assert -1.0 <= blended <= 1.0

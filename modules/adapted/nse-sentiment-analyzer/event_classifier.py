@@ -347,6 +347,9 @@ def adjust_with_event(compound: float, event_base: float | None) -> float:
         return compound
 
     confidence = abs(compound)
-    blended = 0.8 * compound + 0.2 * event_base if confidence > 0.3 else 0.3 * compound + 0.7 * event_base
+    if confidence > 0.3:
+        blended = 0.8 * compound + 0.2 * event_base
+    else:
+        blended = 0.3 * compound + 0.7 * event_base
 
     return max(-1.0, min(1.0, blended))

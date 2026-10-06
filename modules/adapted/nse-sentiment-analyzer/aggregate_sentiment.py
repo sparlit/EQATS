@@ -218,7 +218,9 @@ def compute_smartscore(
     history_scores: list[float] = []
     if history:
         history_scores = [
-            float(h["smartscore"]) for h in history if h.get("smartscore") is not None and h["smartscore"] != ""
+            float(h["smartscore"])
+            for h in history
+            if h.get("smartscore") is not None and h["smartscore"] != ""
         ]
     history_scores.append(round(smartscore, 1))
 

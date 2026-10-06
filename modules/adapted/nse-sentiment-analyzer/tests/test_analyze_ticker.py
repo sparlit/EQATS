@@ -85,7 +85,13 @@ def mock_deps(mocker):
     ]
     mocker.patch(
         "app.search_news",
-        return_value=(news_items, news_items, {"Economic Times": 1, "Moneycontrol": 1, "LiveMint": 1}, [], 0.0),
+        return_value=(
+            news_items,
+            news_items,
+            {"Economic Times": 1, "Moneycontrol": 1, "LiveMint": 1},
+            [],
+            0.0,
+        ),
     )
 
     # ── Sentiment (VADER returns deterministic scores for known phrases) ──
@@ -113,7 +119,8 @@ def mock_deps(mocker):
         ),
     )
     mocker.patch(
-        "app.adjust_with_event", side_effect=lambda c, e: c if e == 0.0 else max(-1.0, min(1.0, 0.8 * c + 0.2 * e))
+        "app.adjust_with_event",
+        side_effect=lambda c, e: c if e == 0.0 else max(-1.0, min(1.0, 0.8 * c + 0.2 * e)),
     )
 
     # ── Technical indicators ──

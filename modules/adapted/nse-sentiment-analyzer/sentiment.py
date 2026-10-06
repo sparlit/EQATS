@@ -179,7 +179,10 @@ def get_source_weights() -> dict[str, float]:
     try:
         acc = load_source_accuracy()
         if acc:
-            return {src: max(0.01, acc[src]["alpha"] / (acc[src]["alpha"] + acc[src]["beta"])) for src in acc}
+            return {
+                src: max(0.01, acc[src]["alpha"] / (acc[src]["alpha"] + acc[src]["beta"]))
+                for src in acc
+            }
         return dict(SOURCE_WEIGHTS_PRIOR)
     except Exception as e:
         logger.debug("Source weight calibration failed, using prior: %s", e)
@@ -218,7 +221,8 @@ def get_finbert() -> Any:
     try:
         from transformers import pipeline
 
-        return pipeline("sentiment-analysis", model="ProsusAI/finbert", top_k=None)  # type: ignore[call-overload,unused-ignore]
+        pipe = pipeline("sentiment-analysis", model="ProsusAI/finbert", top_k=None)  # type: ignore[call-overload,unused-ignore]
+        return pipe
     except (ImportError, OSError) as e:
         st.warning(f"FinBERT unavailable ({e}). Using VADER.")
         return None

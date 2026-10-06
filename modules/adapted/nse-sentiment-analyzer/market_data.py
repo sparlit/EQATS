@@ -38,7 +38,7 @@ def _fii_dii_action(net: float) -> str:
     """Classify FII/DII net flow as Buying/Selling/Flat (threshold ±200 Cr)."""
     if net > 200:
         return "Buying"
-    if net < -200:
+    elif net < -200:
         return "Selling"
     return "Flat"
 
@@ -224,7 +224,7 @@ def _calc_breadth_score(sector_data: dict[str, pd.DataFrame | None]) -> int:
     """Market Breadth: fraction of sector indices advancing, as 0-100."""
     advancing = 0
     total = 0
-    for df in sector_data.values():
+    for _t, df in sector_data.items():
         if df is not None and not df.empty and len(df) >= 2:
             closes = df["Close"].dropna()
             if len(closes) >= 2:
@@ -273,7 +273,7 @@ def get_mmi() -> dict[str, Any] | None:
         "breadth_score": None,
     }
 
-    all_tickers = ["^NSEI", "^INDIAVIX", *NSE_SECTOR_TICKERS]
+    all_tickers = ["^NSEI", "^INDIAVIX"] + NSE_SECTOR_TICKERS
     hist_data: dict[str, pd.DataFrame | None] = {}
 
     try:

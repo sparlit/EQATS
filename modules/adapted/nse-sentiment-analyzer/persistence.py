@@ -51,7 +51,9 @@ ENTRY_PRICES_FILE = DATA_DIR / "entry_prices.json"
 FIIDII_HISTORY_FILE = DATA_DIR / "fiidii_history.json"
 
 CACHE_TTL = 15 * 60  # 15 minutes
-MAX_CACHE_ENTRIES = 500  # drop oldest entries when exceeding this (prevents unbounded growth under multi-user load)
+MAX_CACHE_ENTRIES = (
+    500  # drop oldest entries when exceeding this (prevents unbounded growth under multi-user load)
+)
 
 # Thread locks — separate for CSV history, source accuracy, and FII/DII (different files)
 _history_lock = threading.RLock()
@@ -133,7 +135,9 @@ def get_entry_info(entry: Any) -> tuple[float, int]:
     return 0, 1
 
 
-def calc_portfolio_pnl(entry_price: float, current_price: float, qty: float = 1) -> dict[str, float]:
+def calc_portfolio_pnl(
+    entry_price: float, current_price: float, qty: float = 1
+) -> dict[str, float]:
     """Calculate P&L from entry price, current price, and quantity.
     Returns {pnl_abs: float, pnl_pct: float}.
     """
@@ -265,7 +269,9 @@ def save_sentiment_history(ticker: str, row_data: dict[str, Any]) -> None:
             pass
 
         # Remove any existing entry for this ticker today
-        existing = [r for r in existing if not (r.get("ticker") == ticker and r.get("date") == today)]
+        existing = [
+            r for r in existing if not (r.get("ticker") == ticker and r.get("date") == today)
+        ]
 
         # Build new row
         new_row = {"date": today, "ticker": ticker}
@@ -334,7 +340,10 @@ def load_source_accuracy() -> dict[str, dict[str, float]]:
                 return data
         except Exception as e:
             logger.debug("Persistence read failed: %s", e)
-        return {src: {"alpha": w * 10 + 1, "beta": (1 - w) * 10 + 1} for src, w in SOURCE_WEIGHTS_PRIOR.items()}
+        return {
+            src: {"alpha": w * 10 + 1, "beta": (1 - w) * 10 + 1}
+            for src, w in SOURCE_WEIGHTS_PRIOR.items()
+        }
 
 
 def save_source_accuracy(data: dict[str, dict[str, float]]) -> None:

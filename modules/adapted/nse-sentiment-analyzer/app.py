@@ -114,18 +114,10 @@ st.set_page_config(
 _CARET = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8891a0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="caret"><path d="m9 18 6-6-6-6"/></svg>'
 _ARROW_UP_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>'
 _ARROW_DOWN_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>'
-_DOT_GREEN = (
-    '<svg width="12" height="12" viewBox="0 0 24 24" fill="#22b573" stroke="none"><circle cx="12" cy="12" r="6"/></svg>'
-)
-_DOT_RED = (
-    '<svg width="12" height="12" viewBox="0 0 24 24" fill="#f85149" stroke="none"><circle cx="12" cy="12" r="6"/></svg>'
-)
-_DOT_ORANGE = (
-    '<svg width="12" height="12" viewBox="0 0 24 24" fill="#f59e0b" stroke="none"><circle cx="12" cy="12" r="6"/></svg>'
-)
-_DOT_GREY = (
-    '<svg width="12" height="12" viewBox="0 0 24 24" fill="#8891a0" stroke="none"><circle cx="12" cy="12" r="6"/></svg>'
-)
+_DOT_GREEN = '<svg width="12" height="12" viewBox="0 0 24 24" fill="#22b573" stroke="none"><circle cx="12" cy="12" r="6"/></svg>'
+_DOT_RED = '<svg width="12" height="12" viewBox="0 0 24 24" fill="#f85149" stroke="none"><circle cx="12" cy="12" r="6"/></svg>'
+_DOT_ORANGE = '<svg width="12" height="12" viewBox="0 0 24 24" fill="#f59e0b" stroke="none"><circle cx="12" cy="12" r="6"/></svg>'
+_DOT_GREY = '<svg width="12" height="12" viewBox="0 0 24 24" fill="#8891a0" stroke="none"><circle cx="12" cy="12" r="6"/></svg>'
 st.markdown(
     """<style>
 details.news-expander {
@@ -371,7 +363,9 @@ def analyze_ticker(ticker: str, company_name: str, quick: bool = False) -> dict[
 
     sia = None if use_finbert else get_sia()
     # Retrieve news result from parallel future (already fetched above)
-    news_items, cascade_pool, source_stats, _dissemination_clusters, _dissemination_score = news_future.result()
+    news_items, cascade_pool, source_stats, dissemination_clusters, dissemination_score = (
+        news_future.result()
+    )
 
     # Phase 1: Sentiment scoring (FinBERT or VADER+events)
     headline_scores = []
@@ -414,7 +408,9 @@ def analyze_ticker(ticker: str, company_name: str, quick: bool = False) -> dict[
         )
 
     # Use weighted signal as the primary (and only) signal
-    weighted_signal, blended_compound, weighted_emoji, source_breakdown = get_weighted_signal(headline_scores)
+    weighted_signal, blended_compound, weighted_emoji, source_breakdown = get_weighted_signal(
+        headline_scores
+    )
 
     # Cascade/Ripple Tracking — scan all market news (including non-ticker articles) for commodity keywords
     cascade_effects = detect_cascade(cascade_pool, ticker_lookup=NSE_TICKERS, focus_ticker=ticker)
@@ -494,7 +490,9 @@ def _refresh_price_cache(portfolio: list[str]) -> None:
         st.warning(f"Could not refresh price for: {', '.join(_failed)}")
 
 
-def _render_portfolio_list(portfolio: list[str], entry_prices: dict[str, Any], key_prefix: str = "side") -> None:
+def _render_portfolio_list(
+    portfolio: list[str], entry_prices: dict[str, Any], key_prefix: str = "side"
+) -> None:
     """Render portfolio listing with delete buttons for the sidebar.
 
     Compact single-line layout with ticker, price, P&L, and remove button.
@@ -522,7 +520,9 @@ def _render_portfolio_list(portfolio: list[str], entry_prices: dict[str, Any], k
         elif sd_cache is not None:
             display_parts.append('<span style="font-size:0.85rem;color:#6b7280;">Price N/A</span>')
         if ep_qty > 0:
-            display_parts.append(f'<span style="font-size:0.7rem;color:#6b7280;">\u00d7{ep_qty}</span>')
+            display_parts.append(
+                f'<span style="font-size:0.7rem;color:#6b7280;">\u00d7{ep_qty}</span>'
+            )
         if ep_price and _is_valid_num(cp):
             pnl = calc_portfolio_pnl(ep_price, cp, ep_qty)
             sign = "+" if pnl["pnl_pct"] >= 0 else ""
@@ -530,9 +530,13 @@ def _render_portfolio_list(portfolio: list[str], entry_prices: dict[str, Any], k
                 f'<span style="font-size:0.8rem;color:{"#22c55e" if pnl["pnl_pct"] >= 0 else "#ef4444"};">'
                 f"{sign}{pnl['pnl_pct']:.1f}%</span>"
             )
-            display_parts.append(f'<span style="font-size:0.7rem;color:#6b7280;">ATP \u20b9{ep_price:,.0f}</span>')
+            display_parts.append(
+                f'<span style="font-size:0.7rem;color:#6b7280;">ATP \u20b9{ep_price:,.0f}</span>'
+            )
         elif ep_price:
-            display_parts.append(f'<span style="font-size:0.75rem;color:#6b7280;">ATP \u20b9{ep_price:,.0f}</span>')
+            display_parts.append(
+                f'<span style="font-size:0.75rem;color:#6b7280;">ATP \u20b9{ep_price:,.0f}</span>'
+            )
         elif cp:
             display_parts.append('<span style="font-size:0.7rem;color:#6b7280;">No ATP set</span>')
         c1.markdown(
@@ -563,7 +567,9 @@ with st.sidebar:
         )
         _render_portfolio_list(portfolio, entry_prices, key_prefix="side")
 
-        if st.button("Clear all holdings", key="clear_portfolio", type="secondary", use_container_width=True):
+        if st.button(
+            "Clear all holdings", key="clear_portfolio", type="secondary", use_container_width=True
+        ):
             save_portfolio([])
             # Clear entry prices too
             ENTRY_PRICES_FILE.write_text("{}", encoding="utf-8")
@@ -909,15 +915,14 @@ if final_ticker and final_ticker != "":
     _resolved_ticker, _resolved_name = resolve_ticker(final_ticker)
     if _resolved_ticker:
         final_ticker = _resolved_ticker
-        company_name = cast("str", _resolved_name)
+        company_name = cast(str, _resolved_name)
     else:
         company_name = NSE_TICKERS.get(final_ticker, final_ticker)
 
     # Rate limiter: block if too many searches recently
     # Skip when _skip_reanalysis is set — no API call will be made (cache hit)
-    if not st.session_state.get("_skip_reanalysis"):
-        if not _check_rate_limit():
-            st.stop()
+    if not st.session_state.get("_skip_reanalysis") and not _check_rate_limit():
+        st.stop()
 
     # Skip re-analysis when user voted/edited portfolio (instant re-render from cache)
     if (
@@ -963,7 +968,9 @@ if final_ticker and final_ticker != "":
                 recs.append(entry)
             save_track_record(recs)
         # Stash source breakdown for vote-based calibration
-        st.session_state._last_source_breakdown = result.get("source_breakdown", []) if result else []
+        st.session_state._last_source_breakdown = (
+            result.get("source_breakdown", []) if result else []
+        )
     if result:
         news_items = result["news_items"]
 
@@ -989,7 +996,8 @@ if final_ticker and final_ticker != "":
         if portfolio and news_items:
             for item in news_items:
                 item["in_portfolio"] = any(
-                    re.search(rf"(?:\b|_){re.escape(t)}(?:\b|_)", (item.get("title") or "").upper()) for t in portfolio
+                    re.search(rf"(?:\b|_){re.escape(t)}(?:\b|_)", (item.get("title") or "").upper())
+                    for t in portfolio
                 )
 
         n_news = len(news_items)
@@ -1134,7 +1142,8 @@ with st.expander("🔒 Privacy & Data Policy"):
 # ─── DISCLAIMER ───
 _ALERT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>'
 st.markdown(
-    f'<details class="news-expander"><summary>{_CARET}{_ALERT_SVG} Disclaimer</summary>', unsafe_allow_html=True
+    f'<details class="news-expander"><summary>{_CARET}{_ALERT_SVG} Disclaimer</summary>',
+    unsafe_allow_html=True,
 )
 st.markdown(f"""
 **Not financial advice.** This tool provides data-driven sentiment analysis and technical indicators for educational and informational purposes only. Nothing on this platform constitutes investment advice, a recommendation, or a solicitation to buy or sell securities.
@@ -1184,7 +1193,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="footer-support"><span>Like this tool? Support the developer with a chai.</span></div>',
+    '<div class="footer-support">'
+    "<span>Like this tool? Support the developer with a chai.</span></div>",
     unsafe_allow_html=True,
 )
 st.markdown(
