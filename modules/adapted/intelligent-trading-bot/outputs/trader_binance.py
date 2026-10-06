@@ -21,21 +21,13 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import argparse
 import asyncio
 import logging
-import math
-import os
-import sys
-import time
 from datetime import datetime
 from decimal import *
 
-import pandas as pd
-from binance import Client
 from binance.enums import *
 from binance.exceptions import *
-from binance.helpers import date_to_milliseconds, interval_to_milliseconds
 from common.model_store import *
 from common.utils import *
 from inputs import collector_binance
@@ -69,7 +61,7 @@ async def trader_binance(df, model: dict, config: dict, model_store: ModelStore)
     #
     status = App.status
 
-    if status in {"BUYING", "SELLING"}:
+    if status == "BUYING" or status == "SELLING":
         # We expect that an order was created before and now we need to check if it still exists or was executed
         # -----
         order_status = await update_order_status()
@@ -109,7 +101,7 @@ async def trader_binance(df, model: dict, config: dict, model_store: ModelStore)
             pass  # Wait further for execution
         else:
             pass  # Order still exists and is active
-    elif status in {"BOUGHT", "SOLD"}:
+    elif status == "BOUGHT" or status == "SOLD":
         pass  # Do nothing
     else:
         log.error(f"Wrong status value {status}.")
@@ -122,7 +114,7 @@ async def trader_binance(df, model: dict, config: dict, model_store: ModelStore)
     # If not sold for 1 minute, then kill and then a new order will be created below if there is signal
     # Essentially, this will mean price adjustment (if a new order of the same direction will be created)
     # In future, we might kill only after some timeout
-    if status in {"BUYING", "SELLING"}:  # Still not sold for 1 minute
+    if status == "BUYING" or status == "SELLING":  # Still not sold for 1 minute
         # -----
         order_status = await cancel_order()
         if not order_status:
@@ -194,7 +186,7 @@ async def update_trade_status():
         )  # By "open" orders they probably mean "NEW" or "PARTIALLY_FILLED"
         # orders = collector_binance.client.get_all_orders(symbol=symbol, limit=10)
     except Exception as e:
-        log.exception(f"Binance exception in 'get_open_orders' {e}")
+        log.error(f"Binance exception in 'get_open_orders' {e}")
         return
 
     if not open_orders:
@@ -222,11 +214,11 @@ async def update_trade_status():
             App.status = "BUYING"
         else:
             log.error(f"Neither SELL nor BUY side of the order {order}.")
-            return
+            return None
 
     else:  # Many orders
         log.error("Wrong state. More than one open order. Fix manually.")
-        return
+        return None
 
 
 async def update_order_status():
@@ -252,8 +244,8 @@ async def update_order_status():
     try:
         new_order = collector_binance.client.get_order(symbol=symbol, orderId=order_id)
     except Exception as e:
-        log.exception(f"Binance exception in 'get_order' {e}")
-        return None
+        log.error(f"Binance exception in 'get_order' {e}")
+        return
 
     # Impose and overwrite the new order information
     if new_order:
@@ -271,7 +263,7 @@ async def update_account_balance():
     try:
         balance = collector_binance.client.get_asset_balance(asset=App.config["base_asset"])
     except Exception as e:
-        log.exception(f"Binance exception in 'get_asset_balance' {e}")
+        log.error(f"Binance exception in 'get_asset_balance' {e}")
         return
 
     App.account_info.base_quantity = Decimal(balance.get("free", "0.00000000"))  # BTC
@@ -279,10 +271,12 @@ async def update_account_balance():
     try:
         balance = collector_binance.client.get_asset_balance(asset=App.config["quote_asset"])
     except Exception as e:
-        log.exception(f"Binance exception in 'get_asset_balance' {e}")
+        log.error(f"Binance exception in 'get_asset_balance' {e}")
         return
 
     App.account_info.quote_quantity = Decimal(balance.get("free", "0.00000000"))  # USD
+
+    pass
 
 
 #
@@ -308,7 +302,7 @@ async def cancel_order():
         log.info(f"Cancelling order id {order_id}")
         new_order = collector_binance.client.cancel_order(symbol=symbol, orderId=order_id)
     except Exception as e:
-        log.exception(f"Binance exception in 'cancel_order' {e}")
+        log.error(f"Binance exception in 'cancel_order' {e}")
         return None
 
     #   We need to somehow catch and process this case
@@ -411,11 +405,12 @@ def execute_order(order: dict):
                 **order
             )  # Returns {} if ok. Does not check available balances - only trade rules
         except Exception as e:
-            log.exception(f"Binance exception in 'create_test_order' {e}")
-            return None
+            log.error(f"Binance exception in 'create_test_order' {e}")
+            return
 
     if trade_model.get("simulate_order_execution"):
         print(order)
+        pass
     else:
         # -----
         # Submit order
@@ -423,8 +418,8 @@ def execute_order(order: dict):
             log.info(f"Submitting order: {order}")
             order = collector_binance.client.create_order(**order)
         except Exception as e:
-            log.exception(f"Binance exception in 'create_order' {e}")
-            return None
+            log.error(f"Binance exception in 'create_order' {e}")
+            return
 
         if not order or not order.get("status"):
             return None

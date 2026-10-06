@@ -21,13 +21,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import asyncio
 import logging
-import os
-import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 
-import pandas as pd
 import pandas.api.types as ptypes
 import requests
 from common.model_store import *
@@ -53,13 +49,14 @@ async def send_score_notification(df, model: dict, config: dict, model_store: Mo
 
     interval_length = freq_to_timedelta(freq)
 
-    if ptypes.is_datetime64_any_dtype(df.index):  # Alternatively df.index.inferred_type == "datetime64"
+    if ptypes.is_datetime64_any_dtype(
+        df.index
+    ):  # Alternatively df.index.inferred_type == "datetime64"
         close_time = row.name
     elif time_column in df.columns and ptypes.is_datetime64_any_dtype(df[time_column]):
         close_time = row[time_column]
     else:
-        msg = f"Neither index nor time columns '{time_column}' are of datetime type"
-        raise ValueError(msg)
+        raise ValueError(f"Neither index nor time columns '{time_column}' are of datetime type")
     close_time += interval_length  # Add interval length because timestamp is start of the interval
 
     close_price = row["close"]
@@ -87,7 +84,10 @@ async def send_score_notification(df, model: dict, config: dict, model_store: Mo
         band_dn = True
     model["prev_band_no"] = band_no  # Store for the next time as an additional run-time attribute
 
-    new_to_time_interval = close_time.minute % band.get("frequency") == 0 if band and band.get("frequency") else False
+    if band and band.get("frequency"):
+        new_to_time_interval = close_time.minute % band.get("frequency") == 0
+    else:
+        new_to_time_interval = False
 
     # Send only if one of these conditions is true or entered new time interval (current time)
     notification_is_needed = (
@@ -124,7 +124,9 @@ async def send_score_notification(df, model: dict, config: dict, model_store: Mo
         band_change_char = ""
 
     primary_score_str = f"{trade_score_primary:+.2f} {band_change_char} "
-    secondary_score_str = f"{trade_score_secondary:+.2f}" if trade_score_secondary is not None else ""
+    secondary_score_str = (
+        f"{trade_score_secondary:+.2f}" if trade_score_secondary is not None else ""
+    )
 
     if band:
         message = f"{band.get('sign', '')} {symbol_char} {int(close_price):,} Indicator: {primary_score_str} {secondary_score_str} {band.get('text', '')} {freq}"
@@ -156,7 +158,7 @@ async def send_score_notification(df, model: dict, config: dict, model_store: Mo
         if not response_json.get("ok"):
             log.error("Error sending notification.")
     except Exception as e:
-        log.exception(f"Error sending notification: {e}")
+        log.error(f"Error sending notification: {e}")
 
 
 def _find_score_band(score_value, model):
@@ -176,12 +178,16 @@ def _find_score_band(score_value, model):
     bands = model.get("positive_bands", [])
     bands = sorted(bands, key=lambda x: x.get("edge"), reverse=True)  # Large thresholds first
     # Find first entry with the edge equal or less than the score
-    band_no, band = next(((i, x) for i, x in enumerate(bands) if score_value >= x.get("edge")), (len(bands), None))
+    band_no, band = next(
+        ((i, x) for i, x in enumerate(bands) if score_value >= x.get("edge")), (len(bands), None)
+    )
     band_no = len(bands) - band_no
     if not band:  # Score is too small - smaller than all thresholds
         bands = model.get("negative_bands", [])
         bands = sorted(bands, key=lambda x: x.get("edge"), reverse=False)  # Small thresholds first
-        band_no, band = next(((i, x) for i, x in enumerate(bands) if score_value < x.get("edge")), (len(bands), None))
+        band_no, band = next(
+            ((i, x) for i, x in enumerate(bands) if score_value < x.get("edge")), (len(bands), None)
+        )
         band_no = -(len(bands) - band_no)
 
     return band_no, band

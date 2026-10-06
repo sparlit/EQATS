@@ -21,7 +21,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from datetime import date, datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import click
@@ -63,8 +63,10 @@ def main(config_file):
     download_klines_fn(App.config, data_sources)
 
     elapsed = datetime.now() - now
-    print()
-    print(f"Finished downloading {len(data_sources)} data sources from {venue} in {str(elapsed).split('.')[0]}")
+    print("")
+    print(
+        f"Finished downloading {len(data_sources)} data sources from {venue} in {str(elapsed).split('.')[0]}"
+    )
 
 
 if __name__ == "__main__":

@@ -21,16 +21,14 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import numpy as np
 import pandas as pd
 import tensorflow as tf
 from keras.callbacks import *
-from keras.layers import Dense, Dropout
+from keras.layers import Dense
 from keras.models import Sequential
 from keras.optimizers import *
 from keras.regularizers import *
 from sklearn.preprocessing import StandardScaler
-from tensorflow import keras
 
 
 def train_predict_nn(df_X, df_y, df_X_test, model_config: dict):
@@ -38,7 +36,8 @@ def train_predict_nn(df_X, df_y, df_X_test, model_config: dict):
     Train model with the specified hyper-parameters and return its predictions for the test data.
     """
     model_pair = train_nn(df_X, df_y, model_config)
-    return predict_nn(model_pair, df_X_test, model_config)
+    y_test_hat = predict_nn(model_pair, df_X_test, model_config)
+    return y_test_hat
 
 
 def train_nn(df_X, df_y, model_config: dict):
@@ -85,7 +84,9 @@ def train_nn(df_X, df_y, model_config: dict):
 
     for i, out_features in enumerate(layers):
         in_features = n_features if i == 0 else layers[i - 1]
-        model.add(Dense(out_features, activation="sigmoid", input_dim=in_features))  # , kernel_regularizer=l2(reg_l2)
+        model.add(
+            Dense(out_features, activation="sigmoid", input_dim=in_features)
+        )  # , kernel_regularizer=l2(reg_l2)
         # model.add(Dropout(rate=0.5))
 
     if is_regression:
@@ -123,7 +124,9 @@ def train_nn(df_X, df_y, model_config: dict):
         "verbose": 0,
         "mode": "auto",
     }
-    es_args.update(train_conf.get("es", {}))  # Overwrite default values with those explicitly specified in config
+    es_args.update(
+        train_conf.get("es", {})
+    )  # Overwrite default values with those explicitly specified in config
 
     es = EarlyStopping(**es_args)
 
@@ -174,8 +177,14 @@ def predict_nn(models: tuple, df_X_test, model_config: dict):
         df_X_test_nonans.values
     )  # NN returns matrix with one column as prediction
     y_test_hat_nonans = y_test_hat_nonans[:, 0]  # Or y_test_hat.flatten()
-    y_test_hat_nonans = pd.Series(data=y_test_hat_nonans, index=nonans_index)  # Attach indexes with gaps
+    y_test_hat_nonans = pd.Series(
+        data=y_test_hat_nonans, index=nonans_index
+    )  # Attach indexes with gaps
 
     df_ret = pd.DataFrame(index=input_index)  # Create empty dataframe with original index
     df_ret["y_hat"] = y_test_hat_nonans  # Join using indexes
-    return df_ret["y_hat"]  # This series has all original input indexes but NaNs where input is NaN
+    sr_ret = df_ret[
+        "y_hat"
+    ]  # This series has all original input indexes but NaNs where input is NaN
+
+    return sr_ret

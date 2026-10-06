@@ -21,10 +21,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import json
-import os
-from datetime import datetime, timedelta, timezone
-from typing import List, Tuple, Union
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -54,9 +51,8 @@ def generate_smoothen_scores(df, config: dict):
 
     columns = config.get("columns")
     if not columns:
-        msg = f"The 'columns' parameter must be a non-empty string. {type(columns)}"
-        raise ValueError(msg)
-    if isinstance(columns, str):
+        raise ValueError(f"The 'columns' parameter must be a non-empty string. {type(columns)}")
+    elif isinstance(columns, str):
         columns = [columns]
 
     # if columns not in df.columns:
@@ -79,8 +75,7 @@ def generate_smoothen_scores(df, config: dict):
 
     names = config.get("names")
     if not isinstance(names, str):
-        msg = f"'names' parameter must be a non-empty string. {type(names)}"
-        raise ValueError(msg)
+        raise ValueError(f"'names' parameter must be a non-empty string. {type(names)}")
 
     df[names] = out_column
 
@@ -96,11 +91,11 @@ def generate_combine_scores(df, config: dict):
     """
     columns = config.get("columns")
     if not columns:
-        msg = f"The 'columns' parameter must be a non-empty string. {type(columns)}"
-        raise ValueError(msg)
-    if not isinstance(columns, list) or len(columns) != 2:
-        msg = f"'columns' parameter must be a list with buy column name and sell column name. {type(columns)}"
-        raise ValueError(msg)
+        raise ValueError(f"The 'columns' parameter must be a non-empty string. {type(columns)}")
+    elif not isinstance(columns, list) or len(columns) != 2:
+        raise ValueError(
+            f"'columns' parameter must be a list with buy column name and sell column name. {type(columns)}"
+        )
 
     up_column = columns[0]
     down_column = columns[1]
@@ -113,7 +108,9 @@ def generate_combine_scores(df, config: dict):
         combine_scores_difference(df, up_column, down_column, out_column)
     else:
         # If buy score is greater than sell score then positive buy, otherwise negative sell
-        df[out_column] = df[[up_column, down_column]].apply(lambda x: x[0] if x[0] >= x[1] else -x[1], raw=True, axis=1)
+        df[out_column] = df[[up_column, down_column]].apply(
+            lambda x: x[0] if x[0] >= x[1] else -x[1], raw=True, axis=1
+        )
 
     # Scale the score distribution to make it symmetric or normalize
     # Always apply the transformation to buy score. It might be in [0,1] or [-1,+1] depending on combine parameter
@@ -165,7 +162,6 @@ def compute_score_slope(df, model, buy_score_columns_in, sell_score_columns_in):
     """
 
     from scipy import stats
-    from sklearn import linear_model
 
     def linear_regr_fn(X):
         """
@@ -184,7 +180,7 @@ def compute_score_slope(df, model, buy_score_columns_in, sell_score_columns_in):
         # model.fit(X_array, y_array)
         # slope = model.coef_[0]
 
-        slope, _intercept, _r, _p, _se = stats.linregress(X_array, y_array)
+        slope, intercept, r, p, se = stats.linregress(X_array, y_array)
 
         return slope
 
@@ -210,9 +206,8 @@ def generate_threshold_rule(df, config):
 
     columns = config.get("columns")
     if not columns:
-        msg = f"The 'columns' parameter must be a non-empty string. {type(columns)}"
-        raise ValueError(msg)
-    if isinstance(columns, list):
+        raise ValueError(f"The 'columns' parameter must be a non-empty string. {type(columns)}")
+    elif isinstance(columns, list):
         columns = [columns]
 
     buy_signal_column = config.get("names")[0]
@@ -249,11 +244,11 @@ def generate_threshold_rule2(df, config):
 
     columns = config.get("columns")
     if not columns:
-        msg = f"The 'columns' parameter must be a non-empty string. {type(columns)}"
-        raise ValueError(msg)
-    if not isinstance(columns, list) or len(columns) != 2:
-        msg = f"'columns' parameter must be a list with two column names. {type(columns)}"
-        raise ValueError(msg)
+        raise ValueError(f"The 'columns' parameter must be a non-empty string. {type(columns)}")
+    elif not isinstance(columns, list) or len(columns) != 2:
+        raise ValueError(
+            f"'columns' parameter must be a list with two column names. {type(columns)}"
+        )
 
     score_column = columns[0]
     score_column_2 = columns[1]
@@ -341,7 +336,9 @@ def apply_rule_with_slope_thresholds(df, model, buy_score_column, sell_score_col
 #
 
 
-def find_interval_precision(df: pd.DataFrame, label_column: str, score_column: str, threshold: float):
+def find_interval_precision(
+    df: pd.DataFrame, label_column: str, score_column: str, threshold: float
+):
     """
     Convert point-wise score/label pairs to interval-wise score/label.
 
@@ -407,7 +404,9 @@ def find_interval_precision(df: pd.DataFrame, label_column: str, score_column: s
 
     # Compute into output
     interval_df = pd.concat([interval_label, interval_score], axis=1)
-    return interval_df.reset_index(drop=False)
+    interval_df = interval_df.reset_index(drop=False)
+
+    return interval_df
 
 
 # NOT USED
@@ -432,7 +431,8 @@ def generate_signals(df, models: dict):
         for field, value in model.items():
             if row.get(field) >= value:
                 continue
-            return 0
+            else:
+                return 0
         return 1
 
     def all_lower_fn(row, model):
@@ -440,7 +440,8 @@ def generate_signals(df, models: dict):
         for field, value in model.items():
             if row.get(field) <= value:
                 continue
-            return 0
+            else:
+                return 0
         return 1
 
     for signal, model in models.items():

@@ -24,14 +24,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 from pathlib import Path
 
 import click
-import numpy as np
 import pandas as pd
 from common.backtesting import *
 from common.generators import generate_feature_set
 from common.model_store import *
 from common.utils import *
 from service.App import *
-from sklearn.metrics import PrecisionRecallDisplay, RocCurveDisplay, precision_recall_curve
 from sklearn.model_selection import ParameterGrid
 from tqdm import tqdm
 
@@ -112,7 +110,9 @@ def main(config_file):
 
     df = df.reset_index(drop=True)
 
-    print(f"Input data size {len(df)} records. Range: [{df.iloc[0][time_column]}, {df.iloc[-1][time_column]}]")
+    print(
+        f"Input data size {len(df)} records. Range: [{df.iloc[0][time_column]}, {df.iloc[-1][time_column]}]"
+    )
 
     #
     # Load signal train parameters
@@ -120,35 +120,43 @@ def main(config_file):
     parameter_grid = simulate_config.get("grid")
     direction = simulate_config.get("direction", "")
     if direction not in ["long", "short"]:
-        msg = f"Unknown value of {direction} in signal train model. Only 'long' or 'short' are possible."
-        raise ValueError(msg)
+        raise ValueError(
+            f"Unknown value of {direction} in signal train model. Only 'long' or 'short' are possible."
+        )
     topn_to_store = simulate_config.get("topn_to_store", 10)
 
     # Evaluate strings to produce lists with ranges of parameters
     if isinstance(parameter_grid.get("buy_signal_threshold"), str):
         parameter_grid["buy_signal_threshold"] = eval(parameter_grid.get("buy_signal_threshold"))
     if isinstance(parameter_grid.get("buy_signal_threshold_2"), str):
-        parameter_grid["buy_signal_threshold_2"] = eval(parameter_grid.get("buy_signal_threshold_2"))
+        parameter_grid["buy_signal_threshold_2"] = eval(
+            parameter_grid.get("buy_signal_threshold_2")
+        )
     if isinstance(parameter_grid.get("sell_signal_threshold"), str):
         parameter_grid["sell_signal_threshold"] = eval(parameter_grid.get("sell_signal_threshold"))
     if isinstance(parameter_grid.get("sell_signal_threshold_2"), str):
-        parameter_grid["sell_signal_threshold_2"] = eval(parameter_grid.get("sell_signal_threshold_2"))
+        parameter_grid["sell_signal_threshold_2"] = eval(
+            parameter_grid.get("sell_signal_threshold_2")
+        )
 
     # If necessary, disable sell parameters in grid search - they will be set from the buy parameters
     if simulate_config.get("buy_sell_equal"):
         parameter_grid["sell_signal_threshold"] = [None]
         parameter_grid["sell_signal_threshold_2"] = [None]
 
-    months_in_simulation = (df[time_column].iloc[-1] - df[time_column].iloc[0]) / timedelta(days=365 / 12)
+    months_in_simulation = (df[time_column].iloc[-1] - df[time_column].iloc[0]) / timedelta(
+        days=365 / 12
+    )
 
     #
     # Find the generator, the parameters of which will be varied
     #
     generator_name = simulate_config.get("signal_generator")
-    signal_generator = next((ss for ss in config.get("signal_sets", []) if ss.get("generator") == generator_name), None)
+    signal_generator = next(
+        (ss for ss in config.get("signal_sets", []) if ss.get("generator") == generator_name), None
+    )
     if not signal_generator:
-        msg = f"Signal generator '{generator_name}' not found among all 'signal_sets'"
-        raise ValueError(msg)
+        raise ValueError(f"Signal generator '{generator_name}' not found among all 'signal_sets'")
 
     performances = []
     for parameters in tqdm(ParameterGrid([parameter_grid]), desc="MODELS"):
@@ -169,7 +177,9 @@ def main(config_file):
         #
         # Execute the signal generator with new parameters by producing new signal columns
         #
-        df, _new_features = generate_feature_set(df, signal_generator, config, App.model_store, last_rows=0)
+        df, new_features = generate_feature_set(
+            df, signal_generator, config, App.model_store, last_rows=0
+        )
 
         #
         # Simulate trade and compute performance using close price and two boolean signals
@@ -191,7 +201,9 @@ def main(config_file):
             performance = short_performance
 
         # Add monthly numbers
-        performance["#transactions/M"] = round(performance["#transactions"] / months_in_simulation, 2)
+        performance["#transactions/M"] = round(
+            performance["#transactions"] / months_in_simulation, 2
+        )
         performance["profit/M"] = round(performance["profit"] / months_in_simulation, 2)
         performance["%profit/M"] = round(performance["%profit"] / months_in_simulation, 2)
 

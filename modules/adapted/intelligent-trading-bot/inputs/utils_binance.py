@@ -21,10 +21,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pandas as pd
-from binance.helpers import date_to_milliseconds, interval_to_milliseconds
 
 
 def binance_freq_from_pandas(freq: str) -> str:
@@ -46,14 +45,19 @@ def binance_freq_from_pandas(freq: str) -> str:
     if len(freq) == 1:
         freq = "1" + freq
 
-    if not (2 <= len(freq) <= 3) or not freq[:-1].isdigit() or freq[-1] not in ["m", "h", "d", "w", "M"]:
-        msg = f"Not supported Binance frequency {freq}. It should be one or two digits followed by a character."
-        raise ValueError(msg)
+    if (
+        not (2 <= len(freq) <= 3)
+        or not freq[:-1].isdigit()
+        or freq[-1] not in ["m", "h", "d", "w", "M"]
+    ):
+        raise ValueError(
+            f"Not supported Binance frequency {freq}. It should be one or two digits followed by a character."
+        )
 
     return freq
 
 
-def binance_get_interval(freq: str, timestamp: int | None = None):
+def binance_get_interval(freq: str, timestamp: int = None):
     """
     Return a triple of interval start (including), end (excluding) in milliseconds for the specified timestamp or now
 

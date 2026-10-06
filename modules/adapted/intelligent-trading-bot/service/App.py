@@ -23,11 +23,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import json
 import re
-from datetime import date, datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Union
 
-import pandas as pd
 from common.model_store import *
 from common.types import AccountBalances, MT5AccountInfo
 
@@ -54,9 +52,7 @@ class App:
     error_status = 0  # Networks, connections, exceptions etc. what does not allow us to work at all
     server_status = 0  # If server allow us to trade (maintenance, down etc.)
     account_status = 0  # If account allows us to trade (funds, suspended etc.)
-    trade_state_status = (
-        0  # Something wrong with our trading logic (wrong use, inconsistent state etc. what we cannot recover)
-    )
+    trade_state_status = 0  # Something wrong with our trading logic (wrong use, inconsistent state etc. what we cannot recover)
 
     df = None  # Data from the latest analysis
 
@@ -197,9 +193,7 @@ class App:
 def data_provider_problems_exist():
     if App.error_status != 0:
         return True
-    if App.server_status != 0:
-        return True
-    return False
+    return App.server_status != 0
 
 
 def problems_exist():
@@ -209,9 +203,7 @@ def problems_exist():
         return True
     if App.account_status != 0:
         return True
-    if App.trade_state_status != 0:
-        return True
-    return False
+    return App.trade_state_status != 0
 
 
 def load_config(config_file):
@@ -222,7 +214,7 @@ def load_config(config_file):
             conf_str = json_file.read()
 
             # Remove everything starting with // and till the line end
-            conf_str = re.sub(r"//.*$", "", conf_str, flags=re.MULTILINE)
+            conf_str = re.sub(r"//.*$", "", conf_str, flags=re.M)
 
             conf_json = json.loads(conf_str)
             App.config.update(conf_json)

@@ -21,7 +21,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
 
 import click
@@ -30,7 +30,6 @@ import pandas as pd
 from common.generators import train_feature_set
 from common.model_store import *
 from service.App import *
-from tqdm import tqdm
 
 """
 Train models for all target labels and all algorithms declared in the configuration using the specified features.
@@ -85,14 +84,18 @@ def main(config_file):
         )
         return
 
-    print(f"Finished loading {len(df)} records with {len(df.columns)} columns from the source file {file_path}")
+    print(
+        f"Finished loading {len(df)} records with {len(df.columns)} columns from the source file {file_path}"
+    )
 
     # Select only the data necessary for analysis
     if window_size:
         df = df.tail(window_size)
         df = df.reset_index(drop=True)
 
-    print(f"Input data size {len(df)} records. Range: [{df.iloc[0][time_column]}, {df.iloc[-1][time_column]}]")
+    print(
+        f"Input data size {len(df)} records. Range: [{df.iloc[0][time_column]}, {df.iloc[-1][time_column]}]"
+    )
 
     #
     # Prepare data by selecting columns and rows
@@ -127,7 +130,7 @@ def main(config_file):
         df = df.tail(train_length)
 
     # Handle NULLs
-    df = df.replace([np.inf, -np.inf], np.nan)
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
     na_df = df[df[train_features_all].isna().any(axis=1)]
     if len(na_df) > 0:
         print(f"WARNING: There exist {len(na_df)} rows with NULLs in some feature columns")
@@ -147,7 +150,9 @@ def main(config_file):
     models = {}
     for i, fs in enumerate(train_feature_sets):
         fs_now = datetime.now()
-        print(f"Start train feature set {i}/{len(train_feature_sets)}. Generator {fs.get('generator')}...")
+        print(
+            f"Start train feature set {i}/{len(train_feature_sets)}. Generator {fs.get('generator')}..."
+        )
 
         fs_models = train_feature_set(df, fs, config)
         models.update(fs_models)

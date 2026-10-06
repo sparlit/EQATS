@@ -23,7 +23,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import logging
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import MetaTrader5 as mt5
 
@@ -56,8 +56,9 @@ def mt5_freq_from_pandas(freq: str) -> int:
     match = re.fullmatch(r"(\d+)?([A-Za-z]+)", str(freq))
 
     if not match:
-        msg = f"Input frequency '{freq}' does not match expected format (e.g., '1min', '4h', '1D')."
-        raise ValueError(msg)
+        raise ValueError(
+            f"Input frequency '{freq}' does not match expected format (e.g., '1min', '4h', '1D')."
+        )
 
     num_str, unit_pandas_raw = match.groups()
     unit_pandas = unit_pandas_raw.lower()  # Normalize unit to lower case for map lookup
@@ -83,8 +84,7 @@ def mt5_freq_from_pandas(freq: str) -> int:
         found_unit = True
 
     if not found_unit:
-        msg = f"Unsupported Pandas frequency unit '{unit_pandas_raw}' in '{freq}'."
-        raise ValueError(msg)
+        raise ValueError(f"Unsupported Pandas frequency unit '{unit_pandas_raw}' in '{freq}'.")
 
     # Determine the number part
     if is_always_one:
@@ -103,13 +103,14 @@ def mt5_freq_from_pandas(freq: str) -> int:
         return getattr(mt5, mt5_constant_name)
     except AttributeError:
         # Provide a more informative error if the constant doesn't exist
-        supported_timeframes = [tf for tf_name, tf in mt5.__dict__.items() if tf_name.startswith("TIMEFRAME_")]
-        msg = (
+        supported_timeframes = [
+            tf for tf_name, tf in mt5.__dict__.items() if tf_name.startswith("TIMEFRAME_")
+        ]
+        raise ValueError(
             f"Could not find or map MetaTrader5 constant '{mt5_constant_name}' for frequency '{freq}'. "
             f"Check if this timeframe is supported by the MetaTrader5 library/API. "
             f"Available TIMEFRAME constants might include: {sorted(set(supported_timeframes))}"
         )
-        raise ValueError(msg)
 
 
 def get_timedelta_for_mt5_timeframe(mt5_timeframe: int, count: int) -> timedelta:
@@ -149,8 +150,7 @@ def get_timedelta_for_mt5_timeframe(mt5_timeframe: int, count: int) -> timedelta
 
     details = cache.get(mt5_timeframe)
     if details is None:
-        msg = f"Unknown MetaTrader5 timeframe constant: {mt5_timeframe}"
-        raise ValueError(msg)
+        raise ValueError(f"Unknown MetaTrader5 timeframe constant: {mt5_timeframe}")
 
     name, unit_prefix, number = details
 
@@ -165,8 +165,7 @@ def get_timedelta_for_mt5_timeframe(mt5_timeframe: int, count: int) -> timedelta
 
     factory = unit_to_timedelta.get(unit_prefix)
     if factory is None:
-        msg = f"Unsupported timeframe unit '{unit_prefix}' derived from {name}"
-        raise ValueError(msg)
+        raise ValueError(f"Unsupported timeframe unit '{unit_prefix}' derived from {name}")
 
     if unit_prefix == "MN":
         logger.warning("Using approximate duration of 30.5 days for monthly timeframes.")
