@@ -1,5 +1,5 @@
 {
-  "current_index": 85,
+  "current_index": 86,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -685,7 +685,7 @@
       "name": "nse-support-tools",
       "target": "c3point/nse-support-tools",
       "url": "https://github.com/c3point/nse-support-tools",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
