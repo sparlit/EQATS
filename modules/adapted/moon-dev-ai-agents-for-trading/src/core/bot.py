@@ -41,7 +41,7 @@ not done yet
 import time
 
 import schedule
-from termcolor import colored, cprint
+from termcolor import cprint
 
 from ..core.config import *
 from ..core.utils import nice_funcs as n
@@ -83,7 +83,7 @@ def bot():
         price = n.token_price(symbol)
         pos_usd = pos * price
         size_needed = usd_size - pos_usd
-        chunk_size = min(size_needed, max_usd_order_size)
+        chunk_size = max_usd_order_size if size_needed > max_usd_order_size else size_needed
 
         chunk_size = int(chunk_size * 10**6)
         chunk_size = str(chunk_size)
@@ -114,13 +114,17 @@ def bot():
                 price = n.token_price(symbol)
                 pos_usd = pos * price
                 size_needed = usd_size - pos_usd
-                chunk_size = min(size_needed, max_usd_order_size)
+                chunk_size = max_usd_order_size if size_needed > max_usd_order_size else size_needed
                 chunk_size = int(chunk_size * 10**6)
                 chunk_size = str(chunk_size)
 
             except:
                 try:
-                    cprint("trying again to make the order in 30 seconds.....", "light_blue", "on_light_magenta")
+                    cprint(
+                        "trying again to make the order in 30 seconds.....",
+                        "light_blue",
+                        "on_light_magenta",
+                    )
                     time.sleep(30)
                     for _i in range(orders_per_open):
                         n.market_buy(symbol, chunk_size, slippage)
@@ -137,7 +141,10 @@ def bot():
                     price = n.token_price(symbol)
                     pos_usd = pos * price
                     size_needed = usd_size - pos_usd
-                    chunk_size = min(size_needed, max_usd_order_size)
+                    if size_needed > max_usd_order_size:
+                        chunk_size = max_usd_order_size
+                    else:
+                        chunk_size = size_needed
                     chunk_size = int(chunk_size * 10**6)
                     chunk_size = str(chunk_size)
 
@@ -151,7 +158,7 @@ def bot():
             price = n.token_price(symbol)
             pos_usd = pos * price
             size_needed = usd_size - pos_usd
-            chunk_size = min(size_needed, max_usd_order_size)
+            chunk_size = max_usd_order_size if size_needed > max_usd_order_size else size_needed
             chunk_size = int(chunk_size * 10**6)
             chunk_size = str(chunk_size)
 
@@ -183,14 +190,18 @@ def bot():
         price = n.token_price(symbol)
         pos_usd = pos * price
         size_needed = usd_size - pos_usd
-        chunk_size = min(size_needed, max_usd_order_size)
+        chunk_size = max_usd_order_size if size_needed > max_usd_order_size else size_needed
 
-        print(f"breakout action called, buying over {BREAKOUT_PRICE} current price is {price} & pos is ${pos_usd}")
+        print(
+            f"breakout action called, buying over {BREAKOUT_PRICE} current price is {price} & pos is ${pos_usd}"
+        )
 
         chunk_size = int(chunk_size * 10**6)
         chunk_size = str(chunk_size)
 
-        print(f"BREAKOUT_PRICE: {BREAKOUT_PRICE} pos_usd: {pos_usd} usd_size: {usd_size} price: {price}")
+        print(
+            f"BREAKOUT_PRICE: {BREAKOUT_PRICE} pos_usd: {pos_usd} usd_size: {usd_size} price: {price}"
+        )
         if (price > BREAKOUT_PRICE) and (pos_usd < usd_size):
             time.sleep(1)
             # get token price
@@ -198,19 +209,23 @@ def bot():
             price = n.token_price(symbol)
             pos_usd = pos * price
             size_needed = usd_size - pos_usd
-            chunk_size = min(size_needed, max_usd_order_size)
+            chunk_size = max_usd_order_size if size_needed > max_usd_order_size else size_needed
 
             chunk_size = int(chunk_size * 10**6)
             chunk_size = str(chunk_size)
 
             if (pos_usd < usd_size) and (price > BREAKOUT_PRICE):
-                print(f"buying {symbol[-4:]} bc price is {price} and breakoutprice is {BREAKOUT_PRICE}")
+                print(
+                    f"buying {symbol[-4:]} bc price is {price} and breakoutprice is {BREAKOUT_PRICE}"
+                )
                 n.breakout_entry(symbol, BREAKOUT_PRICE)
                 print("breakout entry complete, thanks moon dev...")
                 time.sleep(15)
 
         else:
-            print(f"price is {price} and not buying or selling position is {pos_usd} and usd size is {usd_size}")
+            print(
+                f"price is {price} and not buying or selling position is {pos_usd} and usd size is {usd_size}"
+            )
             time.sleep(30)
 
     while action == 5:
@@ -221,7 +236,7 @@ def bot():
         price = n.token_price(symbol)
         pos_usd = pos * price
         size_needed = usd_size - pos_usd
-        chunk_size = min(size_needed, max_usd_order_size)
+        chunk_size = max_usd_order_size if size_needed > max_usd_order_size else size_needed
 
         chunk_size = int(chunk_size * 10**6)
         chunk_size = str(chunk_size)
@@ -240,7 +255,7 @@ def bot():
             price = n.token_price(symbol)
             pos_usd = pos * price
             size_needed = usd_size - pos_usd
-            chunk_size = min(size_needed, max_usd_order_size)
+            chunk_size = max_usd_order_size if size_needed > max_usd_order_size else size_needed
 
             chunk_size = int(chunk_size * 10**6)
             chunk_size = str(chunk_size)
@@ -252,7 +267,9 @@ def bot():
                 time.sleep(15)
 
         else:
-            print(f"price is {price} and not buying or selling position is {pos_usd} and usd size is {usd_size}")
+            print(
+                f"price is {price} and not buying or selling position is {pos_usd} and usd size is {usd_size}"
+            )
             time.sleep(30)
 
     while action == 6:
@@ -261,7 +278,8 @@ def bot():
     while action == 7:
         print("liquidation amount")
 
-    print("COMPLETE THANKS MOON DEV!")
+    else:
+        print("COMPLETE THANKS MOON DEV!")
 
 
 bot()
