@@ -926,8 +926,8 @@
       "target": "devanshx9x/portfolio-monte-carlo",
       "url": "https://github.com/devanshx9x/portfolio-monte-carlo",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3056",
+      "merged": true
     },
     {
       "name": "stocks-dashboard",
