@@ -96,7 +96,9 @@ class VetoVerdict(BaseModel):
         default=None,
         description="The page the cited fact came from. Null when PASS.",
     )
-    checked: str = Field(description="One line listing what was actually searched and found, for both KILL and PASS")
+    checked: str = Field(
+        description="One line listing what was actually searched and found, for both KILL and PASS"
+    )
 
 
 SYSTEM_PROMPT = """You are the final check before an automated system buys an Indian
@@ -242,7 +244,7 @@ The screener picked this for a volume-backed move. Find the specific thing that 
         }
 
     except Exception as e:
-        logger.exception("veto_failed", ticker=ticker, error=str(e))
+        logger.error("veto_failed", ticker=ticker, error=str(e))
         return {
             "verdict": "PASS",
             "reason": None,

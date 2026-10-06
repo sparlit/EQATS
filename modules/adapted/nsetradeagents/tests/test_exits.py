@@ -195,7 +195,7 @@ def test_flat_bar_hits_target():
 
 
 @pytest.mark.parametrize(
-    ("atr_pct", "expected"),
+    "atr_pct,expected",
     [
         (0.5, 0.05),  # floor
         (1.5, 0.05),  # floor — the screener's minimum ATR
@@ -227,7 +227,7 @@ def test_missing_atr_falls_back_to_the_flat_stop(missing):
 
 
 @pytest.mark.parametrize(
-    ("atr_pct", "expected"),
+    "atr_pct,expected",
     [
         (1.5, 0.06),  # floor, exactly where it stops binding
         (2.0, 0.08),
@@ -244,7 +244,7 @@ def test_target_is_4x_atr_bounded_6_to_20(atr_pct, expected):
 
 
 @pytest.mark.parametrize(
-    ("atr_pct", "expected"),
+    "atr_pct,expected",
     [
         (1.5, 0.04),  # floor
         (3.0, 0.06),

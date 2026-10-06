@@ -34,6 +34,8 @@ logger = structlog.get_logger()
 class Base(DeclarativeBase):
     """Declarative base every model inherits from."""
 
+    pass
+
 
 engine = create_engine(
     settings.database_url,
@@ -54,7 +56,7 @@ def get_db():
         db.commit()
     except Exception as e:
         db.rollback()
-        logger.exception("database_error", error=str(e))
+        logger.error("database_error", error=str(e))
         raise
     finally:
         db.close()
@@ -63,7 +65,7 @@ def get_db():
 def init_db():
     # Importing the module registers every model on Base before create_all.
     """Create any missing tables."""
-    from app.models import models
+    from app.models import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     logger.info("database_initialised", url=settings.database_url)

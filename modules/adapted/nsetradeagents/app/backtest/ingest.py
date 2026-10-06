@@ -83,7 +83,8 @@ def _save_df(conn: sqlite3.Connection, ticker: str, df: pd.DataFrame) -> int:
         )
     if rows:
         conn.executemany(
-            "INSERT OR REPLACE INTO bars (ticker, date, open, high, low, close, volume) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO bars "
+            "(ticker, date, open, high, low, close, volume) VALUES (?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
         conn.commit()
@@ -131,7 +132,7 @@ def run_ingest(db_path: str = "backtest_data.db", force: bool = False):
                 n = _save_df(conn, ticker, extracted)
                 total_rows += n
         except Exception as e:
-            logger.exception("ingest_batch_failed", offset=i, error=str(e))
+            logger.error("ingest_batch_failed", offset=i, error=str(e))
         time.sleep(0.5)
     logger.info("ingest_complete", total_rows=total_rows)
     conn.close()

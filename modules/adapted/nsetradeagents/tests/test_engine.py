@@ -102,7 +102,9 @@ def stub_engine(monkeypatch):
             },
         )
         monkeypatch.setattr(engine, "_compute_signal", lambda ind: "BUY")
-        monkeypatch.setattr(engine, "evaluate_candidate", lambda ind: ({"screener_score": 1.0}, "passed"))
+        monkeypatch.setattr(
+            engine, "evaluate_candidate", lambda ind: ({"screener_score": 1.0}, "passed")
+        )
         monkeypatch.setattr(engine, "compute_rules_confidence", lambda *a, **k: {"score": 99})
         # Breadth is computed from the fake bars and would block a falling
         # universe; these tests are not about the regime gate.
@@ -163,7 +165,9 @@ def test_a_position_opened_at_the_close_cannot_exit_the_same_day(stub_engine):
     assert real_exits, "expected trades to have exited through the ladder"
 
     for t in real_exits:
-        assert t.exit_date > t.entry_date, f"{t.ticker} entered and exited on {t.entry_date} via {t.exit_reason}"
+        assert t.exit_date > t.entry_date, (
+            f"{t.ticker} entered and exited on {t.entry_date} via {t.exit_reason}"
+        )
 
 
 # ── capacity ──────────────────────────────────────────────────────────────────

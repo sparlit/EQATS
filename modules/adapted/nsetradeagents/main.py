@@ -116,7 +116,7 @@ def run_scan():
                 )
                 analyzed += 1
             except Exception as e:
-                logger.exception("scan_ticker_failed", ticker=ticker, error=str(e))
+                logger.error("scan_ticker_failed", ticker=ticker, error=str(e))
                 continue
 
             trade_result = final_state.get("trade_result") or {}
@@ -194,7 +194,7 @@ def run_scan():
                     )
                 )
         except Exception as e:
-            logger.exception("scan_run_record_failed", error=str(e))
+            logger.error("scan_run_record_failed", error=str(e))
 
         # A portfolio snapshot every scan, whatever the outcome. This used to
         # sit after the candidate loop, so a quiet or blocked day recorded
@@ -203,7 +203,7 @@ def run_scan():
         try:
             simulator.save_snapshot()
         except Exception as e:
-            logger.exception("snapshot_failed", error=str(e))
+            logger.error("snapshot_failed", error=str(e))
 
 
 if __name__ == "__main__":

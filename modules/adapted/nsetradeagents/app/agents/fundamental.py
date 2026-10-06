@@ -53,7 +53,9 @@ def run_fundamental_check(ticker: str, ticker_info: dict | None) -> dict:
     # Market cap - avoid micro-caps that are illiquid and manipulation-prone
     market_cap = ticker_info.get("marketCap")
     if market_cap is not None and market_cap < settings.min_market_cap:
-        block_reasons.append(f"Market cap is too small (₹{market_cap / 1_00_00_000:.0f} Cr) — micro-cap risk")
+        block_reasons.append(
+            f"Market cap is too small (₹{market_cap / 1_00_00_000:.0f} Cr) — micro-cap risk"
+        )
 
     # Debt/equity - skip for financial sector (banks leverage by nature)
     if not is_financial:

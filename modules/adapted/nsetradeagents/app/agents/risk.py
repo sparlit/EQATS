@@ -70,15 +70,21 @@ def run_risk_check(
     # Gate 2: can we afford at least 1 share within position limits,
     # and will the resulting position be meaningful (>= ₹5,000)?
     if current_price > max_position_value:
-        block_reasons.append(f"stock price (₹{current_price}) exceeds max position size (₹{max_position_value:.0f})")
+        block_reasons.append(
+            f"stock price (₹{current_price}) exceeds max position size (₹{max_position_value:.0f})"
+        )
     elif max_position_value < 5000:
-        block_reasons.append(f"position size too small to be meaningful (₹{max_position_value:.0f} < ₹5,000)")
+        block_reasons.append(
+            f"position size too small to be meaningful (₹{max_position_value:.0f} < ₹5,000)"
+        )
 
     # Gate 3: max 2 positions per sector to ensure diversification
     if ticker_sector != "Unknown" and open_position_sectors:
         sector_count = open_position_sectors.count(ticker_sector)
         if sector_count >= 2:
-            block_reasons.append(f"sector concentration limit reached ({ticker_sector}: {sector_count}/2)")
+            block_reasons.append(
+                f"sector concentration limit reached ({ticker_sector}: {sector_count}/2)"
+            )
 
     if block_reasons:
         logger.info("risk_blocked", ticker=ticker, reasons=block_reasons)

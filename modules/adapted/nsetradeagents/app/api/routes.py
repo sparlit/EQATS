@@ -90,7 +90,9 @@ def overview(request: Request):
 def positions(request: Request):
     """Open positions with live prices and progress toward stop and target."""
     with get_db() as db:
-        open_trades = db.query(Trade).filter(Trade.status == "open").order_by(desc(Trade.opened_at)).all()
+        open_trades = (
+            db.query(Trade).filter(Trade.status == "open").order_by(desc(Trade.opened_at)).all()
+        )
 
         trades = [
             {
@@ -104,7 +106,9 @@ def positions(request: Request):
                 "opened_at": t.opened_at,
                 "reasoning": t.reasoning,
                 "current_price": t.current_price or t.entry_price,
-                "unrealised_pnl": round(((t.current_price or t.entry_price) - t.entry_price) * t.quantity, 2),
+                "unrealised_pnl": round(
+                    ((t.current_price or t.entry_price) - t.entry_price) * t.quantity, 2
+                ),
                 "unrealised_pct": round(
                     ((t.current_price or t.entry_price) - t.entry_price) / t.entry_price * 100,
                     2,
@@ -112,14 +116,18 @@ def positions(request: Request):
             }
             for t in open_trades
         ]
-    return templates.TemplateResponse(request=request, name="positions.html", context={"trades": trades})
+    return templates.TemplateResponse(
+        request=request, name="positions.html", context={"trades": trades}
+    )
 
 
 @app.get("/history", response_class=HTMLResponse)
 def history(request: Request):
     """Closed trades with win rate and profit statistics."""
     with get_db() as db:
-        closed_trades = db.query(Trade).filter(Trade.status == "closed").order_by(desc(Trade.closed_at)).all()
+        closed_trades = (
+            db.query(Trade).filter(Trade.status == "closed").order_by(desc(Trade.closed_at)).all()
+        )
         trades = [
             {
                 "ticker": t.ticker,
@@ -148,7 +156,9 @@ def history(request: Request):
         "total_pnl": round(total_pnl, 2),
     }
 
-    return templates.TemplateResponse(request=request, name="history.html", context={"trades": trades, "stats": stats})
+    return templates.TemplateResponse(
+        request=request, name="history.html", context={"trades": trades, "stats": stats}
+    )
 
 
 DECISIONS_PAGE_SIZE = 200
@@ -286,7 +296,9 @@ def decisions(request: Request):
             else None
         ),
         "kill_reasons": (
-            [{"reason": r, "count": n, "pct": round(n / killed * 100)} for r, n in reason_counts] if killed else []
+            [{"reason": r, "count": n, "pct": round(n / killed * 100)} for r, n in reason_counts]
+            if killed
+            else []
         ),
     }
 
@@ -301,7 +313,9 @@ def decisions(request: Request):
 def logs(request: Request):
     """Live log viewer page."""
     entries = list(reversed(list(log_buffer)))[:200]
-    return templates.TemplateResponse(request=request, name="logs.html", context={"entries": entries})
+    return templates.TemplateResponse(
+        request=request, name="logs.html", context={"entries": entries}
+    )
 
 
 @app.get("/api/logs/stream")
@@ -330,7 +344,9 @@ async def stream_logs():
 def api_snapshots():
     """Portfolio snapshots as JSON, for the equity chart."""
     with get_db() as db:
-        snapshots = db.query(PortfolioSnapshot).order_by(PortfolioSnapshot.snapshot_at).limit(200).all()
+        snapshots = (
+            db.query(PortfolioSnapshot).order_by(PortfolioSnapshot.snapshot_at).limit(200).all()
+        )
         return [
             {
                 "time": s.snapshot_at.strftime("%d %b %H:%M") if s.snapshot_at else "",
