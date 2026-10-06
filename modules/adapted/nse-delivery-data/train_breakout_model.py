@@ -33,7 +33,6 @@ import os
 import re
 
 import lightgbm as lgb
-import numpy as np
 import pandas as pd
 from sklearn.metrics import classification_report, roc_auc_score
 from sklearn.model_selection import train_test_split
@@ -56,8 +55,7 @@ def load_and_clean_data(folder_path):
     all_files = glob.glob(os.path.join(folder_path, "**/*.csv"), recursive=True)
 
     if not all_files:
-        msg = f"No CSV files found in the path: {os.path.abspath(folder_path)}"
-        raise ValueError(msg)
+        raise ValueError(f"No CSV files found in the path: {os.path.abspath(folder_path)}")
 
     print(f"Discovered {len(all_files)} data files. Compiling master history...")
 
@@ -82,8 +80,7 @@ def load_and_clean_data(folder_path):
             continue
 
     if not data_frames:
-        msg = "Could not parse any valid text or date structures from files."
-        raise ValueError(msg)
+        raise ValueError("Could not parse any valid text or date structures from files.")
 
     df_merged = pd.concat(data_frames, ignore_index=True)
     df_merged = df_merged.dropna(subset=["DATE"])
@@ -101,7 +98,8 @@ def load_and_clean_data(folder_path):
     df_merged["DELIV_PER"] = df_merged["DELIV_PER"].fillna(0)
 
     # CRITICAL: Sort chronologically by Symbol and Date so rolling math applies correctly
-    return df_merged.sort_values(by=["SYMBOL", "DATE"]).reset_index(drop=True)
+    df_merged = df_merged.sort_values(by=["SYMBOL", "DATE"]).reset_index(drop=True)
+    return df_merged
 
 
 def engineer_features_and_targets(df):
@@ -109,27 +107,36 @@ def engineer_features_and_targets(df):
     print("Engineering AI features and forward-looking targets...")
 
     # 1. Delivery Volume Dynamics
-    df["DELIV_QTY_20MA"] = df.groupby("SYMBOL")["DELIV_QTY"].transform(lambda x: x.rolling(20).mean())
+    df["DELIV_QTY_20MA"] = df.groupby("SYMBOL")["DELIV_QTY"].transform(
+        lambda x: x.rolling(20).mean()
+    )
     df["DELIV_SPIKE_RATIO"] = df["DELIV_QTY"] / (df["DELIV_QTY_20MA"] + 1e-5)
     df["DELIV_PER_5MA"] = df.groupby("SYMBOL")["DELIV_PER"].transform(lambda x: x.rolling(5).mean())
 
     # 2. Price/Returns Momentum
     df["PRICE_RETURN_1D"] = df.groupby("SYMBOL")["CLOSE_PRICE"].pct_change(1) * 100
     df["PRICE_RETURN_5D"] = df.groupby("SYMBOL")["CLOSE_PRICE"].pct_change(5) * 100
-    df["PRICE_VOLATILITY_20D"] = df.groupby("SYMBOL")["PRICE_RETURN_1D"].transform(lambda x: x.rolling(20).std())
+    df["PRICE_VOLATILITY_20D"] = df.groupby("SYMBOL")["PRICE_RETURN_1D"].transform(
+        lambda x: x.rolling(20).std()
+    )
 
     # 3. Total Traded Volume vs Delivery Volume interaction
-    df["TOTAL_TURNOVER_5MA"] = df.groupby("SYMBOL")["TURNOVER_LACS"].transform(lambda x: x.rolling(5).mean())
+    df["TOTAL_TURNOVER_5MA"] = df.groupby("SYMBOL")["TURNOVER_LACS"].transform(
+        lambda x: x.rolling(5).mean()
+    )
     df["TURNOVER_SPIKE"] = df["TURNOVER_LACS"] / (df["TOTAL_TURNOVER_5MA"] + 1e-5)
 
     # CREATE TARGET (Look-forward 5 days)
-    df["FUTURE_MAX_CLOSE_5D"] = df.groupby("SYMBOL")["CLOSE_PRICE"].transform(lambda x: x.shift(-5).rolling(5).max())
+    df["FUTURE_MAX_CLOSE_5D"] = df.groupby("SYMBOL")["CLOSE_PRICE"].transform(
+        lambda x: x.shift(-5).rolling(5).max()
+    )
 
     # Target = 1 if stock achieves a >= 5% breakout over today's close price within next week
     df["BREAKOUT_TARGET"] = (df["FUTURE_MAX_CLOSE_5D"] >= df["CLOSE_PRICE"] * 1.05).astype(int)
 
     # Drop rows where window lookbacks or lookforwards cannot be computed mathematically
-    return df.dropna(subset=["DELIV_QTY_20MA", "FUTURE_MAX_CLOSE_5D"]).copy()
+    df = df.dropna(subset=["DELIV_QTY_20MA", "FUTURE_MAX_CLOSE_5D"]).copy()
+    return df
 
 
 def train_breakout_model(df):
@@ -161,7 +168,8 @@ def train_breakout_model(df):
         "learning_rate": 0.05,
         "num_leaves": 31,
         "max_depth": 6,
-        "scale_pos_weight": (len(y_train) - sum(y_train)) / sum(y_train),  # Balances rare breakout events
+        "scale_pos_weight": (len(y_train) - sum(y_train))
+        / sum(y_train),  # Balances rare breakout events
         "verbose": -1,
         "random_state": 42,
     }
@@ -187,7 +195,10 @@ def train_breakout_model(df):
     print(classification_report(y_test, preds_binary))
 
     importance = pd.DataFrame(
-        {"Feature": feature_cols, "Gain_Importance": model.feature_importance(importance_type="gain")}
+        {
+            "Feature": feature_cols,
+            "Gain_Importance": model.feature_importance(importance_type="gain"),
+        }
     ).sort_values(by="Gain_Importance", ascending=False)
 
     print("\nFeature Importance Profile:")
