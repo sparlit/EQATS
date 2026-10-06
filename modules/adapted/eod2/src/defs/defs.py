@@ -33,7 +33,7 @@ import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Type, Union
+from types import ModuleType
 
 import dateutil
 
@@ -48,16 +48,13 @@ except ImportError:
 try:
     import httpx
 except ModuleNotFoundError:
-    sys.exit("Please run `pip install 'nse[server]==1.2.9'`")
+    exit("Please run `pip install 'nse[server]==1.2.9'`")
 
 import numpy as np
 import pandas as pd
 import tzlocal
 from defs.config import config
 from nse import NSE
-
-if TYPE_CHECKING:
-    from types import ModuleType
 
 
 def configure_logger():
@@ -81,7 +78,9 @@ def configure_logger():
         )
     except TypeError:
         # Python 3.8 and 3.9 - No support for defaults parameter.
-        file_handler.setFormatter(logging.Formatter("%(levelname)s: %(asctime)s - %(name)s - %(message)s"))
+        file_handler.setFormatter(
+            logging.Formatter("%(levelname)s: %(asctime)s - %(name)s - %(message)s")
+        )
 
     logging.basicConfig(
         format="%(levelname)s: %(asctime)s - %(name)s - %(message)s",
@@ -113,7 +112,7 @@ def is_version_compatible(version: str, major: int, minor: int, patch: int) -> b
     Returns:
         True if the version is compatible, otherwise False.
     """
-    v_major, v_minor, v_patch = map(int, version.split("-", maxsplit=1)[0].split("."))
+    v_major, v_minor, v_patch = map(int, version.split("-")[0].split("."))
 
     return v_major == major and (v_minor, v_patch) >= (minor, patch)
 
@@ -143,8 +142,7 @@ def load_module(module_str: str) -> ModuleType | type:
     spec = importlib.util.spec_from_file_location(module_path.stem, module_path)
 
     if not spec or not spec.loader:
-        msg = f"Could not load module {module_path.stem}"
-        raise ModuleNotFoundError(msg)
+        raise ModuleNotFoundError(f"Could not load module {module_path.stem}")
 
     module = importlib.util.module_from_spec(spec)
 
@@ -200,10 +198,10 @@ def retry(max_retries=10, base_wait=2, max_wait=10):
                     retries += 1
                 except Exception as e:
                     logger.exception(f"An error occurred {e}")
-                    sys.exit(1)
+                    exit(1)
 
-            logger.error(f"Exceeded maximum retry attempts for {func.__name__}. Exiting.")
-            sys.exit(1)
+            logger.exception(f"Exceeded maximum retry attempts for {func.__name__}. Exiting.")
+            exit(1)
 
         return wrapper
 
@@ -229,7 +227,7 @@ def check_reports_update_status(nse) -> dict[str, bool]:
 
     if cm_report_date != dates.today.replace(tzinfo=None):
         logger.info("Market is closed today")
-        sys.exit(0)
+        exit(0)
 
     for dct in itertools.chain(cm_data["CurrentDay"], index_data["CurrentDay"]):
         key = dct["fileKey"]
@@ -263,8 +261,8 @@ def downloadSpecialSessions() -> tuple[datetime, ...]:
         raise ConnectionError(e)
 
     if res.status_code != httpx.codes.OK:
-        logger.error(f"{err_text} {res.status_code}: {res.reason_phrase}")
-        sys.exit(1)
+        logger.exception(f"{err_text} {res.status_code}: {res.reason_phrase}")
+        exit(1)
 
     return tuple(datetime.fromisoformat(x).astimezone(tz_IN) for x in res.text.strip().split("\n"))
 
@@ -294,7 +292,9 @@ def checkForHolidays(nse: NSE, dates_cls: Dates):
     # the current date for which data is being synced
     curDt = dates_cls.dt.strftime("%d-%b-%Y")
 
-    if dates_cls.dt.replace(tzinfo=None) in tuple(datetime.fromisoformat(x) for x in meta.get("special_sessions", [])):
+    if dates_cls.dt.replace(tzinfo=None) in tuple(
+        datetime.fromisoformat(x) for x in meta.get("special_sessions", [])
+    ):
         return False
 
     # no holiday list or year has changed or today is a holiday
@@ -302,11 +302,10 @@ def checkForHolidays(nse: NSE, dates_cls: Dates):
         "holidays" not in meta
         or meta["year"] != dates_cls.dt.year
         or (curDt in meta["holidays"] and not hasLatestHolidays)
-    ):
-        if dates_cls.dt.year == dates_cls.today.year:
-            meta["holidays"] = getHolidayList(nse)
-            meta["year"] = dates_cls.dt.year
-            hasLatestHolidays = True
+    ) and dates_cls.dt.year == dates_cls.today.year:
+        meta["holidays"] = getHolidayList(nse)
+        meta["year"] = dates_cls.dt.year
+        hasLatestHolidays = True
 
     isMuhurat = curDt in meta["holidays"] and "Laxmi Pujan" in meta["holidays"][curDt]
 
@@ -491,7 +490,7 @@ def updateAmiBrokerRecords(nse: NSE):
                 continue
             except Exception as e:
                 logger.warning(f"{e} - Please try again.")
-                sys.exit(1)
+                exit(1)
 
         toAmiBrokerFormat(bhavFile, udiff_format=udiff_format)
 
@@ -610,8 +609,7 @@ def updateNseEOD(bhavFile: Path, deliveryFile: Path | None):
         SYM_FILE = DAILY_FOLDER / f"{t.TckrSymb.lower()}{prefix}.csv"
 
         if pd.isna(t.Index):
-            msg = f"{t.TckrSymb} missing ISIN number. Please retry after few hours."
-            raise ValueError(msg)
+            raise ValueError(f"{t.TckrSymb} missing ISIN number. Please retry after few hours.")
 
         # ISIN is a unique identifier for each stock symbol.
         # When a symbol name changes its ISIN remains the same
@@ -745,7 +743,9 @@ def check_special_sessions(nse: NSE) -> bool:
         try:
             dt = dateutil.parser.parse(subject, fuzzy=True)
         except dateutil.parser.ParserError:
-            logger.warning(f"Unable to parse date from circular dated {circular['cirDisplayDate']}: {circular['sub']}")
+            logger.warning(
+                f"Unable to parse date from circular dated {circular['cirDisplayDate']}: {circular['sub']}"
+            )
             continue
 
         iso_date = dt.isoformat()
@@ -803,7 +803,7 @@ def makeAdjustment(
 
         if not file.is_file():
             logger.warning(f"{symbol}: File not found - {dates.dt}")
-            return None
+            return
 
         df = pd.read_csv(file, index_col="Date", parse_dates=["Date"])
 
@@ -815,7 +815,7 @@ def makeAdjustment(
 
         if isinstance(idx, slice):
             logger.warning(f"Duplicate dates detected on {symbol} making adjustment - {dates.dt}")
-            raise RuntimeError
+            raise RuntimeError()
 
         last = df.iloc[idx:]
 
@@ -927,7 +927,9 @@ def adjustNseStocks():
                 if series in ("SM", "ST"):
                     sym += "_sme"
 
-                if ("split" in purpose or "splt" in purpose or "consolidation" in purpose) and ex == dtStr:
+                if (
+                    "split" in purpose or "splt" in purpose or "consolidation" in purpose
+                ) and ex == dtStr:
                     if "consolidation" in purpose:
                         error_context = f"{sym} - consolidation - {dtStr}"
                         i = purpose.index("consolidation")
@@ -938,7 +940,9 @@ def adjustNseStocks():
                     adjustmentFactor = getSplit(sym, purpose[i:])
 
                     if adjustmentFactor is None:
-                        logger.warning(f"Possible adjustment failure: SPLIT - {sym} - {purpose} - exDate: {dtStr}")
+                        logger.warning(
+                            f"Possible adjustment failure: SPLIT - {sym} - {purpose} - exDate: {dtStr}"
+                        )
                         continue
 
                     commit = makeAdjustment(sym, adjustmentFactor, df_commits.get(sym))
@@ -955,14 +959,21 @@ def adjustNseStocks():
                         logger.info(f"{sym}: {purpose}")
 
                 if "bonus" in purpose and ex == dtStr:
-                    if "deb" in purpose or "pref" in purpose or "ncrps" in purpose or "dvr" in purpose:
+                    if (
+                        "deb" in purpose
+                        or "pref" in purpose
+                        or "ncrps" in purpose
+                        or "dvr" in purpose
+                    ):
                         continue
 
                     error_context = f"{sym} - Bonus - {dtStr}"
                     adjustmentFactor = getBonus(sym, purpose)
 
                     if adjustmentFactor is None:
-                        logger.warning(f"Possible adjustment failure: BONUS - {sym} - {purpose} - exDate: {dtStr}")
+                        logger.warning(
+                            f"Possible adjustment failure: BONUS - {sym} - {purpose} - exDate: {dtStr}"
+                        )
                         continue
 
                     commit = makeAdjustment(sym, adjustmentFactor, df_commits.get(sym))
@@ -978,12 +989,12 @@ def adjustNseStocks():
                         post_commits.append((sym, adjustmentFactor))
                         logger.warning(f"{sym}: {purpose}")
 
-        except Exception:
+        except Exception as e:
             logging.critical(f"Adjustment Error - Context {error_context}")
             # discard all pd.DataFrames and raise error,
             # so changes can be rolled back
             df_commits.clear()
-            raise
+            raise e
 
         # commit changes
         for sym, commit in df_commits.items():
@@ -1003,9 +1014,13 @@ def adjustNseStocks():
                 if diff > 1.5 or diff < 0.67:
                     context = f"Current Close {close}, Previous Close {prev_close}"
 
-                    logger.warning(f"WARN: Possible adjustment failure in {sym}: {context} - {dates.dt}")
+                    logger.warning(
+                        f"WARN: Possible adjustment failure in {sym}: {context} - {dates.dt}"
+                    )
             else:
-                logger.warning(f"Unable to verify adjustment on {sym} - Please confirm manually. - {dates.dt}")
+                logger.warning(
+                    f"Unable to verify adjustment on {sym} - Please confirm manually. - {dates.dt}"
+                )
 
             df.to_csv(file)
 
@@ -1140,7 +1155,9 @@ if __name__ != "__main__":
 
     headerText = b"Date,Open,High,Low,Close,Volume,Series,TOTAL_TRADES,QTY_PER_TRADE,DLV_QTY\n"
 
-    indexHeaderText = b"Date,Open,High,Low,Close,Volume,P/E,Series,TOTAL_TRADES,QTY_PER_TRADE,DLV_QTY\n"
+    indexHeaderText = (
+        b"Date,Open,High,Low,Close,Volume,P/E,Series,TOTAL_TRADES,QTY_PER_TRADE,DLV_QTY\n"
+    )
 
     VALID_SERIES = ("EQ", "BE", "BZ", "SM", "ST")
 

@@ -24,7 +24,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 from argparse import ArgumentParser
 from os import system
 from pathlib import Path
-from sys import exit, platform
+from sys import platform
 
 from defs.config import config
 from defs.utils import loadJson, writeJson
@@ -219,7 +219,9 @@ else:
 
         try:
             # generate average of last 30 days
-            avgQty, avgDlvQty, avgVol = df[["QTY_PER_TRADE", "DLV_QTY", "Volume"]].mean(numeric_only=True).round(2)
+            avgQty, avgDlvQty, avgVol = (
+                df[["QTY_PER_TRADE", "DLV_QTY", "Volume"]].mean(numeric_only=True).round(2)
+            )
         except ValueError:
             # New stocks may not have enough data to generate averages
             continue

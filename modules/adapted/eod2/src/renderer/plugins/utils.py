@@ -40,8 +40,7 @@ def wilders_moving_average(source: pd.Series, length: int) -> pd.Series:
     The first output appears at position length - 1.
     """
     if length <= 0:
-        msg = "length must be greater than zero"
-        raise ValueError(msg)
+        raise ValueError("length must be greater than zero")
 
     values = source.to_numpy(dtype=np.float64, copy=False)
     result = np.full(len(values), np.nan, dtype=np.float64)
@@ -52,8 +51,7 @@ def wilders_moving_average(source: pd.Series, length: int) -> pd.Series:
     initial_window = values[:length]
 
     if np.isnan(initial_window).any():
-        msg = f"The first {length} source values must not contain NaN values"
-        raise ValueError(msg)
+        raise ValueError(f"The first {length} source values must not contain NaN values")
 
     # Wilder's initial seed is an SMA.
     result[length - 1] = initial_window.mean()
@@ -170,12 +168,10 @@ def supertrend(
         -1 = downward trend
     """
     if atr_length <= 0:
-        msg = "atr_length must be greater than zero"
-        raise ValueError(msg)
+        raise ValueError("atr_length must be greater than zero")
 
     if factor <= 0:
-        msg = "factor must be greater than zero"
-        raise ValueError(msg)
+        raise ValueError("factor must be greater than zero")
 
     index = close.index
 
@@ -207,7 +203,12 @@ def supertrend(
         )
     )
 
-    atr_values = pd.Series(true_range, index=index).ewm(alpha=1.0 / atr_length, adjust=False).mean().to_numpy()
+    atr_values = (
+        pd.Series(true_range, index=index)
+        .ewm(alpha=1.0 / atr_length, adjust=False)
+        .mean()
+        .to_numpy()
+    )
 
     midpoint = (high_values + low_values) * 0.5
     basic_upper = midpoint + factor * atr_values
@@ -241,12 +242,13 @@ def supertrend(
             else:
                 supertrend_values[i] = final_lower
                 direction_values[i] = 1
-        elif close_values[i] >= final_lower:
-            supertrend_values[i] = final_lower
-            direction_values[i] = 1
         else:
-            supertrend_values[i] = final_upper
-            direction_values[i] = -1
+            if close_values[i] >= final_lower:
+                supertrend_values[i] = final_lower
+                direction_values[i] = 1
+            else:
+                supertrend_values[i] = final_upper
+                direction_values[i] = -1
 
         previous_final_upper = final_upper
         previous_final_lower = final_lower

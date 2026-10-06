@@ -24,10 +24,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from .dtypes import BreadthOption
+from .dtypes import BreadthOption
 
 
 @dataclass(slots=True)

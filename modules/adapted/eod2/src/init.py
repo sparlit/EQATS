@@ -38,19 +38,21 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 if not defs.is_version_compatible(NSE.__version__, major=4, minor=0, patch=1):
     logger.warning("Require NSE version 4.0.*. Run `pip install 'nse[server]==4.0.1'`")
-    sys.exit(1)
+    exit(1)
 
 data_version = defs.meta.get("data-version", None)
 
 if data_version != defs.config.EXPECTED_DATA_VERSION:
     if (defs.DIR.parent / ".git").exists():
-        update_url = "https://github.com/BennyThadikaran/eod2/wiki/Installation#updating-the-git-repo\n"
+        update_url = (
+            "https://github.com/BennyThadikaran/eod2/wiki/Installation#updating-the-git-repo\n"
+        )
 
-        sys.exit(
+        exit(
             f"Warning: eod2_data folder needs an update.\n\nFollow instructions at below link to update\n{update_url}"
         )
     else:
-        sys.exit("Warning: eod2_data folder needs an update. Run `setup_data.py` to update")
+        exit("Warning: eod2_data folder needs an update. Run `setup_data.py` to update")
 
 # Set the sys.excepthook to the custom exception handler
 sys.excepthook = defs.log_unhandled_exception
@@ -66,18 +68,20 @@ group.add_argument("-c", "--config", action="store_true", help="Print the curren
 args = parser.parse_args()
 
 if args.version:
-    print(f"EOD2 init.py: v{defs.config.VERSION} | eod2_data: v{defs.meta.get('data-version', None)}")
-    sys.exit(0)
+    print(
+        f"EOD2 init.py: v{defs.config.VERSION} | eod2_data: v{defs.meta.get('data-version', None)}"
+    )
+    exit(0)
 
 if args.config:
     print(str(defs.config))
-    sys.exit(0)
+    exit(0)
 
 try:
     nse = NSE(defs.DIR, server=True)
 except (TimeoutError, ConnectionError, ConnectError) as e:
     logger.warning(f"Network error connecting to NSE - Please try again later. - {e!r}")
-    sys.exit(1)
+    exit(1)
 
 if defs.check_special_sessions(nse):
     writeJson(defs.META_FILE, defs.meta)
@@ -100,7 +104,7 @@ if len(defs.meta["DLV_PENDING_DATES"]):
 while True:
     if not defs.dates.nextDate():
         nse.exit()
-        sys.exit(0)
+        exit(0)
 
     if defs.checkForHolidays(nse, defs.dates):
         defs.meta["lastUpdate"] = defs.dates.lastUpdate = defs.dates.dt
@@ -130,7 +134,7 @@ while True:
 
                 if key != "CM-BHAVDATA-FULL":
                     nse.exit()
-                    sys.exit(1)
+                    exit(1)
 
     try:
         # NSE bhav copy
@@ -152,7 +156,7 @@ while True:
         # On daily sync exit on error
         nse.exit()
         logger.warning(e)
-        sys.exit(1)
+        exit(1)
 
     if report_status is None or report_status["CM-BHAVDATA-FULL"]:
         try:
@@ -181,7 +185,7 @@ while True:
         defs.meta["lastUpdate"] = defs.dates.lastUpdate
         writeJson(defs.META_FILE, defs.meta)
         nse.exit()
-        sys.exit(1)
+        exit(1)
 
     # No errors continue
 
@@ -200,7 +204,7 @@ while True:
         defs.meta["lastUpdate"] = defs.dates.lastUpdate
         writeJson(defs.META_FILE, defs.meta)
         nse.exit()
-        sys.exit(1)
+        exit(1)
 
     if defs.hook and hasattr(defs.hook, "on_complete"):
         defs.hook.on_complete()
