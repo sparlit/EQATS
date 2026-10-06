@@ -29,7 +29,7 @@ import re
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from dateutil.relativedelta import relativedelta
 from google import genai
@@ -93,7 +93,7 @@ def load_progress() -> dict[str, list]:
             with open(PROGRESS_FILE, encoding="utf-8") as f:
                 return json.load(f)
         except json.JSONDecodeError:
-            logging.exception(f"⚠️ {PROGRESS_FILE} is corrupted. Starting fresh.")
+            logging.error(f"⚠️ {PROGRESS_FILE} is corrupted. Starting fresh.")
     return {"completed": []}
 
 
@@ -104,16 +104,14 @@ def save_progress(completed_dates: list[str]) -> None:
             json.dump({"completed": completed_dates}, f, indent=2)
         os.replace(temp_file, PROGRESS_FILE)
     except Exception as e:
-        logging.exception(f"Failed to save progress: {e}")
+        logging.error(f"Failed to save progress: {e}")
 
 
 def get_previous_month_state(current_date_str: str, all_dates: list[str]) -> str:
     try:
         current_idx = all_dates.index(current_date_str)
         if current_idx == 0:
-            return (
-                "NONE (This is the inception month. Create a new portfolio based strictly on the current month's data.)"
-            )
+            return "NONE (This is the inception month. Create a new portfolio based strictly on the current month's data.)"
 
         prev_date_str = all_dates[current_idx - 1]
         prev_file = OUTPUT_DIR / f"{prev_date_str.replace('-', '_')}.json"
@@ -126,7 +124,7 @@ def get_previous_month_state(current_date_str: str, all_dates: list[str]) -> str
         else:
             return "ERROR_MISSING_PREVIOUS"
     except Exception as e:
-        logging.exception(f"Error fetching previous state: {e}")
+        logging.error(f"Error fetching previous state: {e}")
         return "ERROR_MISSING_PREVIOUS"
 
 
@@ -141,7 +139,7 @@ def generate_analysis(
             prompt = prompt.replace("{MARKET_DATA_FEED}", json.dumps(market_feed))
             prompt = prompt.replace("{AVAILABLE_MICROCAP_UNIVERSE}", json.dumps(universe_data))
     except FileNotFoundError:
-        logging.exception("🛑 prompt_template.txt not found!")
+        logging.error("🛑 prompt_template.txt not found!")
         return None
 
     # Extract valid tickers for the firewall
@@ -150,7 +148,9 @@ def generate_analysis(
 
     for attempt in range(1, max_retries + 1):
         try:
-            logging.info(f"    Requesting Gemini API for {cutoff_date_str} (Attempt {attempt}/{max_retries})...")
+            logging.info(
+                f"    Requesting Gemini API for {cutoff_date_str} (Attempt {attempt}/{max_retries})..."
+            )
             response = client.models.generate_content(
                 model=MODEL_ID,
                 contents=prompt,
@@ -176,8 +176,7 @@ def generate_analysis(
             required_keys = ["cutoff_date", "model_portfolio", "one_week_outlook"]
             for key in required_keys:
                 if key not in data:
-                    msg = f"Missing critical structural key: {key}"
-                    raise ValueError(msg)
+                    raise ValueError(f"Missing critical structural key: {key}")
 
             model_portfolio = data.get("model_portfolio", {})
             open_positions = model_portfolio.get("open_positions", [])
@@ -190,21 +189,27 @@ def generate_analysis(
                 allocated_tickers = [pos.get("ticker") for pos in open_positions]
                 for ticker in allocated_tickers:
                     if ticker not in valid_scraped_universe_list:
-                        msg = f"Security Alert: AI hallucinated unverified asset: {ticker}"
-                        raise ValueError(msg)
+                        raise ValueError(
+                            f"Security Alert: AI hallucinated unverified asset: {ticker}"
+                        )
 
             # 3. Weight Cap Guardrail (Enforce Cash Buffer)
-            total_weight = sum([float(pos.get("target_allocation_pct", 0.0)) for pos in open_positions])
+            total_weight = sum(
+                [float(pos.get("target_allocation_pct", 0.0)) for pos in open_positions]
+            )
             if total_weight > 0.985:  # 0.985 used to handle minor floating point rounding
-                msg = f"Allocation Alert: Total weight {total_weight} exceeds 0.98 limit (2% cash buffer breached)."
-                raise ValueError(msg)
+                raise ValueError(
+                    f"Allocation Alert: Total weight {total_weight} exceeds 0.98 limit (2% cash buffer breached)."
+                )
             # =================================================================
 
             logging.info(f"    ✅ Success & Validated for {cutoff_date_str}")
             return data
 
         except (json.JSONDecodeError, ValueError) as ve:
-            logging.warning(f"    ⚠️ Validation/Parser Error for {cutoff_date_str}: {ve}. Retrying...")
+            logging.warning(
+                f"    ⚠️ Validation/Parser Error for {cutoff_date_str}: {ve}. Retrying..."
+            )
             time.sleep(5)
 
         except Exception as e:
@@ -214,7 +219,7 @@ def generate_analysis(
                 logging.warning(f"    ⚠️ Rate limit hit. Waiting {wait} seconds before retrying...")
                 time.sleep(wait)
             else:
-                logging.exception(f"    ❌ Network/API Error for {cutoff_date_str}: {e}")
+                logging.error(f"    ❌ Network/API Error for {cutoff_date_str}: {e}")
                 time.sleep(30)
 
     logging.error(f"    🚨 FAILED completely for {cutoff_date_str} after {max_retries} attempts.")
@@ -235,7 +240,7 @@ def generate_dashboard():
                     with open(filepath, encoding="utf-8") as f:
                         compiled_data[date_key] = json.load(f)
                 except Exception as e:
-                    logging.exception(f"  ⚠️ Error loading {filename}: {e}")
+                    logging.error(f"  ⚠️ Error loading {filename}: {e}")
 
     if not compiled_data:
         logging.warning("  ⚠️ No data found to generate dashboard.")
@@ -247,7 +252,7 @@ def generate_dashboard():
         with open("dashboard_template.html", encoding="utf-8") as f:
             html_template = f.read()
     except FileNotFoundError:
-        logging.exception("🛑 dashboard_template.html not found! Cannot build visual dashboard.")
+        logging.error("🛑 dashboard_template.html not found! Cannot build visual dashboard.")
         return
 
     final_html = html_template.replace("__PYTHON_INJECT_DATA_HERE__", json_data_str)
@@ -282,7 +287,9 @@ if __name__ == "__main__":
         prev_state = get_previous_month_state(date_str, all_dates)
 
         if prev_state == "ERROR_MISSING_PREVIOUS":
-            logging.error(f"🛑 FATAL: Cannot process {date_str} because the previous month's JSON is missing.")
+            logging.error(
+                f"🛑 FATAL: Cannot process {date_str} because the previous month's JSON is missing."
+            )
             break
 
         # Fetch actual data for injection
@@ -316,4 +323,6 @@ if __name__ == "__main__":
     if len(json_files) > 0:
         generate_dashboard()
     else:
-        logging.warning("No JSON files found in reports directory. Dashboard will not be generated.")
+        logging.warning(
+            "No JSON files found in reports directory. Dashboard will not be generated."
+        )

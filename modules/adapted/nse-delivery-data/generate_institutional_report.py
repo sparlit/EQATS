@@ -24,9 +24,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import json
 import logging
 import os
-import sys
 import time
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 from google import genai
 from google.genai import types
@@ -34,7 +33,11 @@ from google.genai import types
 # ==============================================================================
 # 1. SETUP STRUCTURED LOGGING
 # ==============================================================================
-logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logger = logging.getLogger(__name__)
 
 # ==============================================================================
@@ -53,16 +56,20 @@ GEMINI_MODEL_CASCADE = [
 
 SAFETY_CONFIG = [
     types.SafetySetting(
-        category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold=types.HarmBlockThreshold.BLOCK_NONE
+        category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+        threshold=types.HarmBlockThreshold.BLOCK_NONE,
     ),
     types.SafetySetting(
-        category=types.HarmCategory.HARM_CATEGORY_HARASSMENT, threshold=types.HarmBlockThreshold.BLOCK_NONE
+        category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
+        threshold=types.HarmBlockThreshold.BLOCK_NONE,
     ),
     types.SafetySetting(
-        category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold=types.HarmBlockThreshold.BLOCK_NONE
+        category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+        threshold=types.HarmBlockThreshold.BLOCK_NONE,
     ),
     types.SafetySetting(
-        category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold=types.HarmBlockThreshold.BLOCK_NONE
+        category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+        threshold=types.HarmBlockThreshold.BLOCK_NONE,
     ),
 ]
 
@@ -81,7 +88,7 @@ def load_prompt(filename):
     path = os.path.join(prompts_dir, filename)
     if not os.path.exists(path):
         logger.error(f"CRITICAL: Missing prompt file at {path}. Please create it.")
-        sys.exit(1)
+        exit(1)
     with open(path, encoding="utf-8") as f:
         return f.read()
 
@@ -90,7 +97,7 @@ def load_stock_queue(filename="target_stocks.txt"):
     path = os.path.join(prompts_dir, filename)
     if not os.path.exists(path):
         logger.error(f"CRITICAL ERROR: {path} not found. Please create it.")
-        sys.exit(1)
+        exit(1)
 
     stocks = []
     with open(path, encoding="utf-8") as f:
@@ -125,19 +132,22 @@ def save_status():
 
 def extract_json_from_text(raw_text, stock_name, attempt):
     if not raw_text:
-        msg = "API returned an empty response. (Check finish_reason in logs)."
-        raise ValueError(msg)
+        raise ValueError("API returned an empty response. (Check finish_reason in logs).")
 
     start_idx = raw_text.find("{")
     end_idx = raw_text.rfind("}")
 
     if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
         return raw_text[start_idx : end_idx + 1]
-    debug_filename = os.path.join(output_dir, f"ERROR_LOG_{stock_name.replace(' ', '_')}_Tier{attempt}.txt")
-    with open(debug_filename, "w", encoding="utf-8") as f:
-        f.write(raw_text)
-    msg_0 = f"No JSON brackets found. AI's raw output saved to {debug_filename} for debugging."
-    raise ValueError(msg_0)
+    else:
+        debug_filename = os.path.join(
+            output_dir, f"ERROR_LOG_{stock_name.replace(' ', '_')}_Tier{attempt}.txt"
+        )
+        with open(debug_filename, "w", encoding="utf-8") as f:
+            f.write(raw_text)
+        raise ValueError(
+            f"No JSON brackets found. AI's raw output saved to {debug_filename} for debugging."
+        )
 
 
 # ==============================================================================
@@ -170,14 +180,17 @@ def generate_institutional_report(stock_name):
             )
 
             if not response.candidates or not response.candidates[0].content.parts:
-                finish_reason = response.candidates[0].finish_reason if response.candidates else "UNKNOWN"
-                msg = f"API returned empty text. Finish Reason: {finish_reason}"
-                raise ValueError(msg)
+                finish_reason = (
+                    response.candidates[0].finish_reason if response.candidates else "UNKNOWN"
+                )
+                raise ValueError(f"API returned empty text. Finish Reason: {finish_reason}")
 
             clean_text = extract_json_from_text(response.text, stock_name, attempt)
             json_payload = json.loads(clean_text)
 
-            logger.info(f"[{stock_name}] Stage 2: Independent Verification Audit using [{current_model}]")
+            logger.info(
+                f"[{stock_name}] Stage 2: Independent Verification Audit using [{current_model}]"
+            )
 
             memory_metadata = json_payload.get("metadata", {})
             memory_kpis = json_payload.get("kpis", {})
@@ -198,8 +211,14 @@ def generate_institutional_report(stock_name):
             )
 
             if not val_response.candidates or not val_response.candidates[0].content.parts:
-                finish_reason = val_response.candidates[0].finish_reason if val_response.candidates else "UNKNOWN"
-                logger.warning(f"[{stock_name}] Audit failed (Empty API Response). Finish Reason: {finish_reason}")
+                finish_reason = (
+                    val_response.candidates[0].finish_reason
+                    if val_response.candidates
+                    else "UNKNOWN"
+                )
+                logger.warning(
+                    f"[{stock_name}] Audit failed (Empty API Response). Finish Reason: {finish_reason}"
+                )
                 val_payload = {
                     "status": "FAIL",
                     "discrepancies": f"API returned empty response. Reason: {finish_reason}",
@@ -208,9 +227,13 @@ def generate_institutional_report(stock_name):
                 clean_val_text = extract_json_from_text(val_response.text, stock_name, attempt)
                 try:
                     val_payload = json.loads(clean_val_text)
-                    logger.info(f"[{stock_name}] Audit Result: {val_payload.get('status', 'UNKNOWN')}")
+                    logger.info(
+                        f"[{stock_name}] Audit Result: {val_payload.get('status', 'UNKNOWN')}"
+                    )
                 except Exception:
-                    logger.warning(f"[{stock_name}] Audit failed to parse correctly. Defaulting to FAIL.")
+                    logger.warning(
+                        f"[{stock_name}] Audit failed to parse correctly. Defaulting to FAIL."
+                    )
                     val_payload = {"status": "FAIL", "discrepancies": "Audit JSON parsing failed."}
 
             json_payload["verification"] = val_payload
@@ -241,12 +264,16 @@ def generate_institutional_report(stock_name):
                 save_status()
 
         except Exception as e:
-            logger.warning(f"Tier {attempt}/{total_models} FAILED using [{current_model}] for {stock_name}. Error: {e}")
+            logger.warning(
+                f"Tier {attempt}/{total_models} FAILED using [{current_model}] for {stock_name}. Error: {e}"
+            )
             if attempt < total_models:
-                logger.info("API/Network/Quota failure. Escaping to next model layer in 15 seconds...")
+                logger.info(
+                    "API/Network/Quota failure. Escaping to next model layer in 15 seconds..."
+                )
                 time.sleep(15)
             else:
-                status_tracker["stocks"][stock_name] = f"Failed (All Models Exhausted): {e!s}"
+                status_tracker["stocks"][stock_name] = f"Failed (All Models Exhausted): {str(e)}"
                 status_tracker["failed"] += 1
                 save_status()
 
@@ -263,4 +290,6 @@ if __name__ == "__main__":
             logger.info("Enforcing 30-second rate-limit cooling index...")
             time.sleep(30)
 
-    logger.info(f"PIPELINE SUMMARY COMPLETE: {status_tracker['completed']} clean, {status_tracker['failed']} breaks.")
+    logger.info(
+        f"PIPELINE SUMMARY COMPLETE: {status_tracker['completed']} clean, {status_tracker['failed']} breaks."
+    )

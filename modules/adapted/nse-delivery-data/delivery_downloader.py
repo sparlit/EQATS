@@ -43,7 +43,6 @@ Run manually
 
 import io
 import logging
-import os
 import random
 import sys
 import time
@@ -80,7 +79,11 @@ log = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────
 USER_AGENTS = [
     # Chrome 124 · Windows
-    ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"),
+    (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
     # Chrome 123 · macOS
     (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -159,7 +162,9 @@ def make_session() -> requests.Session:
         {
             "User-Agent": random.choice(USER_AGENTS),
             "Accept": (
-                "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"
+                "text/html,application/xhtml+xml,"
+                "application/xml;q=0.9,image/avif,"
+                "image/webp,image/apng,*/*;q=0.8"
             ),
             "Accept-Language": "en-US,en;q=0.9",
             "Accept-Encoding": "gzip, deflate, br",
@@ -197,7 +202,9 @@ def nse_handshake(session: requests.Session) -> bool:
             log.info("Handshake → %s (%s)", label, url)
             resp = session.get(url, timeout=REQUEST_TIMEOUT)
             resp.raise_for_status()
-            log.info("  ✓ %s  [HTTP %s | cookies: %d]", label, resp.status_code, len(session.cookies))
+            log.info(
+                "  ✓ %s  [HTTP %s | cookies: %d]", label, resp.status_code, len(session.cookies)
+            )
             # Polite inter-step pause
             time.sleep(random.uniform(2.0, 3.5))
         except requests.RequestException as exc:
@@ -244,12 +251,12 @@ def download_delivery_data(session: requests.Session, d: date) -> bool:
         try:
             resp = session.get(url, timeout=REQUEST_TIMEOUT)
         except requests.exceptions.ConnectionError as exc:
-            log.exception("  [ERR ]  Connection error (attempt %d/%d): %s", attempt, MAX_RETRIES, exc)
+            log.error("  [ERR ]  Connection error (attempt %d/%d): %s", attempt, MAX_RETRIES, exc)
             if attempt < MAX_RETRIES:
                 time.sleep(random.uniform(*RETRY_DELAY))
             continue
         except requests.exceptions.Timeout:
-            log.exception("  [ERR ]  Request timed out (attempt %d/%d).", attempt, MAX_RETRIES)
+            log.error("  [ERR ]  Request timed out (attempt %d/%d).", attempt, MAX_RETRIES)
             if attempt < MAX_RETRIES:
                 time.sleep(random.uniform(*RETRY_DELAY))
             continue
@@ -261,7 +268,9 @@ def download_delivery_data(session: requests.Session, d: date) -> bool:
 
         # ── HTTP 403: session blocked ─────────────────────────
         if resp.status_code == 403:
-            log.warning("  [403 ]  Forbidden on attempt %d/%d — re-warming session.", attempt, MAX_RETRIES)
+            log.warning(
+                "  [403 ]  Forbidden on attempt %d/%d — re-warming session.", attempt, MAX_RETRIES
+            )
             nse_handshake(session)  # try to recover cookies
             time.sleep(random.uniform(*RETRY_DELAY))
             continue
