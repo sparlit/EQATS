@@ -838,8 +838,8 @@
       "target": "daydy-dev/moon-dev-ai-agents-for-trading",
       "url": "https://github.com/daydy-dev/moon-dev-ai-agents-for-trading",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3045",
+      "merged": true
     },
     {
       "name": "nse-data",
