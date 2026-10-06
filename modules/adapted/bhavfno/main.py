@@ -35,7 +35,6 @@ from def_expiry import expiry
 from def_market_off import market_off
 
 # from kaleido.scopes.plotly import PlotlyScope  # pip install kaleido (another method to save plotly html graph as png)
-from scipy.stats import norm  # needed for norm error in windows
 
 path = "C:/Users/alex1/PycharmProjects/bhav/"
 
@@ -157,7 +156,7 @@ def bhav_options(dayback=-1, root=path):  # dayback = -2 = yday, 0 today
             df4 = df3.drop(axis=0, index=0)  #  dropped unwanted 1st row
 
             def rounddn(x):
-                return math.floor(x / 100.0) * 100
+                return int(math.floor(x / 100.0)) * 100
 
             roundp = rounddn(nifty_price)  # Lower round number for put
 
@@ -214,7 +213,7 @@ def bhav_options(dayback=-1, root=path):  # dayback = -2 = yday, 0 today
             """
             # 1st Put strikes
             peloss_1st = []
-            for p in range(len(dfsmall_pe)):
+            for p in range(0, len(dfsmall_pe)):
                 # p = 2
                 # print(dfsmall_pe.iloc[p]['STRIKE_PR'])
                 peloss_i = dfsmall_pe.iloc[p]["OPEN_INT"] * (100 * p)
@@ -228,20 +227,29 @@ def bhav_options(dayback=-1, root=path):  # dayback = -2 = yday, 0 today
             peloss_mainlist = []
             pe_seriesloss_l = [sum(peloss_1st)]  # this is the main value we looking for
 
-            for lo in range(loss_len - 1):
+            for lo in range(0, loss_len - 1):
                 # lo = 0
-                denom_main = [i / j for i, j in zip(denom_a[lo:], demon_b[: -(lo + 1)], strict=False)]
-                peloss_list = [i / j for i, j in zip(peloss_1st[lo + 2 :], denom_main, strict=False)]
+                denom_main = [
+                    i / j for i, j in zip(denom_a[lo:], demon_b[: -(lo + 1)], strict=False)
+                ]
+                peloss_list = [
+                    i / j for i, j in zip(peloss_1st[lo + 2 :], denom_main, strict=False)
+                ]
                 peloss_mainlist.append(peloss_list)
                 pe_seriesloss_l.append(sum(peloss_list))
             # .............................................................................................................
 
             # CE strikes for option pain
             dfsmall_ce_inv = dfsmall_ce.copy().sort_values(
-                "STRIKE_PR", axis=0, ascending=False, inplace=False, kind="quicksort", na_position="last"
+                "STRIKE_PR",
+                axis=0,
+                ascending=False,
+                inplace=False,
+                kind="quicksort",
+                na_position="last",
             )
             celoss_1st = []
-            for c in range(len(dfsmall_ce)):
+            for c in range(0, len(dfsmall_ce)):
                 # i = 2
                 # print(dfsmall_pe.iloc[i]['STRIKE_PR'])
                 celoss_i = dfsmall_ce_inv.iloc[c]["OPEN_INT"] * (100 * c)
@@ -253,10 +261,14 @@ def bhav_options(dayback=-1, root=path):  # dayback = -2 = yday, 0 today
             celoss_mainlist = []
             ce_seriesloss_l = [sum(celoss_1st)]  # this is the main value we looking for
 
-            for clo in range(loss_clen - 1):
+            for clo in range(0, loss_clen - 1):
                 # clo = 0
-                denom_cmain = [i / j for i, j in zip(denom_ca[clo:], demon_cb[: -(clo + 1)], strict=False)]
-                celoss_list = [i / j for i, j in zip(celoss_1st[clo + 2 :], denom_cmain, strict=False)]
+                denom_cmain = [
+                    i / j for i, j in zip(denom_ca[clo:], demon_cb[: -(clo + 1)], strict=False)
+                ]
+                celoss_list = [
+                    i / j for i, j in zip(celoss_1st[clo + 2 :], denom_cmain, strict=False)
+                ]
                 celoss_mainlist.append(celoss_list)
                 ce_seriesloss_l.append(sum(celoss_list))
 
@@ -264,9 +276,13 @@ def bhav_options(dayback=-1, root=path):  # dayback = -2 = yday, 0 today
 
             # calculate net loss for CE and PE
             netloss_list = [i + j for i, j in zip(pe_seriesloss_l, ce_seriesloss_l, strict=False)]
-            df_pain = pd.DataFrame({"Strikes": dfsmall_pe["STRIKE_PR"].to_list(), "Pain": netloss_list})
+            df_pain = pd.DataFrame(
+                {"Strikes": dfsmall_pe["STRIKE_PR"].to_list(), "Pain": netloss_list}
+            )
 
-            df_pain["Mp_strike"] = np.where(df_pain["Pain"] == df_pain["Pain"].min(), df_pain["Strikes"], 0)
+            df_pain["Mp_strike"] = np.where(
+                df_pain["Pain"] == df_pain["Pain"].min(), df_pain["Strikes"], 0
+            )
             max_pain = df_pain["Mp_strike"].max()
             "#for plotting max pain along with IVs per strike"
             df_pain["CE_IV"] = dfsmall_ce["iv"]
@@ -346,20 +362,28 @@ def bhav_options(dayback=-1, root=path):  # dayback = -2 = yday, 0 today
             cutoff = 75  # max historical period
             dfceiv = dfceiv.tail(cutoff)
             dfpeiv = dfpeiv.tail(cutoff)
-            # TODO: append current values so rank wont be negative below
+            # todo: append current values so rank wont be negative below
             dtx = dt_1.strftime("%Y%m%d")
 
-            dfpeiv_current = pd.DataFrame(["PEIV", dtx, peiv_mean, peiv_mean, peiv_mean, peiv_mean]).transpose()
-            dfceiv_current = pd.DataFrame(["CEIV", dtx, ceiv_mean, ceiv_mean, ceiv_mean, ceiv_mean]).transpose()
+            dfpeiv_current = pd.DataFrame(
+                ["PEIV", dtx, peiv_mean, peiv_mean, peiv_mean, peiv_mean]
+            ).transpose()
+            dfceiv_current = pd.DataFrame(
+                ["CEIV", dtx, ceiv_mean, ceiv_mean, ceiv_mean, ceiv_mean]
+            ).transpose()
             dfpeiv_all = pd.concat([dfpeiv, dfpeiv_current], axis=0)
             dfceiv_all = pd.concat([dfceiv, dfceiv_current], axis=0)
             dfpeiv_all = dfpeiv_all.reset_index()
             dfceiv_all = dfceiv_all.reset_index()
             dfpeiv_all[4] = pd.to_numeric(dfpeiv_all[4])
-            peiv_rank = 100 * ((peiv_mean - dfpeiv_all[4].min()) / (dfpeiv_all[4].max() - dfpeiv_all[4].min()))
+            peiv_rank = 100 * (
+                (peiv_mean - dfpeiv_all[4].min()) / (dfpeiv_all[4].max() - dfpeiv_all[4].min())
+            )
             dfceiv_all = dfceiv_all.dropna()
             dfceiv_all[4] = pd.to_numeric(dfceiv_all[4])
-            ceiv_rank = 100 * ((ceiv_mean - dfceiv_all[4].min()) / (dfceiv_all[4].max() - dfceiv_all[4].min()))
+            ceiv_rank = 100 * (
+                (ceiv_mean - dfceiv_all[4].min()) / (dfceiv_all[4].max() - dfceiv_all[4].min())
+            )
             "# iv percentile calculations"
             dfceiv_all["low_close"] = np.where(dfceiv_all[4] < ceiv_mean, 1, 0)
             ceiv_percentile = 100 * (dfceiv_all["low_close"].sum() / cutoff)
@@ -410,10 +434,14 @@ def bhav_options(dayback=-1, root=path):  # dayback = -2 = yday, 0 today
             df_pcroi = pd.DataFrame(["PCROI", dtx, pcroi, pcroi, pcroi, pcroi]).transpose()
             df_pcroi.to_csv(root + "pcroi.txt", mode="a", index=False, header=False)
 
-            df_peiv = pd.DataFrame(["PEIV", dtx, peiv_mean, peiv_mean, peiv_mean, peiv_mean]).transpose()
+            df_peiv = pd.DataFrame(
+                ["PEIV", dtx, peiv_mean, peiv_mean, peiv_mean, peiv_mean]
+            ).transpose()
             df_peiv.to_csv(root + "peiv.txt", mode="a", index=False, header=False)
 
-            df_ceiv = pd.DataFrame(["CEIV", dtx, ceiv_mean, ceiv_mean, ceiv_mean, ceiv_mean]).transpose()
+            df_ceiv = pd.DataFrame(
+                ["CEIV", dtx, ceiv_mean, ceiv_mean, ceiv_mean, ceiv_mean]
+            ).transpose()
             df_ceiv.to_csv(root + "ceiv.txt", mode="a", index=False, header=False)
 
             df_activece_f = pd.DataFrame(
@@ -436,10 +464,14 @@ def bhav_options(dayback=-1, root=path):  # dayback = -2 = yday, 0 today
             ).transpose()
             df_activepeoi_f.to_csv(activepeoi_file, mode="a", index=False, header=False)
 
-            df_CE = pd.DataFrame(["CE", dtx, activecalloi, activecalloi, activecalloi, activecalloi]).transpose()
+            df_CE = pd.DataFrame(
+                ["CE", dtx, activecalloi, activecalloi, activecalloi, activecalloi]
+            ).transpose()
             df_CE.to_csv(coi, mode="a", index=False, header=False)
 
-            df_PE = pd.DataFrame(["PE", dtx, activeputoi, activeputoi, activeputoi, activeputoi]).transpose()
+            df_PE = pd.DataFrame(
+                ["PE", dtx, activeputoi, activeputoi, activeputoi, activeputoi]
+            ).transpose()
             df_PE.to_csv(poi, mode="a", index=False, header=False)
 
             df_pcrwr = pd.DataFrame(["pcrw", dtx, pcrwt, pcrwt, pcrwt, pcrwt]).transpose()
@@ -476,11 +508,12 @@ def bhav_options(dayback=-1, root=path):  # dayback = -2 = yday, 0 today
             dfcepe = dfcepe[["c_x", "c_y"]]
             dfcepe.columns = ["CE_IV", "PE_IV"]
 
-            dfall = dfhybrid.merge(dfcepe[["CE_IV", "PE_IV"]], left_index=True, right_index=True, how="inner")
+            dfall = dfhybrid.merge(
+                dfcepe[["CE_IV", "PE_IV"]], left_index=True, right_index=True, how="inner"
+            )
 
             "# let's plot using plotly "
 
-            import plotly.express as px
             import plotly.graph_objs as go
             from plotly.offline import plot
             from plotly.subplots import make_subplots
@@ -530,7 +563,7 @@ def bhav_options(dayback=-1, root=path):  # dayback = -2 = yday, 0 today
             "#we are adding commentary on graph for easy reading all the calculation we have done so far"
             commentary_text = (
                 "<br />"
-                "Date:"
+                + "Date:"
                 + str(dtx)
                 + "<br />"
                 + "Series Expiry:"
@@ -630,10 +663,10 @@ def bhav_options(dayback=-1, root=path):  # dayback = -2 = yday, 0 today
             xmin = min(rangel, activeputmx)
 
             dfall["date"] = pd.to_datetime(dfall.index, format("Y-m-d"))
-            dfall["date"] = pd.to_datetime(dfall["date"], format="%Y-%m-%d", infer_datetime_format=True).dt.strftime(
-                "%Y-%m-%d"
-            )
-            # TODO: plot
+            dfall["date"] = pd.to_datetime(
+                dfall["date"], format="%Y-%m-%d", infer_datetime_format=True
+            ).dt.strftime("%Y-%m-%d")
+            # todo: plot
             subfig = make_subplots(
                 rows=2,
                 cols=1,
@@ -823,10 +856,23 @@ def bhav_options(dayback=-1, root=path):  # dayback = -2 = yday, 0 today
             )
 
             subfig.update_xaxes(
-                showline=True, color="white", showgrid=False, type="category", tickangle=45, row=1, col=1
+                showline=True,
+                color="white",
+                showgrid=False,
+                type="category",
+                tickangle=45,
+                row=1,
+                col=1,
             )
             subfig.update_xaxes(
-                showline=True, color="white", showgrid=False, tickformat="d", dtick=100, tickangle=45, row=2, col=1
+                showline=True,
+                color="white",
+                showgrid=False,
+                tickformat="d",
+                dtick=100,
+                tickangle=45,
+                row=2,
+                col=1,
             )
 
             # Update yaxis properties
@@ -845,7 +891,11 @@ def bhav_options(dayback=-1, root=path):  # dayback = -2 = yday, 0 today
                     "title": "Strikes",
                     "titlefont": {"color": "white"},
                 },
-                yaxis={"title": "Nifty_F", "titlefont": {"color": "cyan"}, "range": [xmin - 10, xmax + 00]},
+                yaxis={
+                    "title": "Nifty_F",
+                    "titlefont": {"color": "cyan"},
+                    "range": [xmin - 10, xmax + 00],
+                },
                 yaxis_tickformat="d",
                 yaxis4={
                     "title": "Max_Pain",
@@ -883,6 +933,7 @@ def bhav_options(dayback=-1, root=path):  # dayback = -2 = yday, 0 today
 
     finally:
         pass
+    return
 
 
 bhav_options(dayback=-1)
