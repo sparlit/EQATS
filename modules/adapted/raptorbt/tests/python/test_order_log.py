@@ -82,8 +82,7 @@ def test_a_filled_order_reports_what_it_actually_filled():
     assert order.kind == "market"
     assert order.requested_qty == 10.0
     assert order.filled_qty == 10.0
-    assert order.avg_fill_price is not None
-    assert order.avg_fill_price > 0
+    assert order.avg_fill_price is not None and order.avg_fill_price > 0
     assert order.fill_slices >= 1
     # Not rejected, so the reason is absent rather than an empty string.
     assert order.reject_reason is None

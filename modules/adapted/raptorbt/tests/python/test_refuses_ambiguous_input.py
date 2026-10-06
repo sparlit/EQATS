@@ -65,7 +65,15 @@ class TestDirection:
     def test_valid_directions_are_accepted(self, series, direction):
         ts, c, v, e, x = series
         r.run_single_backtest(
-            timestamps=ts, open=c, high=c, low=c, close=c, volume=v, entries=e, exits=x, direction=direction
+            timestamps=ts,
+            open=c,
+            high=c,
+            low=c,
+            close=c,
+            volume=v,
+            entries=e,
+            exits=x,
+            direction=direction,
         )
 
     @pytest.mark.parametrize("direction", [0, 2, -2, 100])
@@ -73,7 +81,15 @@ class TestDirection:
         ts, c, v, e, x = series
         with pytest.raises(ValueError, match="direction must be 1"):
             r.run_single_backtest(
-                timestamps=ts, open=c, high=c, low=c, close=c, volume=v, entries=e, exits=x, direction=direction
+                timestamps=ts,
+                open=c,
+                high=c,
+                low=c,
+                close=c,
+                volume=v,
+                entries=e,
+                exits=x,
+                direction=direction,
             )
 
 
@@ -118,7 +134,14 @@ class TestOptionType:
         """batch_spread_backtest multiplies the mistake across a whole sweep."""
         ts, c, _, e, x = series
         item = r.BatchSpreadItem(
-            "s0", self._prem(), [("XX", 1000.0, -1, 75), ("XX", 950.0, 1, 75)], e, x, "custom", None, None
+            "s0",
+            self._prem(),
+            [("XX", 1000.0, -1, 75), ("XX", 950.0, 1, 75)],
+            e,
+            x,
+            "custom",
+            None,
+            None,
         )
         with pytest.raises(ValueError, match="unknown option type"):
             r.batch_spread_backtest(ts, c, [item])
@@ -249,7 +272,9 @@ class TestTickTruncation:
         res = r.run_tick_backtest(**self._tape(n), entry_cooldown_ticks=10)
         trades = res.trades()
         assert len(trades) > 50, "default must not stop at the old 50-trade cap"
-        assert trades[-1].exit_idx >= n - 1000, f"run ended at tick {trades[-1].exit_idx} of {n}; it truncated"
+        assert trades[-1].exit_idx >= n - 1000, (
+            f"run ended at tick {trades[-1].exit_idx} of {n}; it truncated"
+        )
 
     def test_explicit_cap_still_truncates(self):
         """The knob must keep working, or the default change is a removal."""
@@ -298,7 +323,9 @@ class TestTickPositionSize:
         lot = r.run_tick_backtest(**self._flat_tape(), fees=0.001, lot_size=75, quantity=1)
 
         assert one.trades()[0].fees == pytest.approx(0.20)
-        assert lot.trades()[0].fees == pytest.approx(15.00), "a 75-lot round trip on a 100 premium costs 75x one unit"
+        assert lot.trades()[0].fees == pytest.approx(15.00), (
+            "a 75-lot round trip on a 100 premium costs 75x one unit"
+        )
 
     def test_defaults_reproduce_the_pre_074_numbers(self):
         """Upgrading must not change anyone's results silently."""
@@ -310,9 +337,13 @@ class TestTickPositionSize:
     def test_fee_segment_reaches_the_tick_path(self):
         """Brokerage is flat per order, so no percentage rate can express it."""
         flat = r.run_tick_backtest(**self._flat_tape(), fees=0.001, lot_size=75, quantity=1)
-        itemized = r.run_tick_backtest(**self._flat_tape(), fees=0.001, lot_size=75, quantity=1, fee_segment="NFO-OPT")
+        itemized = r.run_tick_backtest(
+            **self._flat_tape(), fees=0.001, lot_size=75, quantity=1, fee_segment="NFO-OPT"
+        )
 
-        assert itemized.trades()[0].fees > flat.trades()[0].fees, "the real schedule adds 2 x Rs 20 brokerage plus GST"
+        assert itemized.trades()[0].fees > flat.trades()[0].fees, (
+            "the real schedule adds 2 x Rs 20 brokerage plus GST"
+        )
         entry = itemized.trades()[0].entry_fees
         exit_ = itemized.trades()[0].exit_fees
         assert entry != exit_, "stamp duty falls on the buy, transaction tax on the sell"

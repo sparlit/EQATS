@@ -124,7 +124,9 @@ class TestTickDispatch:
                 self.quotes += 1
 
         # Only the middle row carries both sides of the book.
-        data = {"AAA": _ticks([100.0, 101.0, 102.0], bids=[0.0, 100.0, 0.0], asks=[0.0, 102.0, 0.0])}
+        data = {
+            "AAA": _ticks([100.0, 101.0, 102.0], bids=[0.0, 100.0, 0.0], asks=[0.0, 102.0, 0.0])
+        }
         strategy = S()
         run_tick_strategy(strategy, data, config=_zero_fee_config())
 
@@ -208,7 +210,9 @@ class TestTickExecution:
             np.asarray(with_quotes.result.equity_curve()),
             np.asarray(without.result.equity_curve()),
         )
-        assert with_quotes.metrics.total_return_pct == pytest.approx(without.metrics.total_return_pct)
+        assert with_quotes.metrics.total_return_pct == pytest.approx(
+            without.metrics.total_return_pct
+        )
 
     def test_a_market_order_for_another_symbol_fills_on_that_symbols_next_print(self):
         """Ordinals are per instrument, and quotes consume them without
@@ -232,10 +236,14 @@ class TestTickExecution:
         prices = [100.0, 101.0, 102.0, 103.0, 104.0, 105.0]
         for quoted in (False, True):
             bbb = (
-                _ticks(prices, bids=[p - 1 for p in prices], asks=[p + 1 for p in prices]) if quoted else _ticks(prices)
+                _ticks(prices, bids=[p - 1 for p in prices], asks=[p + 1 for p in prices])
+                if quoted
+                else _ticks(prices)
             )
             strategy = S()
-            run_tick_strategy(strategy, {"AAA": _ticks(prices), "BBB": bbb}, config=_zero_fee_config())
+            run_tick_strategy(
+                strategy, {"AAA": _ticks(prices), "BBB": bbb}, config=_zero_fee_config()
+            )
             # BBB's print at t=2 is dispatched after AAA's — the first trade
             # after the order was placed — so that is where it fills, with
             # or without quotes in BBB's tape.
@@ -321,14 +329,18 @@ class TestTickExecution:
             def on_trade_tick(self, ctx, tick):
                 if ctx.idx == 0:
                     self.submit_order(orders.Market(units=100, side="buy"))
-                self.working.append([(o.status, o.filled_qty, o.remaining) for o in ctx.open_orders()])
+                self.working.append(
+                    [(o.status, o.filled_qty, o.remaining) for o in ctx.open_orders()]
+                )
 
             def on_order_filled(self, ctx, event):
                 self.fills.append(event.size)
 
         # The submission print itself sweeps the order (same-print market
         # semantics), so it carries the first 40; the next print the 60.
-        data = {"AAA": {**_ticks([100.0, 110.0, 110.0, 110.0]), "ltq": np.array([40.0, 60.0, 5.0, 5.0])}}
+        data = {
+            "AAA": {**_ticks([100.0, 110.0, 110.0, 110.0]), "ltq": np.array([40.0, 60.0, 5.0, 5.0])}
+        }
         config = _zero_fee_config()
         assert hasattr(config, "partial_fills")
         config.partial_fills = True

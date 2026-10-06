@@ -26,7 +26,7 @@ adaptive bar-path model (0.5.0)."""
 
 import numpy as np
 import pytest
-from raptorbt import BacktestConfig, InstrumentSpec, Strategy, run_strategy_backtest
+from raptorbt import BacktestConfig, Strategy, run_strategy_backtest
 from raptorbt.strategy import orders
 
 
@@ -68,7 +68,9 @@ class TestHedging:
 
         data = _bars([100.0, 101.0, 102.0, 103.0])
         strategy = S()
-        result = run_strategy_backtest(strategy, **data, config=_zero_fee_config(), oms_type="hedging")
+        result = run_strategy_backtest(
+            strategy, **data, config=_zero_fee_config(), oms_type="hedging"
+        )
         assert len(strategy.seen) == 2
         directions = sorted(d for _, d, _ in strategy.seen)
         assert directions == [-1, 1]

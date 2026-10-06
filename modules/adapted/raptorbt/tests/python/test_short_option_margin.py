@@ -142,9 +142,10 @@ class TestSpecSurface:
     def test_the_percentages_are_readable_and_default_to_zero(self):
         assert _spec().span_pct == SPAN
         assert _spec().exposure_pct == EXPOSURE
-        plain = InstrumentSpec.option(SYM, strike=STRIKE, right="call", expiration_ns=1, lot_size=LOT)
-        assert plain.span_pct == 0.0
-        assert plain.exposure_pct == 0.0
+        plain = InstrumentSpec.option(
+            SYM, strike=STRIKE, right="call", expiration_ns=1, lot_size=LOT
+        )
+        assert plain.span_pct == 0.0 and plain.exposure_pct == 0.0
 
     def test_negative_percentages_are_refused(self):
         with pytest.raises(ValueError):

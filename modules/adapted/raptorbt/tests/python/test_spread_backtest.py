@@ -88,7 +88,7 @@ def _run(premiums, quantity, *, max_loss=None, target_profit=None, exit_on_bar_4
 
 
 @pytest.mark.parametrize(
-    ("premiums", "quantity", "label"),
+    "premiums,quantity,label",
     [
         (FALLING, -1, "short leg that gained"),
         (RISING, 1, "long leg that gained"),
@@ -107,7 +107,7 @@ def test_a_winning_spread_reports_a_profit(premiums, quantity, label):
 
 
 @pytest.mark.parametrize(
-    ("premiums", "quantity", "label"),
+    "premiums,quantity,label",
     [
         (RISING, -1, "short leg that lost"),
         (FALLING, 1, "long leg that lost"),

@@ -84,8 +84,7 @@ class TestStreamingIndicators:
         macd = Indicator.macd(2, 3, 2)
         for c in [100.0, 101.0, 102.0, 103.0, 104.0]:
             out = macd.update_bar(0, 0, 0, c)
-        assert out is not None
-        assert len(out) == 3
+        assert out is not None and len(out) == 3
 
     def test_registration_updates_before_on_bar(self):
         observed = []

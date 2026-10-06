@@ -130,16 +130,18 @@ class TickContext(PortfolioContext):
 
 def _as_tick_arrays(arrays: dict) -> dict[str, np.ndarray]:
     if "timestamps" not in arrays or "ltp" not in arrays:
-        msg = "tick data needs at least 'timestamps' and 'ltp'"
-        raise ValueError(msg)
+        raise ValueError("tick data needs at least 'timestamps' and 'ltp'")
     out = {"timestamps": np.ascontiguousarray(arrays["timestamps"], dtype=np.int64)}
     n = len(out["timestamps"])
     for key in _TICK_FIELDS[1:]:
         value = arrays.get(key)
-        out[key] = np.ascontiguousarray(value, dtype=np.float64) if value is not None else np.zeros(n, dtype=np.float64)
+        out[key] = (
+            np.ascontiguousarray(value, dtype=np.float64)
+            if value is not None
+            else np.zeros(n, dtype=np.float64)
+        )
         if len(out[key]) != n:
-            msg = f"{key} has length {len(out[key])}, expected {n}"
-            raise ValueError(msg)
+            raise ValueError(f"{key} has length {len(out[key])}, expected {n}")
     return out
 
 
@@ -168,7 +170,11 @@ def setup_tick_strategy(strategy, ctx, symbols, primary_bars):
     streams = StreamState(strategy, symbols)
     # One primary aggregator per symbol, feeding on_bar and the indicators
     # registered without a stream_id. Bars from ticks are a view only.
-    primary = {symbol: BarAggregator(*primary_bars) for symbol in symbols} if primary_bars is not None else {}
+    primary = (
+        {symbol: BarAggregator(*primary_bars) for symbol in symbols}
+        if primary_bars is not None
+        else {}
+    )
     return clocks, streams, primary
 
 
@@ -317,11 +323,11 @@ def run_tick_strategy(
     if isinstance(strategy, type):
         strategy = strategy()
     if not isinstance(strategy, Strategy):
-        msg = f"strategy must be a Strategy instance or subclass, got {type(strategy).__name__}"
-        raise ValueError(msg)
+        raise ValueError(
+            f"strategy must be a Strategy instance or subclass, got {type(strategy).__name__}"
+        )
     if not ticks:
-        msg = "ticks must contain at least one symbol"
-        raise ValueError(msg)
+        raise ValueError("ticks must contain at least one symbol")
 
     symbols = list(ticks.keys())
     arrays = {symbol: _as_tick_arrays(ticks[symbol]) for symbol in symbols}

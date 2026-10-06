@@ -347,7 +347,9 @@ def test_portfolio_shares_one_capital_pool():
     out = raptorbt.run_portfolio_backtest(instruments, config=cfg)
 
     peak = max(out.result.equity_curve())
-    assert peak < capital * 2.0, f"equity peaked at {peak:,.0f} on a {capital:,.0f} pool; capital is not shared"
+    assert peak < capital * 2.0, (
+        f"equity peaked at {peak:,.0f} on a {capital:,.0f} pool; capital is not shared"
+    )
 
 
 def test_max_positions_is_enforced():
@@ -362,7 +364,9 @@ def test_max_positions_is_enforced():
 
     assert len(constrained.result.trades()) < len(unconstrained.result.trades())
     assert constrained.rejected_entries > 0
-    assert sum(s.rejected_entries for s in constrained.per_instrument) == (constrained.rejected_entries)
+    assert sum(s.rejected_entries for s in constrained.per_instrument) == (
+        constrained.rejected_entries
+    )
 
 
 def test_portfolio_rejects_mismatched_bar_counts():

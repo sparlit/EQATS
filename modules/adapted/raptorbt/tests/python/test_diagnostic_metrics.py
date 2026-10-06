@@ -129,7 +129,9 @@ def test_consistency_counts_moving_bars_only():
     res = _run()
     returns = np.asarray(res.returns())
     moving = returns[returns != 0.0]
-    assert res.metrics.return_consistency_pct == pytest.approx((moving > 0).sum() / len(moving) * 100.0, abs=1e-9)
+    assert res.metrics.return_consistency_pct == pytest.approx(
+        (moving > 0).sum() / len(moving) * 100.0, abs=1e-9
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +159,9 @@ def test_breakeven_multiple_says_how_far_costs_can_rise():
     res = _run(drift=0.003)
     m = res.metrics
     assert m.total_return_pct > 0
-    assert m.breakeven_cost_multiple == pytest.approx((m.end_value - m.start_value) / m.total_fees_paid, abs=1e-9)
+    assert m.breakeven_cost_multiple == pytest.approx(
+        (m.end_value - m.start_value) / m.total_fees_paid, abs=1e-9
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -216,7 +220,15 @@ def test_capture_is_a_ratio_of_sums_over_winners_and_gross_of_costs():
     # The naive form -- mean of per-trade ratios over ALL closed trades --
     # returns a negative number, because a loser puts negative P&L over a
     # positive excursion. That is why winners-only is the definition.
-    naive = float(np.mean([(t.pnl + t.fees) / t.mfe_pnl for t in closed if t.mfe_pnl is not None and t.mfe_pnl > 0.0]))
+    naive = float(
+        np.mean(
+            [
+                (t.pnl + t.fees) / t.mfe_pnl
+                for t in closed
+                if t.mfe_pnl is not None and t.mfe_pnl > 0.0
+            ]
+        )
+    )
     assert naive < 0.0
     assert res.metrics.mfe_capture_ratio > 0.0
 
@@ -256,7 +268,9 @@ def test_spread_path_reports_no_excursions_but_measures_everything_else():
     x = np.zeros(n, bool)
     e[np.arange(20, n, 150)] = True
     x[np.arange(90, n, 150)] = True
-    item = raptorbt.BatchSpreadItem("s", prem, [("CE", 1000.0, -1, 75), ("CE", 1050.0, 1, 75)], e, x, "custom")
+    item = raptorbt.BatchSpreadItem(
+        "s", prem, [("CE", 1000.0, -1, 75), ("CE", 1050.0, 1, 75)], e, x, "custom"
+    )
     ((_, res),) = raptorbt.batch_spread_backtest(ts, und, [item])
 
     assert res.trades(), "fixture must produce trades to be meaningful"

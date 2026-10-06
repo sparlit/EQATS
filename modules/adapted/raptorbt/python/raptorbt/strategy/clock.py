@@ -81,8 +81,7 @@ class Clock:
         bar's single firing.
         """
         if interval_ns <= 0:
-            msg = "interval_ns must be > 0"
-            raise ValueError(msg)
+            raise ValueError("interval_ns must be > 0")
         first = start_ns if start_ns is not None else self._now + interval_ns
         self._timers[name] = [first, interval_ns, stop_ns]
 

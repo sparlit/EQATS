@@ -27,10 +27,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import datetime as _dt
-from typing import TYPE_CHECKING, NamedTuple
+from typing import NamedTuple
 
-if TYPE_CHECKING:
-    import numpy as np
+import numpy as np
 
 
 class Bar(NamedTuple):

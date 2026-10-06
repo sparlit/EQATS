@@ -64,20 +64,15 @@ class _OrderBase:
 
     def __post_init__(self) -> None:
         if self.side not in _VALID_SIDES:
-            msg = f"side must be one of {_VALID_SIDES}, got {self.side!r}"
-            raise ValueError(msg)
+            raise ValueError(f"side must be one of {_VALID_SIDES}, got {self.side!r}")
         if self.tif not in _VALID_TIFS:
-            msg = f"tif must be one of {_VALID_TIFS}, got {self.tif!r}"
-            raise ValueError(msg)
+            raise ValueError(f"tif must be one of {_VALID_TIFS}, got {self.tif!r}")
         if self.tif == "gtd" and self.expire_ns is None:
-            msg = "tif='gtd' requires expire_ns"
-            raise ValueError(msg)
+            raise ValueError("tif='gtd' requires expire_ns")
         if self.tif in ("at_open", "at_close") and self.kind != "market":
-            msg = "at_open/at_close apply to market orders"
-            raise ValueError(msg)
+            raise ValueError("at_open/at_close apply to market orders")
         if self.units is not None and self.size_frac is not None:
-            msg = "pass units or size_frac, not both"
-            raise ValueError(msg)
+            raise ValueError("pass units or size_frac, not both")
 
     @property
     def kind(self) -> str:
@@ -107,8 +102,7 @@ class Limit(_OrderBase):
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.price <= 0.0:
-            msg = "limit price must be > 0"
-            raise ValueError(msg)
+            raise ValueError("limit price must be > 0")
 
     @property
     def kind(self) -> str:
@@ -124,8 +118,7 @@ class StopMarket(_OrderBase):
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.trigger <= 0.0:
-            msg = "stop trigger must be > 0"
-            raise ValueError(msg)
+            raise ValueError("stop trigger must be > 0")
 
     @property
     def kind(self) -> str:
@@ -142,8 +135,7 @@ class StopLimit(_OrderBase):
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.trigger <= 0.0 or self.price <= 0.0:
-            msg = "stop_limit needs trigger > 0 and price > 0"
-            raise ValueError(msg)
+            raise ValueError("stop_limit needs trigger > 0 and price > 0")
 
     @property
     def kind(self) -> str:
@@ -160,8 +152,7 @@ class MarketIfTouched(_OrderBase):
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.trigger <= 0.0:
-            msg = "trigger must be > 0"
-            raise ValueError(msg)
+            raise ValueError("trigger must be > 0")
 
     @property
     def kind(self) -> str:
@@ -178,8 +169,7 @@ class LimitIfTouched(_OrderBase):
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.trigger <= 0.0 or self.price <= 0.0:
-            msg = "limit_if_touched needs trigger > 0 and price > 0"
-            raise ValueError(msg)
+            raise ValueError("limit_if_touched needs trigger > 0 and price > 0")
 
     @property
     def kind(self) -> str:
@@ -208,11 +198,9 @@ class TrailingStopMarket(_OrderBase):
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.offset <= 0.0:
-            msg = "offset must be > 0"
-            raise ValueError(msg)
+            raise ValueError("offset must be > 0")
         if self.offset_kind not in _VALID_OFFSET_KINDS:
-            msg = f"offset_kind must be one of {_VALID_OFFSET_KINDS}"
-            raise ValueError(msg)
+            raise ValueError(f"offset_kind must be one of {_VALID_OFFSET_KINDS}")
 
     @property
     def kind(self) -> str:
@@ -231,14 +219,11 @@ class TrailingStopLimit(_OrderBase):
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.offset <= 0.0:
-            msg = "offset must be > 0"
-            raise ValueError(msg)
+            raise ValueError("offset must be > 0")
         if self.offset_kind not in _VALID_OFFSET_KINDS:
-            msg = f"offset_kind must be one of {_VALID_OFFSET_KINDS}"
-            raise ValueError(msg)
+            raise ValueError(f"offset_kind must be one of {_VALID_OFFSET_KINDS}")
         if self.limit_offset < 0.0:
-            msg = "limit_offset must be >= 0"
-            raise ValueError(msg)
+            raise ValueError("limit_offset must be >= 0")
 
     @property
     def kind(self) -> str:
@@ -274,21 +259,16 @@ class Twap(_OrderBase):
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.slices < 1:
-            msg = "slices must be >= 1"
-            raise ValueError(msg)
+            raise ValueError("slices must be >= 1")
         if self.units is None:
-            msg = "Twap needs explicit units; size_frac cannot be sliced"
-            raise ValueError(msg)
+            raise ValueError("Twap needs explicit units; size_frac cannot be sliced")
         if self.every_bars is not None:
             if self.bar_ns is None:
-                msg = "every_bars needs bar_ns to convert to a duration"
-                raise ValueError(msg)
+                raise ValueError("every_bars needs bar_ns to convert to a duration")
             if self.every:
-                msg = "pass every or every_bars, not both"
-                raise ValueError(msg)
+                raise ValueError("pass every or every_bars, not both")
         elif self.every <= 0:
-            msg = "every must be > 0 nanoseconds"
-            raise ValueError(msg)
+            raise ValueError("every must be > 0 nanoseconds")
 
     @property
     def kind(self) -> str:

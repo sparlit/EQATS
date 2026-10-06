@@ -137,8 +137,9 @@ def run_strategy_backtest(
     if isinstance(strategy, type):
         strategy = strategy()
     if not isinstance(strategy, Strategy):
-        msg = f"strategy must be a Strategy instance or subclass, got {type(strategy).__name__}"
-        raise ValueError(msg)
+        raise ValueError(
+            f"strategy must be a Strategy instance or subclass, got {type(strategy).__name__}"
+        )
 
     timestamps = np.ascontiguousarray(timestamps, dtype=np.int64)
     open_ = np.ascontiguousarray(open, dtype=np.float64)
@@ -156,11 +157,9 @@ def run_strategy_backtest(
         ("volume", volume),
     ):
         if len(arr) != n:
-            msg = f"{name} has length {len(arr)}, expected {n} (same as timestamps)"
-            raise ValueError(msg)
+            raise ValueError(f"{name} has length {len(arr)}, expected {n} (same as timestamps)")
     if n == 0:
-        msg = "cannot backtest zero bars"
-        raise ValueError(msg)
+        raise ValueError("cannot backtest zero bars")
 
     session = KernelSession(
         symbol=symbol,
@@ -225,8 +224,7 @@ def run_strategy_backtest(
                     continue
                 parent_engine_id = id_map.get(parent) if parent else None
                 if parent and parent_engine_id is None:
-                    msg = f"unknown parent order {parent!r}"
-                    raise ValueError(msg)
+                    raise ValueError(f"unknown parent order {parent!r}")
                 engine_id = session.submit_order(
                     side=order.side,
                     kind=order.kind,
@@ -301,29 +299,25 @@ def run_strategy_backtest(
         for intent in strategy.drain_orders():
             if isinstance(intent, MarketOrder):
                 if entry:
-                    msg = f"duplicate entry intents queued on bar {i}"
-                    raise ValueError(msg)
+                    raise ValueError(f"duplicate entry intents queued on bar {i}")
                 entry = True
                 size_mult = intent.size_frac
                 stop_override = intent.stop_price
                 target_override = intent.target_price
             elif isinstance(intent, ClosePosition):
                 if exit_:
-                    msg = f"duplicate close intents queued on bar {i}"
-                    raise ValueError(msg)
+                    raise ValueError(f"duplicate close intents queued on bar {i}")
                 exit_ = True
             else:
-                msg = f"unknown order intent on bar {i}: {intent!r}"
-                raise ValueError(msg)
+                raise ValueError(f"unknown order intent on bar {i}: {intent!r}")
 
         # An enter+close pair while in position would exit and immediately
         # re-enter on the same bar; refuse rather than guess the intent.
         if entry and exit_ and session.is_in_position():
-            msg = (
+            raise ValueError(
                 f"bar {i}: enter() and close_position() queued on the same bar "
                 "while in position; emit one intent per bar"
             )
-            raise ValueError(msg)
 
         events = session.step(
             i,

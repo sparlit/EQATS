@@ -241,8 +241,7 @@ class TestFactorPanels:
         assert np.isnan(z[0, 3])
         assert abs(np.nanmean(z[0]) if not np.isnan(z[0]).all() else 0) < 1e-12
         rk = r.rank_panel(panel, 2)
-        assert rk[0, 0] == 0.0
-        assert rk[0, 2] == 1.0
+        assert rk[0, 0] == 0.0 and rk[0, 2] == 1.0
 
     def test_composite_all_or_nothing(self):
         f1 = np.array([[1.0, 2.0]])
@@ -337,7 +336,10 @@ class TestRankIc:
     @staticmethod
     def _panel(n_dates=60, n_assets=8, seed=3):
         rng = np.random.default_rng(seed)
-        return 100.0 * np.cumprod(1.0 + rng.normal(0.0004, 0.01, size=(n_dates, n_assets)), axis=0)
+        prices = 100.0 * np.cumprod(
+            1.0 + rng.normal(0.0004, 0.01, size=(n_dates, n_assets)), axis=0
+        )
+        return prices
 
     def test_a_perfectly_predictive_factor_scores_ic_one(self):
         """Factor == realised forward return ⇒ rank IC is exactly +1."""
@@ -504,7 +506,9 @@ class TestMonteCarloShapeValidation:
 
     def test_correctly_shaped_input_still_runs(self):
         returns = self._per_asset(n=4)
-        out = r.simulate_portfolio_mc(returns, np.full(4, 0.25), np.eye(4), 1_000_000.0, 100, 50, 42)
+        out = r.simulate_portfolio_mc(
+            returns, np.full(4, 0.25), np.eye(4), 1_000_000.0, 100, 50, 42
+        )
         assert set(out) >= {"expected_return", "probability_of_loss", "final_values"}
         assert len(out["final_values"]) == 100
 

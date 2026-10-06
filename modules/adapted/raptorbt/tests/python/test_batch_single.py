@@ -112,10 +112,12 @@ def test_batch_matches_serial_across_a_sweep():
 
     signals = [sma_cross(c, f, s) for f, s in combos]
     serial = [
-        raptorbt.run_single_backtest(ts, o, h, l, c, v, e, x, direction=1, symbol="B", config=cfg) for e, x in signals
+        raptorbt.run_single_backtest(ts, o, h, l, c, v, e, x, direction=1, symbol="B", config=cfg)
+        for e, x in signals
     ]
     items = [
-        BatchSingleItem(f"{f}_{s}", e, x, 1, 1.0, "B", cfg) for (f, s), (e, x) in zip(combos, signals, strict=False)
+        BatchSingleItem(f"{f}_{s}", e, x, 1, 1.0, "B", cfg)
+        for (f, s), (e, x) in zip(combos, signals, strict=False)
     ]
     batch = raptorbt.batch_single_backtest(ts, o, h, l, c, v, items, cfg)
 
@@ -155,7 +157,9 @@ def test_per_item_config_overrides_the_batch_config():
         "plain",
     )
     assert_identical(
-        raptorbt.run_single_backtest(ts, o, h, l, c, v, e, x, direction=1, symbol="B", config=stopped),
+        raptorbt.run_single_backtest(
+            ts, o, h, l, c, v, e, x, direction=1, symbol="B", config=stopped
+        ),
         results["stopped"],
         "stopped",
     )
@@ -270,7 +274,9 @@ def test_bad_direction_is_refused():
     ts, o, h, l, c, v = make_data()
     e, x = sma_cross(c, 10, 50)
     with pytest.raises(ValueError, match="direction"):
-        raptorbt.batch_single_backtest(ts, o, h, l, c, v, [BatchSingleItem("sideways", e, x, 0, 1.0, "B")])
+        raptorbt.batch_single_backtest(
+            ts, o, h, l, c, v, [BatchSingleItem("sideways", e, x, 0, 1.0, "B")]
+        )
 
 
 def test_empty_batch_returns_empty():

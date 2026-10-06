@@ -151,7 +151,9 @@ class TestWarmupBars:
             }
         }
         strategy = S()
-        stream = TickStrategyStream(strategy, ["AAA"], config=_zero_fee_config(), warmup_bars=warmup)
+        stream = TickStrategyStream(
+            strategy, ["AAA"], config=_zero_fee_config(), warmup_bars=warmup
+        )
         stream.push_tick("AAA", 10, 105.0)
         assert strategy.sma_at_first_tick == pytest.approx(102.0)
 
@@ -265,7 +267,9 @@ class TestContextParity:
 
         batch_trades = batch.trades()
         stream_trades = streamed.result.trades()
-        assert len(batch_trades) == len(stream_trades) > 0, "bar-style strategy must trade on the live stream too"
+        assert len(batch_trades) == len(stream_trades) > 0, (
+            "bar-style strategy must trade on the live stream too"
+        )
         for bt, st in zip(batch_trades, stream_trades, strict=False):
             assert bt.entry_idx == st.entry_idx
             assert bt.entry_price == st.entry_price
@@ -314,7 +318,9 @@ class TestARefusedPrintStillTellsTheTime:
 
         appended = stream.push_tick("AAA", 5, 0.0, 0.0, 0.0)
         assert appended == 0, "a priceless, bookless row is still not an event"
-        assert strategy.fired == [("AAA", "entry", 5)], "the alert was due at 5 and the market was proven to be at 5"
+        assert strategy.fired == [("AAA", "entry", 5)], (
+            "the alert was due at 5 and the market was proven to be at 5"
+        )
 
         # The next accepted print does not fire it a second time.
         stream.push_tick("AAA", 9, 101.0)
@@ -390,8 +396,7 @@ class TestARefusedPrintStillTellsTheTime:
         stream.push_tick("BBB", 1, 50.0)
         stream.push_tick("AAA", 2, 100.0)
         stream.push_tick("BBB", 2, 50.0)
-        assert stream.positions("AAA")
-        assert stream.positions("BBB")
+        assert stream.positions("AAA") and stream.positions("BBB")
 
         stream.push_tick("AAA", 5, 0.0, 0.0, 0.0)  # AAA's flatten fires here
         assert strategy.fired == [("AAA", 5)]

@@ -71,31 +71,41 @@ class _TwapStrategy(raptorbt.Strategy):
 class TestTwap:
     def test_slices_release_one_per_interval(self):
         strategy = _TwapStrategy(side="buy", units=30.0, slices=3, every=1)
-        raptorbt.run_strategy_backtest(strategy, **_flat_bars(5), config=_config(), oms_type="hedging")
+        raptorbt.run_strategy_backtest(
+            strategy, **_flat_bars(5), config=_config(), oms_type="hedging"
+        )
         assert [f[0] for f in strategy.fills] == [0, 1, 2]
         assert [f[2] for f in strategy.fills] == [10.0, 10.0, 10.0]
 
     def test_slice_client_ids_derive_from_the_parent(self):
         strategy = _TwapStrategy(side="buy", units=30.0, slices=3, every=1)
-        raptorbt.run_strategy_backtest(strategy, **_flat_bars(5), config=_config(), oms_type="hedging")
+        raptorbt.run_strategy_backtest(
+            strategy, **_flat_bars(5), config=_config(), oms_type="hedging"
+        )
         parent = strategy.started[0]
         assert [f[1] for f in strategy.fills] == [f"{parent}#{i}" for i in range(3)]
 
     def test_slices_sum_to_the_requested_size(self):
         # 100 into 3 does not divide evenly; nothing may be lost or invented.
         strategy = _TwapStrategy(side="buy", units=100.0, slices=3, every=1)
-        raptorbt.run_strategy_backtest(strategy, **_flat_bars(5), config=_config(), oms_type="hedging")
+        raptorbt.run_strategy_backtest(
+            strategy, **_flat_bars(5), config=_config(), oms_type="hedging"
+        )
         assert sum(f[2] for f in strategy.fills) == pytest.approx(100.0)
 
     def test_lifecycle_events_fire(self):
         strategy = _TwapStrategy(side="buy", units=20.0, slices=2, every=1)
-        raptorbt.run_strategy_backtest(strategy, **_flat_bars(5), config=_config(), oms_type="hedging")
+        raptorbt.run_strategy_backtest(
+            strategy, **_flat_bars(5), config=_config(), oms_type="hedging"
+        )
         assert len(strategy.started) == 1
         assert len(strategy.completed) == 1
 
     def test_a_single_slice_is_a_plain_order(self):
         strategy = _TwapStrategy(side="buy", units=25.0, slices=1, every=1)
-        raptorbt.run_strategy_backtest(strategy, **_flat_bars(3), config=_config(), oms_type="hedging")
+        raptorbt.run_strategy_backtest(
+            strategy, **_flat_bars(3), config=_config(), oms_type="hedging"
+        )
         assert len(strategy.fills) == 1
         assert strategy.fills[0][2] == 25.0
 
@@ -103,7 +113,9 @@ class TestTwap:
         # Bars one nanosecond apart: an interval of 10ns spans several of
         # them, so slices must not release once per bar.
         strategy = _TwapStrategy(side="buy", units=30.0, slices=3, every=10)
-        raptorbt.run_strategy_backtest(strategy, **_flat_bars(6), config=_config(), oms_type="hedging")
+        raptorbt.run_strategy_backtest(
+            strategy, **_flat_bars(6), config=_config(), oms_type="hedging"
+        )
         assert len(strategy.fills) == 1, "only the first slice is due"
 
 
@@ -159,7 +171,9 @@ class TestDayExpiryTradingDate:
             "volume": np.ones(2),
         }
         strategy = S()
-        raptorbt.run_strategy_backtest(strategy, **bars, config=_config(session_tz_offset_ns=offset_ns))
+        raptorbt.run_strategy_backtest(
+            strategy, **bars, config=_config(session_tz_offset_ns=offset_ns)
+        )
         return strategy.expired
 
     def test_utc_default_expires_on_the_utc_rollover(self):
@@ -188,7 +202,9 @@ class TestPerSymbolClock:
 
         bars = _flat_bars(6)
         strategy = S()
-        raptorbt.run_portfolio_strategy(strategy, {"AAA": bars, "BBB": dict(bars)}, config=_config())
+        raptorbt.run_portfolio_strategy(
+            strategy, {"AAA": bars, "BBB": dict(bars)}, config=_config()
+        )
 
         symbols = {sym for sym, _ in strategy.fired}
         assert symbols == {"AAA", "BBB"}, f"only fired for {symbols}"
@@ -208,7 +224,9 @@ class TestPerSymbolClock:
 
         bars = _flat_bars(6)
         strategy = S()
-        raptorbt.run_portfolio_strategy(strategy, {"AAA": bars, "BBB": dict(bars)}, config=_config())
+        raptorbt.run_portfolio_strategy(
+            strategy, {"AAA": bars, "BBB": dict(bars)}, config=_config()
+        )
         assert sorted(strategy.fired) == ["AAA", "BBB"]
 
     def test_a_timer_fires_for_every_symbol_in_a_tick_run(self):
@@ -280,7 +298,9 @@ class TestOptionSettlement:
     come from an underlying the strategy supplies."""
 
     def _run(self, underlying):
-        spec = raptorbt.InstrumentSpec.option("CE", expiration_ns=3, strike=100.0, right="call", lot_size=1.0)
+        spec = raptorbt.InstrumentSpec.option(
+            "CE", expiration_ns=3, strike=100.0, right="call", lot_size=1.0
+        )
 
         class S(raptorbt.Strategy):
             def on_bar(self, ctx):
@@ -314,7 +334,9 @@ class TestOptionSettlement:
         assert self._run(95.0).exit_price == pytest.approx(0.0)
 
     def test_the_underlying_routes_per_symbol_in_portfolio_runs(self):
-        spec = raptorbt.InstrumentSpec.option("CE", expiration_ns=3, strike=100.0, right="call", lot_size=1.0)
+        spec = raptorbt.InstrumentSpec.option(
+            "CE", expiration_ns=3, strike=100.0, right="call", lot_size=1.0
+        )
 
         class S(raptorbt.Strategy):
             def on_bar(self, ctx):
@@ -352,7 +374,9 @@ class TestSettlementFees:
                 if ctx.idx == 0:
                     self.enter(size_frac=0.5)
 
-        result = raptorbt.run_strategy_backtest(S(), **_flat_bars(5), config=_config(), instrument=spec)
+        result = raptorbt.run_strategy_backtest(
+            S(), **_flat_bars(5), config=_config(), instrument=spec
+        )
         return result.trades()[0]
 
     def test_settlement_is_free_by_default(self):
@@ -387,7 +411,9 @@ class TestForcedLiquidation:
             "volume": np.ones(4),
         }
         strategy = S()
-        result = raptorbt.run_strategy_backtest(strategy, **bars, config=config, account_type="margin", leverage=50.0)
+        result = raptorbt.run_strategy_backtest(
+            strategy, **bars, config=config, account_type="margin", leverage=50.0
+        )
         return strategy, result
 
     def test_a_margin_call_only_halts_by_default(self):

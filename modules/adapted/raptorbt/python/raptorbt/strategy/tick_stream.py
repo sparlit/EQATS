@@ -113,11 +113,11 @@ class TickStrategyStream:
         if isinstance(strategy, type):
             strategy = strategy()
         if not isinstance(strategy, Strategy):
-            msg = f"strategy must be a Strategy instance or subclass, got {type(strategy).__name__}"
-            raise ValueError(msg)
+            raise ValueError(
+                f"strategy must be a Strategy instance or subclass, got {type(strategy).__name__}"
+            )
         if not symbols:
-            msg = "symbols must name at least one instrument"
-            raise ValueError(msg)
+            raise ValueError("symbols must name at least one instrument")
 
         self._strategy = strategy
         self._symbols = list(symbols)
@@ -155,16 +155,14 @@ class TickStrategyStream:
 
         for symbol, seed in (initial_positions or {}).items():
             if symbol not in self._index_of:
-                msg = f"initial_positions names unknown symbol {symbol!r}"
-                raise ValueError(msg)
+                raise ValueError(f"initial_positions names unknown symbol {symbol!r}")
             quantity = float(seed.get("quantity") or 0)
             avg_price = float(seed.get("avg_price") or 0)
             if quantity <= 0 or avg_price <= 0:
-                msg = (
+                raise ValueError(
                     f"initial_positions[{symbol!r}] needs positive quantity "
                     f"and avg_price (got {quantity} @ {avg_price})"
                 )
-                raise ValueError(msg)
             session.adopt_position(
                 self._index_of[symbol],
                 int(seed.get("timestamp_ns") or 0),
@@ -178,7 +176,9 @@ class TickStrategyStream:
             strategy, self.ctx, self._symbols, primary_bars
         )
         self._id_map: dict[str, tuple[int, int]] = {}
-        self._apply_commands = apply_commands_on(strategy, session, self.ctx, self._symbols, self._id_map)
+        self._apply_commands = apply_commands_on(
+            strategy, session, self.ctx, self._symbols, self._id_map
+        )
         # Intents (enter / close_position) a timer queued for a symbol
         # between its prints, waiting for that symbol's next print.
         self._held_intents: dict[str, list] = {}
@@ -291,8 +291,7 @@ class TickStrategyStream:
 
     def _check_open(self) -> None:
         if self._finished:
-            msg = "stream is finished; create a new one"
-            raise RuntimeError(msg)
+            raise RuntimeError("stream is finished; create a new one")
 
     def _drain(self) -> None:
         drive_tick_events(

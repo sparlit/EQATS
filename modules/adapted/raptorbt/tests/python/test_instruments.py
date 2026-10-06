@@ -25,7 +25,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import numpy as np
 import pytest
-import raptorbt
 from raptorbt import BacktestConfig, InstrumentSpec, Strategy, run_strategy_backtest
 
 
@@ -74,7 +73,9 @@ class TestConstructors:
         assert spec.tradable
 
     def test_futures_fields(self):
-        spec = InstrumentSpec.futures_contract("NIFTY24AUGFUT", expiration_ns=1_000, lot_size=50.0, underlying="NIFTY")
+        spec = InstrumentSpec.futures_contract(
+            "NIFTY24AUGFUT", expiration_ns=1_000, lot_size=50.0, underlying="NIFTY"
+        )
         assert spec.kind == "contract"
         assert spec.expiration_ns == 1_000
         assert spec.lot_size == 50.0
@@ -94,7 +95,9 @@ class TestConstructors:
 
     def test_option_rejects_bad_right(self):
         with pytest.raises(ValueError, match="right"):
-            InstrumentSpec.option("X", strike=100.0, right="straddle", expiration_ns=1, lot_size=1.0)
+            InstrumentSpec.option(
+                "X", strike=100.0, right="straddle", expiration_ns=1, lot_size=1.0
+            )
 
     def test_rejects_inverted_activation_expiry(self):
         with pytest.raises(ValueError, match="expiration_ns"):
@@ -133,15 +136,21 @@ class TestKernelIntegration:
             multiplier=50.0,
             price_increment=0.0,
         )
-        result = run_strategy_backtest(EnterOnce, **data, config=_zero_fee_config(), instrument=spec)
+        result = run_strategy_backtest(
+            EnterOnce, **data, config=_zero_fee_config(), instrument=spec
+        )
         # 100k at price 100 with multiplier 50 -> 20 contracts;
         # +6 points -> pnl 6 * 20 * 50 = 6000 marked at the final close.
         assert result.equity_curve()[-1] == pytest.approx(106_000.0)
 
     def test_expiry_settles_open_position(self):
         data = _bars([100.0, 101.0, 102.0, 103.0])
-        spec = InstrumentSpec.futures_contract("FUT", expiration_ns=2, lot_size=1.0, price_increment=0.0)
-        result = run_strategy_backtest(EnterOnce, **data, config=_zero_fee_config(), instrument=spec)
+        spec = InstrumentSpec.futures_contract(
+            "FUT", expiration_ns=2, lot_size=1.0, price_increment=0.0
+        )
+        result = run_strategy_backtest(
+            EnterOnce, **data, config=_zero_fee_config(), instrument=spec
+        )
         assert len(result.trades()) == 1
         trade = result.trades()[0]
         assert trade.exit_reason == "Settlement"
@@ -150,7 +159,9 @@ class TestKernelIntegration:
 
     def test_entries_rejected_after_expiry(self):
         data = _bars([100.0, 101.0, 102.0, 103.0])
-        spec = InstrumentSpec.futures_contract("FUT", expiration_ns=2, lot_size=1.0, price_increment=0.0)
+        spec = InstrumentSpec.futures_contract(
+            "FUT", expiration_ns=2, lot_size=1.0, price_increment=0.0
+        )
         rejects = []
 
         class Recorder(EnterEveryBar):
@@ -159,8 +170,7 @@ class TestKernelIntegration:
 
         result = run_strategy_backtest(Recorder, **data, config=_zero_fee_config(), instrument=spec)
         assert len(result.trades()) == 1
-        assert rejects
-        assert all(r == "expired" for r in rejects)
+        assert rejects and all(r == "expired" for r in rejects)
 
     def test_pre_activation_entry_rejected(self):
         data = _bars([100.0, 101.0, 102.0, 103.0])
@@ -171,15 +181,21 @@ class TestKernelIntegration:
             activation_ns=2,
             price_increment=0.0,
         )
-        result = run_strategy_backtest(EnterEveryBar, **data, config=_zero_fee_config(), instrument=spec)
+        result = run_strategy_backtest(
+            EnterEveryBar, **data, config=_zero_fee_config(), instrument=spec
+        )
         assert len(result.trades()) == 1
         # First fill can only happen once the contract activates at ts=2.
         assert result.trades()[0].entry_time >= 2
 
     def test_lot_size_floors_contracts(self):
         data = _bars([100.0, 101.0, 102.0])
-        spec = InstrumentSpec.futures_contract("FUT", expiration_ns=1_000, lot_size=300.0, price_increment=0.0)
-        result = run_strategy_backtest(EnterOnce, **data, config=_zero_fee_config(), instrument=spec)
+        spec = InstrumentSpec.futures_contract(
+            "FUT", expiration_ns=1_000, lot_size=300.0, price_increment=0.0
+        )
+        result = run_strategy_backtest(
+            EnterOnce, **data, config=_zero_fee_config(), instrument=spec
+        )
         # 100k / 100 = 1000 raw units -> floors to 900 (3 lots of 300).
         assert result.trades()[0].size == pytest.approx(900.0)
 

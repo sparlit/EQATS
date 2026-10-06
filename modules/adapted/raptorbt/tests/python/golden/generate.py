@@ -296,7 +296,9 @@ def run_multileg(inputs, kind, timing):
     if kind == "options":
         ts, o, h, l, c, v, e, x = thaw_inputs(inputs["OPTSPOT"])
         prem = thaw_series(inputs["OPTPREMIUMS"]["call"])
-        opens = thaw_series(inputs["OPTPREMIUMS"]["call_open"]) if timing == "next_bar_open" else None
+        opens = (
+            thaw_series(inputs["OPTPREMIUMS"]["call_open"]) if timing == "next_bar_open" else None
+        )
         return raptorbt.run_options_backtest(
             ts,
             o,
@@ -345,8 +347,7 @@ def run_multileg(inputs, kind, timing):
             legs_open_premiums=opens,
         )
 
-    msg = f"unknown multi-leg kind {kind!r}"
-    raise ValueError(msg)
+    raise ValueError(f"unknown multi-leg kind {kind!r}")
 
 
 class GoldenSma(raptorbt.Strategy):
@@ -389,7 +390,9 @@ def generate():
         )
         fixtures[f"single/{name}"] = result_digest(result)
 
-    fixtures["class/sma_cross"] = result_digest(raptorbt.run_strategy_backtest(GoldenSma, ts, o, h, l, c, v))
+    fixtures["class/sma_cross"] = result_digest(
+        raptorbt.run_strategy_backtest(GoldenSma, ts, o, h, l, c, v)
+    )
 
     # Portfolio: three instruments sharing one capital pool.
     instruments = []
@@ -398,11 +401,16 @@ def generate():
         pe, px = make_signals(pc)
         fixtures["inputs"][f"SYM{seed}"] = freeze_inputs(pts, po, ph, pl, pc, pv, pe, px)
         instruments.append((pts, po, ph, pl, pc, pv, pe, px, 1, 1.0, f"SYM{seed}"))
-    portfolio = raptorbt.run_portfolio_backtest(instruments, config=BacktestConfig(), allocation="equal_weight")
+    portfolio = raptorbt.run_portfolio_backtest(
+        instruments, config=BacktestConfig(), allocation="equal_weight"
+    )
     fixtures["portfolio/shared_pool"] = {
         "equity_curve": [float.hex(float(x)) for x in portfolio.result.equity_curve()],
         "total_return_pct": float.hex(portfolio.metrics.total_return_pct),
-        "per_instrument": {s.symbol: {"trades": s.trades, "pnl": float.hex(s.pnl)} for s in portfolio.per_instrument},
+        "per_instrument": {
+            s.symbol: {"trades": s.trades, "pnl": float.hex(s.pnl)}
+            for s in portfolio.per_instrument
+        },
     }
 
     # Multi-leg runners: basket, pairs, options, spread — each pinned in
@@ -411,7 +419,9 @@ def generate():
     fixtures["inputs"].update(multileg_inputs)
     for kind in MULTILEG_KINDS:
         for timing in MULTILEG_TIMINGS:
-            fixtures[f"{kind}/{timing}"] = result_digest(run_multileg(multileg_inputs, kind, timing))
+            fixtures[f"{kind}/{timing}"] = result_digest(
+                run_multileg(multileg_inputs, kind, timing)
+            )
 
     out = HERE / "fixtures.json"
     out.write_text(json.dumps(fixtures, indent=1, sort_keys=True))

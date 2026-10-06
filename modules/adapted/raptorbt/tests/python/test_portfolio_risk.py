@@ -63,7 +63,9 @@ class _EnterEverything(Strategy):
 
     def on_bar(self, ctx):
         self.enter(size_frac=self.size_frac)
-        open_now = sum(1 for symbol in ("AAA", "BBB", "CCC") if ctx.position_for(symbol) is not None)
+        open_now = sum(
+            1 for symbol in ("AAA", "BBB", "CCC") if ctx.position_for(symbol) is not None
+        )
         self.max_concurrent = max(self.max_concurrent, open_now)
 
     def on_order_rejected(self, ctx, event):
@@ -83,7 +85,9 @@ class TestPortfolioMaxPositions:
         strategy = _EnterEverything()
         result = run_portfolio_strategy(strategy, _three_symbols(), config=_config(max_positions=2))
 
-        assert strategy.max_concurrent <= 2, "max_positions=2 must cap concurrent positions across all symbols"
+        assert strategy.max_concurrent <= 2, (
+            "max_positions=2 must cap concurrent positions across all symbols"
+        )
         assert result.rejected_entries > 0
         assert result.rejected_entries == sum(s.rejected_entries for s in result.per_instrument)
 
@@ -141,16 +145,18 @@ class TestPortfolioDrawdownHalt:
         assert result.halted_at is not None
         # The untouched symbol is halted by the portfolio-level gate, and the
         # reason is the drawdown, not a margin call.
-        assert any(symbol == "BBB" and reason == "drawdown_halt" for symbol, reason in strategy.rejects), (
-            f"expected a drawdown rejection on BBB, got {strategy.rejects}"
-        )
+        assert any(
+            symbol == "BBB" and reason == "drawdown_halt" for symbol, reason in strategy.rejects
+        ), f"expected a drawdown rejection on BBB, got {strategy.rejects}"
         assert not any(reason == "margin_call" for _, reason in strategy.rejects), (
             "a cash-account drawdown halt must not report a margin call"
         )
 
     def test_no_halt_on_a_clean_run(self):
         strategy = _EnterEverything()
-        result = run_portfolio_strategy(strategy, _three_symbols(), config=_config(max_drawdown_pct=50.0))
+        result = run_portfolio_strategy(
+            strategy, _three_symbols(), config=_config(max_drawdown_pct=50.0)
+        )
 
         assert result.halted is False
         assert result.halted_at is None
@@ -160,9 +166,13 @@ def test_session_and_array_paths_agree_on_max_positions():
     """The two portfolio APIs must enforce the same limit the same way."""
 
     strategy = _EnterEverything()
-    constrained = run_portfolio_strategy(strategy, _three_symbols(), config=_config(max_positions=1))
+    constrained = run_portfolio_strategy(
+        strategy, _three_symbols(), config=_config(max_positions=1)
+    )
     unconstrained_strategy = _EnterEverything()
-    unconstrained = run_portfolio_strategy(unconstrained_strategy, _three_symbols(), config=_config())
+    unconstrained = run_portfolio_strategy(
+        unconstrained_strategy, _three_symbols(), config=_config()
+    )
 
     assert constrained.rejected_entries > 0
     assert unconstrained.rejected_entries == 0

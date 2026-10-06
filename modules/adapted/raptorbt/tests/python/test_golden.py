@@ -97,12 +97,17 @@ def test_portfolio_shared_pool_matches_golden():
         symbol = f"SYM{seed}"
         pts, po, ph, pl, pc, pv, pe, px = thaw_inputs(INPUTS[symbol])
         instruments.append((pts, po, ph, pl, pc, pv, pe, px, 1, 1.0, symbol))
-    portfolio = raptorbt.run_portfolio_backtest(instruments, config=BacktestConfig(), allocation="equal_weight")
+    portfolio = raptorbt.run_portfolio_backtest(
+        instruments, config=BacktestConfig(), allocation="equal_weight"
+    )
     expected = FIXTURES["portfolio/shared_pool"]
     actual = {
         "equity_curve": [float.hex(float(x)) for x in portfolio.result.equity_curve()],
         "total_return_pct": float.hex(portfolio.metrics.total_return_pct),
-        "per_instrument": {s.symbol: {"trades": s.trades, "pnl": float.hex(s.pnl)} for s in portfolio.per_instrument},
+        "per_instrument": {
+            s.symbol: {"trades": s.trades, "pnl": float.hex(s.pnl)}
+            for s in portfolio.per_instrument
+        },
     }
     assert_digest_equal(actual, expected, "portfolio/shared_pool")
 

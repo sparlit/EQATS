@@ -141,7 +141,9 @@ class TestPerSymbolIndicators:
                 self.seen = {}
 
             def on_start(self, ctx):
-                self.sma = {s: self.register_indicator(Indicator.sma(3), symbol=s) for s in ctx.symbols}
+                self.sma = {
+                    s: self.register_indicator(Indicator.sma(3), symbol=s) for s in ctx.symbols
+                }
 
             def on_bar(self, ctx):
                 value = self.sma[ctx.symbol].value
@@ -225,7 +227,9 @@ class TestPerSymbolIndicators:
                 self.ready_at = []
 
             def on_start(self, ctx):
-                self.sma = {s: self.register_indicator(Indicator.sma(2), symbol=s) for s in ctx.symbols}
+                self.sma = {
+                    s: self.register_indicator(Indicator.sma(2), symbol=s) for s in ctx.symbols
+                }
 
             def on_bar(self, ctx):
                 self.ready_at.append(self.indicators_initialized())
@@ -248,7 +252,9 @@ class TestPerSymbolIndicators:
                 self.last = {}
 
             def on_start(self, ctx):
-                self.sma = {s: self.register_indicator(Indicator.sma(2), symbol=s) for s in ctx.symbols}
+                self.sma = {
+                    s: self.register_indicator(Indicator.sma(2), symbol=s) for s in ctx.symbols
+                }
 
             def on_bar(self, ctx):
                 self.last[ctx.symbol] = self.sma[ctx.symbol].value
@@ -340,7 +346,8 @@ class TestPerSymbolCompositeBars:
             def on_start(self, ctx):
                 self.h = self.subscribe_bars(2, "s")
                 self.trend = {
-                    s: self.register_indicator(Indicator.sma(2), stream_id=self.h, symbol=s) for s in ctx.symbols
+                    s: self.register_indicator(Indicator.sma(2), stream_id=self.h, symbol=s)
+                    for s in ctx.symbols
                 }
 
             def on_composite_bar(self, ctx, bar):
