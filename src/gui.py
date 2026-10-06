@@ -6265,6 +6265,16 @@ class ScalperGui:
         self.cred_text.delete("1.0", tk.END)
         import secrets
 
+        from credential_manager import CredentialManager
+
+        cm = CredentialManager()
+        sec_health = cm.get_security_health_status()
+        users = cm.get_all_users()
+        brokers = cm.get_all_brokers()
+        active_broker = cm.get_active_broker_credentials()
+        if not active_broker and brokers:
+            active_broker = brokers[0]
+
         token_key = secrets.token_hex(8).upper()
         self.cred_text.insert(
             tk.END,
