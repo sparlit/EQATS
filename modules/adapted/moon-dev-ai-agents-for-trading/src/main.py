@@ -42,5 +42,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\n👋 Moon Dev AI Trading System shutting down gracefully...")
     except Exception as e:
-        print(f"❌ Error occurred: {e!s}")
+        print(f"❌ Error occurred: {str(e)}")
         print("🔧 Moon Dev suggests checking the logs and trying again!")

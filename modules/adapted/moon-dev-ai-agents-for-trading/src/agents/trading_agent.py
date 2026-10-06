@@ -85,7 +85,7 @@ from datetime import datetime, timedelta
 import anthropic
 import pandas as pd
 from dotenv import load_dotenv
-from termcolor import colored, cprint
+from termcolor import cprint
 
 from ..core import nice_funcs as n  # Import nice_funcs as n
 from ..core.config import *
@@ -100,11 +100,12 @@ class TradingAgent:
         """Initialize the AI Trading Agent with Moon Dev's magic ✨"""
         api_key = os.getenv("ANTHROPIC_KEY")
         if not api_key:
-            msg = "🚨 ANTHROPIC_KEY not found in environment variables!"
-            raise ValueError(msg)
+            raise ValueError("🚨 ANTHROPIC_KEY not found in environment variables!")
 
         self.client = anthropic.Anthropic(api_key=api_key)
-        self.recommendations_df = pd.DataFrame(columns=["token", "action", "confidence", "reasoning"])
+        self.recommendations_df = pd.DataFrame(
+            columns=["token", "action", "confidence", "reasoning"]
+        )
         print("🤖 Moon Dev's AI Trading Agent initialized!")
 
     def analyze_market_data(self, token, market_data):
@@ -114,14 +115,21 @@ class TradingAgent:
                 model=AI_MODEL,
                 max_tokens=AI_MAX_TOKENS,
                 temperature=AI_TEMPERATURE,
-                messages=[{"role": "user", "content": f"{TRADING_PROMPT}\n\nMarket Data to Analyze:\n{market_data}"}],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": f"{TRADING_PROMPT}\n\nMarket Data to Analyze:\n{market_data}",
+                    }
+                ],
             )
 
             # Parse the response - handle both string and list responses
             response = message.content
             if isinstance(response, list):
                 # Extract text from TextBlock objects if present
-                response = "\n".join([item.text if hasattr(item, "text") else str(item) for item in response])
+                response = "\n".join(
+                    [item.text if hasattr(item, "text") else str(item) for item in response]
+                )
 
             lines = response.split("\n")
             action = lines[0].strip() if lines else "NOTHING"
@@ -142,7 +150,14 @@ class TradingAgent:
                 [
                     self.recommendations_df,
                     pd.DataFrame(
-                        [{"token": token, "action": action, "confidence": confidence, "reasoning": reasoning}]
+                        [
+                            {
+                                "token": token,
+                                "action": action,
+                                "confidence": confidence,
+                                "reasoning": reasoning,
+                            }
+                        ]
                     ),
                 ],
                 ignore_index=True,
@@ -152,7 +167,7 @@ class TradingAgent:
             return response
 
         except Exception as e:
-            print(f"❌ Error in AI analysis: {e!s}")
+            print(f"❌ Error in AI analysis: {str(e)}")
             # Still add to DataFrame even on error, but mark as NOTHING with 0 confidence
             self.recommendations_df = pd.concat(
                 [
@@ -163,7 +178,7 @@ class TradingAgent:
                                 "token": token,
                                 "action": "NOTHING",
                                 "confidence": 0,
-                                "reasoning": f"Error during analysis: {e!s}",
+                                "reasoning": f"Error during analysis: {str(e)}",
                             }
                         ]
                     ),
@@ -190,7 +205,11 @@ class TradingAgent:
 
             # Calculate maximum position size (30% of total)
             max_position_size = total_size * 0.30
-            cprint(f"🎯 Maximum position size: ${max_position_size:.2f} (30% of ${total_size:.2f})", "white", "on_blue")
+            cprint(
+                f"🎯 Maximum position size: ${max_position_size:.2f} (30% of ${total_size:.2f})",
+                "white",
+                "on_blue",
+            )
 
             recommendations_str = buy_df.to_string()
 
@@ -238,28 +257,32 @@ class TradingAgent:
                             )
                             allocation_dict[token] = max_position_size
                 else:
-                    msg = "Could not find valid JSON in response"
-                    raise ValueError(msg)
+                    raise ValueError("Could not find valid JSON in response")
 
                 # Create DataFrame with allocations
                 allocations_df = pd.DataFrame(
-                    [{"token": k, "allocation": v, "timestamp": datetime.now()} for k, v in allocation_dict.items()]
+                    [
+                        {"token": k, "allocation": v, "timestamp": datetime.now()}
+                        for k, v in allocation_dict.items()
+                    ]
                 )
 
                 # Save to CSV in src/data directory
                 os.makedirs("src/data", exist_ok=True)
                 allocations_df.to_csv("src/data/current_allocation.csv", index=False)
-                cprint("💾 Portfolio allocation saved with position size limits!", "white", "on_blue")
+                cprint(
+                    "💾 Portfolio allocation saved with position size limits!", "white", "on_blue"
+                )
 
                 return allocation_dict
 
             except Exception as e:
-                print(f"❌ Error parsing allocation response: {e!s}")
+                print(f"❌ Error parsing allocation response: {str(e)}")
                 print(f"Raw response: {allocation_str}")
                 return None
 
         except Exception as e:
-            print(f"❌ Error in portfolio allocation: {e!s}")
+            print(f"❌ Error in portfolio allocation: {str(e)}")
             return None
 
     def execute_allocations(self, allocation_dict):
@@ -295,13 +318,13 @@ class TradingAgent:
                         print(f"⏸️ Position already at target size for {token}")
 
                 except Exception as e:
-                    print(f"❌ Error executing entry for {token}: {e!s}")
+                    print(f"❌ Error executing entry for {token}: {str(e)}")
 
                 # Small delay between entries
                 time.sleep(2)
 
         except Exception as e:
-            print(f"❌ Error executing allocations: {e!s}")
+            print(f"❌ Error executing allocations: {str(e)}")
             print("🔧 Moon Dev suggests checking the logs and trying again!")
 
     def handle_exits(self):
@@ -326,7 +349,9 @@ class TradingAgent:
                     n.chunk_kill(token, max_usd_order_size, slippage)
                     cprint(f"✅ Successfully closed position for {token[:8]}", "white", "on_green")
                 except Exception as e:
-                    cprint(f"❌ Error closing position for {token[:8]}: {e!s}", "white", "on_red")
+                    cprint(
+                        f"❌ Error closing position for {token[:8]}: {str(e)}", "white", "on_red"
+                    )
             elif current_position > 0:
                 cprint(
                     f"✨ Keeping position for {token[:8]} (${current_position:.2f}) - AI recommends {action}",
@@ -377,14 +402,16 @@ def main():
                 if action in ["SELL", "NOTHING"]:
                     current_position = n.get_token_balance_usd(token)
                     if current_position > 0:
-                        cprint(f"\n🚫 AI Agent recommends {action} for {token}", "white", "on_yellow")
+                        cprint(
+                            f"\n🚫 AI Agent recommends {action} for {token}", "white", "on_yellow"
+                        )
                         cprint(f"💰 Current position: ${current_position:.2f}", "white", "on_blue")
                         try:
                             cprint("📉 Closing position with chunk_kill...", "white", "on_cyan")
                             n.chunk_kill(token, max_usd_order_size, slippage)
                             cprint("✅ Successfully closed position", "white", "on_green")
                         except Exception as e:
-                            cprint(f"❌ Error closing position: {e!s}", "white", "on_red")
+                            cprint(f"❌ Error closing position: {str(e)}", "white", "on_red")
 
             # Then proceed with new allocations for BUY recommendations
             cprint("\n💰 Calculating optimal portfolio allocation...", "white", "on_blue")
@@ -402,7 +429,9 @@ def main():
 
             next_run = datetime.now() + timedelta(minutes=RUN_INTERVAL_MINUTES)
             cprint(
-                f"\n⏳ AI Agent run complete. Next run at {next_run.strftime('%Y-%m-%d %H:%M:%S')}", "white", "on_green"
+                f"\n⏳ AI Agent run complete. Next run at {next_run.strftime('%Y-%m-%d %H:%M:%S')}",
+                "white",
+                "on_green",
             )
 
             # Clean up temp data before sleeping
@@ -413,7 +442,7 @@ def main():
                         os.remove(os.path.join("temp_data", file))
                 cprint("✨ Temp data cleaned successfully!", "white", "on_green")
             except Exception as e:
-                cprint(f"⚠️ Error cleaning temp data: {e!s}", "white", "on_yellow")
+                cprint(f"⚠️ Error cleaning temp data: {str(e)}", "white", "on_yellow")
 
             # Sleep until next interval
             time.sleep(INTERVAL)
@@ -422,7 +451,7 @@ def main():
             cprint("\n👋 Moon Dev AI Agent shutting down gracefully...", "white", "on_blue")
             break
         except Exception as e:
-            cprint(f"\n❌ Error: {e!s}", "white", "on_red")
+            cprint(f"\n❌ Error: {str(e)}", "white", "on_red")
             cprint("🔧 Moon Dev suggests checking the logs and trying again!", "white", "on_blue")
             # Still sleep and continue on error
             time.sleep(INTERVAL)

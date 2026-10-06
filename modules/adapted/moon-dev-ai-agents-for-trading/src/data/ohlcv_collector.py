@@ -28,11 +28,9 @@ Built with love by Moon Dev 🚀
 """
 
 import os
-import time
 from datetime import datetime
 
-import pandas as pd
-from termcolor import colored, cprint
+from termcolor import cprint
 
 from ..core import nice_funcs as n
 from ..core.config import *
@@ -50,10 +48,15 @@ def collect_token_data(token, days_back=DAYSBACK_4_DATA, timeframe=DATA_TIMEFRAM
             cprint(f"❌ Moon Dev's AI Agent couldn't fetch data for {token}", "white", "on_red")
             return None
 
-        cprint(f"📊 Moon Dev's AI Agent processed {len(data)} candles for analysis", "white", "on_blue")
+        cprint(
+            f"📊 Moon Dev's AI Agent processed {len(data)} candles for analysis", "white", "on_blue"
+        )
 
         # Save data if configured
-        save_path = f"data/{token}_latest.csv" if SAVE_OHLCV_DATA else f"temp_data/{token}_latest.csv"
+        if SAVE_OHLCV_DATA:
+            save_path = f"data/{token}_latest.csv"
+        else:
+            save_path = f"temp_data/{token}_latest.csv"
 
         # Ensure directory exists
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -65,7 +68,7 @@ def collect_token_data(token, days_back=DAYSBACK_4_DATA, timeframe=DATA_TIMEFRAM
         return data
 
     except Exception as e:
-        cprint(f"❌ Moon Dev's AI Agent encountered an error: {e!s}", "white", "on_red")
+        cprint(f"❌ Moon Dev's AI Agent encountered an error: {str(e)}", "white", "on_red")
         return None
 
 
@@ -91,5 +94,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\n👋 Moon Dev OHLCV Collector shutting down gracefully...")
     except Exception as e:
-        print(f"❌ Error: {e!s}")
+        print(f"❌ Error: {str(e)}")
         print("🔧 Moon Dev suggests checking the logs and trying again!")

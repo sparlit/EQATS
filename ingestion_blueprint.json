@@ -1,5 +1,5 @@
 {
-  "current_index": 104,
+  "current_index": 105,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -837,7 +837,7 @@
       "name": "moon-dev-ai-agents-for-trading",
       "target": "daydy-dev/moon-dev-ai-agents-for-trading",
       "url": "https://github.com/daydy-dev/moon-dev-ai-agents-for-trading",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
