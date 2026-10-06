@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import numpy as np
 import pandas as pd
 
-import config
 from config import *
 
 query = 'select bid,ask,ticklast,volume from fut_one_day where symbol=`$("%s-1M")'
@@ -53,7 +52,8 @@ if __name__ == "__main__":
         agg, volume, liquidity = intraday_buy_sell(symbol)
 
         all_buy = all_buy.append(
-            {"SYMBOL": symbol, "AGG": agg, "VOLUME": volume, "LIQUIDITY": liquidity}, ignore_index=True
+            {"SYMBOL": symbol, "AGG": agg, "VOLUME": volume, "LIQUIDITY": liquidity},
+            ignore_index=True,
         )
 
     candidates = all_buy.sort(["LIQUIDITY", "VOLUME"], ascending=[True, False]).head(30)
