@@ -21,16 +21,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from decimal import *
-from typing import List, Union
 
-import dateparser
 import numpy as np
 import pandas as pd
 from scipy import stats
-from sklearn import linear_model
 
 
 def add_past_weighted_aggregations(
@@ -40,12 +36,21 @@ def add_past_weighted_aggregations(
     fn,
     windows: int | list[int],
     suffix=None,
-    rel_column_name: str | None = None,
+    rel_column_name: str = None,
     rel_factor: float = 1.0,
     last_rows: int = 0,
 ):
     return _add_weighted_aggregations(
-        df, False, column_name, weight_column_name, fn, windows, suffix, rel_column_name, rel_factor, last_rows
+        df,
+        False,
+        column_name,
+        weight_column_name,
+        fn,
+        windows,
+        suffix,
+        rel_column_name,
+        rel_factor,
+        last_rows,
     )
 
 
@@ -55,11 +60,13 @@ def add_past_aggregations(
     fn,
     windows: int | list[int],
     suffix=None,
-    rel_column_name: str | None = None,
+    rel_column_name: str = None,
     rel_factor: float = 1.0,
     last_rows: int = 0,
 ):
-    return _add_aggregations(df, False, column_name, fn, windows, suffix, rel_column_name, rel_factor, last_rows)
+    return _add_aggregations(
+        df, False, column_name, fn, windows, suffix, rel_column_name, rel_factor, last_rows
+    )
 
 
 def add_future_aggregations(
@@ -68,11 +75,13 @@ def add_future_aggregations(
     fn,
     windows: int | list[int],
     suffix=None,
-    rel_column_name: str | None = None,
+    rel_column_name: str = None,
     rel_factor: float = 1.0,
     last_rows: int = 0,
 ):
-    return _add_aggregations(df, True, column_name, fn, windows, suffix, rel_column_name, rel_factor, last_rows)
+    return _add_aggregations(
+        df, True, column_name, fn, windows, suffix, rel_column_name, rel_factor, last_rows
+    )
     # return _add_weighted_aggregations(df, True, column_name, None, fn, windows, suffix, rel_column_name, rel_factor, last_rows)
 
 
@@ -83,7 +92,7 @@ def _add_aggregations(
     fn,
     windows: int | list[int],
     suffix=None,
-    rel_column_name: str | None = None,
+    rel_column_name: str = None,
     rel_factor: float = 1.0,
     last_rows: int = 0,
 ):
@@ -147,7 +156,7 @@ def _add_weighted_aggregations(
     fn,
     windows: int | list[int],
     suffix=None,
-    rel_column_name: str | None = None,
+    rel_column_name: str = None,
     rel_factor: float = 1.0,
     last_rows: int = 0,
 ):
@@ -178,9 +187,13 @@ def _add_weighted_aggregations(
     for w in windows:
         if not last_rows:
             # Sum of products
-            feature = products_column.rolling(window=w, min_periods=max(1, w // 2)).apply(fn, raw=True)
+            feature = products_column.rolling(window=w, min_periods=max(1, w // 2)).apply(
+                fn, raw=True
+            )
             # Sum of weights
-            weights = weight_column.rolling(window=w, min_periods=max(1, w // 2)).apply(fn, raw=True)
+            weights = weight_column.rolling(window=w, min_periods=max(1, w // 2)).apply(
+                fn, raw=True
+            )
         else:  # Only for last row
             # Sum of products
             feature = _aggregate_last_rows(products_column, w, last_rows, fn)
@@ -205,7 +218,9 @@ def _add_weighted_aggregations(
     return features
 
 
-def add_area_ratio(df, is_future: bool, column_name: str, windows: int | list[int], suffix=None, last_rows: int = 0):
+def add_area_ratio(
+    df, is_future: bool, column_name: str, windows: int | list[int], suffix=None, last_rows: int = 0
+):
     """
     For past, we take this element and compare the previous sub-series: the area under and over this element
     For future, we take this element and compare the next sub-series: the area under and over this element
@@ -249,10 +264,13 @@ def area_fn(x, is_future):
     pos = (b + a) / 2
     # neg = (b-a)/2
     ratio = pos / b  # in [0,1]
-    return (ratio * 2) - 1  # scale to [-1,+1]
+    ratio = (ratio * 2) - 1  # scale to [-1,+1]
+    return ratio
 
 
-def add_linear_trends(df, is_future: bool, column_name: str, windows: int | list[int], suffix=None, last_rows: int = 0):
+def add_linear_trends(
+    df, is_future: bool, column_name: str, windows: int | list[int], suffix=None, last_rows: int = 0
+):
     """
     Use a series of points to compute slope of the fitted line and return it.
     For past, we use previous series.
@@ -304,7 +322,7 @@ def slope_fn(x):
     # model.fit(X_array, y_array)
     # slope = model.coef_[0]
 
-    slope, _intercept, _r, _p, _se = stats.linregress(X_array, y_array)
+    slope, intercept, r, p, se = stats.linregress(X_array, y_array)
 
     return slope
 
@@ -323,10 +341,13 @@ def to_diff(sr):
     Each value of the output series is equal to the difference between current and previous values divided by the current value.
     """
 
-    def diff_fn(x):  # ndarray. last element is current row and first element is most old historic value
+    def diff_fn(
+        x,
+    ):  # ndarray. last element is current row and first element is most old historic value
         return 100 * (x[1] - x[0]) / x[0]
 
-    return sr.rolling(window=2, min_periods=2).apply(diff_fn, raw=True)
+    diff = sr.rolling(window=2, min_periods=2).apply(diff_fn, raw=True)
+    return diff
 
 
 def _aggregate_last_rows(column, window, last_rows, fn, *args):

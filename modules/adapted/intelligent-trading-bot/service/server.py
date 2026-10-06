@@ -25,7 +25,6 @@ import logging
 
 import click
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from binance import Client
 from common.analyzer import Analyzer
 from common.generators import output_feature_set
 from common.types import Venue
@@ -58,10 +57,12 @@ async def main_task():
     # 1. Execute input adapters to receive new data from data source(s)
     #
     try:
-        res = await main_collector_task()  # Retrieve raw data, merge, convert to data frame and append
+        res = (
+            await main_collector_task()
+        )  # Retrieve raw data, merge, convert to data frame and append
     except Exception as e:
-        log.exception(f"Error in main_collector_task function: {e}")
-        return None
+        log.error(f"Error in main_collector_task function: {e}")
+        return
     if res:
         log.error(f"Error in main_collector_task function: {res}")
         return res
@@ -76,8 +77,8 @@ async def main_task():
     try:
         await App.loop.run_in_executor(None, App.analyzer.analyze)
     except Exception as e:
-        log.exception(f"Error in analyze function: {e}")
-        return None
+        log.error(f"Error in analyze function: {e}")
+        return
 
     #
     # 3. Execute output adapter which send the results of analysis to consumers
@@ -87,10 +88,10 @@ async def main_task():
         try:
             await output_feature_set(App.analyzer.df, os, App.config, App.model_store)
         except Exception as e:
-            log.exception(f"Error in output function: {e}")
-            return None
+            log.error(f"Error in output function: {e}")
+            return
 
-    return None
+    return
 
 
 async def main_collector_task():
@@ -114,7 +115,9 @@ async def main_collector_task():
     if data_provider_problems_exist():
         await health_check_fn()
         if data_provider_problems_exist():
-            log.error("Problems with the data provider server found. No signaling, no trade. Will try next time.")
+            log.error(
+                "Problems with the data provider server found. No signaling, no trade. Will try next time."
+            )
             return 1
 
     #
@@ -135,7 +138,7 @@ async def main_collector_task():
     try:
         App.analyzer.append_data(dfs)
     except Exception as e:
-        log.exception(f"Error appending data to the analyzer. Exception: {e}")
+        log.error(f"Error appending data to the analyzer. Exception: {e}")
         return 1
 
     log.info("<=== End collector task.")
@@ -148,7 +151,9 @@ def start_server(config_file):
 
     load_config(config_file)
 
-    App.config["train"] = False  # Server does not train - it only predicts therefore explicitly disable train mode
+    App.config["train"] = (
+        False  # Server does not train - it only predicts therefore explicitly disable train mode
+    )
 
     symbol = App.config["symbol"]
     freq = App.config["freq"]
@@ -157,12 +162,12 @@ def start_server(config_file):
         if venue is not None:
             venue = Venue(venue)
     except ValueError as e:
-        log.exception(
+        log.error(
             f"Invalid venue specified in config: {venue}. Error: {e}. Currently these values are supported: {[e.value for e in Venue]}"
         )
-        return None
+        return
 
-    _fetch_klines_fn, _health_check_fn = get_collector_functions(venue)
+    fetch_klines_fn, health_check_fn = get_collector_functions(venue)
     trader_funcs = get_trader_functions(venue)
 
     log.info(f"Initializing server. Venue: {venue.value}. Trade pair: {symbol}. Frequency: {freq}")
@@ -182,7 +187,10 @@ def start_server(config_file):
         if App.config["append_overlap_records"]:
             client_params["append_overlap_records"] = App.config["append_overlap_records"]
         # Prepare binance-specific client arguments
-        client_args = {"api_key": App.config.get("api_key"), "api_secret": App.config.get("api_secret")}
+        client_args = {
+            "api_key": App.config.get("api_key"),
+            "api_secret": App.config.get("api_secret"),
+        }
         client_args = client_args | App.config.get("client_args", {})
         # Initialize client
         from inputs.collector_binance import init_client
@@ -223,11 +231,11 @@ def start_server(config_file):
         # Analyze all received data (not only last few rows) so that we have full history
         App.analyzer.analyze()
     except Exception as e:
-        log.exception(f"Problems during initial data collection. {e}")
+        log.error(f"Problems during initial data collection. {e}")
 
     if data_provider_problems_exist():
         log.error("Problems during initial data collection.")
-        return None
+        return
 
     log.info("Finished initial data collection.")
 
@@ -236,15 +244,15 @@ def start_server(config_file):
         try:
             App.loop.run_until_complete(trader_funcs["update_trade_status"]())
         except Exception as e:
-            log.exception(f"Problems trade status sync. {e}")
+            log.error(f"Problems trade status sync. {e}")
 
         if data_provider_problems_exist():
             log.error("Problems trade status sync.")
-            return None
+            return
 
         log.info("Finished trade status sync (account, balances etc.)")
-        log.info(f"Balance: {App.config['base_asset']} = {App.account_info.base_quantity!s}")
-        log.info(f"Balance: {App.config['quote_asset']} = {App.account_info.quote_quantity!s}")
+        log.info(f"Balance: {App.config['base_asset']} = {str(App.account_info.base_quantity)}")
+        log.info(f"Balance: {App.config['quote_asset']} = {str(App.account_info.quote_quantity)}")
 
     #
     # Register scheduler

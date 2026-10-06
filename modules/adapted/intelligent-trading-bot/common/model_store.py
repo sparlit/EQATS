@@ -123,8 +123,9 @@ class ModelStore:
         # Find entry
         model_entry = next((x for x in self.model_registry if x.get("name") == name), None)
         if not model_entry:
-            msg = f"Model with name '{name}' is not found in the model registry of config file"
-            raise ValueError(msg)
+            raise ValueError(
+                f"Model with name '{name}' is not found in the model registry of config file"
+            )
 
         model_file = model_entry.get("file")
         model_path = self.model_path / model_file
@@ -194,11 +195,15 @@ class ModelStore:
         """Load all model pairs for all combinations of labels and algorithms and return as a dict."""
         models = {}
         for label_algorithm in itertools.product(labels, algorithms):
-            score_column_name = label_algorithm[0] + label_algo_separator + label_algorithm[1]["name"]
+            score_column_name = (
+                label_algorithm[0] + label_algo_separator + label_algorithm[1]["name"]
+            )
             try:
                 model_pair = self._load_label_algo_model_pair_from_file(score_column_name)
             except Exception:
-                log.exception(f"ERROR: Cannot load model {score_column_name} from path {self.model_path}. Skip.")
+                log.error(
+                    f"ERROR: Cannot load model {score_column_name} from path {self.model_path}. Skip."
+                )
                 continue
             models[score_column_name] = model_pair
         return models
@@ -239,8 +244,7 @@ def resolve_algorithms_for_generator(algorithm_names: list, algorithms_default: 
         if isinstance(alg, str):  # Find in the list of algorithms
             alg = find_algorithm_by_name(algorithms_default, alg)
         elif not isinstance(alg, dict):
-            msg = "Algorithm has to be either dict or name"
-            raise ValueError(msg)
+            raise ValueError("Algorithm has to be either dict or name")
         algorithms.append(alg)
     if not algorithms:
         algorithms = algorithms_default

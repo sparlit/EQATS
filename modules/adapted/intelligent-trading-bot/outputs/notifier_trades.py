@@ -21,10 +21,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import asyncio
 import logging
-import os
-import sys
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -44,7 +41,7 @@ async def trader_simulation(df, model: dict, config: dict, model_store: ModelSto
     try:
         transaction = await generate_trader_transaction(df, model, config)
     except Exception as e:
-        log.exception(f"Error in trader_simulation function: {e}")
+        log.error(f"Error in trader_simulation function: {e}")
         return
     if not transaction:
         return
@@ -52,7 +49,7 @@ async def trader_simulation(df, model: dict, config: dict, model_store: ModelSto
     try:
         await send_transaction_message(transaction, config)
     except Exception as e:
-        log.exception(f"Error in send_transaction_message function: {e}")
+        log.error(f"Error in send_transaction_message function: {e}")
         return
 
 
@@ -80,17 +77,30 @@ async def generate_trader_transaction(df, model: dict, config: dict):
         t_price = App.transaction.get("price")
     if signal_side == "BUY" and (not t_status or t_status == "SELL"):
         profit = t_price - close_price if t_price else 0.0
-        t_dict = {"timestamp": str(close_time), "price": close_price, "profit": profit, "status": "BUY"}
+        t_dict = {
+            "timestamp": str(close_time),
+            "price": close_price,
+            "profit": profit,
+            "status": "BUY",
+        }
     elif signal_side == "SELL" and (not t_status or t_status == "BUY"):
         profit = close_price - t_price if t_price else 0.0
-        t_dict = {"timestamp": str(close_time), "price": close_price, "profit": profit, "status": "SELL"}
+        t_dict = {
+            "timestamp": str(close_time),
+            "price": close_price,
+            "profit": profit,
+            "status": "SELL",
+        }
     else:
         return None
 
     # Save this transaction
     App.transaction = t_dict
     with open(transaction_path, "a+") as f:
-        f.write(",".join([f"{v:.6f}" if isinstance(v, float) else str(v) for v in t_dict.values()]) + "\n")
+        f.write(
+            ",".join([f"{v:.6f}" if isinstance(v, float) else str(v) for v in t_dict.values()])
+            + "\n"
+        )
 
     log.info(f"Trade simulator transaction: {t_dict}")
 
@@ -99,7 +109,7 @@ async def generate_trader_transaction(df, model: dict, config: dict):
 
 async def send_transaction_message(transaction, config):
 
-    profit, profit_percent, _profit_descr, profit_percent_descr = await generate_transaction_stats()
+    profit, profit_percent, profit_descr, profit_percent_descr = await generate_transaction_stats()
 
     if transaction.get("status") == "SELL":
         message = "⚡💰 *SOLD: "
@@ -126,7 +136,7 @@ async def send_transaction_message(transaction, config):
         if not response_json.get("ok"):
             log.error("Error sending notification.")
     except Exception as e:
-        log.exception(f"Error sending notification: {e}")
+        log.error(f"Error sending notification: {e}")
 
     #
     # Send stats about previous transactions (including this one)
@@ -139,7 +149,9 @@ async def send_transaction_message(transaction, config):
         log.error("ERROR: Should not happen")
 
     message += f"🔸sum={profit_percent_descr['count'] * profit_percent_descr['mean']:.2f}% 🔸count={int(profit_percent_descr['count'])}\n"
-    message += f"🔸mean={profit_percent_descr['mean']:.4f}% 🔸std={profit_percent_descr['std']:.4f}%\n"
+    message += (
+        f"🔸mean={profit_percent_descr['mean']:.4f}% 🔸std={profit_percent_descr['std']:.4f}%\n"
+    )
     message += f"🔸min={profit_percent_descr['min']:.4f}% 🔸median={profit_percent_descr['50%']:.4f}% 🔸max={profit_percent_descr['max']:.4f}%\n"
 
     try:
@@ -156,7 +168,7 @@ async def send_transaction_message(transaction, config):
         if not response_json.get("ok"):
             log.error("Error sending notification.")
     except Exception as e:
-        log.exception(f"Error sending notification: {e}")
+        log.error(f"Error sending notification: {e}")
 
 
 async def generate_transaction_stats():
@@ -229,10 +241,13 @@ def get_signal(df, buy_signal_column, sell_signal_column):
 
     interval_length = freq_to_timedelta(freq)
 
-    if not ptypes.is_datetime64_any_dtype(df.index):  # Alternatively df.index.inferred_type == "datetime64"
-        msg = "Index of the data frame must be of datetime type."
-        raise ValueError(msg)
-    close_time = row.name + interval_length  # Add interval length because timestamp is start of the interval
+    if not ptypes.is_datetime64_any_dtype(
+        df.index
+    ):  # Alternatively df.index.inferred_type == "datetime64"
+        raise ValueError("Index of the data frame must be of datetime type.")
+    close_time = (
+        row.name + interval_length
+    )  # Add interval length because timestamp is start of the interval
 
     close_price = row["close"]
 
@@ -248,7 +263,9 @@ def get_signal(df, buy_signal_column, sell_signal_column):
     else:
         signal_side = ""
 
-    return {"side": signal_side, "close_price": close_price, "close_time": close_time}
+    signal = {"side": signal_side, "close_price": close_price, "close_time": close_time}
+
+    return signal
 
 
 def load_last_transaction():
@@ -261,7 +278,13 @@ def load_last_transaction():
             for line in f:
                 pass
         if line:
-            t_dict = dict(zip(["timestamp", "price", "profit", "status"], line.strip().split(","), strict=False))
+            t_dict = dict(
+                zip(
+                    ["timestamp", "price", "profit", "status"],
+                    line.strip().split(","),
+                    strict=False,
+                )
+            )
             t_dict["timestamp"] = pd.to_datetime(t_dict["timestamp"], utc=True)
             t_dict["price"] = float(t_dict["price"])
             t_dict["profit"] = float(t_dict["profit"])
@@ -278,9 +301,19 @@ def load_all_transactions():
     if not transaction_path.is_file():
         log.warning(f"File with transactions does not exit: {transaction_path}")
         return None
-    df = pd.read_csv(transaction_path, names=["timestamp", "price", "profit", "status"], header=None)
+    df = pd.read_csv(
+        transaction_path, names=["timestamp", "price", "profit", "status"], header=None
+    )
     df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601", utc=True)
-    return df.astype({"timestamp": "datetime64[ns, UTC]", "price": "float64", "profit": "float64", "status": "str"})
+    df = df.astype(
+        {
+            "timestamp": "datetime64[ns, UTC]",
+            "price": "float64",
+            "profit": "float64",
+            "status": "str",
+        }
+    )
+    return df
 
 
 def get_transaction_path():

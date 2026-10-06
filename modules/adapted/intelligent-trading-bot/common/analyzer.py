@@ -22,7 +22,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import logging
-from datetime import date, datetime, timedelta
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -65,7 +65,9 @@ class Analyzer:
 
         self.is_train = config.get("train")
         if self.is_train:
-            print("WARNING: Train mode is specified although the server is intended for running in predict mode")
+            print(
+                "WARNING: Train mode is specified although the server is intended for running in predict mode"
+            )
 
         #
         # Data frame with all the data (source and derived) where rows are appended and their (derived) columns are computed
@@ -105,15 +107,18 @@ class Analyzer:
     def get_last_kline(self):
         if len(self.df) > 0:
             return self.df.iloc[-1]
-        return None
+        else:
+            return None
 
     def get_last_kline_dt(self):
         """Open time of the last kline. It is simultaneously kline id. Add 1m if the end is needed."""
         if len(self.df) > 0:
             return self.df.index[-1]
-        # Compute it from the maximum history self.min_window_length
-        freq = self.config["freq"]
-        return get_start_dt_for_interval_count(freq, self.min_window_length)
+        else:
+            # Compute it from the maximum history self.min_window_length
+            freq = self.config["freq"]
+            last_kline_dt = get_start_dt_for_interval_count(freq, self.min_window_length)
+            return last_kline_dt
 
     def get_missing_klines_count(self):
         """
@@ -125,7 +130,8 @@ class Analyzer:
             return self.min_window_length
 
         freq = self.config["freq"]
-        return get_interval_count_from_start_dt(freq, last_kline_dt)
+        intervals_count = get_interval_count_from_start_dt(freq, last_kline_dt)
+        return intervals_count
 
     def append_data(self, dfs: dict):
         """
@@ -198,7 +204,7 @@ class Analyzer:
             return
 
         # It is a parameter passed to generators which indicates the exact (small) number of last rows to re-evaluate to avoid full-evaluation for performance reasons
-        last_rows = max(0, self.dirty_records)
+        last_rows = self.dirty_records if self.dirty_records > 0 else 0
 
         last_kline_dt = self.get_last_kline_dt()
         last_kline_ts_str = str(pd.to_datetime(last_kline_dt, unit="ms", utc=True))
@@ -212,7 +218,9 @@ class Analyzer:
         feature_sets = self.config.get("feature_sets", [])
         feature_columns = []
         for fs in feature_sets:
-            df, feats = generate_feature_set(self.df, fs, self.config, self.model_store, last_rows=last_rows)
+            df, feats = generate_feature_set(
+                self.df, fs, self.config, self.model_store, last_rows=last_rows
+            )
             self.df = df
             feature_columns.extend(feats)
 
@@ -223,7 +231,9 @@ class Analyzer:
         train_features = self.config["train_features"]
 
         # Shorten the data frame by selecting last rows for which to do predictions
-        tail_rows = notnull_tail_rows(self.df[train_features])  # How many last rows have all non-null values
+        tail_rows = notnull_tail_rows(
+            self.df[train_features]
+        )  # How many last rows have all non-null values
         predict_size = tail_rows if not last_rows else min(tail_rows, last_rows)
         predict_features_df = self.df.tail(predict_size)
 
@@ -231,7 +241,9 @@ class Analyzer:
 
         # Validation
         if predict_features_df.isnull().any().any():
-            null_columns = {k: v for k, v in predict_features_df.isnull().any().to_dict().items() if v}
+            null_columns = {
+                k: v for k, v in predict_features_df.isnull().any().to_dict().items() if v
+            }
             log.error(f"Null in predict_df found. Columns with Null: {null_columns}")
             return
 
@@ -239,7 +251,9 @@ class Analyzer:
         predict_labels_df = pd.DataFrame(index=predict_features_df.index)
         predict_label_columns = []
         for fs in train_feature_sets:
-            fs_df, feats = predict_feature_set(predict_features_df, fs, self.config, self.model_store)
+            fs_df, feats = predict_feature_set(
+                predict_features_df, fs, self.config, self.model_store
+            )
             predict_labels_df = pd.concat([predict_labels_df, fs_df], axis=1)
             predict_label_columns.extend(feats)
 
@@ -254,7 +268,9 @@ class Analyzer:
         signal_sets = self.config.get("signal_sets", [])
         signal_columns = []
         for fs in signal_sets:
-            df, feats = generate_feature_set(self.df, fs, self.config, self.model_store, last_rows=last_rows)
+            df, feats = generate_feature_set(
+                self.df, fs, self.config, self.model_store, last_rows=last_rows
+            )
             self.df = df  # TODO: Signal features should be computed in the same way as normal (pre-ML) features
             signal_columns.extend(feats)
 
@@ -265,16 +281,17 @@ class Analyzer:
         # Log signal values
         row = self.get_last_kline()  # Last row stores the latest values we need
         scores = ", ".join(
-            [f"{x}={row[x]:+.3f}" if isinstance(row[x], float) else f"{x}={row[x]!s}" for x in signal_columns]
+            [
+                f"{x}={row[x]:+.3f}" if isinstance(row[x], float) else f"{x}={str(row[x])}"
+                for x in signal_columns
+            ]
         )
         log.info(f"Analyze finished. Close: {int(row['close']):,} Signals: {scores}")
 
         #
         # Validation: newly retrieved and computed values should be (almost) equal to those computed previously in the overlap area
         #
-        check_row_count = (
-            3  # These last rows should be correctly computed (particularly, have enough history in case of aggregation)
-        )
+        check_row_count = 3  # These last rows should be correctly computed (particularly, have enough history in case of aggregation)
         num_cols = self.previous_df.select_dtypes((float, int)).columns.tolist()
         # Loop over several last newly computed data rows
         # Skip last row because it should not exist, and before the last row because its kline is frequently updated after retrieval

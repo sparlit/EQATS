@@ -21,7 +21,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
 
 import click
@@ -32,7 +32,6 @@ from common.generators import predict_feature_set
 from common.model_store import *
 from common.utils import compute_scores, compute_scores_regression
 from service.App import *
-from tqdm import tqdm
 
 """
 Apply models to (previously generated) features and compute prediction scores.
@@ -87,14 +86,18 @@ def main(config_file):
         )
         return
 
-    print(f"Finished loading {len(df)} records with {len(df.columns)} columns from the source file {file_path}")
+    print(
+        f"Finished loading {len(df)} records with {len(df.columns)} columns from the source file {file_path}"
+    )
 
     # Select only the data necessary for analysis
     if window_size:
         df = df.tail(window_size)
         df = df.reset_index(drop=True)
 
-    print(f"Input data size {len(df)} records. Range: [{df.iloc[0][time_column]}, {df.iloc[-1][time_column]}]")
+    print(
+        f"Input data size {len(df)} records. Range: [{df.iloc[0][time_column]}, {df.iloc[-1][time_column]}]"
+    )
 
     #
     # Apply ML algorithm predictors
@@ -110,10 +113,12 @@ def main(config_file):
     df = df[out_columns + [x for x in all_features if x not in out_columns]]
 
     # Handle NULLs
-    df = df.replace([np.inf, -np.inf], np.nan)
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
     na_df = df[df[train_features_all].isna().any(axis=1)]
     if len(na_df) > 0:
-        print(f"WARNING: There exist {len(na_df)} rows with NULLs in some feature columns. These rows will be removed.")
+        print(
+            f"WARNING: There exist {len(na_df)} rows with NULLs in some feature columns. These rows will be removed."
+        )
         df = df.dropna(subset=train_features_all)
         df = df.reset_index(drop=True)  # We must reset index after removing rows to remove gaps
 
@@ -132,7 +137,9 @@ def main(config_file):
 
     for i, fs in enumerate(train_feature_sets):
         fs_now = datetime.now()
-        print(f"Start train feature set {i}/{len(train_feature_sets)}. Generator {fs.get('generator')}...")
+        print(
+            f"Start train feature set {i}/{len(train_feature_sets)}. Generator {fs.get('generator')}..."
+        )
 
         fs_out_df, fs_features = predict_feature_set(df, fs, config, App.model_store)
 
@@ -167,7 +174,9 @@ def main(config_file):
         )
         return
 
-    print(f"Predictions stored in file: {out_path}. Length: {len(out_df)}. Columns: {len(out_df.columns)}")
+    print(
+        f"Predictions stored in file: {out_path}. Length: {len(out_df)}. Columns: {len(out_df.columns)}"
+    )
 
     #
     # Compute and store scores
@@ -178,7 +187,9 @@ def main(config_file):
         label_column, _ = score_to_label_algo_pair(score_column_name)
 
         # Drop nans from scores
-        df_scores = pd.DataFrame({"y_true": out_df[label_column], "y_predicted": out_df[score_column_name]})
+        df_scores = pd.DataFrame(
+            {"y_true": out_df[label_column], "y_predicted": out_df[score_column_name]}
+        )
         df_scores = df_scores.dropna()
 
         y_true = df_scores["y_true"]

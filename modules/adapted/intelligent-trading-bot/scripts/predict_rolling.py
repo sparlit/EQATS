@@ -22,9 +22,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import multiprocessing as mp
-import time
 from concurrent.futures import ProcessPoolExecutor
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
 
 import click
@@ -111,7 +110,9 @@ def main(config_file):
 
     df = df.reset_index(drop=True)
 
-    print(f"Input data size {len(df)} records. Range: [{df.iloc[0][time_column]}, {df.iloc[-1][time_column]}]")
+    print(
+        f"Input data size {len(df)} records. Range: [{df.iloc[0][time_column]}, {df.iloc[-1][time_column]}]"
+    )
 
     #
     # Determine parameters of the rolling prediction loop
@@ -126,27 +127,31 @@ def main(config_file):
     # Compute a missing parameter if any
     if not prediction_start:
         if not prediction_size or not prediction_steps:
-            msg = "Only one of the three rolling prediction loop parameters can be empty."
-            raise ValueError(msg)
+            raise ValueError(
+                "Only one of the three rolling prediction loop parameters can be empty."
+            )
         # Where we have to start in order to perform the specified number of steps each having the specified length
         prediction_start = len(df) - prediction_size * prediction_steps
     elif not prediction_size:
         if not prediction_start or not prediction_steps:
-            msg = "Only one of the three rolling prediction loop parameters can be empty."
-            raise ValueError(msg)
+            raise ValueError(
+                "Only one of the three rolling prediction loop parameters can be empty."
+            )
         # Size of one prediction in order to get the specified number of steps with the specified length
         prediction_size = (len(df) - prediction_start) // prediction_steps
     elif not prediction_steps:
         if not prediction_start or not prediction_size:
-            msg = "Only one of the three rolling prediction loop parameters can be empty."
-            raise ValueError(msg)
+            raise ValueError(
+                "Only one of the three rolling prediction loop parameters can be empty."
+            )
         # Number of steps with the specified length with the specified start
         prediction_steps = (len(df) - prediction_start) // prediction_size
 
     # Check consistency of the loop parameters
     if len(df) - prediction_start < prediction_steps * prediction_size:
-        msg = f"Not enough data for {prediction_steps} steps each of size {prediction_size} starting from {prediction_start}. Available data for prediction: {len(df) - prediction_start}"
-        raise ValueError(msg)
+        raise ValueError(
+            f"Not enough data for {prediction_steps} steps each of size {prediction_size} starting from {prediction_start}. Available data for prediction: {len(df) - prediction_start}"
+        )
 
     #
     # Prepare data by selecting columns and rows
@@ -165,11 +170,13 @@ def main(config_file):
         if np.issubdtype(df[label].dtype, bool):
             df[label] = df[label].astype(int)  # For classification tasks we want to use integers
 
-    df = df.replace([np.inf, -np.inf], np.nan)
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
     # in_df = in_df.dropna(subset=labels)
     df = df.reset_index(drop=True)  # We must reset index after removing rows to remove gaps
 
-    print(f"Start index: {prediction_start}. Number of steps: {prediction_steps}. Step size: {prediction_size}")
+    print(
+        f"Start index: {prediction_start}. Number of steps: {prediction_steps}. Step size: {prediction_size}"
+    )
 
     #
     # Rolling/moving train-predict sequence
@@ -185,7 +192,9 @@ def main(config_file):
     ]  # Labels are generated from future data and hence we might want to explicitly remove some tail rows
     train_length = config.get("train_length")
 
-    labels_hat_df = pd.DataFrame()  # Result rows. Here store only rows for which we make predictions
+    labels_hat_df = (
+        pd.DataFrame()
+    )  # Result rows. Here store only rows for which we make predictions
 
     print("Starting rolling predict loop...")
 
@@ -239,8 +248,10 @@ def main(config_file):
         )
 
     # End of loop over prediction steps
-    print()
-    print(f"Finished all {prediction_steps} prediction steps each with {prediction_size} predicted rows (stride). ")
+    print("")
+    print(
+        f"Finished all {prediction_steps} prediction steps each with {prediction_size} predicted rows (stride). "
+    )
     print(
         f"Size of predicted dataframe {len(labels_hat_df)}. Number of rows in all steps {prediction_steps * prediction_size} (steps * stride). "
     )
@@ -267,7 +278,9 @@ def main(config_file):
         )
         return
 
-    print(f"Predictions stored in file: {out_path}. Length: {len(out_df)}. Columns: {len(out_df.columns)}")
+    print(
+        f"Predictions stored in file: {out_path}. Length: {len(out_df)}. Columns: {len(out_df.columns)}"
+    )
 
     #
     # Compute and store scores
@@ -278,7 +291,9 @@ def main(config_file):
         label_column, _ = score_to_label_algo_pair(score_column_name)
 
         # Drop nans from scores
-        df_scores = pd.DataFrame({"y_true": out_df[label_column], "y_predicted": out_df[score_column_name]})
+        df_scores = pd.DataFrame(
+            {"y_true": out_df[label_column], "y_predicted": out_df[score_column_name]}
+        )
         df_scores = df_scores.dropna()
 
         y_true = df_scores["y_true"]
@@ -308,7 +323,9 @@ def main(config_file):
     print(f"Finished rolling prediction in {str(elapsed).split('.')[0]}")
 
 
-def execute_train_predict_step(config: dict, train_df: pd.DataFrame, predict_df: pd.DataFrame, parallel):
+def execute_train_predict_step(
+    config: dict, train_df: pd.DataFrame, predict_df: pd.DataFrame, parallel
+):
     """
     This function is supposed to be used in one step of rolling prediction.
     It gets train data (which is supposed to move along larger data set) and data to be used for predictions.
@@ -334,25 +351,32 @@ def execute_train_predict_step(config: dict, train_df: pd.DataFrame, predict_df:
 
     models = {}
     if isinstance(parallel, Parallel):
-        results = parallel(delayed(train_feature_set)(train_df, fs, config) for fs in train_feature_sets)
+        results = parallel(
+            delayed(train_feature_set)(train_df, fs, config) for fs in train_feature_sets
+        )
         for fs_models in results:
             models.update(fs_models)
     elif isinstance(parallel, mp.pool.Pool):
         # results = parallel.starmap(train_feature_set, [(train_df, fs, config) for fs in train_feature_sets])
-        results = [parallel.apply(train_feature_set, args=(train_df, fs, config)) for fs in train_feature_sets]
+        results = [
+            parallel.apply(train_feature_set, args=(train_df, fs, config))
+            for fs in train_feature_sets
+        ]
     elif isinstance(parallel, ProcessPoolExecutor):
         # Submit all in a loop
         execution_results = {}  # Futures for each label
         for i, fs in enumerate(train_feature_sets):
             score_column_name = f"label_{i}"
-            execution_results[score_column_name] = parallel.submit(train_feature_set, train_df, fs, config)
+            execution_results[score_column_name] = parallel.submit(
+                train_feature_set, train_df, fs, config
+            )
 
         results = {}
         for score_column_name, future in execution_results.items():
             results[score_column_name] = future.result()
             if future.exception():
                 print(f"Exception while train-predict {score_column_name}.")
-                return None
+                return
 
     else:  # No multiprocessing - sequential execution
         for i, fs in enumerate(train_feature_sets):  #  Execute sequentially

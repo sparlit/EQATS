@@ -29,7 +29,6 @@ import pandas as pd
 from common.generators import generate_feature_set
 from common.model_store import *
 from service.App import *
-from tqdm import tqdm
 
 """
 Generate new derived columns according to the signal definitions.
@@ -80,14 +79,18 @@ def main(config_file):
         )
         return
 
-    print(f"Finished loading {len(df)} records with {len(df.columns)} columns from the source file {file_path}")
+    print(
+        f"Finished loading {len(df)} records with {len(df.columns)} columns from the source file {file_path}"
+    )
 
     # Select only the data necessary for analysis
     if window_size:
         df = df.tail(window_size)
         df = df.reset_index(drop=True)
 
-    print(f"Input data size {len(df)} records. Range: [{df.iloc[0][time_column]}, {df.iloc[-1][time_column]}]")
+    print(
+        f"Input data size {len(df)} records. Range: [{df.iloc[0][time_column]}, {df.iloc[-1][time_column]}]"
+    )
 
     #
     # Apply signal generators
@@ -116,7 +119,7 @@ def main(config_file):
     print("Finished generating features.")
 
     # Handle NULLs
-    df = df.replace([np.inf, -np.inf], np.nan)
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
     na_df = df[df[all_features].isna().any(axis=1)]
     if len(na_df) > 0:
         print(f"WARNING: There exist {len(na_df)} rows with NULLs in some columns")
@@ -138,7 +141,9 @@ def main(config_file):
     #
     out_path = data_path / config.get("signal_file_name")
 
-    print(f"Storing signals with {len(out_df)} records and {len(out_df.columns)} columns in output file {out_path}...")
+    print(
+        f"Storing signals with {len(out_df)} records and {len(out_df.columns)} columns in output file {out_path}..."
+    )
     if out_path.suffix == ".parquet":
         out_df.to_parquet(out_path, index=False)
     elif out_path.suffix == ".csv":
@@ -149,7 +154,9 @@ def main(config_file):
         )
         return
 
-    print(f"Signals stored in file: {out_path}. Length: {len(out_df)}. Columns: {len(out_df.columns)}")
+    print(
+        f"Signals stored in file: {out_path}. Length: {len(out_df)}. Columns: {len(out_df.columns)}"
+    )
 
     elapsed = datetime.now() - now
     print(f"Finished signal generation in {str(elapsed).split('.')[0]}")

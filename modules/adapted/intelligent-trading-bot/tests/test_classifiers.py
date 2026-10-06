@@ -21,7 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import pytest
 from common.classifier_gb import train_predict_gb
 from common.classifier_lc import train_predict_lc
 from common.classifier_nn import train_predict_nn
@@ -68,3 +67,5 @@ def test_nan_handling_predict():
     )
     assert len(test_hat) == 5
     assert test_hat.isnull().sum() == 2
+
+    pass

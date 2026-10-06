@@ -21,7 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import numpy as np
 import pandas as pd
 
 """
@@ -72,18 +71,19 @@ def simulated_trade_performance(df, buy_signal_column, sell_signal_column, price
                     short_profitable += 1
                 shorts.append((index, previous_price, price, profit, profit_percent))  # Bought
                 is_buy_mode = False
-        # Check if maximum price
-        elif sell_signal:
-            previous_price = longs[-1][2] if len(longs) > 0 else 0.0
-            profit = (price - previous_price) if previous_price > 0 else 0.0
-            profit_percent = 100.0 * profit / previous_price if previous_price > 0 else 0.0
-            long_profit += profit
-            long_profit_percent += profit_percent
-            long_transactions += 1
-            if profit > 0:
-                long_profitable += 1
-            longs.append((index, previous_price, price, profit, profit_percent))  # Sold
-            is_buy_mode = True
+        else:
+            # Check if maximum price
+            if sell_signal:
+                previous_price = longs[-1][2] if len(longs) > 0 else 0.0
+                profit = (price - previous_price) if previous_price > 0 else 0.0
+                profit_percent = 100.0 * profit / previous_price if previous_price > 0 else 0.0
+                long_profit += profit
+                long_profit_percent += profit_percent
+                long_transactions += 1
+                if profit > 0:
+                    long_profitable += 1
+                longs.append((index, previous_price, price, profit, profit_percent))  # Sold
+                is_buy_mode = True
 
     # Performance of buy at low price and sell at high price
     long_performance = {
@@ -91,9 +91,13 @@ def simulated_trade_performance(df, buy_signal_column, sell_signal_column, price
         "profit": round(long_profit, 2),
         "%profit": round(long_profit_percent, 1),
         "#profitable": long_profitable,
-        "%profitable": round(100.0 * long_profitable / long_transactions, 1) if long_transactions else 0.0,
+        "%profitable": round(100.0 * long_profitable / long_transactions, 1)
+        if long_transactions
+        else 0.0,
         "profit/T": round(long_profit / long_transactions, 2) if long_transactions else 0.0,
-        "%profit/T": round(long_profit_percent / long_transactions, 1) if long_transactions else 0.0,
+        "%profit/T": round(long_profit_percent / long_transactions, 1)
+        if long_transactions
+        else 0.0,
         # "transactions": longs,  # Sell transactions
     }
 
@@ -103,9 +107,13 @@ def simulated_trade_performance(df, buy_signal_column, sell_signal_column, price
         "profit": round(short_profit, 2),
         "%profit": round(short_profit_percent, 1),
         "#profitable": short_profitable,
-        "%profitable": round(100.0 * short_profitable / short_transactions, 1) if short_transactions else 0.0,
+        "%profitable": round(100.0 * short_profitable / short_transactions, 1)
+        if short_transactions
+        else 0.0,
         "profit/T": round(short_profit / short_transactions, 2) if short_transactions else 0.0,
-        "%profit/T": round(short_profit_percent / short_transactions, 1) if short_transactions else 0.0,
+        "%profit/T": round(short_profit_percent / short_transactions, 1)
+        if short_transactions
+        else 0.0,
         # "transactions": shorts,  # Buy transactions
     }
 
@@ -119,7 +127,9 @@ def simulated_trade_performance(df, buy_signal_column, sell_signal_column, price
         "profit": profit,
         "%profit": profit_percent,
         "profitable": profitable,
-        "profitable_percent": round(100.0 * profitable / transaction_no, 1) if transaction_no else 0.0,
+        "profitable_percent": round(100.0 * profitable / transaction_no, 1)
+        if transaction_no
+        else 0.0,
         "profit/T": round(profit / transaction_no, 2) if transaction_no else 0.0,
         "%profit/T": round(profit_percent / transaction_no, 1) if transaction_no else 0.0,
         # "transactions": transactions,
