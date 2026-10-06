@@ -75,7 +75,7 @@ np.random.seed(42)
 
 
 @pytest.mark.parametrize(
-    ("array", "n", "expected"),
+    "array, n, expected",
     [
         ([3, 3, 4, 2, 5, 6, 1, 3], 3, [np.nan, np.nan, 3, 2, 2, 2, 1, 1]),
         ([3, 3, 4, 2, 5, 6, 1, 3], 1, [3, 3, 4, 2, 5, 6, 1, 3]),
@@ -89,7 +89,7 @@ def test_lowv(array, n, expected):
 
 
 @pytest.mark.parametrize(
-    ("array", "n", "expected"),
+    "array, n, expected",
     [
         ([3, 3, 4, 2, 5, 6, 1, 3], 3, [np.nan, np.nan, 4, 4, 5, 6, 6, 6]),
         ([3, 3, 4, 2, 5, 6, 1, 3], 1, [3, 3, 4, 2, 5, 6, 1, 3]),
@@ -103,7 +103,7 @@ def test_highv(array, n, expected):
 
 
 @pytest.mark.parametrize(
-    ("array", "n", "expected"),
+    "array, n, expected",
     [
         ([3, 3, 4, 2, 5, 6, 1, 3], 3, [np.nan, np.nan, 10, 9, 11, 13, 12, 10]),
         ([3, 3, 4, 2, 5, 6, 1, 3], 1, [3, 3, 4, 2, 5, 6, 1, 3]),
@@ -117,7 +117,7 @@ def test_sumv(array, n, expected):
 
 
 @pytest.mark.parametrize(
-    ("array", "n", "expected"),
+    "array, n, expected",
     [
         (
             [1, 1.5, 1.7, 1.3, 1.2, 1.4],
@@ -142,7 +142,7 @@ def test_returnv(array, n, expected):
 
 
 @pytest.mark.parametrize(
-    ("array", "n", "expected"),
+    "array, n, expected",
     [
         (
             [1, 1.5, 1.7, 1.3, 1.2, 1.4],
@@ -182,7 +182,7 @@ def test_returnv_when_use_log(array, n, expected):
 
 @pytest.mark.parametrize("fnv", [lowv, highv, sumv, returnv])
 @pytest.mark.parametrize(
-    ("array", "n", "expected_msg"),
+    "array, n, expected_msg",
     [
         ([1, 2, 3], 10, "n is greater than array length."),
         ([1, 2, 3], 0, "n needs to be >= 1."),
@@ -194,7 +194,9 @@ def test_when_n_invalid_then_error(fnv, array, n, expected_msg):
         fnv(np.array(array), n)
 
 
-def _reference_atr(high: np.ndarray, low: np.ndarray, close: np.ndarray, lookback: int) -> np.ndarray:
+def _reference_atr(
+    high: np.ndarray, low: np.ndarray, close: np.ndarray, lookback: int
+) -> np.ndarray:
     """Textbook ATR: rolling mean of true range, where true range is the
     greatest of ``high - low``, ``abs(high - prev close)``, and
     ``abs(low - prev close)``. Bar 0 has no previous close, so outputs start
@@ -245,7 +247,7 @@ def test_atr_when_empty_then_empty():
 
 
 @pytest.mark.parametrize(
-    ("n", "expected_msg"),
+    "n, expected_msg",
     [
         (10, "n is greater than array length."),
         (0, "n needs to be >= 1."),
@@ -319,7 +321,7 @@ _ADVERSARIAL_ARRAYS = [
 
 class TestRollingWindowKernels:
     @pytest.mark.parametrize(
-        ("array", "n"),
+        "array, n",
         [
             ([3, 3, 4, 2, 5, 6, 1, 3], 3),
             ([3, 3, 4, 2, 5, 6, 1, 3], 1),
@@ -329,12 +331,18 @@ class TestRollingWindowKernels:
     )
     def test_rolling_kernels_match_brute_force_fixtures(self, array, n):
         arr = np.array(array, dtype=np.float64)
-        np.testing.assert_allclose(lowv(arr, n), _brute_lowv(arr, n), rtol=0, atol=0, equal_nan=True)
-        np.testing.assert_allclose(highv(arr, n), _brute_highv(arr, n), rtol=0, atol=0, equal_nan=True)
-        np.testing.assert_allclose(sumv(arr, n), _brute_sumv(arr, n), rtol=0, atol=0, equal_nan=True)
+        np.testing.assert_allclose(
+            lowv(arr, n), _brute_lowv(arr, n), rtol=0, atol=0, equal_nan=True
+        )
+        np.testing.assert_allclose(
+            highv(arr, n), _brute_highv(arr, n), rtol=0, atol=0, equal_nan=True
+        )
+        np.testing.assert_allclose(
+            sumv(arr, n), _brute_sumv(arr, n), rtol=0, atol=0, equal_nan=True
+        )
 
     @pytest.mark.parametrize(
-        ("length", "window"),
+        "length, window",
         [
             (100, 2),
             (100, 20),
@@ -454,36 +462,41 @@ def _brute_stochastic(
     """Pre-optimization reference for stochastic regression tests."""
     n = len(close)
     front_bad = lookback - 1
-    front_bad = min(front_bad, n)
+    if front_bad > n:
+        front_bad = n
     output = np.zeros(n)
     for i in range(front_bad, n):
         min_val = 1.0e60
         max_val = -1.0e60
         for j in range(lookback):
-            max_val = max(max_val, high[i - j])
-            min_val = min(min_val, low[i - j])
+            if high[i - j] > max_val:
+                max_val = high[i - j]
+            if low[i - j] < min_val:
+                min_val = low[i - j]
         sto_0 = (close[i] - min_val) / (max_val - min_val + 1.0e-60)
         if smoothing == 0:
             output[i] = 100.0 * sto_0 - 50
-        elif i == front_bad:
-            sto_1 = sto_0
-            output[i] = 100.0 * sto_0 - 50
         else:
-            sto_1 = 0.33333333 * sto_0 + 0.66666667 * sto_1
-            if smoothing == 1:
-                output[i] = 100.0 * sto_1 - 50
-            elif i == front_bad + 1:
-                sto_2 = sto_1
-                output[i] = 100.0 * sto_1 - 50
+            if i == front_bad:
+                sto_1 = sto_0
+                output[i] = 100.0 * sto_0 - 50
             else:
-                sto_2 = 0.33333333 * sto_1 + 0.66666667 * sto_2
-                output[i] = 100.0 * sto_2 - 50
+                sto_1 = 0.33333333 * sto_0 + 0.66666667 * sto_1
+                if smoothing == 1:
+                    output[i] = 100.0 * sto_1 - 50
+                else:
+                    if i == front_bad + 1:
+                        sto_2 = sto_1
+                        output[i] = 100.0 * sto_1 - 50
+                    else:
+                        sto_2 = 0.33333333 * sto_1 + 0.66666667 * sto_2
+                        output[i] = 100.0 * sto_2 - 50
     return output
 
 
 class TestStochasticKernels:
     @pytest.mark.parametrize(
-        ("high", "low", "close", "lookback", "smoothing"),
+        "high, low, close, lookback, smoothing",
         [
             (
                 [10, 12, 11, 13, 12, 14],
@@ -517,7 +530,7 @@ class TestStochasticKernels:
         np.testing.assert_allclose(result, expected, rtol=0, atol=0)
 
     @pytest.mark.parametrize(
-        ("length", "lookback", "smoothing"),
+        "length, lookback, smoothing",
         [
             (100, 5, 0),
             (100, 20, 1),
@@ -567,7 +580,7 @@ class TestStochasticKernels:
 
 
 @pytest.mark.parametrize(
-    ("a", "b", "expected"),
+    "a, b, expected",
     [
         (
             [3, 3, 4, 2, 5, 6, 1, 3],
@@ -587,7 +600,7 @@ def test_cross(a, b, expected):
 
 
 @pytest.mark.parametrize(
-    ("a", "b", "expected_msg"),
+    "a, b, expected_msg",
     [
         ([1, 2, 3], [3, 3, 3, 3], "a and b must be same length."),
         ([3, 3, 3, 3], [1, 2, 3], "a and b must be same length."),
@@ -602,7 +615,7 @@ def test_cross_when_invalid_input_then_error(a, b, expected_msg):
 
 
 @pytest.mark.parametrize(
-    ("fn", "args", "expected_length"),
+    "fn, args, expected_length",
     [
         # Detrended RSI
         (
@@ -1800,7 +1813,7 @@ def test_indicators(fn, args, expected_length):
 
 
 @pytest.mark.parametrize(
-    ("fn", "args"),
+    "fn, args",
     [
         # Detrended RSI
         (
@@ -3054,12 +3067,9 @@ def test_aroon_stays_within_its_defined_range(lookback):
     up = np.asarray(aroon_up(high, low, lookback))
     down = np.asarray(aroon_down(high, low, lookback))
     diff = np.asarray(aroon_diff(high, low, lookback))
-    assert up.min() >= 0
-    assert up.max() <= 100
-    assert down.min() >= 0
-    assert down.max() <= 100
-    assert diff.min() >= -100
-    assert diff.max() <= 100
+    assert up.min() >= 0 and up.max() <= 100
+    assert down.min() >= 0 and down.max() <= 100
+    assert diff.min() >= -100 and diff.max() <= 100
     np.testing.assert_allclose(diff, up - down, rtol=0, atol=1e-9)
 
 
@@ -3072,8 +3082,7 @@ def test_laguerre_rsi_computes_every_bar_after_warmup():
     assert np.all(values[:fe_length] == 0)
     body = values[fe_length:]
     assert np.count_nonzero(body) > 0.5 * len(body)
-    assert body.min() >= 0
-    assert body.max() <= 100
+    assert body.min() >= 0 and body.max() <= 100
 
 
 @pytest.mark.parametrize("fe_length", [1, 2])
@@ -3083,7 +3092,7 @@ def test_laguerre_rsi_short_fe_length_does_not_raise(fe_length):
     assert len(laguerre_rsi(open_, high, low, close, fe_length)) == 50
 
 
-@pytest.mark.parametrize(("short_length", "multiplier"), [(5, 3), (10, 3), (20, 4)])
+@pytest.mark.parametrize("short_length, multiplier", [(5, 3), (10, 3), (20, 4)])
 def test_price_change_oscillator_is_zero_on_constant_log_returns(short_length, multiplier):
     """Short- and long-term |log return| averages are equal on a constant-rate
     series, so the oscillator must be 0. Summing short_length + 2 terms over a
@@ -3139,8 +3148,7 @@ def test_reactivity_alpha_stays_a_valid_ema_coefficient():
         for smoothing in (0.0, 0.1, 0.5, 1.0, 2.0):
             values = np.asarray(reactivity(high, low, close, volume, lookback, smoothing))
             assert np.all(np.isfinite(values))
-            assert values.min() >= -50
-            assert values.max() <= 50
+            assert values.min() >= -50 and values.max() <= 50
 
 
 def test_cubic_trend_is_not_the_linear_trend():

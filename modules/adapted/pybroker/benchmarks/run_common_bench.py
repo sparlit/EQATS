@@ -33,11 +33,9 @@ import statistics
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_BASELINE = REPO_ROOT / ".asv" / "baseline-pre-common-opt.json"
@@ -66,8 +64,12 @@ def _run_bottleneck() -> dict[str, float]:
 
     interval_bench = IntervalCompression()
     interval_bench.setup()
-    out["IntervalCompression.time_compress_5m_large"] = _median_ms(interval_bench.time_compress_5m_large)
-    out["IntervalCompression.time_compress_intervals_multi"] = _median_ms(interval_bench.time_compress_intervals_multi)
+    out["IntervalCompression.time_compress_5m_large"] = _median_ms(
+        interval_bench.time_compress_5m_large
+    )
+    out["IntervalCompression.time_compress_intervals_multi"] = _median_ms(
+        interval_bench.time_compress_intervals_multi
+    )
 
     return out
 
@@ -83,13 +85,15 @@ def _run_macro() -> dict[str, float]:
 
     store = StoreSliceKernels()
     store.setup(10, 252 * 5)
-    out["StoreSliceKernels.n_symbols=10.n_days=1260.time_slice_symbol_array_store_by_dates"] = _median_ms(
-        lambda: store.time_slice_symbol_array_store_by_dates(10, 252 * 5)
+    out["StoreSliceKernels.n_symbols=10.n_days=1260.time_slice_symbol_array_store_by_dates"] = (
+        _median_ms(lambda: store.time_slice_symbol_array_store_by_dates(10, 252 * 5))
     )
 
     wf_interval = WalkforwardIntervals()
     wf_interval.setup()
-    out["WalkforwardIntervals.time_walkforward_intervals"] = _median_ms(wf_interval.time_walkforward_intervals)
+    out["WalkforwardIntervals.time_walkforward_intervals"] = _median_ms(
+        wf_interval.time_walkforward_intervals
+    )
 
     wf_large = WalkforwardLarge()
     wf_large.setup()

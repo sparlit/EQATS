@@ -37,7 +37,6 @@ from typing import (
     Any,
     Final,
     Literal,
-    Optional,
     Union,
     cast,
 )
@@ -65,7 +64,9 @@ TimeframeInterval = Union[int, CalendarInterval, str]
   April, July, and October, and years on January 1.
 """
 
-_CALENDAR_INTERVALS: frozenset[str] = frozenset(("daily", "weekly", "monthly", "quarterly", "yearly"))
+_CALENDAR_INTERVALS: frozenset[str] = frozenset(
+    ("daily", "weekly", "monthly", "quarterly", "yearly")
+)
 
 _CALENDAR_INTERVAL_SECONDS: dict[str, int] = {
     "daily": 86400,
@@ -168,7 +169,9 @@ class CompressedSymbolData:
 class IntervalData:
     """Compressed data keyed by ``(symbol, interval)``."""
 
-    compressed: dict[tuple[str, TimeframeInterval], CompressedSymbolData] = field(default_factory=dict)
+    compressed: dict[tuple[str, TimeframeInterval], CompressedSymbolData] = field(
+        default_factory=dict
+    )
 
     def slice_for_test(
         self,
@@ -186,8 +189,9 @@ class IntervalData:
                 continue
             idx = np.searchsorted(data.base_dates, test_dates)
             if not np.array_equal(data.base_dates[idx], test_dates):
-                msg = f"Test dates for {symbol!r} are not a subset of compressed base history."
-                raise ValueError(msg)
+                raise ValueError(
+                    f"Test dates for {symbol!r} are not a subset of compressed base history."
+                )
             result[(symbol, interval)] = CompressedSymbolData(
                 bars=data.bars,
                 completed=data.completed[idx],
@@ -207,30 +211,25 @@ def _normalize_duration_string(value: str) -> str:
     """Normalizes a duration string in ``<digits><unit>`` form (e.g. ``'5m'``)."""
     stripped = value.strip()
     if not stripped or " " in stripped:
-        msg = f"Invalid interval {value!r}. {_INTERVAL_HELP}"
-        raise ValueError(msg)
+        raise ValueError(f"Invalid interval {value!r}. {_INTERVAL_HELP}")
     match = _DURATION_PATTERN.fullmatch(stripped)
     if not match:
         week_match = _WEEK_DURATION_PATTERN.fullmatch(stripped)
         if week_match and int(week_match.group(1)) > 0:
             days = 7 * int(week_match.group(1))
-            msg = (
+            raise ValueError(
                 f"Invalid interval {value!r}. Week durations are not "
                 f"supported: use 'weekly' for calendar weeks or "
                 f"'{days}d' for fixed {days}-day windows."
             )
-            raise ValueError(msg)
-        msg = f"Invalid interval {value!r}. {_INTERVAL_HELP}"
-        raise ValueError(msg)
+        raise ValueError(f"Invalid interval {value!r}. {_INTERVAL_HELP}")
     amount = int(match.group(1))
     if amount <= 0:
-        msg = f"Invalid interval {value!r}. {_INTERVAL_HELP}"
-        raise ValueError(msg)
+        raise ValueError(f"Invalid interval {value!r}. {_INTERVAL_HELP}")
     unit_letter = match.group(2).lower()
     canonical = f"{amount}{unit_letter}"
     if to_seconds(canonical) <= 0:
-        msg = f"Invalid interval {value!r}. {_INTERVAL_HELP}"
-        raise ValueError(msg)
+        raise ValueError(f"Invalid interval {value!r}. {_INTERVAL_HELP}")
     return canonical
 
 
@@ -249,15 +248,13 @@ def normalize_interval(
 ) -> TimeframeInterval:
     """Normalizes and validates a compression interval."""
     if not isinstance(interval, (int, str)):
-        msg = (
+        raise ValueError(
             f"Invalid interval {interval!r}: expected an int > 1, a duration "
             "string like '5m', or a calendar string like 'weekly'."
         )
-        raise ValueError(msg)
     if isinstance(interval, int):
         if interval <= 1:
-            msg = "interval compression requires n > 1."
-            raise ValueError(msg)
+            raise ValueError("interval compression requires n > 1.")
         return interval
     if interval in _CALENDAR_INTERVALS:
         return interval
@@ -298,14 +295,16 @@ def normalize_intervals(
     # str is Iterable, so 'weekly' must not split into characters.
     declared = (intervals,) if isinstance(intervals, (int, str)) else tuple(intervals)
     if not declared:
-        msg = f"{param} cannot be empty."
-        raise ValueError(msg)
+        raise ValueError(f"{param} cannot be empty.")
     seen: set[TimeframeInterval] = set()
     for interval in declared:
-        norm = BASE_INTERVAL if allow_base and interval == BASE_INTERVAL else normalize_interval(interval)
+        norm = (
+            BASE_INTERVAL
+            if allow_base and interval == BASE_INTERVAL
+            else normalize_interval(interval)
+        )
         if norm in seen:
-            msg = f"Duplicate interval: {interval!r}."
-            raise ValueError(msg)
+            raise ValueError(f"Duplicate interval: {interval!r}.")
         seen.add(norm)
     return frozenset(seen)
 
@@ -323,7 +322,7 @@ def validate_source_name(name: str, kind: str) -> None:
     """
     if INTERVAL_NAME_SEPARATOR in name:
         base = name.split(INTERVAL_NAME_SEPARATOR, 1)[0]
-        msg = (
+        raise ValueError(
             f"Invalid {kind} name {name!r}: "
             f"{INTERVAL_NAME_SEPARATOR!r} is reserved for interval "
             f"bindings, which PyBroker generates itself (e.g. {base!r} on "
@@ -332,7 +331,6 @@ def validate_source_name(name: str, kind: str) -> None:
             f"{kind} and read coarser intervals with "
             f"ctx.interval(interval)."
         )
-        raise ValueError(msg)
 
 
 def indicator_interval_name(base: str, interval: TimeframeInterval) -> str:
@@ -477,7 +475,11 @@ def _extract_ohlcv_arrays_masked(
     else:
         volume = np.zeros(n_rows, dtype=np.float64)
     vwap_col = DataCol.VWAP.value
-    vwap = df[vwap_col].to_numpy(copy=False, dtype=np.float64)[row_mask] if vwap_col in df.columns else None
+    vwap = (
+        df[vwap_col].to_numpy(copy=False, dtype=np.float64)[row_mask]
+        if vwap_col in df.columns
+        else None
+    )
 
     custom: dict[str, NDArray[np.float64]] = {}
     if extra_custom_cols is not None:
@@ -561,13 +563,12 @@ def build_compressed_symbol_arrays(
         suffixed = indicator_interval_name(ind_name, interval)
         ind_sym = IndicatorSymbol(suffixed, symbol)
         if ind_sym not in indicator_data:
-            msg = (
+            raise ValueError(
                 f"Indicator {ind_name!r} was not computed for {symbol!r} on "
                 f"interval {interval!r}. Bind its model to the interval with "
                 "ModelSource.intervals() on the add_execution() that owns "
                 f"{symbol!r}."
             )
-            raise ValueError(msg)
         columns.append(ind_name)
         arrays[ind_name] = indicator_data[ind_sym].to_numpy(copy=False)
     return tuple(columns), arrays, bars.dates
@@ -705,24 +706,22 @@ def _bar_seconds_label(seconds: float) -> str:
     if seconds >= 86400:
         return "daily bars"
     if seconds >= 3600:
-        hours = round(seconds / 3600)
+        hours = int(round(seconds / 3600))
         return f"{hours}-hour bars" if hours > 1 else "1-hour bars"
     if seconds >= 60:
-        minutes = round(seconds / 60)
+        minutes = int(round(seconds / 60))
         return f"{minutes}-minute bars" if minutes > 1 else "1-minute bars"
-    secs = round(seconds)
+    secs = int(round(seconds))
     return f"{secs}-second bars" if secs != 1 else "1-second bars"
 
 
 def base_timeframe_to_seconds(base_timeframe: str) -> float:
     """Converts a base timeframe string to seconds."""
     if not base_timeframe or not base_timeframe.strip():
-        msg = "base_timeframe cannot be empty."
-        raise ValueError(msg)
+        raise ValueError("base_timeframe cannot be empty.")
     seconds = to_seconds(base_timeframe)
     if seconds <= 0:
-        msg = f"Invalid base_timeframe {base_timeframe!r}."
-        raise ValueError(msg)
+        raise ValueError(f"Invalid base_timeframe {base_timeframe!r}.")
     return float(seconds)
 
 
@@ -738,7 +737,9 @@ def _base_spacing_tolerance(base_bar_seconds: float) -> float:
     return _BASE_TIMEFRAME_TOLERANCE_SECONDS
 
 
-def _validate_symbol_dates_for_base(label: str, dates: NDArray[np.datetime64], base_bar_seconds: float) -> None:
+def _validate_symbol_dates_for_base(
+    label: str, dates: NDArray[np.datetime64], base_bar_seconds: float
+) -> None:
     """Raises if any gap between bars is not a multiple of the base spacing.
 
     Gaps wider than the base spacing are expected and allowed: sessions close,
@@ -766,13 +767,12 @@ def _validate_symbol_dates_for_base(label: str, dates: NDArray[np.datetime64], b
     if len(bad) == 0:
         return
     observed = float(gaps[bad[0]])
-    msg = (
+    raise ValueError(
         f"Bar spacing for {label!r} is inconsistent with base "
         f"timeframe ({int(base_bar_seconds)}s expected, "
         f"{int(observed)}s observed between consecutive bars). Gaps must be "
         "whole multiples of the base timeframe."
     )
-    raise ValueError(msg)
 
 
 def validate_base_timeframe_data(df: pd.DataFrame, base_bar_seconds: float) -> None:
@@ -805,12 +805,11 @@ def validate_interval(interval: TimeframeInterval, base_bar_seconds: float) -> N
     interval_seconds = _coarser_interval_seconds(interval)
     if interval_seconds <= base_bar_seconds:
         base_label = _bar_seconds_label(base_bar_seconds)
-        msg = (
+        raise ValueError(
             f"Cannot compress {base_label} to interval {interval!r}. "
             "Compression only supports strictly coarser intervals "
             "(e.g. 'weekly', '5m', 5)."
         )
-        raise ValueError(msg)
 
 
 def is_valid_interval(interval: TimeframeInterval, base_bar_seconds: float) -> bool:
@@ -822,7 +821,9 @@ def is_valid_interval(interval: TimeframeInterval, base_bar_seconds: float) -> b
     return True
 
 
-def _calendar_bin_ids(dates: NDArray[np.datetime64], interval: CalendarInterval) -> NDArray[np.int64]:
+def _calendar_bin_ids(
+    dates: NDArray[np.datetime64], interval: CalendarInterval
+) -> NDArray[np.int64]:
     if interval == "daily":
         return dates.astype("datetime64[D]").astype(np.int64)
     if interval == "weekly":
@@ -1076,7 +1077,8 @@ def _compress_every_n_bars(
         completed[bin_idx == last_bin] = last_bin - 1
 
     starts = np.concatenate(
-        [np.arange(0, n_full, k, dtype=np.int64)] + ([np.array([n_full], dtype=np.int64)] if n_full < n else [])
+        [np.arange(0, n_full, k, dtype=np.int64)]
+        + ([np.array([n_full], dtype=np.int64)] if n_full < n else [])
     )
     bars = CompressedBars(
         open=np.concatenate(o_parts),
@@ -1150,7 +1152,7 @@ def compress(
 
     bin_ids: NDArray[np.int64]
     if interval in _CALENDAR_INTERVALS:
-        bin_ids = _calendar_bin_ids(dates, cast("CalendarInterval", interval))
+        bin_ids = _calendar_bin_ids(dates, cast(CalendarInterval, interval))
     else:
         bin_ids = _duration_bin_ids(dates, interval)
     bin_ids = np.ascontiguousarray(bin_ids, dtype=np.int64)
@@ -1243,14 +1245,13 @@ def compress_bars(
             symbols = pd.unique(data[sym_col])
             if len(symbols) > 1:
                 found = ", ".join(repr(str(sym)) for sym in symbols[:5])
-                msg = (
+                raise ValueError(
                     f"compress_bars expects data for a single symbol but "
                     f"found {len(symbols)}: {found}"
                     f"{', ...' if len(symbols) > 5 else ''}. Use "
                     "compress_symbol_from_frame or "
                     "compress_intervals_from_frame for multi-symbol frames."
                 )
-                raise ValueError(msg)
         validate_base_timeframe_data(data, base_bar_seconds)
         arrays = _extract_ohlcv_arrays(data)
     bars, _ = _compress_ohlcv(arrays, interval)
@@ -1290,7 +1291,9 @@ def compress_symbol_intervals_from_frame(
     for interval in interval_tuple:
         validate_interval(interval, base_bar_seconds)
         bars, completed = _compress_ohlcv(arrays, interval)
-        result[interval] = CompressedSymbolData(bars=bars, completed=completed, base_dates=arrays.date)
+        result[interval] = CompressedSymbolData(
+            bars=bars, completed=completed, base_dates=arrays.date
+        )
     return result
 
 

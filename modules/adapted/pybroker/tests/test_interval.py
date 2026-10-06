@@ -56,7 +56,7 @@ from pybroker.interval import (
 from pybroker.model import model
 from pybroker.scope import StaticScope
 
-from .fixtures import *
+from .fixtures import *  # noqa: F401,F403
 
 
 def _daily_bars(dates, o, h, low, c, v=None):
@@ -120,7 +120,7 @@ class TestIntervals:
         assert normalize_interval(interval) == interval
 
     @pytest.mark.parametrize(
-        ("raw", "expected"),
+        "raw,expected",
         [
             ("5m", "5m"),
             ("1h", "1h"),
@@ -174,7 +174,7 @@ class TestIntervals:
             normalize_interval("5min")  # type: ignore[arg-type]
 
     @pytest.mark.parametrize(
-        ("raw", "expected_days"),
+        "raw,expected_days",
         [("1w", "7d"), ("2w", "14d")],
     )
     def test_reject_week_duration(self, raw, expected_days):
@@ -187,7 +187,7 @@ class TestIntervals:
             normalize_interval("1hour")  # type: ignore[arg-type]
 
     @pytest.mark.parametrize(
-        ("interval", "expected"),
+        "interval,expected",
         [
             (5, "5"),
             ("weekly", "weekly"),
@@ -200,7 +200,7 @@ class TestIntervals:
         assert format_interval(interval) == expected
 
     @pytest.mark.parametrize(
-        ("interval", "suffix"),
+        "interval,suffix",
         [
             (5, "5"),
             ("weekly", "weekly"),
@@ -261,7 +261,11 @@ class TestIntervalHierarchyOnOneMinute:
     def test_coarser_intervals_yield_fewer_or_equal_bars(self):
         sym_df = _minute_sym_df(periods=390)
         bar_counts = [
-            len(compress_symbol_df(sym_df, interval, frozenset(), ONE_MINUTE_BASE_SECONDS).bars.close)
+            len(
+                compress_symbol_df(
+                    sym_df, interval, frozenset(), ONE_MINUTE_BASE_SECONDS
+                ).bars.close
+            )
             for interval in (5, "5m", "1h", "weekly")
         ]
         every5, five_m, one_h, weekly = bar_counts
@@ -275,7 +279,7 @@ class TestIntervalHierarchyOnOneMinute:
 
 class TestCompressAllCalendarIntervals:
     @pytest.mark.parametrize(
-        ("interval", "dates"),
+        "interval,dates",
         [
             ("daily", pd.date_range("2020-01-01", periods=5, freq="D")),
             ("weekly", pd.date_range("2020-01-06", periods=10, freq="B")),
@@ -296,7 +300,7 @@ class TestCompressAllCalendarIntervals:
 
 class TestCompressAllDurationIntervals:
     @pytest.mark.parametrize(
-        ("interval", "periods", "expected_bins"),
+        "interval,periods,expected_bins",
         [
             ("30s", 4, 4),
             ("1m", 4, 4),
@@ -331,7 +335,7 @@ class TestCompressAllDurationIntervals:
 
 class TestValidateIntervalGranularity:
     @pytest.mark.parametrize(
-        ("base_bar_seconds", "interval"),
+        "base_bar_seconds,interval",
         [
             (60, "5m"),
             (60, "1h"),
@@ -356,7 +360,7 @@ class TestValidateIntervalGranularity:
         assert is_valid_interval(interval, base_bar_seconds)
 
     @pytest.mark.parametrize(
-        ("base_bar_seconds", "interval"),
+        "base_bar_seconds,interval",
         [
             (86400, "daily"),
             (86400, "1m"),
@@ -563,7 +567,11 @@ class TestCompressWeekly:
         # A calendar bin is only closed once a bar in a later bin arrives, so
         # the trailing bin -- complete or partial -- stays invisible.
         for periods in (8, 10):
-            dates = pd.date_range("2023-01-02", periods=periods, freq="B").to_numpy().astype("datetime64[ns]")
+            dates = (
+                pd.date_range("2023-01-02", periods=periods, freq="B")
+                .to_numpy()
+                .astype("datetime64[ns]")
+            )
             n = len(dates)
             c = np.arange(1.0, n + 1, dtype=np.float64)
             bars, completed = compress(
@@ -747,9 +755,13 @@ class TestBatchCompressionFromFrame:
         df = self._multi_symbol_df()
         intervals = ("weekly", 2)
         custom_cols: frozenset[str] = frozenset()
-        batch = compress_symbol_intervals_from_frame(df, "SPY", intervals, custom_cols, DAILY_BASE_SECONDS)
+        batch = compress_symbol_intervals_from_frame(
+            df, "SPY", intervals, custom_cols, DAILY_BASE_SECONDS
+        )
         for interval in intervals:
-            single = compress_symbol_from_frame(df, "SPY", interval, custom_cols, DAILY_BASE_SECONDS)
+            single = compress_symbol_from_frame(
+                df, "SPY", interval, custom_cols, DAILY_BASE_SECONDS
+            )
             expected = batch[interval]
             np.testing.assert_array_equal(expected.bars.close, single.bars.close)
             np.testing.assert_array_equal(expected.completed, single.completed)
@@ -790,7 +802,9 @@ class TestBatchCompressionFromFrame:
 
     def test_intervals_from_frame_skips_undeclared_symbols(self):
         df = self._multi_symbol_df()
-        batch = compress_intervals_from_frame(df, {"SPY": frozenset({"weekly"})}, frozenset(), DAILY_BASE_SECONDS)
+        batch = compress_intervals_from_frame(
+            df, {"SPY": frozenset({"weekly"})}, frozenset(), DAILY_BASE_SECONDS
+        )
         assert set(batch.compressed) == {("SPY", "weekly")}
 
     def test_intervals_from_frame_empty_mapping(self):
@@ -814,9 +828,12 @@ class TestBatchCompressionFromFrame:
         # QQQ is not compressed, so its spacing is never validated.
         df = self._multi_symbol_df()
         df = df[
-            (df[DataCol.SYMBOL.value] == "SPY") | (df[DataCol.DATE.value] != df[DataCol.DATE.value].iloc[1])
+            (df[DataCol.SYMBOL.value] == "SPY")
+            | (df[DataCol.DATE.value] != df[DataCol.DATE.value].iloc[1])
         ].reset_index(drop=True)
-        batch = compress_intervals_from_frame(df, {"SPY": frozenset({"weekly"})}, frozenset(), DAILY_BASE_SECONDS)
+        batch = compress_intervals_from_frame(
+            df, {"SPY": frozenset({"weekly"})}, frozenset(), DAILY_BASE_SECONDS
+        )
         assert set(batch.compressed) == {("SPY", "weekly")}
 
 
@@ -901,7 +918,7 @@ class TestLookaheadTrainDates:
         np.testing.assert_array_equal(actual_dates, expected_dates)
         np.testing.assert_array_equal(actual_close, expected_close)
 
-    @pytest.mark.parametrize("lookahead", [1, 2, 3, 5])
+    @pytest.mark.parametrize("lookahead", (1, 2, 3, 5))
     @pytest.mark.parametrize("interval", LOOKAHEAD_INTERVALS)
     def test_compressed_gap_equals_lookahead(self, interval, lookahead):
         d, bars = self._compressed(interval)
@@ -1044,7 +1061,7 @@ class TestBaseSpacingValidation:
         return np.array(values, dtype="datetime64[ns]")
 
     @pytest.mark.parametrize(
-        ("label", "values", "base"),
+        "label,values,base",
         [
             (
                 "weekend gap",
@@ -1077,7 +1094,7 @@ class TestBaseSpacingValidation:
         _validate_symbol_dates_for_base(label, self._dates(values), base)
 
     @pytest.mark.parametrize(
-        ("values", "base"),
+        "values,base",
         [
             (
                 [
@@ -1199,7 +1216,9 @@ def test_compress_every_n_bars_skips_nan_like_calendar_bins():
     """
     # 11 bars at interval 3: three full bins plus a ragged tail of two.
     n = 11
-    dates = (np.arange(n).astype("timedelta64[D]") + np.datetime64("2021-01-04")).astype("datetime64[ns]")
+    dates = (np.arange(n).astype("timedelta64[D]") + np.datetime64("2021-01-04")).astype(
+        "datetime64[ns]"
+    )
     high = np.arange(1.0, n + 1)
     low = -np.arange(1.0, n + 1)
     high[1] = np.nan

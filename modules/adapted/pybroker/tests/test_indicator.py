@@ -82,17 +82,17 @@ from pybroker.scope import StaticScope
 from pybroker.strategy import Strategy
 from pybroker.vect import highv, lowv
 
-from .fixtures import *
+from .fixtures import *  # noqa: F401
 
 TF_SECONDS = 60
 BETWEEN_TIME = ("10:00", "15:30")
 
 
-@pytest.fixture
+@pytest.fixture()
 def cache_date_fields(data_source_df):
     return CacheDateFields(
-        start_date=to_datetime(min(data_source_df["date"].unique())),
-        end_date=to_datetime(max(data_source_df["date"].unique())),
+        start_date=to_datetime(sorted(data_source_df["date"].unique())[0]),
+        end_date=to_datetime(sorted(data_source_df["date"].unique())[-1]),
         tf_seconds=TF_SECONDS,
         between_time=BETWEEN_TIME,
         days=None,
@@ -104,12 +104,14 @@ def parallel_indicators(request):
     return request.param
 
 
-@pytest.fixture
+@pytest.fixture()
 def ind_syms(hhv_ind, llv_ind, sumv_ind, symbols):
-    return [IndicatorSymbol(ind.name, sym) for sym in symbols for ind in (hhv_ind, llv_ind, sumv_ind)]
+    return [
+        IndicatorSymbol(ind.name, sym) for sym in symbols for ind in (hhv_ind, llv_ind, sumv_ind)
+    ]
 
 
-@pytest.fixture
+@pytest.fixture()
 def setup_teardown(scope):
     scope.register_custom_cols("adj_close")
     yield
@@ -233,7 +235,9 @@ class TestIndicatorsMixin:
         self._assert_indicators(ind_data, ind_syms, data_source_df)
 
     @pytest.mark.usefixtures("setup_ind_cache")
-    def test_compute_indicators_when_empty_data(self, ind_syms, cache_date_fields, parallel_indicators):
+    def test_compute_indicators_when_empty_data(
+        self, ind_syms, cache_date_fields, parallel_indicators
+    ):
         mixin = IndicatorsMixin()
         ind_data = mixin.compute_indicators(
             df=pd.DataFrame(columns=[col.value for col in DataCol]),
@@ -331,7 +335,9 @@ class TestIndicatorSet:
         assert len(result) == len(df)
         assert set(result.columns) == {"date", "symbol", "hhv", "llv"}
 
-    def test_call_per_symbol_layout_and_values(self, data_source_df, hhv_ind, llv_ind, parallel_indicators):
+    def test_call_per_symbol_layout_and_values(
+        self, data_source_df, hhv_ind, llv_ind, parallel_indicators
+    ):
         ind_set = IndicatorSet()
         ind_set.add([hhv_ind, llv_ind])
         result = ind_set(data_source_df, parallel_indicators)
@@ -365,7 +371,7 @@ class TestIndicatorSet:
 
 
 @pytest.mark.parametrize(
-    ("fn", "values", "period", "expected"),
+    "fn, values, period, expected",
     [
         (
             highest,
@@ -422,7 +428,7 @@ def test_wrappers(fn, values, period, expected):
 
 
 @pytest.mark.parametrize(
-    ("values", "period", "expected"),
+    "values, period, expected",
     [
         (
             [1, 1.5, 1.7, 1.3, 1.2, 1.4],
@@ -471,7 +477,7 @@ def test_returns_when_use_log(values, period, expected):
 
 
 @pytest.mark.parametrize(
-    ("fn", "args"),
+    "fn, args",
     [
         (
             detrended_rsi,
@@ -599,11 +605,12 @@ def clear_hyperparams_for_memo():
 
 def _hyperparam_hhv_indicator():
     lookback = hyperparam("lookback", default=10, low=5, high=20, step=5)
-    return indicator(
+    hhv = indicator(
         "hhv_memo",
         lambda data, period: highv(data.high, period),
         period=lookback,
     )
+    return hhv
 
 
 def _hhv_offset_fn(data, period, offset):

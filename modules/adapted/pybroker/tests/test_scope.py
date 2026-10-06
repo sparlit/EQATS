@@ -73,7 +73,7 @@ def end_index(request):
     return request.param
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_logger(scope):
     logger, scope.logger = scope.logger, Mock()
     yield scope.logger
@@ -277,7 +277,7 @@ class TestIndicatorScope:
             equal_nan=True,
         )
 
-    @pytest.mark.parametrize(("sym", "name"), [("FOO", "hhv"), ("SPY", "foo")])
+    @pytest.mark.parametrize("sym, name", [("FOO", "hhv"), ("SPY", "foo")])
     def test_fetch_when_not_found_then_error(self, ind_scope, sym, name):
         with pytest.raises(
             ValueError,
@@ -387,7 +387,7 @@ class TestModelInputScope:
         assert result.shape[0] == df.shape[0] if end_index is None else end_index
 
     @pytest.mark.parametrize(
-        ("sym", "name", "expected_msg"),
+        "sym, name, expected_msg",
         [
             ("FOO", MODEL_NAME, "Symbol not found: FOO"),
             ("SPY", "foo", "Model 'foo' not found."),
@@ -397,7 +397,9 @@ class TestModelInputScope:
         with pytest.raises(ValueError, match=re.escape(expected_msg)):
             input_scope.fetch(sym, name)
 
-    def test_fetch_model_input_only_fetches_input_cols(self, scope, col_scope, ind_scope, trained_models, symbol):
+    def test_fetch_model_input_only_fetches_input_cols(
+        self, scope, col_scope, ind_scope, trained_models, symbol
+    ):
         scope.custom_data_cols = set()
         register_columns("unused_custom")
         scope.freeze_data_cols()
@@ -453,7 +455,7 @@ class TestPredictionScope:
         assert len(values) == df.shape[0] if end_index is None else end_index
 
     @pytest.mark.parametrize(
-        ("sym", "name", "expected_msg"),
+        "sym, name, expected_msg",
         [
             ("FOO", MODEL_NAME, "Symbol not found: FOO"),
             ("SPY", "foo", "Model 'foo' not found."),
@@ -497,7 +499,9 @@ class TestPredictionScope:
         ):
             pred_scope.fetch("SPY", model_name)
 
-    def test_predict_length_mismatch_raises(self, col_scope, ind_scope, indicators, symbol, data_source_df):
+    def test_predict_length_mismatch_raises(
+        self, col_scope, ind_scope, indicators, symbol, data_source_df
+    ):
         n_rows = data_source_df[data_source_df["symbol"] == symbol].shape[0]
         # A predict output shorter than its input must raise instead of
         # being cached left-aligned against the bars.
@@ -510,11 +514,14 @@ class TestPredictionScope:
             input_cols=None,
         )
         short_models = {ModelSymbol(short_name, symbol): short_model}
-        short_pred_scope = PredictionScope(short_models, ModelInputScope(col_scope, ind_scope, short_models))
+        short_pred_scope = PredictionScope(
+            short_models, ModelInputScope(col_scope, ind_scope, short_models)
+        )
         with pytest.raises(
             ValueError,
             match=re.escape(
-                f"predict for model {short_name!r} returned {n_rows - 1} predictions for {n_rows} input rows."
+                f"predict for model {short_name!r} returned {n_rows - 1} "
+                f"predictions for {n_rows} input rows."
             ),
         ):
             short_pred_scope.fetch(symbol, short_name)
@@ -529,7 +536,9 @@ class TestPredictionScope:
             input_cols=None,
         )
         proba_models = {ModelSymbol(proba_name, symbol): proba_model}
-        proba_pred_scope = PredictionScope(proba_models, ModelInputScope(col_scope, ind_scope, proba_models))
+        proba_pred_scope = PredictionScope(
+            proba_models, ModelInputScope(col_scope, ind_scope, proba_models)
+        )
         values = proba_pred_scope.fetch(symbol, proba_name)
         assert values.shape == (n_rows, 2)
         # A single-row (1, n_classes) predict_proba result stays row-aligned
@@ -561,7 +570,9 @@ class TestPredictionScope:
             }
         )
         interval_data = IntervalData()
-        interval_data.compressed[(tf_sym, "weekly")] = compress_symbol_df(sym_df, "weekly", frozenset(), 86400.0)
+        interval_data.compressed[(tf_sym, "weekly")] = compress_symbol_df(
+            sym_df, "weekly", frozenset(), 86400.0
+        )
         tf_model_name = model_interval_name(tf_name, "weekly")
         tf_model = TrainedModel(
             name=tf_model_name,
@@ -579,7 +590,8 @@ class TestPredictionScope:
         with pytest.raises(
             ValueError,
             match=re.escape(
-                f"predict for model {tf_name!r} returned {n_input - 1} predictions for {n_input} input rows."
+                f"predict for model {tf_name!r} returned {n_input - 1} "
+                f"predictions for {n_input} input rows."
             ),
         ):
             tf_scope.fetch_preds(tf_sym, "weekly", tf_name, len(tf_dates))
@@ -594,7 +606,9 @@ class TestIntervalScope:
         )
         n = len(dates)
         close = np.linspace(100.0, 110.0, n)
-        bars, completed = compress(dates, close, close + 1.0, close - 1.0, close, np.ones(n), "weekly")
+        bars, completed = compress(
+            dates, close, close + 1.0, close - 1.0, close, np.ones(n), "weekly"
+        )
         interval_data = IntervalData()
         interval_data.compressed[(sym, "weekly")] = CompressedSymbolData(
             bars=bars, completed=completed, base_dates=dates
@@ -628,7 +642,9 @@ class TestIntervalScope:
             }
         )
         interval_data = IntervalData()
-        interval_data.compressed[(tf_sym, "weekly")] = compress_symbol_df(sym_df, "weekly", frozenset(), 86400.0)
+        interval_data.compressed[(tf_sym, "weekly")] = compress_symbol_df(
+            sym_df, "weekly", frozenset(), 86400.0
+        )
         lags = 2
         tf_model_name = model_interval_name(tf_name, "weekly")
 
@@ -662,7 +678,9 @@ class TestIntervalScope:
             return tf_scope, calls
 
         inc_scope, inc_calls = make_scope()
-        prefixes = [np.array(inc_scope.fetch_preds(tf_sym, "weekly", tf_name, i)) for i in range(1, n + 1)]
+        prefixes = [
+            np.array(inc_scope.fetch_preds(tf_sym, "weekly", tf_name, i)) for i in range(1, n + 1)
+        ]
         total = inc_scope.completed_index(tf_sym, "weekly", n) + 1
         assert total > lags
         final = prefixes[-1]
@@ -697,7 +715,7 @@ class TestIntervalScope:
 
 class TestPriceScope:
     @pytest.mark.parametrize(
-        ("price", "round_fill_price", "expected_price"),
+        "price, round_fill_price, expected_price",
         [
             (50, True, 50),
             (111.1, True, Decimal("111.1")),
@@ -796,7 +814,9 @@ def test_symbol_array_store_from_frame_matches_indexed(
     """Flat-frame store build matches legacy MultiIndex path."""
     sym_col = "symbol"
     date_col = "date"
-    reference = symbol_array_store_from_indexed_df(data_source_df.set_index([sym_col, date_col]).sort_index())
+    reference = symbol_array_store_from_indexed_df(
+        data_source_df.set_index([sym_col, date_col]).sort_index()
+    )
     built = symbol_array_store_from_frame(data_source_df)
     assert built.symbols == reference.symbols
     for sym in reference.symbols:
@@ -1020,7 +1040,7 @@ def _synthetic_flat_ohlcv(n_symbols: int, n_days: int) -> pd.DataFrame:
 
 
 class TestSymbolArrayStoreNumba:
-    @pytest.mark.parametrize(("n_symbols", "n_days"), [(1, 1), (4, 504), (10, 500)])
+    @pytest.mark.parametrize("n_symbols,n_days", [(1, 1), (4, 504), (10, 500)])
     def test_flat_frame_matches_reference(self, n_symbols, n_days):
         df = _synthetic_flat_ohlcv(n_symbols, n_days)
         reference = _symbol_array_store_from_flat_frame_reference(df)
@@ -1086,7 +1106,7 @@ def _assert_stores_equal(left, right):
 
 
 class TestSliceStoreNumba:
-    @pytest.mark.parametrize(("n_symbols", "n_days"), [(1, 1), (4, 504), (10, 1260)])
+    @pytest.mark.parametrize("n_symbols,n_days", [(1, 1), (4, 504), (10, 1260)])
     def test_every_other_date_matches_reference(self, n_symbols, n_days):
         df = _synthetic_flat_ohlcv(n_symbols, n_days)
         store = symbol_array_store_from_flat_frame(df)
@@ -1096,7 +1116,7 @@ class TestSliceStoreNumba:
         sliced = slice_symbol_array_store_by_dates(store, selected)
         _assert_stores_equal(reference, sliced)
 
-    @pytest.mark.parametrize(("n_symbols", "n_days"), [(4, 504), (10, 1260)])
+    @pytest.mark.parametrize("n_symbols,n_days", [(4, 504), (10, 1260)])
     def test_scattered_dates_matches_reference(self, n_symbols, n_days):
         df = _synthetic_flat_ohlcv(n_symbols, n_days)
         store = symbol_array_store_from_flat_frame(df)

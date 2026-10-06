@@ -39,8 +39,6 @@ from decimal import Decimal
 from typing import (
     Any,
     Literal,
-    Optional,
-    Union,
 )
 
 import numpy as np
@@ -140,8 +138,22 @@ class ExecResult:
 
     symbol: str
     date: np.datetime64
-    buy_fill_price: int | float | np.floating | Decimal | PriceType | Callable[[str, BarData], int | float | Decimal]
-    sell_fill_price: int | float | np.floating | Decimal | PriceType | Callable[[str, BarData], int | float | Decimal]
+    buy_fill_price: (
+        int
+        | float
+        | np.floating
+        | Decimal
+        | PriceType
+        | Callable[[str, BarData], int | float | Decimal]
+    )
+    sell_fill_price: (
+        int
+        | float
+        | np.floating
+        | Decimal
+        | PriceType
+        | Callable[[str, BarData], int | float | Decimal]
+    )
     score: float | None
     long_score: float | None
     short_score: float | None
@@ -286,10 +298,10 @@ class IntervalContext:
         # __getattr__ column lookup. Enforce the documented read-only
         # contract for every attribute.
         if name in self._READ_ONLY_ATTRS:
-            msg = f"IntervalContext is read-only; set {name!r} on the base ExecContext instead."
-            raise AttributeError(msg)
-        msg = f"IntervalContext is read-only; cannot set {name!r}."
-        raise AttributeError(msg)
+            raise AttributeError(
+                f"IntervalContext is read-only; set {name!r} on the base ExecContext instead."
+            )
+        raise AttributeError(f"IntervalContext is read-only; cannot set {name!r}.")
 
     def _fetch(self, col: str) -> NDArray:
         end_index = self._sym_end_index[self._symbol]
@@ -299,8 +311,7 @@ class IntervalContext:
         if attr in self._scope.custom_data_cols:
             end_index = self._sym_end_index[self._symbol]
             return self._interval_scope.fetch_bar(self._symbol, self._interval, attr, end_index)
-        msg = f"Attribute {attr!r} not found."
-        raise AttributeError(msg)
+        raise AttributeError(f"Attribute {attr!r} not found.")
 
 
 class ExecContext:
@@ -437,13 +448,25 @@ class ExecContext:
 
         self.symbol: str = symbol
         self.buy_fill_price: (
-            int | float | np.floating | Decimal | PriceType | Callable[[str, BarData], int | float | Decimal] | None
+            int
+            | float
+            | np.floating
+            | Decimal
+            | PriceType
+            | Callable[[str, BarData], int | float | Decimal]
+            | None
         ) = None
         self.buy_shares: int | float | Decimal | None = None
         self.buy_limit_price: int | float | Decimal | None = None
         self.buy_timeout_bars: int | None = None
         self.sell_fill_price: (
-            int | float | np.floating | Decimal | PriceType | Callable[[str, BarData], int | float | Decimal] | None
+            int
+            | float
+            | np.floating
+            | Decimal
+            | PriceType
+            | Callable[[str, BarData], int | float | Decimal]
+            | None
         ) = None
         self.sell_shares: int | float | Decimal | None = None
         self.sell_limit_price: int | float | Decimal | None = None
@@ -581,7 +604,7 @@ class ExecContext:
         self._verify_pos_type(pos_type)
         if pos_type == "long" and symbol in self._portfolio.long_positions:
             return self._portfolio.long_positions[symbol]
-        if pos_type == "short" and symbol in self._portfolio.short_positions:
+        elif pos_type == "short" and symbol in self._portfolio.short_positions:
             return self._portfolio.short_positions[symbol]
         return None
 
@@ -654,14 +677,12 @@ class ExecContext:
         return bool(self._portfolio.short_positions)
 
     def _verify_pos_type(self, pos_type: str):
-        if pos_type not in {"short", "long"}:
-            msg = f"Unknown pos_type: {pos_type!r}."
-            raise ValueError(msg)
+        if pos_type != "short" and pos_type != "long":
+            raise ValueError(f"Unknown pos_type: {pos_type!r}.")
 
     def _verify_symbol(self):
         if self.symbol is None:
-            msg = "symbol is not set."
-            raise ValueError(msg)
+            raise ValueError("symbol is not set.")
 
     def _bar_value(self, col: str) -> float | None:
         end_index = self._sym_end_index[self.symbol]
@@ -676,8 +697,7 @@ class ExecContext:
     def dt(self) -> datetime:
         """Current bar's date expressed as a ``datetime``."""
         if self._curr_date is None:
-            msg = "_curr_date is not set."
-            raise ValueError(msg)
+            raise ValueError("_curr_date is not set.")
         if self._dt is None:
             self._dt = to_datetime(self._curr_date)
         return self._dt
@@ -751,8 +771,7 @@ class ExecContext:
         """Current bar's open price as a scalar."""
         value = self._bar_value(DataCol.OPEN.value)
         if value is None:
-            msg = "open price not found."
-            raise ValueError(msg)
+            raise ValueError("open price not found.")
         return value
 
     @property
@@ -760,8 +779,7 @@ class ExecContext:
         """Current bar's high price as a scalar."""
         value = self._bar_value(DataCol.HIGH.value)
         if value is None:
-            msg = "high price not found."
-            raise ValueError(msg)
+            raise ValueError("high price not found.")
         return value
 
     @property
@@ -769,8 +787,7 @@ class ExecContext:
         """Current bar's low price as a scalar."""
         value = self._bar_value(DataCol.LOW.value)
         if value is None:
-            msg = "low price not found."
-            raise ValueError(msg)
+            raise ValueError("low price not found.")
         return value
 
     @property
@@ -778,8 +795,7 @@ class ExecContext:
         """Current bar's close price as a scalar."""
         value = self._bar_value(DataCol.CLOSE.value)
         if value is None:
-            msg = "close price not found."
-            raise ValueError(msg)
+            raise ValueError("close price not found.")
         return value
 
     @property
@@ -795,7 +811,15 @@ class ExecContext:
     @property
     def cover_fill_price(
         self,
-    ) -> int | float | np.floating | Decimal | PriceType | Callable[[str, BarData], int | float | Decimal] | None:
+    ) -> (
+        int
+        | float
+        | np.floating
+        | Decimal
+        | PriceType
+        | Callable[[str, BarData], int | float | Decimal]
+        | None
+    ):
         """Alias for :attr:`.buy_fill_price`. When set, this causes the buy
         order to be placed before any sell orders.
         """
@@ -804,7 +828,13 @@ class ExecContext:
     @cover_fill_price.setter
     def cover_fill_price(
         self,
-        fill_price: float | np.floating | Decimal | PriceType | Callable[[str, BarData], int | float | Decimal] | None,
+        fill_price: int
+        | float
+        | np.floating
+        | Decimal
+        | PriceType
+        | Callable[[str, BarData], int | float | Decimal]
+        | None,
     ):
         self.buy_fill_price = fill_price
         self._cover = True
@@ -817,7 +847,7 @@ class ExecContext:
         return self.buy_shares
 
     @cover_shares.setter
-    def cover_shares(self, shares: float | Decimal | None):
+    def cover_shares(self, shares: int | float | Decimal | None):
         self.buy_shares = shares
         self._cover = True
 
@@ -829,7 +859,7 @@ class ExecContext:
         return self.buy_limit_price
 
     @cover_limit_price.setter
-    def cover_limit_price(self, limit_price: float | Decimal | None):
+    def cover_limit_price(self, limit_price: int | float | Decimal | None):
         self.buy_limit_price = limit_price
         self._cover = True
 
@@ -837,8 +867,7 @@ class ExecContext:
         """Sells all long shares of :attr:`.ExecContext.symbol`."""
         pos = self.long_pos()
         if pos is None:
-            msg = f"sell_all_shares failed: No long position for {self.symbol}"
-            raise ValueError(msg)
+            raise ValueError(f"sell_all_shares failed: No long position for {self.symbol}")
         self.sell_shares = pos.shares
         self._exit_stop_pos = pos
         self._exiting_pos = True
@@ -847,8 +876,7 @@ class ExecContext:
         """Covers all short shares of :attr:`.ExecContext.symbol`."""
         pos = self.short_pos()
         if pos is None:
-            msg = f"cover_all_shares failed: No short position for {self.symbol}"
-            raise ValueError(msg)
+            raise ValueError(f"cover_all_shares failed: No short position for {self.symbol}")
         self.cover_shares = pos.shares
         self._exit_stop_pos = pos
         self._exiting_pos = True
@@ -871,15 +899,13 @@ class ExecContext:
             if symbol in self._foreign:
                 return self._foreign[symbol]
             if symbol not in self._sym_end_index:
-                msg = f"Symbol {symbol!r} not found."
-                raise ValueError(msg)
+                raise ValueError(f"Symbol {symbol!r} not found.")
             end_index = self._sym_end_index[symbol]
             bar_data = self._col_scope.bar_data_from_data_columns(symbol, end_index)
             self._foreign[symbol] = bar_data
             return bar_data
         if symbol not in self._sym_end_index:
-            msg = f"Symbol {symbol!r} not found."
-            raise ValueError(msg)
+            raise ValueError(f"Symbol {symbol!r} not found.")
         end_index = self._sym_end_index[symbol]
         return self._col_scope.fetch(symbol, col, end_index)
 
@@ -935,13 +961,12 @@ class ExecContext:
         """
         interval = normalize_interval(interval)
         if interval not in self._declared_intervals:
-            msg = (
+            raise ValueError(
                 f"Interval {interval!r} was not declared for this execution. "
                 "Add it with add_execution(..., intervals=[...]), or bind a "
                 "model or indicator to it with ModelSource.intervals() / "
                 "Indicator.intervals()."
             )
-            raise ValueError(msg)
         if interval not in self._interval:
             self._interval[interval] = IntervalContext(
                 symbol=self.symbol,
@@ -968,16 +993,14 @@ class ExecContext:
         model_sym = ModelSymbol(name, symbol)
         if model_sym not in self._models:
             if self._scope.has_model_source(name):
-                msg = (
+                raise ValueError(
                     f"Model {name!r} not found for {symbol}. Pass it to "
                     "add_execution(models=...) for this symbol's execution. "
                     "If it is bound with ModelSource.intervals(), include "
                     "'base' in the binding to train it on the base "
                     "timeframe."
                 )
-                raise ValueError(msg)
-            msg = f"Model {name!r} not found for {symbol}."
-            raise ValueError(msg)
+            raise ValueError(f"Model {name!r} not found for {symbol}.")
         return self._models[model_sym].instance
 
     def hyperparam(self, name: str) -> Any:
@@ -987,11 +1010,9 @@ class ExecContext:
         :meth:`pybroker.strategy.Strategy.add_execution`.
         """
         if name not in self._allowed_hyperparam_names:
-            msg = f"Hyperparam {name!r} is not attached to this execution."
-            raise ValueError(msg)
+            raise ValueError(f"Hyperparam {name!r} is not attached to this execution.")
         if name not in self._run_hyperparams:
-            msg = f"Hyperparam {name!r} is not in the run hyperparams dict."
-            raise KeyError(msg)
+            raise KeyError(f"Hyperparam {name!r} is not in the run hyperparams dict.")
         return self._run_hyperparams[name]
 
     def indicator(self, name: str, symbol: str | None = None) -> NDArray[np.float64]:
@@ -1067,8 +1088,7 @@ class ExecContext:
         if symbol is None:
             symbol = self.symbol
             if symbol is None:
-                msg = "symbol is not set."
-                raise ValueError(msg)
+                raise ValueError("symbol is not set.")
         return self._portfolio.long_positions.get(symbol)
 
     def short_pos(
@@ -1090,8 +1110,7 @@ class ExecContext:
         if symbol is None:
             symbol = self.symbol
             if symbol is None:
-                msg = "symbol is not set."
-                raise ValueError(msg)
+                raise ValueError("symbol is not set.")
         return self._portfolio.short_positions.get(symbol)
 
     def calc_target_shares(
@@ -1130,9 +1149,14 @@ class ExecContext:
             # raise "cannot convert NaN to integer" naming nothing, while
             # fractional shares returned 0 -- which set_target_shares then read
             # as a legitimate target and used to liquidate the whole position.
-            msg = f"Cannot size an order for {self.symbol!r} on {self._curr_date}: price is {price!r}."
-            raise ValueError(msg)
-        base = to_decimal(cash) if cash is not None else self._portfolio.equity * to_decimal(self.config.leverage)
+            raise ValueError(
+                f"Cannot size an order for {self.symbol!r} on "
+                f"{self._curr_date}: price is {price!r}."
+            )
+        if cash is not None:
+            base = to_decimal(cash)
+        else:
+            base = self._portfolio.equity * to_decimal(self.config.leverage)
         shares = base * to_decimal(target_size) / price_dec
         if self.config.enable_fractional_shares:
             return shares.max(0)
@@ -1160,11 +1184,9 @@ class ExecContext:
                 :attr:`.cover_shares` to decrease it.
         """
         if target < 0:
-            msg = "target cannot be negative."
-            raise ValueError(msg)
+            raise ValueError("target cannot be negative.")
         if dir not in ("long", "short"):
-            msg = 'dir must be "long" or "short".'
-            raise ValueError(msg)
+            raise ValueError('dir must be "long" or "short".')
         price = to_decimal(self.close_price)
         if not price.is_finite() or price <= 0:
             # An unpriceable bar -- a halt, a vendor gap -- cannot size an
@@ -1239,26 +1261,30 @@ class ExecContext:
         if symbol is not None:
             return symbol
         if self.symbol is None:
-            msg = "symbol is not set."
-            raise ValueError(msg)
+            raise ValueError("symbol is not set.")
         return self.symbol
 
     def _create_stop(
         self,
         stop_type: StopType,
         pos_type: Literal["long", "short"],
-        points: float | Decimal | None,
-        percent: float | Decimal | None,
+        points: int | float | Decimal | None,
+        percent: int | float | Decimal | None,
         bars: int | None,
-        fill_price: float | np.floating | Decimal | PriceType | Callable[[str, BarData], int | float | Decimal] | None,
-        limit_price: float | Decimal | None,
+        fill_price: int
+        | float
+        | np.floating
+        | Decimal
+        | PriceType
+        | Callable[[str, BarData], int | float | Decimal]
+        | None,
+        limit_price: int | float | Decimal | None,
         exit_price: PriceType | None,
     ):
         percent_dec, points_dec, limit_price_dec = None, None, None
         if stop_type != StopType.BAR:
             if percent is None and points is None:
-                msg = "Percent or points must be set."
-                raise ValueError(msg)
+                raise ValueError("Percent or points must be set.")
             if percent is not None:
                 percent_dec = to_decimal(percent)
             elif points is not None:
@@ -1266,8 +1292,7 @@ class ExecContext:
         if limit_price is not None:
             limit_price_dec = to_decimal(limit_price)
         if exit_price is not None and not isinstance(exit_price, PriceType):
-            msg = "Stop exit price must be a PriceType."
-            raise ValueError(msg)
+            raise ValueError("Stop exit price must be a PriceType.")
         ExecContext._stop_id += 1
         return Stop(
             id=self._stop_id,
@@ -1295,12 +1320,15 @@ class ExecContext:
         stops: deque[Stop] = deque()
         if self.hold_bars is not None:
             if self.hold_bars <= 0:
-                msg = "hold_bars must be greater than 0."
-                raise ValueError(msg)
+                raise ValueError("hold_bars must be greater than 0.")
             if pos_type == "long":
-                fill_price = self.sell_fill_price if self.sell_fill_price is not None else PriceType.MIDDLE
+                fill_price = (
+                    self.sell_fill_price if self.sell_fill_price is not None else PriceType.MIDDLE
+                )
             else:
-                fill_price = self.buy_fill_price if self.buy_fill_price is not None else PriceType.MIDDLE
+                fill_price = (
+                    self.buy_fill_price if self.buy_fill_price is not None else PriceType.MIDDLE
+                )
             stops.append(
                 self._create_stop(
                     stop_type=StopType.BAR,
@@ -1314,8 +1342,7 @@ class ExecContext:
                 )
             )
         if self.stop_loss is not None and self.stop_loss_pct is not None:
-            msg = "Only one of stop_loss or stop_loss_pct can be set."
-            raise ValueError(msg)
+            raise ValueError("Only one of stop_loss or stop_loss_pct can be set.")
         if self.stop_loss is not None:
             stops.append(
                 self._create_stop(
@@ -1343,8 +1370,7 @@ class ExecContext:
                 )
             )
         if self.stop_profit is not None and self.stop_profit_pct is not None:
-            msg = "Only one of stop_profit or stop_profit_pct can be set."
-            raise ValueError(msg)
+            raise ValueError("Only one of stop_profit or stop_profit_pct can be set.")
         if self.stop_profit is not None:
             stops.append(
                 self._create_stop(
@@ -1372,8 +1398,7 @@ class ExecContext:
                 )
             )
         if self.stop_trailing is not None and self.stop_trailing_pct is not None:
-            msg = "Only one of stop_trailing or stop_trailing_pct can be set."
-            raise ValueError(msg)
+            raise ValueError("Only one of stop_trailing or stop_trailing_pct can be set.")
         if self.stop_trailing is not None:
             stops.append(
                 self._create_stop(
@@ -1400,27 +1425,61 @@ class ExecContext:
                     exit_price=self.stop_trailing_exit_price,
                 )
             )
-        if self.stop_loss_limit is not None and self.stop_loss is None and self.stop_loss_pct is None:
-            msg = "Either stop_loss or stop_loss_pct must be set when stop_loss_limit is set."
-            raise ValueError(msg)
-        if self.stop_loss_exit_price is not None and self.stop_loss is None and self.stop_loss_pct is None:
-            msg = "Either stop_loss or stop_loss_pct must be set when stop_loss_exit_price is set."
-            raise ValueError(msg)
-        if self.stop_profit_limit is not None and self.stop_profit is None and self.stop_profit_pct is None:
-            msg = "Either stop_profit or stop_profit_pct must be set when stop_profit_limit is set."
-            raise ValueError(msg)
-        if self.stop_profit_exit_price is not None and self.stop_profit is None and self.stop_profit_pct is None:
-            msg = "Either stop_profit or stop_profit_pct must be set when stop_profit_exit_price is set."
-            raise ValueError(msg)
-        if self.stop_trailing_limit is not None and self.stop_trailing is None and self.stop_trailing_pct is None:
-            msg = "Either stop_trailing or stop_trailing_pct must be set when stop_trailing_limit is set."
-            raise ValueError(msg)
-        if self.stop_trailing_exit_price is not None and self.stop_trailing is None and self.stop_trailing_pct is None:
-            msg = "Either stop_trailing or stop_trailing_pct must be set when stop_trailing_exit_price is set."
-            raise ValueError(msg)
+        if (
+            self.stop_loss_limit is not None
+            and self.stop_loss is None
+            and self.stop_loss_pct is None
+        ):
+            raise ValueError(
+                "Either stop_loss or stop_loss_pct must be set when stop_loss_limit is set."
+            )
+        if (
+            self.stop_loss_exit_price is not None
+            and self.stop_loss is None
+            and self.stop_loss_pct is None
+        ):
+            raise ValueError(
+                "Either stop_loss or stop_loss_pct must be set when stop_loss_exit_price is set."
+            )
+        if (
+            self.stop_profit_limit is not None
+            and self.stop_profit is None
+            and self.stop_profit_pct is None
+        ):
+            raise ValueError(
+                "Either stop_profit or stop_profit_pct must be set when stop_profit_limit is set."
+            )
+        if (
+            self.stop_profit_exit_price is not None
+            and self.stop_profit is None
+            and self.stop_profit_pct is None
+        ):
+            raise ValueError(
+                "Either stop_profit or stop_profit_pct must be set when "
+                "stop_profit_exit_price is set."
+            )
+        if (
+            self.stop_trailing_limit is not None
+            and self.stop_trailing is None
+            and self.stop_trailing_pct is None
+        ):
+            raise ValueError(
+                "Either stop_trailing or stop_trailing_pct must be set when "
+                "stop_trailing_limit is set."
+            )
+        if (
+            self.stop_trailing_exit_price is not None
+            and self.stop_trailing is None
+            and self.stop_trailing_pct is None
+        ):
+            raise ValueError(
+                "Either stop_trailing or stop_trailing_pct must be set when "
+                "stop_trailing_exit_price is set."
+            )
         if pos_type == "long":
             return frozenset(stops), None
-        return None, frozenset(stops)
+        else:
+            return None, frozenset(stops)
 
     def _is_noop_bar(self) -> bool:
         if self.buy_shares is not None or self.sell_shares is not None:
@@ -1455,27 +1514,23 @@ class ExecContext:
         :class:`.ExecContext`.
         """
         if self._curr_date is None:
-            msg = "curr_date is not set."
-            raise ValueError(msg)
+            raise ValueError("curr_date is not set.")
         if self.symbol is None:
-            msg = "symbol is not set."
-            raise ValueError(msg)
+            raise ValueError("symbol is not set.")
         if self._is_noop_bar():
             return None
         if self.buy_shares is None:
             if self.buy_limit_price is not None:
-                msg = "buy_shares must be set when buy_limit_price is set."
-                raise ValueError(msg)
+                raise ValueError("buy_shares must be set when buy_limit_price is set.")
             if self.buy_fill_price is not None and self.hold_bars is None:
-                msg = "buy_shares or hold_bars must be set when buy_fill_price is set."
-                raise ValueError(msg)
+                raise ValueError("buy_shares or hold_bars must be set when buy_fill_price is set.")
         if self.sell_shares is None:
             if self.sell_limit_price is not None:
-                msg = "sell_shares must be set when sell_limit_price is set."
-                raise ValueError(msg)
+                raise ValueError("sell_shares must be set when sell_limit_price is set.")
             if self.sell_fill_price is not None and self.hold_bars is None:
-                msg = "sell_shares or hold_bars must be set when sell_fill_price is set."
-                raise ValueError(msg)
+                raise ValueError(
+                    "sell_shares or hold_bars must be set when sell_fill_price is set."
+                )
 
         if self.buy_shares is None and self.sell_shares is None:
             if (
@@ -1492,27 +1547,38 @@ class ExecContext:
                 or self.stop_trailing_limit is not None
                 or self.stop_trailing_exit_price is not None
             ):
-                msg = "Either buy_shares or sell_shares must be set when a stop is set."
-                raise ValueError(msg)
+                raise ValueError("Either buy_shares or sell_shares must be set when a stop is set.")
             if self.hold_bars is not None:
-                msg = "Either buy_shares or sell_shares must be set when hold_bars is set."
-                raise ValueError(msg)
+                raise ValueError(
+                    "Either buy_shares or sell_shares must be set when hold_bars is set."
+                )
         if self.buy_shares is not None and self.sell_shares is not None:
-            msg = "For each symbol, only one of buy_shares or sell_shares can be set per bar."
-            raise ValueError(msg)
-        if self._score is not None and (self.long_score is not None or self.short_score is not None):
-            msg = "score cannot be set when long_score or short_score is set."
-            raise ValueError(msg)
+            raise ValueError(
+                "For each symbol, only one of buy_shares or sell_shares can be set per bar."
+            )
+        if self._score is not None and (
+            self.long_score is not None or self.short_score is not None
+        ):
+            raise ValueError("score cannot be set when long_score or short_score is set.")
         if self.rotation_enabled and self._score is not None:
-            msg = "score cannot be used with rotation enabled; use long_score or short_score instead."
-            raise ValueError(msg)
+            raise ValueError(
+                "score cannot be used with rotation enabled; use long_score or short_score instead."
+            )
         if not self.buy_shares and not self.sell_shares:
             return None
-        buy_fill_price = self.buy_fill_price if self.buy_fill_price is not None else PriceType.MIDDLE
-        sell_fill_price = self.sell_fill_price if self.sell_fill_price is not None else PriceType.MIDDLE
+        buy_fill_price = (
+            self.buy_fill_price if self.buy_fill_price is not None else PriceType.MIDDLE
+        )
+        sell_fill_price = (
+            self.sell_fill_price if self.sell_fill_price is not None else PriceType.MIDDLE
+        )
         buy_shares = to_decimal(self.buy_shares) if self.buy_shares is not None else None
-        buy_limit_price = to_decimal(self.buy_limit_price) if self.buy_limit_price is not None else None
-        sell_limit_price = to_decimal(self.sell_limit_price) if self.sell_limit_price is not None else None
+        buy_limit_price = (
+            to_decimal(self.buy_limit_price) if self.buy_limit_price is not None else None
+        )
+        sell_limit_price = (
+            to_decimal(self.sell_limit_price) if self.sell_limit_price is not None else None
+        )
         for label, limit in (
             ("buy_limit_price", buy_limit_price),
             ("sell_limit_price", sell_limit_price),
@@ -1523,12 +1589,11 @@ class ExecContext:
                 # False), and Decimal raises a bare InvalidOperation the
                 # moment the portfolio's limit check touches it, aborting the
                 # run with an error naming neither the symbol nor the bar.
-                msg = (
+                raise ValueError(
                     f"{label} is {limit} for {self.symbol!r} on "
                     f"{self._curr_date}. Check for NaN prices before "
                     "computing limit prices."
                 )
-                raise ValueError(msg)
         sell_shares = to_decimal(self.sell_shares) if self.sell_shares is not None else None
         long_stops, short_stops = self._get_stops()
         exit_pos_type: Literal["long", "short"] | None = None
@@ -1566,11 +1631,9 @@ class ExecContext:
     def __getattr__(self, attr):
         if attr in self._scope.custom_data_cols:
             if self.symbol is None:
-                msg = "symbol is not set."
-                raise ValueError(msg)
+                raise ValueError("symbol is not set.")
             return self._col_scope.fetch(self.symbol, attr, self._sym_end_index[self.symbol])
-        msg = f"Attribute {attr!r} not found."
-        raise AttributeError(msg)
+        raise AttributeError(f"Attribute {attr!r} not found.")
 
 
 @dataclass(frozen=True)

@@ -85,7 +85,7 @@ def get_fixture(request, param):
     return param
 
 
-@pytest.fixture
+@pytest.fixture()
 def minute_bars_df():
     dates = pd.date_range("2020-01-06 09:30", periods=390 * 5, freq="1min")
     n = len(dates)
@@ -103,49 +103,49 @@ def minute_bars_df():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def data_source_df():
     return pd.read_pickle(os.path.join(os.path.dirname(__file__), "testdata/daily_1.pkl"))
 
 
-@pytest.fixture
+@pytest.fixture()
 def symbols(data_source_df):
     return list(data_source_df["symbol"].unique())
 
 
-@pytest.fixture
+@pytest.fixture()
 def symbol(symbols):
     return symbols[0]
 
 
-@pytest.fixture
+@pytest.fixture()
 def dates(data_source_df):
     return list(data_source_df["date"].unique())
 
 
-@pytest.fixture
+@pytest.fixture()
 def scope():
     scope = StaticScope.instance()
     yield scope
     StaticScope.set_instance(None)
 
 
-@pytest.fixture
+@pytest.fixture()
 def hhv_ind(scope):
     return indicator("hhv", lambda bar_data, n: highv(bar_data.close, n), n=5)
 
 
-@pytest.fixture
+@pytest.fixture()
 def llv_ind(scope):
     return indicator("llv", lambda bar_data, n: lowv(bar_data.close, n), n=3)
 
 
-@pytest.fixture
+@pytest.fixture()
 def sumv_ind(scope):
     return indicator("sumv", lambda bar_data, n: sumv(bar_data.close, n), n=2)
 
 
-@pytest.fixture
+@pytest.fixture()
 def ind_data(data_source_df, symbols, hhv_ind, llv_ind, sumv_ind):
     return {
         **{
@@ -156,22 +156,22 @@ def ind_data(data_source_df, symbols, hhv_ind, llv_ind, sumv_ind):
     }
 
 
-@pytest.fixture
+@pytest.fixture()
 def indicators(hhv_ind, llv_ind, sumv_ind):
     return [hhv_ind, llv_ind, sumv_ind]
 
 
-@pytest.fixture
+@pytest.fixture()
 def ind_names(indicators):
     return [x.name for x in indicators]
 
 
-@pytest.fixture
+@pytest.fixture()
 def ind_name(ind_names):
     return ind_names[0]
 
 
-@pytest.fixture
+@pytest.fixture()
 def ind_df(data_source_df, hhv_ind, llv_ind, sumv_ind):
     return pd.DataFrame(
         {
@@ -195,9 +195,12 @@ def model_source(scope, data_source_df, indicators, request):
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def preds(symbols, data_source_df):
-    return {sym: np.random.random(data_source_df[data_source_df["symbol"] == sym].shape[0]) for sym in symbols}
+    return {
+        sym: np.random.random(data_source_df[data_source_df["symbol"] == sym].shape[0])
+        for sym in symbols
+    }
 
 
 @pytest.fixture(params=[True, False])
@@ -229,42 +232,42 @@ def trained_models(model_source, preds, symbols, data_source_df, request):
     return trained_models
 
 
-@pytest.fixture
+@pytest.fixture()
 def trained_model(trained_models):
-    return next(iter(trained_models.values()))
+    return list(trained_models.values())[0]
 
 
-@pytest.fixture
+@pytest.fixture()
 def col_scope(data_source_df):
     return ColumnScope(data_source_df.set_index(["symbol", "date"]))
 
 
-@pytest.fixture
+@pytest.fixture()
 def ind_scope(ind_data, dates):
     return IndicatorScope(ind_data, dates)
 
 
-@pytest.fixture
+@pytest.fixture()
 def declared_intervals():
     return frozenset()
 
 
-@pytest.fixture
+@pytest.fixture()
 def interval_scope(ind_scope):
     return IntervalScope(IntervalData(), ind_scope)
 
 
-@pytest.fixture
+@pytest.fixture()
 def input_scope(col_scope, ind_scope, trained_models):
     return ModelInputScope(col_scope, ind_scope, trained_models)
 
 
-@pytest.fixture
+@pytest.fixture()
 def pred_scope(trained_models, input_scope):
     return PredictionScope(trained_models, input_scope)
 
 
-@pytest.fixture
+@pytest.fixture()
 def pending_orders():
     return (
         PendingOrder(
@@ -296,7 +299,7 @@ def pending_orders():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def pending_order_scope(pending_orders):
     scope = PendingOrderScope()
     for order in pending_orders:
@@ -315,7 +318,7 @@ def pending_order_scope(pending_orders):
     return scope
 
 
-@pytest.fixture
+@pytest.fixture()
 def setup_enabled_model_cache(scope, tmp_path):
     enable_model_cache("test", tmp_path)
     yield
@@ -335,7 +338,7 @@ def setup_model_cache(scope, tmp_path, request):
     disable_model_cache()
 
 
-@pytest.fixture
+@pytest.fixture()
 def setup_enabled_ds_cache(scope, tmp_path):
     enable_data_source_cache("test", tmp_path)
     yield
@@ -355,7 +358,7 @@ def setup_ds_cache(scope, tmp_path, request):
     disable_data_source_cache()
 
 
-@pytest.fixture
+@pytest.fixture()
 def setup_enabled_ind_cache(scope, tmp_path):
     enable_indicator_cache("test", tmp_path)
     yield

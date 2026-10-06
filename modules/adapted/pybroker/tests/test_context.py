@@ -47,37 +47,37 @@ from pybroker.portfolio import Order, Portfolio, Position, Trade
 from .fixtures import *
 
 
-@pytest.fixture
+@pytest.fixture()
 def portfolio():
     return Portfolio(100_000)
 
 
-@pytest.fixture
+@pytest.fixture()
 def end_index():
     return 100
 
 
-@pytest.fixture
+@pytest.fixture()
 def sym_end_index(symbols, end_index):
     return dict.fromkeys(symbols, end_index)
 
 
-@pytest.fixture
+@pytest.fixture()
 def session():
     return {"foo": 1, "bar": 2}
 
 
-@pytest.fixture
+@pytest.fixture()
 def foreign(symbols):
     return list(symbols)[-1]
 
 
-@pytest.fixture
+@pytest.fixture()
 def date(dates, end_index):
     return list(dates)[end_index - 1]
 
 
-@pytest.fixture
+@pytest.fixture()
 def orders(dates, symbols):
     return (
         Order(
@@ -111,7 +111,7 @@ def orders(dates, symbols):
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def trades(dates, symbols):
     return Trade(
         id=1,
@@ -133,7 +133,7 @@ def trades(dates, symbols):
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def ctx(
     col_scope,
     ind_scope,
@@ -168,7 +168,7 @@ def ctx(
     return ctx
 
 
-@pytest.fixture
+@pytest.fixture()
 def ctx_with_pos(
     col_scope,
     ind_scope,
@@ -206,7 +206,7 @@ def ctx_with_pos(
     return ctx
 
 
-@pytest.fixture
+@pytest.fixture()
 def ctx_with_orders(
     col_scope,
     ind_scope,
@@ -278,7 +278,7 @@ def test_empty_field(ctx):
 
 
 @pytest.mark.parametrize(
-    ("field", "port_field"),
+    "field, port_field",
     [
         ("total_equity", "equity"),
         ("cash", "cash"),
@@ -384,7 +384,10 @@ def test_preds_when_not_found_then_error(ctx):
 
 @pytest.mark.parametrize("pos_type", ["long", "short"])
 def test_position(ctx_with_pos, pos_type, portfolio, symbol):
-    assert getattr(ctx_with_pos, f"{pos_type}_pos")() == getattr(portfolio, f"{pos_type}_positions")[symbol]
+    assert (
+        getattr(ctx_with_pos, f"{pos_type}_pos")()
+        == getattr(portfolio, f"{pos_type}_positions")[symbol]
+    )
 
 
 @pytest.mark.parametrize("pos_fn", ["long_pos", "short_pos"])
@@ -406,7 +409,9 @@ def test_position_with_foreign_when_empty(ctx, pos_type, foreign):
 def test_positions(ctx_with_pos, pos_type, portfolio):
     positions = ctx_with_pos.positions(None, pos_type)
     if pos_type is None:
-        expected_positions = set(portfolio.long_positions.keys()) | set(portfolio.short_positions.keys())
+        expected_positions = set(portfolio.long_positions.keys()) | set(
+            portfolio.short_positions.keys()
+        )
     else:
         expected_positions = set(getattr(portfolio, f"{pos_type}_positions").keys())
     assert {p.symbol for p in positions} == expected_positions
@@ -414,7 +419,7 @@ def test_positions(ctx_with_pos, pos_type, portfolio):
 
 @pytest.mark.parametrize("pos_type", ["long", "short", None])
 def test_positions_when_empty(ctx, pos_type):
-    assert not list(ctx.positions(None, pos_type))
+    assert not len(list(ctx.positions(None, pos_type)))
 
 
 @pytest.mark.parametrize("pos_type", ["long", "short", None])
@@ -431,7 +436,7 @@ def test_positions_with_symbol(ctx_with_pos, pos_type, foreign):
 
 @pytest.mark.parametrize("pos_type", ["long", "short", None])
 def test_positions_with_symbol_when_empty(ctx, pos_type, foreign):
-    assert not list(ctx.positions(foreign, pos_type))
+    assert not len(list(ctx.positions(foreign, pos_type)))
 
 
 @pytest.mark.parametrize("col", ["date", "open", "high", "low", "close", "volume", "adj_close"])
@@ -502,7 +507,7 @@ def test_long_positions(ctx_with_pos, symbol):
 
 
 def test_long_positions_when_empty(ctx, symbol):
-    assert not tuple(ctx.long_positions(symbol))
+    assert not len(tuple(ctx.long_positions(symbol)))
 
 
 def test_short_positions(ctx_with_pos, symbol):
@@ -512,7 +517,7 @@ def test_short_positions(ctx_with_pos, symbol):
 
 
 def test_short_positions_when_empty(ctx, symbol):
-    assert not tuple(ctx.short_positions(symbol))
+    assert not len(tuple(ctx.short_positions(symbol)))
 
 
 def test_has_long_positions_when_empty(ctx):
@@ -575,7 +580,7 @@ def test_calc_target_shares_when_enable_fractional_shares(
         sym_end_index=sym_end_index,
         session=session,
     )
-    assert ctx.calc_target_shares(0.5, 33.50) == Decimal(50_000) / Decimal("33.5")
+    assert ctx.calc_target_shares(0.5, 33.50) == Decimal("50_000") / Decimal("33.5")
 
 
 def test_calc_target_shares_with_cash(ctx):
@@ -822,7 +827,9 @@ def test_to_result_when_buy_shares_and_sell_shares_then_error(ctx):
     ctx.sell_shares = 100
     with pytest.raises(
         ValueError,
-        match=re.escape("For each symbol, only one of buy_shares or sell_shares can be set per bar."),
+        match=re.escape(
+            "For each symbol, only one of buy_shares or sell_shares can be set per bar."
+        ),
     ):
         ctx.to_result()
 
@@ -848,7 +855,7 @@ def test_to_result_when_sell_short_score(ctx, symbol, date):
 
 
 @pytest.mark.parametrize(
-    ("extra_attr", "extra_value"),
+    "extra_attr, extra_value",
     [
         ("long_score", 1),
         ("short_score", 1),
@@ -880,13 +887,15 @@ def test_to_result_when_rotation_enabled_and_score_then_error(ctx):
     ctx.buy_shares = 100
     with pytest.raises(
         ValueError,
-        match=re.escape("score cannot be used with rotation enabled; use long_score or short_score instead."),
+        match=re.escape(
+            "score cannot be used with rotation enabled; use long_score or short_score instead."
+        ),
     ):
         ctx.to_result()
 
 
 @pytest.mark.parametrize(
-    ("attr", "value", "error"),
+    "attr, value, error",
     [
         (
             "buy_limit_price",
@@ -908,7 +917,7 @@ def test_to_result_when_not_buy_shares_then_error(ctx, attr, value, error):
 
 
 @pytest.mark.parametrize(
-    ("attr", "value", "error"),
+    "attr, value, error",
     [
         (
             "sell_limit_price",
@@ -918,7 +927,7 @@ def test_to_result_when_not_buy_shares_then_error(ctx, attr, value, error):
         (
             "sell_fill_price",
             PriceType.CLOSE,
-            ("sell_shares or hold_bars must be set when sell_fill_price is set."),
+            "sell_shares or hold_bars must be set when sell_fill_price is set.",
         ),
     ],
 )
@@ -930,12 +939,12 @@ def test_to_result_when_not_sell_shares_then_error(ctx, attr, value, error):
 
 
 @pytest.mark.parametrize(
-    ("attr", "value", "error"),
+    "attr, value, error",
     [
         (
             "hold_bars",
             2,
-            ("Either buy_shares or sell_shares must be set when hold_bars is set."),
+            "Either buy_shares or sell_shares must be set when hold_bars is set.",
         ),
     ],
 )
@@ -986,7 +995,7 @@ def test_result_when_default_sell_fill_price(ctx):
 
 @pytest.mark.parametrize("pos_type", ["long", "short"])
 @pytest.mark.parametrize(
-    ("stop_attr", "expected_stop_type"),
+    "stop_attr, expected_stop_type",
     [
         ("stop_loss", StopType.LOSS),
         ("stop_loss_pct", StopType.LOSS),
@@ -1066,7 +1075,9 @@ def test_to_result_when_stop_limit_and_not_stop_then_error(ctx, stop_attr):
     ctx.buy_shares = 100
     with pytest.raises(
         ValueError,
-        match=re.escape(f"Either {stop_attr} or {stop_attr}_pct must be set when {stop_attr}_limit is set."),
+        match=re.escape(
+            f"Either {stop_attr} or {stop_attr}_pct must be set when {stop_attr}_limit is set."
+        ),
     ):
         setattr(ctx, f"{stop_attr}_limit", 20)
         ctx.to_result()
@@ -1077,7 +1088,9 @@ def test_to_result_when_stop_exit_price_and_not_stop_then_error(ctx, stop_attr):
     ctx.buy_shares = 100
     with pytest.raises(
         ValueError,
-        match=re.escape(f"Either {stop_attr} or {stop_attr}_pct must be set when {stop_attr}_exit_price is set."),
+        match=re.escape(
+            f"Either {stop_attr} or {stop_attr}_pct must be set when {stop_attr}_exit_price is set."
+        ),
     ):
         setattr(ctx, f"{stop_attr}_exit_price", PriceType.CLOSE)
         ctx.to_result()
@@ -1100,7 +1113,7 @@ def test_orders(ctx_with_orders, orders):
 
 
 def test_orders_when_empty(ctx):
-    assert not list(ctx.orders())
+    assert not len(list(ctx.orders()))
 
 
 def test_trades(ctx_with_orders, trades):
@@ -1108,11 +1121,11 @@ def test_trades(ctx_with_orders, trades):
 
 
 def test_trades_when_empty(ctx):
-    assert not list(ctx.trades())
+    assert not len(list(ctx.trades()))
 
 
 @pytest.mark.parametrize(
-    ("cover_attr", "buy_attr"),
+    "cover_attr, buy_attr",
     [
         ("cover_fill_price", "buy_fill_price"),
         ("cover_shares", "buy_shares"),
@@ -1223,7 +1236,7 @@ def test_timeout_bars_reset_each_bar(ctx):
 
 
 @pytest.mark.parametrize(
-    ("attr", "value"),
+    "attr, value",
     [
         ("stop_loss_exit_price", PriceType.LOW),
         ("stop_profit_exit_price", PriceType.HIGH),

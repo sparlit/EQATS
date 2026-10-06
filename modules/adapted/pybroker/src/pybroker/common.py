@@ -42,9 +42,7 @@ from typing import (
     Final,
     Literal,
     NamedTuple,
-    Optional,
     TypeIs,
-    Union,
 )
 
 import numpy as np
@@ -335,8 +333,7 @@ class BarData:
     def __getattr__(self, attr):
         if self._custom_col_data and attr in self._custom_col_data:
             return self._custom_col_data[attr]
-        msg = f"Attribute {attr!r} not found."
-        raise AttributeError(msg)
+        raise AttributeError(f"Attribute {attr!r} not found.")
 
 
 def bars_to_df(bar_data: BarData) -> pd.DataFrame:
@@ -372,22 +369,22 @@ def to_datetime(
     """Converts ``date`` to :class:`datetime.datetime`."""
     if isinstance(date, pd.Timestamp):
         return date.to_pydatetime()
-    if isinstance(date, datetime):
+    elif isinstance(date, datetime):
         return date
-    if isinstance(date, np.datetime64):
+    elif isinstance(date, np.datetime64):
         return pd.Timestamp(date).to_pydatetime()
-    if isinstance(date, str):
+    elif isinstance(date, str):
         return pd.to_datetime(date).to_pydatetime()
-    msg = f"Unsupported date type: {type(date)}"
-    raise TypeError(msg)
+    else:
+        raise TypeError(f"Unsupported date type: {type(date)}")
 
 
-def to_decimal(value: float | Decimal) -> Decimal:
+def to_decimal(value: int | float | Decimal) -> Decimal:
     """Converts ``value`` to :class:`decimal.Decimal`."""
     value_type = type(value)
     if value_type == Decimal:
         return value  # type: ignore[return-value]
-    if value_type is int:
+    elif value_type is int:
         return Decimal(value)
     return Decimal(str(value))
 
@@ -413,12 +410,10 @@ def parse_timeframe(timeframe: str) -> list[tuple[int, str]]:
     for token in tokens:
         match = _tf_pattern.fullmatch(token)
         if match is None:
-            msg = "Invalid timeframe format."
-            raise ValueError(msg)
+            raise ValueError("Invalid timeframe format.")
         parts.append(match.groups())
     if not parts:
-        msg = "Invalid timeframe format."
-        raise ValueError(msg)
+        raise ValueError("Invalid timeframe format.")
     result = []
     seen_units = set()
     for part in parts:
@@ -426,11 +421,9 @@ def parse_timeframe(timeframe: str) -> list[tuple[int, str]]:
         if unit in _tf_abbr:
             unit = _tf_abbr[unit]
         if unit not in _TF_UNITS:
-            msg = "Invalid timeframe format."
-            raise ValueError(msg)
+            raise ValueError("Invalid timeframe format.")
         if unit in seen_units:
-            msg = "Invalid timeframe format."
-            raise ValueError(msg)
+            raise ValueError("Invalid timeframe format.")
         result.append((int(part[0]), unit))
         seen_units.add(unit)
     return result
@@ -464,8 +457,7 @@ def quantize(df: pd.DataFrame, col: str, round: bool) -> pd.Series:
         The quantized column converted to ``float`` values.
     """
     if col not in df.columns:
-        msg = f"Column {col!r} not found in DataFrame."
-        raise ValueError(msg)
+        raise ValueError(f"Column {col!r} not found in DataFrame.")
     values = df[col].dropna()
     if not round:
         return values.astype(float)
@@ -494,22 +486,23 @@ def verify_data_source_columns(df: pd.DataFrame):
         if col.value not in df.columns:
             missing.append(col.value)
     if missing:
-        msg = f"DataFrame is missing required columns: {missing!r}"
-        raise ValueError(msg)
+        raise ValueError(f"DataFrame is missing required columns: {missing!r}")
 
 
 def verify_date_range(start_date: datetime, end_date: datetime):
     """Verifies date range bounds."""
     if start_date > end_date:
-        msg = f"start_date ({start_date}) must be on or before end_date ({end_date})."
-        raise ValueError(msg)
+        raise ValueError(f"start_date ({start_date}) must be on or before end_date ({end_date}).")
 
 
 def get_unique_sorted_dates_array(
     dates: pd.Series | NDArray[np.datetime64] | Sequence[np.datetime64],
 ) -> NDArray[np.datetime64]:
     """Returns sorted unique dates from a numpy date array or Series."""
-    arr = dates.to_numpy(copy=False) if isinstance(dates, pd.Series) else np.asarray(dates, dtype="datetime64[ns]")
+    if isinstance(dates, pd.Series):
+        arr = dates.to_numpy(copy=False)
+    else:
+        arr = np.asarray(dates, dtype="datetime64[ns]")
     if arr.size == 0:
         return arr
     return np.unique(arr)
@@ -634,7 +627,7 @@ def _json_safe(value: Any) -> Any:
     return re.sub(r" at 0x[0-9a-fA-F]+", "", str(value))
 
 
-def _json_safe_key(key: Any) -> bool | int | float | str | None:
+def _json_safe_key(key: Any) -> None | bool | int | float | str:
     """Converts a dict key to a form ``json.dumps`` accepts.
 
     Container keys (e.g. tuples, frozensets) would convert to unhashable
@@ -658,8 +651,7 @@ def _dataframe_records(
     """Converts a :class:`pandas.DataFrame` to JSON-safe record dicts."""
     if max_rows is not None and max_rows < 0:
         # head(-n) would silently drop the last (newest) n rows.
-        msg = f"max_rows must be >= 0: {max_rows}"
-        raise ValueError(msg)
+        raise ValueError(f"max_rows must be >= 0: {max_rows}")
     if df.empty:
         return []
     if reset_index:
@@ -693,7 +685,12 @@ def _static_symbols(
 
 
 def _ensure_range_index(df: pd.DataFrame) -> pd.DataFrame:
-    if isinstance(df.index, pd.RangeIndex) and df.index.start == 0 and df.index.step == 1 and len(df.index) == len(df):
+    if (
+        isinstance(df.index, pd.RangeIndex)
+        and df.index.start == 0
+        and df.index.step == 1
+        and len(df.index) == len(df)
+    ):
         return df
     return df.reset_index(drop=True)
 
@@ -701,13 +698,16 @@ def _ensure_range_index(df: pd.DataFrame) -> pd.DataFrame:
 def _selected_symbol_list(selected: Any) -> list[str]:
     """Normalizes a :class:`.SymbolSelector` return value to ``list[str]``."""
     if isinstance(selected, (str, bytes)) or not hasattr(selected, "__iter__"):
-        msg = f"symbol selector must return a sequence of symbols, received {type(selected)!r}."
-        raise TypeError(msg)
+        raise TypeError(
+            f"symbol selector must return a sequence of symbols, received {type(selected)!r}."
+        )
     result: list[str] = []
     for sym in selected:
         if not isinstance(sym, (str, np.str_)):
-            msg = f"symbol selector must return a sequence of symbols, received {type(sym)!r} in the returned sequence."
-            raise TypeError(msg)
+            raise TypeError(
+                "symbol selector must return a sequence of symbols, "
+                f"received {type(sym)!r} in the returned sequence."
+            )
         result.append(str(sym))
     return result
 
@@ -721,8 +721,7 @@ def _resolve_execution_symbols(
     if _is_symbol_selector(execution.symbols):
         selected = _selected_symbol_list(execution.symbols(selection_df))
         if not selected:
-            msg = "symbol selector returned an empty list."
-            raise ValueError(msg)
+            raise ValueError("symbol selector returned an empty list.")
         if len(selected) != len(set(selected)):
             seen: set[str] = set()
             dupes = []
@@ -730,13 +729,11 @@ def _resolve_execution_symbols(
                 if sym in seen:
                     dupes.append(sym)
                 seen.add(sym)
-            msg = f"symbol selector returned duplicate symbols: {sorted(set(dupes))}."
-            raise ValueError(msg)
+            raise ValueError(f"symbol selector returned duplicate symbols: {sorted(set(dupes))}.")
         loaded = set(selection_df[DataCol.SYMBOL.value].unique())
         unknown = set(selected) - loaded
         if unknown:
-            msg = f"symbol selector returned unknown symbols: {sorted(unknown)}."
-            raise ValueError(msg)
+            raise ValueError(f"symbol selector returned unknown symbols: {sorted(unknown)}.")
         return frozenset(selected)
     return execution.symbols
 
@@ -753,9 +750,8 @@ def _resolve_executions(
         syms = _resolve_execution_symbols(execution, selection_df)
         overlap = seen_syms & syms
         if overlap:
-            sym = min(overlap)
-            msg = f"{sym} was already added to an execution."
-            raise ValueError(msg)
+            sym = sorted(overlap)[0]
+            raise ValueError(f"{sym} was already added to an execution.")
         seen_syms.update(syms)
         resolved.add(execution._replace(symbols=syms))
     return resolved
@@ -778,7 +774,8 @@ def _selected_symbols(
         unbacked = syms - set(test_data[DataCol.SYMBOL.value].unique())
         if unbacked:
             warnings.warn(
-                f"Selected symbols have no data in this test window and will not be traded: {sorted(unbacked)}.",
+                "Selected symbols have no data in this test window and will "
+                f"not be traded: {sorted(unbacked)}.",
                 stacklevel=3,
             )
     return syms
@@ -798,11 +795,10 @@ def _selection_df(
     if not train_data.empty:
         return train_data
     if any(_is_symbol_selector(e.symbols) for e in executions):
-        msg = (
+        raise ValueError(
             "Dynamic symbol selection requires a training window: selecting "
             "from test data would look ahead at the bars being traded. Use "
             "walkforward(train_size=...) with train_size > 0 instead of "
             "backtest() or train_size=0."
         )
-        raise ValueError(msg)
     return train_data

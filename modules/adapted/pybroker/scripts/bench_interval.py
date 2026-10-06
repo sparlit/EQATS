@@ -29,8 +29,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import argparse
 import json
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -41,15 +41,14 @@ from pybroker.interval import (
     compress_symbol_df,
 )
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
 DAILY_SECONDS = 86400.0
 LARGE_MINUTE_BARS = 252 * 390
 
 
 def _minute_bars(n: int = 390) -> tuple[np.ndarray, ...]:
-    dates = pd.date_range("2020-01-06 09:30", periods=n, freq="1min").to_numpy(dtype="datetime64[ns]")
+    dates = pd.date_range("2020-01-06 09:30", periods=n, freq="1min").to_numpy(
+        dtype="datetime64[ns]"
+    )
     close = np.linspace(100.0, 110.0, n)
     return (
         dates,

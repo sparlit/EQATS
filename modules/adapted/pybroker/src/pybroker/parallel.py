@@ -33,7 +33,6 @@ import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Optional
 
 import joblib
 from joblib import Parallel
@@ -103,8 +102,7 @@ def set_parallel(
     global _config
     if parallel is not None:
         if n_jobs is not None or backend is not None:
-            msg = "parallel is mutually exclusive with n_jobs and backend"
-            raise ValueError(msg)
+            raise ValueError("parallel is mutually exclusive with n_jobs and backend")
         return_as = getattr(parallel, "return_as", "list")
         if return_as not in ("list", "generator"):
             # Every dispatch site pairs results back to their inputs by
@@ -113,12 +111,11 @@ def set_parallel(
             # scores. An unordered return silently binds each result to the
             # wrong input, and for models the mismatched lag_columns is then
             # written to the model cache and outlives the run.
-            msg = (
+            raise ValueError(
                 f"parallel must return results in submission order; "
                 f"return_as={return_as!r} does not. Use 'list' or "
                 f"'generator'."
             )
-            raise ValueError(msg)
         _config = ParallelConfig(parallel=parallel)
         return
     if backend is not None:
@@ -127,22 +124,20 @@ def set_parallel(
             # which the standard pickle used by this backend cannot
             # serialize -- every parallel run would fail with a pickling
             # error. loky ships closures via cloudpickle.
-            msg = (
+            raise ValueError(
                 "The 'multiprocessing' backend is not supported: PyBroker "
                 "dispatches work as closures, which its standard pickle "
                 "serialization cannot handle. Use 'loky' (the default) for "
                 "process-based parallelism."
             )
-            raise ValueError(msg)
         registered = set(BACKENDS) | set(EXTERNAL_BACKENDS)
         if backend not in registered:
-            msg = (
+            raise ValueError(
                 f"Unknown joblib backend {backend!r}. Registered backends: "
                 f"{sorted(registered)}. Third-party backends (e.g. 'ray') "
                 f"must be registered first — for Ray: ray.init() and "
                 f"register_ray() from ray.util.joblib."
             )
-            raise ValueError(msg)
     _config = ParallelConfig(
         n_jobs=_config.n_jobs if n_jobs is None else n_jobs,
         backend=backend if backend is not None else _config.backend,

@@ -33,11 +33,9 @@ import statistics
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_BASELINE = REPO_ROOT / ".asv" / "baseline-pre-numba.json"
@@ -67,7 +65,9 @@ def _run_lag_prep_bottlenecks() -> dict[str, float]:
     key = "LagPrepBottlenecks"
     return {
         f"{key}.time_merge_lag_cache_from_store": _median_ms(b.time_merge_lag_cache_from_store),
-        f"{key}.time_build_lag_feature_matrix_pooled": _median_ms(b.time_build_lag_feature_matrix_pooled),
+        f"{key}.time_build_lag_feature_matrix_pooled": _median_ms(
+            b.time_build_lag_feature_matrix_pooled
+        ),
         f"{key}.time_apply_lags_pooled": _median_ms(b.time_apply_lags_pooled),
     }
 
@@ -77,7 +77,11 @@ def _run_model_train_prep_lags() -> dict[str, float]:
 
     b = ModelTrainPrepLags()
     b.setup()
-    return {"ModelTrainPrepLags.time_train_models_pooled_lags": _median_ms(b.time_train_models_pooled_lags)}
+    return {
+        "ModelTrainPrepLags.time_train_models_pooled_lags": _median_ms(
+            b.time_train_models_pooled_lags
+        )
+    }
 
 
 def _run_store_micro() -> dict[str, float]:
@@ -100,10 +104,14 @@ def _run_model_prep_micro() -> dict[str, float]:
     out: dict[str, float] = {}
     b = ModelPrepKernels()
     b.setup()
-    out["ModelPrepKernels.time_indicator_values_for_dates"] = _median_ms(b.time_indicator_values_for_dates)
+    out["ModelPrepKernels.time_indicator_values_for_dates"] = _median_ms(
+        b.time_indicator_values_for_dates
+    )
     prep = ModelTrainPrep()
     prep.setup()
-    out["ModelTrainPrep.time_train_models_per_symbol"] = _median_ms(prep.time_train_models_per_symbol)
+    out["ModelTrainPrep.time_train_models_per_symbol"] = _median_ms(
+        prep.time_train_models_per_symbol
+    )
     out["ModelTrainPrep.time_train_models_pooled"] = _median_ms(prep.time_train_models_pooled)
     return out
 
@@ -206,16 +214,16 @@ def compare(
             ok = b == c
             if not ok:
                 failed = True
-            print(f"{name:<56} {b!s:>10} {c!s:>10} {'OK' if ok else 'FAIL':>8}")
+            print(f"{name:<56} {str(b):>10} {str(c):>10} {'OK' if ok else 'FAIL':>8}")
             continue
         b, c = base_m.get(name), cur_macro.get(name)
         if b is None or c is None:
             continue
         ch = _pct(b, c)
         print(f"{name:<56} {b:>10.2f} {c:>10.2f} {ch:>8}")
-        if name.startswith(("Walkforward.", "WalkforwardLarge.", "PortfolioHeldStops.")) and c > b * (
-            1 + macro_regression
-        ):
+        if name.startswith(
+            ("Walkforward.", "WalkforwardLarge.", "PortfolioHeldStops.")
+        ) and c > b * (1 + macro_regression):
             failed = True
 
     print()
