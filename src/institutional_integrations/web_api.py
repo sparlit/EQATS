@@ -150,8 +150,8 @@ class SocketIPCBridge:
         if sock:
             try:
                 sock.close()
-            except Exception:
-                pass
+            except Exception as err:
+                _log.debug("SocketIPCBridge stop_server error: %s", err)
 
 
 class TradingOSHTTPServer:
@@ -229,8 +229,8 @@ class TradingOSHTTPServer:
         finally:
             try:
                 conn.close()
-            except Exception:
-                pass
+            except Exception as err:
+                _log.debug("Socket close error in _handle_request: %s", err)
 
     def _route_request(self, method: str, path: str) -> dict[str, Any]:
         path_clean = path.split("?")[0]
@@ -248,8 +248,8 @@ class TradingOSHTTPServer:
                 try:
                     account = self.scalper.conn.get_account_info()
                     active_positions = self.scalper.conn.get_open_orders()
-                except Exception:
-                    pass
+                except Exception as err:
+                    _log.debug("Error fetching scalper account/positions info in web_api: %s", err)
             return {
                 "status": "ONLINE",
                 "balance": account.get("balance", 10000.0),
@@ -278,8 +278,8 @@ class TradingOSHTTPServer:
         if sock:
             try:
                 sock.close()
-            except Exception:
-                pass
+            except Exception as err:
+                _log.debug("TradingOSHTTPServer stop_server error: %s", err)
 
 
 class TelemetryStreamServer:

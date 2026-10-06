@@ -189,8 +189,9 @@ class DataPlane:
                 last_time = datetime.datetime.fromisoformat(last_record_time_str)
                 if now <= last_time:
                     now = last_time + datetime.timedelta(microseconds=1)
-            except Exception:
-                pass
+            except Exception as err:
+                import logging
+                logging.getLogger("eqats_planes").debug("ISO format parse error in store_price: %s", err)
         now_str = now.isoformat()
         record = {
             "event_time": now_str,

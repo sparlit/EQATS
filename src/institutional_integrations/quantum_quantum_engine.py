@@ -105,9 +105,10 @@ class QuantumAutoEngine:
             "status": "LIVE_FEED_READY",
         }
         try:
-            pass
-        except Exception:
-            pass
+            research_metrics["status"] = "LIVE_FEED_READY"
+        except Exception as err:
+            import logging
+            logging.getLogger("quantum_engine").debug("Research metrics error: %s", err)
         return research_metrics
 
     def determine_optimal_style_and_strategy(
