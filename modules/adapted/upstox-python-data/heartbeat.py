@@ -34,7 +34,6 @@ Also provides tick history and spike detection.
 import contextlib
 import logging
 import threading
-import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
@@ -97,7 +96,13 @@ class DataHeartbeat:
         with self._lock:
             entry = self._ltp_cache.get(symbol)
             if entry is None:
-                return {"ltp": 0, "timestamp": None, "age_seconds": 999, "source": "NO_DATA", "stale": True}
+                return {
+                    "ltp": 0,
+                    "timestamp": None,
+                    "age_seconds": 999,
+                    "source": "NO_DATA",
+                    "stale": True,
+                }
 
             now = datetime.now(IST)
             age = (now - entry["timestamp"]).total_seconds()
@@ -191,7 +196,9 @@ class DataHeartbeat:
                     self._tick_history[sym] = []
                 self._tick_history[sym].append((now, ltp))
                 cutoff = now - timedelta(minutes=10)
-                self._tick_history[sym] = [(ts, p) for ts, p in self._tick_history[sym] if ts > cutoff]
+                self._tick_history[sym] = [
+                    (ts, p) for ts, p in self._tick_history[sym] if ts > cutoff
+                ]
 
             for fn in self._callbacks:
                 with contextlib.suppress(Exception):
@@ -250,7 +257,9 @@ class DataHeartbeat:
                     self._tick_history[sym].append((now, ltp))
 
                     cutoff = now - timedelta(minutes=10)
-                    self._tick_history[sym] = [(ts, p) for ts, p in self._tick_history[sym] if ts > cutoff]
+                    self._tick_history[sym] = [
+                        (ts, p) for ts, p in self._tick_history[sym] if ts > cutoff
+                    ]
 
                 for fn in self._callbacks:
                     with contextlib.suppress(Exception):

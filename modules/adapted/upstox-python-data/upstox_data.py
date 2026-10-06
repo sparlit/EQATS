@@ -74,8 +74,7 @@ def _get_session() -> requests.Session:
     if _session is None:
         token = os.environ.get("UPSTOX_ACCESS_TOKEN", "")
         if not token:
-            msg = "UPSTOX_ACCESS_TOKEN not set in environment"
-            raise RuntimeError(msg)
+            raise RuntimeError("UPSTOX_ACCESS_TOKEN not set in environment")
         _session = requests.Session()
         _session.headers.update(
             {
@@ -100,10 +99,10 @@ def is_available() -> bool:
 
 
 def _request(
-    method: str, url: str, params: dict | None = None, payload: dict | None = None, timeout: int = 10
+    method: str, url: str, params: dict = None, payload: dict = None, timeout: int = 10
 ) -> dict | None:
     """Base HTTP request with 401/429/5xx retry logic."""
-    tag = url.rsplit("upstox.com/", maxsplit=1)[-1]
+    tag = url.split("upstox.com/")[-1]
     max_retries = 3
     for attempt in range(max_retries + 1):
         try:
@@ -143,11 +142,11 @@ def _request(
     return None
 
 
-def _get(url: str, params: dict | None = None, timeout: int = 10) -> dict | None:
+def _get(url: str, params: dict = None, timeout: int = 10) -> dict | None:
     return _request("GET", url, params=params, timeout=timeout)
 
 
-def _get_v3(path: str, params: dict | None = None, timeout: int = 10) -> dict | None:
+def _get_v3(path: str, params: dict = None, timeout: int = 10) -> dict | None:
     return _get(f"{_BASE_V3}{path}", params, timeout)
 
 
@@ -171,7 +170,7 @@ def get_spot(symbol: str) -> dict | None:
 
     data = _get_v3("/market-quote/ohlc", {"instrument_key": key, "interval": "1d"})
     if data:
-        entry = next(iter(data.values()))
+        entry = list(data.values())[0]
         ltp = float(entry.get("last_price", 0))
         live = entry.get("live_ohlc") or {}
         prev_ohlc = entry.get("prev_ohlc") or {}
@@ -179,7 +178,7 @@ def get_spot(symbol: str) -> dict | None:
         if not prev:
             v2 = _get(f"{_BASE}/market-quote/quotes", {"instrument_key": key})
             if v2:
-                v2e = next(iter(v2.values()))
+                v2e = list(v2.values())[0]
                 nc = float(v2e.get("net_change", 0) or 0)
                 prev = round(ltp - nc, 2) if nc else round(ltp, 2)
             else:
@@ -202,7 +201,7 @@ def get_spot(symbol: str) -> dict | None:
     if not data:
         return None
 
-    entry = next(iter(data.values()))
+    entry = list(data.values())[0]
     ohlc = entry.get("ohlc", {})
     ltp = float(entry.get("last_price", 0))
     net_change = float(entry.get("net_change", 0) or 0)
@@ -231,13 +230,13 @@ def get_ltp(symbol: str) -> float | None:
 
     data = _get_v3("/market-quote/ltp", {"instrument_key": key}, timeout=5)
     if data:
-        entry = next(iter(data.values()))
+        entry = list(data.values())[0]
         return round(float(entry.get("last_price", 0)), 2)
 
     data = _get(f"{_BASE}/market-quote/ltp", {"instrument_key": key}, timeout=5)
     if not data:
         return None
-    return round(float(next(iter(data.values())).get("last_price", 0)), 2)
+    return round(float(list(data.values())[0].get("last_price", 0)), 2)
 
 
 def get_vix() -> float:
@@ -248,7 +247,7 @@ def get_vix() -> float:
         data = _get(f"{_BASE}/market-quote/ltp", {"instrument_key": key}, timeout=5)
     if data:
         try:
-            return round(float(next(iter(data.values()))["last_price"]), 2)
+            return round(float(list(data.values())[0]["last_price"]), 2)
         except (KeyError, IndexError, TypeError):
             pass
     return 15.0
@@ -268,7 +267,7 @@ def get_ltp_detail(instrument_key: str) -> dict | None:
     if not data:
         return None
     try:
-        entry = next(iter(data.values()))
+        entry = list(data.values())[0]
         return {
             "last_price": round(float(entry.get("last_price", 0)), 2),
             "ltq": int(entry.get("ltq", 0)),
@@ -308,7 +307,7 @@ def get_greeks(instrument_keys: list[str]) -> dict | None:
             "volume": int(entry.get("volume", 0)),
         }
 
-    return result or None
+    return result if result else None
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -532,7 +531,8 @@ def _parse_candles(candles: list, include_oi: bool = False) -> pd.DataFrame:
     df = pd.DataFrame(rows).set_index("date").sort_index()
     if df.index.tz is not None:
         df.index = df.index.tz_localize(None)
-    return df[~df.index.duplicated(keep="last")]
+    df = df[~df.index.duplicated(keep="last")]
+    return df
 
 
 def fetch_daily_candles(symbol: str, days: int = 365) -> pd.DataFrame | None:
@@ -561,11 +561,15 @@ def fetch_daily_candles(symbol: str, days: int = 365) -> pd.DataFrame | None:
     df = _parse_candles(candles)
     df = df.tail(days)
 
-    log.info("Daily %s: %d candles (%s to %s)", symbol, len(df), df.index[0].date(), df.index[-1].date())
+    log.info(
+        "Daily %s: %d candles (%s to %s)", symbol, len(df), df.index[0].date(), df.index[-1].date()
+    )
     return df
 
 
-def fetch_intraday_candles(symbol: str, days: int = 20, interval_min: int = 15) -> pd.DataFrame | None:
+def fetch_intraday_candles(
+    symbol: str, days: int = 20, interval_min: int = 15
+) -> pd.DataFrame | None:
     """
     Intraday OHLCV candles via v3 API. Merges historical + today.
 
@@ -607,7 +611,14 @@ def fetch_intraday_candles(symbol: str, days: int = 20, interval_min: int = 15) 
     bars_per_day = 375 // interval_min
     df = df.tail(days * bars_per_day)
 
-    log.info("%dm %s: %d bars (%s to %s)", interval_min, symbol, len(df), df.index[0].date(), df.index[-1].date())
+    log.info(
+        "%dm %s: %d bars (%s to %s)",
+        interval_min,
+        symbol,
+        len(df),
+        df.index[0].date(),
+        df.index[-1].date(),
+    )
     return df
 
 
@@ -708,7 +719,9 @@ def get_dii_activity() -> dict | None:
 # ══════════════════════════════════════════════════════════════════
 
 
-def get_pcr(symbol: str, expiry_date: str, data_date: str | None = None, bucket_interval: int = 15) -> dict | None:
+def get_pcr(
+    symbol: str, expiry_date: str, data_date: str | None = None, bucket_interval: int = 15
+) -> dict | None:
     """
     Put-Call Ratio with intraday insights.
     Returns: pcr, spot_price, insights (list of {pcr, spot_price, time}).
@@ -746,7 +759,9 @@ def get_pcr(symbol: str, expiry_date: str, data_date: str | None = None, bucket_
 # ══════════════════════════════════════════════════════════════════
 
 
-def get_max_pain(symbol: str, expiry_date: str, data_date: str | None = None, bucket_interval: int = 15) -> dict | None:
+def get_max_pain(
+    symbol: str, expiry_date: str, data_date: str | None = None, bucket_interval: int = 15
+) -> dict | None:
     """
     Max Pain with intraday insights.
     Returns: max_pain (strike), spot_price, insights.
@@ -822,7 +837,9 @@ def get_oi(symbol: str, expiry_date: str, data_date: str | None = None) -> dict 
     }
 
 
-def get_oi_change(symbol: str, expiry_date: str, data_date: str | None = None, interval_days: int = 1) -> dict | None:
+def get_oi_change(
+    symbol: str, expiry_date: str, data_date: str | None = None, interval_days: int = 1
+) -> dict | None:
     """
     Change in Open Interest per strike over N days.
     Positive = buildup, negative = unwinding.
@@ -884,7 +901,7 @@ def get_market_depth(instrument_key: str) -> dict | None:
     data = _get(f"{_BASE}/market-quote/quotes", {"instrument_key": instrument_key}, timeout=10)
     if not data:
         return None
-    entry = next(iter(data.values())) if data else None
+    entry = list(data.values())[0] if data else None
     if not entry:
         return None
     depth = entry.get("depth", {})
@@ -1011,7 +1028,9 @@ def _margin_fallback(symbol: str, legs: list) -> dict:
 # ══════════════════════════════════════════════════════════════════
 
 
-def get_brokerage(instrument_key: str, quantity: int, product: str, transaction_type: str, price: float) -> dict | None:
+def get_brokerage(
+    instrument_key: str, quantity: int, product: str, transaction_type: str, price: float
+) -> dict | None:
     """
     Get real brokerage + charges breakdown for a trade.
     Returns: brokerage, STT, stamp duty, exchange charges, GST, SEBI fees, etc.
