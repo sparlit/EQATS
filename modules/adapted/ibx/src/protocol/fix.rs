@@ -69,6 +69,78 @@ pub fn fmt_pipe(bytes: &[u8]) -> String {
     s
 }
 
+/// An XML payload (tag 6118) in the layout of the reference's XML writer
+/// (`jxmlable.XmlGenerator`): the declaration and each element on a line
+/// of its own, a new line after each, a tab per level before each
+/// element; an element with text only stays on one line (every 35=W,
+/// 35=Z and 35=U the reference sent to the historical farm, captured
+/// 26/09 to 02/10/2026, ibx#486). The input may be on one line or laid
+/// out already; text that is only blanks between elements is dropped.
+pub fn xml_layout(xml: &str) -> String {
+    let mut out = String::with_capacity(xml.len() + xml.len() / 4);
+    let mut rest = xml.trim_start();
+    if rest.starts_with("<?")
+        && let Some(end) = rest.find("?>")
+    {
+        out.push_str(&rest[..end + 2]);
+        out.push('\n');
+        rest = &rest[end + 2..];
+    }
+    // The parts: tags and texts, blanks between tags dropped.
+    let mut parts: Vec<&str> = Vec::new();
+    while !rest.is_empty() {
+        if rest.starts_with('<') {
+            let end = rest.find('>').map_or(rest.len(), |k| k + 1);
+            parts.push(&rest[..end]);
+            rest = &rest[end..];
+        } else {
+            let end = rest.find('<').unwrap_or(rest.len());
+            let text = &rest[..end];
+            if !text.trim().is_empty() {
+                parts.push(text);
+            }
+            rest = &rest[end..];
+        }
+    }
+    let indent = |out: &mut String, d: usize| out.extend(std::iter::repeat_n('\t', d));
+    let mut depth = 0usize;
+    let mut k = 0;
+    while k < parts.len() {
+        let p = parts[k];
+        if p.starts_with("</") {
+            depth = depth.saturating_sub(1);
+            indent(&mut out, depth);
+            out.push_str(p);
+            k += 1;
+        } else if p.starts_with('<') && !p.ends_with("/>") {
+            indent(&mut out, depth);
+            out.push_str(p);
+            // An element with text only, or with nothing: one line.
+            match (parts.get(k + 1), parts.get(k + 2)) {
+                (Some(text), Some(close)) if !text.starts_with('<') && close.starts_with("</") => {
+                    out.push_str(text);
+                    out.push_str(close);
+                    k += 3;
+                }
+                (Some(close), _) if close.starts_with("</") => {
+                    out.push_str(close);
+                    k += 2;
+                }
+                _ => {
+                    depth += 1;
+                    k += 1;
+                }
+            }
+        } else {
+            indent(&mut out, depth);
+            out.push_str(p);
+            k += 1;
+        }
+        out.push('\n');
+    }
+    out
+}
+
 /// Sum of all bytes mod 256, zero-padded to 3 digits.
 pub fn fix_checksum(data: &[u8]) -> String {
     let sum: u32 = data.iter().map(|&b| b as u32).sum();
@@ -316,6 +388,18 @@ pub fn fix_sign(msg: &[u8], mac_key: &[u8], iv: &[u8]) -> (Vec<u8>, Vec<u8>) {
     (new_msg, new_iv.to_vec())
 }
 
+/// True when the signature field is the last field of `msg` (the checksum
+/// excepted). This is how the reference tells a signed frame from an
+/// unsigned one; an unsigned frame is accepted as it is (ibx#275).
+pub fn is_signed(msg: &[u8]) -> bool {
+    let end = if msg.starts_with(b"8=FIX.4.1") { msg.len().saturating_sub(7) } else { msg.len() };
+    if end < 15 {
+        return false;
+    }
+    let trailer = &msg[end - 15..end];
+    trailer[0] == SOH && &trailer[1..6] == b"8349=" && trailer[14] == SOH
+}
+
 /// Un-distort and verify a signed FIX message.
 ///
 /// Returns (undistorted_msg, new_iv, signature_valid).
@@ -349,14 +433,13 @@ pub fn fix_unsign(msg: &[u8], mac_key: &[u8], iv: &[u8]) -> (Vec<u8>, Vec<u8>, b
         None => return (msg_bytes, iv.to_vec(), false),
     };
 
-    // Find 8349= tag
+    // The signature field: the last one, after the body. A frame whose
+    // signature comes before its body has none that checks (ibx#488: the
+    // slice panicked).
     let sig_needle = b"8349=";
-    let t8349 = match msg_bytes
-        .windows(sig_needle.len())
-        .position(|w| w == sig_needle)
-    {
-        Some(p) => p,
-        None => return (msg_bytes, iv.to_vec(), false),
+    let t8349 = match msg_bytes.windows(sig_needle.len() + 1).rposition(|w| w[0] == SOH && &w[1..] == sig_needle) {
+        Some(p) if p + 1 >= after9 => p + 1,
+        _ => return (msg_bytes, iv.to_vec(), false),
     };
 
     let body = &msg_bytes[after9..t8349];
@@ -452,6 +535,28 @@ pub fn fix_read_deadline<R: Read>(reader: &mut R, deadline: std::time::Instant) 
 
 #[cfg(test)]
 mod tests {
+
+    // ibx#486: the layout of the reference's historical queries, cancels
+    // and scanner messages (captured 26/09 and 02/10/2026).
+    #[test]
+    fn xml_layout_as_the_reference() {
+        let flat = concat!("<?xml version=\"1.0\" encoding=\"UTF-8\"?><ListOfQueries><Query>",
+            "<id>cf28;;AAPL@SMART Bid_ask;;0;;true;;0;;U</id><timeLength>100 t</timeLength>",
+            "<Filter varName=\"filter\"><ignoreSize>true</ignoreSize></Filter></Query></ListOfQueries>");
+        let want = concat!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<ListOfQueries>\n\t<Query>\n",
+            "\t\t<id>cf28;;AAPL@SMART Bid_ask;;0;;true;;0;;U</id>\n\t\t<timeLength>100 t</timeLength>\n",
+            "\t\t<Filter varName=\"filter\">\n\t\t\t<ignoreSize>true</ignoreSize>\n\t\t</Filter>\n",
+            "\t</Query>\n</ListOfQueries>\n");
+        assert_eq!(xml_layout(flat), want);
+        // Laid out already: the same.
+        assert_eq!(xml_layout(want), want);
+        let cancel = concat!("<?xml version=\"1.0\" encoding=\"UTF-8\"?><ListOfCancelQueries><CancelQuery>",
+            "<id>ticker:1</id></CancelQuery></ListOfCancelQueries>");
+        assert_eq!(xml_layout(cancel), concat!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<ListOfCancelQueries>\n",
+            "\t<CancelQuery>\n\t\t<id>ticker:1</id>\n\t</CancelQuery>\n</ListOfCancelQueries>\n"));
+        assert_eq!(xml_layout("<A><b></b><c/></A>"), "<A>\n\t<b></b>\n\t<c/>\n</A>\n");
+    }
+
     use super::*;
 
     // A reader that returns WouldBlock a fixed number of times before yielding
@@ -568,6 +673,26 @@ mod tests {
         let (_, new_iv2, valid) = fix_unsign(&signed, &mac_key, &iv);
         assert!(valid);
         assert_eq!(new_iv, new_iv2);
+    }
+
+    // ibx#275: a frame is signed only when it ends with the signature
+    // trailer (before the checksum of a FIX.4.1 message).
+    #[test]
+    fn is_signed_needs_the_trailer() {
+        let mac_key: Vec<u8> = (0..20).collect();
+        let iv: Vec<u8> = (0..16).collect();
+        let msg = fix_build(&[(35, "0")], 1);
+        assert!(!is_signed(&msg));
+        let (signed, _) = fix_sign(&msg, &mac_key, &iv);
+        assert!(is_signed(&signed));
+        let comp = crate::protocol::fixcomp::fixcomp_build(&msg);
+        let (signed_comp, _) = fix_sign(&comp, &mac_key, &iv);
+        assert!(is_signed(&signed_comp));
+        // The tag inside the body is not a signature.
+        let inside = fix_build(&[(35, "U"), (58, "x\x018349=ABCDEF01\x01y")], 1);
+        assert!(!is_signed(&inside));
+        assert!(!is_signed(b""));
+        assert!(!is_signed(b"8=FIX.4.1\x01"));
     }
 
     #[test]

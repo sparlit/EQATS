@@ -119,7 +119,18 @@ class OptionsWrapper(EWrapper):
         pass
 
     def tick_option_computation(
-        self, req_id, tick_type, tick_attrib, implied_vol, delta, opt_price, pv_dividend, gamma, vega, theta, und_price
+        self,
+        req_id,
+        tick_type,
+        tick_attrib,
+        implied_vol,
+        delta,
+        opt_price,
+        pv_dividend,
+        gamma,
+        vega,
+        theta,
+        und_price,
     ):
         with self.lock:
             self.greeks.setdefault(req_id, []).append(

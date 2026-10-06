@@ -107,7 +107,10 @@ class Wrapper(EWrapper):
     ):
         self.order_statuses.append((order_id, status, filled, remaining, perm_id))
         self.perm_ids[order_id] = perm_id
-        print(f"  [status] oid={order_id} status={status} filled={filled} remaining={remaining} permId={perm_id}")
+        print(
+            f"  [status] oid={order_id} status={status} filled={filled} "
+            f"remaining={remaining} permId={perm_id}"
+        )
         self.got_status.set()
         if status == "Filled" or filled > 0:
             self.got_fill.set()
@@ -178,7 +181,12 @@ def run_example():
 
     w = Wrapper()
     c = EClient(w)
-    c.connect(username=username, password=password, host=os.environ.get("IB_HOST", "cdc1.ibllc.com"), paper=True)
+    c.connect(
+        username=username,
+        password=password,
+        host=os.environ.get("IB_HOST", "cdc1.ibllc.com"),
+        paper=True,
+    )
     t = threading.Thread(target=c.run, daemon=True)
     t.start()
     assert w.connected.wait(timeout=15), "Connection failed"
@@ -253,7 +261,9 @@ def run_example():
     if modify_ok:
         results["4_modify"] = "PASS"
     else:
-        results["4_modify"] = f"FAIL (expected Submitted/100, got {status_after_modify}/{remaining_after_modify})"
+        results["4_modify"] = (
+            f"FAIL (expected Submitted/100, got {status_after_modify}/{remaining_after_modify})"
+        )
 
     # ══════════════════════════════════════════════════════════════════════
     # Step 5: Verify permId stable across modify
@@ -262,7 +272,9 @@ def run_example():
     perm_id_modify = w.perm_ids[oid1]
     perm_stable = perm_id_place == perm_id_modify
     print(f"  permId after modify: {perm_id_modify} (stable={perm_stable})")
-    results["5_permId_stable"] = "PASS" if perm_stable else f"FAIL ({perm_id_place} → {perm_id_modify})"
+    results["5_permId_stable"] = (
+        "PASS" if perm_stable else f"FAIL ({perm_id_place} → {perm_id_modify})"
+    )
 
     # ══════════════════════════════════════════════════════════════════════
     # Step 6: placeOrder (same orderId, price at market) — trigger fill
@@ -282,7 +294,9 @@ def run_example():
 
     got_fill = w.got_fill.wait(timeout=30)
     if got_fill:
-        fill_statuses = [s for s in w.order_statuses if s[0] == oid1 and (s[1] == "Filled" or s[2] > 0)]
+        fill_statuses = [
+            s for s in w.order_statuses if s[0] == oid1 and (s[1] == "Filled" or s[2] > 0)
+        ]
         if fill_statuses:
             filled_qty = int(fill_statuses[-1][2])  # how much was filled
             perm_id_fill = w.perm_ids[oid1]
@@ -307,7 +321,9 @@ def run_example():
         results["7_reqExecutions"] = "PASS"
     else:
         print("  No SPY executions (expected if step 6 failed)")
-        results["7_reqExecutions"] = "FAIL (no executions)" if got_fill else "SKIP (no fill in step 6)"
+        results["7_reqExecutions"] = (
+            "FAIL (no executions)" if got_fill else "SKIP (no fill in step 6)"
+        )
 
     # ══════════════════════════════════════════════════════════════════════
     # Step 8: Place another LMT far from market, then cancelOrder

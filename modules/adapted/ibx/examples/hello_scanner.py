@@ -50,7 +50,9 @@ class ScannerWrapper(EWrapper):
     def next_valid_id(self, order_id):
         self.connected.set()
 
-    def scanner_data(self, req_id, rank, contract_details, distance, benchmark, projection, legs_str):
+    def scanner_data(
+        self, req_id, rank, contract_details, distance, benchmark, projection, legs_str
+    ):
         self.rows.append((rank, contract_details))
 
     def scanner_data_end(self, req_id):
@@ -71,8 +73,7 @@ c.connect(
 )
 threading.Thread(target=c.run, daemon=True).start()
 if not w.connected.wait(timeout=15):
-    msg = "connect failed"
-    raise RuntimeError(msg)
+    raise RuntimeError("connect failed")
 
 req_id = 1
 print("subscribing TOP_PERC_GAIN, STK.US.MAJOR…")
@@ -84,7 +85,9 @@ if not w.done.wait(timeout=30):
 w.rows.sort(key=lambda r: r[0])
 print(f"results: {len(w.rows)}")
 for rank, d in w.rows[:10]:
-    print(f"  #{rank:<3}  {d.contract.symbol:<8} {d.contract.primary_exchange:<6} con_id={d.contract.con_id}")
+    print(
+        f"  #{rank:<3}  {d.contract.symbol:<8} {d.contract.primary_exchange:<6} con_id={d.contract.con_id}"
+    )
 
 c.cancel_scanner_subscription(req_id)
 c.disconnect()

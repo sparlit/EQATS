@@ -36,7 +36,6 @@ Ref: https://github.com/deepentropy/ib-agent/issues/100
 import os
 import sys
 import threading
-import time
 
 from ibx import Contract, EClient, EWrapper
 
@@ -107,7 +106,9 @@ class Wrapper(EWrapper):
         self.scanner_xml = xml
         self.got_scanner_params.set()
 
-    def scanner_data(self, req_id, rank, contract_details, distance, benchmark, projection, legs_str):
+    def scanner_data(
+        self, req_id, rank, contract_details, distance, benchmark, projection, legs_str
+    ):
         self.scanner_results.append((req_id, rank, contract_details))
 
     def scanner_data_end(self, req_id):
@@ -137,7 +138,12 @@ def run_example():
 
     w = Wrapper()
     c = EClient(w)
-    c.connect(username=username, password=password, host=os.environ.get("IB_HOST", "cdc1.ibllc.com"), paper=True)
+    c.connect(
+        username=username,
+        password=password,
+        host=os.environ.get("IB_HOST", "cdc1.ibllc.com"),
+        paper=True,
+    )
     t = threading.Thread(target=c.run, daemon=True)
     t.start()
     assert w.connected.wait(timeout=15), "Connection failed"
@@ -164,15 +170,10 @@ def run_example():
 
     # OHLC sanity on first bar
     b = bars1[0]
-    assert hasattr(b, "open")
-    assert hasattr(b, "high")
-    assert hasattr(b, "low")
-    assert hasattr(b, "close")
+    assert hasattr(b, "open") and hasattr(b, "high") and hasattr(b, "low") and hasattr(b, "close")
     assert b.high >= b.low, f"high ({b.high}) < low ({b.low})"
-    assert b.high >= b.open
-    assert b.high >= b.close
-    assert b.low <= b.open
-    assert b.low <= b.close
+    assert b.high >= b.open and b.high >= b.close
+    assert b.low <= b.open and b.low <= b.close
     assert 100 < b.close < 1000, f"MSFT close {b.close} out of range"
     print(f"  First bar: O={b.open} H={b.high} L={b.low} C={b.close} V={b.volume}")
 
@@ -224,7 +225,9 @@ def run_example():
     c.req_scanner_parameters()
     assert w.got_scanner_params.wait(timeout=30), "scanner_parameters not received"
     xml = w.scanner_xml
-    assert xml is not None and len(xml) > 100, f"Scanner params XML too short: {len(xml) if xml else 0}"
+    assert xml is not None and len(xml) > 100, (
+        f"Scanner params XML too short: {len(xml) if xml else 0}"
+    )
     print(f"  Scanner params XML: {len(xml)} chars")
 
     # ── Step 5: Scanner subscription ──────────────────────────────────────

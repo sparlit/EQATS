@@ -24,8 +24,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """IBX Test #105: Combo/spread order encoding (SPY vertical call spread).
 
 Tests multi-leg BAG contract construction and order placement.
-Note: ComboLeg population from Python is not yet implemented — this test
-verifies individual option leg market data as a fallback.
+It checks the market data of each option leg; the combo order itself is
+covered by test_issue_470.py and the paper check tests/combo_paper.rs.
 
 Run: pytest tests/python/test_issue_105.py -v -s
 """
@@ -187,4 +187,6 @@ class TestComboSpread:
             spread_bid = buy_data["bid"] - sell_data.get("ask", sell_data["bid"])
             spread_ask = buy_data.get("ask", buy_data["bid"]) - sell_data["bid"]
             print(f"  Spread value: {spread_bid:.2f} - {spread_ask:.2f}")
-            assert buy_data["bid"] > sell_data["bid"], "ATM call should be more expensive than OTM call"
+            assert buy_data["bid"] > sell_data["bid"], (
+                "ATM call should be more expensive than OTM call"
+            )

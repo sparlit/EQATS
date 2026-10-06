@@ -155,11 +155,15 @@ def test_rapid_multi_symbol_order_routing():
 
     # Check errors — no "invalid symbol" or "ambiguous" errors for our order IDs
     errors = [
-        (eid, code, msg) for ev, eid, code, msg in wrapper.events if ev == "error" and eid in {o for o, _ in oids}
+        (eid, code, msg)
+        for ev, eid, code, msg in wrapper.events
+        if ev == "error" and eid in {o for o, _ in oids}
     ]
     for eid, code, msg in errors:
         # Code 200 = "No security definition has been found" (wrong symbol sent)
-        assert code != 200, f"Order {eid}: got error 200 (no security def) — symbol was misrouted: {msg}"
+        assert code != 200, (
+            f"Order {eid}: got error 200 (no security def) — symbol was misrouted: {msg}"
+        )
 
     # Cleanup: cancel all
     for oid, _ in oids:

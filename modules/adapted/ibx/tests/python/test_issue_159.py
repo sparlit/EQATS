@@ -173,17 +173,23 @@ class TestOpenOrdersExcludesClosed:
 
         # Sanity: open snapshot should include our order while it's still working
         live = self._snapshot_open()
-        assert any(o[0] == oid for o in live), f"Order {oid} should appear in req_open_orders before cancel; got {live}"
+        assert any(o[0] == oid for o in live), (
+            f"Order {oid} should appear in req_open_orders before cancel; got {live}"
+        )
 
         # Cancel and wait for terminal status
         self.client.cancel_order(oid, "")
-        assert self.wrapper.got_cancelled.wait(timeout=15), f"Order {oid} never reached a cancelled/inactive status"
+        assert self.wrapper.got_cancelled.wait(timeout=15), (
+            f"Order {oid} never reached a cancelled/inactive status"
+        )
         # Give the engine a moment to drain CCP updates
         time.sleep(1.0)
 
         # First snapshot: cancelled order MUST NOT be present
         after = self._snapshot_open()
-        assert not any(o[0] == oid for o in after), f"Cancelled order {oid} leaked into req_open_orders: {after}"
+        assert not any(o[0] == oid for o in after), (
+            f"Cancelled order {oid} leaked into req_open_orders: {after}"
+        )
 
         # Second snapshot: still gone (the cache leak made repeats grow)
         again = self._snapshot_open()

@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use ibx::bridge::SharedState;
-use ibx::gateway::{connect_farm, reconnect_ccp, Gateway, GatewayConfig, ReconnectAuth};
+use ibx::gateway::{connect_farm, reconnect_ccp, reconnect_ccp_session, Gateway, GatewayConfig, ReconnectAuth};
 
 fn config() -> GatewayConfig {
     GatewayConfig {
@@ -23,6 +23,7 @@ fn config() -> GatewayConfig {
 }
 
 #[test]
+#[ignore = "live: logs in to the paper account (IB_USERNAME / IB_PASSWORD)"]
 fn farm_reconnect_with_cached_credentials() {
     let cfg = config();
 
@@ -59,6 +60,7 @@ fn farm_reconnect_with_cached_credentials() {
 }
 
 #[test]
+#[ignore = "live: logs in to the paper account (IB_USERNAME / IB_PASSWORD)"]
 fn hotloop_auto_reconnect_on_farm_disconnect() {
     let cfg = config();
 
@@ -91,14 +93,18 @@ fn hotloop_auto_reconnect_on_farm_disconnect() {
     control_tx.send(ibx::types::ControlCommand::Subscribe {
         con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(),
         last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(),
-        mode_9887: 0, reply_tx: None,
+        mode_9887: 0, snapshot: false, reply_tx: None,
     }).unwrap();
     hot_loop.poll_once();
     let spy = hot_loop.market_for_test().instrument_by_con_id(756733).expect("SPY registered");
     let acked = |hot_loop: &mut ibx::engine::hot_loop::HotLoop| {
         let deadline = Instant::now() + Duration::from_secs(20);
         while Instant::now() < deadline {
+            // Both sockets, as the running loop polls them: a stock
+            // subscription is sent once its definition came in on the auth
+            // connection (ibx#287).
             hot_loop.poll_farm_for_test();
+            hot_loop.poll_auth_for_test();
             if hot_loop.market_for_test().min_tick(spy) > 0.0 { return true; }
             std::thread::sleep(Duration::from_millis(5));
         }
@@ -138,6 +144,7 @@ fn hotloop_auto_reconnect_on_farm_disconnect() {
 }
 
 #[test]
+#[ignore = "live: logs in to the paper account (IB_USERNAME / IB_PASSWORD)"]
 fn ccp_reconnect_with_cached_credentials() {
     let cfg = config();
 
@@ -159,6 +166,12 @@ fn ccp_reconnect_with_cached_credentials() {
         encoded: gw.encoded.clone(),
         hmds_host: gw.hmds_host.clone(),
         hmds_farm: gw.hmds_farm.clone(),
+        farm_host: gw.farm_host.clone(),
+        farm_name: gw.farm_name.clone(),
+        session_epoch: gw.session_epoch.clone(),
+        ns_secure_refused: gw.ns_secure_refused,
+        use_ssl: gw.use_ssl,
+        ssl_farms: gw.ssl_farms.clone(),
     };
 
     println!("Full auth: {}ms | session_id={}", full_auth_ms, auth.server_session_id);
@@ -184,4 +197,93 @@ fn ccp_reconnect_with_cached_credentials() {
             // This is an expected outcome — don't fail the test, just report
         }
     }
+}
+
+/// ibx#423: the auth login and a reconnect of the auth connection run over
+/// TLS with no key exchange, as the reference; the farm logon keeps its key
+/// exchange. Both logon replies give a clock offset (ibx#421).
+/// Run with: cargo test --test farm_reconnect_poc auth_login_and_reconnect_without_key_exchange_live -- --ignored --nocapture
+#[test]
+#[ignore]
+fn auth_login_and_reconnect_without_key_exchange_live() {
+    let _ = env_logger::try_init();
+    let cfg = config();
+    let (gw, _farm_conn, ccp_conn, _hmds) = Gateway::connect(&cfg).expect("Initial connect failed");
+    assert!(gw.account_id.starts_with("DU"), "refusing to run: the logged-in account is not a paper account (its id does not start with DU)");
+    assert!(!gw.ns_secure_refused, "the server refused the encryption");
+    println!("login: clock offset {:?} ms, backfill years {}", gw.logon.clock_offset_ms, gw.max_backfill_years);
+    assert!(gw.logon.clock_offset_ms.is_some(), "the logon reply gives the server time");
+
+    let auth = ReconnectAuth {
+        host: cfg.host.clone(),
+        username: cfg.username.clone(),
+        password: cfg.password.clone(),
+        paper: cfg.paper,
+        session_key: gw.session_token.clone(),
+        session_token: gw.session_token.clone(),
+        server_session_id: gw.server_session_id.clone(),
+        hw_info: gw.hw_info.clone(),
+        encoded: gw.encoded.clone(),
+        hmds_host: gw.hmds_host.clone(),
+        hmds_farm: gw.hmds_farm.clone(),
+        farm_host: gw.farm_host.clone(),
+        farm_name: gw.farm_name.clone(),
+        session_epoch: gw.session_epoch.clone(),
+        ns_secure_refused: gw.ns_secure_refused,
+        use_ssl: gw.use_ssl,
+        ssl_farms: gw.ssl_farms.clone(),
+    };
+    drop(ccp_conn);
+    let reconnect = reconnect_ccp_session(&auth).expect("auth reconnect without key exchange");
+    assert!(!reconnect.ns_secure_refused);
+    println!("reconnect: clock offset {:?} ms, epoch {:?}", reconnect.logon.clock_offset_ms, reconnect.session_epoch);
+
+    let farm = connect_farm(
+        &cfg.host, "usfarm", &cfg.username, &cfg.password, cfg.paper,
+        &gw.server_session_id, &gw.session_token, &gw.hw_info, &gw.encoded, 18,
+    ).expect("farm logon with its key exchange");
+    assert!(farm.seq > 0);
+}
+
+/// ibx#423: the reference's mode without TLS (jts.ini UseSSL false,
+/// IBX_USE_SSL=false here): the auth login on a plain socket to port 4000
+/// with the key exchange first, then a reconnect the same way. Never
+/// captured from the reference: this run tells whether the server takes
+/// the login of that mode from ibx.
+/// Run with: cargo test --test farm_reconnect_poc auth_login_without_tls_live -- --ignored --nocapture
+#[test]
+#[ignore]
+fn auth_login_without_tls_live() {
+    let _ = env_logger::try_init();
+    // SAFETY: an ignored test, run alone; nothing else reads the
+    // environment at the same time.
+    unsafe { std::env::set_var("IBX_USE_SSL", "false") };
+    let cfg = config();
+    let (gw, _farm_conn, ccp_conn, _hmds) = Gateway::connect(&cfg).expect("login without TLS");
+    assert!(gw.account_id.starts_with("DU"), "refusing to run: the logged-in account is not a paper account (its id does not start with DU)");
+    assert!(!gw.use_ssl);
+    println!("login without TLS: encryption refused {}, clock offset {:?} ms", gw.ns_secure_refused, gw.logon.clock_offset_ms);
+    let auth = ReconnectAuth {
+        host: cfg.host.clone(),
+        username: cfg.username.clone(),
+        password: cfg.password.clone(),
+        paper: cfg.paper,
+        session_key: gw.session_token.clone(),
+        session_token: gw.session_token.clone(),
+        server_session_id: gw.server_session_id.clone(),
+        hw_info: gw.hw_info.clone(),
+        encoded: gw.encoded.clone(),
+        hmds_host: gw.hmds_host.clone(),
+        hmds_farm: gw.hmds_farm.clone(),
+        farm_host: gw.farm_host.clone(),
+        farm_name: gw.farm_name.clone(),
+        session_epoch: gw.session_epoch.clone(),
+        ns_secure_refused: gw.ns_secure_refused,
+        use_ssl: gw.use_ssl,
+        ssl_farms: gw.ssl_farms.clone(),
+    };
+    drop(ccp_conn);
+    let reconnect = reconnect_ccp_session(&auth).expect("auth reconnect without TLS");
+    println!("reconnect without TLS: encryption refused {}, epoch {:?}", reconnect.ns_secure_refused, reconnect.session_epoch);
+    unsafe { std::env::remove_var("IBX_USE_SSL") };
 }

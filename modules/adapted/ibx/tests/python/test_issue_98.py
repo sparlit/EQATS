@@ -31,10 +31,9 @@ Run: pytest tests/python/test_issue_98.py -v --timeout=120
 
 import os
 import threading
-import time
 
 import pytest
-from ibx import Contract, EClient, EWrapper
+from ibx import EClient, EWrapper
 
 pytestmark = pytest.mark.skipif(
     not (os.environ.get("IB_USERNAME") and os.environ.get("IB_PASSWORD")),
@@ -84,7 +83,15 @@ class AccountWrapper(EWrapper):
         self.account_values[key] = (value, currency)
 
     def update_portfolio(
-        self, contract, position, market_price, market_value, average_cost, unrealized_pnl, realized_pnl, account_name
+        self,
+        contract,
+        position,
+        market_price,
+        market_value,
+        average_cost,
+        unrealized_pnl,
+        realized_pnl,
+        account_name,
     ):
         self.portfolio.append(
             {
@@ -176,7 +183,9 @@ class TestAccountAndPnL:
         """Subscribe to account updates, collect key-value pairs, then unsubscribe."""
         self.client.req_account_updates(True, "")
 
-        assert self.wrapper.got_account_download_end.wait(timeout=30), "account_download_end not received"
+        assert self.wrapper.got_account_download_end.wait(timeout=30), (
+            "account_download_end not received"
+        )
 
         # Should have standard account keys
         assert len(self.wrapper.account_values) > 0, "Should have account values"
@@ -224,7 +233,9 @@ class TestAccountAndPnL:
         port_symbols = {p["con_id"] for p in self.wrapper.portfolio if p["position"] != 0}
 
         if pos_symbols:
-            assert pos_symbols == port_symbols, f"Position/portfolio mismatch: pos={pos_symbols} port={port_symbols}"
+            assert pos_symbols == port_symbols, (
+                f"Position/portfolio mismatch: pos={pos_symbols} port={port_symbols}"
+            )
 
     def test_account_pnl(self):
         """Subscribe to account-level P&L."""

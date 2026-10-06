@@ -21,12 +21,71 @@ pub(super) use ibx::types::*;
 /// end of the suite, unless the phase declares it expected with a reason.
 static REJECTIONS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
 
-/// Record a rejection as a failure. The server's reason is in the
-/// "ExecReport REJECTED" log line (run with RUST_LOG=warn).
-pub(super) fn record_rejection(what: &str) {
-    println!("  FAIL: {} (rejected by the server)
-", what);
-    REJECTIONS.lock().unwrap().push(what.to_string());
+thread_local! {
+    /// Failures recorded since the current phase began (`phase!`). Per
+    /// thread: the test entries of this binary can run side by side.
+    static PHASE_FAILURES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// Start counting the failures of a new phase.
+pub(super) fn begin_phase() {
+    PHASE_FAILURES.with(|c| c.set(0));
+}
+
+/// Failures recorded since the current phase began.
+pub(super) fn phase_failures() -> usize {
+    PHASE_FAILURES.with(|c| c.get())
+}
+
+fn count_phase_failure() {
+    PHASE_FAILURES.with(|c| c.set(c.get() + 1));
+}
+
+/// The order errors (local refusals, warnings) and the notices of the
+/// server reports (201 reject, 202 cancel), which the reference gives after
+/// the report's status (ibx#486; every 39=8 and 39=4 of the four-leg
+/// recordings of 26/09 to 02/10/2026). Drains both queues.
+pub(super) fn drain_order_messages(shared: &SharedState) -> Vec<(i64, i64, String)> {
+    let mut out = shared.orders.drain_order_errors();
+    out.extend(shared.orders.drain_order_notices());
+    out
+}
+
+/// The order messages after a Rejected status: its 201 follows the status
+/// (ibx#486), so wait for it, 2 s at most, then drain.
+pub(super) fn drain_after_reject(shared: &SharedState) -> Vec<(i64, i64, String)> {
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let mut out = Vec::new();
+    loop {
+        out.extend(drain_order_messages(shared));
+        if out.iter().any(|(_, code, _)| *code == 201) || Instant::now() >= deadline {
+            return out;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+/// Record a rejection as a failure, with the server's reason: the reject
+/// reaches the client as error 201 "Order rejected - reason:...", after the
+/// Inactive status, as the reference shows it to an API client. Waits for
+/// it, then drains the order messages.
+pub(super) fn record_rejection(what: &str, shared: &SharedState) {
+    let errors: Vec<(i64, String)> = drain_after_reject(shared)
+        .into_iter().map(|(_, code, text)| (code, text)).collect();
+    record_rejection_with(what, &errors);
+}
+
+/// Record a rejection as a failure, with the order errors already drained.
+/// The reasons are the error 201 texts; with none, every error is shown.
+pub(super) fn record_rejection_with(what: &str, errors: &[(i64, String)]) {
+    let rejects: Vec<&(i64, String)> = errors.iter().filter(|(code, _)| *code == 201).collect();
+    let shown: Vec<String> = if rejects.is_empty() { errors.iter().collect::<Vec<_>>() } else { rejects }
+        .iter().map(|(code, text)| format!("{} {}", code, text)).collect();
+    let reason = if shown.is_empty() { "no reason received".to_string() } else { shown.join(" | ") };
+    println!("  FAIL: {} (rejected by the server: {})
+", what, reason);
+    REJECTIONS.lock().unwrap().push(format!("{} ({})", what, reason));
+    count_phase_failure();
 }
 
 /// Record a phase failure without stopping the suite, so the phases after it
@@ -35,6 +94,7 @@ pub(super) fn record_failure(what: &str) {
     println!("  FAIL: {}
 ", what);
     REJECTIONS.lock().unwrap().push(what.to_string());
+    count_phase_failure();
 }
 
 /// A rejection the server always gives for this account or session, with
@@ -59,19 +119,14 @@ pub(super) fn take_rejections() -> Vec<String> {
 /// same trap in a different shape.
 ///
 /// The env is not loaded from `.env` here (no loader dependency); export it
-/// first, e.g. `set -a; . ./.env; set +a`. To skip on purpose (a checkout with
-/// no credentials), set `IBX_ALLOW_SKIP_NO_CREDS=1` and the suite returns `None`
-/// as before.
+/// first, e.g. `set -a; . ./.env; set +a`. The live tests are `#[ignore]`:
+/// a run without `--ignored` lists them as ignored, never as passed.
 pub(super) fn get_config() -> Option<GatewayConfig> {
     let var = |k: &str| env::var(k).ok().filter(|v| !v.trim().is_empty());
     let (username, password) = match (var("IB_USERNAME"), var("IB_PASSWORD")) {
         (Some(u), Some(p)) => (u, p),
-        _ if var("IBX_ALLOW_SKIP_NO_CREDS").as_deref() == Some("1") => return None,
         _ => panic!(
-            "IB_USERNAME/IB_PASSWORD unset or empty — the compat suite tests \
-             nothing without real-server credentials, so it fails rather than \
-             passing silently. Export them first (`set -a; . ./.env; set +a`), \
-             or set IBX_ALLOW_SKIP_NO_CREDS=1 to skip deliberately."
+            "IB_USERNAME/IB_PASSWORD unset or empty: the compat suite tests              nothing without real-server credentials, so it fails rather than              passing silently. Export them first (`set -a; . ./.env; set +a`)."
         ),
     };
     let host = env::var("IB_HOST").unwrap_or_else(|_| "cdc1.ibllc.com".to_string());
@@ -110,7 +165,7 @@ pub(super) fn connect_paper(
 /// order cache is filled from execution reports, so after a replace
 /// confirmation it holds the new values. A replace that keeps the order's
 /// status emits no status update, so this is how a phase sees it land.
-pub(super) fn confirmed_price_qty(shared: &SharedState, order_id: u64) -> Option<(f64, f64)> {
+pub(super) fn confirmed_price_qty(shared: &SharedState, order_id: OrderId) -> Option<(f64, f64)> {
     shared.orders.get_order_info(order_id).map(|i| (i.order.lmt_price, i.order.total_quantity))
 }
 
@@ -120,6 +175,40 @@ pub(super) struct Conns {
     pub(super) ccp: Connection,
     pub(super) hmds: Option<Connection>,
     pub(super) account_id: String,
+}
+
+/// Give a hot loop built from bare connections what the real clients give
+/// it (#445): the routing tables of the logon, which pick the farm of each
+/// request, and the session's credentials, with which a farm a request
+/// routes to is opened on demand. Without them the engine has no route to a
+/// farm other than the two of the logon and cannot open one.
+pub(super) fn as_client_session(hot_loop: &mut HotLoop, gw: &gateway::Gateway, config: &GatewayConfig) {
+    if let Some(text) = &gw.md_routing {
+        hot_loop.set_routing_table(ibx::engine::routing::TableKind::MarketData, text);
+    }
+    if let Some(text) = &gw.hmds_routing {
+        hot_loop.set_routing_table(ibx::engine::routing::TableKind::Historical, text);
+    }
+    hot_loop.set_farm_name(gw.farm_name.clone());
+    hot_loop.set_reconnect_auth(gateway::ReconnectAuth {
+        host: config.host.clone(),
+        username: config.username.clone(),
+        password: config.password.clone(),
+        paper: config.paper,
+        session_key: gw.session_token.clone(),
+        session_token: gw.session_token.clone(),
+        server_session_id: gw.server_session_id.clone(),
+        hw_info: gw.hw_info.clone(),
+        encoded: gw.encoded.clone(),
+        hmds_host: gw.hmds_host.clone(),
+        hmds_farm: gw.hmds_farm.clone(),
+        farm_host: gw.farm_host.clone(),
+        farm_name: gw.farm_name.clone(),
+        session_epoch: gw.session_epoch.clone(),
+        ns_secure_refused: gw.ns_secure_refused,
+        use_ssl: gw.use_ssl,
+        ssl_farms: gw.ssl_farms.clone(),
+    });
 }
 
 /// Run a hot loop in a background thread, returning the HotLoop for connection reclamation.
@@ -156,34 +245,32 @@ pub(super) fn shutdown_and_reclaim(
 pub(super) fn ccp_keepalive(ccp: &mut Connection) {
     // Drain any pending data (heartbeats, TestRequests from IB)
     let _ = ccp.try_recv();
-    if ccp.has_buffered_data() || true {
-        let frames = ccp.extract_frames();
-        for frame in frames {
-            let raw = match &frame {
-                Frame::Fix(r) | Frame::FixComp(r) | Frame::Binary(r) => r,
-                // Control-state frames are not consumed downstream (ibx#185).
-                Frame::Control(_) => continue,
-            };
-            let (unsigned, _) = ccp.unsign(raw);
-            let msg = if matches!(frame, Frame::FixComp(_)) {
-                fixcomp::fixcomp_decompress(&unsigned)
-                    .ok()
-                    .and_then(|m| m.into_iter().next())
-            } else {
-                Some(unsigned)
-            };
-            if let Some(m) = msg {
-                let parsed = fix::fix_parse(&m);
-                if parsed.get(&fix::TAG_MSG_TYPE).map(|s| s.as_str()) == Some(fix::MSG_TEST_REQUEST) {
-                    // Respond to TestRequest with Heartbeat containing the test ID
-                    let test_id = parsed.get(&fix::TAG_TEST_REQ_ID).cloned().unwrap_or_default();
-                    let ts = gateway::chrono_free_timestamp();
-                    let _ = ccp.send_fix(&[
-                        (fix::TAG_MSG_TYPE, fix::MSG_HEARTBEAT),
-                        (fix::TAG_SENDING_TIME, &ts),
-                        (fix::TAG_TEST_REQ_ID, &test_id),
-                    ]);
-                }
+    let frames = ccp.extract_frames();
+    for frame in frames {
+        let raw = match &frame {
+            Frame::Fix(r) | Frame::FixComp(r) | Frame::Binary(r) => r,
+            // Control-state frames are not consumed downstream (ibx#185).
+            Frame::Control(_) => continue,
+        };
+        let (unsigned, _) = ccp.unsign(raw);
+        let msg = if matches!(frame, Frame::FixComp(_)) {
+            fixcomp::fixcomp_decompress(&unsigned)
+                .ok()
+                .and_then(|m| m.into_iter().next())
+        } else {
+            Some(unsigned)
+        };
+        if let Some(m) = msg {
+            let parsed = fix::fix_parse(&m);
+            if parsed.get(&fix::TAG_MSG_TYPE).map(|s| s.as_str()) == Some(fix::MSG_TEST_REQUEST) {
+                // Respond to TestRequest with Heartbeat containing the test ID
+                let test_id = parsed.get(&fix::TAG_TEST_REQ_ID).cloned().unwrap_or_default();
+                let ts = gateway::chrono_free_timestamp();
+                let _ = ccp.send_fix(&[
+                    (fix::TAG_MSG_TYPE, fix::MSG_HEARTBEAT),
+                    (fix::TAG_SENDING_TIME, &ts),
+                    (fix::TAG_TEST_REQ_ID, &test_id),
+                ]);
             }
         }
     }
@@ -206,8 +293,8 @@ pub(super) fn next_order_id() -> OrderId {
     let base = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
-        .as_millis() as u64 * 1000;
-    base + (SEQ.fetch_add(1, Ordering::Relaxed) % 1000)
+        .as_millis() as OrderId * 1000;
+    base + (SEQ.fetch_add(1, Ordering::Relaxed) % 1000) as OrderId
 }
 
 /// Check if CCP connection is alive and reconnect the full gateway if not.
@@ -551,6 +638,8 @@ pub(super) fn skip_unacked_if_closed(order_acked: bool) -> bool {
 // ─── Generic submit+cancel helper ───
 // fill_or_cancel=false: only cancelled counts as success
 // fill_or_cancel=true: filled OR cancelled both count as success
+// A local refusal of the order fails the phase, unless it is the one the phase
+// names as the reference answer (run_submit_cancel_phase_or_refused).
 
 pub(super) fn run_submit_cancel_phase(
     conns: Conns,
@@ -558,10 +647,69 @@ pub(super) fn run_submit_cancel_phase(
     order_req: OrderRequest,
     fill_or_cancel: bool,
 ) -> Conns {
-    println!("--- {} ---", phase_name);
+    run_submit_cancel_phase_or_refused(conns, phase_name, order_req, fill_or_cancel, None)
+}
+
+/// Same as `run_submit_cancel_phase`, but `accepted_refusal` names the local refusal
+/// code that is also a correct answer: the reference refuses some order types
+/// locally, depending on the order types the server allows for the contract and
+/// exchange, so either that refusal or the normal ack and cancel is right.
+pub(super) fn run_submit_cancel_phase_or_refused(
+    conns: Conns,
+    phase_name: &str,
+    order_req: OrderRequest,
+    fill_or_cancel: bool,
+    accepted_refusal: Option<i64>,
+) -> Conns {
+    run_submit_cancel_phase_inner(conns, phase_name, order_req, fill_or_cancel, accepted_refusal, None, None)
+}
+
+/// Same as `run_submit_cancel_phase`, but `reference_reject` is the reason
+/// of a server reject the reference gets for the same order (captured): the
+/// reference sends the order and the server refuses it, so that reject, with
+/// exactly that reason, is also a correct answer. Any other reject fails.
+pub(super) fn run_submit_cancel_phase_or_server_reject(
+    conns: Conns,
+    phase_name: &str,
+    order_req: OrderRequest,
+    fill_or_cancel: bool,
+    reference_reject: &str,
+) -> Conns {
+    run_submit_cancel_phase_inner(conns, phase_name, order_req, fill_or_cancel, None, Some(reference_reject), None)
+}
+
+/// An at-the-close order (MOC, LOC). In regular hours the server answers
+/// nothing until the order is cancelled; the reference's client gets no status
+/// either, then PendingCancel, Cancelled and 202 on the cancel (captured
+/// 01/10/2026). So in regular hours the cancel goes 5 s after the send without
+/// an acknowledgement, and the phase needs the cancel and its 202. In the other
+/// sessions the order is acknowledged and cancelled as any other.
+pub(super) fn run_close_order_phase(conns: Conns, phase_name: &str, order_req: OrderRequest) -> Conns {
+    let unacked_cancel = (market_session().0 == MarketSession::Regular).then_some(Duration::from_secs(5));
+    run_submit_cancel_phase_inner(conns, phase_name, order_req, false, None, None, unacked_cancel)
+}
+
+/// True when the order errors hold the server reject (201) with exactly the
+/// reason the reference gets.
+pub(super) fn is_reference_reject(errors: &[(i64, String)], reason: &str) -> bool {
+    let want = format!("Order rejected - reason:{}", reason);
+    errors.iter().any(|(code, text)| *code == 201 && *text == want)
+}
+
+fn run_submit_cancel_phase_inner(
+    conns: Conns,
+    phase_name: &str,
+    order_req: OrderRequest,
+    fill_or_cancel: bool,
+    accepted_refusal: Option<i64>,
+    reference_reject: Option<&str>,
+    unacked_cancel: Option<Duration>,
+) -> Conns {
+    phase!("--- {} ---", phase_name);
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
+    let shared_view = Arc::clone(&shared);
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
     let (mut hot_loop, control_tx) = HotLoop::with_connections(
         shared, Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
@@ -603,31 +751,50 @@ pub(super) fn run_submit_cancel_phase(
         OrderRequest::SubmitPegBench { order_id, .. } => *order_id,
         OrderRequest::SubmitLimitAuc { order_id, .. } => *order_id,
         OrderRequest::SubmitMtlAuc { order_id, .. } => *order_id,
-        OrderRequest::SubmitWhatIf { order_id, .. } => *order_id,
+        OrderRequest::SubmitWhatIf { request } => request.order_id(),
         OrderRequest::SubmitLimitFractional { order_id, .. } => *order_id,
         OrderRequest::SubmitAdjustableStop { order_id, .. } => *order_id,
         OrderRequest::SubmitTrailingStopPctEx { order_id, .. } => *order_id,
         OrderRequest::SubmitEx { order_id, .. } => *order_id,
         OrderRequest::SubmitBracket { parent_id, .. } => *parent_id,
         OrderRequest::Cancel { order_id } => *order_id,
-        OrderRequest::CancelAll { .. } => 0,
+        OrderRequest::CancelAll { .. } | OrderRequest::GlobalCancel => 0,
         OrderRequest::Modify { new_order_id, .. } => *new_order_id,
     };
 
     control_tx.send(ControlCommand::Order(order_req)).unwrap();
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
-    let deadline = Instant::now() + Duration::from_secs(60);
+    let sent_at = Instant::now();
+    let deadline = sent_at + Duration::from_secs(60);
     let mut order_acked = false;
     let mut cancel_sent = false;
     let mut order_cancelled = false;
     let mut order_filled = false;
     let mut order_rejected = false;
+    // Every status seen, in order, so a failure says where the order stopped.
+    let mut statuses: Vec<OrderStatus> = Vec::new();
+
+    // Errors and notices of this order (refusals, cancel notice, warnings), in order.
+    let mut order_errors: Vec<(i64, String)> = Vec::new();
+    let mut refused_as_reference = false;
 
     while Instant::now() < deadline {
+        for (oid, code, text) in drain_order_messages(&shared_view) {
+            if oid == order_id { order_errors.push((code, text)); }
+        }
+        if !order_acked && accepted_refusal.is_some_and(|c| order_errors.iter().any(|(code, _)| *code == c)) {
+            refused_as_reference = true;
+            break;
+        }
+        if !cancel_sent && !order_acked && unacked_cancel.is_some_and(|d| sent_at.elapsed() >= d) {
+            control_tx.send(ControlCommand::Order(OrderRequest::Cancel { order_id })).unwrap();
+            cancel_sent = true;
+        }
         match event_rx.recv_timeout(Duration::from_millis(100)) {
             Ok(Event::OrderUpdate(update)) => {
+                if statuses.last() != Some(&update.status) { statuses.push(update.status); }
                 match update.status {
                     // PreSubmitted (39=A) is the server's ack: received, not yet
                     // working on the exchange. An at-the-open order stops there until
@@ -655,31 +822,72 @@ pub(super) fn run_submit_cancel_phase(
                     _ => {}
                 }
             }
+            // A fill comes as a fill event, not as a status update: the
+            // clients build their Filled status from it. Nothing left working
+            // means the order is filled.
+            Ok(Event::Fill(fill)) if fill.order_id == order_id && fill.remaining_fixed == 0 => {
+                if statuses.last() != Some(&OrderStatus::Filled) { statuses.push(OrderStatus::Filled); }
+                order_filled = true;
+                if fill_or_cancel { break; }
+            }
             _ => {}
         }
     }
 
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
+    // The loop stops on the Rejected or Cancelled update, before the 201 or
+    // 202 that follows it (ibx#486): take what is left, waiting for the 201
+    // of a reject.
+    let rest = if order_rejected { drain_after_reject(&shared_view) } else { drain_order_messages(&shared_view) };
+    for (oid, code, text) in rest {
+        if oid == order_id { order_errors.push((code, text)); }
+    }
 
+    if refused_as_reference {
+        let (code, text) = order_errors.iter().find(|(code, _)| Some(*code) == accepted_refusal).unwrap();
+        pass!("  PASS (refused locally as the reference: {} {})
+", code, text);
+        return conns;
+    }
     if order_rejected {
-        record_rejection(phase_name);
+        if let Some(reason) = reference_reject.filter(|r| is_reference_reject(&order_errors, r)) {
+            pass!("  PASS (rejected by the server as the reference: 201 Order rejected - reason:{})
+", reason);
+        } else {
+            record_rejection_with(phase_name, &order_errors);
+        }
         return conns;
     }
     if fill_or_cancel {
-        check!(order_filled || order_cancelled, "Order was neither filled nor cancelled");
-        if order_filled { println!("  PASS (filled)\n"); } else { println!("  PASS (cancelled)\n"); }
+        // A missing fill and cancel stays a failure: it means the order was never
+        // acknowledged or its cancel was never confirmed. The facts below tell which.
+        check!(order_filled || order_cancelled,
+            "Order was neither filled nor cancelled (acknowledged: {}, cancel sent: {}, statuses: {:?}, errors: {:?})",
+            order_acked, cancel_sent, statuses, order_errors);
+        if order_filled { pass!("  PASS (filled)\n"); }
+        else if order_cancelled { pass!("  PASS (cancelled)\n"); }
+        else { println!(); }
     } else {
         // Session-aware gate: some order types (Relative/pegged, snapshot, midprice)
         // peg to a live primary NBBO and are never acknowledged when the market is
         // closed. Treat an un-acked order on a Closed session as a SKIP, not a
         // failure — a plain order that acks on a closed market still reaches PASS.
+        if unacked_cancel.is_some() && !order_acked {
+            check!(order_cancelled, "Order not cancelled after the cancel sent without an acknowledgement (statuses: {:?}, errors: {:?})",
+                statuses, order_errors);
+            check!(order_errors.iter().any(|(code, _)| *code == 202),
+                "No 202 cancel notice (the reference's client gets one; errors: {:?})", order_errors);
+            pass!("  PASS (no answer before the cancel, as the reference; cancelled with 202)
+");
+            return conns;
+        }
         if !order_acked && market_session().0 == MarketSession::Closed {
             println!("  SKIP: Closed — order not acknowledged (order type needs a live market)\n");
             return conns;
         }
-        check!(order_acked, "Order was never acknowledged");
-        check!(order_cancelled, "Order was never cancelled");
-        println!("  PASS\n");
+        check!(order_acked, "Order was never acknowledged (errors: {:?})", order_errors);
+        check!(order_cancelled, "Order was never cancelled (statuses: {:?}, errors: {:?})", statuses, order_errors);
+        pass!("  PASS\n");
     }
     conns
 }

@@ -38,7 +38,7 @@ import contextlib
 import os
 import threading
 import time
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from ibx import Contract, EClient, EWrapper, Order
@@ -140,7 +140,9 @@ class TestGtdLifecycle:
             if any(st in ("Inactive", "Rejected") for st in s):
                 pytest.fail(f"GTD order {oid} rejected: statuses={s}")
             time.sleep(0.5)
-        pytest.fail(f"GTD order {oid} never reached an accepted state: {self.wrapper.statuses(oid)}")
+        pytest.fail(
+            f"GTD order {oid} never reached an accepted state: {self.wrapper.statuses(oid)}"
+        )
 
     def test_time_precise_gtd_acks_and_cancels_on_schedule(self):
         """Time-precise GTD (tag 126, UTC) acks, rests, and the gateway
@@ -160,7 +162,9 @@ class TestGtdLifecycle:
         time.sleep(max(wait_s, 0))
 
         final = self.wrapper.statuses(oid)
-        assert "Cancelled" in final, f"GTD order should be broker-cancelled at expiry; statuses={final}"
+        assert "Cancelled" in final, (
+            f"GTD order should be broker-cancelled at expiry; statuses={final}"
+        )
 
     def test_date_only_gtd_acks(self):
         """Date-only GTD (tag 432) is accepted and rests. Cancelled in teardown."""
@@ -172,5 +176,4 @@ class TestGtdLifecycle:
 
         s = self._wait_accept(oid)
         print(f"  accepted date-only: oid={oid} statuses={s} expiry={gtd}")
-        assert "Inactive" not in s
-        assert "Rejected" not in s
+        assert "Inactive" not in s and "Rejected" not in s

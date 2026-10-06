@@ -6,6 +6,7 @@ pub mod config;
 pub mod control;
 pub mod gateway;
 pub mod logging;
+pub mod md_events;
 pub mod protocol;
 pub mod types;
 
@@ -15,6 +16,19 @@ pub mod engine;
 
 #[cfg(feature = "python")]
 mod python;
+
+/// Test helpers (in-memory peer, normaliser); built only for the tests.
+#[cfg(any(test, feature = "test-support"))]
+#[doc(hidden)]
+pub mod test_support;
+
+/// Golden codec tests from recorded reference frames (ibx#486).
+#[cfg(test)]
+mod golden;
+
+/// Robustness tests on network input and callbacks (ibx#488).
+#[cfg(test)]
+mod robustness;
 
 // Re-exports for convenience.
 pub use api::{EClient, EClientConfig, Wrapper};

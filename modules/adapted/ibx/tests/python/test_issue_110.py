@@ -247,7 +247,11 @@ class TestBulkOrdersGlobalCancel:
             print(f"  {symbol} {otype} (oid={oid}): {statuses}")
 
         # Count non-filled orders for expected cancels
-        cancellable = sum(1 for oid, _, _ in placed_oids if "Filled" not in self.wrapper.order_statuses.get(oid, []))
+        cancellable = sum(
+            1
+            for oid, _, _ in placed_oids
+            if "Filled" not in self.wrapper.order_statuses.get(oid, [])
+        )
         self.wrapper._expected_cancels = cancellable
 
         # ── Global cancel ──
@@ -274,7 +278,9 @@ class TestBulkOrdersGlobalCancel:
 
         # If MKT filled, sell to flatten
         mkt_filled = any(
-            "Filled" in self.wrapper.order_statuses.get(oid, []) for oid, _, otype in placed_oids if otype == "MKT"
+            "Filled" in self.wrapper.order_statuses.get(oid, [])
+            for oid, _, otype in placed_oids
+            if otype == "MKT"
         )
         if mkt_filled:
             sell_oid = self.wrapper.next_order_id

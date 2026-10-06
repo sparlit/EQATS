@@ -151,24 +151,31 @@ impl<'a> LsbBitReader<'a> {
     }
 }
 
-// 8=O binary tick type IDs (what comes off the wire in 35=P)
+// Binary tick type IDs, as they come off the wire.
 pub const O_BID_PRICE: u64 = 0;
 pub const O_ASK_PRICE: u64 = 1;
 pub const O_LAST_PRICE: u64 = 2;
-pub const O_HIGH_PRICE: u64 = 3;
+pub const O_CLOSE_PRICE: u64 = 3;
 pub const O_BID_SIZE: u64 = 4;
 pub const O_ASK_SIZE: u64 = 5;
-pub const O_VOLUME: u64 = 6;
-pub const O_OPEN_PRICE: u64 = 8;
+pub const O_LAST_SIZE: u64 = 6;
+/// The bid and ask auto-execution bits of a quote.
+pub const O_AUTO_EXEC: u64 = 7;
+pub const O_HIGH_PRICE: u64 = 8;
 pub const O_LOW_PRICE: u64 = 9;
-pub const O_TIMESTAMP: u64 = 10;
-pub const O_LAST_SIZE: u64 = 12;
-pub const O_LAST_EXCH: u64 = 13;
+pub const O_VOLUME: u64 = 10;
+/// On a quote, attribute bits with the auto-execution bits; on a trade,
+/// its trading status.
+pub const O_ATTRIBUTES: u64 = 13;
 pub const O_BID_EXCH: u64 = 16;
 pub const O_ASK_EXCH: u64 = 17;
 pub const O_HALTED: u64 = 18;
-pub const O_CLOSE_PRICE: u64 = 22;
-pub const O_LAST_TS: u64 = 23;
+/// Last trade time base; the close date on a daily-stats block.
+pub const O_TIMESTAMP_BASE: u64 = 20;
+/// Added to the base for the last trade time.
+pub const O_TIMESTAMP_DELTA: u64 = 21;
+pub const O_OPEN_PRICE: u64 = 22;
+pub const O_LAST_EXCH: u64 = 27;
 
 /// Volume multiplier: IB encodes volume * 10000.
 pub const VOLUME_MULT: f64 = 0.0001;
@@ -179,6 +186,10 @@ pub struct RawTick {
     pub server_tag: u32,
     pub tick_type: u64,
     pub magnitude: i64,
+    /// The tick comes from a daily-stats block.
+    pub stats_block: bool,
+    /// The tick is the first of its block.
+    pub first: bool,
 }
 
 /// Decode all ticks from a 35=P binary payload.
@@ -191,11 +202,20 @@ pub fn decode_ticks_35p(body: &[u8]) -> Vec<RawTick> {
     ticks
 }
 
+/// Widest tick value ibx accepts: the widest that still fits an `i64`;
+/// a wider one is an oversized value (ibx#272).
+pub const MAX_VALUE_BYTES: u64 = 8;
+
 /// Decode ticks into a caller-supplied buffer (avoids heap allocation on hot path).
-pub fn decode_ticks_35p_into(body: &[u8], ticks: &mut Vec<RawTick>) {
+///
+/// A malformed block (cut short, or with an oversized value) is dropped
+/// with all its ticks and decoding stops,
+/// as the reference ends its loop on such a block; the ticks of the blocks
+/// before it are kept. Returns true when a block was dropped (ibx#272).
+pub fn decode_ticks_35p_into(body: &[u8], ticks: &mut Vec<RawTick>) -> bool {
     ticks.clear();
     if body.len() < 4 {
-        return;
+        return false;
     }
 
     let bit_count = ((body[0] as usize) << 8) | (body[1] as usize);
@@ -203,18 +223,28 @@ pub fn decode_ticks_35p_into(body: &[u8], ticks: &mut Vec<RawTick>) {
     let mut reader = BitReader::new(payload, bit_count);
 
     while reader.remaining() > 32 {
-        let cont = match reader.read_unsigned(1) {
-            Some(v) => v,
+        let block_start = ticks.len();
+        let stats_block = match reader.read_unsigned(1) {
+            Some(v) => v == 1,
             None => break,
         };
-        let _ = cont; // continuation flag, not used in decoding
         let server_tag = match reader.read_unsigned(31) {
             Some(v) => v as u32,
             None => break,
         };
 
         let mut has_more = 1u64;
-        while has_more == 1 && reader.remaining() >= 8 {
+        // The type of the block's last entry: on a quote tag, a time base
+        // after a close is the close date, not a time (`jmdclient.bl.a(...)`
+        // types 20/21 of a quote block, `@2611-2900`; captured 05/10/2026,
+        // 7203 on delayed data).
+        let mut prev_type: Option<u64> = None;
+        while has_more == 1 {
+            if reader.remaining() < 8 {
+                // The block announced one more entry that is not there.
+                ticks.truncate(block_start);
+                return true;
+            }
             let tick_type;
             let byte_width;
 
@@ -234,15 +264,16 @@ pub fn decode_ticks_35p_into(body: &[u8], ticks: &mut Vec<RawTick>) {
             if raw_tick_type == 31 {
                 // Extended format
                 if reader.remaining() < 16 {
-                    return;
+                    ticks.truncate(block_start);
+                    return true;
                 }
                 tick_type = match reader.read_unsigned(8) {
                     Some(v) => v,
-                    None => return,
+                    None => { ticks.truncate(block_start); return true; }
                 };
                 byte_width = match reader.read_unsigned(8) {
                     Some(v) => v,
-                    None => return,
+                    None => { ticks.truncate(block_start); return true; }
                 };
             } else {
                 tick_type = raw_tick_type;
@@ -250,21 +281,18 @@ pub fn decode_ticks_35p_into(body: &[u8], ticks: &mut Vec<RawTick>) {
             }
 
             let total_value_bits = (8 * byte_width) as usize;
-            if reader.remaining() < total_value_bits {
-                return;
+            if byte_width == 0 || byte_width > MAX_VALUE_BYTES || reader.remaining() < total_value_bits {
+                ticks.truncate(block_start);
+                return true;
             }
 
             let sign = match reader.read_unsigned(1) {
                 Some(v) => v,
-                None => return,
+                None => { ticks.truncate(block_start); return true; }
             };
-            let magnitude_unsigned = if total_value_bits > 1 {
-                match reader.read_unsigned(total_value_bits - 1) {
-                    Some(v) => v as i64,
-                    None => return,
-                }
-            } else {
-                0i64
+            let magnitude_unsigned = match reader.read_unsigned(total_value_bits - 1) {
+                Some(v) => v as i64,
+                None => { ticks.truncate(block_start); return true; }
             };
 
             let magnitude = if sign == 1 {
@@ -277,9 +305,32 @@ pub fn decode_ticks_35p_into(body: &[u8], ticks: &mut Vec<RawTick>) {
                 server_tag,
                 tick_type,
                 magnitude,
+                stats_block: stats_block || (tick_type == O_TIMESTAMP_BASE && prev_type == Some(O_CLOSE_PRICE)),
+                first: ticks.len() == block_start,
             });
+            prev_type = Some(tick_type);
         }
     }
+    false
+}
+
+/// Longest VLQ read: the longest whose value still fits an `i64`; a
+/// longer or unterminated run is malformed (ibx#272).
+pub const MAX_VLQ_BYTES: usize = 9;
+
+/// A VLQ at `pos` that is terminated within [`MAX_VLQ_BYTES`]:
+/// (value, num_bytes). None for an oversized or unterminated run (ibx#272).
+#[inline]
+pub fn read_vlq_bounded(data: &[u8], pos: usize) -> Option<(u64, usize)> {
+    let end = data.len().min(pos.saturating_add(MAX_VLQ_BYTES));
+    let mut val: u64 = 0;
+    for (i, &b) in data.get(pos..end)?.iter().enumerate() {
+        val = (val << 7) | (b as u64 & 0x7F);
+        if b & 0x80 != 0 {
+            return Some((val, i + 1));
+        }
+    }
+    None
 }
 
 /// Read a VLQ-encoded unsigned integer (hi-bit terminated).
@@ -303,11 +354,17 @@ pub fn read_vlq(data: &[u8], pos: usize) -> (u64, usize) {
 }
 
 /// Convert VLQ value to signed (upper half of range = negative).
+/// An empty or oversized `num_bytes` has no signed meaning and gives 0
+/// (ibx#272).
 pub fn vlq_signed(val: u64, num_bytes: usize) -> i64 {
+    if num_bytes == 0 || num_bytes > MAX_VLQ_BYTES {
+        return 0;
+    }
     let bits = 7 * num_bytes;
     let half: u64 = 1 << (bits - 1);
     if val >= half {
-        val as i64 - (1i64 << bits)
+        // Exact for the longest run too, whose range is half of an i64.
+        (val as i64).wrapping_sub(1i64.wrapping_shl(bits as u32))
     } else {
         val as i64
     }
@@ -427,110 +484,280 @@ pub fn decode_bar_payload(payload: &[u8], min_tick: f64) -> Option<RtBar> {
     })
 }
 
-/// Marker bytes for tick-by-tick 35=E binary entries.
-pub const TBT_MARKER_ALL_LAST: u8 = 0x81;
-pub const TBT_MARKER_BID_ASK: u8 = 0x82;
-
-/// A decoded tick-by-tick entry from 35=E.
-#[derive(Debug, Clone)]
-pub enum TbtEntry {
-    /// AllLast trade tick.
-    Trade {
-        timestamp: u64,
-        price_cents_delta: i64,
-        size: u64,
-        exchange: String,
-        conditions: String,
-    },
-    /// BidAsk quote tick.
-    Quote {
-        timestamp: u64,
-        bid_cents_delta: i64,
-        ask_cents_delta: i64,
-        bid_size: u64,
-        ask_size: u64,
-    },
+/// The bars of a 5-second bar frame body, read as the reference reads
+/// them (ibx#454): ticker id, bar time and payload of each. The body is
+/// what follows `35=G` (bit length, then the entries).
+pub fn rtbar_entries(body: &[u8]) -> Vec<(u32, u32, &[u8])> {
+    let mut entries = Vec::new();
+    if body.len() < 2 {
+        return entries;
+    }
+    let mut bits = u16::from_be_bytes([body[0], body[1]]) as usize;
+    let available = (body.len() - 2) * 8;
+    while bits + 65536 <= available {
+        bits += 65536;
+    }
+    let end = (2 + bits.div_ceil(8)).min(body.len());
+    let mut pos = 2;
+    while pos + 9 <= end {
+        let ticker_id = u32::from_be_bytes([body[pos], body[pos + 1], body[pos + 2], body[pos + 3]]);
+        let time = u32::from_be_bytes([body[pos + 4], body[pos + 5], body[pos + 6], body[pos + 7]]);
+        let len = body[pos + 8] as usize;
+        let start = pos + 9;
+        if start + len > end {
+            break;
+        }
+        entries.push((ticker_id, time, &body[start..start + len]));
+        pos = start + len;
+    }
+    entries
 }
 
-/// Decode tick-by-tick entries from a 35=E binary payload.
-///
-/// `body` is the raw message body after stripping FIX framing and HMAC.
-/// Prices are signed VLQ deltas in cents from a running state (caller tracks).
-pub fn decode_ticks_35e(body: &[u8]) -> Vec<TbtEntry> {
-    let mut entries = Vec::new();
-    let mut pos = 0;
+/// How the entries of one tick-by-tick stream are laid out (ibx#404): the
+/// stream's type, which is not on the wire, and whether its acknowledgement
+/// gave a size increment (the field order differs without one).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TbtLayout {
+    Trade { sized: bool },
+    BidAsk { sized: bool },
+    MidPoint { sized: bool },
+}
 
-    while pos < body.len() {
-        let marker = body[pos];
-        pos += 1;
+/// The fields of one tick-by-tick entry, raw: price deltas in ticks, sizes
+/// in size increments.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TbtFields {
+    Trade { price_delta: i64, attribs: u64, size: u64, exchange: String, conditions: String },
+    BidAsk { bid_delta: i64, ask_delta: i64, attribs: u64, bid_size: u64, ask_size: u64 },
+    MidPoint { delta: i64 },
+}
 
-        match marker {
-            TBT_MARKER_ALL_LAST => {
-                if pos >= body.len() { break; }
-                let (ts, n) = read_vlq(body, pos);
-                pos += n;
-                if pos >= body.len() { break; }
-                let (price_raw, n) = read_vlq(body, pos);
-                let price_delta = vlq_signed(price_raw, n);
-                pos += n;
-                if pos >= body.len() { break; }
-                let (attribs, n) = read_vlq(body, pos);
-                let _ = attribs; // reserved
-                pos += n;
-                if pos >= body.len() { break; }
-                let (size, n) = read_vlq(body, pos);
-                pos += n;
-                if pos >= body.len() { break; }
-                let (exchange, n) = read_hibit_str(body, pos);
-                pos += n;
-                if pos >= body.len() { break; }
-                let (conditions, n) = read_hibit_str(body, pos);
-                pos += n;
+/// One tick-by-tick entry: the stream id the server gave in its
+/// acknowledgement, the time (Unix seconds) and the fields.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TbtRawEntry {
+    pub rt_ticker_id: u64,
+    pub time: u64,
+    pub fields: TbtFields,
+}
 
-                entries.push(TbtEntry::Trade {
-                    timestamp: ts,
-                    price_cents_delta: price_delta,
-                    size,
-                    exchange,
-                    conditions,
-                });
+/// Why the decode of a frame stopped before its end.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TbtStop {
+    /// Every entry was read.
+    Done,
+    /// A number or text ran past the data (ibx#272).
+    Malformed,
+}
+
+/// How the entries of a stream id are read (ibx#404).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TbtEntryKind {
+    /// A live stream: its fields by its layout.
+    Read(TbtLayout),
+    /// A stream that is gone: this many fields are skipped (its type's
+    /// field count, 0 when not known), as the reference does.
+    Skip(usize),
+    /// A stream id with no stream yet: the field count is guessed, as the
+    /// reference does, and the entry skipped.
+    Guess,
+}
+
+/// A decoded tick-by-tick frame: the entries of live streams, the ids of
+/// the entries skipped, and why the read ended.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TbtFrame {
+    pub entries: Vec<TbtRawEntry>,
+    pub skipped: Vec<u64>,
+    pub stop: TbtStop,
+}
+
+/// The reference's field count of a stream type, used to skip the entry
+/// of a stream that is gone: 5 for trades and bid/ask, 2 for midpoints.
+pub fn tbt_field_count(layout: TbtLayout) -> usize {
+    match layout {
+        TbtLayout::Trade { .. } | TbtLayout::BidAsk { .. } => 5,
+        TbtLayout::MidPoint { .. } => 2,
+    }
+}
+
+/// A signed number and its width, or None past the data.
+fn read_svlq(data: &[u8], pos: &mut usize) -> Option<i64> {
+    let (v, n) = read_vlq_bounded(data, *pos)?;
+    *pos += n;
+    Some(vlq_signed(v, n))
+}
+
+fn read_uvlq(data: &[u8], pos: &mut usize) -> Option<u64> {
+    let (v, n) = read_vlq_bounded(data, *pos)?;
+    *pos += n;
+    Some(v)
+}
+
+/// A size of one number, or of two (low part, then high part) when the
+/// attribute bit says so.
+fn read_size(data: &[u8], pos: &mut usize, wide: bool) -> Option<u64> {
+    let low = read_uvlq(data, pos)?;
+    if !wide {
+        return Some(low);
+    }
+    let high = read_uvlq(data, pos)?;
+    Some((low & 0xFFFF_FFFF) | (high << 32))
+}
+
+fn read_text(data: &[u8], pos: &mut usize, end: usize) -> Option<String> {
+    if *pos >= end {
+        return None;
+    }
+    let (s, n) = read_hibit_str(&data[..end], *pos);
+    *pos += n;
+    Some(s.trim().to_string())
+}
+
+fn read_fields(data: &[u8], pos: &mut usize, end: usize, layout: TbtLayout) -> Option<TbtFields> {
+    let d = &data[..end];
+    Some(match layout {
+        TbtLayout::Trade { sized: true } => {
+            let price_delta = read_svlq(d, pos)?;
+            let attribs = read_uvlq(d, pos)?;
+            let size = read_size(d, pos, attribs & 0x10 != 0)?;
+            let exchange = read_text(data, pos, end)?;
+            let conditions = read_text(data, pos, end)?;
+            TbtFields::Trade { price_delta, attribs, size, exchange, conditions }
+        }
+        TbtLayout::Trade { sized: false } => {
+            let price_delta = read_svlq(d, pos)?;
+            let size = read_uvlq(d, pos)?;
+            let attribs = read_uvlq(d, pos)?;
+            let exchange = read_text(data, pos, end)?;
+            let conditions = read_text(data, pos, end)?;
+            TbtFields::Trade { price_delta, attribs, size, exchange, conditions }
+        }
+        TbtLayout::BidAsk { sized: true } => {
+            let bid_delta = read_svlq(d, pos)?;
+            let ask_delta = read_svlq(d, pos)?;
+            let attribs = read_uvlq(d, pos)?;
+            let bid_size = read_size(d, pos, attribs & 0x04 != 0)?;
+            let ask_size = read_size(d, pos, attribs & 0x08 != 0)?;
+            TbtFields::BidAsk { bid_delta, ask_delta, attribs, bid_size, ask_size }
+        }
+        TbtLayout::BidAsk { sized: false } => {
+            let bid_delta = read_svlq(d, pos)?;
+            let ask_delta = read_svlq(d, pos)?;
+            let bid_size = read_uvlq(d, pos)?;
+            let ask_size = read_uvlq(d, pos)?;
+            let attribs = read_uvlq(d, pos)?;
+            TbtFields::BidAsk { bid_delta, ask_delta, attribs, bid_size, ask_size }
+        }
+        TbtLayout::MidPoint { sized: true } => {
+            let delta = read_svlq(d, pos)?;
+            let attribs = read_uvlq(d, pos)?;
+            read_size(d, pos, attribs & 0x02 != 0)?;
+            TbtFields::MidPoint { delta }
+        }
+        TbtLayout::MidPoint { sized: false } => {
+            let delta = read_svlq(d, pos)?;
+            read_uvlq(d, pos)?;
+            TbtFields::MidPoint { delta }
+        }
+    })
+}
+
+/// Skip `n` fields: each runs to its byte with bit 7 set; the data may
+/// end first.
+fn skip_fields(data: &[u8], pos: &mut usize, n: usize) {
+    for _ in 0..n {
+        while *pos < data.len() {
+            let b = data[*pos];
+            *pos += 1;
+            if b & 0x80 != 0 {
+                break;
             }
-            TBT_MARKER_BID_ASK => {
-                if pos >= body.len() { break; }
-                let (ts, n) = read_vlq(body, pos);
-                pos += n;
-                if pos >= body.len() { break; }
-                let (bid_raw, n) = read_vlq(body, pos);
-                let bid_delta = vlq_signed(bid_raw, n);
-                pos += n;
-                if pos >= body.len() { break; }
-                let (ask_raw, n) = read_vlq(body, pos);
-                let ask_delta = vlq_signed(ask_raw, n);
-                pos += n;
-                if pos >= body.len() { break; }
-                let (attribs, n) = read_vlq(body, pos);
-                let _ = attribs;
-                pos += n;
-                if pos >= body.len() { break; }
-                let (bid_size, n) = read_vlq(body, pos);
-                pos += n;
-                if pos >= body.len() { break; }
-                let (ask_size, n) = read_vlq(body, pos);
-                pos += n;
-
-                entries.push(TbtEntry::Quote {
-                    timestamp: ts,
-                    bid_cents_delta: bid_delta,
-                    ask_cents_delta: ask_delta,
-                    bid_size,
-                    ask_size,
-                });
-            }
-            _ => break, // unknown marker, stop parsing
         }
     }
+}
 
-    entries
+/// A number as the reference's guess reads it: a 32-bit value that wraps,
+/// None past the data.
+fn guess_number(data: &[u8], pos: &mut usize) -> Option<i32> {
+    let mut v: i32 = 0;
+    loop {
+        let b = *data.get(*pos)?;
+        *pos += 1;
+        v = v.wrapping_shl(7).wrapping_add((b & 0x7F) as i32);
+        if b & 0x80 != 0 {
+            return Some(v);
+        }
+    }
+}
+
+/// The reference's field count guess for an entry of a stream id with no
+/// stream (`GuessRawTickSize`): 2 when the 4th number after the time looks
+/// like a time (the next entry's, after a midpoint), else 5 when the 7th
+/// does (after a trade), else 0. A time looks right in `window` (Unix
+/// seconds, start included).
+fn guess_field_count(data: &[u8], pos: usize, window: (i64, i64)) -> usize {
+    let looks_like_time = |v: i32| v != 0 && v != i32::MAX && v != i32::MIN
+        && (v as i64) >= window.0 && (v as i64) < window.1;
+    let mut p = pos;
+    let mut nth = |n: usize| -> Option<i32> {
+        let mut v = 0;
+        for _ in 0..n {
+            v = guess_number(data, &mut p)?;
+        }
+        Some(v)
+    };
+    let Some(fourth) = nth(4) else { return 0 };
+    if looks_like_time(fourth) {
+        return 2;
+    }
+    match nth(3) {
+        Some(seventh) if looks_like_time(seventh) => 5,
+        _ => 0,
+    }
+}
+
+/// Decode a tick-by-tick frame (ibx#404), as the reference reads it: each
+/// entry names its stream, and its fields are laid out by the stream's
+/// type, which `kind_of` gives for a stream id. The entry of a stream that
+/// is gone or not there yet is skipped by a field count and the read goes
+/// on, as the reference does; `window` is the time range of its guess.
+/// Reading stops at the declared size or at a number past the data.
+pub fn decode_tbt_frame(body: &[u8], mut kind_of: impl FnMut(u64) -> TbtEntryKind, window: (i64, i64)) -> TbtFrame {
+    let mut out = TbtFrame { entries: Vec::new(), skipped: Vec::new(), stop: TbtStop::Done };
+    if body.len() < 2 {
+        out.stop = TbtStop::Malformed;
+        return out;
+    }
+    let data = &body[2..];
+    // The declared size wraps on a long frame.
+    let mut bits = u16::from_be_bytes([body[0], body[1]]) as usize;
+    while bits + 65_536 <= data.len() * 8 {
+        bits += 65_536;
+    }
+    let end = bits.div_ceil(8).min(data.len());
+    let mut pos = 0;
+    while pos < end {
+        let (Some(rt_ticker_id), Some(time)) = (read_uvlq(&data[..end], &mut pos), read_uvlq(&data[..end], &mut pos)) else {
+            out.stop = TbtStop::Malformed;
+            return out;
+        };
+        let skip = match kind_of(rt_ticker_id) {
+            TbtEntryKind::Read(layout) => {
+                let Some(fields) = read_fields(data, &mut pos, end, layout) else {
+                    out.stop = TbtStop::Malformed;
+                    return out;
+                };
+                out.entries.push(TbtRawEntry { rt_ticker_id, time, fields });
+                continue;
+            }
+            TbtEntryKind::Skip(n) => n,
+            TbtEntryKind::Guess => guess_field_count(&data[..end], pos, window),
+        };
+        skip_fields(&data[..end], &mut pos, skip);
+        out.skipped.push(rt_ticker_id);
+    }
+    out
 }
 
 #[cfg(test)]
@@ -557,6 +784,21 @@ mod tests {
         assert_eq!(r.read_unsigned(1), Some(1));
         assert_eq!(r.read_unsigned(1), Some(0));
         assert_eq!(r.read_unsigned(1), None); // exhausted
+    }
+
+    // ibx#446, captured 28/09/2026 (fix-agent-gw.20260928-164130.jsonl,
+    // 16:07:16.345): a side with no quote comes as -100 at tick 0.01, a
+    // price of -1, with size 0. The reference keeps it as it is
+    // (`jccp.f.a(jutils.a)` = raw x tick, `jclient.record.ck.a(jccp.h, ar,
+    // MarketDataType)@282-357`) and sends tickPrice -1 with size 0.
+    #[test]
+    fn empty_quote_side_is_minus_one_tick_count() {
+        let hex = "01480000055004e424000ce42c005800000005501600851634016c00a76aba1e3dac00d80000000550b000";
+        let body: Vec<u8> = (0..hex.len()).step_by(2).map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap()).collect();
+        let ticks = decode_ticks_35p(&body);
+        let quote: Vec<(u64, i64)> = ticks.iter().take(5).map(|t| (t.tick_type, t.magnitude)).collect();
+        assert!(ticks[..5].iter().all(|t| t.server_tag == 1360 && !t.stats_block));
+        assert_eq!(quote, [(O_BID_PRICE, -100), (O_BID_SIZE, 0), (O_ASK_PRICE, -100), (O_ASK_SIZE, 0), (11, 0)]);
     }
 
     #[test]
@@ -848,23 +1090,39 @@ mod tests {
         // raw_tick_type == 31 triggers extended: 8-bit tick_type + 8-bit byte_width
         let mut b = PayloadBuilder::new();
         b.server_tag(0, 42);
-        // Extended tick with tick_type=O_CLOSE_PRICE(22), byte_width=2, value=777, positive
-        b.tick_extended(0, O_CLOSE_PRICE, 2, 777, false);
+        // Extended tick with tick_type=O_OPEN_PRICE(22), byte_width=2, value=777, positive
+        b.tick_extended(0, O_OPEN_PRICE, 2, 777, false);
         let ticks = decode_ticks_35p(&b.build());
         assert_eq!(ticks.len(), 1);
         assert_eq!(ticks[0].server_tag, 42);
-        assert_eq!(ticks[0].tick_type, O_CLOSE_PRICE);
+        assert_eq!(ticks[0].tick_type, O_OPEN_PRICE);
         assert_eq!(ticks[0].magnitude, 777);
+    }
+
+    #[test]
+    fn decode_keeps_the_block_flag() {
+        // ibx#448: each tick keeps the stats flag of its block.
+        let mut b = PayloadBuilder::new();
+        b.server_tag(1, 1098);
+        b.tick(O_TIMESTAMP_BASE, 1, 4, 20_260_922, false);
+        b.tick(O_CLOSE_PRICE, 0, 3, 25_512, false);
+        b.server_tag(0, 1098);
+        b.tick(O_TIMESTAMP_BASE, 0, 4, 1_790_159_184, false);
+        let ticks = decode_ticks_35p(&b.build());
+        assert_eq!(ticks.len(), 3);
+        assert!(ticks[0].stats_block && ticks[1].stats_block);
+        assert!(!ticks[2].stats_block);
+        assert_eq!(ticks[2].magnitude, 1_790_159_184);
     }
 
     #[test]
     fn decode_extended_tick_type_negative() {
         let mut b = PayloadBuilder::new();
         b.server_tag(0, 50);
-        b.tick_extended(0, O_LAST_TS, 3, 12345, true);
+        b.tick_extended(0, O_TIMESTAMP_DELTA, 3, 12345, true);
         let ticks = decode_ticks_35p(&b.build());
         assert_eq!(ticks.len(), 1);
-        assert_eq!(ticks[0].tick_type, O_LAST_TS);
+        assert_eq!(ticks[0].tick_type, O_TIMESTAMP_DELTA);
         assert_eq!(ticks[0].magnitude, -12345);
     }
 
@@ -1003,6 +1261,74 @@ mod tests {
         assert_eq!(ticks[1].magnitude, 99);
     }
 
+    // ibx#272: an oversized value, or a block cut short after
+    // some of its ticks, drops the whole block and ends the decode; the
+    // blocks before it are kept.
+    #[test]
+    fn malformed_block_is_dropped_with_its_ticks() {
+        // An oversized value.
+        let mut b = PayloadBuilder::new();
+        b.server_tag(0, 5);
+        b.tick(O_BID_SIZE, 0, 1, 42, false);
+        b.server_tag(0, 6);
+        b.tick(O_ASK_SIZE, 1, 1, 7, false);
+        b.push(31, 5);
+        b.push(0, 1);
+        b.push(0, 2);
+        b.push(O_BID_PRICE, 8);
+        b.push(9, 8);
+        b.push(0, 36);
+        b.push(0, 36);
+        let mut ticks = Vec::new();
+        assert!(decode_ticks_35p_into(&b.build(), &mut ticks));
+        assert_eq!(ticks.len(), 1);
+        assert_eq!((ticks[0].server_tag, ticks[0].magnitude), (5, 42));
+
+        // A block that announces one more tick than it holds.
+        let mut b = PayloadBuilder::new();
+        b.server_tag(0, 5);
+        b.tick(O_BID_SIZE, 0, 1, 42, false);
+        b.server_tag(0, 6);
+        b.tick(O_ASK_SIZE, 1, 1, 7, false);
+        b.push(O_BID_PRICE, 5);
+        b.push(0, 1);
+        b.push(3, 2);
+        b.push(0, 8);
+        assert!(decode_ticks_35p_into(&b.build(), &mut ticks));
+        assert_eq!(ticks.len(), 1);
+        assert_eq!(ticks[0].server_tag, 5);
+
+        // The widest value accepted decodes.
+        let mut b = PayloadBuilder::new();
+        b.server_tag(0, 5);
+        b.tick_extended(0, O_VOLUME, 8, i64::MAX as u64, false);
+        assert!(!decode_ticks_35p_into(&b.build(), &mut ticks));
+        assert_eq!(ticks[0].magnitude, i64::MAX);
+    }
+
+    // ibx#272: an oversized or unterminated length is refused; the
+    // signed reading never shifts out of range.
+    #[test]
+    fn vlq_widths_are_bounded() {
+        assert_eq!(read_vlq_bounded(&[0x85], 0), Some((5, 1)));
+        assert_eq!(read_vlq_bounded(&[0x01, 0x80], 0), Some((128, 2)));
+        assert_eq!(read_vlq_bounded(&[0x01; 11], 0), None, "unterminated");
+        let mut ten = [0x01u8; 10];
+        ten[9] = 0x81;
+        assert_eq!(read_vlq_bounded(&ten, 0), None, "too long");
+        let mut nine = [0x7Fu8; 9];
+        nine[8] = 0xFF;
+        let (v, n) = read_vlq_bounded(&nine, 0).unwrap();
+        assert_eq!((v, n), ((1u64 << 63) - 1, 9));
+        assert_eq!(vlq_signed(v, n), -1);
+        assert_eq!(vlq_signed(1 << 62, 9), -(1 << 62));
+        assert_eq!(vlq_signed(5, 0), 0);
+        assert_eq!(vlq_signed(5, 11), 0);
+        assert_eq!(read_vlq_bounded(&[0x85], 1), None);
+        assert_eq!(read_vlq_bounded(&[0x85], 5), None);
+
+    }
+
     #[test]
     fn decode_max_server_tag() {
         // Maximum 31-bit server_tag value
@@ -1135,14 +1461,13 @@ mod tests {
         assert!((bar.wap - expected_wap).abs() < 1e-9);
     }
 
-    // ── decode_ticks_35e tests ────────────────────────────────────────
+    // ── decode_tbt_frame tests (ibx#404) ──────────────────────────────
 
     /// Helper: encode a VLQ value into bytes (hi-bit terminated).
     fn encode_vlq(val: u64) -> Vec<u8> {
         if val == 0 {
             return vec![0x80];
         }
-        // Find how many 7-bit groups we need
         let mut v = val;
         let mut groups = Vec::new();
         while v > 0 {
@@ -1151,7 +1476,7 @@ mod tests {
         }
         groups.reverse();
         let last = groups.len() - 1;
-        groups[last] |= 0x80; // hi-bit on last byte
+        groups[last] |= 0x80;
         groups
     }
 
@@ -1160,122 +1485,172 @@ mod tests {
         if s.is_empty() {
             return vec![0x80];
         }
-        let bytes = s.as_bytes();
-        let mut out = bytes.to_vec();
+        let mut out = s.as_bytes().to_vec();
         let last = out.len() - 1;
         out[last] |= 0x80;
         out
     }
 
-    #[test]
-    fn decode_35e_single_trade() {
-        let mut payload = Vec::new();
-        payload.push(TBT_MARKER_ALL_LAST);
-        payload.extend(encode_vlq(1000));    // timestamp
-        payload.extend(encode_vlq(5));       // price delta = +5 (1 byte VLQ, val < 64 = positive)
-        payload.extend(encode_vlq(0));       // attribs
-        payload.extend(encode_vlq(100));     // size
-        payload.extend(encode_hibit_str("ARCA"));   // exchange
-        payload.extend(encode_hibit_str(""));       // conditions
-
-        let entries = decode_ticks_35e(&payload);
-        assert_eq!(entries.len(), 1);
-        match &entries[0] {
-            TbtEntry::Trade { timestamp, price_cents_delta, size, exchange, conditions } => {
-                assert_eq!(*timestamp, 1000);
-                assert_eq!(*price_cents_delta, 5);
-                assert_eq!(*size, 100);
-                assert_eq!(exchange, "ARCA");
-                assert_eq!(conditions, "");
-            }
-            _ => panic!("expected Trade"),
-        }
+    fn frame(entries: &[u8]) -> Vec<u8> {
+        let bits = (entries.len() * 8) as u16;
+        let mut f = bits.to_be_bytes().to_vec();
+        f.extend_from_slice(entries);
+        f
     }
 
-    #[test]
-    fn decode_35e_single_quote() {
-        let mut payload = Vec::new();
-        payload.push(TBT_MARKER_BID_ASK);
-        payload.extend(encode_vlq(2000));    // timestamp
-        payload.extend(encode_vlq(3));       // bid delta = +3
-        payload.extend(encode_vlq(7));       // ask delta = +7
-        payload.extend(encode_vlq(0));       // attribs
-        payload.extend(encode_vlq(500));     // bid_size
-        payload.extend(encode_vlq(300));     // ask_size
+    /// The time window of the guess in these tests.
+    const WINDOW: (i64, i64) = (1_781_000_000, 1_781_000_000 + 259_200);
 
-        let entries = decode_ticks_35e(&payload);
-        assert_eq!(entries.len(), 1);
-        match &entries[0] {
-            TbtEntry::Quote { timestamp, bid_cents_delta, ask_cents_delta, bid_size, ask_size } => {
-                assert_eq!(*timestamp, 2000);
-                assert_eq!(*bid_cents_delta, 3);
-                assert_eq!(*ask_cents_delta, 7);
-                assert_eq!(*bid_size, 500);
-                assert_eq!(*ask_size, 300);
-            }
-            _ => panic!("expected Quote"),
-        }
+    /// Decode with a layout per stream id (None: no stream yet).
+    fn decode(body: &[u8], layout_of: impl Fn(u64) -> Option<TbtLayout>) -> (Vec<TbtRawEntry>, TbtStop) {
+        let f = decode_tbt_frame(body, |id| layout_of(id).map_or(TbtEntryKind::Guess, TbtEntryKind::Read), WINDOW);
+        (f.entries, f.stop)
     }
 
+    // The captured entry (18/06/2026, seq 11117): stream 5, time
+    // 1781772222, price 61900 ticks, attributes 12, size 100, ARCA, T; then
+    // the next entry of stream 1.
     #[test]
-    fn decode_35e_mixed_trade_and_quote() {
-        let mut payload = Vec::new();
-        // Trade
-        payload.push(TBT_MARKER_ALL_LAST);
-        payload.extend(encode_vlq(100));
-        payload.extend(encode_vlq(10));
-        payload.extend(encode_vlq(0));
-        payload.extend(encode_vlq(50));
-        payload.extend(encode_hibit_str("NYSE"));
-        payload.extend(encode_hibit_str("@"));
-        // Quote
-        payload.push(TBT_MARKER_BID_ASK);
-        payload.extend(encode_vlq(200));
-        payload.extend(encode_vlq(1));
-        payload.extend(encode_vlq(2));
-        payload.extend(encode_vlq(0));
-        payload.extend(encode_vlq(1000));
-        payload.extend(encode_vlq(800));
-
-        let entries = decode_ticks_35e(&payload);
-        assert_eq!(entries.len(), 2);
-        assert!(matches!(&entries[0], TbtEntry::Trade { .. }));
-        assert!(matches!(&entries[1], TbtEntry::Quote { .. }));
+    fn decode_captured_trade_entry() {
+        let mut e = vec![0x85, 0x06, 0x51, 0x4e, 0x5f, 0xbe, 0x03, 0x63, 0xcc, 0x8c, 0xe4, 0x41, 0x52, 0x43, 0xc1, 0x20, 0x20, 0x54, 0xa0];
+        e.extend(encode_vlq(1));
+        e.extend(encode_vlq(1_781_772_223));
+        e.extend(encode_vlq(127)); // -1 tick
+        e.extend(encode_vlq(12));
+        e.extend(encode_vlq(5));
+        e.extend(encode_hibit_str("NYSE"));
+        e.extend(encode_hibit_str(""));
+        let (got, stop) = decode(&frame(&e), |_| Some(TbtLayout::Trade { sized: true }));
+        assert_eq!(stop, TbtStop::Done);
+        assert_eq!(got.len(), 2);
+        assert_eq!(got[0], TbtRawEntry {
+            rt_ticker_id: 5, time: 1_781_772_222,
+            fields: TbtFields::Trade { price_delta: 61900, attribs: 12, size: 100, exchange: "ARCA".into(), conditions: "T".into() },
+        });
+        assert_eq!(got[1].rt_ticker_id, 1);
+        assert!(matches!(got[1].fields, TbtFields::Trade { price_delta: -1, size: 5, .. }));
     }
 
+    // The layout comes from the stream, not from the first byte: stream 1
+    // as bid/ask, stream 2 as trades; wide sizes take two numbers.
     #[test]
-    fn decode_35e_negative_price_delta() {
-        // VLQ 1 byte: value 64 = -64 (upper half)
-        let mut payload = Vec::new();
-        payload.push(TBT_MARKER_ALL_LAST);
-        payload.extend(encode_vlq(500));
-        // Encode -1: 1-byte VLQ val=127 → vlq_signed(127,1) = -1
-        payload.push(0xFF); // 0x7F | 0x80 = 0xFF → val=127, n=1
-        payload.extend(encode_vlq(0));
-        payload.extend(encode_vlq(25));
-        payload.extend(encode_hibit_str(""));
-        payload.extend(encode_hibit_str(""));
+    fn decode_by_the_layout_of_each_stream() {
+        let mut e = Vec::new();
+        e.extend(encode_vlq(1));
+        e.extend(encode_vlq(1000));
+        e.extend(encode_vlq(10));   // bid delta
+        e.extend(encode_vlq(12));   // ask delta
+        e.extend(encode_vlq(0x04)); // wide bid size
+        e.extend(encode_vlq(7));
+        e.extend(encode_vlq(1));    // high part
+        e.extend(encode_vlq(3));
+        e.extend(encode_vlq(2));
+        e.extend(encode_vlq(1001));
+        e.extend(encode_vlq(5));
+        e.extend(encode_vlq(0));
+        e.extend(encode_vlq(100));
+        e.extend(encode_hibit_str("ISLAND"));
+        e.extend(encode_hibit_str(""));
+        let layout = |id| match id {
+            1 => Some(TbtLayout::BidAsk { sized: true }),
+            2 => Some(TbtLayout::Trade { sized: true }),
+            _ => None,
+        };
+        let (got, stop) = decode(&frame(&e), layout);
+        assert_eq!(stop, TbtStop::Done);
+        assert_eq!(got[0].fields, TbtFields::BidAsk { bid_delta: 10, ask_delta: 12, attribs: 4, bid_size: 7 | (1 << 32), ask_size: 3 });
+        assert!(matches!(&got[1].fields, TbtFields::Trade { exchange, .. } if exchange == "ISLAND"));
 
-        let entries = decode_ticks_35e(&payload);
-        assert_eq!(entries.len(), 1);
-        match &entries[0] {
-            TbtEntry::Trade { price_cents_delta, .. } => {
-                assert_eq!(*price_cents_delta, -1);
-            }
-            _ => panic!("expected Trade"),
-        }
+        // A stream that is gone is skipped by its type's field count (5
+        // for bid/ask: the wide bid size makes it one short) and the read
+        // goes on, as the reference does.
+        let f = decode_tbt_frame(&frame(&e), |id| match id {
+            1 => TbtEntryKind::Skip(tbt_field_count(TbtLayout::BidAsk { sized: true })),
+            _ => TbtEntryKind::Read(TbtLayout::Trade { sized: true }),
+        }, WINDOW);
+        assert_eq!(f.skipped, [1]);
+        assert_eq!(f.entries.len(), 1);
+        assert_eq!(f.entries[0].rt_ticker_id, 3, "the 6th field of the skipped entry is read as a stream id");
     }
 
+    // ibx#404: an entry of a stream id with no stream yet is skipped by the
+    // reference's guess: 2 fields when the 4th number after the time looks
+    // like a time (a midpoint before the next entry), 5 when the 7th does
+    // (a trade or a bid/ask), else none; the frame goes on after it.
     #[test]
-    fn decode_35e_empty() {
-        assert!(decode_ticks_35e(&[]).is_empty());
+    fn unknown_stream_entries_are_skipped_by_the_guess() {
+        let t = WINDOW.0 as u64 + 10;
+        let trade = |id: u64| {
+            let mut e = Vec::new();
+            e.extend(encode_vlq(id)); e.extend(encode_vlq(t)); e.extend(encode_vlq(61900)); e.extend(encode_vlq(12));
+            e.extend(encode_vlq(100)); e.extend(encode_hibit_str("ARCA")); e.extend(encode_hibit_str("T"));
+            e
+        };
+        let mid = |id: u64| [encode_vlq(id), encode_vlq(t), encode_vlq(5), encode_vlq(0)].concat();
+        let live = |id| (id == 1).then_some(TbtLayout::Trade { sized: true });
+
+        // Unknown trade entry (stream 9), then a live one.
+        let e = [trade(9), trade(1)].concat();
+        let f = decode_tbt_frame(&frame(&e), |id| live(id).map_or(TbtEntryKind::Guess, TbtEntryKind::Read), WINDOW);
+        assert_eq!((f.skipped.as_slice(), f.entries.len(), f.stop), (&[9][..], 1, TbtStop::Done));
+        assert_eq!(f.entries[0].rt_ticker_id, 1);
+
+        // Unknown unsized midpoint (2 fields), then a live trade.
+        let e = [mid(9), trade(1)].concat();
+        let f = decode_tbt_frame(&frame(&e), |id| live(id).map_or(TbtEntryKind::Guess, TbtEntryKind::Read), WINDOW);
+        assert_eq!((f.skipped.as_slice(), f.entries.len()), (&[9][..], 1));
+
+        // A time out of the window: nothing skipped, the next numbers are
+        // read as an entry.
+        let mut e = trade(9);
+        e.extend(trade(1));
+        let f = decode_tbt_frame(&frame(&e), |id| live(id).map_or(TbtEntryKind::Guess, TbtEntryKind::Read), (0, 1));
+        assert_eq!(f.skipped.first(), Some(&9));
+        assert!(f.skipped.len() > 1, "the fields are read as more entries: {f:?}");
     }
 
+    // Without a size increment the fields come in another order; the
+    // midpoint layouts read their size and drop it.
     #[test]
-    fn decode_35e_unknown_marker_stops() {
-        let mut payload = Vec::new();
-        payload.push(0x99); // unknown
-        payload.extend(encode_vlq(100));
-        assert!(decode_ticks_35e(&payload).is_empty());
+    fn decode_unsized_and_midpoint_layouts() {
+        let mut e = Vec::new();
+        e.extend(encode_vlq(3));
+        e.extend(encode_vlq(50));
+        e.extend(encode_vlq(9));   // bid
+        e.extend(encode_vlq(11));  // ask
+        e.extend(encode_vlq(200)); // bid size
+        e.extend(encode_vlq(300)); // ask size
+        e.extend(encode_vlq(1));   // attribs
+        e.extend(encode_vlq(4));
+        e.extend(encode_vlq(51));
+        e.extend(encode_vlq(20));  // mid delta
+        e.extend(encode_vlq(2));   // wide size
+        e.extend(encode_vlq(1));
+        e.extend(encode_vlq(0));
+        let layout = |id| match id {
+            3 => Some(TbtLayout::BidAsk { sized: false }),
+            4 => Some(TbtLayout::MidPoint { sized: true }),
+            _ => None,
+        };
+        let (got, stop) = decode(&frame(&e), layout);
+        assert_eq!(stop, TbtStop::Done);
+        assert_eq!(got[0].fields, TbtFields::BidAsk { bid_delta: 9, ask_delta: 11, attribs: 1, bid_size: 200, ask_size: 300 });
+        assert_eq!(got[1].fields, TbtFields::MidPoint { delta: 20 });
+    }
+
+    // A truncated number ends the decode without the entry (ibx#272); the
+    // bit count bounds the read.
+    #[test]
+    fn decode_stops_on_truncated_data() {
+        let mut e = Vec::new();
+        e.extend(encode_vlq(1));
+        e.extend(encode_vlq(1000));
+        e.push(0x05); // unterminated price
+        let (got, stop) = decode(&frame(&e), |_| Some(TbtLayout::Trade { sized: true }));
+        assert!(got.is_empty());
+        assert_eq!(stop, TbtStop::Malformed);
+        assert_eq!(decode(&[], |_| None).1, TbtStop::Malformed);
+        let (got, stop) = decode(&[0, 0, 0x81, 0x82], |_| None);
+        assert!(got.is_empty() && stop == TbtStop::Done, "a zero bit count holds no entry");
     }
 }

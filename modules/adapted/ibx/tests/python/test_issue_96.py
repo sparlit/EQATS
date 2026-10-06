@@ -178,7 +178,9 @@ class TestOrderLifecycle:
         # Cancel
         self.client.cancel_order(oid, "")
         assert self.wrapper.got_cancelled.wait(timeout=15), "Cancel not confirmed"
-        cancel_statuses = [s for s in self.wrapper.order_statuses if s[0] == oid and s[1] == "Cancelled"]
+        cancel_statuses = [
+            s for s in self.wrapper.order_statuses if s[0] == oid and s[1] == "Cancelled"
+        ]
         assert len(cancel_statuses) > 0
 
     def test_place_modify_permid_stable(self):
@@ -205,7 +207,9 @@ class TestOrderLifecycle:
         assert self.wrapper.got_status.wait(timeout=15), "No status on modify"
         perm_id_after = self.wrapper.perm_ids[oid]
 
-        assert perm_id_before == perm_id_after, f"permId changed on modify: {perm_id_before} → {perm_id_after}"
+        assert perm_id_before == perm_id_after, (
+            f"permId changed on modify: {perm_id_before} → {perm_id_after}"
+        )
 
         # Cleanup
         self.client.cancel_order(oid, "")
@@ -227,7 +231,9 @@ class TestOrderLifecycle:
         if not got_fill:
             pytest.skip("No fill received — market may be closed")
 
-        fill_statuses = [s for s in self.wrapper.order_statuses if s[0] == oid and (s[1] == "Filled" or s[2] > 0)]
+        fill_statuses = [
+            s for s in self.wrapper.order_statuses if s[0] == oid and (s[1] == "Filled" or s[2] > 0)
+        ]
         assert len(fill_statuses) > 0, "Should have fill status"
 
         # Query executions

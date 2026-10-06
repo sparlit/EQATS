@@ -33,7 +33,6 @@ Run with: pytest tests/python/test_issue_115.py -v --timeout=120
 """
 import os
 import threading
-import time
 
 import pytest
 from ibx import Contract, EClient, EWrapper, Order
@@ -155,13 +154,13 @@ class TestAuxPriceValidation:
 
     def test_stp_order_zero_aux_price_rejected(self, local_client):
         """STP with lmt_price but no aux_price must raise, not silently submit."""
-        _wrapper, client = local_client
+        wrapper, client = local_client
         order = Order()
         order.action = "SELL"
         order.total_quantity = 1
         order.order_type = "STP"
         order.lmt_price = 145.0  # common mistake
-        # aux_price deliberately not set (defaults to 0.0)
+        order.aux_price = 0.0  # unset (the API's default) gets the reference's 321 instead
         with pytest.raises(RuntimeError, match="aux_price"):
             client.place_order(1, make_spy(), order)
 
@@ -173,7 +172,7 @@ class TestAuxPriceValidation:
         order.total_quantity = 1
         order.order_type = "STP LMT"
         order.lmt_price = 144.0
-        # aux_price deliberately not set
+        order.aux_price = 0.0  # unset (the API's default) gets the reference's 321 instead
         with pytest.raises(RuntimeError, match="aux_price"):
             client.place_order(2, make_spy(), order)
 
@@ -206,6 +205,7 @@ class TestAuxPriceValidation:
         order.action = "BUY"
         order.total_quantity = 1
         order.order_type = "MIT"
+        order.aux_price = 0.0  # unset (the API's default) gets the reference's 321 instead
         with pytest.raises(RuntimeError, match="aux_price"):
             client.place_order(5, make_spy(), order)
 
@@ -217,6 +217,7 @@ class TestAuxPriceValidation:
         order.total_quantity = 1
         order.order_type = "LIT"
         order.lmt_price = 150.0
+        order.aux_price = 0.0  # unset (the API's default) gets the reference's 321 instead
         with pytest.raises(RuntimeError, match="aux_price"):
             client.place_order(6, make_spy(), order)
 
@@ -227,6 +228,7 @@ class TestAuxPriceValidation:
         order.action = "SELL"
         order.total_quantity = 1
         order.order_type = "STP PRT"
+        order.aux_price = 0.0  # unset (the API's default) gets the reference's 321 instead
         with pytest.raises(RuntimeError, match="aux_price"):
             client.place_order(7, make_spy(), order)
 
@@ -259,7 +261,9 @@ class TestStopOrderLive:
 
         # Verify it was acknowledged (not rejected)
         statuses = [e[2] for e in wrapper._get_events("order_status") if e[1] == oid]
-        assert any(s in ("Submitted", "PreSubmitted") for s in statuses), f"STP order not acknowledged, got: {statuses}"
+        assert any(s in ("Submitted", "PreSubmitted") for s in statuses), (
+            f"STP order not acknowledged, got: {statuses}"
+        )
 
         # Cancel
         client.cancel_order(oid, "")

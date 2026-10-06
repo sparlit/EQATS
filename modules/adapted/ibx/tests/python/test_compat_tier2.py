@@ -37,9 +37,6 @@ Tests cover:
                       position_multi, position_multi_end, account_update_multi, account_update_multi_end
 """
 
-import time
-
-import pytest
 from ibx import Contract, EClient, EWrapper
 
 
@@ -99,7 +96,7 @@ def test_req_scanner_subscription_not_connected():
 
 def test_req_scanner_subscription_signature():
     """Verify req_scanner_subscription accepts ibapi-like signature."""
-    c, _w = make_client()
+    c, w = make_client()
     # Can't actually call without connection, just verify the method exists and takes the right args
     assert hasattr(c, "req_scanner_subscription")
 
@@ -118,7 +115,7 @@ def test_req_scanner_parameters_not_connected():
 
 def test_req_scanner_subscription_with_options():
     """Verify scanner subscription accepts options list."""
-    c, _w = make_client()
+    c, w = make_client()
     assert hasattr(c, "req_scanner_subscription")
     # The method signature should accept scanner_subscription_options
 
@@ -171,7 +168,7 @@ def test_req_news_article_signature():
 
 def test_req_news_article_with_options():
     """Verify req_news_article accepts options list."""
-    c, _w = make_client()
+    c, w = make_client()
     assert hasattr(c, "req_news_article")
 
 
@@ -211,7 +208,7 @@ def test_cancel_fundamental_data_not_connected():
 
 def test_req_fundamental_data_with_options():
     """Verify req_fundamental_data accepts options list."""
-    c, _w = make_client()
+    c, w = make_client()
     assert hasattr(c, "req_fundamental_data")
 
 
@@ -221,41 +218,41 @@ def test_req_fundamental_data_with_options():
 
 
 def test_calculate_implied_volatility_accepts_call():
-    c, _w = make_client()
+    c, w = make_client()
     contract = make_contract(con_id=265598)
     result = c.calculate_implied_volatility(1, contract, 5.0, 150.0)
     assert result is None  # Returns Ok(())
 
 
 def test_calculate_implied_volatility_with_options():
-    c, _w = make_client()
+    c, w = make_client()
     contract = make_contract()
     result = c.calculate_implied_volatility(1, contract, 5.0, 150.0, [])
     assert result is None
 
 
 def test_calculate_option_price_accepts_call():
-    c, _w = make_client()
+    c, w = make_client()
     contract = make_contract(con_id=265598)
     result = c.calculate_option_price(1, contract, 0.3, 150.0)
     assert result is None
 
 
 def test_calculate_option_price_with_options():
-    c, _w = make_client()
+    c, w = make_client()
     contract = make_contract()
     result = c.calculate_option_price(1, contract, 0.3, 150.0, [])
     assert result is None
 
 
 def test_cancel_calculate_implied_volatility():
-    c, _w = make_client()
+    c, w = make_client()
     result = c.cancel_calculate_implied_volatility(1)
     assert result is None
 
 
 def test_cancel_calculate_option_price():
-    c, _w = make_client()
+    c, w = make_client()
     result = c.cancel_calculate_option_price(1)
     assert result is None
 
@@ -266,7 +263,7 @@ def test_cancel_calculate_option_price():
 
 
 def test_exercise_options_accepts_call():
-    c, _w = make_client()
+    c, w = make_client()
     contract = make_contract(con_id=265598)
     result = c.exercise_options(1, contract, 1, 100, "DU12345", 0)
     assert result is None
@@ -283,19 +280,19 @@ def test_exercise_options_signature():
 
 
 def test_req_news_bulletins_default():
-    c, _w = make_client()
+    c, w = make_client()
     result = c.req_news_bulletins()
     assert result is None
 
 
 def test_req_news_bulletins_all_false():
-    c, _w = make_client()
+    c, w = make_client()
     result = c.req_news_bulletins(False)
     assert result is None
 
 
 def test_cancel_news_bulletins():
-    c, _w = make_client()
+    c, w = make_client()
     result = c.cancel_news_bulletins()
     assert result is None
 
@@ -339,7 +336,7 @@ def test_req_account_updates_multi_with_ledger_not_connected():
 
 
 def test_cancel_account_updates_multi():
-    c, _w = make_client()
+    c, w = make_client()
     result = c.cancel_account_updates_multi(1)
     assert result is None
 
@@ -351,7 +348,7 @@ def test_req_positions_multi_not_connected():
 
 
 def test_cancel_positions_multi():
-    c, _w = make_client()
+    c, w = make_client()
     result = c.cancel_positions_multi(1)
     assert result is None
 
@@ -519,7 +516,9 @@ def test_full_scanner_sequence():
         def scanner_parameters(self, xml):
             self.params_received = True
 
-        def scanner_data(self, req_id, rank, contract_details, distance, benchmark, projection, legs_str):
+        def scanner_data(
+            self, req_id, rank, contract_details, distance, benchmark, projection, legs_str
+        ):
             self.scan_data.append((req_id, rank))
 
         def scanner_data_end(self, req_id):
@@ -581,7 +580,7 @@ def test_full_fundamental_data_sequence():
 
 def test_options_calc_methods_exist():
     """Verify all options calculation methods exist on EClient."""
-    c, _w = make_client()
+    c, w = make_client()
     assert hasattr(c, "calculate_implied_volatility")
     assert hasattr(c, "calculate_option_price")
     assert hasattr(c, "cancel_calculate_implied_volatility")
@@ -591,7 +590,7 @@ def test_options_calc_methods_exist():
 
 def test_multi_account_methods_exist():
     """Verify all multi-account methods exist on EClient."""
-    c, _w = make_client()
+    c, w = make_client()
     assert hasattr(c, "req_account_updates_multi")
     assert hasattr(c, "cancel_account_updates_multi")
     assert hasattr(c, "req_positions_multi")
