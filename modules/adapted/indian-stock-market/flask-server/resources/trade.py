@@ -23,13 +23,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import json
 
+from database.models import Script, Trade, User
 from flask import Response, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restful import Resource
 from mongoengine.errors import DoesNotExist, InvalidDocumentError, ValidationError
 from resources.errors import SchemaValidationError
-
-from database.models import Script, Trade, User
 
 
 class AddTradeApi(Resource):
@@ -65,8 +64,15 @@ class TradesApi(Resource):
             return {"msg": "Signature verification failed"}, 422
 
         try:
-            trades = list(Trade.objects(user=user.username).exclude("user", "id").order_by("-date").as_pymongo())
-            return Response(json.dumps(trades, default=str), mimetype="application/json", status=200)
+            trades = list(
+                Trade.objects(user=user.username)
+                .exclude("user", "id")
+                .order_by("-date")
+                .as_pymongo()
+            )
+            return Response(
+                json.dumps(trades, default=str), mimetype="application/json", status=200
+            )
         except DoesNotExist:
             return {"error": "No trades in this account"}, 200
         except Exception as e:
@@ -84,15 +90,25 @@ class PortfolioApi(Resource):
 
         try:
             username = get_jwt_identity()
-            trades = Trade.objects(user=username).exclude("user", "id").order_by("date").as_pymongo()
+            trades = (
+                Trade.objects(user=username).exclude("user", "id").order_by("date").as_pymongo()
+            )
             codes = list({i["code"] for i in trades})
             companies = (
                 Script.objects(code__in=codes)
-                .exclude("id", "nseHist", "bseHist", "url", "shareholding", "standalone", "consolidated")
+                .exclude(
+                    "id", "nseHist", "bseHist", "url", "shareholding", "standalone", "consolidated"
+                )
                 .order_by("name")
                 .as_pymongo()
             )
-            curr_val, investment, realised_pl, daily_net_change, response = 0, 0, 0, 0, {"scripts": []}
+            curr_val, investment, realised_pl, daily_net_change, response = (
+                0,
+                0,
+                0,
+                0,
+                {"scripts": []},
+            )
             for i in companies:
                 price, prev_close = i[i["priceObj"]]["price"], i[i["priceObj"]]["prev_close"]
                 buy_list = [ob for ob in trades if ob["code"] == i["code"] and ob["trade"] == "b"]
@@ -106,7 +122,9 @@ class PortfolioApi(Resource):
                     net_buy += buy_list[j]["qty"]
                     buy_val += buy_list[j]["qty"] * buy_list[j]["price"]
                     j += 1
-                i["realisedProfit"] = sell_val - (buy_val + (buy_list[j]["price"] * (net_sold - net_buy)))
+                i["realisedProfit"] = sell_val - (
+                    buy_val + (buy_list[j]["price"] * (net_sold - net_buy))
+                )
                 net_pos = buy_list[j]["qty"] + net_buy - net_sold
                 unrealised_val = buy_list[j]["price"] * net_pos
                 j += 1
@@ -117,8 +135,12 @@ class PortfolioApi(Resource):
                 avg_price = round(unrealised_val / net_pos, 2)
                 i["unrealised_pl"] = round(net_pos * price - unrealised_val, 2)
                 i["change"] = round((price - prev_close) * net_pos, 2)
-                i["net_change"] = round((price - avg_price) * 100 / avg_price, 2) if avg_price != 0 else 100
-                i["daily_change"] = round((price - prev_close) * 100 / avg_price, 2) if avg_price != 0 else 0
+                i["net_change"] = (
+                    round((price - avg_price) * 100 / avg_price, 2) if avg_price != 0 else 100
+                )
+                i["daily_change"] = (
+                    round((price - prev_close) * 100 / avg_price, 2) if avg_price != 0 else 0
+                )
                 i["netPos"] = net_pos
                 i["avg_price"] = avg_price
                 daily_net_change += round(net_pos * (price - prev_close))
@@ -135,7 +157,9 @@ class PortfolioApi(Resource):
                 }
             )
             response.update({"realisedPL": realised_pl, "daily_net_change": daily_net_change})
-            return Response(json.dumps(response, default=str), mimetype="application/json", status=200)
+            return Response(
+                json.dumps(response, default=str), mimetype="application/json", status=200
+            )
         except Exception as e:
             print(type(e).__name__, e)
             return {"error": "Internal server error"}, 500

@@ -23,6 +23,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 from os import getenv
 
+from database.models import initialize_db
 from dotenv import load_dotenv
 from flask import Flask, redirect, url_for
 from flask_bcrypt import Bcrypt
@@ -30,8 +31,6 @@ from flask_jwt_extended import JWTManager
 from flask_restful import Api
 from resources.errors import errors
 from resources.routes import initialize_routes
-
-from database.models import initialize_db
 
 load_dotenv()
 app = Flask(__name__, static_folder="../build", static_url_path="/")

@@ -24,12 +24,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import json
 from datetime import datetime, timedelta
 
-from flask import Response, request
+from database.models import Indicies, Script, User
+from flask import Response
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restful import Resource
 from mongoengine.errors import DoesNotExist
-
-from database.models import Indicies, Script, User
 
 
 class Watchlist(Resource):
@@ -54,7 +53,11 @@ class Watchlist(Resource):
                 watchlist.append(ob)
                 watchlist[-1]["lastupdated"] = watchlist[-1]["lastupdated"].isoformat()
 
-            watchlist.sort(key=lambda i: codes.index(i["stkexchg"]) if "stkexchg" in i else codes.index(i["code"]))
+            watchlist.sort(
+                key=lambda i: (
+                    codes.index(i["stkexchg"]) if "stkexchg" in i else codes.index(i["code"])
+                )
+            )
             return watchlist, 200
         except Exception as e:
             print(type(e).__name__, e)
@@ -83,15 +86,19 @@ class AddToWatchlist(Resource):
                     "type": "success",
                     "success": indicies["stkexchg"] + " successfully added to your watchlist.",
                 }, 200
-            script = Script.objects.get(code=code)
-            if code in user.watchlist:
+            else:
+                script = Script.objects.get(code=code)
+                if code in user.watchlist:
+                    return {
+                        "type": "warning",
+                        "warning": script["full_name"] + " is already present in your watchlist.",
+                    }, 200
+                user.watchlist.append(script.code)
+                user.save()
                 return {
-                    "type": "warning",
-                    "warning": script["full_name"] + " is already present in your watchlist.",
+                    "type": "success",
+                    "success": script["full_name"] + " successfully added to your watchlist.",
                 }, 200
-            user.watchlist.append(script.code)
-            user.save()
-            return {"type": "success", "success": script["full_name"] + " successfully added to your watchlist."}, 200
         except DoesNotExist:
             return {"type": "error", "error": "Does not exist in our database."}, 200
         except Exception as e:
@@ -123,12 +130,18 @@ class CommonDetails(Resource):
             User.objects.get(username=get_jwt_identity())
             date_limit = datetime.today() - timedelta(days=180)
             indicies = {}
-            for i in Indicies.objects(stkexchg__in=["NIFTY 50", "SENSEX"]).exclude("id").as_pymongo():
+            for i in (
+                Indicies.objects(stkexchg__in=["NIFTY 50", "SENSEX"]).exclude("id").as_pymongo()
+            ):
                 indicies[i["stkexchg"]] = i
                 indicies[i["stkexchg"]]["history"] = [
-                    {"x": j[0].strftime("%Y-%m-%d"), "y": j[4]} for j in i["history"] if j[0] > date_limit
+                    {"x": j[0].strftime("%Y-%m-%d"), "y": j[4]}
+                    for j in i["history"]
+                    if j[0] > date_limit
                 ]
-            return Response(json.dumps(indicies, default=str), mimetype="application/json", status=200)
+            return Response(
+                json.dumps(indicies, default=str), mimetype="application/json", status=200
+            )
         except DoesNotExist:
             return {"msg": "Signature verification failed"}, 422
         except Exception as e:
