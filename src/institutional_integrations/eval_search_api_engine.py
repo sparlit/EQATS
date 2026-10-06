@@ -111,7 +111,7 @@ class EvalSearchAPIEngine:
                 }
             )
 
-        results.sort(key=lambda x: x["composite_score"], reverse=True)
+        results.sort(key=lambda x: float(x["composite_score"]), reverse=True)
         return results[:top_k]
 
 

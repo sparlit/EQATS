@@ -66,6 +66,7 @@ def test_password_verification() -> None:
 def test_legacy_migration() -> None:
     """Test 4: Legacy SHA-256 hashes are migrated"""
     print('Test 4: Testing legacy hash migration...')
+    database.init_db()
     legacy_pwd_hash = database.hash_credential('LegacyPassword123')
     legacy_pin_hash = database.hash_credential('123456')
     conn = database.get_connection()
@@ -95,6 +96,7 @@ def test_legacy_migration() -> None:
 def test_migration_status() -> None:
     """Test 5: Migration status monitoring"""
     print('Test 5: Checking migration status...')
+    database.init_db()
     status = database.get_credential_migration_status()
     print(f"  Total users: {status['total_users']}")
     print(f"  Bcrypt passwords: {status['bcrypt_passwords']}")

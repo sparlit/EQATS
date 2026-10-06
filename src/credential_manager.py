@@ -1157,7 +1157,7 @@ def _run_interactive_cli(cm: CredentialManager) -> None:
             else:
                 print("No circuit breaker state logged.")
         elif choice == "13":
-            if _TKINTER_AVAILABLE and CredentialManagerGUI:
+            if _TKINTER_AVAILABLE and CredentialManagerGUI is not None:
                 root = tk.Tk()
                 CredentialManagerGUI(root)
                 root.mainloop()
@@ -1193,7 +1193,7 @@ def main() -> None:
     cm = CredentialManager()
 
     if args.gui:
-        if _TKINTER_AVAILABLE and CredentialManagerGUI:
+        if _TKINTER_AVAILABLE and CredentialManagerGUI is not None:
             root = tk.Tk()
             CredentialManagerGUI(root)
             root.mainloop()

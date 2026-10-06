@@ -8,11 +8,10 @@ IST market session validation, and integration with `IndianBrokerPluginRegistry`
 Magic Number: 9100101
 """
 
-import math
 import logging
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -94,7 +93,9 @@ class InstitutionalOrderRouter:
             "BSE": bse_weight,
             "primary_exchange": best_exchange,
             "best_bid": max(nse_bid, bse_bid),
-            "best_ask": min(p for p in [nse_ask, bse_ask] if p > 0) if (nse_ask > 0 or bse_ask > 0) else 0.0,
+            "best_ask": min(p for p in [nse_ask, bse_ask] if p > 0)
+            if (nse_ask > 0 or bse_ask > 0)
+            else 0.0,
         }
 
     def slice_order_twap(self, total_quantity: int, num_slices: int = 5) -> list[int]:
@@ -198,21 +199,15 @@ class InstitutionalOrderRouterAdapter(SEBIBrokerAdapter):
     def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
-    def get_history(self, symbol: str, exchange: str = "NSE", count: int = 100) -> list[dict[str, Any]]:
+    def get_history(
+        self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
+    ) -> list[dict[str, Any]]:
         return [{"symbol": symbol, "close": 2850.50} for _ in range(count)]
 
-    def modify_order(self, ticket: str, price: float = 0.0, trigger_price: float = 0.0) -> SEBIOrderResponse:
-        return SEBIOrderResponse(
-            ticket=ticket,
-            symbol="INFY",
-            price=round_tick_005(price),
-            quantity=1,
-            product="MIS",
-            exchange="NSE",
-            status="MODIFIED",
-            success=True,
-            message="Order modified successfully.",
-        )
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
+        return True
 
 
 IndianBrokerPluginRegistry.register("INSTITUTIONAL_ORDER_ROUTER", InstitutionalOrderRouterAdapter)
