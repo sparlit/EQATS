@@ -155,8 +155,7 @@ def get_nifty_ltp():
             a += 1
     # If the LTP could not be retrieved after 10 attempts, raise an error
     if nt_ltp is None:
-        msg = "Failed to retrieve NIFTY LTP after multiple attempts."
-        raise ValueError(msg)
+        raise ValueError("Failed to retrieve NIFTY LTP after multiple attempts.")
     # Return the last traded price
     return nt_ltp
 
@@ -510,7 +509,9 @@ if ce_status == "COMPLETE" and pe_status == "COMPLETE":
             premium_decrease = premium_base - current_premium
             premium_base = current_premium  # Update the base premium for TSL calculation.
             sl_premium = current_premium + stop_loss  # Adjust the stop loss premium.
-            print(f"TSL Adjusted: New SL Premium {sl_premium:.2f}, Profit Locked {premium_decrease:.2f}")
+            print(
+                f"TSL Adjusted: New SL Premium {sl_premium:.2f}, Profit Locked {premium_decrease:.2f}"
+            )
 
         # Check if the current premium has hit or exceeded the stop loss level.
         if current_premium >= sl_premium:

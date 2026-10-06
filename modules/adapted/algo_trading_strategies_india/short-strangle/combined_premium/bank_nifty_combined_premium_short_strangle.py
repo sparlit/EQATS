@@ -109,8 +109,7 @@ def get_nifty_ltp():
             time.sleep(1)
             a += 1
     if nt_ltp is None:
-        msg = "Failed to retrieve NIFTY BANK LTP after multiple attempts."
-        raise ValueError(msg)
+        raise ValueError("Failed to retrieve NIFTY BANK LTP after multiple attempts.")
     return nt_ltp
 
 

@@ -97,7 +97,7 @@ expiry_date = get_expiry_date()
 
 bn = instrument_df[instrument_df.name == "BANKNIFTY"]
 bn_exp_df = bn[bn.expiry == expiry_date]
-bn_exp_df = bn_exp_df.reset_index()
+bn_exp_df.reset_index(inplace=True)
 
 qty = quantity * lot_size
 
@@ -228,10 +228,14 @@ def get_order_status_price_qty(order_id):
 def modify_limit_order(order_id, price):
     try:
         kite.modify_order(
-            order_id=order_id, price=price, order_type=kite.ORDER_TYPE_LIMIT, variety=kite.VARIETY_REGULAR
+            order_id=order_id,
+            price=price,
+            order_type=kite.ORDER_TYPE_LIMIT,
+            variety=kite.VARIETY_REGULAR,
         )
     except:
         print("order modification error..")
+        pass
 
 
 def market_order_buy(symbol, quantity):
@@ -273,8 +277,8 @@ def exit_entry():
             time.sleep(1)
         else:
             break
-    _ce_status, _ce_avg, ce_f_qty, ce_p_qty = get_order_status_price_qty(ce_order_id)
-    _pe_status, _pe_avg, pe_f_qty, pe_p_qty = get_order_status_price_qty(pe_order_id)
+    ce_status, ce_avg, ce_f_qty, ce_p_qty = get_order_status_price_qty(ce_order_id)
+    pe_status, pe_avg, pe_f_qty, pe_p_qty = get_order_status_price_qty(pe_order_id)
 
     if (ce_f_qty != qty) or (pe_f_qty != qty):
         print("partial execution of order")
@@ -325,8 +329,8 @@ def short_entry():
         else:
             break
 
-    _ce_status, ce_avg, ce_f_qty, _ce_p_qty = get_order_status_price_qty(ce_order_id)
-    _pe_status, pe_avg, pe_f_qty, _pe_p_qty = get_order_status_price_qty(pe_order_id)
+    ce_status, ce_avg, ce_f_qty, ce_p_qty = get_order_status_price_qty(ce_order_id)
+    pe_status, pe_avg, pe_f_qty, pe_p_qty = get_order_status_price_qty(pe_order_id)
 
     if (ce_f_qty != qty) or (pe_f_qty != qty):
         print("partial execution of order")

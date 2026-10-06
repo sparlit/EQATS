@@ -128,7 +128,9 @@ def get_banknifty_ltp():
             time.sleep(2)
             a += 1
             with contextlib.suppress(BaseException):
-                telegram_bot_sendtext("kiteconnect api error unable to fetch ltp of banknifty, retrying....")
+                telegram_bot_sendtext(
+                    "kiteconnect api error unable to fetch ltp of banknifty, retrying...."
+                )
     return bn_ltp
 
 
@@ -229,7 +231,8 @@ def get_order_status(order_id):
 
     if len(df) > 0:
         return "executed"
-    return "pending"
+    else:
+        return "pending"
 
 
 def round_5ps(price):
@@ -255,7 +258,9 @@ def get_fo_ltp(symbol):
             time.sleep(2)
             a += 1
             with contextlib.suppress(BaseException):
-                telegram_bot_sendtext("kiteconnect api error, unable to fetch FO ltp get_fo_ltp module, retrying....")
+                telegram_bot_sendtext(
+                    "kiteconnect api error, unable to fetch FO ltp get_fo_ltp module, retrying...."
+                )
     return option_ltp
 
 
@@ -296,8 +301,12 @@ def calculate_atm_and_place_order():
     ce_sell_price = get_trade_price(ce_order_id)
     pe_sell_price = get_trade_price(pe_order_id)
 
-    ce_sl_orderid = stoploss_order_buy(ce_symbol, lots * 25, float(round_5ps(ce_sell_price + ce_stoploss_value)))
-    pe_sl_orderid = stoploss_order_buy(pe_symbol, lots * 25, float(round_5ps(pe_sell_price + pe_stoploss_value)))
+    ce_sl_orderid = stoploss_order_buy(
+        ce_symbol, lots * 25, float(round_5ps(ce_sell_price + ce_stoploss_value))
+    )
+    pe_sl_orderid = stoploss_order_buy(
+        pe_symbol, lots * 25, float(round_5ps(pe_sell_price + pe_stoploss_value))
+    )
 
     ce_df.loc[0, "sl_order_id"] = ce_sl_orderid
     ce_df.loc[0, "qty"] = lots * 25

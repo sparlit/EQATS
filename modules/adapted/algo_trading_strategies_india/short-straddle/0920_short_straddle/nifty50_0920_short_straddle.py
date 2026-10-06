@@ -134,7 +134,7 @@ class NiftyTradingBot:
             with open(ACCESS_TOKEN_FILE) as f:
                 return f.read().strip()
         except FileNotFoundError:
-            logger.exception(f"Access token file not found: {ACCESS_TOKEN_FILE}")
+            logger.error(f"Access token file not found: {ACCESS_TOKEN_FILE}")
             raise
 
     def get_expiry_date(self):
@@ -164,7 +164,9 @@ class NiftyTradingBot:
 
         # Find the nearest expiry date
         nearest_expiry = min(available_expiries, key=lambda x: abs((x - target_expiry).days))
-        logger.info(f"Target expiry {target_expiry} not found. Using nearest expiry: {nearest_expiry}")
+        logger.info(
+            f"Target expiry {target_expiry} not found. Using nearest expiry: {nearest_expiry}"
+        )
         return nearest_expiry
 
     def get_nifty_atm_strike(self, ltp):
@@ -217,25 +219,26 @@ class NiftyTradingBot:
                 # If exact strike not found, find the closest available strike
                 unique_strikes = sorted(df["strike"].unique())
                 if not unique_strikes:
-                    msg = "No strikes available in the instrument data"
-                    raise ValueError(msg)
+                    raise ValueError("No strikes available in the instrument data")
 
                 closest_strike = min(unique_strikes, key=lambda x: abs(x - strike))
-                logger.info(f"Exact strike {strike} not found. Using closest available strike: {closest_strike}")
+                logger.info(
+                    f"Exact strike {strike} not found. Using closest available strike: {closest_strike}"
+                )
                 df_filtered = df[df.strike == closest_strike]
                 strike = closest_strike
 
             # Check if we have the required option type for this strike
             available_types = df_filtered["instrument_type"].unique()
             if option_type not in available_types:
-                msg = f"Option type {option_type} not available for strike {strike}. Available types: {available_types}"
-                raise ValueError(msg)
+                raise ValueError(
+                    f"Option type {option_type} not available for strike {strike}. Available types: {available_types}"
+                )
 
             # Get the trading symbol for the specified option type
             symbol_data = df_filtered[df_filtered.instrument_type == option_type]
             if len(symbol_data) == 0:
-                msg = f"No {option_type} option found for strike {strike}"
-                raise ValueError(msg)
+                raise ValueError(f"No {option_type} option found for strike {strike}")
 
             symbol = symbol_data.tradingsymbol.values[0]
             logger.info(f"Found {option_type} symbol for strike {strike}: {symbol}")
@@ -243,7 +246,9 @@ class NiftyTradingBot:
             return symbol
 
         except Exception as e:
-            logger.exception(f"Error getting trading symbol for strike {strike}, type {option_type}: {e!s}")
+            logger.error(
+                f"Error getting trading symbol for strike {strike}, type {option_type}: {str(e)}"
+            )
             raise
 
     def get_nifty_ltp(self, max_retries=10):
@@ -255,14 +260,12 @@ class NiftyTradingBot:
                 logger.info(f"NIFTY 50 LTP: {ltp}")
                 return ltp
             except Exception as e:
-                logger.warning(f"Attempt {attempt + 1}: Can't extract LTP data - {e!s}")
+                logger.warning(f"Attempt {attempt + 1}: Can't extract LTP data - {str(e)}")
                 if attempt < max_retries - 1:
                     time.sleep(2)
                 else:
-                    logger.exception("Failed to get NIFTY LTP after maximum retries")
-                    msg = "Unable to fetch NIFTY LTP after maximum retries"
-                    raise Exception(msg)
-        return None
+                    logger.error("Failed to get NIFTY LTP after maximum retries")
+                    raise Exception("Unable to fetch NIFTY LTP after maximum retries")
 
     def get_option_ltp(self, symbol, max_retries=5):
         """Get current LTP for an option symbol"""
@@ -270,15 +273,15 @@ class NiftyTradingBot:
             try:
                 nfo_symbol = f"NFO:{symbol}"
                 option_data = self.kite.ltp([nfo_symbol])
-                return option_data[nfo_symbol]["last_price"]
+                ltp = option_data[nfo_symbol]["last_price"]
+                return ltp
             except Exception as e:
-                logger.warning(f"Attempt {attempt + 1}: Failed to get LTP for {symbol} - {e!s}")
+                logger.warning(f"Attempt {attempt + 1}: Failed to get LTP for {symbol} - {str(e)}")
                 if attempt < max_retries - 1:
                     time.sleep(0.5)
                 else:
-                    logger.exception(f"Failed to get LTP for {symbol} after {max_retries} attempts")
+                    logger.error(f"Failed to get LTP for {symbol} after {max_retries} attempts")
                     return None
-        return None
 
     def check_manual_exit_conditions(self, ce_ltp, pe_ltp):
         """Check if manual exit is needed due to excessive loss beyond SL"""
@@ -310,7 +313,7 @@ class NiftyTradingBot:
             return ce_exit_needed, pe_exit_needed
 
         except Exception as e:
-            logger.exception(f"Error in manual exit condition check: {e!s}")
+            logger.error(f"Error in manual exit condition check: {str(e)}")
             return False, False
 
     def emergency_exit_position(self, option_type, symbol, quantity):
@@ -321,7 +324,7 @@ class NiftyTradingBot:
             logger.critical(f"Emergency exit order placed: {order_id}")
             return order_id
         except Exception as e:
-            logger.critical(f"FAILED TO PLACE EMERGENCY EXIT for {symbol}: {e!s}")
+            logger.critical(f"FAILED TO PLACE EMERGENCY EXIT for {symbol}: {str(e)}")
             return None
 
     def monitor_stop_loss_continuously(self):
@@ -365,7 +368,9 @@ class NiftyTradingBot:
 
                 # Check for manual exit conditions (slippage protection)
                 if ce_position_open and pe_position_open and ce_ltp and pe_ltp:
-                    ce_exit_needed, pe_exit_needed = self.check_manual_exit_conditions(ce_ltp, pe_ltp)
+                    ce_exit_needed, pe_exit_needed = self.check_manual_exit_conditions(
+                        ce_ltp, pe_ltp
+                    )
 
                     if ce_exit_needed and ce_position_open:
                         logger.critical("CE SLIPPAGE PROTECTION TRIGGERED")
@@ -382,14 +387,14 @@ class NiftyTradingBot:
                 # Log current status periodically
                 if ce_position_open or pe_position_open:
                     logger.info(
-                        f"Monitoring - CE LTP: {ce_ltp or 'N/A'} (SL: {ce_sl_level:.2f}), "
-                        f"PE LTP: {pe_ltp or 'N/A'} (SL: {pe_sl_level:.2f})"
+                        f"Monitoring - CE LTP: {ce_ltp if ce_ltp else 'N/A'} (SL: {ce_sl_level:.2f}), "
+                        f"PE LTP: {pe_ltp if pe_ltp else 'N/A'} (SL: {pe_sl_level:.2f})"
                     )
 
                 time.sleep(self.sl_monitoring_interval)
 
             except Exception as e:
-                logger.exception(f"Error in continuous SL monitoring: {e!s}")
+                logger.error(f"Error in continuous SL monitoring: {str(e)}")
                 time.sleep(1)
 
         logger.info("Stop loss monitoring completed")
@@ -409,7 +414,7 @@ class NiftyTradingBot:
             logger.info(f"Sell order placed for {symbol}: {order_id}")
             return order_id
         except Exception as e:
-            logger.exception(f"Error placing sell order for {symbol}: {e!s}")
+            logger.error(f"Error placing sell order for {symbol}: {str(e)}")
             raise
 
     def place_market_order_buy(self, symbol, quantity):
@@ -427,7 +432,7 @@ class NiftyTradingBot:
             logger.info(f"Buy order placed for {symbol}: {order_id}")
             return order_id
         except Exception as e:
-            logger.exception(f"Error placing buy order for {symbol}: {e!s}")
+            logger.error(f"Error placing buy order for {symbol}: {str(e)}")
             raise
 
     def place_stoploss_order_buy(self, symbol, quantity, trigger_price):
@@ -452,7 +457,7 @@ class NiftyTradingBot:
             )
             return order_id
         except Exception as e:
-            logger.exception(f"Error placing stop loss order for {symbol}: {e!s}")
+            logger.error(f"Error placing stop loss order for {symbol}: {str(e)}")
             raise
 
     def get_trade_price(self, order_id, max_retries=10):
@@ -465,14 +470,12 @@ class NiftyTradingBot:
                 logger.info(f"Trade price for order {order_id}: {trade_price}")
                 return trade_price
             except Exception as e:
-                logger.warning(f"Attempt {attempt + 1}: Can't extract trade data - {e!s}")
+                logger.warning(f"Attempt {attempt + 1}: Can't extract trade data - {str(e)}")
                 if attempt < max_retries - 1:
                     time.sleep(1)
                 else:
-                    logger.exception(f"Failed to get trade price for order {order_id}")
-                    msg = f"Unable to fetch trade price for order {order_id}"
-                    raise Exception(msg)
-        return None
+                    logger.error(f"Failed to get trade price for order {order_id}")
+                    raise Exception(f"Unable to fetch trade price for order {order_id}")
 
     def get_order_status(self, order_id, max_retries=10):
         """Check if order is executed or pending"""
@@ -482,16 +485,16 @@ class NiftyTradingBot:
                 tb_df = pd.DataFrame(trades)
                 df_filtered = tb_df[tb_df.order_id == order_id]
 
-                return "executed" if len(df_filtered) > 0 else "pending"
+                status = "executed" if len(df_filtered) > 0 else "pending"
 
+                return status
             except Exception as e:
-                logger.warning(f"Attempt {attempt + 1}: Can't extract order status - {e!s}")
+                logger.warning(f"Attempt {attempt + 1}: Can't extract order status - {str(e)}")
                 if attempt < max_retries - 1:
                     time.sleep(1)
                 else:
-                    logger.exception(f"Failed to get order status for {order_id}")
+                    logger.error(f"Failed to get order status for {order_id}")
                     return "unknown"
-        return None
 
     def cancel_order(self, order_id):
         """Cancel pending order"""
@@ -499,7 +502,7 @@ class NiftyTradingBot:
             self.kite.cancel_order(order_id=order_id, variety=self.kite.VARIETY_REGULAR)
             logger.info(f"Order {order_id} cancelled")
         except Exception as e:
-            logger.exception(f"Error cancelling order {order_id}: {e!s}")
+            logger.error(f"Error cancelling order {order_id}: {str(e)}")
 
     def round_to_tick_size(self, price):
         """Round price to 0.05 tick size"""
@@ -516,14 +519,12 @@ class NiftyTradingBot:
                 logger.info(f"Successfully downloaded {len(instrument_dump)} instruments from NFO")
                 return pd.DataFrame(instrument_dump)
             except Exception as e:
-                logger.warning(f"Attempt {attempt + 1}: Instrument dump download error - {e!s}")
+                logger.warning(f"Attempt {attempt + 1}: Instrument dump download error - {str(e)}")
                 if attempt < max_retries - 1:
                     time.sleep(1)
                 else:
-                    logger.exception("Failed to download instrument data after maximum retries")
-                    msg = "Unable to download instrument data"
-                    raise Exception(msg)
-        return None
+                    logger.error("Failed to download instrument data after maximum retries")
+                    raise Exception("Unable to download instrument data")
 
     def calculate_atm_and_place_order(self):
         """Calculate ATM strike and place straddle orders"""
@@ -548,7 +549,9 @@ class NiftyTradingBot:
 
             # Place sell orders for straddle
             quantity = self.lots * self.lot_size
-            logger.info(f"Placing sell orders for quantity: {quantity} (lots: {self.lots} x lot_size: {self.lot_size})")
+            logger.info(
+                f"Placing sell orders for quantity: {quantity} (lots: {self.lots} x lot_size: {self.lot_size})"
+            )
 
             self.ce_order_id = self.place_market_order_sell(self.ce_symbol, quantity)
             self.pe_order_id = self.place_market_order_sell(self.pe_symbol, quantity)
@@ -564,20 +567,30 @@ class NiftyTradingBot:
             logger.info(f"PE sell price: {self.pe_sell_price}")
 
             # Calculate stop loss values
-            ce_stoploss_value = self.round_to_tick_size(self.ce_sell_price * self.ce_stoploss_per / 100)
-            pe_stoploss_value = self.round_to_tick_size(self.pe_sell_price * self.pe_stoploss_per / 100)
+            ce_stoploss_value = self.round_to_tick_size(
+                self.ce_sell_price * self.ce_stoploss_per / 100
+            )
+            pe_stoploss_value = self.round_to_tick_size(
+                self.pe_sell_price * self.pe_stoploss_per / 100
+            )
 
             # Place stop loss orders
             ce_trigger_price = self.round_to_tick_size(self.ce_sell_price + ce_stoploss_value)
             pe_trigger_price = self.round_to_tick_size(self.pe_sell_price + pe_stoploss_value)
 
-            self.ce_sl_orderid = self.place_stoploss_order_buy(self.ce_symbol, quantity, ce_trigger_price)
-            self.pe_sl_orderid = self.place_stoploss_order_buy(self.pe_symbol, quantity, pe_trigger_price)
+            self.ce_sl_orderid = self.place_stoploss_order_buy(
+                self.ce_symbol, quantity, ce_trigger_price
+            )
+            self.pe_sl_orderid = self.place_stoploss_order_buy(
+                self.pe_symbol, quantity, pe_trigger_price
+            )
 
-            logger.info(f"Straddle setup completed - CE: {self.ce_sell_price}, PE: {self.pe_sell_price}")
+            logger.info(
+                f"Straddle setup completed - CE: {self.ce_sell_price}, PE: {self.pe_sell_price}"
+            )
 
         except Exception as e:
-            logger.exception(f"Error in calculate_atm_and_place_order: {e!s}")
+            logger.error(f"Error in calculate_atm_and_place_order: {str(e)}")
             raise
 
     def wait_until_time(self, target_time):
@@ -627,14 +640,15 @@ class NiftyTradingBot:
 
             # Filter for current expiry
             self.bn_exp_df = nifty_options[nifty_options.expiry == self.expiry_date]
-            logger.info(f"Found {len(self.bn_exp_df)} NIFTY instruments for expiry {self.expiry_date}")
+            logger.info(
+                f"Found {len(self.bn_exp_df)} NIFTY instruments for expiry {self.expiry_date}"
+            )
 
             if len(self.bn_exp_df) == 0:
                 logger.error("No NIFTY instruments found for the expiry date!")
                 available_expiries = sorted(nifty_options["expiry"].unique())
                 logger.error(f"Available expiry dates: {available_expiries}")
-                msg = "No instruments available for trading"
-                raise Exception(msg)
+                raise Exception("No instruments available for trading")
 
             # Wait until trade entry time
             self.wait_until_time(self.trade_entry_time)
@@ -671,7 +685,7 @@ class NiftyTradingBot:
             logger.info("Trading strategy completed successfully")
 
         except Exception as e:
-            logger.exception(f"Error in trading strategy: {e!s}")
+            logger.error(f"Error in trading strategy: {str(e)}")
             raise
 
 
@@ -681,5 +695,5 @@ if __name__ == "__main__":
         bot = NiftyTradingBot()
         bot.run_trading_strategy()
     except Exception as e:
-        logger.exception(f"Fatal error: {e!s}")
-        print(f"Trading bot failed with error: {e!s}")
+        logger.error(f"Fatal error: {str(e)}")
+        print(f"Trading bot failed with error: {str(e)}")
