@@ -1,5 +1,5 @@
 {
-  "current_index": 98,
+  "current_index": 99,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -789,9 +789,9 @@
       "name": "coinsignal",
       "target": "crypto-crawler/coinsignal",
       "url": "https://github.com/crypto-crawler/coinsignal",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3039",
+      "merged": true
     },
     {
       "name": "solana-copytrading-bot",
