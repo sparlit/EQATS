@@ -806,8 +806,8 @@
       "target": "cyberomin/nsefinance-python",
       "url": "https://github.com/cyberomin/nsefinance-python",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3041",
+      "merged": true
     },
     {
       "name": "apcacli",
