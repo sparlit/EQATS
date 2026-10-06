@@ -39,7 +39,14 @@ from tradingview_mcp.core.services import backtest_service
 
 
 def _candle(date: str, price: float) -> dict:
-    return {"date": date, "open": price, "high": price * 1.01, "low": price * 0.99, "close": price, "volume": 100}
+    return {
+        "date": date,
+        "open": price,
+        "high": price * 1.01,
+        "low": price * 0.99,
+        "close": price,
+        "volume": 100,
+    }
 
 
 class TestForcedExit:

@@ -57,13 +57,17 @@ def _indicators(open_price: float, close: float) -> dict[str, Any]:
 def _analysis_response() -> dict:
     """Five symbols spanning -20%..+20% so order is unambiguous."""
     changes = {"UP20": 120.0, "UP10": 110.0, "FLAT": 100.0, "DN10": 90.0, "DN20": 80.0}
-    return {sym: SimpleNamespace(indicators=_indicators(100.0, close)) for sym, close in changes.items()}
+    return {
+        sym: SimpleNamespace(indicators=_indicators(100.0, close)) for sym, close in changes.items()
+    }
 
 
 def _patched(sort: str, limit: int):
     with (
         patch.object(screener_service, "get_multiple_analysis", return_value=_analysis_response()),
-        patch.object(screener_service, "load_symbols", return_value=["UP20", "UP10", "FLAT", "DN10", "DN20"]),
+        patch.object(
+            screener_service, "load_symbols", return_value=["UP20", "UP10", "FLAT", "DN10", "DN20"]
+        ),
     ):
         return screener_service.fetch_trending_analysis(
             "KUCOIN",
@@ -89,7 +93,9 @@ class TestTopLosersTool:
     def test_tool_requests_ascending_sort(self, monkeypatch):
         captured: dict[str, Any] = {}
 
-        def fake_fetch(exchange, timeframe="5m", filter_type="", rating_filter=None, limit=50, sort="desc"):
+        def fake_fetch(
+            exchange, timeframe="5m", filter_type="", rating_filter=None, limit=50, sort="desc"
+        ):
             captured["sort"] = sort
             captured["limit"] = limit
             return [

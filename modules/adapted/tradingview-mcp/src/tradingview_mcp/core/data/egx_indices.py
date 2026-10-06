@@ -39,7 +39,6 @@ EGX semi-annual reviews (Feb/Aug) and must be updated from egx.com.eg
 announcements — the scanner can verify a symbol exists, not which index
 it belongs to.
 """
-from typing import Dict, List
 
 # EGX30 Price Index - Top 30 blue-chip stocks (weighted by free-float market cap)
 EGX30_CONSTITUENTS: list[str] = [

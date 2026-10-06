@@ -73,7 +73,7 @@ def test_stale_quote_with_empty_newest_candle():
         [6.94, 6.99, 7.00, 6.97, 6.90, None],
         quote_price=1.635,
         quote_ts=STALE_TS,
-        timestamps=[*FRESH_TS, 1756512000],
+        timestamps=FRESH_TS + [1756512000],
     )
     q = _format_quote("MENA.CA", chart)
     assert q["price"] == 6.90

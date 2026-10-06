@@ -51,7 +51,6 @@ import json
 import time
 import urllib.error
 import urllib.request
-from typing import Optional
 
 import httpx
 from tradingview_mcp.core.services.proxy_manager import get_httpx_proxy

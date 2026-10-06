@@ -126,35 +126,56 @@ class TestGetTvExchangePrefix:
         """Simulate the symbol construction in server.py for AMEX exchange."""
         exchange = sanitize_exchange("AMEX", "KUCOIN")  # → "amex"
         symbol = "GDX"
-        full_symbol = symbol.upper() if ":" in symbol else f"{get_tv_exchange_prefix(exchange)}:{symbol.upper()}"
+        full_symbol = (
+            symbol.upper()
+            if ":" in symbol
+            else f"{get_tv_exchange_prefix(exchange)}:{symbol.upper()}"
+        )
         assert full_symbol == "AMEX:GDX", (
-            f"Expected AMEX:GDX but got {full_symbol!r}. This means Bug 1 is not fixed: exchange prefix is wrong."
+            f"Expected AMEX:GDX but got {full_symbol!r}. "
+            "This means Bug 1 is not fixed: exchange prefix is wrong."
         )
 
     def test_full_symbol_construction_nysearca(self):
         exchange = sanitize_exchange("NYSEARCA", "KUCOIN")  # → "nysearca"
         symbol = "GDX"
-        full_symbol = symbol.upper() if ":" in symbol else f"{get_tv_exchange_prefix(exchange)}:{symbol.upper()}"
+        full_symbol = (
+            symbol.upper()
+            if ":" in symbol
+            else f"{get_tv_exchange_prefix(exchange)}:{symbol.upper()}"
+        )
         assert full_symbol == "AMEX:GDX"
 
     def test_full_symbol_construction_twse(self):
         """Taiwan stock 2330 (TSMC) must get TWSE prefix."""
         exchange = sanitize_exchange("TWSE", "KUCOIN")  # → "twse"
         symbol = "2330"
-        full_symbol = symbol.upper() if ":" in symbol else f"{get_tv_exchange_prefix(exchange)}:{symbol.upper()}"
+        full_symbol = (
+            symbol.upper()
+            if ":" in symbol
+            else f"{get_tv_exchange_prefix(exchange)}:{symbol.upper()}"
+        )
         assert full_symbol == "TWSE:2330"
 
     def test_full_symbol_construction_tpex(self):
         exchange = sanitize_exchange("TPEX", "KUCOIN")  # → "tpex"
         symbol = "3105"
-        full_symbol = symbol.upper() if ":" in symbol else f"{get_tv_exchange_prefix(exchange)}:{symbol.upper()}"
+        full_symbol = (
+            symbol.upper()
+            if ":" in symbol
+            else f"{get_tv_exchange_prefix(exchange)}:{symbol.upper()}"
+        )
         assert full_symbol == "TPEX:3105"
 
     def test_pre_qualified_symbol_is_not_reprefixed(self):
         """If caller already passes 'AMEX:GDX', the prefix must not be doubled."""
         exchange = sanitize_exchange("AMEX", "KUCOIN")
         symbol = "AMEX:GDX"  # already qualified
-        full_symbol = symbol.upper() if ":" in symbol else f"{get_tv_exchange_prefix(exchange)}:{symbol.upper()}"
+        full_symbol = (
+            symbol.upper()
+            if ":" in symbol
+            else f"{get_tv_exchange_prefix(exchange)}:{symbol.upper()}"
+        )
         assert full_symbol == "AMEX:GDX"
 
 
@@ -189,7 +210,7 @@ class TestExistingExchangesUnchanged:
     """Ensure previously-working exchanges are unaffected by the fix."""
 
     @pytest.mark.parametrize(
-        ("exchange", "expected_screener"),
+        "exchange,expected_screener",
         [
             ("kucoin", "crypto"),
             ("binance", "crypto"),

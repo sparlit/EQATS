@@ -23,9 +23,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from typing import Dict, Optional, Tuple
-
-
 def compute_change(open_price: float, close: float) -> float:
     return ((close - open_price) / open_price) * 100 if open_price else 0.0
 
@@ -37,7 +34,9 @@ def compute_bbw(sma: float, bb_upper: float, bb_lower: float) -> float | None:
     return (bb_upper - bb_lower) / sma
 
 
-def compute_bb_rating_signal(close: float, bb_upper: float, bb_middle: float, bb_lower: float) -> tuple[int, str]:
+def compute_bb_rating_signal(
+    close: float, bb_upper: float, bb_middle: float, bb_lower: float
+) -> tuple[int, str]:
     rating = 0
     if close > bb_upper:
         rating = 3
@@ -131,7 +130,13 @@ def extract_extended_indicators(indicators: dict) -> dict:
     # --- OBV (On Balance Volume) ---
     obv_direction = None
     if volume is not None and open_price and close:
-        obv_direction = "accumulation" if close > open_price else "distribution" if close < open_price else "neutral"
+        obv_direction = (
+            "accumulation"
+            if close > open_price
+            else "distribution"
+            if close < open_price
+            else "neutral"
+        )
 
     obv = {
         "current_volume": _safe_round(volume, 0),
@@ -237,7 +242,13 @@ def extract_extended_indicators(indicators: dict) -> dict:
         # Missing ATR is "Unknown", not "Low" — asserting calm markets on
         # absent data misleads downstream risk sizing.
         "volatility": (
-            "Unknown" if atr_pct is None else "High" if atr_pct > 3 else "Medium" if atr_pct > 1.5 else "Low"
+            "Unknown"
+            if atr_pct is None
+            else "High"
+            if atr_pct > 3
+            else "Medium"
+            if atr_pct > 1.5
+            else "Low"
         ),
     }
 
@@ -351,7 +362,9 @@ def extract_extended_indicators(indicators: dict) -> dict:
     if vwap_value is not None:
         vwap = {
             "value": _safe_round(vwap_value, 4),
-            "position": "Above VWAP (bullish)" if close and close > vwap_value else "Below VWAP (bearish)",
+            "position": "Above VWAP (bullish)"
+            if close and close > vwap_value
+            else "Below VWAP (bearish)",
         }
 
     # --- CCI (Commodity Channel Index) ---
@@ -488,7 +501,9 @@ def extract_extended_indicators(indicators: dict) -> dict:
     if vwma_value is not None:
         vwma = {
             "value": _safe_round(vwma_value, 4),
-            "position": "Above VWMA (bullish)" if close and close > vwma_value else "Below VWMA (bearish)",
+            "position": "Above VWMA (bullish)"
+            if close and close > vwma_value
+            else "Below VWMA (bearish)",
         }
 
     # --- Ultimate Oscillator ---
@@ -512,7 +527,9 @@ def extract_extended_indicators(indicators: dict) -> dict:
     # --- RSI Direction (rising or falling) ---
     rsi_prev = indicators.get("RSI[1]")
     if rsi_value is not None and rsi_prev is not None:
-        rsi["direction"] = "Rising" if rsi_value > rsi_prev else "Falling" if rsi_value < rsi_prev else "Flat"
+        rsi["direction"] = (
+            "Rising" if rsi_value > rsi_prev else "Falling" if rsi_value < rsi_prev else "Flat"
+        )
         rsi["previous"] = _safe_round(rsi_prev, 2)
 
     # --- TradingView Built-in Recommendations ---
@@ -601,17 +618,25 @@ def _extract_support_resistance(indicators: dict, close) -> dict:
 
     # Determine nearest support and resistance
     if close:
-        resistance_levels = [(v, k) for k, v in levels.items() if v is not None and "resistance" in k and v > close]
-        support_levels = [(v, k) for k, v in levels.items() if v is not None and "support" in k and v < close]
+        resistance_levels = [
+            (v, k) for k, v in levels.items() if v is not None and "resistance" in k and v > close
+        ]
+        support_levels = [
+            (v, k) for k, v in levels.items() if v is not None and "support" in k and v < close
+        ]
 
         if resistance_levels:
             nearest_r = min(resistance_levels, key=lambda x: x[0])
             levels["nearest_resistance"] = nearest_r[0]
-            levels["distance_to_resistance_pct"] = _safe_round(((nearest_r[0] - close) / close) * 100, 2)
+            levels["distance_to_resistance_pct"] = _safe_round(
+                ((nearest_r[0] - close) / close) * 100, 2
+            )
         if support_levels:
             nearest_s = max(support_levels, key=lambda x: x[0])
             levels["nearest_support"] = nearest_s[0]
-            levels["distance_to_support_pct"] = _safe_round(((close - nearest_s[0]) / close) * 100, 2)
+            levels["distance_to_support_pct"] = _safe_round(
+                ((close - nearest_s[0]) / close) * 100, 2
+            )
 
     return levels
 
@@ -662,7 +687,9 @@ def _detect_market_structure(indicators: dict, close, open_price, high, low) -> 
     if rsi is not None and macd_line is not None and macd_signal is not None:
         bullish_momentum = rsi > 50 and macd_line > macd_signal
         bearish_momentum = rsi < 50 and macd_line < macd_signal
-        momentum_aligned = (trend == "Bullish" and bullish_momentum) or (trend == "Bearish" and bearish_momentum)
+        momentum_aligned = (trend == "Bullish" and bullish_momentum) or (
+            trend == "Bearish" and bearish_momentum
+        )
 
     # --- Candle Analysis ---
     candle = {}
@@ -671,9 +698,13 @@ def _detect_market_structure(indicators: dict, close, open_price, high, low) -> 
         total_range = high - low
         body_ratio = body / total_range if total_range > 0 else 0
 
-        candle["type"] = "Bullish" if close > open_price else "Bearish" if close < open_price else "Doji"
+        candle["type"] = (
+            "Bullish" if close > open_price else "Bearish" if close < open_price else "Doji"
+        )
         candle["body_ratio"] = _safe_round(body_ratio, 2)
-        candle["strength"] = "Strong" if body_ratio > 0.7 else "Moderate" if body_ratio > 0.4 else "Weak"
+        candle["strength"] = (
+            "Strong" if body_ratio > 0.7 else "Moderate" if body_ratio > 0.4 else "Weak"
+        )
 
         # Upper/lower wick analysis
         if close >= open_price:
@@ -682,8 +713,12 @@ def _detect_market_structure(indicators: dict, close, open_price, high, low) -> 
         else:
             upper_wick = high - open_price
             lower_wick = close - low
-        candle["upper_wick_pct"] = _safe_round((upper_wick / total_range) * 100, 1) if total_range > 0 else 0
-        candle["lower_wick_pct"] = _safe_round((lower_wick / total_range) * 100, 1) if total_range > 0 else 0
+        candle["upper_wick_pct"] = (
+            _safe_round((upper_wick / total_range) * 100, 1) if total_range > 0 else 0
+        )
+        candle["lower_wick_pct"] = (
+            _safe_round((lower_wick / total_range) * 100, 1) if total_range > 0 else 0
+        )
 
     # --- Trend Strength ---
     trend_strength = "Weak"
@@ -738,10 +773,14 @@ def analyze_timeframe_context(indicators: dict, timeframe: str) -> dict:
         if close and ema200:
             if close > ema200:
                 bias = "Bullish"
-                bias_reasons.append(f"Price ({_safe_round(close, 2)}) above 200 EMA ({_safe_round(ema200, 2)})")
+                bias_reasons.append(
+                    f"Price ({_safe_round(close, 2)}) above 200 EMA ({_safe_round(ema200, 2)})"
+                )
             else:
                 bias = "Bearish"
-                bias_reasons.append(f"Price ({_safe_round(close, 2)}) below 200 EMA ({_safe_round(ema200, 2)})")
+                bias_reasons.append(
+                    f"Price ({_safe_round(close, 2)}) below 200 EMA ({_safe_round(ema200, 2)})"
+                )
         if rsi is not None:
             if rsi > 50:
                 bias_reasons.append(f"RSI {_safe_round(rsi, 1)} above 50 (bullish bias)")
@@ -766,7 +805,9 @@ def analyze_timeframe_context(indicators: dict, timeframe: str) -> dict:
                 bias_reasons.append("Death Cross: EMA50 < EMA200")
         if rsi is not None:
             if 40 <= rsi <= 60:
-                bias_reasons.append(f"RSI {_safe_round(rsi, 1)} in pullback zone (40-60) - good entry area")
+                bias_reasons.append(
+                    f"RSI {_safe_round(rsi, 1)} in pullback zone (40-60) - good entry area"
+                )
             elif rsi > 70:
                 bias_reasons.append(f"RSI {_safe_round(rsi, 1)} overbought - avoid new longs")
             elif rsi < 30:
@@ -775,16 +816,18 @@ def analyze_timeframe_context(indicators: dict, timeframe: str) -> dict:
             ratio = volume / volume_sma20
             if ratio >= 1.5:
                 bias_reasons.append(f"Volume {ratio:.1f}x above average (breakout confirmation)")
-        advice = "Trade pullbacks in trend (not extremes). Look for confluence: EMA + support + RSI."
+        advice = (
+            "Trade pullbacks in trend (not extremes). Look for confluence: EMA + support + RSI."
+        )
 
     elif timeframe == "4h":
         # 4H: 20 EMA + 50 EMA, RSI, MACD, trendlines
         key_indicators = ["20 EMA", "50 EMA", "RSI(14)", "MACD"]
         if close and ema20 and ema50:
-            if close > ema20 > ema50:
+            if close > ema20 and ema20 > ema50:
                 bias = "Bullish"
                 bias_reasons.append("Price > EMA20 > EMA50 (bullish alignment)")
-            elif close < ema20 < ema50:
+            elif close < ema20 and ema20 < ema50:
                 bias = "Bearish"
                 bias_reasons.append("Price < EMA20 < EMA50 (bearish alignment)")
             else:
@@ -802,10 +845,14 @@ def analyze_timeframe_context(indicators: dict, timeframe: str) -> dict:
         if close and ema20:
             if close > ema20:
                 bias = "Bullish"
-                bias_reasons.append(f"Price above 20 EMA (dynamic support at {_safe_round(ema20, 2)})")
+                bias_reasons.append(
+                    f"Price above 20 EMA (dynamic support at {_safe_round(ema20, 2)})"
+                )
             else:
                 bias = "Bearish"
-                bias_reasons.append(f"Price below 20 EMA (dynamic resistance at {_safe_round(ema20, 2)})")
+                bias_reasons.append(
+                    f"Price below 20 EMA (dynamic resistance at {_safe_round(ema20, 2)})"
+                )
         if volume and volume_sma20 and volume_sma20 > 0:
             ratio = volume / volume_sma20
             if ratio >= 2.0:
@@ -830,9 +877,13 @@ def analyze_timeframe_context(indicators: dict, timeframe: str) -> dict:
                 bias_reasons.append("Fast EMA9 < EMA20 (short-term bearish)")
         if vwap is not None and close:
             if close > vwap:
-                bias_reasons.append(f"Above VWAP ({_safe_round(vwap, 2)}) - institutional level bullish")
+                bias_reasons.append(
+                    f"Above VWAP ({_safe_round(vwap, 2)}) - institutional level bullish"
+                )
             else:
-                bias_reasons.append(f"Below VWAP ({_safe_round(vwap, 2)}) - institutional level bearish")
+                bias_reasons.append(
+                    f"Below VWAP ({_safe_round(vwap, 2)}) - institutional level bearish"
+                )
         advice = "Only enter when aligned with 1H & 4H. Use tight stop losses."
 
     return {
@@ -850,7 +901,9 @@ def analyze_timeframe_context(indicators: dict, timeframe: str) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def compute_stock_score(indicators: dict, change_pct_rank: float | None = None, currency: str = "EGP") -> dict | None:
+def compute_stock_score(
+    indicators: dict, change_pct_rank: float | None = None, currency: str = "EGP"
+) -> dict | None:
     """Compute a 100-point composite stock score for ranking.
 
     Sections:
@@ -1106,7 +1159,7 @@ def compute_stock_score(indicators: dict, change_pct_rank: float | None = None, 
         penalties.append("Very low relative volume (-10)")
 
     # ── Liquidity Assessment ──────────────────────────────────────────────
-    avg_vol = vol_sma20 if vol_sma20 and vol_sma20 > 0 else (volume or None)
+    avg_vol = vol_sma20 if vol_sma20 and vol_sma20 > 0 else (volume if volume else None)
     avg_value_20d = (avg_vol * close) if avg_vol and close else None
     liquidity_ok = True  # passes hard gate for Strong/Elite
     liquidity_cap = None  # hard grade cap (None = no cap)
@@ -1283,10 +1336,13 @@ def compute_trade_setup(indicators: dict) -> dict | None:
         support_candidates.append(psar)
 
     # Deduplicate and sort
-    supports = sorted([x for x in {_safe_round(s, 2) for s in support_candidates if s} if x is not None], reverse=True)[
-        :3
-    ]
-    resistances = sorted([x for x in {_safe_round(r, 2) for r in resistance_candidates if r} if x is not None])[:3]
+    supports = sorted(
+        [x for x in {_safe_round(s, 2) for s in support_candidates if s} if x is not None],
+        reverse=True,
+    )[:3]
+    resistances = sorted(
+        [x for x in {_safe_round(r, 2) for r in resistance_candidates if r} if x is not None]
+    )[:3]
 
     # ── Entry Points ──────────────────────────────────────────────────────
 
@@ -1622,7 +1678,10 @@ def compute_fibonacci_levels(swing_high: float, swing_low: float, trend: str) ->
 
     extensions = {}
     for ratio in _FIB_EXTENSION_RATIOS:
-        price = swing_high + (ratio - 1.0) * diff if trend == "uptrend" else swing_low - (ratio - 1.0) * diff
+        if trend == "uptrend":
+            price = swing_high + (ratio - 1.0) * diff
+        else:
+            price = swing_low - (ratio - 1.0) * diff
         extensions[str(ratio)] = _safe_round(price, 2)
 
     return {
@@ -1651,9 +1710,13 @@ def analyze_fibonacci_position(close: float, fib_levels: dict) -> dict:
 
     if current_zone is None:
         if close < sorted_levels[0][1]:
-            current_zone = f"Below all levels (below {sorted_levels[0][0]} at {sorted_levels[0][1]})"
+            current_zone = (
+                f"Below all levels (below {sorted_levels[0][0]} at {sorted_levels[0][1]})"
+            )
         else:
-            current_zone = f"Above all levels (above {sorted_levels[-1][0]} at {sorted_levels[-1][1]})"
+            current_zone = (
+                f"Above all levels (above {sorted_levels[-1][0]} at {sorted_levels[-1][1]})"
+            )
 
     # Nearest level
     nearest = min(sorted_levels, key=lambda x: abs(x[1] - close))
@@ -1671,13 +1734,11 @@ def analyze_fibonacci_position(close: float, fib_levels: dict) -> dict:
         if golden_lo <= close <= golden_hi:
             key_zone = "Golden Pocket (0.618-0.786)"
 
-    if key_zone is None and fib_5 and close:
-        if abs(close - fib_5) / close * 100 < 1.5:
-            key_zone = "50% Retracement Zone"
+    if key_zone is None and fib_5 and close and abs(close - fib_5) / close * 100 < 1.5:
+        key_zone = "50% Retracement Zone"
 
-    if key_zone is None and fib_618 and close:
-        if abs(close - fib_618) / close * 100 < 1.5:
-            key_zone = "0.618 Level (Golden Ratio)"
+    if key_zone is None and fib_618 and close and abs(close - fib_618) / close * 100 < 1.5:
+        key_zone = "0.618 Level (Golden Ratio)"
 
     # Retracement depth
     swing_high = fib_levels["swing_high"]

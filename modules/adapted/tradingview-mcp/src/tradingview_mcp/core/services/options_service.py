@@ -61,10 +61,13 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 _TIMEOUT = 12
-_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
 # Yahoo started gating /v7/finance/options behind a crumb+cookie session
 # in 2024 (same as the quoteSummary endpoint). Without auth: HTTP 401.
 # We open a session against fc.yahoo.com to drop cookies, then ask
@@ -123,8 +126,7 @@ def _get_session() -> tuple:
         with opener.open(req, timeout=_TIMEOUT) as resp:
             crumb = resp.read().decode("utf-8").strip()
         if not crumb or len(crumb) > 100:
-            msg = f"unexpected crumb response: {crumb[:80]!r}"
-            raise ValueError(msg)
+            raise ValueError(f"unexpected crumb response: {crumb[:80]!r}")
 
         _SESSION_CACHE.update(crumb=crumb, opener=opener, ts=now)
         return crumb, opener
@@ -239,7 +241,13 @@ def get_options_chain(symbol: str, expiry: str | None = None) -> dict:
         try:
             data = _fetch(f"{_BASE}/{sym}?date={target_expiry_ts}")
             chain = data["optionChain"]["result"][0]
-        except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError, KeyError, IndexError) as e:
+        except (
+            urllib.error.URLError,
+            urllib.error.HTTPError,
+            json.JSONDecodeError,
+            KeyError,
+            IndexError,
+        ) as e:
             return {"symbol": sym, "error": f"failed to fetch expiry: {e}"}
 
     options_blocks = chain.get("options", []) or []
@@ -334,7 +342,13 @@ def get_unusual_options_activity(
         try:
             d = _fetch(f"{_BASE}/{sym}?date={ts}")
             blk = d["optionChain"]["result"][0]["options"][0]
-        except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError, KeyError, IndexError):
+        except (
+            urllib.error.URLError,
+            urllib.error.HTTPError,
+            json.JSONDecodeError,
+            KeyError,
+            IndexError,
+        ):
             # Skip a broken expiry rather than failing the whole call.
             continue
 

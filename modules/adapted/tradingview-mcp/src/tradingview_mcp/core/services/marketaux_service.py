@@ -51,8 +51,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
-from datetime import UTC, datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 _API_URL = "https://api.marketaux.com/v1/news/all"
 _TIMEOUT = 10
@@ -261,11 +260,11 @@ def _keyword_score(text: str) -> float:
 def _label(score: float) -> str:
     if score > 0.2:
         return "Strongly Bullish"
-    if score > 0.05:
+    elif score > 0.05:
         return "Bullish"
-    if score < -0.2:
+    elif score < -0.2:
         return "Strongly Bearish"
-    if score < -0.05:
+    elif score < -0.05:
         return "Bearish"
     return "Neutral"
 
@@ -367,7 +366,11 @@ def analyze_sentiment(
             {
                 "title": (a.get("title") or "")[:120],
                 "url": a.get("url", ""),
-                "sentiment": "bullish" if art_score > 0.05 else "bearish" if art_score < -0.05 else "neutral",
+                "sentiment": "bullish"
+                if art_score > 0.05
+                else "bearish"
+                if art_score < -0.05
+                else "neutral",
                 "source": a.get("source", "Marketaux"),
                 "published": a.get("published_at", ""),
             }

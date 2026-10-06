@@ -48,7 +48,6 @@ import os
 import random
 import urllib.parse
 import urllib.request
-from typing import Optional
 
 # Try loading .env file if python-dotenv is available
 try:
@@ -74,7 +73,10 @@ def _env_int(name: str, default: int) -> int:
     except ValueError:
         import sys
 
-        print(f"[tradingview_mcp] ignoring non-numeric {name}={raw!r}, using {default}", file=sys.stderr)
+        print(
+            f"[tradingview_mcp] ignoring non-numeric {name}={raw!r}, using {default}",
+            file=sys.stderr,
+        )
         return default
 
 
@@ -184,7 +186,9 @@ def check_proxy() -> dict:
         req = urllib.request.Request("https://ipinfo.io/json")
         with opener.open(req, timeout=12) as resp:
             data = json.loads(resp.read())
-        status.update(ip=data.get("ip"), country=data.get("country"), city=data.get("city"), ok=True)
+        status.update(
+            ip=data.get("ip"), country=data.get("country"), city=data.get("city"), ok=True
+        )
     except Exception as e:
         status["error"] = str(e)
 

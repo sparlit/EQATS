@@ -42,8 +42,7 @@ import json
 import math
 import statistics
 import urllib.request
-from datetime import UTC, datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from tradingview_mcp.core.services.indicators_calc import (
     calc_atr,
@@ -109,8 +108,7 @@ def _fetch_ohlcv(symbol: str, period: str, interval: str = "1d") -> list[dict]:
             with opener.open(url, timeout=18) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
         except Exception as e:
-            msg = f"Both direct and proxy connections failed: {e}"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"Both direct and proxy connections failed: {e}")
 
     result = data["chart"]["result"][0]
     timestamps = result["timestamp"]
@@ -207,7 +205,12 @@ def _run_macd(candles, fast=12, slow=26, signal=9, **_):
     macd = calc_macd(closes, fast, slow, signal)
     trades, position = [], None
     for i in range(1, len(candles)):
-        m, s, mp, sp = macd["macd"][i], macd["signal"][i], macd["macd"][i - 1], macd["signal"][i - 1]
+        m, s, mp, sp = (
+            macd["macd"][i],
+            macd["signal"][i],
+            macd["macd"][i - 1],
+            macd["signal"][i - 1],
+        )
         if None in (m, s, mp, sp):
             continue
         price, date = candles[i]["close"], candles[i]["date"]
@@ -276,7 +279,9 @@ def _run_donchian(candles, period=20, **_):
     return _finalize_trades(trades, position, candles)
 
 
-def _run_rsi_pullback(candles, rsi_period=14, oversold=40, overbought=70, fast_ma=50, slow_ma=200, **_):
+def _run_rsi_pullback(
+    candles, rsi_period=14, oversold=40, overbought=70, fast_ma=50, slow_ma=200, **_
+):
     """Dip-buy in confirmed uptrend.
 
     Entry: SMA(fast_ma) > SMA(slow_ma)  AND  RSI < oversold
@@ -391,7 +396,12 @@ def _apply_costs(trades: list[dict], commission_pct: float, slippage_pct: float)
         gross = (t["exit_price"] - t["entry_price"]) / t["entry_price"] * 100
         net = round(gross - total_cost_pct, 3)
         result.append(
-            {**t, "return_pct": net, "gross_return_pct": round(gross, 3), "cost_pct": round(-total_cost_pct, 3)}
+            {
+                **t,
+                "return_pct": net,
+                "gross_return_pct": round(gross, 3),
+                "cost_pct": round(-total_cost_pct, 3),
+            }
         )
     return result
 
@@ -541,7 +551,9 @@ def _calc_metrics(
 
     if candles:
         equity = _mark_to_market_equity(trades, initial_capital, candles)
-        returns = [equity[i] / equity[i - 1] - 1 for i in range(1, len(equity)) if equity[i - 1] > 0]
+        returns = [
+            equity[i] / equity[i - 1] - 1 for i in range(1, len(equity)) if equity[i - 1] > 0
+        ]
     else:
         equity = []
         running = initial_capital
@@ -907,7 +919,9 @@ def walk_forward_backtest(
 
     min_bars = max(60, n_splits * 20)
     if len(candles) < min_bars:
-        return {"error": f"Not enough data ({len(candles)} bars) for {n_splits} splits. Try longer period."}
+        return {
+            "error": f"Not enough data ({len(candles)} bars) for {n_splits} splits. Try longer period."
+        }
 
     fn = _STRATEGY_MAP[strategy]
     fold_size = len(candles) // n_splits
@@ -1010,7 +1024,11 @@ def walk_forward_backtest(
     avg_test = round(statistics.mean(f["test_return_pct"] for f in scored_folds), 2)
     avg_robust = round(statistics.mean(f["fold_robustness_score"] for f in scored_folds), 2)
     oos_m = _calc_metrics(
-        all_test_trades, initial_capital, interval, risk_free_rate=risk_free_rate, periods_per_year=periods_per_year
+        all_test_trades,
+        initial_capital,
+        interval,
+        risk_free_rate=risk_free_rate,
+        periods_per_year=periods_per_year,
     )
 
     if avg_robust >= 0.8:

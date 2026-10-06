@@ -45,15 +45,16 @@ fetcher. EGX symbols map to Yahoo's ``.CA`` suffix (COMI -> COMI.CA).
 """
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import UTC, datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from tradingview_mcp.core.errors import ErrorCode, make_error
 from tradingview_mcp.core.services.backtest_service import _fetch_ohlcv
 from tradingview_mcp.core.services.indicators_calc import calc_ema, calc_rsi
 
 _DISCLAIMER = (
-    "Price/volume-derived proxy for institutional activity — not actual fund-flow data. Not investment advice."
+    "Price/volume-derived proxy for institutional activity — not actual "
+    "fund-flow data. Not investment advice."
 )
 
 _VALID_PERIODS = {"1mo", "3mo", "6mo", "1y", "2y"}
@@ -99,7 +100,9 @@ def compute_mcdx(candles: list[dict]) -> dict[str, Any]:
 
     def series(period: int, floor: float) -> list[float | None]:
         rsi = calc_rsi(closes, period)
-        return [None if r is None else round(max(0.0, min(20.0, (r - floor) * 1.5)), 2) for r in rsi]
+        return [
+            None if r is None else round(max(0.0, min(20.0, (r - floor) * 1.5)), 2) for r in rsi
+        ]
 
     banker = series(50, 40.0)
     hot = series(40, 30.0)
@@ -341,7 +344,7 @@ def analyze_smart_money(
     # Agreement read across the three families.
     bullish_votes = sum(
         [
-            mcdx["signal"] == "BANKER_ACCUMULATING",
+            mcdx["signal"] in ("BANKER_ACCUMULATING",),
             osc["state"] in ("BANKER_ENTRY", "ACCUMULATION", "TREND"),
             composite["verdict"] in ("ACCUMULATION", "STRONG_ACCUMULATION"),
         ]

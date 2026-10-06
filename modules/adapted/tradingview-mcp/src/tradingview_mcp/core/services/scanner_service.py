@@ -38,7 +38,6 @@ behavior) hid rate-limit cliffs as "no results today".
 import contextlib
 import sys
 import time as _time
-from typing import List, Optional
 
 from tradingview_mcp.core.errors import (
     BatchExecutionError,
@@ -48,7 +47,6 @@ from tradingview_mcp.core.errors import (
     make_error,
 )
 from tradingview_mcp.core.services.coinlist import load_symbols
-from tradingview_mcp.core.services.indicators import compute_metrics
 from tradingview_mcp.core.services.screener_service import (
     _batch_budget_s,
     _batch_max_consecutive_fails,
@@ -63,7 +61,7 @@ from tradingview_mcp.core.utils.validators import (
 
 try:
     # Patched: route through resilience layer (retry + 60s TTL cache).
-    import tradingview_ta
+    import tradingview_ta  # noqa: F401  presence check
     from tradingview_mcp.core.services.screener_provider import (
         humanize_upstream_error,
     )
@@ -145,12 +143,15 @@ def volume_breakout_scan(
                 first_error = repr(exc)
             with contextlib.suppress(Exception):
                 print(
-                    f"[tradingview_mcp] volume_breakout_scan batch {i // batch_size + 1} failed: {exc!r}",
+                    f"[tradingview_mcp] volume_breakout_scan batch "
+                    f"{i // batch_size + 1} failed: {exc!r}",
                     file=sys.stderr,
                 )
 
             if consecutive_failures >= max_consec:
-                aborted_reason = f"{consecutive_failures} consecutive batch failures (upstream cliff)"
+                aborted_reason = (
+                    f"{consecutive_failures} consecutive batch failures (upstream cliff)"
+                )
                 with contextlib.suppress(Exception):
                     print(
                         f"[tradingview_mcp] volume_breakout_scan aborted: "
@@ -271,12 +272,16 @@ def volume_confirmation_analyze(
     screener = resolve_screener_for_symbol(full_symbol, exchange)
 
     try:
-        analysis = get_multiple_analysis(screener=screener, interval=timeframe, symbols=[full_symbol])
+        analysis = get_multiple_analysis(
+            screener=screener, interval=timeframe, symbols=[full_symbol]
+        )
         if not analysis or full_symbol not in analysis:
             if _allow_venue_fallback:
                 alt = pick_fallback_exchange(symbol, exchange)
                 if alt:
-                    result = volume_confirmation_analyze(symbol, alt, timeframe, _allow_venue_fallback=False)
+                    result = volume_confirmation_analyze(
+                        symbol, alt, timeframe, _allow_venue_fallback=False
+                    )
                     if not is_error(result):
                         result["requested_exchange"] = exchange
                         result["resolved_exchange"] = alt
@@ -285,14 +290,18 @@ def volume_confirmation_analyze(
                             f"{alt}, which lists it. Pass exchange='{alt}' to silence this note."
                         )
                         return result
-            return symbol_not_found_error(symbol, exchange, timeframe=timeframe, full_symbol=full_symbol)
+            return symbol_not_found_error(
+                symbol, exchange, timeframe=timeframe, full_symbol=full_symbol
+            )
 
         data = analysis[full_symbol]
         if not data or not hasattr(data, "indicators"):
             if _allow_venue_fallback:
                 alt = pick_fallback_exchange(symbol, exchange)
                 if alt:
-                    result = volume_confirmation_analyze(symbol, alt, timeframe, _allow_venue_fallback=False)
+                    result = volume_confirmation_analyze(
+                        symbol, alt, timeframe, _allow_venue_fallback=False
+                    )
                     if not is_error(result):
                         result["requested_exchange"] = exchange
                         result["resolved_exchange"] = alt
@@ -332,9 +341,13 @@ def volume_confirmation_analyze(
 
         signals: list[str] = []
         if volume_ratio >= 2.0 and abs(price_change) >= 3.0:
-            signals.append(f"🚀 STRONG BREAKOUT: {volume_ratio:.1f}x volume + {price_change:.1f}% price")
+            signals.append(
+                f"🚀 STRONG BREAKOUT: {volume_ratio:.1f}x volume + {price_change:.1f}% price"
+            )
         if volume_ratio >= 1.5 and abs(price_change) < 1.0:
-            signals.append(f"⚠️ VOLUME DIVERGENCE: High volume ({volume_ratio:.1f}x) but low price movement")
+            signals.append(
+                f"⚠️ VOLUME DIVERGENCE: High volume ({volume_ratio:.1f}x) but low price movement"
+            )
         if abs(price_change) >= 2.0 and volume_ratio < 0.8:
             signals.append(f"❌ WEAK SIGNAL: Price moved but volume is low ({volume_ratio:.1f}x)")
         if close > bb_upper and volume_ratio >= 1.5:
@@ -372,13 +385,19 @@ def volume_confirmation_analyze(
             },
             "technical_indicators": {
                 "RSI": round(rsi, 1),
-                "BB_position": "ABOVE" if close > bb_upper else "BELOW" if close < bb_lower else "WITHIN",
+                "BB_position": "ABOVE"
+                if close > bb_upper
+                else "BELOW"
+                if close < bb_lower
+                else "WITHIN",
                 "BB_upper": bb_upper,
                 "BB_lower": bb_lower,
             },
             "signals": signals,
             "overall_assessment": {
-                "bullish_signals": len([s for s in signals if any(e in s for e in ["🚀", "💥", "🛒"])]),
+                "bullish_signals": len(
+                    [s for s in signals if any(e in s for e in ["🚀", "💥", "🛒"])]
+                ),
                 "bearish_signals": len([s for s in signals if any(e in s for e in ["📉", "❌"])]),
                 "warning_signals": len([s for s in signals if "⚠️" in s]),
             },
@@ -431,9 +450,14 @@ def smart_volume_scan(
     for coin in breakouts:
         rsi = coin["indicators"].get("RSI", 50)
 
-        if (rsi_range == "oversold" and rsi >= 30) or (rsi_range == "overbought" and rsi <= 70):
-            continue
-        if rsi_range == "neutral" and (rsi <= 30 or rsi >= 70):
+        if (
+            rsi_range == "oversold"
+            and rsi >= 30
+            or rsi_range == "overbought"
+            and rsi <= 70
+            or rsi_range == "neutral"
+            and (rsi <= 30 or rsi >= 70)
+        ):
             continue
 
         recommendation = ""

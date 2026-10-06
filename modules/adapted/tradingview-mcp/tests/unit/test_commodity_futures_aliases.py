@@ -40,7 +40,7 @@ from tradingview_mcp.core.utils.validators import (
 
 
 @pytest.mark.parametrize(
-    ("ticker", "expected"),
+    "ticker,expected",
     [
         ("GC1!", "TVC:GOLD"),
         ("GC2!", "TVC:GOLD"),
