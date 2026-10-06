@@ -53,12 +53,10 @@ pub fn ns_build(version: u32, msg_type: u32, fields: &[&str], prefix: &str) -> V
 /// Parse NS payload into (version, msg_type, remaining_fields).
 pub fn ns_parse(payload: &[u8]) -> Option<(u32, u32, Vec<String>)> {
     let text = std::str::from_utf8(payload).ok()?;
-    // Strip MISC prefix if present
-    let text = if text.to_uppercase().starts_with("MISC") {
-        &text[4..]
-    } else {
-        text
-    };
+    // Strip the text prefix from the original text, case-sensitive, as the
+    // reference does. Slicing at the length of an upper-cased copy panicked
+    // when upper-casing changed the byte length (ibx#365).
+    let text = text.strip_prefix("MISC").unwrap_or(text);
     let parts: Vec<&str> = text.split(';').collect();
     if parts.len() < 2 {
         return None;
@@ -83,6 +81,9 @@ pub fn parse_test_request_timestamp(payload: &[u8]) -> Option<String> {
     fields.into_iter().find(|f| !f.is_empty())
 }
 
+/// Buffer reserved at once for an NS payload; a longer one grows as it comes.
+const NS_READ_CHUNK: usize = 64 * 1024;
+
 /// Receive one `#%#%` framed message. Returns (payload_bytes, total_len).
 pub fn ns_recv<R: Read>(reader: &mut R) -> io::Result<(Vec<u8>, usize)> {
     let mut header = [0u8; 8];
@@ -93,9 +94,25 @@ pub fn ns_recv<R: Read>(reader: &mut R) -> io::Result<(Vec<u8>, usize)> {
             format!("Expected #%#% magic, got {:?}", &header[..4]),
         ));
     }
-    let payload_len = u32::from_be_bytes([header[4], header[5], header[6], header[7]]) as usize;
-    let mut payload = vec![0u8; payload_len];
-    reader.read_exact(&mut payload)?;
+    let raw_len = u32::from_be_bytes([header[4], header[5], header[6], header[7]]);
+    // The reference reads the length as a signed int: with the high bit set
+    // it is negative and the frame fails, so the connection is dropped. Here
+    // it allocated up to 4 GB and waited for that many bytes (ibx#423).
+    if raw_len & 0x8000_0000 != 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("NS frame length {:#010x} is negative", raw_len),
+        ));
+    }
+    // The payload grows as its bytes come: a length the peer does not send
+    // costs nothing. A buffer of the stated length was allocated at once,
+    // up to 2 GB from one 8-byte header (ibx#488).
+    let payload_len = raw_len as usize;
+    let mut payload = Vec::with_capacity(payload_len.min(NS_READ_CHUNK));
+    reader.by_ref().take(raw_len as u64).read_to_end(&mut payload)?;
+    if payload.len() < payload_len {
+        return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "NS frame cut short"));
+    }
     Ok((payload, payload_len + 8))
 }
 
@@ -234,13 +251,21 @@ mod tests {
     }
 
     #[test]
-    fn parse_misc_prefix_lowercase() {
-        // "misc" in lowercase — to_uppercase converts to "MISC", so it should still strip.
-        let payload = b"misc38;529;val;";
-        let (version, msg_type, fields) = ns_parse(payload).unwrap();
-        assert_eq!(version, 38);
-        assert_eq!(msg_type, 529);
-        assert_eq!(fields, vec!["val"]);
+    fn parse_misc_prefix_lowercase_is_kept() {
+        // The prefix is stripped case-sensitively, as the reference does: a
+        // lower-case "misc" stays in the version field, which is then not a
+        // number (ibx#365).
+        assert!(ns_parse(b"misc38;529;val;").is_none());
+    }
+
+    #[test]
+    fn parse_prefix_that_changes_length_when_upper_cased_does_not_panic() {
+        // Upper-cased, these characters give "MISC" with a different byte
+        // length; slicing the original at byte 4 panicked (ibx#365).
+        let payload = "mıſc;1;2".as_bytes();
+        assert!(ns_parse(payload).is_none());
+        let payload = "MISCı;1;2".as_bytes();
+        assert!(ns_parse(payload).is_none());
     }
 
     #[test]
@@ -252,6 +277,18 @@ mod tests {
         let err = result.unwrap_err();
         assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
         assert!(err.to_string().contains("#%#%"));
+    }
+
+    #[test]
+    fn recv_negative_length_fails_at_once() {
+        // High bit set: refused before any allocation or read (ibx#423).
+        let mut msg = Vec::new();
+        msg.extend_from_slice(NS_MAGIC);
+        msg.extend_from_slice(&[0xFF, 0xFF, 0xFF, 0xF0]);
+        let mut cursor = std::io::Cursor::new(&msg);
+        let err = ns_recv(&mut cursor).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+        assert!(err.to_string().contains("negative"), "{err}");
     }
 
     #[test]

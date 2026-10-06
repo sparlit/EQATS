@@ -7,7 +7,7 @@ use ibx::protocol::fix;
 use ibx::protocol::fixcomp;
 
 pub(super) fn phase_market_data(conns: Conns) -> Conns {
-    println!("--- Phase 2: Market Data Ticks (AAPL) ---");
+    phase!("--- Phase 2: Market Data Ticks (AAPL) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -27,7 +27,7 @@ pub(super) fn phase_market_data(conns: Conns) -> Conns {
             con_id: 265598,
             symbol: "AAPL".into(),
             exchange: String::new(),
-            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None,
+            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None,
         })
         .unwrap();
     let join = run_hot_loop(hot_loop);
@@ -78,12 +78,12 @@ pub(super) fn phase_market_data(conns: Conns) -> Conns {
     }
 
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
-    println!("  PASS ({} ticks)\n", tick_count);
+    pass!("  PASS ({} ticks)\n", tick_count);
     conns
 }
 
 pub(super) fn phase_multi_instrument(conns: Conns) -> Conns {
-    println!("--- Phase 3: Multi-Instrument Subscription (AAPL+MSFT+SPY) ---");
+    phase!("--- Phase 3: Multi-Instrument Subscription (AAPL+MSFT+SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -103,7 +103,7 @@ pub(super) fn phase_multi_instrument(conns: Conns) -> Conns {
             con_id: 265598,
             symbol: "AAPL".into(),
             exchange: String::new(),
-            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None,
+            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None,
         })
         .unwrap();
     control_tx
@@ -111,7 +111,7 @@ pub(super) fn phase_multi_instrument(conns: Conns) -> Conns {
             con_id: 272093,
             symbol: "MSFT".into(),
             exchange: String::new(),
-            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None,
+            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None,
         })
         .unwrap();
     control_tx
@@ -119,7 +119,7 @@ pub(super) fn phase_multi_instrument(conns: Conns) -> Conns {
             con_id: 756733,
             symbol: "SPY".into(),
             exchange: String::new(),
-            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None,
+            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None,
         })
         .unwrap();
     let join = run_hot_loop(hot_loop);
@@ -178,7 +178,7 @@ pub(super) fn phase_multi_instrument(conns: Conns) -> Conns {
             "At least 2 of 3 instruments should have data, got {}",
             instruments_with_data
         );
-        println!(
+        pass!(
             "  PASS ({} ticks, {} instruments with data)\n",
             tick_count, instruments_with_data
         );
@@ -187,7 +187,7 @@ pub(super) fn phase_multi_instrument(conns: Conns) -> Conns {
 }
 
 pub(super) fn phase_subscribe_unsubscribe(conns: Conns) -> Conns {
-    println!("--- Phase 16: Subscribe + Unsubscribe Cleanup ---");
+    phase!("--- Phase 16: Subscribe + Unsubscribe Cleanup ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -206,7 +206,7 @@ pub(super) fn phase_subscribe_unsubscribe(conns: Conns) -> Conns {
             con_id: 756733,
             symbol: "SPY".into(),
             exchange: String::new(),
-            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None,
+            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None,
         })
         .unwrap();
     let join = run_hot_loop(hot_loop);
@@ -229,17 +229,17 @@ pub(super) fn phase_subscribe_unsubscribe(conns: Conns) -> Conns {
 
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
     println!("  Total ticks: {}", tick_count);
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
-pub(super) fn phase_market_depth(conns: Conns) -> Conns {
-    println!("--- Phase 130: Market Depth Subscribe/Unsubscribe (SPY) ---");
+pub(super) fn phase_market_depth(conns: Conns, gw: &gateway::Gateway, config: &GatewayConfig) -> Conns {
+    phase!("--- Phase 130: Market Depth Subscribe/Unsubscribe (SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
     let (event_tx, _event_rx) = crossbeam_channel::unbounded();
-    let (hot_loop, control_tx) = HotLoop::with_connections(
+    let (mut hot_loop, control_tx) = HotLoop::with_connections(
         shared.clone(),
         Some(event_tx),
         account_id.clone(),
@@ -248,9 +248,12 @@ pub(super) fn phase_market_depth(conns: Conns) -> Conns {
         conns.hmds,
         None,
     );
+    // SmartDepth takes its exchanges from the contract and the routing
+    // table, as the real clients give it (#452).
+    as_client_session(&mut hot_loop, gw, config);
     let join = run_hot_loop(hot_loop);
 
-    let req_id = 93001u32;
+    let req_id: ReqId = 93001;
     control_tx
         .send(ControlCommand::SubscribeDepth {
             req_id,
@@ -272,13 +275,13 @@ pub(super) fn phase_market_depth(conns: Conns) -> Conns {
     if depth_updates.is_empty() {
         println!("  SKIP: No depth updates observed in 4s (market conditions / entitlement)\n");
     } else {
-        println!("  PASS ({} depth updates)\n", depth_updates.len());
+        pass!("  PASS ({} depth updates)\n", depth_updates.len());
     }
     conns
 }
 
 pub(super) fn phase_news_ticks(conns: Conns) -> Conns {
-    println!("--- Phase 131: News Tick Subscribe/Unsubscribe (AAPL) ---");
+    phase!("--- Phase 131: News Tick Subscribe/Unsubscribe (AAPL) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -294,12 +297,20 @@ pub(super) fn phase_news_ticks(conns: Conns) -> Conns {
     );
     let join = run_hot_loop(hot_loop);
 
+    // The news tick rides on the request's top of book (ibx#458).
+    let (reply_tx, reply_rx) = crossbeam_channel::bounded(1);
+    control_tx
+        .send(ControlCommand::Subscribe {
+            con_id: 265598, symbol: "AAPL".into(), exchange: "SMART".into(), sec_type: "STK".into(),
+            last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(),
+            mode_9887: 0, snapshot: false, reply_tx: Some(reply_tx),
+        })
+        .unwrap();
+    let instrument = reply_rx.recv_timeout(Duration::from_secs(5)).unwrap().unwrap();
     control_tx
         .send(ControlCommand::SubscribeNews {
-            con_id: 265598,
-            symbol: "AAPL".into(),
-            providers: "BZ+FLY".into(),
-            reply_tx: None,
+            instrument, con_id: 265598, exchange: "SMART".into(), sec_type: "STK".into(),
+            providers: "BRFG,DJ-N".into(), refusal: None,
         })
         .unwrap();
 
@@ -313,7 +324,7 @@ pub(super) fn phase_news_ticks(conns: Conns) -> Conns {
     }
 
     control_tx
-        .send(ControlCommand::UnsubscribeNews { instrument: 0 })
+        .send(ControlCommand::Unsubscribe { instrument })
         .unwrap();
     let drained_news = shared.market.drain_tick_news();
 
@@ -321,7 +332,7 @@ pub(super) fn phase_news_ticks(conns: Conns) -> Conns {
     if news_events == 0 && drained_news.is_empty() {
         println!("  SKIP: No tick news in 8s (normal if no live headlines)\n");
     } else {
-        println!(
+        pass!(
             "  PASS ({} event news, {} drained headlines)\n",
             news_events,
             drained_news.len()
@@ -331,7 +342,7 @@ pub(super) fn phase_news_ticks(conns: Conns) -> Conns {
 }
 
 pub(super) fn phase_tbt_subscribe(conns: Conns) -> Conns {
-    println!("--- Phase 61: Tick-by-Tick Data (SPY via HMDS) ---");
+    phase!("--- Phase 61: Tick-by-Tick Data (SPY via HMDS) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -347,9 +358,14 @@ pub(super) fn phase_tbt_subscribe(conns: Conns) -> Conns {
     );
     control_tx
         .send(ControlCommand::SubscribeTbt {
+            req_id: 1,
             con_id: 756733,
             symbol: "SPY".into(),
-            tbt_type: TbtType::Last,
+            exchange: "SMART".into(),
+            sec_type: "STK".into(),
+            tbt_type: TbtType::AllLast,
+            number_of_ticks: 0,
+            ignore_size: false,
             reply_tx: None,
         })
         .unwrap();
@@ -399,7 +415,7 @@ pub(super) fn phase_tbt_subscribe(conns: Conns) -> Conns {
 
     std::thread::sleep(Duration::from_secs(5));
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
-    println!(
+    pass!(
         "  PASS ({} trades, {} quotes)\n",
         tbt_trade_count, tbt_quote_count
     );
@@ -407,7 +423,7 @@ pub(super) fn phase_tbt_subscribe(conns: Conns) -> Conns {
 }
 
 pub(super) fn phase_streaming_validation(conns: Conns) -> Conns {
-    println!("--- Phase 102: Streaming Data Validation (SPY tick quality) ---");
+    phase!("--- Phase 102: Streaming Data Validation (SPY tick quality) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -427,7 +443,7 @@ pub(super) fn phase_streaming_validation(conns: Conns) -> Conns {
             con_id: 756733,
             symbol: "SPY".into(),
             exchange: String::new(),
-            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None,
+            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None,
         })
         .unwrap();
     let join = run_hot_loop(hot_loop);
@@ -500,12 +516,12 @@ pub(super) fn phase_streaming_validation(conns: Conns) -> Conns {
         price_reasonable,
         "Prices should be in reasonable range for SPY"
     );
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
 pub(super) fn phase_forex_market_data(conns: Conns) -> Conns {
-    println!("--- Phase 107: Forex Market Data Ticks (EUR.USD — session-independent) ---");
+    phase!("--- Phase 107: Forex Market Data Ticks (EUR.USD — session-independent) ---");
 
     // Look up EUR.USD con_id first
     let now = ibx::gateway::chrono_free_timestamp();
@@ -549,7 +565,7 @@ pub(super) fn phase_forex_market_data(conns: Conns) -> Conns {
                 if tags.get(&fix::TAG_MSG_TYPE).map(|s| s.as_str()) == Some("d") {
                     if let Some(def) = contracts::parse_secdef_response(&msg) {
                         if def.sec_type == contracts::SecurityType::Forex {
-                            forex_con_id = Some(def.con_id as i64);
+                            forex_con_id = Some(def.con_id);
                         }
                     }
                 }
@@ -589,7 +605,7 @@ pub(super) fn phase_forex_market_data(conns: Conns) -> Conns {
             con_id,
             symbol: "EUR".into(),
             exchange: String::new(),
-            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None,
+            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None,
         })
         .unwrap();
     let join = run_hot_loop(hot_loop);
@@ -647,13 +663,13 @@ pub(super) fn phase_forex_market_data(conns: Conns) -> Conns {
             "  {} ticks received, bid_seen={} ask_seen={}",
             tick_count, bid_seen, ask_seen
         );
-        println!("  PASS\n");
+        pass!("  PASS\n");
     }
     conns
 }
 
 pub(super) fn phase_forex_streaming_validation(conns: Conns) -> Conns {
-    println!("--- Phase 108: Forex Streaming Validation (EUR.USD — session-independent) ---");
+    phase!("--- Phase 108: Forex Streaming Validation (EUR.USD — session-independent) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -674,7 +690,7 @@ pub(super) fn phase_forex_streaming_validation(conns: Conns) -> Conns {
             con_id: 12087792,
             symbol: "EUR".into(),
             exchange: String::new(),
-            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None,
+            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None,
         })
         .unwrap();
     let join = run_hot_loop(hot_loop);
@@ -713,13 +729,13 @@ pub(super) fn phase_forex_streaming_validation(conns: Conns) -> Conns {
     } else {
         check!(spread_valid, "Spread should not be crossed");
         println!("  {} ticks, spread_valid={}", tick_count, spread_valid);
-        println!("  PASS\n");
+        pass!("  PASS\n");
     }
     conns
 }
 
 pub(super) fn phase_forex_reconnection(conns: Conns) -> Conns {
-    println!("--- Phase 109: Forex Reconnection Recovery (EUR.USD — session-independent) ---");
+    phase!("--- Phase 109: Forex Reconnection Recovery (EUR.USD — session-independent) ---");
 
     // Step 1: Subscribe, get forex ticks
     let account_id = conns.account_id;
@@ -740,7 +756,7 @@ pub(super) fn phase_forex_reconnection(conns: Conns) -> Conns {
             con_id: 12087792,
             symbol: "EUR".into(),
             exchange: String::new(),
-            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None,
+            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None,
         })
         .unwrap();
     let join = run_hot_loop(hot_loop);
@@ -783,7 +799,7 @@ pub(super) fn phase_forex_reconnection(conns: Conns) -> Conns {
             con_id: 12087792,
             symbol: "EUR".into(),
             exchange: String::new(),
-            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None,
+            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None,
         })
         .unwrap();
     let join2 = run_hot_loop(hot_loop2);
@@ -812,14 +828,14 @@ pub(super) fn phase_forex_reconnection(conns: Conns) -> Conns {
         got_ticks_after,
         "Should receive forex ticks after reconnection"
     );
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns2
 }
 
 // ─── Phase 110: High-frequency tick stress test (issue #95) ───
 
 pub(super) fn phase_tick_stress_test(conns: Conns) -> Conns {
-    println!("--- Phase 110: High-Frequency Tick Stress Test (SPY+AAPL+MSFT, 30s) ---");
+    phase!("--- Phase 110: High-Frequency Tick Stress Test (SPY+AAPL+MSFT, 30s) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -840,7 +856,7 @@ pub(super) fn phase_tick_stress_test(conns: Conns) -> Conns {
             con_id: 756733,
             symbol: "SPY".into(),
             exchange: String::new(),
-            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None,
+            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None,
         })
         .unwrap();
     control_tx
@@ -848,7 +864,7 @@ pub(super) fn phase_tick_stress_test(conns: Conns) -> Conns {
             con_id: 265598,
             symbol: "AAPL".into(),
             exchange: String::new(),
-            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None,
+            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None,
         })
         .unwrap();
     control_tx
@@ -856,7 +872,7 @@ pub(super) fn phase_tick_stress_test(conns: Conns) -> Conns {
             con_id: 272093,
             symbol: "MSFT".into(),
             exchange: String::new(),
-            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None,
+            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None,
         })
         .unwrap();
     let join = run_hot_loop(hot_loop);
@@ -924,14 +940,14 @@ pub(super) fn phase_tick_stress_test(conns: Conns) -> Conns {
         "Timestamps should be monotonically increasing"
     );
 
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
 // ─── Phase 126: TBT Subscribe + Unsubscribe lifecycle ───
 
 pub(super) fn phase_tbt_unsubscribe(conns: Conns) -> Conns {
-    println!("--- Phase 126: TBT Subscribe + Unsubscribe (SPY via HMDS) ---");
+    phase!("--- Phase 126: TBT Subscribe + Unsubscribe (SPY via HMDS) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -948,9 +964,14 @@ pub(super) fn phase_tbt_unsubscribe(conns: Conns) -> Conns {
 
     control_tx
         .send(ControlCommand::SubscribeTbt {
+            req_id: 1,
             con_id: 756733,
             symbol: "SPY".into(),
-            tbt_type: TbtType::Last,
+            exchange: "SMART".into(),
+            sec_type: "STK".into(),
+            tbt_type: TbtType::AllLast,
+            number_of_ticks: 0,
+            ignore_size: false,
             reply_tx: None,
         })
         .unwrap();
@@ -981,9 +1002,19 @@ pub(super) fn phase_tbt_unsubscribe(conns: Conns) -> Conns {
         tbt_before
     );
 
-    // Step 2: Unsubscribe — instrument 0 is the first registered (SPY)
+    // Events already delivered when the unsubscribe is sent are not "after":
+    // one frame holds several entries, so some wait in the channel.
+    let mut tbt_queued = 0u32;
+    while let Ok(ev) = event_rx.try_recv() {
+        if matches!(ev, Event::TbtTrade(_) | Event::TbtQuote(_)) {
+            tbt_queued += 1;
+        }
+    }
+    println!("  Step 1b: {} TBT events already delivered when the unsubscribe is sent", tbt_queued);
+
+    // Step 2: Unsubscribe request 1 (SPY)
     control_tx
-        .send(ControlCommand::UnsubscribeTbt { instrument: 0 })
+        .send(ControlCommand::UnsubscribeTbt { req_id: 1 })
         .unwrap();
     std::thread::sleep(Duration::from_secs(3));
 
@@ -1008,14 +1039,14 @@ pub(super) fn phase_tbt_unsubscribe(conns: Conns) -> Conns {
         "Too many TBT events after unsubscribe: {} (expected <=3)",
         tbt_after
     );
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
 // ─── Phase 128: TBT + Regular Quotes Dual Stream ───
 
 pub(super) fn phase_tbt_and_quotes_dual_stream(conns: Conns) -> Conns {
-    println!("--- Phase 128: TBT + Regular Quotes Dual Stream (SPY) ---");
+    phase!("--- Phase 128: TBT + Regular Quotes Dual Stream (SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -1036,14 +1067,19 @@ pub(super) fn phase_tbt_and_quotes_dual_stream(conns: Conns) -> Conns {
             con_id: 756733,
             symbol: "SPY".into(),
             exchange: String::new(),
-            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None,
+            sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None,
         })
         .unwrap();
     control_tx
         .send(ControlCommand::SubscribeTbt {
+            req_id: 1,
             con_id: 756733,
             symbol: "SPY".into(),
-            tbt_type: TbtType::Last,
+            exchange: "SMART".into(),
+            sec_type: "STK".into(),
+            tbt_type: TbtType::AllLast,
+            number_of_ticks: 0,
+            ignore_size: false,
             reply_tx: None,
         })
         .unwrap();
@@ -1113,11 +1149,11 @@ pub(super) fn phase_tbt_and_quotes_dual_stream(conns: Conns) -> Conns {
     );
 
     if got_tick && got_tbt {
-        println!("  PASS (both streams active simultaneously)\n");
+        pass!("  PASS (both streams active simultaneously)\n");
     } else if got_tick {
-        println!("  PASS (regular ticks only — HMDS TBT may not be streaming)\n");
+        pass!("  PASS (regular ticks only — HMDS TBT may not be streaming)\n");
     } else {
-        println!("  PASS (TBT only — regular ticks delayed)\n");
+        pass!("  PASS (TBT only — regular ticks delayed)\n");
     }
     conns
 }
@@ -1125,7 +1161,7 @@ pub(super) fn phase_tbt_and_quotes_dual_stream(conns: Conns) -> Conns {
 // ─── Phase 129: Concurrent Subscribe Stress (10 instruments) ───
 
 pub(super) fn phase_concurrent_subscribe_stress(conns: Conns) -> Conns {
-    println!("--- Phase 129: Concurrent Subscribe Stress (10 instruments, 20s) ---");
+    phase!("--- Phase 129: Concurrent Subscribe Stress (10 instruments, 20s) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -1161,7 +1197,7 @@ pub(super) fn phase_concurrent_subscribe_stress(conns: Conns) -> Conns {
                 con_id,
                 symbol: symbol.into(),
                 exchange: String::new(),
-                sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None,
+                sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None,
             })
             .unwrap();
     }
@@ -1207,6 +1243,96 @@ pub(super) fn phase_concurrent_subscribe_stress(conns: Conns) -> Conns {
         "Expected ticks from >=3 instruments, got {}",
         per_instrument.len()
     );
-    println!("  PASS\n");
+    pass!("  PASS\n");
+    conns
+}
+
+// ─── Tick-by-tick streams shared between requests, midpoints, past ticks,
+// shared real-time bar routers (ibx#404, ibx#454, ibx#455) ───
+
+/// Needs regular trading hours (SPY quotes and trades). Requests 1 and 2
+/// share one BidAsk stream and must get the same ticks; request 3 gets
+/// midpoints; request 4 (Last, 10 past ticks) gets historical ticks ending
+/// with `done`, then live trades; real-time bar requests 11 and 12 share
+/// one router and must get the same bars.
+pub(super) fn phase_tbt_shared_streams(conns: Conns) -> Conns {
+    phase!("--- Phase: Tick-by-tick shared streams, midpoints, past ticks, shared bar router (SPY) ---");
+
+    let account_id = conns.account_id;
+    let shared = Arc::new(SharedState::new());
+    let (event_tx, _event_rx) = crossbeam_channel::unbounded();
+    let (hot_loop, control_tx) = HotLoop::with_connections(
+        shared.clone(),
+        Some(event_tx),
+        account_id.clone(),
+        conns.farm,
+        conns.ccp,
+        conns.hmds,
+        None,
+    );
+    let tbt = |req_id, tbt_type, number_of_ticks| ControlCommand::SubscribeTbt {
+        req_id, con_id: 756733, symbol: "SPY".into(), exchange: "SMART".into(), sec_type: "STK".into(),
+        tbt_type, number_of_ticks, ignore_size: false, reply_tx: None,
+    };
+    for cmd in [tbt(1, TbtType::BidAsk, 0), tbt(2, TbtType::BidAsk, 0), tbt(3, TbtType::MidPoint, 0), tbt(4, TbtType::Last, 10)] {
+        control_tx.send(cmd).unwrap();
+    }
+    for req_id in [11, 12] {
+        control_tx.send(ControlCommand::SubscribeRealTimeBar {
+            req_id, con_id: 756733, symbol: "SPY".into(), sec_type: "STK".into(), exchange: "SMART".into(),
+            what_to_show: "TRADES".into(), use_rth: true,
+        }).unwrap();
+    }
+    let join = run_hot_loop(hot_loop);
+
+    let count = |m: &mut std::collections::HashMap<i64, u32>, r: i64| *m.entry(r).or_default() += 1;
+    let (mut quotes, mut mids, mut trades, mut bars) = Default::default();
+    let mut bad_quotes = 0u32;
+    let mut history: Vec<(usize, bool)> = Vec::new();
+    let mut errors = Vec::new();
+    let deadline = Instant::now() + Duration::from_secs(40);
+    while Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(100));
+        for q in shared.market.drain_tbt_quotes() {
+            count(&mut quotes, q.req_id);
+            if q.bid <= 0 || q.ask < q.bid {
+                bad_quotes += 1;
+            }
+        }
+        for m in shared.market.drain_tbt_mid_points() {
+            count(&mut mids, m.req_id);
+        }
+        for t in shared.market.drain_tbt_trades() {
+            count(&mut trades, t.req_id);
+        }
+        for (req_id, _) in shared.market.drain_real_time_bars() {
+            count(&mut bars, req_id);
+        }
+        for (req_id, data, _, done) in shared.reference.drain_historical_ticks() {
+            if req_id == 4 {
+                let n = match &data {
+                    HistoricalTickData::Last(t) => t.len(),
+                    HistoricalTickData::BidAsk(t) => t.len(),
+                    HistoricalTickData::Midpoint(t) => t.len(),
+                };
+                history.push((n, done));
+            }
+        }
+        errors.extend(shared.market.drain_tbt_errors());
+        errors.extend(shared.reference.drain_historical_errors());
+    }
+    let conns = shutdown_and_reclaim(&control_tx, join, account_id);
+    let get = |m: &std::collections::HashMap<i64, u32>, r: i64| m.get(&r).copied().unwrap_or(0);
+    println!("  quotes 1/2: {}/{} (bad {}), midpoints 3: {}, trades 4: {}, past ticks 4: {:?}, bars 11/12: {}/{}, errors: {:?}",
+        get(&quotes, 1), get(&quotes, 2), bad_quotes, get(&mids, 3), get(&trades, 4), history, get(&bars, 11), get(&bars, 12), errors);
+    check!(errors.is_empty(), "errors: {:?}", errors);
+    check!(get(&quotes, 1) > 0, "no BidAsk tick: market closed?");
+    check_eq!(get(&quotes, 1), get(&quotes, 2), "requests on one stream get the same ticks");
+    check_eq!(bad_quotes, 0, "bid/ask layout: every bid above 0 and below the ask");
+    check!(get(&mids, 3) > 0, "no midpoint");
+    check!(history.last().is_some_and(|h| h.1), "past ticks end with done: {:?}", history);
+    check!(get(&bars, 11) > 0, "no 5-second bar");
+    check_eq!(get(&bars, 11), get(&bars, 12), "requests on one router get the same bars");
+    pass!("  PASS\n");
     conns
 }

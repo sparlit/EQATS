@@ -113,7 +113,9 @@ class StressWrapper(EWrapper):
         mkt_cap_price,
     ):
         with self.lock:
-            self.order_statuses.setdefault(order_id, []).append((status, filled, remaining, perm_id))
+            self.order_statuses.setdefault(order_id, []).append(
+                (status, filled, remaining, perm_id)
+            )
         self.got_order_status.set()
         if status == "Cancelled":
             self.got_order_cancelled.set()
@@ -261,7 +263,9 @@ class TestConnectionStress:
         client.req_account_summary(9100, "All", tags)
         got_summary = wrapper.got_summary_end.wait(timeout=15)
         client.cancel_account_summary(9100)
-        print(f"Phase 5: account summary received={got_summary}, tags={list(wrapper.summary.keys())}")
+        print(
+            f"Phase 5: account summary received={got_summary}, tags={list(wrapper.summary.keys())}"
+        )
 
         # ── Cleanup: Cancel the order ──
         cancel_oids = {oid}

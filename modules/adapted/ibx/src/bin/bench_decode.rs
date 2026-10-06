@@ -15,8 +15,7 @@ use crossbeam_channel::bounded;
 
 use ibx::bridge::{Event, SharedState};
 use ibx::engine::market_state::MarketState;
-use ibx::protocol::tick_decoder::{self, RawTick};
-use ibx::types::Quote;
+use ibx::protocol::tick_decoder;
 
 const ITERATIONS: u64 = 1_000_000;
 const WARMUP: u64 = 100_000;
@@ -98,16 +97,14 @@ fn main() {
     {
         let mut market = MarketState::new();
         let id = market.register(756733); // SPY
-        market.register_server_tag(1, id);
+        market.register_server_tag(1, id, 0.01);
         market.set_min_tick(id, 0.01);
 
         bench("decode + state update (5 ticks)", ITERATIONS, || {
             let ticks = tick_decoder::decode_ticks_35p(&payload_typical);
             for tick in &ticks {
-                if let Some(instrument) = market.instrument_by_server_tag(tick.server_tag) {
-                    let mts = market.min_tick_scaled(instrument);
-                    let q = market.quote_mut(instrument);
-                    apply_tick(q, tick, mts);
+                if let Some(route) = market.route_server_tag(tick.server_tag) {
+                    market.apply_tick(route.instrument, route.price_tick, route.trade, tick);
                 }
             }
         });
@@ -117,17 +114,15 @@ fn main() {
     {
         let mut market = MarketState::new();
         let id = market.register(756733);
-        market.register_server_tag(1, id);
+        market.register_server_tag(1, id, 0.01);
         market.set_min_tick(id, 0.01);
         let shared = Arc::new(SharedState::new());
 
         bench("decode + state + SeqLock push (5 ticks)", ITERATIONS, || {
             let ticks = tick_decoder::decode_ticks_35p(&payload_typical);
             for tick in &ticks {
-                if let Some(instrument) = market.instrument_by_server_tag(tick.server_tag) {
-                    let mts = market.min_tick_scaled(instrument);
-                    let q = market.quote_mut(instrument);
-                    apply_tick(q, tick, mts);
+                if let Some(route) = market.route_server_tag(tick.server_tag) {
+                    market.apply_tick(route.instrument, route.price_tick, route.trade, tick);
                 }
             }
             shared.market.push_quote(id, market.quote(id));
@@ -138,7 +133,7 @@ fn main() {
     {
         let mut market = MarketState::new();
         let id = market.register(756733);
-        market.register_server_tag(1, id);
+        market.register_server_tag(1, id, 0.01);
         market.set_min_tick(id, 0.01);
         let shared = Arc::new(SharedState::new());
         let (tx, rx) = bounded::<Event>(65536);
@@ -147,10 +142,8 @@ fn main() {
         bench("full path: decode+state+seqlock+channel (5 ticks)", ITERATIONS, || {
             let ticks = tick_decoder::decode_ticks_35p(&payload_typical);
             for tick in &ticks {
-                if let Some(instrument) = market.instrument_by_server_tag(tick.server_tag) {
-                    let mts = market.min_tick_scaled(instrument);
-                    let q = market.quote_mut(instrument);
-                    apply_tick(q, tick, mts);
+                if let Some(route) = market.route_server_tag(tick.server_tag) {
+                    market.apply_tick(route.instrument, route.price_tick, route.trade, tick);
                 }
             }
             shared.market.push_quote(id, market.quote(id));
@@ -283,27 +276,6 @@ fn fast_msg_type(msg: &[u8]) -> Option<u8> {
         }
     }
     None
-}
-
-#[inline]
-fn apply_tick(q: &mut Quote, tick: &RawTick, min_tick_scaled: i64) {
-    match tick.tick_type {
-        tick_decoder::O_BID_PRICE => q.bid = tick.magnitude * min_tick_scaled,
-        tick_decoder::O_ASK_PRICE => q.ask = tick.magnitude * min_tick_scaled,
-        tick_decoder::O_LAST_PRICE => q.last = tick.magnitude * min_tick_scaled,
-        tick_decoder::O_HIGH_PRICE => q.high = tick.magnitude * min_tick_scaled,
-        tick_decoder::O_LOW_PRICE => q.low = tick.magnitude * min_tick_scaled,
-        tick_decoder::O_OPEN_PRICE => q.open = tick.magnitude * min_tick_scaled,
-        tick_decoder::O_CLOSE_PRICE => q.close = tick.magnitude * min_tick_scaled,
-        tick_decoder::O_BID_SIZE => q.bid_size = tick.magnitude,
-        tick_decoder::O_ASK_SIZE => q.ask_size = tick.magnitude,
-        tick_decoder::O_LAST_SIZE => q.last_size = tick.magnitude,
-        tick_decoder::O_VOLUME => q.volume = tick.magnitude,
-        tick_decoder::O_TIMESTAMP | tick_decoder::O_LAST_TS => {
-            q.timestamp_ns = tick.magnitude as u64;
-        }
-        _ => {}
-    }
 }
 
 fn bench(label: &str, iterations: u64, mut f: impl FnMut()) {

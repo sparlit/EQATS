@@ -49,6 +49,93 @@ pub enum StatusChange {
     Unknown,
 }
 
+/// What the reference's order book holds for an order beyond the order
+/// itself, for its global cancel (`trader.order.ay.c(List, bs, bE)`): the
+/// place the order took in the book, its parent and OCA group, and the API
+/// client of an order of another session.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct BookEntry {
+    /// Order of insertion in the book.
+    pub seq: u64,
+    /// The parent's order id, 0 for none.
+    pub parent: OrderId,
+    /// The OCA group, empty for none.
+    pub oca_group: String,
+    /// The API client of an order the server reported from another
+    /// session (6119); None for an order of this client.
+    pub owner: Option<i64>,
+}
+
+/// The table size of a `java.util.HashMap` that held `peak` entries: 16,
+/// doubled each time the entries pass three quarters of it; it never
+/// shrinks.
+pub(crate) fn book_table_size(peak: usize) -> usize {
+    let mut size = 16;
+    while peak > size * 3 / 4 {
+        size *= 2;
+    }
+    size
+}
+
+/// The bucket of a permId in the reference's book, a `java.util.HashMap`
+/// keyed by a `Long` (`jclient.jv.l`): the key's hash, spread, masked by
+/// the table size. The book is walked bucket by bucket, each in insertion
+/// order (`jclient.jv.w()`).
+pub(crate) fn book_bucket(perm_id: OrderId, table: usize) -> usize {
+    let v = perm_id as u64;
+    let h = (v ^ (v >> 32)) as u32;
+    ((h ^ (h >> 16)) as usize) & (table - 1)
+}
+
+/// The reference's order id generator (`jclient.jv.b(String)`): the
+/// server's order id of each new order and preview, the id part of its
+/// ClOrdID and the permId the client sees. The API order id goes in 6121
+/// and is not this id. The first id has random high bits and the seconds
+/// of the clock in its low 20 bits (`jfix.cy.a(String)`); then it counts
+/// up, and starts again from a new first id at an id the reference does
+/// not take (0 and the int bounds, `twslaunch.jutils.av.c(int)`).
+pub(crate) struct OrderIdGenerator {
+    next: i32,
+    rng: u64,
+}
+
+impl OrderIdGenerator {
+    pub(crate) fn new() -> Self {
+        Self { next: 0, rng: crate::engine::bracket::seed() }
+    }
+
+    /// The next id; the caller skips the ids in use.
+    pub(crate) fn next(&mut self) -> i32 {
+        if matches!(self.next, 0 | i32::MAX | i32::MIN) {
+            self.next = self.first();
+        }
+        let id = self.next;
+        self.next = self.next.wrapping_add(1);
+        id
+    }
+
+    /// Start the ids at `first` (tests).
+    #[cfg(test)]
+    pub(crate) fn start_at(&mut self, first: i32) {
+        self.next = first;
+    }
+
+    /// `Math.abs((random & 0xFFF00000) | (seconds & 0xFFFFF))`.
+    fn first(&mut self) -> i32 {
+        // xorshift64
+        let mut x = self.rng;
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        self.rng = x;
+        let random = (x >> 32) as u32;
+        let secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs()) as u32;
+        (((random & 0xFFF0_0000) | (secs & 0x000F_FFFF)) as i32).wrapping_abs()
+    }
+}
+
 /// What the server last reported for a TRAIL LIMIT order. The offset is
 /// restated on its replace; all three fill the reports that omit them and
 /// show in openOrder (ib-agent#194, ib-agent#195, ibx#491). 0 = not reported.
@@ -76,18 +163,132 @@ pub struct Context {
     /// it appeared on the wire. Used as the OrigClOrdID on cancel/modify so that
     /// legacy orders recorded without a `.{ver}` suffix still match — see ibx#179.
     pub(crate) last_clord: HashMap<OrderId, String>,
+    /// The server's order id (the id part of the ClOrdID) of each order
+    /// held under another key, to that key: the orders of this session,
+    /// kept under their API order id (ibx#466), and the orders of an
+    /// earlier session kept under the API order id their report gives.
+    pub(crate) recovered_keys: HashMap<OrderId, OrderId>,
+    /// The other way: the key of an order to its server's order id.
+    pub(crate) server_ids: HashMap<OrderId, OrderId>,
+    /// The reference's order id generator: the server's order id of each
+    /// new order and preview.
+    pub(crate) order_ids: OrderIdGenerator,
     /// ClOrdID of the cancel sent for each order, until the order ends or
     /// the cancel is rejected. Reports carrying it are about the cancel, not
     /// a new version of the order (ibx#464).
     pub(crate) cancel_clord: HashMap<OrderId, String>,
+    /// Orders whose cancel or modify the server refused, until the answer
+    /// to the status request sent for them (ibx#252).
+    pub(crate) status_queries: std::collections::HashSet<OrderId>,
     /// The last limit offset, limit price and stop price the server
     /// reported for a TRAIL LIMIT order (ib-agent#194, ibx#491).
     pub(crate) trail_limit_reported: HashMap<OrderId, TrailLimitReported>,
+    /// The last stop price (6117) the server reported for an order, the
+    /// reference's last known value a trailing replace compares with
+    /// (`jclient.pe.dz().e()`, ibx#263). A replace does not change it.
+    pub(crate) reported_stop: HashMap<OrderId, crate::types::Price>,
+    /// What decides outside-RTH, by conId and order exchange (ibx#465).
+    pub(crate) rth_types: HashMap<(i64, String), crate::engine::outside_rth::RthTypes>,
+    /// Definition lookups in flight for `rth_types`: (320 id, key, deadline).
+    pub(crate) rth_lookups: Vec<(String, (i64, String), std::time::Instant)>,
+    /// What-if previews waiting for their answer, by the ClOrdID each was
+    /// sent under: the API order id and the instrument (ibx#462). They are
+    /// not in the order table.
+    pub(crate) what_ifs: HashMap<String, (OrderId, InstrumentId)>,
+    /// Set while a what-if is encoded: the ClOrdID it goes out under.
+    pub(crate) what_if_send: Option<String>,
+    /// The contract lookups of orders given without a conId: request
+    /// number and the order's slot (ibx#486).
+    pub(crate) order_lookups: Vec<(u32, InstrumentId)>,
+    /// The API precaution "Bypass Redirect Order warning for Stock API
+    /// Orders" (`IBX_BYPASS_REDIRECT_ORDER_WARNING`, off by default as the
+    /// reference's, ibx#486).
+    pub(crate) bypass_redirect_warning: bool,
+    /// Sequence of those lookups.
+    pub(crate) next_order_lookup: u32,
+    /// Set while a short-side order is encoded: its short-sale fields
+    /// (ibx#417).
+    pub(crate) short_sale_send: Option<crate::types::ShortSale>,
+    /// The session's combos and combo orders (ibx#470).
+    pub(crate) combos: crate::engine::combo::ComboBook,
+    /// Set while a combo order is encoded: what it writes besides the
+    /// order's own fields (ibx#470).
+    pub(crate) combo_send: Option<crate::engine::combo::ComboSend>,
+    /// The API client id the new orders carry (ibx#466).
+    pub(crate) api_client_id: i64,
+    /// Requests with outside-RTH waiting for their lookup, in order; later
+    /// requests of the same order wait behind them.
+    pub(crate) rth_parked: Vec<OrderRequest>,
+    pub(crate) next_rth_lookup: u32,
+    /// The session counts US stock sizes in round lots (ibx#287).
+    pub(crate) scale_us_lots: bool,
+    /// The bracket key of each order that has one (ibx#248).
+    pub(crate) bracket_keys: HashMap<OrderId, crate::engine::bracket::BracketKey>,
+    /// The next child index of each bracket parent (ibx#248).
+    pub(crate) bracket_next_child: HashMap<OrderId, u32>,
+    /// The last bracket group number given or seen on a report (ibx#248).
+    pub(crate) bracket_groups: u32,
+    /// State of the bracket colour generator (ibx#248).
+    pub(crate) bracket_rng: u64,
+    /// The session allows the price management flag (ibx#492).
+    pub(crate) price_mgmt_feature: bool,
+    /// The session's price management exclusions by exchange, None when
+    /// the logon has none (ibx#492).
+    pub(crate) price_mgmt_exclusions: Option<HashMap<String, Vec<String>>>,
+    /// Set while an order is encoded: it carries the price management flag
+    /// unless its order type is one the flag never goes with (ibx#492).
+    pub(crate) price_mgmt_send: bool,
+    /// Round lot by conId, once its definition was read (ibx#287).
+    pub(crate) round_lots: HashMap<i64, i64>,
+    /// Requests waiting for their contract's definition, by conId, and the
+    /// ones whose definition came, to be handled again (ibx#404).
+    pub(crate) def_parked: Vec<(i64, crate::types::ControlCommand)>,
+    pub(crate) def_ready: Vec<crate::types::ControlCommand>,
+    /// Listing exchange by conId, once its definition was read (#452).
+    pub(crate) listing_exchanges: HashMap<i64, String>,
+    /// Aggregate group by conId, once its definition was read (#445).
+    pub(crate) agg_groups: HashMap<i64, i32>,
+    /// SMART component exchanges by conId, once its definition was read
+    /// (#452).
+    pub(crate) smart_components: HashMap<i64, Vec<String>>,
+    /// Valid exchanges by conId (tag 6046, BEST as SMART), once its
+    /// definition was read: the components of its SmartDepth (#452).
+    pub(crate) valid_exchanges: HashMap<i64, Vec<String>>,
+    /// The contract as a depth refusal names it, by conId (#452).
+    pub(crate) depth_descriptions: HashMap<i64, String>,
+    /// SmartDepth requests waiting for their components' definitions
+    /// (#452).
+    pub(crate) depth_gathers: Vec<crate::engine::hot_loop::farm::DepthGather>,
+    /// Definition lookups in flight for a round lot: (request id, conId,
+    /// deadline).
+    pub(crate) lot_lookups: Vec<(String, i64, std::time::Instant)>,
+    /// Market data subscriptions waiting for their round lot, in order.
+    pub(crate) lot_parked: Vec<crate::engine::hot_loop::farm::MdSubscribe>,
+    /// Subscriptions whose round lot is known, to be sent.
+    pub(crate) lot_ready: Vec<crate::engine::hot_loop::farm::MdSubscribe>,
+    pub(crate) next_lot_lookup: u32,
+    /// Market data subscriptions given without a conId, waiting for the
+    /// lookup that resolves it: (request number, subscription, deadline)
+    /// (ibx#278).
+    pub(crate) md_lookups: Vec<(u32, crate::engine::hot_loop::farm::MdSubscribe, std::time::Instant)>,
+    /// Subscriptions whose conId was resolved, to be sent.
+    pub(crate) md_resolved: Vec<crate::engine::hot_loop::farm::MdSubscribe>,
+    pub(crate) next_md_lookup: u32,
     /// Final status of orders that left the engine filled, cancelled or
     /// rejected, for the reference's refusal of a later cancel (ibx#464).
     /// Bounded: the oldest are dropped past `FINISHED_ORDERS_MAX`.
     finished_orders: HashMap<OrderId, OrderStatus>,
     finished_order_ids: std::collections::VecDeque<OrderId>,
+    /// The book entry of each order held (see [`BookEntry`]).
+    pub(crate) book: HashMap<OrderId, BookEntry>,
+    /// Orders of this client the reference keeps in its API pending map
+    /// with no order made: a combo refused with 200 at its contract
+    /// lookup. A cancel or a global cancel ends them as ApiCancelled.
+    pub(crate) api_pending: HashMap<OrderId, OrderRequest>,
+    next_book_seq: u64,
+    /// Most orders held at once: the reference's book is a hash table
+    /// that grows with it and never shrinks.
+    pub(crate) book_peak: usize,
     /// Timestamp when the last farm socket recv returned data (for decode latency measurement).
     pub(crate) recv_at: Instant,
     /// Total hot loop iterations since start.
@@ -103,19 +304,67 @@ impl Context {
             pending_orders: OrderBuffer::new(),
             modify_versions: HashMap::new(),
             last_clord: HashMap::new(),
+            recovered_keys: HashMap::new(),
+            server_ids: HashMap::new(),
+            order_ids: OrderIdGenerator::new(),
             cancel_clord: HashMap::new(),
+            status_queries: std::collections::HashSet::new(),
             trail_limit_reported: HashMap::new(),
+            reported_stop: HashMap::new(),
+            rth_types: HashMap::new(),
+            rth_lookups: Vec::new(),
+            rth_parked: Vec::new(),
+            next_rth_lookup: 0,
+            what_ifs: HashMap::new(),
+            what_if_send: None,
+            order_lookups: Vec::new(),
+            bypass_redirect_warning: crate::config::bypass_redirect_order_warning(),
+            next_order_lookup: 0,
+            short_sale_send: None,
+            combos: Default::default(),
+            combo_send: None,
+            api_client_id: 0,
+            scale_us_lots: false,
+            bracket_keys: HashMap::new(),
+            bracket_next_child: HashMap::new(),
+            bracket_groups: 0,
+            bracket_rng: crate::engine::bracket::seed(),
+            price_mgmt_feature: false,
+            price_mgmt_exclusions: None,
+            price_mgmt_send: false,
+            round_lots: HashMap::new(),
+            agg_groups: HashMap::new(),
+            listing_exchanges: HashMap::new(),
+            def_parked: Vec::new(),
+            def_ready: Vec::new(),
+            smart_components: HashMap::new(),
+            valid_exchanges: HashMap::new(),
+            depth_descriptions: HashMap::new(),
+            depth_gathers: Vec::new(),
+            lot_lookups: Vec::new(),
+            lot_parked: Vec::new(),
+            lot_ready: Vec::new(),
+            next_lot_lookup: 0,
+            md_lookups: Vec::new(),
+            md_resolved: Vec::new(),
+            next_md_lookup: 0,
             finished_orders: HashMap::new(),
             finished_order_ids: std::collections::VecDeque::new(),
+            book: HashMap::new(),
+            api_pending: HashMap::new(),
+            next_book_seq: 0,
+            book_peak: 0,
             account: AccountState::default(),
             clock: Clock::new(),
             next_order_id: {
-                // Epoch-based to avoid "Duplicate ID" across IB sessions
+                // The engine's own orders (not the API's): epoch-based
+                // keys, above the API's int range, so they never take an
+                // API order id. Their ClOrdIDs come from `order_ids`.
                 let secs = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap_or_default()
                     .as_secs();
-                secs * 1000
+                secs as i64 * 1000
             },
             recv_at: Instant::now(),
             loop_iterations: 0,
@@ -178,7 +427,7 @@ impl Context {
             .filter(|o| o.instrument == id && matches!(o.status,
                 OrderStatus::PendingSubmit | OrderStatus::PreSubmitted | OrderStatus::Submitted |
                 OrderStatus::PendingCancel | OrderStatus::PendingReplace |
-                OrderStatus::PartiallyFilled | OrderStatus::Uncertain))
+                OrderStatus::PartiallyFilled))
             .collect()
     }
 
@@ -419,7 +668,7 @@ impl Context {
         instrument: InstrumentId,
         side: Side,
         qty: u32,
-        trail_pct: u32,
+        trail_percent: Price,
     ) -> OrderId {
         let id = self.next_order_id;
         self.next_order_id += 1;
@@ -428,7 +677,7 @@ impl Context {
             instrument,
             side,
             qty,
-            trail_pct,
+            trail_percent,
             trail_stop_price: 0,
         });
         id
@@ -683,74 +932,85 @@ impl Context {
         id
     }
 
+    /// `offset` is the snap offset (the API auxPrice), 0 when unset.
     pub fn submit_snap_mkt(
         &mut self,
         instrument: InstrumentId,
         side: Side,
         qty: u32,
+        offset: Price,
     ) -> OrderId {
         let id = self.next_order_id;
         self.next_order_id += 1;
         self.pending_orders.push(OrderRequest::SubmitSnapMkt {
-            order_id: id, instrument, side, qty,
+            order_id: id, instrument, side, qty, offset,
         });
         id
     }
 
+    /// `offset` is the snap offset (the API auxPrice), 0 when unset.
     pub fn submit_snap_mid(
         &mut self,
         instrument: InstrumentId,
         side: Side,
         qty: u32,
+        offset: Price,
     ) -> OrderId {
         let id = self.next_order_id;
         self.next_order_id += 1;
         self.pending_orders.push(OrderRequest::SubmitSnapMid {
-            order_id: id, instrument, side, qty,
+            order_id: id, instrument, side, qty, offset,
         });
         id
     }
 
+    /// `offset` is the snap offset (the API auxPrice), 0 when unset.
     pub fn submit_snap_pri(
         &mut self,
         instrument: InstrumentId,
         side: Side,
         qty: u32,
+        offset: Price,
     ) -> OrderId {
         let id = self.next_order_id;
         self.next_order_id += 1;
         self.pending_orders.push(OrderRequest::SubmitSnapPri {
-            order_id: id, instrument, side, qty,
+            order_id: id, instrument, side, qty, offset,
         });
         id
     }
 
+    /// `price` is the limit price, 0 = unset.
     pub fn submit_peg_mkt(
         &mut self,
         instrument: InstrumentId,
         side: Side,
         qty: u32,
+        price: Price,
         offset: Price,
     ) -> OrderId {
         let id = self.next_order_id;
         self.next_order_id += 1;
         self.pending_orders.push(OrderRequest::SubmitPegMkt {
-            order_id: id, instrument, side, qty, offset,
+            order_id: id, instrument, side, qty, price, offset,
         });
         id
     }
 
+    /// `price` is the limit price, 0 = unset. The offset goes out as zero,
+    /// as the reference sends it.
     pub fn submit_peg_mid(
         &mut self,
         instrument: InstrumentId,
         side: Side,
         qty: u32,
+        price: Price,
         offset: Price,
     ) -> OrderId {
         let id = self.next_order_id;
         self.next_order_id += 1;
         self.pending_orders.push(OrderRequest::SubmitPegMid {
-            order_id: id, instrument, side, qty, offset,
+            order_id: id, instrument, side, qty, price, offset,
         });
         id
     }
@@ -773,24 +1033,31 @@ impl Context {
         id
     }
 
-    /// Submit a Pegged to Benchmark order (OrdType PB).
-    /// Pegs to a benchmark instrument's price with change amounts.
+    /// Submit a Pegged to Benchmark order.
+    /// Pegs to a benchmark instrument's price with change amounts. `price`
+    /// is the starting price and `stock_ref_price` the stock reference
+    /// price (0 = unset for both); `ref_exchange` the reference contract's
+    /// exchange (empty = not sent).
+    #[allow(clippy::too_many_arguments)]
     pub fn submit_peg_bench(
         &mut self,
         instrument: InstrumentId,
         side: Side,
         qty: u32,
         price: Price,
-        ref_con_id: u32,
+        ref_con_id: i64,
         is_peg_decrease: bool,
         pegged_change_amount: Price,
         ref_change_amount: Price,
+        stock_ref_price: Price,
+        ref_exchange: &str,
     ) -> OrderId {
         let id = self.next_order_id;
         self.next_order_id += 1;
         self.pending_orders.push(OrderRequest::SubmitPegBench {
             order_id: id, instrument, side, qty, price,
             ref_con_id, is_peg_decrease, pegged_change_amount, ref_change_amount,
+            stock_ref_price, ref_exchange: ref_exchange.to_string(),
         });
         id
     }
@@ -836,8 +1103,8 @@ impl Context {
         self.submit_mtl(instrument, side, qty)
     }
 
-    /// Submit a what-if order for margin/commission preview. The order is NOT placed.
-    /// Response delivered via `Event::WhatIf`.
+    /// Submit a what-if preview of a limit order for margin/commission. The
+    /// order is NOT placed. Response delivered via `Event::WhatIf`.
     pub fn submit_what_if(
         &mut self,
         instrument: InstrumentId,
@@ -848,8 +1115,7 @@ impl Context {
         let id = self.next_order_id;
         self.next_order_id += 1;
         self.pending_orders.push(OrderRequest::SubmitWhatIf {
-            order_id: id, instrument, side, qty, price,
-            tif: b'0', attrs: OrderAttrs::default(),
+            request: Box::new(OrderRequest::SubmitLimit { order_id: id, instrument, side, qty, price }),
         });
         id
     }
@@ -960,6 +1226,22 @@ impl Context {
         self.market.set_symbol(id, symbol);
     }
 
+    /// The security type and exchange of an instrument, which its orders
+    /// are routed by.
+    pub fn set_routing(&mut self, id: InstrumentId, sec_type: &str, exchange: &str) {
+        self.market.set_routing(id, sec_type, exchange);
+    }
+
+    /// The currency of an instrument, written on its orders.
+    pub fn set_currency(&mut self, id: InstrumentId, currency: &str) {
+        self.market.set_currency(id, currency);
+    }
+
+    /// The terms of an option instrument, written on its orders.
+    pub fn set_option_terms(&mut self, id: InstrumentId, terms: crate::engine::market_state::OptionTerms) {
+        self.market.set_option_terms(id, terms);
+    }
+
     pub fn set_quote(&mut self, id: InstrumentId, quote: Quote) {
         *self.market.quote_mut(id) = quote;
     }
@@ -984,6 +1266,80 @@ impl Context {
         self.open_orders.insert(oid, order);
         // Initialize modify version to 0 for new orders (don't reset on modify).
         self.modify_versions.entry(oid).or_insert(0);
+        if !self.book.contains_key(&oid) {
+            self.book.insert(oid, BookEntry { seq: self.next_book_seq, ..Default::default() });
+            self.next_book_seq += 1;
+        }
+        self.book_peak = self.book_peak.max(self.open_orders.len());
+    }
+
+    /// The server's id of an order, the id part of its ClOrdID: the id
+    /// the server holds it under when the order is kept under another key
+    /// (an order of this session, or of another session kept under its API
+    /// order id, ibx#466), else the order id itself.
+    pub(crate) fn server_id(&self, order_id: OrderId) -> OrderId {
+        self.server_ids.get(&order_id).copied().unwrap_or(order_id)
+    }
+
+    /// The key an order is held under for the server's id of its ClOrdID.
+    pub(crate) fn key_of(&self, server_id: OrderId) -> OrderId {
+        self.recovered_keys.get(&server_id).copied().unwrap_or(server_id)
+    }
+
+    /// Hold the order of server id `server` under `key`.
+    pub(crate) fn bind_server_id(&mut self, key: OrderId, server: OrderId) {
+        if key == server { return; }
+        self.recovered_keys.insert(server, key);
+        self.server_ids.insert(key, server);
+    }
+
+    /// A new order goes out under a server id of its own, from the
+    /// reference's order id generator (`jclient.jv.l()`); its API order id
+    /// stays its key. An order already held, or already given a server id,
+    /// keeps its id.
+    pub(crate) fn assign_server_id(&mut self, key: OrderId) {
+        if self.open_orders.contains_key(&key) || self.server_ids.contains_key(&key) {
+            return;
+        }
+        let server = self.new_server_id();
+        self.bind_server_id(key, server);
+    }
+
+    /// The next id of the generator that names no order held: the
+    /// reference skips the ids it gave (`jclient.jv.b(String)@34-59`).
+    pub(crate) fn new_server_id(&mut self) -> OrderId {
+        loop {
+            let id = OrderId::from(self.order_ids.next());
+            if !self.recovered_keys.contains_key(&id) && !self.open_orders.contains_key(&id) {
+                return id;
+            }
+        }
+    }
+
+    /// The parent and OCA group of a held order, when known.
+    pub(crate) fn set_links(&mut self, order_id: OrderId, parent: Option<OrderId>, oca_group: Option<&str>) {
+        if let Some(entry) = self.book.get_mut(&order_id) {
+            if let Some(parent) = parent { entry.parent = parent; }
+            if let Some(group) = oca_group { entry.oca_group = group.to_string(); }
+        }
+    }
+
+    /// Whether this client gets the reports of an order (openOrder,
+    /// orderStatus, executions, commissions): those of its own orders, and
+    /// as client 0 those of a client that is not connected
+    /// (`jextend.ba.d(dK)`: the order's client, else client 0; no master
+    /// client, `ApiSettings.m_masterClientID` -1 by default). ibx is the
+    /// only client of its engine.
+    pub(crate) fn delivered(&self, order_id: OrderId) -> bool {
+        self.api_client_id == 0 || self.owned(order_id)
+    }
+
+    /// Whether this client may act on an order by its id: an order of
+    /// this client, or one the server reported for this client's id. The
+    /// reference finds an API order by (client id, order id)
+    /// (`jclient.jv.b(int, int)`).
+    pub(crate) fn owned(&self, order_id: OrderId) -> bool {
+        self.book.get(&order_id).and_then(|e| e.owner).is_none_or(|owner| owner == self.api_client_id)
     }
 
     /// Apply a server-reported status. Returns true when the stored status
@@ -1017,8 +1373,26 @@ impl Context {
         StatusChange::Changed
     }
 
+    /// The status the server gives in answer to a status request, after
+    /// it refused a cancel or modify (ibx#252): the order kept its status
+    /// until then, and the answer sets it, back to working too. A finished
+    /// status stays.
+    pub fn apply_queried_status(&mut self, order_id: OrderId, status: OrderStatus) -> StatusChange {
+        let Some(order) = self.open_orders.get_mut(&order_id) else {
+            return StatusChange::Unknown;
+        };
+        if order.status == status {
+            return StatusChange::Same;
+        }
+        if order.status.is_terminal() {
+            return StatusChange::Stale;
+        }
+        order.status = status;
+        StatusChange::Changed
+    }
+
     /// Set a status unconditionally — for deliberate lifecycle regressions
-    /// only (cancel-reject restore, disconnect reconciliation).
+    /// only (disconnect reconciliation).
     pub fn set_order_status_forced(&mut self, order_id: OrderId, status: OrderStatus) {
         if let Some(order) = self.open_orders.get_mut(&order_id) {
             order.status = status;
@@ -1032,44 +1406,60 @@ impl Context {
         }
     }
 
+    /// The session's bracket keys and counters (ibx#248).
+    pub(crate) fn brackets(&mut self) -> crate::engine::bracket::Brackets<'_> {
+        crate::engine::bracket::Brackets {
+            keys: &mut self.bracket_keys,
+            next_child: &mut self.bracket_next_child,
+            groups: &mut self.bracket_groups,
+            rng: &mut self.bracket_rng,
+        }
+    }
+
     pub fn remove_order(&mut self, order_id: OrderId) {
         self.open_orders.remove(&order_id);
+        self.book.remove(&order_id);
     }
 
     /// Remove an order that ended with `status`, and keep that status for a
     /// later cancel of the same id (ibx#464).
     pub fn finish_order(&mut self, order_id: OrderId, status: OrderStatus) {
-        if self.open_orders.remove(&order_id).is_none() {
+        if !self.forget_order(order_id) {
             return;
         }
-        self.cancel_clord.remove(&order_id);
-        self.trail_limit_reported.remove(&order_id);
         if self.finished_orders.insert(order_id, status).is_none() {
             self.finished_order_ids.push_back(order_id);
             while self.finished_order_ids.len() > FINISHED_ORDERS_MAX {
                 if let Some(old) = self.finished_order_ids.pop_front() {
                     self.finished_orders.remove(&old);
+                    if let Some(server) = self.server_ids.remove(&old) {
+                        self.recovered_keys.remove(&server);
+                    }
                 }
             }
         }
+    }
+
+    /// Remove an order and what is kept for it, without keeping a final
+    /// status: a later cancel of its id finds no order (10147). False when
+    /// the order was not there.
+    pub fn forget_order(&mut self, order_id: OrderId) -> bool {
+        if self.open_orders.remove(&order_id).is_none() {
+            return false;
+        }
+        self.cancel_clord.remove(&order_id);
+        self.status_queries.remove(&order_id);
+        self.trail_limit_reported.remove(&order_id);
+        self.reported_stop.remove(&order_id);
+        self.bracket_keys.remove(&order_id);
+        self.bracket_next_child.remove(&order_id);
+        self.book.remove(&order_id);
+        true
     }
 
     /// Final status of an order that left the engine (ibx#464).
     pub fn finished_status(&self, order_id: OrderId) -> Option<OrderStatus> {
         self.finished_orders.get(&order_id).copied()
-    }
-
-    /// Mark all live open orders as Uncertain (auth disconnect — status may have changed).
-    pub fn mark_orders_uncertain(&mut self) {
-        for order in self.open_orders.values_mut() {
-            match order.status {
-                OrderStatus::PendingSubmit | OrderStatus::PreSubmitted | OrderStatus::Submitted |
-                OrderStatus::PendingCancel | OrderStatus::PendingReplace | OrderStatus::PartiallyFilled => {
-                    order.status = OrderStatus::Uncertain;
-                }
-                _ => {}
-            }
-        }
     }
 }
 
@@ -1309,7 +1699,7 @@ mod tests {
 
     // ── ibx#212: monotonic status guard ──
 
-    fn submitted_order(ctx: &mut Context, oid: u64) {
+    fn submitted_order(ctx: &mut Context, oid: OrderId) {
         ctx.insert_order(Order {
             order_id: oid, instrument: 0, side: Side::Buy, price: 100,
             qty_fixed: (100) as i64 * crate::types::QTY_SCALE, filled_fixed: (0) as i64 * crate::types::QTY_SCALE, status: OrderStatus::Submitted,
@@ -1588,6 +1978,45 @@ mod tests {
         ctx.update_order_status(999, OrderStatus::Cancelled);
     }
 
+    // ibx#466: the reference's order id generator (`jfix.cy.a(String)`,
+    // `jclient.jv.b(String)`): a positive first id, then one up per id; at
+    // an id the reference does not take (0, the int bounds) it starts
+    // again from a new first id.
+    #[test]
+    fn order_ids_count_up_from_a_positive_first_id() {
+        let mut ids = OrderIdGenerator::new();
+        let first = ids.next();
+        assert!(first > 0, "{first}");
+        assert_eq!(ids.next(), first.wrapping_add(1));
+        for bound in [i32::MAX, i32::MIN, 0] {
+            ids.start_at(bound);
+            let again = ids.next();
+            assert!(again > 0 && again != i32::MAX, "{bound}: {again}");
+        }
+    }
+
+    // ibx#466: a new order is held under its API order id and gets a
+    // server id of the generator, kept while it lives; an order held, or
+    // one that has a server id, keeps its id. The generator skips the ids
+    // of the orders held.
+    #[test]
+    fn a_new_order_gets_a_server_id_that_names_no_order_held() {
+        let mut ctx = Context::new();
+        ctx.order_ids.start_at(1_000_000_001);
+        ctx.insert_order(Order::new(1_000_000_001, 0, Side::Buy, 1, 100, b'2', b'0', 0));
+        ctx.bind_server_id(9, 1_000_000_002);
+        ctx.assign_server_id(5);
+        assert_eq!(ctx.server_id(5), 1_000_000_003);
+        assert_eq!(ctx.key_of(1_000_000_003), 5);
+        ctx.assign_server_id(5);
+        assert_eq!(ctx.server_id(5), 1_000_000_003, "kept");
+        ctx.insert_order(Order::new(6, 0, Side::Buy, 1, 100, b'2', b'0', 0));
+        ctx.assign_server_id(6);
+        assert_eq!(ctx.server_id(6), 6, "an order held keeps its id");
+        assert_eq!((ctx.key_of(1_000_000_002), ctx.server_id(9)), (9, 1_000_000_002));
+        assert_eq!(ctx.key_of(77), 77);
+    }
+
     #[test]
     fn remove_order_nonexistent_no_panic() {
         let mut ctx = Context::new();
@@ -1657,12 +2086,16 @@ mod tests {
     #[test]
     fn submit_peg_bench_drains_correctly() {
         let mut ctx = Context::new();
-        let id = ctx.submit_peg_bench(0, Side::Buy, 100, 150 * PRICE_SCALE, 12345, false, 50_000_000, 50_000_000);
+        let id = ctx.submit_peg_bench(0, Side::Buy, 100, 150 * PRICE_SCALE, 12345, false, 50_000_000, 50_000_000,
+            151 * PRICE_SCALE, "ARCA");
         let orders: Vec<_> = ctx.drain_pending_orders().collect();
         assert_eq!(orders.len(), 1);
         match &orders[0] {
             OrderRequest::SubmitPegBench { order_id, instrument, side, qty, price,
-                ref_con_id, is_peg_decrease, pegged_change_amount, ref_change_amount } => {
+                ref_con_id, is_peg_decrease, pegged_change_amount, ref_change_amount,
+                stock_ref_price, ref_exchange } => {
+                assert_eq!(*stock_ref_price, 151 * PRICE_SCALE);
+                assert_eq!(ref_exchange, "ARCA");
                 assert_eq!(*order_id, id);
                 assert_eq!(*instrument, 0);
                 assert_eq!(*side, Side::Buy);
@@ -1736,7 +2169,10 @@ mod tests {
         let orders: Vec<_> = ctx.drain_pending_orders().collect();
         assert_eq!(orders.len(), 1);
         match &orders[0] {
-            OrderRequest::SubmitWhatIf { order_id, instrument, side, qty, price, .. } => {
+            OrderRequest::SubmitWhatIf { request } => {
+                let OrderRequest::SubmitLimit { order_id, instrument, side, qty, price } = request.as_ref() else {
+                    panic!("expected a limit order under the preview");
+                };
                 assert_eq!(*order_id, id);
                 assert_eq!(*instrument, 0);
                 assert_eq!(*side, Side::Buy);

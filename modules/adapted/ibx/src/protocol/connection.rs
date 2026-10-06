@@ -3,6 +3,7 @@
 //! Maintains per-connection state: buffer, seq counter,
 //! HMAC sign/read IVs (chained per message).
 
+use std::collections::VecDeque;
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 
@@ -30,33 +31,98 @@ pub enum Frame {
     Control(Vec<u8>),
 }
 
-/// Stream wrapper supporting both TLS and raw TCP.
+/// The byte stream under a [`Connection`]. A connection holds one through
+/// [`Stream`], a closed enum: the send and receive path is a static match,
+/// with no boxing and no virtual call.
+pub trait Transport: Read + Write {
+    /// Close both directions. Later reads see the end of the stream and
+    /// later writes fail. Errors are ignored: it may be closed already.
+    fn shutdown(&mut self);
+    /// Writes that return at once with what the stream takes now (`true`),
+    /// or the default mode (`false`).
+    fn set_nonblocking(&mut self, on: bool) -> io::Result<()>;
+}
+
+impl Transport for TcpStream {
+    fn shutdown(&mut self) {
+        let _ = TcpStream::shutdown(self, std::net::Shutdown::Both);
+    }
+
+    fn set_nonblocking(&mut self, on: bool) -> io::Result<()> {
+        TcpStream::set_nonblocking(self, on)
+    }
+}
+
+impl Transport for TlsStream<TcpStream> {
+    fn shutdown(&mut self) {
+        let _ = self.get_ref().shutdown(std::net::Shutdown::Both);
+    }
+
+    fn set_nonblocking(&mut self, on: bool) -> io::Result<()> {
+        self.get_ref().set_nonblocking(on)
+    }
+}
+
+/// The transports a connection runs on: TLS, raw TCP, and for the tests an
+/// in-memory pipe ([`MemTransport`], `test-support` feature only, so a
+/// release build has the two socket arms alone).
 enum Stream {
     Tls(TlsStream<TcpStream>),
     Raw(TcpStream),
+    #[cfg(any(test, feature = "test-support"))]
+    Mem(MemTransport),
 }
 
 impl Read for Stream {
+    #[inline]
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self {
             Self::Tls(s) => s.read(buf),
             Self::Raw(s) => s.read(buf),
+            #[cfg(any(test, feature = "test-support"))]
+            Self::Mem(s) => s.read(buf),
         }
     }
 }
 
 impl Write for Stream {
+    #[inline]
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self {
             Self::Tls(s) => s.write(buf),
             Self::Raw(s) => s.write(buf),
+            #[cfg(any(test, feature = "test-support"))]
+            Self::Mem(s) => s.write(buf),
         }
     }
 
+    #[inline]
     fn flush(&mut self) -> io::Result<()> {
         match self {
             Self::Tls(s) => s.flush(),
             Self::Raw(s) => s.flush(),
+            #[cfg(any(test, feature = "test-support"))]
+            Self::Mem(s) => s.flush(),
+        }
+    }
+}
+
+impl Transport for Stream {
+    fn shutdown(&mut self) {
+        match self {
+            Self::Tls(s) => Transport::shutdown(s),
+            Self::Raw(s) => Transport::shutdown(s),
+            #[cfg(any(test, feature = "test-support"))]
+            Self::Mem(s) => Transport::shutdown(s),
+        }
+    }
+
+    fn set_nonblocking(&mut self, on: bool) -> io::Result<()> {
+        match self {
+            Self::Tls(s) => Transport::set_nonblocking(s, on),
+            Self::Raw(s) => Transport::set_nonblocking(s, on),
+            #[cfg(any(test, feature = "test-support"))]
+            Self::Mem(s) => Transport::set_nonblocking(s, on),
         }
     }
 }
@@ -75,6 +141,16 @@ pub struct Connection {
     pub read_key: Vec<u8>,
     /// IV for verifying inbound messages (chains across messages).
     pub read_iv: Vec<u8>,
+    /// Frames accepted for sending but not yet written, oldest first
+    /// (queued writes only). `out_pos` bytes of the first are written.
+    out: VecDeque<Vec<u8>>,
+    out_pos: usize,
+    /// When set, a send never blocks the caller: what the socket does not
+    /// take at once waits in `out` and goes out with `flush_queued`.
+    queued_writes: bool,
+    /// The first write error. The connection is unusable from then on: the
+    /// owner drops it and reconnects; no frame is written again.
+    write_error: Option<(io::ErrorKind, String)>,
 }
 
 impl Connection {
@@ -87,15 +163,23 @@ impl Connection {
     /// or surface a hard error, which the hot-loop reconnect path handles.
     pub fn new(stream: TlsStream<TcpStream>) -> io::Result<Self> {
         stream.get_ref().set_read_timeout(Some(std::time::Duration::from_millis(1)))?;
-        Ok(Self {
-            stream: Stream::Tls(stream),
+        Ok(Self::on(Stream::Tls(stream)))
+    }
+
+    fn on(stream: Stream) -> Self {
+        Self {
+            stream,
             buf: Vec::with_capacity(RECV_BUF_SIZE),
             seq: 0,
             sign_key: Vec::new(),
             sign_iv: Vec::new(),
             read_key: Vec::new(),
             read_iv: Vec::new(),
-        })
+            out: VecDeque::new(),
+            out_pos: 0,
+            queued_writes: false,
+            write_error: None,
+        }
     }
 
     /// Create a new connection from a raw TCP stream (for farm connections).
@@ -107,15 +191,25 @@ impl Connection {
         // messages to never reach the farm — the sign_iv still advances, permanently
         // breaking the signing chain.
         stream.set_read_timeout(Some(std::time::Duration::from_millis(1)))?;
-        Ok(Self {
-            stream: Stream::Raw(stream),
-            buf: Vec::with_capacity(RECV_BUF_SIZE),
-            seq: 0,
-            sign_key: Vec::new(),
-            sign_iv: Vec::new(),
-            read_key: Vec::new(),
-            read_iv: Vec::new(),
-        })
+        Ok(Self::on(Stream::Raw(stream)))
+    }
+
+    /// A connection on one end of an in-memory pipe (tests): the same
+    /// framing, compression, signing and queued-write path as a socket.
+    /// A read waits 1 ms for data, as the sockets do.
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn new_mem(stream: MemTransport) -> Self {
+        let _ = stream.set_read_timeout(Some(std::time::Duration::from_millis(1)));
+        Self::on(Stream::Mem(stream))
+    }
+
+    /// The read wait of an in-memory connection (tests); zero makes a read
+    /// return at once. No effect on a socket.
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn set_mem_read_timeout(&self, timeout: std::time::Duration) {
+        if let Stream::Mem(s) = &self.stream {
+            let _ = s.set_read_timeout(Some(timeout));
+        }
     }
 
     /// Set HMAC keys and IVs after authentication.
@@ -204,6 +298,19 @@ impl Connection {
                 .min();
             let earliest = match earliest {
                 Some(e) => e,
+                // A read can end inside a frame header ("8=FIXC" seen live,
+                // ibx#436 paper run of 04/10/2026): those bytes start the
+                // next frame and are kept; dropping them lost a compressed
+                // frame and the reply it held.
+                None if partial_header_len(&self.buf) > 0 => {
+                    let keep = partial_header_len(&self.buf);
+                    let drop = self.buf.len() - keep;
+                    if drop > 0 {
+                        log::warn!("extract_frames: dropping {}B (no header) before a partial header", drop);
+                        self.buf.drain(..drop);
+                    }
+                    break;
+                }
                 None => {
                     // ibx#183 follow-up: dump the FULL payload (hex + ascii) of
                     // anything we're about to discard. We need the whole frame
@@ -277,25 +384,128 @@ impl Connection {
         frames
     }
 
-    /// Unsign a received frame using the read IV. Chains the IV.
+    /// Unsign a received frame using the read IV.
     /// Returns the undistorted message bytes and whether the signature was valid.
+    ///
+    /// As in the reference (ibx#275): a frame without the signature trailer
+    /// is unsigned and accepted as it is; the read IV advances only after a
+    /// signature match. On a mismatch the caller must drop the connection
+    /// and reconnect; the frame must not be used.
     pub fn unsign(&mut self, msg: &[u8]) -> (Vec<u8>, bool) {
         if self.read_key.is_empty() {
             return (msg.to_vec(), true); // no signing configured
         }
-        // Only unsign if 8349= HMAC tag is present (matching Python _unsign_conn)
-        if !msg.windows(5).any(|w| w == b"8349=") {
+        if !fix::is_signed(msg) {
             return (msg.to_vec(), true);
         }
         let (undistorted, new_iv, valid) = fix::fix_unsign(msg, &self.read_key, &self.read_iv);
-        self.read_iv = new_iv;
+        if valid {
+            self.read_iv = new_iv;
+        }
         (undistorted, valid)
+    }
+
+    /// Close the socket in both directions, for a connection that must not
+    /// be read any more (signature mismatch, ibx#275). Errors are ignored:
+    /// the socket may be closed already.
+    pub fn shutdown(&mut self) {
+        self.stream.shutdown();
+    }
+
+    /// Writes of this connection stop blocking the caller (ibx#254): each
+    /// connection keeps its own output, so a peer that stops reading
+    /// stalls only its own link, as in the reference. There is no write
+    /// timeout, as in the reference: the output waits until the peer reads
+    /// or the system fails the connection.
+    pub fn set_queued_writes(&mut self, on: bool) {
+        self.queued_writes = on;
+    }
+
+    /// Whether accepted frames are still waiting to be written.
+    #[inline]
+    pub fn has_queued_output(&self) -> bool {
+        !self.out.is_empty()
+    }
+
+    /// The write error that made this connection unusable, if any.
+    #[inline]
+    pub fn write_error(&self) -> Option<&str> {
+        self.write_error.as_ref().map(|(_, text)| text.as_str())
+    }
+
+    fn failed(&self) -> io::Error {
+        let (kind, text) = self.write_error.as_ref().expect("write error recorded");
+        io::Error::new(*kind, text.clone())
+    }
+
+    fn record_write_error(&mut self, e: io::Error) -> io::Error {
+        if self.write_error.is_none() {
+            self.write_error = Some((e.kind(), e.to_string()));
+        }
+        e
+    }
+
+    /// Hand one complete frame to the socket. Blocking mode: written at
+    /// once. Queued mode: written as far as the socket takes it without
+    /// waiting, the rest kept in order behind the frames already waiting.
+    /// An error marks the connection failed; the frame is never retried.
+    fn write_frame(&mut self, frame: Vec<u8>) -> io::Result<()> {
+        if self.write_error.is_some() {
+            return Err(self.failed());
+        }
+        if !self.queued_writes {
+            return self.stream.write_all(&frame).map_err(|e| self.record_write_error(e));
+        }
+        self.out.push_back(frame);
+        if self.out.len() == 1 {
+            self.flush_queued()
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Write what the socket takes now of the waiting frames, in order,
+    /// without blocking. An error marks the connection failed.
+    pub fn flush_queued(&mut self) -> io::Result<()> {
+        if self.write_error.is_some() {
+            return Err(self.failed());
+        }
+        if self.out.is_empty() {
+            return Ok(());
+        }
+        if let Err(e) = self.stream.set_nonblocking(true) {
+            return Err(self.record_write_error(e));
+        }
+        let result = loop {
+            let Some(front) = self.out.front() else { break Ok(()) };
+            // A partial TLS record is completed by calling again with the
+            // same bytes, which this does.
+            match self.stream.write(&front[self.out_pos..]) {
+                Ok(0) => break Err(io::Error::new(io::ErrorKind::WriteZero, "socket accepted no bytes")),
+                Ok(n) => {
+                    self.out_pos += n;
+                    if self.out_pos >= front.len() {
+                        self.out.pop_front();
+                        self.out_pos = 0;
+                    }
+                }
+                Err(e) if e.kind() == io::ErrorKind::WouldBlock => break Ok(()),
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(e) => break Err(e),
+            }
+        };
+        let restored = self.stream.set_nonblocking(false);
+        match result.and(restored) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(self.record_write_error(e)),
+        }
     }
 
     /// Build a FIX message, sign it, and send it. Increments seq and chains sign IV.
     ///
-    /// State (seq, sign_iv) is committed only after `write_all` returns Ok,
-    /// so a write error leaves the connection retryable rather than poisoned.
+    /// State (seq, sign_iv) is committed once the frame is accepted. A write
+    /// error makes the connection unusable: it is dropped and reconnected,
+    /// the frame is never retried, as in the reference (ibx#254).
     pub fn send_fix(&mut self, fields: &[(u32, &str)]) -> io::Result<()> {
         let next_seq = self.seq + 1;
         let msg = fix::fix_build(fields, next_seq);
@@ -308,8 +518,28 @@ impl Connection {
             let (signed, iv) = fix::fix_sign(&msg, &self.sign_key, &self.sign_iv);
             (signed, Some(iv))
         };
-        self.stream.write_all(&to_send)?;
+        self.write_frame(to_send)?;
         self.seq = next_seq;
+        if let Some(iv) = next_iv {
+            self.sign_iv = iv;
+        }
+        Ok(())
+    }
+
+    /// Build a FIX message outside the sequence count, sign it, and send it.
+    /// The sequence counter does not move.
+    pub fn send_fix_unsequenced(&mut self, fields: &[(u32, &str)]) -> io::Result<()> {
+        let msg = fix::fix_build(fields, 0);
+        if log::log_enabled!(log::Level::Trace) {
+            log::trace!("WIRE> seq=0 {}", fix::fmt_pipe(&msg));
+        }
+        let (to_send, next_iv) = if self.sign_key.is_empty() {
+            (msg, None)
+        } else {
+            let (signed, iv) = fix::fix_sign(&msg, &self.sign_key, &self.sign_iv);
+            (signed, Some(iv))
+        };
+        self.write_frame(to_send)?;
         if let Some(iv) = next_iv {
             self.sign_iv = iv;
         }
@@ -319,7 +549,7 @@ impl Connection {
     /// Build a message, compress, sign, and send. For farm subscribe/data messages.
     /// Uses seq=0 (separate seq space from heartbeats).
     ///
-    /// State (sign_iv) is committed only after `write_all` returns Ok.
+    /// State (sign_iv) is committed once the frame is accepted.
     pub fn send_fixcomp(&mut self, fields: &[(u32, &str)]) -> io::Result<()> {
         let msg = fix::fix_build(fields, 0);
         if log::log_enabled!(log::Level::Trace) {
@@ -332,7 +562,7 @@ impl Connection {
             let (signed, iv) = fix::fix_sign(&wrapped, &self.sign_key, &self.sign_iv);
             (signed, Some(iv))
         };
-        self.stream.write_all(&to_send)?;
+        self.write_frame(to_send)?;
         if let Some(iv) = next_iv {
             self.sign_iv = iv;
         }
@@ -341,8 +571,7 @@ impl Connection {
 
     /// Send raw bytes (pre-built message).
     pub fn send_raw(&mut self, data: &[u8]) -> io::Result<()> {
-        self.stream.write_all(data)?;
-        Ok(())
+        self.write_frame(data.to_vec())
     }
 
     /// Number of buffered bytes not yet extracted as frames.
@@ -354,6 +583,19 @@ impl Connection {
     pub fn inject_buf(&mut self, data: &[u8]) {
         self.buf.extend_from_slice(data);
     }
+}
+
+/// Frame headers the reader recognizes.
+const FRAME_HEADERS: [&[u8]; 5] = [b"8=FIX.", b"8=FIXCOMP\x01", b"8=O\x01", b"8=1\x01", b"8=X\x01"];
+
+/// Length of the longest end of `buf` that is the start of a frame header
+/// (a header cut by the end of a read), 0 when none.
+fn partial_header_len(buf: &[u8]) -> usize {
+    let longest = FRAME_HEADERS.iter().map(|h| h.len()).max().unwrap_or(0);
+    (1..longest.min(buf.len() + 1))
+        .rev()
+        .find(|&n| FRAME_HEADERS.iter().any(|h| n < h.len() && buf[buf.len() - n..] == h[..n]))
+        .unwrap_or(0)
 }
 
 /// Compute total length of a length-prefixed, trailer-free message whose
@@ -368,7 +610,10 @@ fn binary_msg_length(data: &[u8]) -> Option<usize> {
         .ok()?
         .parse()
         .ok()?;
-    Some(soh_pos + 1 + body_len)
+    // A length past the address space is no length: the frame never
+    // completes, as one whose length is not a number (ibx#488: the sum
+    // overflowed).
+    (soh_pos + 1).checked_add(body_len)
 }
 
 /// Compute total length of a `8=FIX.4.1\x01 9=<body_len>\x01 ...` message.
@@ -381,13 +626,197 @@ fn fix_msg_length(data: &[u8]) -> Option<usize> {
         .parse()
         .ok()?;
     // header up to and including SOH after tag 9, + body + "10=XXX\x01" (7 bytes)
-    Some(soh_pos + 1 + body_len + 7)
+    (soh_pos + 1 + 7).checked_add(body_len)
 }
 
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
         .windows(needle.len())
         .position(|w| w == needle)
+}
+
+#[cfg(any(test, feature = "test-support"))]
+pub use mem::{mem_pair, MemTransport};
+
+/// An in-memory byte pipe standing in for a socket in the tests, so the
+/// engine runs against a scripted peer with no network. Built only for the
+/// tests (`test-support` feature).
+#[cfg(any(test, feature = "test-support"))]
+mod mem {
+    use std::collections::VecDeque;
+    use std::io::{self, Read, Write};
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::{Arc, Condvar, Mutex};
+    use std::time::{Duration, Instant};
+
+    /// One direction of a pipe.
+    #[derive(Default)]
+    struct Pipe {
+        data: VecDeque<u8>,
+        /// The writing end closed: the reader gets the end of the stream
+        /// once the data is read.
+        write_closed: bool,
+        /// The reading end closed: a write fails, as on a reset socket.
+        read_closed: bool,
+        /// Most bytes waiting at once; None for no limit.
+        capacity: Option<usize>,
+    }
+
+    #[derive(Default)]
+    struct Shared {
+        pipe: Mutex<Pipe>,
+        changed: Condvar,
+    }
+
+    /// No read timeout: a read waits until data or the end of the stream.
+    const WAIT_FOREVER: u64 = u64::MAX;
+
+    /// One end of an in-memory pipe ([`mem_pair`]). It reads and writes as a
+    /// TCP stream does: a read waits for data up to the read timeout, then
+    /// fails with `WouldBlock`; a closed peer gives the end of the stream to
+    /// a read and `BrokenPipe` to a write. Dropping an end closes it.
+    pub struct MemTransport {
+        rx: Arc<Shared>,
+        tx: Arc<Shared>,
+        /// Read timeout in nanoseconds; 0 for a read that returns at once,
+        /// [`WAIT_FOREVER`] for none.
+        read_timeout: AtomicU64,
+        /// Reads and writes return at once (`WouldBlock`) when they cannot
+        /// proceed.
+        nonblocking: bool,
+    }
+
+    /// Two connected ends: what one writes, the other reads.
+    pub fn mem_pair() -> (MemTransport, MemTransport) {
+        let a = Arc::new(Shared::default());
+        let b = Arc::new(Shared::default());
+        let end = |rx: &Arc<Shared>, tx: &Arc<Shared>| MemTransport {
+            rx: rx.clone(),
+            tx: tx.clone(),
+            read_timeout: AtomicU64::new(WAIT_FOREVER),
+            nonblocking: false,
+        };
+        (end(&a, &b), end(&b, &a))
+    }
+
+    impl MemTransport {
+        /// As `TcpStream::set_read_timeout`; `Some(Duration::ZERO)` makes a
+        /// read return at once.
+        pub fn set_read_timeout(&self, timeout: Option<Duration>) -> io::Result<()> {
+            let nanos = timeout.map_or(WAIT_FOREVER, |d| d.as_nanos().min(WAIT_FOREVER as u128 - 1) as u64);
+            self.read_timeout.store(nanos, Ordering::Relaxed);
+            Ok(())
+        }
+
+        /// As `TcpStream::set_nonblocking`: a read or write that cannot
+        /// proceed at once fails with `WouldBlock`.
+        pub fn set_nonblocking(&mut self, on: bool) -> io::Result<()> {
+            self.nonblocking = on;
+            Ok(())
+        }
+
+        /// Most bytes this end's output holds before a write waits (or, in
+        /// non-blocking mode, takes only what fits): a peer that does not
+        /// read fills it, as a socket buffer.
+        pub fn set_write_capacity(&self, capacity: Option<usize>) {
+            self.tx.pipe.lock().unwrap().capacity = capacity;
+            self.tx.changed.notify_all();
+        }
+
+        /// Bytes written by this end that the peer has not read yet.
+        pub fn unread_output(&self) -> usize {
+            self.tx.pipe.lock().unwrap().data.len()
+        }
+
+        fn close(&self) {
+            self.tx.pipe.lock().unwrap().write_closed = true;
+            self.tx.changed.notify_all();
+            self.rx.pipe.lock().unwrap().read_closed = true;
+            self.rx.changed.notify_all();
+        }
+    }
+
+    impl Drop for MemTransport {
+        fn drop(&mut self) {
+            self.close();
+        }
+    }
+
+    impl Read for MemTransport {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            if buf.is_empty() {
+                return Ok(0);
+            }
+            let timeout = if self.nonblocking { 0 } else { self.read_timeout.load(Ordering::Relaxed) };
+            let deadline = (timeout != WAIT_FOREVER).then(|| Instant::now() + Duration::from_nanos(timeout));
+            let mut pipe = self.rx.pipe.lock().unwrap();
+            loop {
+                if pipe.read_closed {
+                    return Ok(0);
+                }
+                if !pipe.data.is_empty() {
+                    let n = buf.len().min(pipe.data.len());
+                    for (dst, src) in buf.iter_mut().zip(pipe.data.drain(..n)) {
+                        *dst = src;
+                    }
+                    self.rx.changed.notify_all();
+                    return Ok(n);
+                }
+                if pipe.write_closed {
+                    return Ok(0);
+                }
+                match deadline {
+                    None => pipe = self.rx.changed.wait(pipe).unwrap(),
+                    Some(at) => {
+                        let now = Instant::now();
+                        if now >= at {
+                            return Err(io::Error::new(io::ErrorKind::WouldBlock, "no data"));
+                        }
+                        pipe = self.rx.changed.wait_timeout(pipe, at - now).unwrap().0;
+                    }
+                }
+            }
+        }
+    }
+
+    impl Write for MemTransport {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            if buf.is_empty() {
+                return Ok(0);
+            }
+            let mut pipe = self.tx.pipe.lock().unwrap();
+            loop {
+                if pipe.write_closed || pipe.read_closed {
+                    return Err(io::Error::new(io::ErrorKind::BrokenPipe, "pipe closed"));
+                }
+                let room = pipe.capacity.map_or(buf.len(), |c| c.saturating_sub(pipe.data.len()));
+                if room > 0 {
+                    let n = room.min(buf.len());
+                    pipe.data.extend(&buf[..n]);
+                    self.tx.changed.notify_all();
+                    return Ok(n);
+                }
+                if self.nonblocking {
+                    return Err(io::Error::new(io::ErrorKind::WouldBlock, "pipe full"));
+                }
+                pipe = self.tx.changed.wait(pipe).unwrap();
+            }
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl super::Transport for MemTransport {
+        fn shutdown(&mut self) {
+            self.close();
+        }
+
+        fn set_nonblocking(&mut self, on: bool) -> io::Result<()> {
+            MemTransport::set_nonblocking(self, on)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -484,22 +913,102 @@ mod tests {
         assert_eq!(find_subsequence(b"8=FIX.4.1\x01", b"8=FIX."), Some(0));
     }
 
-    /// Helper: create a Connection with a dummy TCP stream for buffer tests.
-    /// We connect to a local listener so we get a valid TcpStream.
+    /// A connection on an in-memory pipe with `buf` already received.
     fn test_connection_with_buf(buf: Vec<u8>) -> Connection {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let addr = listener.local_addr().unwrap();
-        let stream = std::net::TcpStream::connect(addr).unwrap();
-        stream.set_nonblocking(true).unwrap();
-        Connection {
-            stream: Stream::Raw(stream),
-            buf,
-            seq: 0,
-            sign_key: Vec::new(),
-            sign_iv: Vec::new(),
-            read_key: Vec::new(),
-            read_iv: Vec::new(),
+        let (end, _peer) = mem_pair();
+        let mut conn = Connection::new_mem(end);
+        conn.seed_buffer(&buf);
+        conn
+    }
+
+    /// A connection and the peer end of its pipe.
+    fn loopback() -> (Connection, MemTransport) {
+        let (end, peer) = mem_pair();
+        (Connection::new_mem(end), peer)
+    }
+
+    fn read_available(server: &mut MemTransport, want: usize) -> Vec<u8> {
+        server.set_read_timeout(Some(std::time::Duration::from_millis(200))).unwrap();
+        let mut out = Vec::new();
+        let mut buf = vec![0u8; 1 << 16];
+        while out.len() < want {
+            match server.read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => out.extend_from_slice(&buf[..n]),
+                Err(_) => break,
+            }
         }
+        out
+    }
+
+    /// The in-memory transport under a connection made by `loopback`.
+    fn conn_output(conn: &mut Connection) -> &mut MemTransport {
+        match &mut conn.stream {
+            Stream::Mem(t) => t,
+            _ => unreachable!("an in-memory connection"),
+        }
+    }
+
+    // ibx#254: with a peer that does not read, sends return at once and the
+    // output waits on the connection, in order; it goes out when the peer
+    // reads again. No timeout ends the wait.
+    #[test]
+    fn queued_writes_never_block_on_a_peer_that_does_not_read() {
+        let (mut conn, mut server) = loopback();
+        // The connection's output holds 256 KB, as a socket buffer.
+        conn_output(&mut conn).set_write_capacity(Some(256 * 1024));
+        conn.set_queued_writes(true);
+        let frame = vec![b'x'; 64 * 1024];
+        let mut sent = 0usize;
+        let started = std::time::Instant::now();
+        while !conn.has_queued_output() {
+            conn.send_raw(&frame).unwrap();
+            sent += 1;
+            assert!(sent < 10_000, "the socket buffers never filled");
+        }
+        // More frames while the peer is stalled: accepted, not written.
+        for i in 0..20u8 {
+            conn.send_raw(&[b'#', i]).unwrap();
+        }
+        assert!(started.elapsed() < std::time::Duration::from_secs(10), "sends did not block");
+        assert!(conn.write_error().is_none());
+
+        let total = sent * frame.len() + 20 * 2;
+        let mut got = Vec::new();
+        while got.len() < total {
+            got.extend(read_available(&mut server, total - got.len()));
+            conn.flush_queued().unwrap();
+        }
+        assert!(!conn.has_queued_output());
+        assert_eq!(got.len(), total);
+        assert!(got[..sent * frame.len()].iter().all(|&b| b == b'x'));
+        let tail: Vec<u8> = (0..20u8).flat_map(|i| [b'#', i]).collect();
+        assert_eq!(&got[sent * frame.len()..], &tail[..], "frames in the order they were sent");
+    }
+
+    // ibx#254: a write error makes the connection unusable; the frame is
+    // not sent again and the sequence does not move.
+    #[test]
+    fn a_write_error_fails_the_connection_without_retry() {
+        let (mut conn, _server) = loopback();
+        conn.set_queued_writes(true);
+        conn.send_fix(&[(35, "0")]).unwrap();
+        assert_eq!(conn.seq, 1);
+        conn.shutdown();
+        assert!(conn.send_fix(&[(35, "0")]).is_err());
+        assert!(conn.write_error().is_some());
+        assert_eq!(conn.seq, 1, "a frame that failed takes no sequence number");
+        assert!(conn.send_raw(b"later").is_err(), "nothing is written after a failure");
+        assert!(conn.flush_queued().is_err());
+    }
+
+    // Before the engine takes a connection over, a send is written at once.
+    #[test]
+    fn blocking_writes_by_default() {
+        let (mut conn, mut server) = loopback();
+        conn.send_raw(b"hello").unwrap();
+        assert!(!conn.has_queued_output());
+        assert_eq!(read_available(&mut server, 5), b"hello");
     }
 
     #[test]
@@ -531,6 +1040,38 @@ mod tests {
             Frame::FixComp(data) => assert_eq!(data, &comp),
             other => panic!("expected Frame::FixComp, got {:?}", other),
         }
+    }
+
+    // ibx#436: a read that ends inside the header of a compressed frame
+    // ("8=FIXC", seen live) keeps those bytes: the frame is read whole with
+    // the next bytes, for every cut of its header.
+    #[test]
+    fn frame_extraction_header_cut_by_the_read_end() {
+        let first = fixcomp_build(&fix_build(&[(35, "Q")], 1));
+        let second = fixcomp_build(&fix_build(&[(35, "P")], 2));
+        for cut in 1..="8=FIXCOMP\x01".len() {
+            let mut conn = test_connection_with_buf(first.clone());
+            conn.inject_buf(&second[..cut]);
+            let frames = conn.extract_frames();
+            assert_eq!(frames.len(), 1, "cut {cut}");
+            assert_eq!(conn.buffered(), cut, "cut {cut}: the header start is kept");
+            conn.inject_buf(&second[cut..]);
+            let frames = conn.extract_frames();
+            match frames.as_slice() {
+                [Frame::FixComp(data)] => assert_eq!(data, &second, "cut {cut}"),
+                other => panic!("cut {cut}: {:?}", other),
+            }
+        }
+        // Bytes that cannot start a header are still dropped.
+        let mut conn = test_connection_with_buf(b"zz8=FIXC".to_vec());
+        assert!(conn.extract_frames().is_empty());
+        assert_eq!(conn.buffered(), 6);
+        let mut conn = test_connection_with_buf(b"zzzz".to_vec());
+        assert!(conn.extract_frames().is_empty());
+        assert_eq!(conn.buffered(), 0);
+        assert_eq!(partial_header_len(b"..8=FIX"), 5);
+        assert_eq!(partial_header_len(b"..8=O"), 3);
+        assert_eq!(partial_header_len(b"8=FIXCOMP"), 9);
     }
 
     #[test]
@@ -699,5 +1240,43 @@ mod tests {
     fn find_subsequence_empty_needle() {
         // windows(0) panics, so empty needle panics
         find_subsequence(b"hello", b"");
+    }
+
+    fn keyed_conn(mac_key: &[u8], iv: &[u8]) -> (Connection, MemTransport) {
+        let (mut conn, peer) = loopback();
+        conn.set_keys(Vec::new(), Vec::new(), mac_key.to_vec(), iv.to_vec());
+        (conn, peer)
+    }
+
+    /// `msg` signed with its signature value changed (body intact).
+    fn bad_signature(signed: &[u8]) -> Vec<u8> {
+        let mut bad = signed.to_vec();
+        let pos = find_subsequence(&bad, b"8349=").unwrap() + 5;
+        bad[pos] = if bad[pos] == b'0' { b'1' } else { b'0' };
+        bad
+    }
+
+    // ibx#275: the read IV advances only after a match; an unsigned frame
+    // is accepted and leaves the IV as it is.
+    #[test]
+    fn unsign_advances_the_iv_only_after_a_match() {
+        let mac_key: Vec<u8> = (0..20).collect();
+        let iv: Vec<u8> = (0..16).collect();
+        let (mut conn, _server) = keyed_conn(&mac_key, &iv);
+        let (signed, next_iv) = fix::fix_sign(&fix_build(&[(35, "0")], 1), &mac_key, &iv);
+
+        let (_, valid) = conn.unsign(&bad_signature(&signed));
+        assert!(!valid, "tampered signature detected");
+        assert_eq!(conn.read_iv, iv, "IV kept after a mismatch");
+
+        let unsigned = fix_build(&[(35, "0")], 2);
+        let (out, valid) = conn.unsign(&unsigned);
+        assert!(valid);
+        assert_eq!(out, unsigned);
+        assert_eq!(conn.read_iv, iv, "IV kept for an unsigned frame");
+
+        let (_, valid) = conn.unsign(&signed);
+        assert!(valid);
+        assert_eq!(conn.read_iv, next_iv, "IV advanced after a match");
     }
 }

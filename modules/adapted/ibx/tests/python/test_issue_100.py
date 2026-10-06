@@ -32,7 +32,6 @@ Run: pytest tests/python/test_issue_100.py -v --timeout=120
 
 import os
 import threading
-import time
 
 import pytest
 from ibx import Contract, EClient, EWrapper
@@ -91,7 +90,9 @@ class HistoricalScannerWrapper(EWrapper):
         self.scanner_params_xml = xml
         self.got_scanner_params.set()
 
-    def scanner_data(self, req_id, rank, contract_details, distance, benchmark, projection, legs_str):
+    def scanner_data(
+        self, req_id, rank, contract_details, distance, benchmark, projection, legs_str
+    ):
         self.scanner_results.append((req_id, rank, contract_details))
 
     def scanner_data_end(self, req_id):
@@ -216,7 +217,9 @@ class TestHistoricalData:
         )
 
         # Should get initial batch
-        assert self.wrapper.got_hist_end.wait(timeout=30), "historical_data_end not received for keepUpToDate"
+        assert self.wrapper.got_hist_end.wait(timeout=30), (
+            "historical_data_end not received for keepUpToDate"
+        )
 
         init_bars = [b for b in self.wrapper.bars if b[0] == 3]
         assert len(init_bars) > 0, "Should have initial bars"

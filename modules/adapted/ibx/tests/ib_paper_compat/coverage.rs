@@ -15,16 +15,20 @@ const TESTED_CONTROL_COMMANDS: &[&str] = &[
     "SubscribeTbt",
     "UnsubscribeTbt",
     "SubscribeNews",
-    "UnsubscribeNews",
+    "UnsubscribeNews", // rust_api_gt api_shared_requests_live (ibx#444)
+    "SubscribeGeneric", // rust_api_gt api_b2_regular_hours_live (ibx#450)
+    "UnsubscribeGeneric", // rust_api_gt api_b2_regular_hours_live (ibx#450)
     "UpdateParam",
     "Order",
     "RegisterInstrument",
+    "RegisterOrderContract", // order_paths_paper order_by_symbol (ibx#486)
     "FetchHistorical",
     "CancelHistorical",
     "FetchHeadTimestamp",
     "FetchContractDetails",
     "CancelHeadTimestamp",
     "FetchMatchingSymbols",
+    "FetchSecDefOptParams", // rust_api_gt api_option_chains_live (ibx#440)
     "FetchScannerParams",
     "SubscribeScanner",
     "CancelScanner",
@@ -68,6 +72,33 @@ const KNOWN_CONTROL_COMMAND_GAPS: &[(&str, &str)] = &[
          SharedState, consumed before any phase's hot loop runs — not re-requestable, \
          so a phase-model integration test cannot observe a non-empty result",
     ),
+    (
+        "DropSnapshot",
+        "Sent only by the regulatory snapshot fetcher of the clients (req_mkt_data with          regulatory_snapshot) when a fetch ends; the regulatory snapshot is billed on live          accounts, so no phase sends it. Exercised by unit tests",
+    ),
+    (
+        "SubscribeAccountSummary",
+        "Sent only by EClient::req_account_summary; no phase of this suite sends it \
+         (phase 106 reads the account state). Exercised against the server by \
+         tests/rust_api_gt.rs (req_account_summary) and by unit tests",
+    ),
+    (
+        "CancelAccountSummary",
+        "Sent only by EClient::cancel_account_summary (and by a reused request id); no \
+         phase of this suite sends it. Exercised against the server by tests/rust_api_gt.rs \
+         (cancel_account_summary) and by unit tests",
+    ),
+    (
+        "SetInstrumentCurrency",
+        "Sent only by EClient::place_order for a contract with a currency; the order phases \
+         of this suite submit on the engine directly. Exercised against the server by \
+         tests/rust_api_gt.rs (place_order on SPY USD) and by unit tests",
+    ),
+    (
+        "SetMarketDataType",
+        "Sent only by EClient::req_market_data_type; no phase of this suite and no Rust \
+         server test sends it. Unit tests only",
+    ),
 ];
 
 const KNOWN_RUST_API_GAPS: &[(&str, &str)] = &[
@@ -82,7 +113,7 @@ const KNOWN_RUST_API_GAPS: &[(&str, &str)] = &[
 ];
 
 pub(super) fn phase_endpoint_coverage(conns: Conns) -> Conns {
-    println!("--- Phase 132: Endpoint Coverage Manifest ---");
+    phase!("--- Phase 132: Endpoint Coverage Manifest ---");
 
     let all_variants = enum_variants_from_types("ControlCommand");
     let tested: BTreeSet<&str> = TESTED_CONTROL_COMMANDS.iter().copied().collect();
@@ -127,7 +158,7 @@ pub(super) fn phase_endpoint_coverage(conns: Conns) -> Conns {
         "Untracked ControlCommand variants in coverage manifest: {:?}",
         missing
     );
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 

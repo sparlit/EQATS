@@ -7,7 +7,7 @@ use ibx::gateway;
 use ibx::protocol::fix;
 
 pub(super) fn phase_account_data(conns: Conns) -> Conns {
-    println!("--- Phase 4: Account Data Reception ---");
+    phase!("--- Phase 4: Account Data Reception ---");
 
     let account_id = conns.account_id;
 
@@ -27,7 +27,7 @@ pub(super) fn phase_account_data(conns: Conns) -> Conns {
         shared.clone(), Some(event_tx), account_id.clone(), conns.farm, ccp, conns.hmds, None,
     );
 
-    control_tx.send(ControlCommand::Subscribe { con_id: 265598, symbol: "AAPL".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 265598, symbol: "AAPL".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(20);
@@ -56,7 +56,7 @@ pub(super) fn phase_account_data(conns: Conns) -> Conns {
     if account_checked {
         check!(net_liq > 0, "Paper account net liquidation should be > 0");
         println!("  net_liq=${:.2}", net_liq as f64 / PRICE_SCALE as f64);
-        println!("  PASS\n");
+        pass!("  PASS\n");
     } else {
         println!("  WARN: Account data not received within 20s\n");
     }
@@ -64,7 +64,7 @@ pub(super) fn phase_account_data(conns: Conns) -> Conns {
 }
 
 pub(super) fn phase_account_pnl(conns: Conns) -> Conns {
-    println!("--- Phase 14: Account PnL Reception ---");
+    phase!("--- Phase 14: Account PnL Reception ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -94,7 +94,12 @@ pub(super) fn phase_account_pnl(conns: Conns) -> Conns {
     let mut net_liq = 0i64;
     let mut probe_done = false;
 
-    while Instant::now() < deadline && !probe_done {
+    // The account values come from the server's account push after the
+    // probe order, about 1.4 s after the start on paper (01/10/2026), when
+    // the login's account answer is long consumed, as in the suite. The
+    // probe order is cancelled in about 0.5 s: the wait for the account
+    // values does not end with it.
+    while Instant::now() < deadline && !(probe_done && account_received) {
         // Account state is written straight into SharedState by the account-summary
         // handler, which emits no Event — so poll it every iteration instead of only
         // when one arrives. Checking it inside the Tick/OrderUpdate arms meant a
@@ -106,6 +111,7 @@ pub(super) fn phase_account_pnl(conns: Conns) -> Conns {
             if acct.net_liquidation != 0 {
                 net_liq = acct.net_liquidation;
                 account_received = true;
+                println!("  account values after {:.1}s", (Instant::now() + Duration::from_secs(15)).duration_since(deadline).as_secs_f64());
             }
         }
         match event_rx.recv_timeout(Duration::from_millis(100)) {
@@ -136,12 +142,12 @@ pub(super) fn phase_account_pnl(conns: Conns) -> Conns {
         return conns;
     }
     println!("  NetLiq: ${:.2}", net_liq as f64 / PRICE_SCALE as f64);
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
 pub(super) fn phase_position_tracking(conns: Conns) -> Conns {
-    println!("--- Phase 97: Position Tracking (SPY buy+sell round trip) ---");
+    phase!("--- Phase 97: Position Tracking (SPY buy+sell round trip) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -150,7 +156,7 @@ pub(super) fn phase_position_tracking(conns: Conns) -> Conns {
         shared.clone(), Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
     );
 
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(60);
@@ -190,7 +196,7 @@ pub(super) fn phase_position_tracking(conns: Conns) -> Conns {
             }
             Ok(Event::OrderUpdate(update)) => {
                 if update.status == OrderStatus::Rejected {
-                    record_rejection("Order rejected — market closed");
+                    record_rejection("Order rejected — market closed", &shared);
                     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
                     return conns;
                 }
@@ -208,7 +214,7 @@ pub(super) fn phase_position_tracking(conns: Conns) -> Conns {
         let pos = shared.portfolio.position_fixed(0) / ibx::types::QTY_SCALE;
         println!("  Final position: {}", pos);
         check!(pos.abs() <= 1, "Position after round trip should be 0 (±1 for timing), got {}", pos);
-        println!("  PASS (position returned to {})\n", pos);
+        pass!("  PASS (position returned to {})\n", pos);
     } else if phase == 2 {
         println!("  SKIP: Fills completed but no PositionUpdate events\n");
     } else {
@@ -218,7 +224,7 @@ pub(super) fn phase_position_tracking(conns: Conns) -> Conns {
 }
 
 pub(super) fn phase_account_summary(conns: Conns) -> Conns {
-    println!("--- Phase 106: Account Summary (verify individual tag values) ---");
+    phase!("--- Phase 106: Account Summary (verify individual tag values) ---");
 
     let account_id = conns.account_id.clone();
     let shared = Arc::new(SharedState::new());
@@ -228,7 +234,7 @@ pub(super) fn phase_account_summary(conns: Conns) -> Conns {
         conns.farm, conns.ccp, conns.hmds, None,
     );
 
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     // Wait for account data to populate
@@ -279,7 +285,7 @@ pub(super) fn phase_account_summary(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if has_account_data {
-        println!("  PASS\n");
+        pass!("  PASS\n");
     } else {
         println!("  SKIP: No account data received\n");
     }
@@ -288,7 +294,7 @@ pub(super) fn phase_account_summary(conns: Conns) -> Conns {
 
 /// Phase: Completed Orders — submit an order, cancel it, verify it appears in drain_completed_orders.
 pub(super) fn phase_completed_orders(conns: Conns) -> Conns {
-    println!("--- Phase 120: Completed Orders (submit+cancel → drain) ---");
+    phase!("--- Phase 120: Completed Orders (submit+cancel → drain) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -356,7 +362,7 @@ pub(super) fn phase_completed_orders(conns: Conns) -> Conns {
         matches!(co.status, OrderStatus::Cancelled | OrderStatus::Rejected),
         "Expected Cancelled or Rejected, got {:?}", co.status
     );
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
@@ -364,7 +370,7 @@ pub(super) fn phase_completed_orders(conns: Conns) -> Conns {
 /// callbacks (completed_order, position) and verify the Contract/Order/OrderState fields
 /// match the ibapi GT capture format.
 pub(super) fn phase_enriched_order_cache(conns: Conns) -> Conns {
-    println!("--- Phase 130: Enriched API Wrapper Output (submit+cancel → req_completed_orders) ---");
+    phase!("--- Phase 130: Enriched API Wrapper Output (submit+cancel → req_completed_orders) ---");
 
     // Recording wrapper that captures full field data from completed_order/position callbacks
     struct GtWrapper {
@@ -450,7 +456,7 @@ pub(super) fn phase_enriched_order_cache(conns: Conns) -> Conns {
             wrapper.completed_order(&info.contract, &info.order, &state);
         } else {
             let c = api::Contract::default();
-            let o = api::Order { order_id: co.order_id as i64, ..Default::default() };
+            let o = api::Order { order_id: co.order_id, ..Default::default() };
             let s = api::OrderState { status: status_str.into(), ..Default::default() };
             wrapper.completed_order(&c, &o, &s);
         }
@@ -518,7 +524,7 @@ pub(super) fn phase_enriched_order_cache(conns: Conns) -> Conns {
     }
 
     if pass {
-        println!("  PASS (all fields match GT)\n");
+        pass!("  PASS (all fields match GT)\n");
     } else {
         println!("  FAIL\n");
     }
@@ -530,7 +536,7 @@ pub(super) fn phase_enriched_order_cache(conns: Conns) -> Conns {
 /// Phase: req_all_open_orders — submit a limit order, call open_order Wrapper callback,
 /// verify Contract/Order/OrderState fields match GT, then cancel.
 pub(super) fn phase_enriched_open_orders(conns: Conns) -> Conns {
-    println!("--- Phase 131: Enriched open_order Wrapper Output (submit → req_all_open_orders → cancel) ---");
+    phase!("--- Phase 131: Enriched open_order Wrapper Output (submit → req_all_open_orders → cancel) ---");
 
     struct OoWrapper {
         orders: Vec<(i64, api::Contract, api::Order, api::OrderState)>,
@@ -592,7 +598,7 @@ pub(super) fn phase_enriched_open_orders(conns: Conns) -> Conns {
     let mut wrapper = OoWrapper { orders: Vec::new() };
     for (oid, info) in shared.orders.drain_open_orders() {
         if !matches!(info.order_state.status.as_str(), "Filled" | "Cancelled" | "Inactive") {
-            wrapper.open_order(oid as i64, &info.contract, &info.order, &info.order_state);
+            wrapper.open_order(oid, &info.contract, &info.order, &info.order_state);
         }
     }
 
@@ -646,7 +652,7 @@ pub(super) fn phase_enriched_open_orders(conns: Conns) -> Conns {
         pass = false;
     }
 
-    if pass { println!("  PASS (all fields match GT)\n"); }
+    if pass { pass!("  PASS (all fields match GT)\n"); }
     else { println!("  FAIL\n"); }
     check!(pass, "open_order Wrapper output did not match GT");
     conns
@@ -655,7 +661,7 @@ pub(super) fn phase_enriched_open_orders(conns: Conns) -> Conns {
 /// Phase: req_positions — verify position callback delivers enriched Contract
 /// with symbol/secType/currency from the contract cache.
 pub(super) fn phase_enriched_positions(conns: Conns) -> Conns {
-    println!("--- Phase 132: Enriched position Wrapper Output (req_positions) ---");
+    phase!("--- Phase 132: Enriched position Wrapper Output (req_positions) ---");
 
     struct PosWrapper {
         positions: Vec<(String, api::Contract, f64, f64)>,
@@ -744,7 +750,7 @@ pub(super) fn phase_enriched_positions(conns: Conns) -> Conns {
         }
     }
 
-    if pass { println!("  PASS\n"); }
+    if pass { pass!("  PASS\n"); }
     else { println!("  FAIL\n"); }
     check!(pass, "position Wrapper output did not match GT");
     conns
@@ -753,7 +759,7 @@ pub(super) fn phase_enriched_positions(conns: Conns) -> Conns {
 /// Phase: exec_details — submit a market order (fills immediately), verify exec_details
 /// callback has enriched Contract with conId/symbol/secType.
 pub(super) fn phase_enriched_exec_details(conns: Conns) -> Conns {
-    println!("--- Phase 133: Enriched exec_details Wrapper Output (market order → fill) ---");
+    phase!("--- Phase 133: Enriched exec_details Wrapper Output (market order → fill) ---");
 
     struct ExecWrapper {
         execs: Vec<(i64, api::Contract, api::Execution)>,
@@ -802,7 +808,7 @@ pub(super) fn phase_enriched_exec_details(conns: Conns) -> Conns {
                 break;
             }
             Ok(Event::OrderUpdate(u)) if u.status == OrderStatus::Rejected => {
-                record_rejection("Order rejected");
+                record_rejection("Order rejected", &shared);
                 let conns = shutdown_and_reclaim(&control_tx, join, account_id);
                 return conns;
             }
@@ -830,7 +836,7 @@ pub(super) fn phase_enriched_exec_details(conns: Conns) -> Conns {
             side: side_str.into(),
             shares: fill.qty_fixed as f64 / ibx::types::QTY_SCALE as f64,
             price: price_f,
-            order_id: fill.order_id as i64,
+            order_id: fill.order_id,
             ..Default::default()
         };
         let c = shared.orders.get_order_info(fill.order_id)
@@ -884,7 +890,7 @@ pub(super) fn phase_enriched_exec_details(conns: Conns) -> Conns {
         pass = false;
     }
 
-    if pass { println!("  PASS (all fields match GT)\n"); }
+    if pass { pass!("  PASS (all fields match GT)\n"); }
     else { println!("  FAIL\n"); }
     check!(pass, "exec_details Wrapper output did not match GT");
     conns
@@ -892,7 +898,7 @@ pub(super) fn phase_enriched_exec_details(conns: Conns) -> Conns {
 
 /// Phase: PnL Subscription Lifecycle — verify daily/unrealized/realized PnL populated.
 pub(super) fn phase_pnl_subscription(conns: Conns) -> Conns {
-    println!("--- Phase 121: PnL Subscription (verify all 3 PnL fields) ---");
+    phase!("--- Phase 121: PnL Subscription (verify all 3 PnL fields) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -962,7 +968,7 @@ pub(super) fn phase_pnl_subscription(conns: Conns) -> Conns {
 
     if pnl_checked {
         // PnL fields populated (even if 0 — that's valid for no-position accounts)
-        println!("  PASS\n");
+        pass!("  PASS\n");
     } else {
         println!("  SKIP: Account data not received in time\n");
     }
@@ -975,7 +981,7 @@ pub(super) fn phase_pnl_subscription(conns: Conns) -> Conns {
 /// order. This exercises the `SubscribePnl`/`CancelPnl` ControlCommands directly.
 /// Session-independent: P&L is account data, available whether or not the market is open.
 pub(super) fn phase_pnl_subscribe_command(conns: Conns) -> Conns {
-    println!("--- Phase 134: PnL Subscribe/Cancel Command (CCP 6040=142) ---");
+    phase!("--- Phase 134: PnL Subscribe/Cancel Command (CCP 6040=142) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -1015,13 +1021,13 @@ pub(super) fn phase_pnl_subscribe_command(conns: Conns) -> Conns {
     // dropped the CCP session, and shutdown_and_reclaim's ccp_keepalive (plus the
     // CCP-dependent phases that follow) would then fail.
     println!("  midnight seeds received: {}", seeds_seen);
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
 /// Phase: News Bulletins — drain news bulletins from SharedState.
 pub(super) fn phase_news_bulletins(conns: Conns) -> Conns {
-    println!("--- Phase 122: News Bulletins (drain from SharedState) ---");
+    phase!("--- Phase 122: News Bulletins (drain from SharedState) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -1031,7 +1037,7 @@ pub(super) fn phase_news_bulletins(conns: Conns) -> Conns {
         conns.farm, conns.ccp, conns.hmds, None,
     );
 
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     // Wait for any events to flow, checking for bulletins periodically
@@ -1058,9 +1064,9 @@ pub(super) fn phase_news_bulletins(conns: Conns) -> Conns {
     // The test validates the drain mechanism works without panicking.
     println!("  Total bulletins received: {}", total_bulletins);
     if total_bulletins > 0 {
-        println!("  PASS (received {} bulletins)\n", total_bulletins);
+        pass!("  PASS (received {} bulletins)\n", total_bulletins);
     } else {
-        println!("  PASS (no bulletins during test window — drain mechanism verified)\n");
+        pass!("  PASS (no bulletins during test window — drain mechanism verified)\n");
     }
     conns
 }

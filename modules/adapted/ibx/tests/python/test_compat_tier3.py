@@ -80,17 +80,38 @@ def make_contract(**kwargs):
 
 
 def test_request_fa_stub():
-    c, _w = make_client()
+    c, w = make_client()
     c.request_fa(1)  # should not raise, just logs warning
 
 
 def test_replace_fa_stub():
-    c, _w = make_client()
+    c, w = make_client()
     c.replace_fa(1, 1, "<xml/>")  # should not raise
 
 
+def test_fa_on_non_fa_session_gives_321():
+    # ibx#481: a session whose logon is not FA answers requestFA and
+    # replaceFA with the reference's error 321.
+    c, w = make_client()
+    c._test_connect()
+    c.request_fa(1)
+    c.replace_fa(5, 1, "<ListOfGroups/>")
+    assert w.errors == [
+        (
+            2147483647,
+            321,
+            "Error validating request.-'b9' : cause - FA data operations ignored for non FA customers.",
+        ),
+        (
+            5,
+            321,
+            "Error validating request.-'b1' : cause - FA data operations ignored for non FA customers.",
+        ),
+    ]
+
+
 def test_fa_signatures():
-    c, _w = make_client()
+    c, w = make_client()
     assert hasattr(c, "request_fa")
     assert hasattr(c, "replace_fa")
 
@@ -101,27 +122,27 @@ def test_fa_signatures():
 
 
 def test_query_display_groups_stub():
-    c, _w = make_client()
+    c, w = make_client()
     c.query_display_groups(1)
 
 
 def test_subscribe_to_group_events_stub():
-    c, _w = make_client()
+    c, w = make_client()
     c.subscribe_to_group_events(1, 1)
 
 
 def test_unsubscribe_from_group_events_stub():
-    c, _w = make_client()
+    c, w = make_client()
     c.unsubscribe_from_group_events(1)
 
 
 def test_update_display_group_stub():
-    c, _w = make_client()
+    c, w = make_client()
     c.update_display_group(1, "265598")
 
 
 def test_display_group_signatures():
-    c, _w = make_client()
+    c, w = make_client()
     assert hasattr(c, "query_display_groups")
     assert hasattr(c, "subscribe_to_group_events")
     assert hasattr(c, "unsubscribe_from_group_events")
@@ -135,17 +156,17 @@ def test_display_group_signatures():
 
 def test_req_market_rule_not_connected():
     """Without connection, req_market_rule has no shared state — logs warning."""
-    c, _w = make_client()
+    c, w = make_client()
     c.req_market_rule(26)  # no shared state → logs warning, no crash
 
 
 def test_req_market_rule_signature():
-    c, _w = make_client()
+    c, w = make_client()
     assert hasattr(c, "req_market_rule")
 
 
 # ═══════════════════════════════════════════════════════════
-# Smart Components (fires empty callback)
+# Smart Components (gateway-local, from the exchange maps market data gave)
 # ═══════════════════════════════════════════════════════════
 
 
@@ -154,23 +175,30 @@ class SmartComponentsCapture(EWrapper):
         super().__init__()
         self.req_id = None
         self.components = None
+        self.errors = []
 
     def smart_components(self, req_id, smart_component_map):
         self.req_id = req_id
         self.components = smart_component_map
 
+    def error(self, req_id, error_code, error_string, advanced_order_reject_json=""):
+        self.errors.append((req_id, error_code, error_string))
 
-def test_req_smart_components_fires_callback():
+
+def test_req_smart_components_unknown_code_is_refused():
+    # No market data gave this code: 321, as the reference (ibx#441).
     w = SmartComponentsCapture()
     c = EClient(w)
     c._test_connect()
     c.req_smart_components(1, "a]AMEX")
-    assert w.req_id == 1
-    assert len(w.components) == 0  # Empty map (gateway-local data not available)
+    assert w.req_id is None
+    assert w.errors == [
+        (1, 321, "Error validating request.-'V' : cause - Invalid BBO exchange/security type code")
+    ]
 
 
 def test_req_smart_components_signature():
-    c, _w = make_client()
+    c, w = make_client()
     assert hasattr(c, "req_smart_components")
 
 
@@ -200,7 +228,7 @@ def test_req_soft_dollar_tiers_fires_callback():
 
 
 def test_req_soft_dollar_tiers_signature():
-    c, _w = make_client()
+    c, w = make_client()
     assert hasattr(c, "req_soft_dollar_tiers")
 
 
@@ -228,7 +256,7 @@ def test_req_family_codes_fires_callback():
 
 
 def test_req_family_codes_signature():
-    c, _w = make_client()
+    c, w = make_client()
     assert hasattr(c, "req_family_codes")
 
 
@@ -251,7 +279,7 @@ def test_cancel_histogram_data_not_connected():
 
 
 def test_histogram_data_signatures():
-    c, _w = make_client()
+    c, w = make_client()
     assert hasattr(c, "req_histogram_data")
     assert hasattr(c, "cancel_histogram_data")
 
@@ -270,7 +298,7 @@ def test_req_historical_schedule_not_connected():
 
 def test_req_historical_schedule_signature():
     """SCHEDULE is routed via req_historical_data, not a separate method."""
-    c, _w = make_client()
+    c, w = make_client()
     assert hasattr(c, "req_historical_data")
 
 
@@ -281,19 +309,19 @@ def test_req_historical_schedule_signature():
 
 def test_set_server_log_level_all_levels():
     """set_server_log_level should succeed for all valid levels."""
-    c, _w = make_client()
+    c, w = make_client()
     for level in [1, 2, 3, 4, 5]:
         c.set_server_log_level(level)
 
 
 def test_set_server_log_level_default():
     """Default log level (2 = warn)."""
-    c, _w = make_client()
+    c, w = make_client()
     c.set_server_log_level()  # uses default
 
 
 def test_set_server_log_level_signature():
-    c, _w = make_client()
+    c, w = make_client()
     assert hasattr(c, "set_server_log_level")
 
 
@@ -323,7 +351,7 @@ def test_req_user_info_fires_callback():
 
 
 def test_req_user_info_signature():
-    c, _w = make_client()
+    c, w = make_client()
     assert hasattr(c, "req_user_info")
 
 
@@ -333,22 +361,22 @@ def test_req_user_info_signature():
 
 
 def test_req_wsh_meta_data_stub():
-    c, _w = make_client()
+    c, w = make_client()
     c.req_wsh_meta_data(1)
 
 
 def test_req_wsh_event_data_stub():
-    c, _w = make_client()
+    c, w = make_client()
     c.req_wsh_event_data(1)
 
 
 def test_req_wsh_event_data_with_arg():
-    c, _w = make_client()
+    c, w = make_client()
     c.req_wsh_event_data(1, None)  # optional arg
 
 
 def test_wsh_signatures():
-    c, _w = make_client()
+    c, w = make_client()
     assert hasattr(c, "req_wsh_meta_data")
     assert hasattr(c, "req_wsh_event_data")
 
@@ -360,17 +388,17 @@ def test_wsh_signatures():
 
 def test_req_completed_orders_no_shared_state():
     """Without connection, req_completed_orders should not crash."""
-    c, _w = make_client()
+    c, w = make_client()
     c.req_completed_orders(True)
 
 
 def test_req_completed_orders_default_arg():
-    c, _w = make_client()
+    c, w = make_client()
     c.req_completed_orders()  # api_only defaults to False
 
 
 def test_req_completed_orders_signature():
-    c, _w = make_client()
+    c, w = make_client()
     assert hasattr(c, "req_completed_orders")
 
 

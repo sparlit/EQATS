@@ -30,7 +30,7 @@ Compatibility tests (marked @pytest.mark.live) require IB paper trading gateway.
 import os
 
 import pytest
-from ibx import EClient, EWrapper, TickAttrib, TickTypeEnum
+from ibx import EClient, EWrapper
 
 # ── EWrapper connection callback signatures ──
 
@@ -175,4 +175,6 @@ def test_all_connection_callbacks_sequence():
 
 # ── Compatibility tests requiring live gateway ──
 
-live = pytest.mark.skipif(not os.environ.get("IBX_LIVE_TEST"), reason="Set IBX_LIVE_TEST=1 to run live gateway tests")
+live = pytest.mark.skipif(
+    not os.environ.get("IBX_LIVE_TEST"), reason="Set IBX_LIVE_TEST=1 to run live gateway tests"
+)

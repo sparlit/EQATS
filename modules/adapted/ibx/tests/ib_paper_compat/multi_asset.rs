@@ -6,8 +6,27 @@ use ibx::protocol::fix;
 use ibx::protocol::fixcomp;
 use ibx::protocol::connection::Frame;
 
+/// Register a contract with the engine as the clients do before an order
+/// on it: conId, symbol, security type and exchange, then the currency.
+/// The reply carries the instrument id once the hot loop runs.
+fn register_as_client(
+    control_tx: &crossbeam_channel::Sender<ControlCommand>,
+    con_id: i64,
+    symbol: &str,
+    sec_type: &str,
+    exchange: &str,
+    currency: &str,
+) -> crossbeam_channel::Receiver<Result<InstrumentId, String>> {
+    let (reply_tx, reply_rx) = crossbeam_channel::bounded(1);
+    control_tx.send(ControlCommand::RegisterInstrument {
+        con_id, symbol: symbol.into(), sec_type: sec_type.into(), exchange: exchange.into(), reply_tx: Some(reply_tx),
+    }).unwrap();
+    control_tx.send(ControlCommand::SetInstrumentCurrency { con_id, currency: currency.into() }).unwrap();
+    reply_rx
+}
+
 pub(super) fn phase_forex_order(conns: Conns) -> Conns {
-    println!("--- Phase 98: Forex Order Lifecycle (EUR.USD) ---");
+    phase!("--- Phase 98: Forex Order Lifecycle (EUR.USD) ---");
 
     // First, look up EUR.USD contract
     let now = ibx::gateway::chrono_free_timestamp();
@@ -24,7 +43,7 @@ pub(super) fn phase_forex_order(conns: Conns) -> Conns {
         (contracts::TAG_IB_SOURCE, "Socket"),
     ]).expect("Failed to send forex secdef request");
 
-    let mut forex_con_id: Option<u32> = None;
+    let mut forex_con_id: Option<i64> = None;
     let deadline = Instant::now() + Duration::from_secs(10);
 
     while Instant::now() < deadline && forex_con_id.is_none() {
@@ -70,17 +89,23 @@ pub(super) fn phase_forex_order(conns: Conns) -> Conns {
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
-    let (mut hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, ccp, conns.hmds, None,
+    let (hot_loop, control_tx) = HotLoop::with_connections(
+        shared.clone(), Some(event_tx), account_id.clone(), conns.farm, ccp, conns.hmds, None,
     );
-    let inst = hot_loop.context_mut().register_instrument(fx_con_id as i64);
-    hot_loop.context_mut().set_symbol(inst, "EUR".to_string());
+    // The contract as the client gives it to the engine for an order:
+    // security type, exchange and currency, not the conId alone.
+    let inst = register_as_client(&control_tx, fx_con_id, "EUR", "CASH", "IDEALPRO", "USD");
+    let join = run_hot_loop(hot_loop);
+    let Some(inst) = inst.recv_timeout(Duration::from_secs(5)).ok().and_then(Result::ok) else {
+        let conns = shutdown_and_reclaim(&control_tx, join, account_id);
+        record_failure("Phase 98: the engine did not register the forex contract");
+        return conns;
+    };
 
     let oid = next_order_id();
     control_tx.send(ControlCommand::Order(OrderRequest::SubmitLimitGtc {
         order_id: oid, instrument: inst, side: Side::Buy, qty: 20000, price: 50_000_000, outside_rth: true,
     })).unwrap();
-    let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(30);
     let mut order_acked = false;
@@ -113,18 +138,18 @@ pub(super) fn phase_forex_order(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if order_rejected {
-        record_rejection("Forex order rejected (may need trading permissions)");
+        record_rejection("Forex order rejected (may need trading permissions)", &shared);
     } else {
         if skip_unacked_if_closed(order_acked) { return conns; }
         check!(order_acked, "Forex order should be acknowledged");
         check!(order_cancelled, "Forex order should be cancelled");
-        println!("  PASS\n");
+        pass!("  PASS\n");
     }
     conns
 }
 
 pub(super) fn phase_futures_order(conns: Conns) -> Conns {
-    println!("--- Phase 99: Futures Contract Details (MES) ---");
+    phase!("--- Phase 99: Futures Contract Details (MES) ---");
 
     // Look up MES (Micro E-mini S&P 500)
     let now = ibx::gateway::chrono_free_timestamp();
@@ -193,17 +218,21 @@ pub(super) fn phase_futures_order(conns: Conns) -> Conns {
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
-    let (mut hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, ccp, conns.hmds, None,
+    let (hot_loop, control_tx) = HotLoop::with_connections(
+        shared.clone(), Some(event_tx), account_id.clone(), conns.farm, ccp, conns.hmds, None,
     );
-    let inst = hot_loop.context_mut().register_instrument(fut_def.con_id as i64);
-    hot_loop.context_mut().set_symbol(inst, "MES".to_string());
+    let inst = register_as_client(&control_tx, fut_def.con_id, "MES", "FUT", "CME", "USD");
+    let join = run_hot_loop(hot_loop);
+    let Some(inst) = inst.recv_timeout(Duration::from_secs(5)).ok().and_then(Result::ok) else {
+        let conns = shutdown_and_reclaim(&control_tx, join, account_id);
+        record_failure("Phase 99: the engine did not register the futures contract");
+        return conns;
+    };
 
     let oid = next_order_id();
     control_tx.send(ControlCommand::Order(OrderRequest::SubmitLimitGtc {
         order_id: oid, instrument: inst, side: Side::Buy, qty: 1, price: 100_00_000_000, outside_rth: true,
     })).unwrap();
-    let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(30);
     let mut order_acked = false;
@@ -236,18 +265,18 @@ pub(super) fn phase_futures_order(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if order_rejected {
-        record_rejection("Futures order rejected (may need trading permissions)");
+        record_rejection("Futures order rejected (may need trading permissions)", &shared);
     } else {
         if skip_unacked_if_closed(order_acked) { return conns; }
         check!(order_acked, "Futures order should be acknowledged");
         check!(order_cancelled, "Futures order should be cancelled");
-        println!("  PASS\n");
+        pass!("  PASS\n");
     }
     conns
 }
 
 pub(super) fn phase_options_order(conns: Conns) -> Conns {
-    println!("--- Phase 100: Options Contract Details + Order (SPY options) ---");
+    phase!("--- Phase 100: Options Contract Details + Order (SPY options) ---");
 
     // Look up SPY options
     let now = ibx::gateway::chrono_free_timestamp();
@@ -326,10 +355,23 @@ pub(super) fn phase_options_order(conns: Conns) -> Conns {
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
     let (mut hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, ccp, conns.hmds, None,
+        shared.clone(), Some(event_tx), account_id.clone(), conns.farm, ccp, conns.hmds, None,
     );
-    let inst = hot_loop.context_mut().register_instrument(opt_con_id as i64);
-    hot_loop.context_mut().set_symbol(inst, "SPY".to_string());
+    // The option as the clients register it, with the terms its orders
+    // carry: security type, routing, currency, maturity, right, strike and
+    // multiplier, so the order goes out as an option order, as the
+    // reference writes it.
+    let ctx = hot_loop.context_mut();
+    let inst = ctx.register_instrument(opt_con_id);
+    ctx.set_symbol(inst, opt.symbol.clone());
+    ctx.set_routing(inst, "OPT", "SMART");
+    ctx.set_currency(inst, &opt.currency);
+    ctx.set_option_terms(inst, ibx::engine::market_state::OptionTerms {
+        maturity: if opt.contract_month.is_empty() { opt.last_trade_date.chars().take(6).collect() } else { opt.contract_month.clone() },
+        call: opt.right == Some(contracts::OptionRight::Call),
+        strike: opt.strike,
+        multiplier: opt.multiplier,
+    });
 
     let oid = next_order_id();
     control_tx.send(ControlCommand::Order(OrderRequest::SubmitLimitGtc {
@@ -368,24 +410,24 @@ pub(super) fn phase_options_order(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if order_rejected {
-        record_rejection("Option order rejected (may need trading permissions)");
+        record_rejection("Option order rejected (may need trading permissions)", &shared);
     } else {
         if skip_unacked_if_closed(order_acked) { return conns; }
         check!(order_acked, "Option order should be acknowledged");
         check!(order_cancelled, "Option order should be cancelled");
-        println!("  PASS\n");
+        pass!("  PASS\n");
     }
     conns
 }
 
 pub(super) fn phase_concurrent_orders(conns: Conns) -> Conns {
-    println!("--- Phase 101: Concurrent Orders in Flight (3 simultaneous limit orders) ---");
+    phase!("--- Phase 101: Concurrent Orders in Flight (3 simultaneous limit orders) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
     let (mut hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
+        shared.clone(), Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
     );
 
     // Register SPY
@@ -407,7 +449,7 @@ pub(super) fn phase_concurrent_orders(conns: Conns) -> Conns {
         order_id: oid3, instrument: 0, side: Side::Buy, qty: 1, price: 1_00_000_000, outside_rth: true,
     })).unwrap();
 
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(30);
@@ -447,7 +489,7 @@ pub(super) fn phase_concurrent_orders(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if rejected {
-        record_rejection("One or more orders rejected");
+        record_rejection("One or more orders rejected", &shared);
         return conns;
     }
 
@@ -457,6 +499,6 @@ pub(super) fn phase_concurrent_orders(conns: Conns) -> Conns {
 
     check_eq!(acked_count, 3, "All 3 orders should be acknowledged");
     check_eq!(cancelled_count, 3, "All 3 orders should be cancelled");
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }

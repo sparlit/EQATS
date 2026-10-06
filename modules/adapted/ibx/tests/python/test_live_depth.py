@@ -29,7 +29,6 @@ Run with: pytest tests/python/test_live_depth.py -v -s --timeout=120
 
 import os
 import threading
-import time
 
 import pytest
 from ibx import Contract, EClient, EWrapper
@@ -74,7 +73,9 @@ class DepthWrapper(EWrapper):
         )
         self.got_depth.set()
 
-    def update_mkt_depth_l2(self, req_id, position, market_maker, operation, side, price, size, is_smart_depth):
+    def update_mkt_depth_l2(
+        self, req_id, position, market_maker, operation, side, price, size, is_smart_depth
+    ):
         self.depth_l2_updates.append(
             {
                 "req_id": req_id,
@@ -142,7 +143,9 @@ class TestLiveDepth:
             pytest.skip("No depth updates received — market may be closed or no L2 subscription")
 
         total = len(self.wrapper.depth_updates) + len(self.wrapper.depth_l2_updates)
-        print(f"Received {len(self.wrapper.depth_updates)} L1 + {len(self.wrapper.depth_l2_updates)} L2 depth updates")
+        print(
+            f"Received {len(self.wrapper.depth_updates)} L1 + {len(self.wrapper.depth_l2_updates)} L2 depth updates"
+        )
         assert total > 0
 
         # Check structure of first update

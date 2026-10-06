@@ -105,8 +105,10 @@ class TestOpenOrdersNoSentinel:
         for snapshot in (self._snapshot_open(), self._snapshot_open()):
             for order_id, symbol, status in snapshot:
                 assert order_id != 0, (
-                    f"sentinel ClOrdID=0 leaked into req_open_orders: sym={symbol!r} status={status!r}"
+                    f"sentinel ClOrdID=0 leaked into req_open_orders: "
+                    f"sym={symbol!r} status={status!r}"
                 )
                 assert symbol not in ("", "*"), (
-                    f"sentinel symbol {symbol!r} leaked into req_open_orders: order_id={order_id} status={status!r}"
+                    f"sentinel symbol {symbol!r} leaked into req_open_orders: "
+                    f"order_id={order_id} status={status!r}"
                 )

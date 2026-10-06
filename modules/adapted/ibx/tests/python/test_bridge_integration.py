@@ -28,13 +28,14 @@ They use _test_* helpers to inject data into SharedState and verify
 callbacks fire with correctly converted types across the PyO3 boundary.
 """
 
+import sys
 import threading
+from decimal import Decimal
 
 import pytest
 from ibx import (
     BarData,
     Contract,
-    ContractDescription,
     ContractDetails,
     EClient,
     EWrapper,
@@ -133,8 +134,12 @@ class RecordingWrapper(EWrapper):
     ):
         self.events.append(("tick_by_tick_all_last", req_id, price, size, exchange))
 
-    def tick_by_tick_bid_ask(self, req_id, time, bid_price, ask_price, bid_size, ask_size, tick_attrib_bid_ask):
-        self.events.append(("tick_by_tick_bid_ask", req_id, bid_price, ask_price, bid_size, ask_size))
+    def tick_by_tick_bid_ask(
+        self, req_id, time, bid_price, ask_price, bid_size, ask_size, tick_attrib_bid_ask
+    ):
+        self.events.append(
+            ("tick_by_tick_bid_ask", req_id, bid_price, ask_price, bid_size, ask_size)
+        )
 
     def update_account_value(self, key, value, currency, account_name):
         self.events.append(("update_account_value", key, value, currency, account_name))
@@ -180,7 +185,8 @@ class RecordingWrapper(EWrapper):
                     "init_margin_after_outside_rth": s.init_margin_after_outside_rth,
                     "suggested_size": s.suggested_size,
                     "reject_reason": s.reject_reason,
-                    "order_allocations": list(s.order_allocations),
+                    # None when there is none, as the official API's.
+                    "order_allocations": list(s.order_allocations or []),
                 },
             )
         )
@@ -340,22 +346,23 @@ class TestOrderConversion:
 
     def test_condition_types(self):
         """Verify all condition types are constructible via PyO3."""
-        pc = PriceCondition(con_id=265598, price=200.0, is_more=True, trigger_method=1)
+        # The official API's constructor arguments.
+        pc = PriceCondition(conId=265598, price=200.0, isMore=True, triggerMethod=1)
         assert pc.price == 200.0
 
-        tc = TimeCondition(time="20260313-09:30:00", is_more=True)
+        tc = TimeCondition(time="20260313-09:30:00", isMore=True)
         assert tc.time == "20260313-09:30:00"
 
-        mc = MarginCondition(percent=30, is_more=False)
+        mc = MarginCondition(percent=30, isMore=False)
         assert mc.percent == 30
 
-        vc = VolumeCondition(con_id=265598, volume=1_000_000, is_more=True)
+        vc = VolumeCondition(conId=265598, volume=1_000_000, isMore=True)
         assert vc.volume == 1_000_000
 
-        pcc = PercentChangeCondition(con_id=265598, change_percent=5.0, is_more=True)
+        pcc = PercentChangeCondition(conId=265598, changePercent=5.0, isMore=True)
         assert pcc.change_percent == 5.0
 
-        ec = ExecutionCondition(symbol="AAPL", exchange="SMART", sec_type="STK")
+        ec = ExecutionCondition(symbol="AAPL", exch="SMART", secType="STK")
         assert ec.symbol == "AAPL"
 
     def test_large_quantity(self):
@@ -375,7 +382,14 @@ class TestOrderConversion:
 class TestBarDataConversion:
     def test_all_fields(self):
         b = BarData(
-            date="20260313", open=150.0, high=155.0, low=149.0, close=153.0, volume=1_000_000, wap=152.5, bar_count=500
+            date="20260313",
+            open=150.0,
+            high=155.0,
+            low=149.0,
+            close=153.0,
+            volume=1_000_000,
+            wap=152.5,
+            bar_count=500,
         )
         assert b.date == "20260313"
         assert b.open == 150.0
@@ -537,7 +551,9 @@ class TestQuoteDispatch:
         c._test_push_quote(1, bid=200.0)
         c._test_dispatch_once()
 
-        bid_events = [(e[1], e[3]) for e in w.events if e[0] == "tick_price" and e[2] == TickTypeEnum.BID]
+        bid_events = [
+            (e[1], e[3]) for e in w.events if e[0] == "tick_price" and e[2] == TickTypeEnum.BID
+        ]
         assert (1, 100.0) in bid_events
         assert (2, 200.0) in bid_events
 
@@ -583,7 +599,7 @@ class TestFillDispatch:
         exec_events = [e for e in w.events if e[0] == "exec_details"]
         assert len(exec_events) == 1
         execution = exec_events[0][3]
-        assert execution.side == "SELL"
+        assert execution.side == "SLD"  # the API's execution side (ibx#474)
         assert abs(execution.price - 200.0) < 0.01
 
     def test_short_sell(self):
@@ -594,7 +610,7 @@ class TestFillDispatch:
         c._test_dispatch_once()
 
         exec_events = [e for e in w.events if e[0] == "exec_details"]
-        assert exec_events[0][3].side == "SSHORT"
+        assert exec_events[0][3].side == "SLD"  # a short sale is SLD too (ibx#474)
 
     def test_exec_details_has_required_keys(self):
         w, c = make_test_client()
@@ -640,15 +656,14 @@ class TestOrderUpdateDispatch:
 
 
 class TestCancelRejectDispatch:
-    def test_cancel_reject_fires_error(self):
+    def test_cancel_reject_gives_no_callback(self):
+        # A server reject of a cancel or modify gives no error and no
+        # status, as the reference (ibx#252).
         w, c = make_test_client()
         c._test_push_cancel_reject(42, 0, 1)  # reason 1 = unknown order
         c._test_dispatch_once()
 
-        errors = [e for e in w.events if e[0] == "error"]
-        assert len(errors) == 1
-        assert errors[0][1] == 42  # order_id
-        assert errors[0][2] == 202  # error_code for cancel reject
+        assert w.events == []
 
 
 class TestReqOpenOrdersOrderState:
@@ -675,7 +690,8 @@ class TestReqOpenOrdersOrderState:
         assert state["status"] == "PendingSubmit"
         # Newly tracked orders have empty margin fields — populated only for what-if.
         assert state["init_margin_after"] == ""
-        assert state["commission_and_fees"] == 0.0
+        # Unset, as the reference's openOrder and the official API's default.
+        assert state["commission_and_fees"] == sys.float_info.max
 
 
 class TestReqCompletedOrdersOrderState:
@@ -734,7 +750,8 @@ class TestOrderAllocation:
         a.allowed_alloc_qty = "50"
         a.is_monetary = True
         assert a.account == "DU123"
-        assert a.position == "100"
+        # The official API's Decimal.
+        assert a.position == Decimal("100") and a.positionDesired == Decimal("150")
         assert a.is_monetary is True
 
     def test_order_state_allocations_roundtrip(self):
@@ -773,37 +790,40 @@ class TestWhatIfDispatch:
         c._test_dispatch_once()
 
         open_events = [e for e in w.events if e[0] == "open_order"]
-        status_events = [(i, e) for i, e in enumerate(w.events) if e[0] == "order_status"]
         assert len(open_events) == 1, "open_order missing for what-if"
-        assert any(e[1] == 7 and e[2] == "PreSubmitted" for _, e in status_events), "order_status PreSubmitted missing"
+        # open_order only, as the reference answers a preview (ibx#462).
+        assert not [e for e in w.events if e[0] == "order_status"], "no order_status for a what-if"
 
-        # Ordering: open_order before order_status
-        open_idx = next(i for i, e in enumerate(w.events) if e[0] == "open_order")
-        status_idx = next(i for i, e in status_events)
-        assert open_idx < status_idx, "open_order must fire before order_status"
-
-        oid, _contract, _order, state = open_events[0][1], open_events[0][2], open_events[0][3], open_events[0][4]
+        oid, _contract, _order, state = (
+            open_events[0][1],
+            open_events[0][2],
+            open_events[0][3],
+            open_events[0][4],
+        )
         assert oid == 7
         assert state["status"] == "PreSubmitted"
-        assert state["init_margin_before"] == "100.00"
-        assert state["init_margin_after"] == "400.00"
-        assert state["init_margin_change"] == "300.00"  # 400 - 100
-        assert state["maint_margin_before"] == "200.00"
-        assert state["maint_margin_after"] == "500.00"
-        assert state["maint_margin_change"] == "300.00"  # 500 - 200
-        assert state["equity_with_loan_before"] == "300.00"
-        assert state["equity_with_loan_after"] == "600.00"
-        assert state["equity_with_loan_change"] == "300.00"  # 600 - 300
+        # The double's shortest text, as the reference (ibx#462).
+        assert state["init_margin_before"] == "100.0"
+        assert state["init_margin_after"] == "400.0"
+        assert state["init_margin_change"] == "300.0"  # 400 - 100
+        assert state["maint_margin_before"] == "200.0"
+        assert state["maint_margin_after"] == "500.0"
+        assert state["maint_margin_change"] == "300.0"  # 500 - 200
+        assert state["equity_with_loan_before"] == "300.0"
+        assert state["equity_with_loan_after"] == "600.0"
+        assert state["equity_with_loan_change"] == "300.0"  # 600 - 300
         assert abs(state["commission_and_fees"] - 7.0) < 1e-6
-        # ibapi-iso fields default to empty/zero when wire data doesn't carry them
+        # Values the server did not send: empty texts; the outside-hours
+        # values unset (the maximum double), as the reference (ibx#462).
         assert state["margin_currency"] == ""
-        assert state["init_margin_after_outside_rth"] == 0.0
-        assert state["suggested_size"] == ""
+        assert state["init_margin_after_outside_rth"] == sys.float_info.max
+        # The official API's unset Decimal.
+        assert state["suggested_size"] == Decimal("170141183460469231731687303715884105727")
         assert state["reject_reason"] == ""
         assert state["order_allocations"] == []
 
-    def test_order_status_why_held_is_clean(self):
-        """why_held must NOT contain margin info anymore (was the legacy hack)."""
+    def test_what_if_sends_no_order_status(self):
+        """The reference answers a what-if with open_order only (ibx#462)."""
         w, c = make_test_client()
         c._test_push_what_if(
             order_id=99,
@@ -818,11 +838,8 @@ class TestWhatIfDispatch:
         )
         c._test_dispatch_once()
 
-        status_events = [e for e in w.events if e[0] == "order_status" and e[1] == 99]
-        assert len(status_events) == 1
-        # RecordingWrapper.order_status doesn't record why_held, but we can verify
-        # status is the canonical "PreSubmitted" without inline margin string.
-        assert status_events[0][2] == "PreSubmitted"
+        assert [e for e in w.events if e[0] == "open_order" and e[1] == 99]
+        assert not [e for e in w.events if e[0] == "order_status" and e[1] == 99]
 
 
 class TestTbtDispatch:
@@ -904,12 +921,12 @@ class TestAccountDispatch:
         w, c = make_test_client("DU12345")
         # Account values follow a subscription, as in the reference.
         c.req_account_updates(True, "DU12345")
-        c._test_set_account(net_liquidation=100000.0)
+        c._test_set_account_row("NetLiquidation", "100000.00", "USD")
         c._test_dispatch_once()
 
         events = [e for e in w.events if e[0] == "update_account_value"]
         assert len(events) >= 1
-        nlv_event = next(e for e in events if e[1] == "NetLiquidation")
+        nlv_event = [e for e in events if e[1] == "NetLiquidation"][0]
         assert nlv_event[2] == "100000.00"
         assert nlv_event[3] == "USD"
         assert nlv_event[4] == "DU12345"
@@ -917,7 +934,10 @@ class TestAccountDispatch:
     def test_pnl_dispatch(self):
         w, c = make_test_client()
         c.req_pnl(1, "TEST123")
-        c._test_set_account(daily_pnl=500.0, unrealized_pnl=300.0, realized_pnl=200.0)
+        # No priced position: the server's own P&L keys (ibx#239, ibx#478).
+        c._test_set_account_row("DailyPnL", "500", "USD")
+        c._test_set_account_row("UnrealizedPnL", "300", "USD")
+        c._test_set_account_row("RealizedPnL", "200", "USD")
         c._test_dispatch_once()
 
         events = [e for e in w.events if e[0] == "pnl"]
@@ -931,9 +951,12 @@ class TestAccountDispatch:
         """Same P&L should not fire duplicate callback."""
         w, c = make_test_client()
         c.req_pnl(1, "TEST123")
-        c._test_set_account(daily_pnl=100.0)
+        c._test_set_account_row("DailyPnL", "100", "USD")
+        c._test_set_account_row("UnrealizedPnL", "0", "USD")
+        c._test_set_account_row("RealizedPnL", "0", "USD")
         c._test_dispatch_once()
         count1 = len([e for e in w.events if e[0] == "pnl"])
+        assert count1 == 1
 
         c._test_dispatch_once()
         count2 = len([e for e in w.events if e[0] == "pnl"])
@@ -942,7 +965,12 @@ class TestAccountDispatch:
     def test_account_summary(self):
         w, c = make_test_client()
         c.req_account_summary(1, "All", "NetLiquidation,BuyingPower")
-        c._test_set_account(net_liquidation=100000.0, buying_power=200000.0)
+        # The rows the server sends for the subscription (ibx#479).
+        c._test_push_account_summary(
+            "SR.Socket.1",
+            [("NetLiquidation", "100000.00", "USD"), ("BuyingPower", "200000.00", "USD")],
+            end=True,
+        )
         c._test_dispatch_once()
 
         events = [e for e in w.events if e[0] == "account_summary"]
@@ -951,12 +979,15 @@ class TestAccountDispatch:
         assert "BuyingPower" in tags
         assert tags["NetLiquidation"] == "100000.00"
 
+        # Each frame twice, as the reference (ibx#486: its listener is
+        # registered twice).
         end_events = [e for e in w.events if e[0] == "account_summary_end"]
-        assert len(end_events) == 1
+        assert len(end_events) == 2
 
     def test_positions(self):
         w, c = make_test_client("DU12345")
         c._test_set_position(265598, 100, 150.50)
+        c._test_account_download_complete()  # positions answer then (ibx#477)
         c.req_positions()
 
         pos_events = [e for e in w.events if e[0] == "position"]
@@ -1019,8 +1050,7 @@ class TestCallbackException:
     def test_exception_in_tick_price(self):
         class BadWrapper(EWrapper):
             def tick_price(self, req_id, tick_type, price, attrib):
-                msg = "boom!"
-                raise ValueError(msg)
+                raise ValueError("boom!")
 
         w = BadWrapper()
         c = EClient(w)
@@ -1039,8 +1069,7 @@ class TestCallbackException:
             exec_details_seen = False
 
             def order_status(self, *args):
-                msg = "explode!"
-                raise RuntimeError(msg)
+                raise RuntimeError("explode!")
 
             def exec_details(self, *args):
                 self.exec_details_seen = True
@@ -1082,7 +1111,7 @@ class TestEdgeCases:
         assert ("error", -1, 504, "Not connected") in w.events
 
     def test_disconnect_idempotent(self):
-        _w, c = make_test_client()
+        w, c = make_test_client()
         c.disconnect()
         c.disconnect()
         assert c.is_connected() is False
@@ -1132,7 +1161,7 @@ class TestScenarios:
 
         execs = [e for e in w.events if e[0] == "exec_details"]
         assert len(execs) == 1
-        assert execs[0][3].side == "BUY"
+        assert execs[0][3].side == "BOT"  # ibx#474
 
     def test_partial_fill_then_cancel(self):
         """Partial fill → cancel → verify statuses."""
@@ -1197,7 +1226,7 @@ class TestScenarios:
         fills = [e for e in w.events if e[0] == "order_status"]
         errors = [e for e in w.events if e[0] == "error"]
         assert len(fills) >= 1
-        assert len(errors) == 1
+        assert len(errors) == 0  # a cancel reject gives no error (ibx#252)
 
     def test_multi_instrument_fills(self):
         """Fills on different instruments dispatch independently."""
@@ -1224,7 +1253,7 @@ class TestScenarios:
 class TestThreadSafety:
     def test_concurrent_dispatch_and_push(self):
         """Push data from one thread while dispatching from another."""
-        _w, c = make_test_client()
+        w, c = make_test_client()
         c._test_set_instrument_count(1)
         c._test_map_instrument(1, 0)
 
@@ -1249,7 +1278,7 @@ class TestThreadSafety:
 
     def test_disconnect_during_dispatch(self):
         """Disconnect while dispatch is running should not crash."""
-        _w, c = make_test_client()
+        w, c = make_test_client()
         c._test_set_instrument_count(1)
         c._test_map_instrument(1, 0)
 
@@ -1273,7 +1302,7 @@ class TestThreadSafety:
 
     def test_concurrent_req_ids(self):
         """Multiple threads calling req_ids should not crash."""
-        _w, c = make_test_client()
+        w, c = make_test_client()
         errors = []
 
         def caller():

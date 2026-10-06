@@ -63,8 +63,7 @@ c.connect(
 )
 threading.Thread(target=c.run, daemon=True).start()
 if not w.connected.wait(timeout=15):
-    msg = "connect failed"
-    raise RuntimeError(msg)
+    raise RuntimeError("connect failed")
 
 spy = Contract()
 spy.con_id = 756733
@@ -84,13 +83,16 @@ c.req_historical_data(
 )
 
 if not w.done.wait(timeout=30):
-    msg = "historical_data_end not received"
-    raise RuntimeError(msg)
+    raise RuntimeError("historical_data_end not received")
 
 print(f"bars: {len(w.bars)}")
 if w.bars:
     first, last = w.bars[0], w.bars[-1]
-    print(f"  first: {first.date}  O={first.open} H={first.high} L={first.low} C={first.close} V={first.volume}")
-    print(f"  last : {last.date}  O={last.open} H={last.high} L={last.low} C={last.close} V={last.volume}")
+    print(
+        f"  first: {first.date}  O={first.open} H={first.high} L={first.low} C={first.close} V={first.volume}"
+    )
+    print(
+        f"  last : {last.date}  O={last.open} H={last.high} L={last.low} C={last.close} V={last.volume}"
+    )
 
 c.disconnect()

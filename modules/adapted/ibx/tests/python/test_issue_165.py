@@ -61,7 +61,11 @@ class OrderingWrapper(EWrapper):
 
 
 def _credentials():
-    return os.environ["IB_USERNAME"], os.environ["IB_PASSWORD"], os.environ.get("IB_HOST", "cdc1.ibllc.com")
+    return (
+        os.environ["IB_USERNAME"],
+        os.environ["IB_PASSWORD"],
+        os.environ.get("IB_HOST", "cdc1.ibllc.com"),
+    )
 
 
 def test_connect_ack_fires_before_connect_returns():
