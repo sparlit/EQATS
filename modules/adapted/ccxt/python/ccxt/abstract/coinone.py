@@ -27,42 +27,54 @@ _Dict = dict[str, object]
 
 
 class ImplicitAPI:
-    public_get_orderbook = publicGetOrderbook = Entry[_Dict]("orderbook", "public", "GET", {"cost": 1})
+    public_get_orderbook = publicGetOrderbook = Entry[_Dict](
+        "orderbook", "public", "GET", {"cost": 1}
+    )
     public_get_ticker = publicGetTicker = Entry[_Dict]("ticker", "public", "GET", {"cost": 1})
-    public_get_ticker_utc = publicGetTickerUtc = Entry[_Dict]("ticker_utc", "public", "GET", {"cost": 1})
+    public_get_ticker_utc = publicGetTickerUtc = Entry[_Dict](
+        "ticker_utc", "public", "GET", {"cost": 1}
+    )
     public_get_trades = publicGetTrades = Entry[_Dict]("trades", "public", "GET", {"cost": 1})
-    v2public_get_range_units = v2PublicGetRangeUnits = Entry[_Dict]("range_units", "v2Public", "GET", {"cost": 1})
+    v2public_get_range_units = v2PublicGetRangeUnits = Entry[_Dict](
+        "range_units", "v2Public", "GET", {"cost": 1}
+    )
     v2public_get_markets_quote_currency = v2PublicGetMarketsQuoteCurrency = Entry[_Dict](
         "markets/{quote_currency}", "v2Public", "GET", {"cost": 1}
     )
-    v2public_get_markets_quote_currency_target_currency = v2PublicGetMarketsQuoteCurrencyTargetCurrency = Entry[_Dict](
-        "markets/{quote_currency}/{target_currency}", "v2Public", "GET", {"cost": 1}
-    )
-    v2public_get_orderbook_quote_currency_target_currency = v2PublicGetOrderbookQuoteCurrencyTargetCurrency = Entry[
-        _Dict
-    ]("orderbook/{quote_currency}/{target_currency}", "v2Public", "GET", {"cost": 1})
-    v2public_get_trades_quote_currency_target_currency = v2PublicGetTradesQuoteCurrencyTargetCurrency = Entry[_Dict](
-        "trades/{quote_currency}/{target_currency}", "v2Public", "GET", {"cost": 1}
-    )
+    v2public_get_markets_quote_currency_target_currency = (
+        v2PublicGetMarketsQuoteCurrencyTargetCurrency
+    ) = Entry[_Dict]("markets/{quote_currency}/{target_currency}", "v2Public", "GET", {"cost": 1})
+    v2public_get_orderbook_quote_currency_target_currency = (
+        v2PublicGetOrderbookQuoteCurrencyTargetCurrency
+    ) = Entry[_Dict]("orderbook/{quote_currency}/{target_currency}", "v2Public", "GET", {"cost": 1})
+    v2public_get_trades_quote_currency_target_currency = (
+        v2PublicGetTradesQuoteCurrencyTargetCurrency
+    ) = Entry[_Dict]("trades/{quote_currency}/{target_currency}", "v2Public", "GET", {"cost": 1})
     v2public_get_ticker_new_quote_currency = v2PublicGetTickerNewQuoteCurrency = Entry[_Dict](
         "ticker_new/{quote_currency}", "v2Public", "GET", {"cost": 1}
     )
-    v2public_get_ticker_new_quote_currency_target_currency = v2PublicGetTickerNewQuoteCurrencyTargetCurrency = Entry[
+    v2public_get_ticker_new_quote_currency_target_currency = (
+        v2PublicGetTickerNewQuoteCurrencyTargetCurrency
+    ) = Entry[_Dict](
+        "ticker_new/{quote_currency}/{target_currency}", "v2Public", "GET", {"cost": 1}
+    )
+    v2public_get_ticker_utc_new_quote_currency = v2PublicGetTickerUtcNewQuoteCurrency = Entry[
         _Dict
-    ]("ticker_new/{quote_currency}/{target_currency}", "v2Public", "GET", {"cost": 1})
-    v2public_get_ticker_utc_new_quote_currency = v2PublicGetTickerUtcNewQuoteCurrency = Entry[_Dict](
-        "ticker_utc_new/{quote_currency}", "v2Public", "GET", {"cost": 1}
+    ]("ticker_utc_new/{quote_currency}", "v2Public", "GET", {"cost": 1})
+    v2public_get_ticker_utc_new_quote_currency_target_currency = (
+        v2PublicGetTickerUtcNewQuoteCurrencyTargetCurrency
+    ) = Entry[_Dict](
+        "ticker_utc_new/{quote_currency}/{target_currency}", "v2Public", "GET", {"cost": 1}
     )
-    v2public_get_ticker_utc_new_quote_currency_target_currency = v2PublicGetTickerUtcNewQuoteCurrencyTargetCurrency = (
-        Entry[_Dict]("ticker_utc_new/{quote_currency}/{target_currency}", "v2Public", "GET", {"cost": 1})
+    v2public_get_currencies = v2PublicGetCurrencies = Entry[_Dict](
+        "currencies", "v2Public", "GET", {"cost": 1}
     )
-    v2public_get_currencies = v2PublicGetCurrencies = Entry[_Dict]("currencies", "v2Public", "GET", {"cost": 1})
     v2public_get_currencies_currency = v2PublicGetCurrenciesCurrency = Entry[_Dict](
         "currencies/{currency}", "v2Public", "GET", {"cost": 1}
     )
-    v2public_get_chart_quote_currency_target_currency = v2PublicGetChartQuoteCurrencyTargetCurrency = Entry[_Dict](
-        "chart/{quote_currency}/{target_currency}", "v2Public", "GET", {"cost": 1}
-    )
+    v2public_get_chart_quote_currency_target_currency = (
+        v2PublicGetChartQuoteCurrencyTargetCurrency
+    ) = Entry[_Dict]("chart/{quote_currency}/{target_currency}", "v2Public", "GET", {"cost": 1})
     private_post_account_deposit_address = privatePostAccountDepositAddress = Entry[_Dict](
         "account/deposit_address", "private", "POST", {"cost": 1}
     )
@@ -84,7 +96,9 @@ class ImplicitAPI:
     private_post_order_cancel_all = privatePostOrderCancelAll = Entry[_Dict](
         "order/cancel_all", "private", "POST", {"cost": 1}
     )
-    private_post_order_cancel = privatePostOrderCancel = Entry[_Dict]("order/cancel", "private", "POST", {"cost": 1})
+    private_post_order_cancel = privatePostOrderCancel = Entry[_Dict](
+        "order/cancel", "private", "POST", {"cost": 1}
+    )
     private_post_order_limit_buy = privatePostOrderLimitBuy = Entry[_Dict](
         "order/limit_buy", "private", "POST", {"cost": 1}
     )
@@ -168,7 +182,9 @@ class ImplicitAPI:
     )
     v2_1private_post_account_trade_fee_quote_currency_target_currency = (
         v2_1PrivatePostAccountTradeFeeQuoteCurrencyTargetCurrency
-    ) = Entry[_Dict]("account/trade_fee/{quote_currency}/{target_currency}", "v2_1Private", "POST", {"cost": 1})
+    ) = Entry[_Dict](
+        "account/trade_fee/{quote_currency}/{target_currency}", "v2_1Private", "POST", {"cost": 1}
+    )
     v2_1private_post_order_limit = v2_1PrivatePostOrderLimit = Entry[_Dict](
         "order/limit", "v2_1Private", "POST", {"cost": 1}
     )
@@ -187,18 +203,24 @@ class ImplicitAPI:
     v2_1private_post_order_complete_orders = v2_1PrivatePostOrderCompleteOrders = Entry[_Dict](
         "order/complete_orders", "v2_1Private", "POST", {"cost": 1}
     )
-    v2_1private_post_order_complete_orders_all = v2_1PrivatePostOrderCompleteOrdersAll = Entry[_Dict](
-        "order/complete_orders/all", "v2_1Private", "POST", {"cost": 1}
-    )
+    v2_1private_post_order_complete_orders_all = v2_1PrivatePostOrderCompleteOrdersAll = Entry[
+        _Dict
+    ]("order/complete_orders/all", "v2_1Private", "POST", {"cost": 1})
     v2_1private_post_order_info = v2_1PrivatePostOrderInfo = Entry[_Dict](
         "order/info", "v2_1Private", "POST", {"cost": 1}
     )
     v2_1private_post_transaction_krw_history = v2_1PrivatePostTransactionKrwHistory = Entry[_Dict](
         "transaction/krw/history", "v2_1Private", "POST", {"cost": 1}
     )
-    v2_1private_post_transaction_coin_history = v2_1PrivatePostTransactionCoinHistory = Entry[_Dict](
-        "transaction/coin/history", "v2_1Private", "POST", {"cost": 1}
-    )
-    v2_1private_post_transaction_coin_withdrawal_limit = v2_1PrivatePostTransactionCoinWithdrawalLimit = Entry[_Dict](
-        "transaction/coin/withdrawal/limit", "v2_1Private", "POST", {"cost": 1}
-    )
+    v2_1private_post_transaction_coin_history = v2_1PrivatePostTransactionCoinHistory = Entry[
+        _Dict
+    ]("transaction/coin/history", "v2_1Private", "POST", {"cost": 1})
+    v2_1private_post_transaction_coin_withdrawal_limit = (
+        v2_1PrivatePostTransactionCoinWithdrawalLimit
+    ) = Entry[_Dict]("transaction/coin/withdrawal/limit", "v2_1Private", "POST", {"cost": 1})
+    v2_1private_post_event_order_reward_programs = v2_1PrivatePostEventOrderRewardPrograms = Entry[
+        _Dict
+    ]("event/order-reward/programs", "v2_1Private", "POST", {"cost": 1})
+    v2_1private_post_event_order_reward_history = v2_1PrivatePostEventOrderRewardHistory = Entry[
+        _Dict
+    ]("event/order-reward/history", "v2_1Private", "POST", {"cost": 1})

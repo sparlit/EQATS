@@ -54,5 +54,6 @@ price = 280.0
 
 try:
     order = exchange.create_order(symbol, "limit", "buy", amount, price)
+    pprint(order)
 except Exception as err:
     print(err)

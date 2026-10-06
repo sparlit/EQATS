@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,10 +37,10 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
-def test_trade(exchange, skipped_properties, method, entry, symbol, now):
+def test_trade(exchange, skipped_properties, method, entry, symbol, now, is_public_trade):
     # prediction-market structures are keyed by an outcome handle, not a `symbol`, and the
     # PredictionTrade type carries a single `fee` but omits the `fees` list entirely
     if exchange.safe_bool(exchange.has, "prediction", False):
@@ -67,17 +69,35 @@ def test_trade(exchange, skipped_properties, method, entry, symbol, now):
             "currency": "USDT",
         },
     }
-    # TODO: add takeOrMaker as mandatory (atm, many exchanges fail)
+    # todo: add takeOrMaker as mandatory (atm, many exchanges fail)
     # removed side because some public endpoints return trades without side
     empty_allowed_for = ["fees", "fee", "symbol", "order", "id", "takerOrMaker"]
-    test_shared_methods.assert_structure(exchange, skipped_properties, method, entry, format, empty_allowed_for)
-    test_shared_methods.assert_timestamp_and_datetime(exchange, skipped_properties, method, entry, now)
+    test_shared_methods.assert_structure(
+        exchange, skipped_properties, method, entry, format, empty_allowed_for
+    )
+    test_shared_methods.assert_timestamp_and_datetime(
+        exchange, skipped_properties, method, entry, now
+    )
     test_shared_methods.assert_symbol(exchange, skipped_properties, method, entry, "symbol", symbol)
-    test_shared_methods.assert_in_array(exchange, skipped_properties, method, entry, "side", ["buy", "sell"])
-    test_shared_methods.assert_in_array(exchange, skipped_properties, method, entry, "takerOrMaker", ["taker", "maker"])
+    #
+    test_shared_methods.assert_in_array(
+        exchange, skipped_properties, method, entry, "side", ["buy", "sell"]
+    )
+    if is_public_trade:
+        # for public trades (fetchTrades & watchTrades), it must be either 'taker' or undefined
+        test_shared_methods.assert_in_array(
+            exchange, skipped_properties, method, entry, "takerOrMaker", ["taker", None]
+        )
+    else:
+        # for private trades (fetchMyTrades & watchMyTrades), it can be any
+        test_shared_methods.assert_in_array(
+            exchange, skipped_properties, method, entry, "takerOrMaker", ["taker", "maker", None]
+        )
     test_shared_methods.assert_fee_structure(exchange, skipped_properties, method, entry, "fee")
     if "fees" not in skipped_properties:
-        # TODO: remove undefined check and probably non-empty array check later
+        # todo: remove undefined check and probably non-empty array check later
         if entry["fees"] is not None:
-            for i in range(len(entry["fees"])):
-                test_shared_methods.assert_fee_structure(exchange, skipped_properties, method, entry["fees"], i)
+            for i in range(0, len(entry["fees"])):
+                test_shared_methods.assert_fee_structure(
+                    exchange, skipped_properties, method, entry["fees"], i
+                )

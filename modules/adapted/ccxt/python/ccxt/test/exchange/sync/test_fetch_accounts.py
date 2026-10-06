@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,16 +37,14 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import (
-    test_account,
-    test_shared_methods,
-)
+from ccxt.test.exchange.base import test_account  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_fetch_accounts(exchange, skipped_properties):
     method = "fetchAccounts"
     accounts = exchange.fetch_accounts()
     test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, accounts)
-    for i in range(len(accounts)):
+    for i in range(0, len(accounts)):
         test_account(exchange, skipped_properties, method, accounts[i])
     return True

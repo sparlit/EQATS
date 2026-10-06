@@ -55,5 +55,6 @@ params = {
 try:
     # https://github.com/ccxt/ccxt/wiki/Manual#querying-orders
     orders = exchange.fetch_open_orders(symbol, since, limit, params)
+    pprint(orders)
 except Exception as e:
     print(type(e).__name__, str(e))

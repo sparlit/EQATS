@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import sys
 from collections.abc import AsyncGenerator
 from typing import (
-    Optional,
     TypeVar,
 )
 

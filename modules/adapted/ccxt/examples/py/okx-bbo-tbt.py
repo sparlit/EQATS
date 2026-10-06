@@ -55,7 +55,10 @@ async def main():
             # or this:
             ticker = await exchange.watch_ticker(symbol)
             print(
-                ticker["datetime"], symbol, [ticker["ask"], ticker["askVolume"]], [ticker["bid"], ticker["bidVolume"]]
+                ticker["datetime"],
+                symbol,
+                [ticker["ask"], ticker["askVolume"]],
+                [ticker["bid"], ticker["bidVolume"]],
             )
             # -----------------------------------------------------------------
         except Exception as e:

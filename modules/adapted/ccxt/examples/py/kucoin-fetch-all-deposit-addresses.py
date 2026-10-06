@@ -25,7 +25,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import os
 import sys
-from pprint import pprint
 
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(root + "/python")
@@ -61,7 +60,9 @@ for code in ["TLOS"]:  # exchange.currencies.keys():
                         chainName,
                         "address",
                         response["address"],
-                        ":" + response["tag"] if response["tag"] is not None and len(response["tag"]) else "",
+                        ":" + response["tag"]
+                        if response["tag"] is not None and len(response["tag"])
+                        else "",
                     )
                 else:
                     print(code, "has no", chainName, "address")

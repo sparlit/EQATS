@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,7 +37,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_position(exchange, skipped_properties, method, entry, symbol, now):
@@ -95,24 +97,54 @@ def test_position(exchange, skipped_properties, method, entry, symbol, now):
         "maintenanceMarginPercentage",
         "marginRatio",
     ]
-    test_shared_methods.assert_structure(exchange, skipped_properties, method, entry, format, emptyot_allowed_for)
-    test_shared_methods.assert_timestamp_and_datetime(exchange, skipped_properties, method, entry, now)
+    test_shared_methods.assert_structure(
+        exchange, skipped_properties, method, entry, format, emptyot_allowed_for
+    )
+    test_shared_methods.assert_timestamp_and_datetime(
+        exchange, skipped_properties, method, entry, now
+    )
     test_shared_methods.assert_symbol(exchange, skipped_properties, method, entry, "symbol", symbol)
-    test_shared_methods.assert_in_array(exchange, skipped_properties, method, entry, "side", ["long", "short"])
+    test_shared_methods.assert_in_array(
+        exchange, skipped_properties, method, entry, "side", ["long", "short"]
+    )
     test_shared_methods.assert_in_array(
         exchange, skipped_properties, method, entry, "marginMode", ["cross", "isolated"]
     )
     test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "leverage", "0")
-    test_shared_methods.assert_less_or_equal(exchange, skipped_properties, method, entry, "leverage", "200")
-    test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "initialMargin", "0")
-    test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "initialMarginPercentage", "0")
-    test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "maintenanceMargin", "0")
-    test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "maintenanceMarginPercentage", "0")
-    test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "entryPrice", "0")
+    test_shared_methods.assert_less_or_equal(
+        exchange, skipped_properties, method, entry, "leverage", "200"
+    )
+    test_shared_methods.assert_greater(
+        exchange, skipped_properties, method, entry, "initialMargin", "0"
+    )
+    test_shared_methods.assert_greater(
+        exchange, skipped_properties, method, entry, "initialMarginPercentage", "0"
+    )
+    test_shared_methods.assert_greater(
+        exchange, skipped_properties, method, entry, "maintenanceMargin", "0"
+    )
+    test_shared_methods.assert_greater(
+        exchange, skipped_properties, method, entry, "maintenanceMarginPercentage", "0"
+    )
+    test_shared_methods.assert_greater(
+        exchange, skipped_properties, method, entry, "entryPrice", "0"
+    )
     test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "notional", "0")
-    test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "contracts", "0")
-    test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "contractSize", "0")
-    test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "marginRatio", "0")
-    test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "liquidationPrice", "0")
-    test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "markPrice", "0")
-    test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "collateral", "0")
+    test_shared_methods.assert_greater(
+        exchange, skipped_properties, method, entry, "contracts", "0"
+    )
+    test_shared_methods.assert_greater(
+        exchange, skipped_properties, method, entry, "contractSize", "0"
+    )
+    test_shared_methods.assert_greater(
+        exchange, skipped_properties, method, entry, "marginRatio", "0"
+    )
+    test_shared_methods.assert_greater(
+        exchange, skipped_properties, method, entry, "liquidationPrice", "0"
+    )
+    test_shared_methods.assert_greater(
+        exchange, skipped_properties, method, entry, "markPrice", "0"
+    )
+    test_shared_methods.assert_greater(
+        exchange, skipped_properties, method, entry, "collateral", "0"
+    )

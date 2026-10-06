@@ -63,7 +63,8 @@ def print_chart(exchange, symbol, timeframe):
     # print the chart
     print("\n" + plot(series[-120:], {"height": 20}))  # print the chart
 
-    return ohlcv[len(ohlcv) - 1][index]  # last closing price
+    last = ohlcv[len(ohlcv) - 1][index]  # last closing price
+    return last
 
 
 last = print_chart(kraken, "BTC/USD", "1h")

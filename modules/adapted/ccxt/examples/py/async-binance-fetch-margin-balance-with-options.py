@@ -51,7 +51,8 @@ async def main():
     )
     while True:
         try:
-            await exchange.fetch_balance()
+            balance = await exchange.fetch_balance()
+            pprint(balance)
         except Exception as e:
             print("fetch_balance() failed")
             print(e)

@@ -23,18 +23,15 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import functools
 from collections.abc import Sequence
-from typing import List, Optional
 
 from ... import keccak
 from ...starkware.crypto.fast_pedersen_hash import pedersen_hash
 from ...starkware.crypto.signature import (
     ECSignature,
-    private_to_stark_key,
     sign,
     # verify
 )
 from ..common import int_from_bytes
-from ..constants import EC_ORDER
 
 MASK_250 = 2**250 - 1
 HEX_PREFIX = "0x"

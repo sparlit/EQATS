@@ -35,8 +35,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
-from ccxt.async_support.base.ws.cache import (
+import ccxt.async_support as ccxt  # noqa: F402
+from ccxt.async_support.base.ws.cache import (  # noqa: F402
     ArrayCache,
     ArrayCacheBySymbolById,
     ArrayCacheBySymbolBySide,
@@ -72,6 +72,8 @@ def helper_default_input_dict():
         "floatNumeric": 0.123,
         "floatString": "0.123",
         "longInt": 123456789012345,
+        "tiny": 0.5,
+        "largeInt": 1000000000000000,
     }
 
 
@@ -90,15 +92,29 @@ def test_safe_string():
     assert exchange.safe_string(input_dict, "list") is None, "safeString failed for list"
     assert exchange.safe_string(input_dict, "dict") is None, "safeString failed for dict"
     assert exchange.safe_string(input_dict, "str") == "heLlo", "safeString failed for string"
-    assert exchange.safe_string(input_dict, "strNumber") == "3", "safeString failed for string number"
-    assert exchange.safe_string(input_dict, "zeroNumeric") == "0", "safeString failed for zero numeric"
-    assert exchange.safe_string(input_dict, "zeroString") == "0", "safeString failed for zero string"
+    assert exchange.safe_string(input_dict, "strNumber") == "3", (
+        "safeString failed for string number"
+    )
+    assert exchange.safe_string(input_dict, "zeroNumeric") == "0", (
+        "safeString failed for zero numeric"
+    )
+    assert exchange.safe_string(input_dict, "zeroString") == "0", (
+        "safeString failed for zero string"
+    )
     assert exchange.safe_string(input_dict, "undefined") is None, "safeString failed for undefined"
-    assert exchange.safe_string(input_dict, "emptyString") is None, "safeString failed for empty string"
+    assert exchange.safe_string(input_dict, "emptyString") is None, (
+        "safeString failed for empty string"
+    )
     assert exchange.safe_string(input_list, 0) == "Hi", "safeString failed for list element"
-    assert exchange.safe_string(input_dict, "floatNumeric") == "0.123", "safeString failed for float numeric"
-    assert exchange.safe_string(input_dict, "floatString") == "0.123", "safeString failed for float string"
-    assert exchange.safe_string(input_dict, "longInt") == "123456789012345", "safeString failed for long integer"
+    assert exchange.safe_string(input_dict, "floatNumeric") == "0.123", (
+        "safeString failed for float numeric"
+    )
+    assert exchange.safe_string(input_dict, "floatString") == "0.123", (
+        "safeString failed for float string"
+    )
+    assert exchange.safe_string(input_dict, "longInt") == "123456789012345", (
+        "safeString failed for long integer"
+    )
     # With defaults
     assert exchange.safe_string(input_dict, "nonexistent", "MiXed_Case") == "MiXed_Case", (
         "safeString failed for nonexistent key with default"
@@ -125,7 +141,9 @@ def test_safe_string():
     assert exchange.safe_string_n(input_dict, ["a", "b", "emptyString"]) is None
     assert exchange.safe_string_n(input_list, [3, 2, 0]) == "Hi"
     # With defaults
-    assert exchange.safe_string_n(input_dict, ["a", "b", "nonexistent"], "MiXed_Case") == "MiXed_Case"
+    assert (
+        exchange.safe_string_n(input_dict, ["a", "b", "nonexistent"], "MiXed_Case") == "MiXed_Case"
+    )
     # safeStringLower
     assert exchange.safe_string_lower(input_dict, "i") == "1"
     assert exchange.safe_string_lower(input_dict, "f") == "0.123"
@@ -143,7 +161,9 @@ def test_safe_string():
     assert exchange.safe_string_lower_2(input_dict, "a", "emptyString") is None
     assert exchange.safe_string_lower_2(input_list, 2, 0) == "hi"
     # With defaults
-    assert exchange.safe_string_lower_2(input_dict, "a", "nonexistent", "MiXed_Case") == "MiXed_Case"
+    assert (
+        exchange.safe_string_lower_2(input_dict, "a", "nonexistent", "MiXed_Case") == "MiXed_Case"
+    )
     # safeStringLowerN
     assert exchange.safe_string_lower_n(input_dict, ["a", "b", "i"]) == "1"
     assert exchange.safe_string_lower_n(input_dict, ["a", "b", "f"]) == "0.123"
@@ -152,7 +172,10 @@ def test_safe_string():
     assert exchange.safe_string_lower_n(input_dict, ["a", "b", "strNumber"]) == "3"
     assert exchange.safe_string_lower_n(input_list, [3, 2, 0]) == "hi"
     # With defaults
-    assert exchange.safe_string_lower_n(input_dict, ["a", "b", "nonexistent"], "MiXed_Case") == "MiXed_Case"
+    assert (
+        exchange.safe_string_lower_n(input_dict, ["a", "b", "nonexistent"], "MiXed_Case")
+        == "MiXed_Case"
+    )
     # safeStringUpper
     assert exchange.safe_string_upper(input_dict, "i") == "1"
     assert exchange.safe_string_upper(input_dict, "f") == "0.123"
@@ -170,7 +193,9 @@ def test_safe_string():
     assert exchange.safe_string_upper_2(input_dict, "a", "strNumber") == "3"
     assert exchange.safe_string_upper_2(input_list, 2, 0) == "HI"
     # With defaults
-    assert exchange.safe_string_upper_2(input_dict, "a", "nonexistent", "MiXed_Case") == "MiXed_Case"
+    assert (
+        exchange.safe_string_upper_2(input_dict, "a", "nonexistent", "MiXed_Case") == "MiXed_Case"
+    )
     # safeStringUpperN
     assert exchange.safe_string_upper_n(input_dict, ["a", "b", "i"]) == "1"
     assert exchange.safe_string_upper_n(input_dict, ["a", "b", "f"]) == "0.123"
@@ -179,7 +204,10 @@ def test_safe_string():
     assert exchange.safe_string_upper_n(input_dict, ["a", "b", "strNumber"]) == "3"
     assert exchange.safe_string_upper_n(input_list, [3, 2, 0]) == "HI"
     # With defaults
-    assert exchange.safe_string_upper_n(input_dict, ["a", "b", "nonexistent"], "MiXed_Case") == "MiXed_Case"
+    assert (
+        exchange.safe_string_upper_n(input_dict, ["a", "b", "nonexistent"], "MiXed_Case")
+        == "MiXed_Case"
+    )
 
 
 def test_safe_value():
@@ -321,16 +349,29 @@ def test_safe_integer():
     assert exchange.safe_integer_product(input_list, 1, factor) == 20
     assert exchange.safe_integer_product(input_dict, "longInt", 0.000001) == 123456789
     assert exchange.safe_integer_product(input_dict, "inexistent", 0.000001, 123456789) == 123456789
+    # regression: 0.5 * 0.000001 is 5e-7, the product is rendered in exponential notation and the old parseInt-based truncation returned 5 instead of 0
+    assert exchange.safe_integer_product(input_dict, "tiny", 0.000001) == 0
+    # a product of 1e18 stays within fixed notation (no exponential form) and fits signed int64 range in non-JS target languages
+    assert exchange.safe_integer_product(input_dict, "largeInt", 1000) == 1000000000000000000
     # safeIntegerProduct2
     assert exchange.safe_integer_product_2(input_dict, "a", "i", factor) == 10
     assert exchange.safe_integer_product_2(input_dict, "a", "f", factor) == 1  # NB the result is 1
     assert exchange.safe_integer_product_2(input_dict, "a", "strNumber", factor) == 30
     assert exchange.safe_integer_product_2(input_list, 2, 1, factor) == 20
+    assert exchange.safe_integer_product_2(input_dict, "a", "tiny", 0.000001) == 0
+    assert exchange.safe_integer_product_2(input_dict, "a", "largeInt", 1000) == 1000000000000000000
     # safeIntegerProductN
     assert exchange.safe_integer_product_n(input_dict, ["a", "b", "i"], factor) == 10
-    assert exchange.safe_integer_product_n(input_dict, ["a", "b", "f"], factor) == 1  # NB the result is 1
+    assert (
+        exchange.safe_integer_product_n(input_dict, ["a", "b", "f"], factor) == 1
+    )  # NB the result is 1
     assert exchange.safe_integer_product_n(input_dict, ["a", "b", "strNumber"], factor) == 30
     assert exchange.safe_integer_product_n(input_list, [3, 2, 1], factor) == 20
+    assert exchange.safe_integer_product_n(input_dict, ["a", "b", "tiny"], 0.000001) == 0
+    assert (
+        exchange.safe_integer_product_n(input_dict, ["a", "b", "largeInt"], 1000)
+        == 1000000000000000000
+    )
 
 
 def test_safe_timestamp():
@@ -346,16 +387,20 @@ def test_safe_timestamp():
     assert exchange.safe_timestamp(input_dict, "f") == 123
     assert exchange.safe_timestamp(input_dict, "strNumber") == 3000
     assert exchange.safe_timestamp(input_list, 1) == 2000
+    # 1e15 seconds multiplied by 1000 is 1e18 ms, the largest timestamp product every language represents exactly
+    assert exchange.safe_timestamp(input_dict, "largeInt") == 1000000000000000000
     # safeTimestamp2
     assert exchange.safe_timestamp_2(input_dict, "a", "i") == 1000
     assert exchange.safe_timestamp_2(input_dict, "a", "f") == 123
     assert exchange.safe_timestamp_2(input_dict, "a", "strNumber") == 3000
     assert exchange.safe_timestamp_2(input_list, 2, 1) == 2000
+    assert exchange.safe_timestamp_2(input_dict, "a", "largeInt") == 1000000000000000000
     # safeTimestampN
     assert exchange.safe_timestamp_n(input_dict, ["a", "b", "i"]) == 1000
     assert exchange.safe_timestamp_n(input_dict, ["a", "b", "f"]) == 123
     assert exchange.safe_timestamp_n(input_dict, ["a", "b", "strNumber"]) == 3000
     assert exchange.safe_timestamp_n(input_list, [3, 2, 1]) == 2000
+    assert exchange.safe_timestamp_n(input_dict, ["a", "b", "largeInt"]) == 1000000000000000000
 
 
 def test_safe_float():
@@ -391,14 +436,24 @@ def test_safe_float():
     # @ts-expect-error
     assert exchange.safe_float_n(input_list, [3, 2, 1]) == float(2)
     # safeFloat - negative paths (missing key, empty string, non-numeric string, undefined container)
-    assert exchange.safe_float(input_dict, "nonexistent") is None, "safeFloat failed for missing key"
-    assert exchange.safe_float(input_dict, "nonexistent", 5) == 5, "safeFloat failed for missing key with default"
-    assert exchange.safe_float(input_dict, "emptyString") is None, "safeFloat failed for empty string"
+    assert exchange.safe_float(input_dict, "nonexistent") is None, (
+        "safeFloat failed for missing key"
+    )
+    assert exchange.safe_float(input_dict, "nonexistent", 5) == 5, (
+        "safeFloat failed for missing key with default"
+    )
+    assert exchange.safe_float(input_dict, "emptyString") is None, (
+        "safeFloat failed for empty string"
+    )
     assert exchange.safe_float(input_dict, "str") is None, "safeFloat failed for non-numeric string"
     assert exchange.safe_float(input_dict, "undefined") is None, "safeFloat failed for None value"
     assert exchange.safe_float(None, "i") is None, "safeFloat failed for undefined container"
-    assert exchange.safe_float(None, "i", 7) == 7, "safeFloat failed for undefined container with default"
-    assert exchange.safe_float(input_list, 5) is None, "safeFloat failed for out-of-range list index"
+    assert exchange.safe_float(None, "i", 7) == 7, (
+        "safeFloat failed for undefined container with default"
+    )
+    assert exchange.safe_float(input_list, 5) is None, (
+        "safeFloat failed for out-of-range list index"
+    )
     # safeFloat2 - negative paths
     assert exchange.safe_float_2(input_dict, "nonexistent", "nonexistent2") is None, (
         "safeFloat2 failed for missing keys"
@@ -412,16 +467,28 @@ def test_safe_float():
     assert exchange.safe_float_2(input_dict, "nonexistent", "nonexistent2", 9) == 9, (
         "safeFloat2 failed for missing keys with default"
     )
-    assert exchange.safe_float_2(None, "i", "f") is None, "safeFloat2 failed for undefined container"
+    assert exchange.safe_float_2(None, "i", "f") is None, (
+        "safeFloat2 failed for undefined container"
+    )
     # safeFloatN - negative paths
-    assert exchange.safe_float_n(input_dict, ["a", "b", "nonexistent"]) is None, "safeFloatN failed for missing keys"
-    assert exchange.safe_float_n(input_dict, ["a", "b", "emptyString"]) is None, "safeFloatN failed for empty string"
-    assert exchange.safe_float_n(input_dict, ["a", "b", "str"]) is None, "safeFloatN failed for non-numeric string"
+    assert exchange.safe_float_n(input_dict, ["a", "b", "nonexistent"]) is None, (
+        "safeFloatN failed for missing keys"
+    )
+    assert exchange.safe_float_n(input_dict, ["a", "b", "emptyString"]) is None, (
+        "safeFloatN failed for empty string"
+    )
+    assert exchange.safe_float_n(input_dict, ["a", "b", "str"]) is None, (
+        "safeFloatN failed for non-numeric string"
+    )
     assert exchange.safe_float_n(input_dict, ["a", "b", "nonexistent"], 11) == 11, (
         "safeFloatN failed for missing keys with default"
     )
-    assert exchange.safe_float_n(None, ["a", "b", "i"]) is None, "safeFloatN failed for undefined container"
-    assert exchange.safe_float_n(input_list, [5, 6]) is None, "safeFloatN failed for out-of-range list indices"
+    assert exchange.safe_float_n(None, ["a", "b", "i"]) is None, (
+        "safeFloatN failed for undefined container"
+    )
+    assert exchange.safe_float_n(input_list, [5, 6]) is None, (
+        "safeFloatN failed for out-of-range list indices"
+    )
 
 
 def test_safe_number():
@@ -501,7 +568,9 @@ def test_cache_safe_calls():
     array_cache_by_timestamp.append([1000, 50000, 1, 2, 3])
     array_cache_by_timestamp_data = exchange.safe_value(array_cache_by_timestamp, "Data")
     cache_by_timestamp_data = (
-        array_cache_by_timestamp_data if array_cache_by_timestamp_data is not None else array_cache_by_timestamp
+        array_cache_by_timestamp_data
+        if array_cache_by_timestamp_data is not None
+        else array_cache_by_timestamp
     )
     assert len(cache_by_timestamp_data) > 0
     # Test cache types - ArrayCacheBySymbolById
@@ -582,7 +651,9 @@ def test_cache_safe_calls():
     }
     retrieved_array_cache_by_symbol_by_side = exchange.safe_value(cache_by_side_map, "BTC/USDT")
     assert retrieved_array_cache_by_symbol_by_side is not None
-    retrieved_array_cache_by_symbol_by_side_hashmap = retrieved_array_cache_by_symbol_by_side.hashmap
+    retrieved_array_cache_by_symbol_by_side_hashmap = (
+        retrieved_array_cache_by_symbol_by_side.hashmap
+    )
     assert retrieved_array_cache_by_symbol_by_side_hashmap is not None
     assert exchange.safe_value(cache_by_side_map, "NONEXISTENT") is None
 

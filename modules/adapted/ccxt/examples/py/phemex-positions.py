@@ -50,24 +50,29 @@ markets = exchange.load_markets()
 
 # example 1
 positions = exchange.fetch_positions(None, {"code": "BTC"})
+pprint(positions)
 
 print("------------------------------------------------------------")
 
 # example 2
 positions = exchange.fetch_positions(None, {"currency": "BTC"})
+pprint(positions)
 
 print("------------------------------------------------------------")
 
 # example 3
 balance = exchange.fetch_balance({"code": "BTC"})
+pprint(balance["info"]["data"]["positions"])
 
 print("------------------------------------------------------------")
 
 # example 4
 balance = exchange.fetch_balance({"currency": "BTC"})
+pprint(balance["info"]["data"]["positions"])
 
 print("------------------------------------------------------------")
 
 # example 5
 # https://github.com/ccxt/ccxt/wiki/Manual#implicit-api-methods
 response = exchange.private_get_accounts_accountpositions({"currency": "BTC"})
+pprint(response["data"]["positions"])

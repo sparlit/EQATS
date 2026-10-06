@@ -35,8 +35,6 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
-from ..sending import transfer_pb2 as dydxprotocol_dot_sending_dot_transfer__pb2
-
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
     b'\n\x1d\x64ydxprotocol/sending/tx.proto\x12\x14\x64ydxprotocol.sending\x1a#dydxprotocol/sending/transfer.proto"E\n\x11MsgCreateTransfer\x12\x30\n\x08transfer\x18\x01 \x01(\x0b\x32\x1e.dydxprotocol.sending.Transfer"\x1b\n\x19MsgCreateTransferResponse" \n\x1eMsgDepositToSubaccountResponse"#\n!MsgWithdrawFromSubaccountResponse"$\n"MsgSendFromModuleToAccountResponse2\xf9\x03\n\x03Msg\x12j\n\x0e\x43reateTransfer\x12\'.dydxprotocol.sending.MsgCreateTransfer\x1a/.dydxprotocol.sending.MsgCreateTransferResponse\x12y\n\x13\x44\x65positToSubaccount\x12,.dydxprotocol.sending.MsgDepositToSubaccount\x1a\x34.dydxprotocol.sending.MsgDepositToSubaccountResponse\x12\x82\x01\n\x16WithdrawFromSubaccount\x12/.dydxprotocol.sending.MsgWithdrawFromSubaccount\x1a\x37.dydxprotocol.sending.MsgWithdrawFromSubaccountResponse\x12\x85\x01\n\x17SendFromModuleToAccount\x12\x30.dydxprotocol.sending.MsgSendFromModuleToAccount\x1a\x38.dydxprotocol.sending.MsgSendFromModuleToAccountResponseB;Z9github.com/dydxprotocol/v4-chain/protocol/x/sending/typesb\x06proto3'
 )

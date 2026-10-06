@@ -31,7 +31,7 @@ run = import_module(next(filter(find_spec, ("uvloop", "winloop", "asyncio")))).r
 
 def table(values):
     first = values[0]
-    keys = list(first.keys()) if isinstance(first, dict) else range(len(first))
+    keys = list(first.keys()) if isinstance(first, dict) else range(0, len(first))
     widths = [max([len(str(v[k])) for v in values]) for k in keys]
     string = " | ".join(["{:<" + str(w) + "}" for w in widths])
     return "\n".join([string.format(*[str(v[k]) for k in keys]) for v in values])
@@ -49,16 +49,22 @@ async def main():
     timeframe = "1m"  # 5m, 1h, 1d
     limit = 10  # how many candles to return max
     method = "watchOHLCV"
-    if exchange.has.get(method):
+    if (method in exchange.has) and exchange.has[method]:
         max_iterations = 100  # how many times to repeat the loop before exiting
-        for i in range(max_iterations):
+        for i in range(0, max_iterations):
             try:
                 ohlcvs = await exchange.watch_ohlcv(symbol, timeframe, None, limit)
                 now = exchange.milliseconds()
-                print("\n===============================================================================")
-                print("Loop iteration:", i, "current time:", exchange.iso8601(now), symbol, timeframe)
-                print("-------------------------------------------------------------------------------")
-                print(table([[exchange.iso8601(o[0]), *o[1:]] for o in ohlcvs]))
+                print(
+                    "\n==============================================================================="
+                )
+                print(
+                    "Loop iteration:", i, "current time:", exchange.iso8601(now), symbol, timeframe
+                )
+                print(
+                    "-------------------------------------------------------------------------------"
+                )
+                print(table([[exchange.iso8601(o[0])] + o[1:] for o in ohlcvs]))
             except Exception as e:
                 print(type(e).__name__, str(e))
                 break

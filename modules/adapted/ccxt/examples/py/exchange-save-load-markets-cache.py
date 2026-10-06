@@ -29,8 +29,6 @@ from importlib.util import find_spec
 run = import_module(next(filter(find_spec, ("uvloop", "winloop", "asyncio")))).run
 import os
 import sys
-from pprint import pprint
-from random import randint
 
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(root + "/python")
@@ -80,7 +78,9 @@ async def instantiate_with_cache():
 
     after = exchange.milliseconds()
 
-    print("Time to load markets with cache:", after - before, "ms")  # as you can see, it is instanteous
+    print(
+        "Time to load markets with cache:", after - before, "ms"
+    )  # as you can see, it is instanteous
 
 
 async def main():

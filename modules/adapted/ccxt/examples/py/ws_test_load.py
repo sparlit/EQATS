@@ -26,7 +26,6 @@ from importlib import import_module
 from importlib.util import find_spec
 
 run = import_module(next(filter(find_spec, ("uvloop", "winloop", "asyncio")))).run
-import os
 import sys
 import time
 from collections import defaultdict
@@ -103,7 +102,7 @@ async def watch_orderbook(binance, symbol, metrics):
                 print(f"Elapsed time: {current_metrics['elapsed_time']:.1f} seconds")
                 print("-" * 50)
         except Exception as e:
-            print(f"Error in {symbol}: {e!s}")
+            print(f"Error in {symbol}: {str(e)}")
             metrics.increment_error_count(symbol)
             await asyncio.sleep(1)  # Wait before retrying
 

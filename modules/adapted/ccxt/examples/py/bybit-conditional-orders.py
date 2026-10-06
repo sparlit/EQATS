@@ -45,3 +45,5 @@ markets = exchange.load_markets()
 
 params = {"stop_px": 9750, "base_price": 11152}
 order = exchange.create_order("BTC/USD", "market", "buy", 911, None, params)
+
+pprint(order)

@@ -34,9 +34,9 @@ sys.path.append(root)
 
 # ----------------------------------------------------------------------------
 
-import hashlib
+import hashlib  # noqa: F402
 
-import ccxt
+import ccxt  # noqa: F402
 
 Exchange = ccxt.Exchange
 hash = Exchange.hash
@@ -59,17 +59,23 @@ def equals(a, b):
 # NO_AUTO_TRANSPILE
 
 
-# even though no AUTO_TRANSP flag here, self file is manually transpiled
+# even though no AUTO_TRANSP flag here, this file is manually transpiled
 
 
 def test_cryptography():
 
-    # exchange = Exchange()
+    # const exchange = new Exchange ();
 
     # ---------------------------------------------------------------------------------------------------------------------
 
-    assert hash(encode(""), "sha256", "hex") == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    assert hash(encode("cheese"), "sha256", "hex") == "873ac9ffea4dd04fa719e8920cd6938f0c23cd678af330939cff53c3d2855f34"
+    assert (
+        hash(encode(""), "sha256", "hex")
+        == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    )
+    assert (
+        hash(encode("cheese"), "sha256", "hex")
+        == "873ac9ffea4dd04fa719e8920cd6938f0c23cd678af330939cff53c3d2855f34"
+    )
 
     assert hash(encode(""), "md5", "hex") == "d41d8cd98f00b204e9800998ecf8427e"
     assert hash(encode("sexyfish"), "md5", "hex") == "c8a35464aa9d5683585786f44d5889f8"
@@ -80,7 +86,10 @@ def test_cryptography():
         hmac(encode("hello"), encode("there"), hashlib.sha256, "hex")
         == "551e1c1ecbce0fe9b643745a376584a6289f5f43a46861b315fac9edc8d52a26"
     )
-    assert hmac(encode("a message"), encode("a secret"), hashlib.md5, "hex") == "0bfa503bdbc7358185fcd49b4869e23d"
+    assert (
+        hmac(encode("a message"), encode("a secret"), hashlib.md5, "hex")
+        == "0bfa503bdbc7358185fcd49b4869e23d"
+    )
 
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -107,19 +116,19 @@ def test_cryptography():
     # ---------------------------------------------------------------------------------------------------------------------
 
     #
-    # assert exchange.hashMessage(privateKey) == '0x59ea5d98c3500c3729f95cf98aa91663f498518cc401360df2912742c232207f'
+    # assert (exchange.hashMessage (privateKey) === '0x59ea5d98c3500c3729f95cf98aa91663f498518cc401360df2912742c232207f');
     #
-    # assert(equals(exchange.signHash('0x59ea5d98c3500c3729f95cf98aa91663f498518cc401360df2912742c232207f', privateKey), {
+    # assert (equals (exchange.signHash ('0x59ea5d98c3500c3729f95cf98aa91663f498518cc401360df2912742c232207f', privateKey), {
     #     'r': '0x6f684aa41c02da83dac3039d8805ddbe79a03b1297e247c7742cab8dfc19d341',
     #     's': '0x62473881674550563cb028ff40a7846fd53620ddf40a20cc1003b8484a109a4a',
     #     'v': 27
-    # }))
+    # }));
     #
-    # assert(equals(exchange.signMessage(privateKey, privateKey), {
+    # assert (equals (exchange.signMessage (privateKey, privateKey), {
     #     'r': '0x6f684aa41c02da83dac3039d8805ddbe79a03b1297e247c7742cab8dfc19d341',
     #     's': '0x62473881674550563cb028ff40a7846fd53620ddf40a20cc1003b8484a109a4a',
     #     'v': 27
-    # }))
+    # }));
     #
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -182,4 +191,4 @@ def test_cryptography():
         == -51055998
     )
 
-    # assert eddsa('1b1b', privateKey, 'ed25519') == '3DBaaz8z4Pq9n6ncNCjB4pFLWaWTXbjaCUqKQmBgS3w7AP6opeDqANBhPssbV3jyfJB4LfK8kGR6pu6GU8fbjMuy'
+    # assert (eddsa ('1b1b', privateKey, ed25519) === '3DBaaz8z4Pq9n6ncNCjB4pFLWaWTXbjaCUqKQmBgS3w7AP6opeDqANBhPssbV3jyfJB4LfK8kGR6pu6GU8fbjMuy');

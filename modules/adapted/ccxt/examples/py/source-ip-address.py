@@ -59,3 +59,4 @@ markets = exchange.load_markets()
 exchange.verbose = True
 
 ticker = exchange.fetch_ticker("BTC/USD")
+pprint(ticker)

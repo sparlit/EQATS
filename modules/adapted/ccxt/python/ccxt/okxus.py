@@ -36,7 +36,7 @@ class okxus(okx, ImplicitAPI):
             super().describe(),
             {
                 "id": "okxus",
-                "name": "OKX(US)",
+                "name": "OKX (US)",
                 "certified": False,
                 "pro": True,
                 "hostname": "us.okx.com",

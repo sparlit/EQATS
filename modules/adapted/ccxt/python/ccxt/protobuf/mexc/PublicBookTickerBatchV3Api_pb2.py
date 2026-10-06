@@ -41,8 +41,6 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from ccxt.protobuf.mexc import PublicBookTickerV3Api_pb2 as PublicBookTickerV3Api__pb2
-
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
     b'\n PublicBookTickerBatchV3Api.proto\x1a\x1bPublicBookTickerV3Api.proto"C\n\x1aPublicBookTickerBatchV3Api\x12%\n\x05items\x18\x01 \x03(\x0b\x32\x16.PublicBookTickerV3ApiBC\n\x1c\x63om.mxc.push.common.protobufB\x1fPublicBookTickerBatchV3ApiProtoH\x01P\x01\x62\x06proto3'
 )
@@ -54,7 +52,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
     _globals["DESCRIPTOR"]._loaded_options = None
     _globals[
         "DESCRIPTOR"
-    ]._serialized_options = b"\n\034com.mxc.push.common.protobufB\037PublicBookTickerBatchV3ApiProtoH\001P\001"
+    ]._serialized_options = (
+        b"\n\034com.mxc.push.common.protobufB\037PublicBookTickerBatchV3ApiProtoH\001P\001"
+    )
     _globals["_PUBLICBOOKTICKERBATCHV3API"]._serialized_start = 65
     _globals["_PUBLICBOOKTICKERBATCHV3API"]._serialized_end = 132
 # @@protoc_insertion_point(module_scope)

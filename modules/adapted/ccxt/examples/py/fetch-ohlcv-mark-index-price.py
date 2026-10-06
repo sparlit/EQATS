@@ -42,9 +42,13 @@ exchange = ccxt.binanceusdm()
 
 response = exchange.fetchOHLCV(symbol="ADA/USDT", timeframe="1h", params={"price": "index"})
 
+pprint(response)
 
 # Convenience methods --------------------------------------------------------
 
 markKlines = exchange.fetchMarkOHLCV(symbol="ADA/USDT", timeframe="1h", params={"price": "mark"})
 
 indexKlines = exchange.fetchIndexOHLCV(symbol="ADA/USDT", timeframe="1h", params={"price": "mark"})
+
+pprint(markKlines)
+pprint(indexKlines)

@@ -43,9 +43,9 @@ class ImplicitAPI:
     sapi_private_get_order_book = sapiPrivateGetOrderBook = Entry[_Dict](
         "order-book", ["sapi", "private"], "GET", {"cost": 200}
     )
-    sapi_private_get_order_book_last_trade_price = sapiPrivateGetOrderBookLastTradePrice = Entry[_Dict](
-        "order-book/last-trade-price", ["sapi", "private"], "GET", {"cost": 200}
-    )
+    sapi_private_get_order_book_last_trade_price = sapiPrivateGetOrderBookLastTradePrice = Entry[
+        _Dict
+    ]("order-book/last-trade-price", ["sapi", "private"], "GET", {"cost": 200})
     sapi_private_get_wallet_list = sapiPrivateGetWalletList = Entry[_Dict](
         "wallet/list", ["sapi", "private"], "GET", {"cost": 200}
     )
@@ -82,9 +82,9 @@ class ImplicitAPI:
     sapi_private_post_trade_get_quote = sapiPrivatePostTradeGetQuote = Entry[_Dict](
         "trade/get-quote", ["sapi", "private"], "POST", {"cost": 200}
     )
-    sapi_private_post_trade_place_order_bundle = sapiPrivatePostTradePlaceOrderBundle = Entry[_Dict](
-        "trade/place-order-bundle", ["sapi", "private"], "POST", {"cost": 200}
-    )
+    sapi_private_post_trade_place_order_bundle = sapiPrivatePostTradePlaceOrderBundle = Entry[
+        _Dict
+    ]("trade/place-order-bundle", ["sapi", "private"], "POST", {"cost": 200})
     sapi_private_post_trade_batch_cancel = sapiPrivatePostTradeBatchCancel = Entry[_Dict](
         "trade/batch-cancel", ["sapi", "private"], "POST", {"cost": 200}
     )

@@ -43,7 +43,13 @@ async def symbol_loop(exchange, symbol):
         try:
             orderbook = await exchange.fetch_order_book(symbol)
             now = exchange.milliseconds()
-            print(exchange.iso8601(now), exchange.id, symbol, orderbook["asks"][0], orderbook["bids"][0])
+            print(
+                exchange.iso8601(now),
+                exchange.id,
+                symbol,
+                orderbook["asks"][0],
+                orderbook["bids"][0],
+            )
 
             # --------------------> DO YOUR LOGIC HERE <------------------
 

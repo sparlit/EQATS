@@ -30,7 +30,6 @@ from importlib.util import find_spec
 run = import_module(next(filter(find_spec, ("uvloop", "winloop", "asyncio")))).run
 import os
 import sys
-from typing import Optional
 
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(root + "/python")
@@ -74,7 +73,9 @@ async def check_symbol_infix(exchange, symbol_infix, exclude_infix=None):
         unchecked_exchanges.append(exchange.id)
     else:
         matching_symbols = [
-            symbol for symbol in exchange.symbols if is_symbol_match(symbol, symbol_infix, exclude_infix)
+            symbol
+            for symbol in exchange.symbols
+            if is_symbol_match(symbol, symbol_infix, exclude_infix)
         ]
         if matching_symbols:
             print(f"on exchange {exchange.id} these symbols contain {symbol_infix}:")

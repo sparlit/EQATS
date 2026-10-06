@@ -28,16 +28,30 @@ _List = list[object]
 
 
 class ImplicitAPI:
-    web_get_v1_healthcheck = webGetV1Healthcheck = Entry[_Dict]("v1/healthcheck", "web", "GET", {"cost": 1})
-    v1_public_get_markets = v1PublicGetMarkets = Entry[_Dict]("markets", ["v1", "public"], "GET", {"cost": 1})
-    v1_public_get_tickers = v1PublicGetTickers = Entry[_Dict]("tickers", ["v1", "public"], "GET", {"cost": 1})
-    v1_public_get_ticker = v1PublicGetTicker = Entry[_Dict]("ticker", ["v1", "public"], "GET", {"cost": 1})
-    v1_public_get_symbols = v1PublicGetSymbols = Entry[_Dict]("symbols", ["v1", "public"], "GET", {"cost": 1})
+    web_get_v1_healthcheck = webGetV1Healthcheck = Entry[_Dict](
+        "v1/healthcheck", "web", "GET", {"cost": 1}
+    )
+    v1_public_get_markets = v1PublicGetMarkets = Entry[_Dict](
+        "markets", ["v1", "public"], "GET", {"cost": 1}
+    )
+    v1_public_get_tickers = v1PublicGetTickers = Entry[_Dict](
+        "tickers", ["v1", "public"], "GET", {"cost": 1}
+    )
+    v1_public_get_ticker = v1PublicGetTicker = Entry[_Dict](
+        "ticker", ["v1", "public"], "GET", {"cost": 1}
+    )
+    v1_public_get_symbols = v1PublicGetSymbols = Entry[_Dict](
+        "symbols", ["v1", "public"], "GET", {"cost": 1}
+    )
     v1_public_get_depth_result = v1PublicGetDepthResult = Entry[_Dict](
         "depth/result", ["v1", "public"], "GET", {"cost": 1}
     )
-    v1_public_get_history = v1PublicGetHistory = Entry[_Dict]("history", ["v1", "public"], "GET", {"cost": 1})
-    v1_public_get_kline = v1PublicGetKline = Entry[_Dict]("kline", ["v1", "public"], "GET", {"cost": 1})
+    v1_public_get_history = v1PublicGetHistory = Entry[_Dict](
+        "history", ["v1", "public"], "GET", {"cost": 1}
+    )
+    v1_public_get_kline = v1PublicGetKline = Entry[_Dict](
+        "kline", ["v1", "public"], "GET", {"cost": 1}
+    )
     v1_private_post_account_balance = v1PrivatePostAccountBalance = Entry[_Dict](
         "account/balance", ["v1", "private"], "POST", {"cost": 1}
     )
@@ -47,22 +61,30 @@ class ImplicitAPI:
     v1_private_post_order_cancel = v1PrivatePostOrderCancel = Entry[_Dict](
         "order/cancel", ["v1", "private"], "POST", {"cost": 1}
     )
-    v1_private_post_orders = v1PrivatePostOrders = Entry[_Dict]("orders", ["v1", "private"], "POST", {"cost": 1})
+    v1_private_post_orders = v1PrivatePostOrders = Entry[_Dict](
+        "orders", ["v1", "private"], "POST", {"cost": 1}
+    )
     v1_private_post_account_order_history = v1PrivatePostAccountOrderHistory = Entry[_Dict](
         "account/order_history", ["v1", "private"], "POST", {"cost": 1}
     )
     v1_private_post_account_executed_history = v1PrivatePostAccountExecutedHistory = Entry[_Dict](
         "account/executed_history", ["v1", "private"], "POST", {"cost": 1}
     )
-    v1_private_post_account_executed_history_all = v1PrivatePostAccountExecutedHistoryAll = Entry[_Dict](
-        "account/executed_history/all", ["v1", "private"], "POST", {"cost": 1}
-    )
+    v1_private_post_account_executed_history_all = v1PrivatePostAccountExecutedHistoryAll = Entry[
+        _Dict
+    ]("account/executed_history/all", ["v1", "private"], "POST", {"cost": 1})
     v1_private_post_account_order = v1PrivatePostAccountOrder = Entry[_Dict](
         "account/order", ["v1", "private"], "POST", {"cost": 1}
     )
-    v2_public_get_markets = v2PublicGetMarkets = Entry[_Dict]("markets", ["v2", "public"], "GET", {"cost": 1})
-    v2_public_get_ticker = v2PublicGetTicker = Entry[_Dict]("ticker", ["v2", "public"], "GET", {"cost": 1})
-    v2_public_get_assets = v2PublicGetAssets = Entry[_Dict]("assets", ["v2", "public"], "GET", {"cost": 1})
+    v2_public_get_markets = v2PublicGetMarkets = Entry[_Dict](
+        "markets", ["v2", "public"], "GET", {"cost": 1}
+    )
+    v2_public_get_ticker = v2PublicGetTicker = Entry[_Dict](
+        "ticker", ["v2", "public"], "GET", {"cost": 1}
+    )
+    v2_public_get_assets = v2PublicGetAssets = Entry[_Dict](
+        "assets", ["v2", "public"], "GET", {"cost": 1}
+    )
     v2_public_get_fee = v2PublicGetFee = Entry[_Dict]("fee", ["v2", "public"], "GET", {"cost": 1})
     v2_public_get_depth_market = v2PublicGetDepthMarket = Entry[_Dict](
         "depth/{market}", ["v2", "public"], "GET", {"cost": 1}
@@ -70,7 +92,9 @@ class ImplicitAPI:
     v2_public_get_trades_market = v2PublicGetTradesMarket = Entry[_Dict](
         "trades/{market}", ["v2", "public"], "GET", {"cost": 1}
     )
-    v4_public_get_assets = v4PublicGetAssets = Entry[_Dict]("assets", ["v4", "public"], "GET", {"cost": 1})
+    v4_public_get_assets = v4PublicGetAssets = Entry[_Dict](
+        "assets", ["v4", "public"], "GET", {"cost": 1}
+    )
     v4_public_get_collateral_markets = v4PublicGetCollateralMarkets = Entry[_Dict](
         "collateral/markets", ["v4", "public"], "GET", {"cost": 1}
     )
@@ -84,49 +108,64 @@ class ImplicitAPI:
     v4_public_get_orderbook_market = v4PublicGetOrderbookMarket = Entry[_Dict](
         "orderbook/{market}", ["v4", "public"], "GET", {"cost": 1}
     )
-    v4_public_get_ticker = v4PublicGetTicker = Entry[_Dict]("ticker", ["v4", "public"], "GET", {"cost": 1})
+    v4_public_get_ticker = v4PublicGetTicker = Entry[_Dict](
+        "ticker", ["v4", "public"], "GET", {"cost": 1}
+    )
     v4_public_get_trades_market = v4PublicGetTradesMarket = Entry[_List](
         "trades/{market}", ["v4", "public"], "GET", {"cost": 1}
     )
-    v4_public_get_time = v4PublicGetTime = Entry[_Dict]("time", ["v4", "public"], "GET", {"cost": 1})
-    v4_public_get_ping = v4PublicGetPing = Entry[_List]("ping", ["v4", "public"], "GET", {"cost": 1})
-    v4_public_get_markets = v4PublicGetMarkets = Entry[_List]("markets", ["v4", "public"], "GET", {"cost": 1})
-    v4_public_get_futures = v4PublicGetFutures = Entry[_Dict]("futures", ["v4", "public"], "GET", {"cost": 1})
+    v4_public_get_time = v4PublicGetTime = Entry[_Dict](
+        "time", ["v4", "public"], "GET", {"cost": 1}
+    )
+    v4_public_get_ping = v4PublicGetPing = Entry[_List](
+        "ping", ["v4", "public"], "GET", {"cost": 1}
+    )
+    v4_public_get_markets = v4PublicGetMarkets = Entry[_List](
+        "markets", ["v4", "public"], "GET", {"cost": 1}
+    )
+    v4_public_get_futures = v4PublicGetFutures = Entry[_Dict](
+        "futures", ["v4", "public"], "GET", {"cost": 1}
+    )
     v4_public_get_platform_status = v4PublicGetPlatformStatus = Entry[_Dict](
         "platform/status", ["v4", "public"], "GET", {"cost": 1}
     )
     v4_public_get_mining_pool = v4PublicGetMiningPool = Entry[_Dict](
         "mining-pool", ["v4", "public"], "GET", {"cost": 1}
     )
-    v4_private_post_collateral_account_balance = v4PrivatePostCollateralAccountBalance = Entry[_Dict](
-        "collateral-account/balance", ["v4", "private"], "POST", {"cost": 1}
+    v4_private_post_collateral_account_balance = v4PrivatePostCollateralAccountBalance = Entry[
+        _Dict
+    ]("collateral-account/balance", ["v4", "private"], "POST", {"cost": 1})
+    v4_private_post_collateral_account_balance_summary = (
+        v4PrivatePostCollateralAccountBalanceSummary
+    ) = Entry[_List]("collateral-account/balance-summary", ["v4", "private"], "POST", {"cost": 1})
+    v4_private_post_collateral_account_positions_history = (
+        v4PrivatePostCollateralAccountPositionsHistory
+    ) = Entry[_List]("collateral-account/positions/history", ["v4", "private"], "POST", {"cost": 1})
+    v4_private_post_collateral_account_leverage = v4PrivatePostCollateralAccountLeverage = Entry[
+        _Dict
+    ]("collateral-account/leverage", ["v4", "private"], "POST", {"cost": 1})
+    v4_private_post_collateral_account_positions_open = (
+        v4PrivatePostCollateralAccountPositionsOpen
+    ) = Entry[_List]("collateral-account/positions/open", ["v4", "private"], "POST", {"cost": 1})
+    v4_private_post_collateral_account_positions_closed_pnl = (
+        v4PrivatePostCollateralAccountPositionsClosedPnl
+    ) = Entry[_List](
+        "collateral-account/positions/closed-pnl", ["v4", "private"], "POST", {"cost": 1}
     )
-    v4_private_post_collateral_account_balance_summary = v4PrivatePostCollateralAccountBalanceSummary = Entry[_List](
-        "collateral-account/balance-summary", ["v4", "private"], "POST", {"cost": 1}
-    )
-    v4_private_post_collateral_account_positions_history = v4PrivatePostCollateralAccountPositionsHistory = Entry[
-        _List
-    ]("collateral-account/positions/history", ["v4", "private"], "POST", {"cost": 1})
-    v4_private_post_collateral_account_leverage = v4PrivatePostCollateralAccountLeverage = Entry[_Dict](
-        "collateral-account/leverage", ["v4", "private"], "POST", {"cost": 1}
-    )
-    v4_private_post_collateral_account_positions_open = v4PrivatePostCollateralAccountPositionsOpen = Entry[_List](
-        "collateral-account/positions/open", ["v4", "private"], "POST", {"cost": 1}
-    )
-    v4_private_post_collateral_account_summary = v4PrivatePostCollateralAccountSummary = Entry[_Dict](
-        "collateral-account/summary", ["v4", "private"], "POST", {"cost": 1}
-    )
-    v4_private_post_collateral_account_funding_history = v4PrivatePostCollateralAccountFundingHistory = Entry[_Dict](
-        "collateral-account/funding-history", ["v4", "private"], "POST", {"cost": 1}
-    )
+    v4_private_post_collateral_account_summary = v4PrivatePostCollateralAccountSummary = Entry[
+        _Dict
+    ]("collateral-account/summary", ["v4", "private"], "POST", {"cost": 1})
+    v4_private_post_collateral_account_funding_history = (
+        v4PrivatePostCollateralAccountFundingHistory
+    ) = Entry[_Dict]("collateral-account/funding-history", ["v4", "private"], "POST", {"cost": 1})
     v4_private_post_main_account_address = v4PrivatePostMainAccountAddress = Entry[_Dict](
         "main-account/address", ["v4", "private"], "POST", {"cost": 1}
     )
     v4_private_post_main_account_balance = v4PrivatePostMainAccountBalance = Entry[_Dict](
         "main-account/balance", ["v4", "private"], "POST", {"cost": 1}
     )
-    v4_private_post_main_account_create_new_address = v4PrivatePostMainAccountCreateNewAddress = Entry[_Dict](
-        "main-account/create-new-address", ["v4", "private"], "POST", {"cost": 1}
+    v4_private_post_main_account_create_new_address = v4PrivatePostMainAccountCreateNewAddress = (
+        Entry[_Dict]("main-account/create-new-address", ["v4", "private"], "POST", {"cost": 1})
     )
     v4_private_post_main_account_codes = v4PrivatePostMainAccountCodes = Entry[_Dict](
         "main-account/codes", ["v4", "private"], "POST", {"cost": 1}
@@ -137,12 +176,12 @@ class ImplicitAPI:
     v4_private_post_main_account_codes_my = v4PrivatePostMainAccountCodesMy = Entry[_Dict](
         "main-account/codes/my", ["v4", "private"], "POST", {"cost": 1}
     )
-    v4_private_post_main_account_codes_history = v4PrivatePostMainAccountCodesHistory = Entry[_Dict](
-        "main-account/codes/history", ["v4", "private"], "POST", {"cost": 1}
-    )
-    v4_private_post_main_account_fiat_deposit_url = v4PrivatePostMainAccountFiatDepositUrl = Entry[_Dict](
-        "main-account/fiat-deposit-url", ["v4", "private"], "POST", {"cost": 1}
-    )
+    v4_private_post_main_account_codes_history = v4PrivatePostMainAccountCodesHistory = Entry[
+        _Dict
+    ]("main-account/codes/history", ["v4", "private"], "POST", {"cost": 1})
+    v4_private_post_main_account_fiat_deposit_url = v4PrivatePostMainAccountFiatDepositUrl = Entry[
+        _Dict
+    ]("main-account/fiat-deposit-url", ["v4", "private"], "POST", {"cost": 1})
     v4_private_post_main_account_history = v4PrivatePostMainAccountHistory = Entry[_Dict](
         "main-account/history", ["v4", "private"], "POST", {"cost": 1}
     )
@@ -152,36 +191,85 @@ class ImplicitAPI:
     v4_private_post_main_account_withdraw_pay = v4PrivatePostMainAccountWithdrawPay = Entry[_List](
         "main-account/withdraw-pay", ["v4", "private"], "POST", {"cost": 1}
     )
+    v4_private_post_main_account_express_withdraw_token = (
+        v4PrivatePostMainAccountExpressWithdrawToken
+    ) = Entry[_Dict]("main-account/express-withdraw/token", ["v4", "private"], "POST", {"cost": 1})
     v4_private_post_main_account_transfer = v4PrivatePostMainAccountTransfer = Entry[_List](
         "main-account/transfer", ["v4", "private"], "POST", {"cost": 1}
     )
     v4_private_post_main_account_smart_plans = v4PrivatePostMainAccountSmartPlans = Entry[_List](
         "main-account/smart/plans", ["v4", "private"], "POST", {"cost": 1}
     )
-    v4_private_post_main_account_smart_investment = v4PrivatePostMainAccountSmartInvestment = Entry[_Dict](
-        "main-account/smart/investment", ["v4", "private"], "POST", {"cost": 1}
-    )
-    v4_private_post_main_account_smart_investment_close = v4PrivatePostMainAccountSmartInvestmentClose = Entry[_Dict](
-        "main-account/smart/investment/close", ["v4", "private"], "POST", {"cost": 1}
-    )
-    v4_private_post_main_account_smart_investments = v4PrivatePostMainAccountSmartInvestments = Entry[_Dict](
-        "main-account/smart/investments", ["v4", "private"], "POST", {"cost": 1}
+    v4_private_post_main_account_smart_investment = v4PrivatePostMainAccountSmartInvestment = Entry[
+        _Dict
+    ]("main-account/smart/investment", ["v4", "private"], "POST", {"cost": 1})
+    v4_private_post_main_account_smart_investment_close = (
+        v4PrivatePostMainAccountSmartInvestmentClose
+    ) = Entry[_Dict]("main-account/smart/investment/close", ["v4", "private"], "POST", {"cost": 1})
+    v4_private_post_main_account_smart_investments = v4PrivatePostMainAccountSmartInvestments = (
+        Entry[_Dict]("main-account/smart/investments", ["v4", "private"], "POST", {"cost": 1})
     )
     v4_private_post_main_account_fee = v4PrivatePostMainAccountFee = Entry[_List](
         "main-account/fee", ["v4", "private"], "POST", {"cost": 1}
     )
     v4_private_post_main_account_smart_interest_payment_history = (
         v4PrivatePostMainAccountSmartInterestPaymentHistory
-    ) = Entry[_Dict]("main-account/smart/interest-payment-history", ["v4", "private"], "POST", {"cost": 1})
+    ) = Entry[_Dict](
+        "main-account/smart/interest-payment-history", ["v4", "private"], "POST", {"cost": 1}
+    )
+    v4_private_post_main_account_smart_flex_plans = v4PrivatePostMainAccountSmartFlexPlans = Entry[
+        _List
+    ]("main-account/smart-flex/plans", ["v4", "private"], "POST", {"cost": 1})
+    v4_private_post_main_account_smart_flex_investments = (
+        v4PrivatePostMainAccountSmartFlexInvestments
+    ) = Entry[_Dict]("main-account/smart-flex/investments", ["v4", "private"], "POST", {"cost": 1})
+    v4_private_post_main_account_smart_flex_investments_history = (
+        v4PrivatePostMainAccountSmartFlexInvestmentsHistory
+    ) = Entry[_Dict](
+        "main-account/smart-flex/investments/history", ["v4", "private"], "POST", {"cost": 1}
+    )
+    v4_private_post_main_account_smart_flex_investments_payment_history = (
+        v4PrivatePostMainAccountSmartFlexInvestmentsPaymentHistory
+    ) = Entry[_Dict](
+        "main-account/smart-flex/investments/payment-history",
+        ["v4", "private"],
+        "POST",
+        {"cost": 1},
+    )
+    v4_private_post_main_account_smart_flex_investments_invest = (
+        v4PrivatePostMainAccountSmartFlexInvestmentsInvest
+    ) = Entry[_Dict](
+        "main-account/smart-flex/investments/invest", ["v4", "private"], "POST", {"cost": 1}
+    )
+    v4_private_post_main_account_smart_flex_investments_withdraw = (
+        v4PrivatePostMainAccountSmartFlexInvestmentsWithdraw
+    ) = Entry[_Dict](
+        "main-account/smart-flex/investments/withdraw", ["v4", "private"], "POST", {"cost": 1}
+    )
+    v4_private_post_main_account_smart_flex_investments_close = (
+        v4PrivatePostMainAccountSmartFlexInvestmentsClose
+    ) = Entry[_Dict](
+        "main-account/smart-flex/investments/close", ["v4", "private"], "POST", {"cost": 1}
+    )
+    v4_private_post_main_account_smart_flex_investments_auto_invest = (
+        v4PrivatePostMainAccountSmartFlexInvestmentsAutoInvest
+    ) = Entry[_Dict](
+        "main-account/smart-flex/investments/auto-invest", ["v4", "private"], "POST", {"cost": 1}
+    )
     v4_private_post_trade_account_balance = v4PrivatePostTradeAccountBalance = Entry[_Dict](
         "trade-account/balance", ["v4", "private"], "POST", {"cost": 1}
     )
-    v4_private_post_trade_account_executed_history = v4PrivatePostTradeAccountExecutedHistory = Entry[_Dict | _List](
-        "trade-account/executed-history", ["v4", "private"], "POST", {"cost": 1}
+    v4_private_post_trade_account_executed_history = v4PrivatePostTradeAccountExecutedHistory = (
+        Entry[_Dict | _List](
+            "trade-account/executed-history", ["v4", "private"], "POST", {"cost": 1}
+        )
     )
-    v4_private_post_trade_account_order_history = v4PrivatePostTradeAccountOrderHistory = Entry[_Dict](
-        "trade-account/order/history", ["v4", "private"], "POST", {"cost": 1}
-    )
+    v4_private_post_trade_account_order_history = v4PrivatePostTradeAccountOrderHistory = Entry[
+        _Dict
+    ]("trade-account/order/history", ["v4", "private"], "POST", {"cost": 1})
+    v4_private_post_trade_account_order_history_query = (
+        v4PrivatePostTradeAccountOrderHistoryQuery
+    ) = Entry[_List]("trade-account/order/history/query", ["v4", "private"], "POST", {"cost": 1})
     v4_private_post_trade_account_order = v4PrivatePostTradeAccountOrder = Entry[_Dict](
         "trade-account/order", ["v4", "private"], "POST", {"cost": 1}
     )
@@ -191,11 +279,11 @@ class ImplicitAPI:
     v4_private_post_order_collateral_market = v4PrivatePostOrderCollateralMarket = Entry[_Dict](
         "order/collateral/market", ["v4", "private"], "POST", {"cost": 1}
     )
-    v4_private_post_order_collateral_stop_limit = v4PrivatePostOrderCollateralStopLimit = Entry[_Dict](
-        "order/collateral/stop-limit", ["v4", "private"], "POST", {"cost": 1}
-    )
-    v4_private_post_order_collateral_trigger_market = v4PrivatePostOrderCollateralTriggerMarket = Entry[_Dict](
-        "order/collateral/trigger-market", ["v4", "private"], "POST", {"cost": 1}
+    v4_private_post_order_collateral_stop_limit = v4PrivatePostOrderCollateralStopLimit = Entry[
+        _Dict
+    ]("order/collateral/stop-limit", ["v4", "private"], "POST", {"cost": 1})
+    v4_private_post_order_collateral_trigger_market = v4PrivatePostOrderCollateralTriggerMarket = (
+        Entry[_Dict]("order/collateral/trigger-market", ["v4", "private"], "POST", {"cost": 1})
     )
     v4_private_post_order_collateral_bulk = v4PrivatePostOrderCollateralBulk = Entry[_List](
         "order/collateral/bulk", ["v4", "private"], "POST", {"cost": 1}
@@ -221,6 +309,9 @@ class ImplicitAPI:
     v4_private_post_order_cancel_all = v4PrivatePostOrderCancelAll = Entry[_List](
         "order/cancel/all", ["v4", "private"], "POST", {"cost": 1}
     )
+    v4_private_post_order_cancel_bulk = v4PrivatePostOrderCancelBulk = Entry[_List](
+        "order/cancel/bulk", ["v4", "private"], "POST", {"cost": 1}
+    )
     v4_private_post_order_kill_switch = v4PrivatePostOrderKillSwitch = Entry[_Dict](
         "order/kill-switch", ["v4", "private"], "POST", {"cost": 1}
     )
@@ -236,7 +327,9 @@ class ImplicitAPI:
     v4_private_post_order_conditional_cancel = v4PrivatePostOrderConditionalCancel = Entry[_List](
         "order/conditional-cancel", ["v4", "private"], "POST", {"cost": 1}
     )
-    v4_private_post_orders = v4PrivatePostOrders = Entry[_List]("orders", ["v4", "private"], "POST", {"cost": 1})
+    v4_private_post_orders = v4PrivatePostOrders = Entry[_List](
+        "orders", ["v4", "private"], "POST", {"cost": 1}
+    )
     v4_private_post_oco_orders = v4PrivatePostOcoOrders = Entry[_List](
         "oco-orders", ["v4", "private"], "POST", {"cost": 1}
     )
@@ -285,9 +378,9 @@ class ImplicitAPI:
     v4_private_post_sub_account_balances = v4PrivatePostSubAccountBalances = Entry[_Dict](
         "sub-account/balances", ["v4", "private"], "POST", {"cost": 1}
     )
-    v4_private_post_sub_account_transfer_history = v4PrivatePostSubAccountTransferHistory = Entry[_Dict](
-        "sub-account/transfer/history", ["v4", "private"], "POST", {"cost": 1}
-    )
+    v4_private_post_sub_account_transfer_history = v4PrivatePostSubAccountTransferHistory = Entry[
+        _Dict
+    ]("sub-account/transfer/history", ["v4", "private"], "POST", {"cost": 1})
     v4_private_post_sub_account_api_key_create = v4PrivatePostSubAccountApiKeyCreate = Entry[_Dict](
         "sub-account/api-key/create", ["v4", "private"], "POST", {"cost": 1}
     )
@@ -303,21 +396,67 @@ class ImplicitAPI:
     v4_private_post_sub_account_api_key_reset = v4PrivatePostSubAccountApiKeyReset = Entry[_Dict](
         "sub-account/api-key/reset", ["v4", "private"], "POST", {"cost": 1}
     )
-    v4_private_post_sub_account_api_key_ip_address_list = v4PrivatePostSubAccountApiKeyIpAddressList = Entry[_Dict](
-        "sub-account/api-key/ip-address/list", ["v4", "private"], "POST", {"cost": 1}
-    )
-    v4_private_post_sub_account_api_key_ip_address_create = v4PrivatePostSubAccountApiKeyIpAddressCreate = Entry[_Dict](
+    v4_private_post_sub_account_api_key_ip_address_list = (
+        v4PrivatePostSubAccountApiKeyIpAddressList
+    ) = Entry[_Dict]("sub-account/api-key/ip-address/list", ["v4", "private"], "POST", {"cost": 1})
+    v4_private_post_sub_account_api_key_ip_address_create = (
+        v4PrivatePostSubAccountApiKeyIpAddressCreate
+    ) = Entry[_Dict](
         "sub-account/api-key/ip-address/create", ["v4", "private"], "POST", {"cost": 1}
     )
-    v4_private_post_sub_account_api_key_ip_address_delete = v4PrivatePostSubAccountApiKeyIpAddressDelete = Entry[_Dict](
+    v4_private_post_sub_account_api_key_ip_address_delete = (
+        v4PrivatePostSubAccountApiKeyIpAddressDelete
+    ) = Entry[_Dict](
         "sub-account/api-key/ip-address/delete", ["v4", "private"], "POST", {"cost": 1}
     )
     v4_private_post_mining_rewards = v4PrivatePostMiningRewards = Entry[_Dict](
         "mining/rewards", ["v4", "private"], "POST", {"cost": 1}
     )
+    v4_private_post_mining_hashrate = v4PrivatePostMiningHashrate = Entry[_Dict](
+        "mining/hashrate", ["v4", "private"], "POST", {"cost": 1}
+    )
+    v4_private_post_mining_payout_destination = v4PrivatePostMiningPayoutDestination = Entry[_Dict](
+        "mining/payout-destination", ["v4", "private"], "POST", {"cost": 1}
+    )
+    v4_private_post_mining_payout_destination_edit = v4PrivatePostMiningPayoutDestinationEdit = (
+        Entry[_Dict]("mining/payout-destination/edit", ["v4", "private"], "POST", {"cost": 1})
+    )
+    v4_private_post_mining_miners_info = v4PrivatePostMiningMinersInfo = Entry[_Dict](
+        "mining/miners/info", ["v4", "private"], "POST", {"cost": 1}
+    )
+    v4_private_post_mining_workers_names = v4PrivatePostMiningWorkersNames = Entry[_Dict](
+        "mining/workers/names", ["v4", "private"], "POST", {"cost": 1}
+    )
+    v4_private_post_mining_workers_hashrate = v4PrivatePostMiningWorkersHashrate = Entry[_Dict](
+        "mining/workers/hashrate", ["v4", "private"], "POST", {"cost": 1}
+    )
+    v4_private_post_mining_watcher_links_create = v4PrivatePostMiningWatcherLinksCreate = Entry[
+        _Dict
+    ]("mining/watcher-links/create", ["v4", "private"], "POST", {"cost": 1})
+    v4_private_post_mining_watcher_links_list = v4PrivatePostMiningWatcherLinksList = Entry[_Dict](
+        "mining/watcher-links/list", ["v4", "private"], "POST", {"cost": 1}
+    )
+    v4_private_post_mining_accounts_create = v4PrivatePostMiningAccountsCreate = Entry[_Dict](
+        "mining/accounts/create", ["v4", "private"], "POST", {"cost": 1}
+    )
+    v4_private_post_mining_accounts = v4PrivatePostMiningAccounts = Entry[_Dict](
+        "mining/accounts", ["v4", "private"], "POST", {"cost": 1}
+    )
     v4_private_post_market_fee = v4PrivatePostMarketFee = Entry[_Dict](
         "market/fee", ["v4", "private"], "POST", {"cost": 1}
     )
+    v4_private_post_market_fee_single = v4PrivatePostMarketFeeSingle = Entry[_Dict](
+        "market/fee/single", ["v4", "private"], "POST", {"cost": 1}
+    )
     v4_private_post_conditional_orders = v4PrivatePostConditionalOrders = Entry[_Dict](
         "conditional-orders", ["v4", "private"], "POST", {"cost": 1}
+    )
+    v4_private_post_travel_rule_vasps = v4PrivatePostTravelRuleVasps = Entry[_Dict](
+        "travel-rule/vasps", ["v4", "private"], "POST", {"cost": 1}
+    )
+    v4_private_post_travel_rule_deposit_verification = (
+        v4PrivatePostTravelRuleDepositVerification
+    ) = Entry[_Dict]("travel-rule/deposit/verification", ["v4", "private"], "POST", {"cost": 1})
+    v4_private_post_jwt = v4PrivatePostJwt = Entry[_Dict](
+        "jwt", ["v4", "private"], "POST", {"cost": 1}
     )

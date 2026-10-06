@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,7 +37,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import test_market  # noqa: E402
+from ccxt.test.exchange.base import test_market  # noqa E402
 
 
 def test_load_markets(exchange, skipped_properties):
@@ -49,22 +51,26 @@ def test_load_markets(exchange, skipped_properties):
     market_keys_length = len(market_keys)
     assert symbols_length > 0, ".symbols count <= 0 (less than or equal to zero)"
     assert market_keys_length > 0, ".markets objects keys length <= 0 (less than or equal to zero)"
-    assert symbols_length == market_keys_length, "number of .symbols is not equal to the number of .markets"
+    assert symbols_length == market_keys_length, (
+        "number of .symbols is not equal to the number of .markets"
+    )
     market_values = list(markets.values())
-    for i in range(len(market_values)):
+    for i in range(0, len(market_values)):
         test_market(exchange, skipped_properties, method, market_values[i])
     # market-type coverage (inlined: a nested helper breaks Java emit into a missing TestLoadedMarketTypes class)
     market_types = ["spot", "swap", "future", "option", "index"]
     collected_types = []
     all_markets = list(exchange.markets.values())
-    for i in range(len(all_markets)):
+    for i in range(0, len(all_markets)):
         market = all_markets[i]
         if not exchange.in_array(market["type"], collected_types):
             collected_types.append(market["type"])
-    for i in range(len(market_types)):
+    for i in range(0, len(market_types)):
         m_type = market_types[i]
         if exchange.has[m_type] is not None and exchange.has[m_type] is not False:
-            skip_market_types = ("optionsNotLoadedByDefault" in skipped_properties) and m_type == "option"
+            skip_market_types = (
+                "optionsNotLoadedByDefault" in skipped_properties
+            ) and m_type == "option"
             assert exchange.in_array(m_type, collected_types) or skip_market_types, (
                 "exchange.has["
                 + m_type
