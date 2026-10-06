@@ -1,5 +1,5 @@
 {
-  "current_index": 84,
+  "current_index": 85,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -677,7 +677,7 @@
       "name": "in-stock-screener",
       "target": "c3point/in-stock-screener",
       "url": "https://github.com/c3point/in-stock-screener",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
