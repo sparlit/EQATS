@@ -245,9 +245,10 @@ class TectonicDBEngine:
             ask_delta = curr_ask - prev_ask
             out.extend(
                 struct.pack(
-                    "<Qqdddd",
+                    "<Qqqdddd",
                     ts_delta,
                     bid_delta,
+                    ask_delta,
                     float(t.get("bid_size", 0.0)),
                     float(t.get("ask_size", 0.0)),
                     float(t.get("trade_price", 0.0)),
@@ -282,23 +283,24 @@ class TectonicDBEngine:
         prev_bid = round(anchor_data[1] * 10000)
         prev_ask = round(anchor_data[2] * 10000)
         for _ in range(1, count):
-            row = struct.unpack("<Qqdddd", data[cursor : cursor + 48])
-            cursor += 48
+            row = struct.unpack("<Qqqdddd", data[cursor : cursor + 56])
+            cursor += 56
             curr_ts = prev_ts + row[0]
             curr_bid = prev_bid + row[1]
-            curr_ask = prev_ask
+            curr_ask = prev_ask + row[2]
             results.append(
                 {
                     "timestamp_ns": curr_ts,
                     "bid_price": curr_bid / 10000.0,
-                    "ask_price": prev_ask / 10000.0,
-                    "bid_size": row[2],
-                    "ask_size": row[3],
-                    "trade_price": row[4],
-                    "trade_volume": row[5],
+                    "ask_price": curr_ask / 10000.0,
+                    "bid_size": row[3],
+                    "ask_size": row[4],
+                    "trade_price": row[5],
+                    "trade_volume": row[6],
                     "magic_number": self.magic_number,
                 }
             )
             prev_ts = curr_ts
             prev_bid = curr_bid
+            prev_ask = curr_ask
         return results

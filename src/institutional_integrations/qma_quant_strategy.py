@@ -14,8 +14,12 @@ try:
     import pandas as pd
 
     PANDAS_AVAILABLE = True
+    _NUMPY_VER = getattr(np, "__version__", "unknown")
+    _PANDAS_VER = getattr(pd, "__version__", "unknown")
 except ImportError:
     PANDAS_AVAILABLE = False
+    _NUMPY_VER = "none"
+    _PANDAS_VER = "none"
 logger = logging.getLogger("QMAQuantStrategy")
 
 

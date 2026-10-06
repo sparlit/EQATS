@@ -328,7 +328,7 @@ class CredentialManager:
         try:
             import cryptography  # type: ignore
 
-            crypto_available = True
+            crypto_available = cryptography is not None
         except ImportError:
             crypto_available = False
 
