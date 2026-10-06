@@ -1,3 +1,4 @@
+# codespell:ignore IST,MIS
 """
 Options Greeks Dynamic Auto-Hedging Engine (Black-76 Delta/Gamma/Vega Auto-Balancer)
 ====================================================================================
@@ -216,24 +217,14 @@ class OptionsGreeksHedgeEngineAdapter(SEBIBrokerAdapter):
         return []
 
     def get_history(
-        self, symbol: str, exchange: str = "NFO", count: int = 100
+        self, symbol: str, exchange: str = "NFO", count: int = 100, interval: str = "minute"
     ) -> list[dict[str, Any]]:
         return [{"symbol": symbol, "close": 215.50} for _ in range(count)]
 
     def modify_order(
-        self, ticket: str, price: float = 0.0, trigger_price: float = 0.0
-    ) -> SEBIOrderResponse:
-        return SEBIOrderResponse(
-            ticket=ticket,
-            symbol="NIFTY",
-            price=round_tick_005(price),
-            quantity=1,
-            product="NRML",
-            exchange="NFO",
-            status="MODIFIED",
-            success=True,
-            message="Hedge order modified successfully.",
-        )
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
+        return True
 
 
 IndianBrokerPluginRegistry.register("OPTIONS_GREEKS_HEDGE_ENGINE", OptionsGreeksHedgeEngineAdapter)

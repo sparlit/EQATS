@@ -63,15 +63,18 @@ class CandlestickAIClassifier:
         body = abs(c - o)
         prev_body = abs(p_c - p_o)
         total_range = h - l if h > l else 0.0001
+        body_ratio = body / total_range
         lower_wick = min(o, c) - l
         upper_wick = h - max(o, c)
         if body > prev_body * 1.5 and c > o and (p_c < p_o):
+            conf = min(0.99, round(0.80 + body_ratio * 0.1, 2))
             patterns.append(
-                {"pattern": "bullish_engulfing", "confidence": 0.85, "direction": "BUY"}
+                {"pattern": "bullish_engulfing", "confidence": conf, "direction": "BUY"}
             )
         if body > prev_body * 1.5 and c < o and (p_c > p_o):
+            conf = min(0.99, round(0.80 + body_ratio * 0.1, 2))
             patterns.append(
-                {"pattern": "bearish_engulfing", "confidence": 0.85, "direction": "SELL"}
+                {"pattern": "bearish_engulfing", "confidence": conf, "direction": "SELL"}
             )
         if lower_wick > body * 2.0 and upper_wick < body * 0.4:
             patterns.append({"pattern": "hammer_pinbar", "confidence": 0.75, "direction": "BUY"})

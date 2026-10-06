@@ -103,6 +103,8 @@ class AIFinanceStockAnalysisEngine:
         highs = [float(b["high"]) for b in history_bars]
         lows = [float(b["low"]) for b in history_bars]
         current_price = closes[-1]
+        highest_high = max(highs) if highs else current_price
+        lowest_low = min(lows) if lows else current_price
 
         # Technical Score (0.0 to 100.0)
         ema20 = sum(closes[-20:]) / 20.0
@@ -133,6 +135,8 @@ class AIFinanceStockAnalysisEngine:
             "action": action,
             "confidence": min(0.95, confidence),
             "entry_price": round_to_indian_tick_size(current_price),
+            "highest_high": highest_high,
+            "lowest_low": lowest_low,
             "sl": sl,
             "tp": tp,
             "sentiment_details": news_res,

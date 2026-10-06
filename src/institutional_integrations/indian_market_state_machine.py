@@ -1,3 +1,4 @@
+# codespell:ignore MIS,IST
 """
 Indian Market State Machine & Tick Size Rounding Module (EQATS Institutional Integration).
 
@@ -217,9 +218,10 @@ class IndianMarketStateMachine:
                         )
                         closed_tickets.append(ticket)
                         _log.info(
-                            "Systematically routed market exit for active MIS position %s on %s.",
+                            "Systematically routed market exit for active MIS position %s on %s (res=%s).",
                             ticket,
                             symbol,
+                            res,
                         )
                     except Exception as e:
                         _log.error("Failed to close MIS position %s: %s", ticket, e)

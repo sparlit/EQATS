@@ -1,3 +1,4 @@
+# codespell:ignore IST,MIS
 """
 Institutional Smart Order Router (SOR) & Multi-Exchange Liquidity Slicer Engine
 ================================================================================
@@ -200,24 +201,14 @@ class InstitutionalOrderRouterAdapter(SEBIBrokerAdapter):
         return []
 
     def get_history(
-        self, symbol: str, exchange: str = "NSE", count: int = 100
+        self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
     ) -> list[dict[str, Any]]:
         return [{"symbol": symbol, "close": 2850.50} for _ in range(count)]
 
     def modify_order(
-        self, ticket: str, price: float = 0.0, trigger_price: float = 0.0
-    ) -> SEBIOrderResponse:
-        return SEBIOrderResponse(
-            ticket=ticket,
-            symbol="INFY",
-            price=round_tick_005(price),
-            quantity=1,
-            product="MIS",
-            exchange="NSE",
-            status="MODIFIED",
-            success=True,
-            message="Order modified successfully.",
-        )
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
+        return True
 
 
 IndianBrokerPluginRegistry.register("INSTITUTIONAL_ORDER_ROUTER", InstitutionalOrderRouterAdapter)

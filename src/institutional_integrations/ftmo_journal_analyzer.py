@@ -13,8 +13,10 @@ try:
     import pandas as pd
 
     PANDAS_AVAILABLE = True
+    _NUMPY_VER = getattr(np, "__version__", "unknown")
 except ImportError:
     PANDAS_AVAILABLE = False
+    _NUMPY_VER = "none"
 logger = logging.getLogger("FTMOJournalAnalyzer")
 
 
