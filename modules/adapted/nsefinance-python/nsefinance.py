@@ -49,19 +49,20 @@ class NSEFinance:
     # Get daily result
     def get_daily_list(self):
         data = self._data()
-        return json.loads(data)
+        finalResult = json.loads(data)
+        return finalResult
 
     # Get by symbol and Date
     def get_by_symbol(self, symbol=None, date=None):
         if not symbol:
-            msg = "Symbol not supplied"
-            raise ValueError(msg)
+            raise ValueError("Symbol not supplied")
 
-        if not date:
+        elif not date:
             data = self._data(symbol)
-            return json.loads(data)
+            finalResult = json.loads(data)
+            return finalResult
 
-        if symbol and date:
+        elif symbol and date:
             data = self._data(symbol, date)
-            return json.loads(data)
-        return None
+            finalResult = json.loads(data)
+            return finalResult
