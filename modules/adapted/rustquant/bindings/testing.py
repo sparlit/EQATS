@@ -50,6 +50,7 @@ rates = [
 ]
 
 crv = Curve(dates, rates, CurveType.Spot, InterpolationMethod.Linear)
+print(crv.get_rate(date(2026, 6, 1)))
 
 
 new_dates = [
@@ -61,6 +62,7 @@ new_dates = [
 ]
 
 cal = Calendar(Market.Australia)
+print(cal.__dir__())
 cal.market()
 cal.extra_holidays()
 cal.is_business_day(date(2023, 1, 3))
