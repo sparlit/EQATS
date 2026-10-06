@@ -1,5 +1,5 @@
 {
-  "current_index": 115,
+  "current_index": 116,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -925,9 +925,9 @@
       "name": "portfolio-monte-carlo",
       "target": "devanshx9x/portfolio-monte-carlo",
       "url": "https://github.com/devanshx9x/portfolio-monte-carlo",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3056",
+      "merged": true
     },
     {
       "name": "stocks-dashboard",
