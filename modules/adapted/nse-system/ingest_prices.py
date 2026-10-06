@@ -41,7 +41,9 @@ def fetch_one(conn, symbol):
     if start > dt.date.today().isoformat():
         return 0
 
-    result = get_registry().fetch("prices.daily_history", ("yahoo_finance",), symbol=symbol, start=start)
+    result = get_registry().fetch(
+        "prices.daily_history", ("yahoo_finance",), symbol=symbol, start=start
+    )
     df = result.data
     if df.empty:
         return 0
@@ -54,7 +56,9 @@ def fetch_one(conn, symbol):
     ]
     conn.executemany("INSERT OR REPLACE INTO prices_daily VALUES (?,?,?,?,?,?,?)", rows)
 
-    last_row = conn.execute("SELECT MAX(date), COUNT(*) FROM prices_daily WHERE symbol=?", (symbol,)).fetchone()
+    last_row = conn.execute(
+        "SELECT MAX(date), COUNT(*) FROM prices_daily WHERE symbol=?", (symbol,)
+    ).fetchone()
     conn.execute(
         "INSERT OR REPLACE INTO price_meta VALUES (?,?,?,?)",
         (symbol, last_row[0], last_row[1], dt.datetime.now().isoformat()),
@@ -65,7 +69,9 @@ def fetch_one(conn, symbol):
 
 def run(show_every=1):
     conn = db.get_conn()
-    symbols = [r[0] for r in conn.execute("SELECT symbol FROM stocks WHERE active=1 ORDER BY symbol")]
+    symbols = [
+        r[0] for r in conn.execute("SELECT symbol FROM stocks WHERE active=1 ORDER BY symbol")
+    ]
     total = len(symbols)
     failed = []
     for i, sym in enumerate(symbols, 1):
@@ -84,7 +90,7 @@ def run(show_every=1):
             failed.append(sym)
         time.sleep(SLEEP_SECONDS)
 
-    print("FAILED SYMBOLS:", failed or "none")
+    print("FAILED SYMBOLS:", failed if failed else "none")
     total_rows = conn.execute("SELECT COUNT(*) FROM prices_daily").fetchone()[0]
     print(f"Total price rows in database: {total_rows}")
     conn.close()

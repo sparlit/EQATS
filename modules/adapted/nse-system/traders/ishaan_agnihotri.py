@@ -36,7 +36,6 @@ import db
 import numpy as np
 import pandas as pd
 from log_utils import get_logger
-from universe_helper import band_universe
 
 log = get_logger("trader.ishaan_agnihotri")
 
@@ -73,7 +72,8 @@ METHODS = [
     {
         "id": "ema_reversal_playbook",
         "name": "EMA Reversal Playbook",
-        "description": "Downtrend + close above 9 EMA + (RSI oversold OR MACD cross OR EMA9>EMA21) + retest holds.",
+        "description": "Downtrend + close above 9 EMA + (RSI oversold OR "
+        "MACD cross OR EMA9>EMA21) + retest holds.",
         "direction": "long",
         "scan": True,
         "confidence": "HIGH",
@@ -81,7 +81,8 @@ METHODS = [
     {
         "id": "pattern_breakout_playbook",
         "name": "Pattern Breakout Playbook",
-        "description": "Any of: horizontal resistance, double bottom, inverse H&S — close above boundary + volume.",
+        "description": "Any of: horizontal resistance, double bottom, "
+        "inverse H&S — close above boundary + volume.",
         "direction": "long",
         "scan": True,
         "confidence": "HIGH",
@@ -155,7 +156,8 @@ def _try_emit(sigs, fn):
 
 def _load_df(conn, sym, limit=400):
     rows = conn.execute(
-        "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
+        "SELECT date, open, high, low, close, volume "
+        "FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
         (sym, limit),
     ).fetchall()
     if not rows or len(rows) < MIN_BARS:
@@ -225,7 +227,7 @@ def _pivots(values, k=PIVOT_K, lookback=PIVOT_LOOKBACK, kind="low"):
     out = []
     for i in range(start, n - k):
         win = values[i - k : i + k + 1]
-        if (kind == "low" and values[i] == win.min()) or (kind == "high" and values[i] == win.max()):
+        if kind == "low" and values[i] == win.min() or kind == "high" and values[i] == win.max():
             out.append((i, float(values[i])))
     return out
 
@@ -263,20 +265,30 @@ def _is_hammer(s):
     if s is None:
         return False
     if s["body"] < 1e-6:
-        return s["lower"] >= 0.6 * s["rng"] and s["upper"] <= 0.2 * s["rng"] and s["close_pos"] >= 0.6
+        return (
+            s["lower"] >= 0.6 * s["rng"] and s["upper"] <= 0.2 * s["rng"] and s["close_pos"] >= 0.6
+        )
     return s["lower"] >= 2.0 * s["body"] and s["upper"] <= 0.3 * s["body"] and s["close_pos"] >= 0.6
 
 
 def _is_dragonfly_doji(s):
     if s is None:
         return False
-    return s["body"] <= 0.15 * s["rng"] and s["lower"] >= 0.6 * s["rng"] and s["upper"] <= 0.1 * s["rng"]
+    return (
+        s["body"] <= 0.15 * s["rng"]
+        and s["lower"] >= 0.6 * s["rng"]
+        and s["upper"] <= 0.1 * s["rng"]
+    )
 
 
 def _is_long_legged_doji(s):
     if s is None:
         return False
-    return s["body"] <= 0.15 * s["rng"] and s["lower"] >= 0.35 * s["rng"] and s["upper"] >= 0.35 * s["rng"]
+    return (
+        s["body"] <= 0.15 * s["rng"]
+        and s["lower"] >= 0.35 * s["rng"]
+        and s["upper"] >= 0.35 * s["rng"]
+    )
 
 
 def _is_bullish_engulfing(df, i):
@@ -288,7 +300,9 @@ def _is_bullish_engulfing(df, i):
         return False
     if prev["is_bull"] or not cur["is_bull"]:
         return False
-    return cur["open"] <= prev["close"] and cur["close"] >= prev["open"] and cur["body"] > prev["body"]
+    return (
+        cur["open"] <= prev["close"] and cur["close"] >= prev["open"] and cur["body"] > prev["body"]
+    )
 
 
 def _support_level(df, atr):
@@ -432,8 +446,14 @@ def _detect_pattern_breakout(sym, df, atr, vol_ratio):
                     "pattern_breakout_playbook",
                     c[-1],
                     "HIGH",
-                    f"Resistance breakout above ₹{_fmt_num(level)} ({touches} touches), vol {_fmt_num(vol_ratio, 2)}x",
-                    {"pattern": "horizontal_resistance", "level": level, "touches": touches, "vol_ratio": vol_ratio},
+                    f"Resistance breakout above ₹{_fmt_num(level)} "
+                    f"({touches} touches), vol {_fmt_num(vol_ratio, 2)}x",
+                    {
+                        "pattern": "horizontal_resistance",
+                        "level": level,
+                        "touches": touches,
+                        "vol_ratio": vol_ratio,
+                    },
                 )
             ]
 
@@ -489,7 +509,11 @@ def _detect_pattern_breakout(sym, df, atr, vol_ratio):
                                 f"Inverse H&S breakout above neckline "
                                 f"₹{_fmt_num(neckline)}, vol "
                                 f"{_fmt_num(vol_ratio, 2)}x",
-                                {"pattern": "inverse_head_shoulders", "neckline": neckline, "vol_ratio": vol_ratio},
+                                {
+                                    "pattern": "inverse_head_shoulders",
+                                    "neckline": neckline,
+                                    "vol_ratio": vol_ratio,
+                                },
                             )
                         ]
 
@@ -511,7 +535,7 @@ def _detect_candlestick_reversal(sym, df, atr, vol_ratio):
     near_support = False
     support_level = None
     if support is not None:
-        support_level, _touches = support
+        support_level, touches = support
         if support_level > 0 and abs(low_now - support_level) / support_level <= 0.03:
             near_support = True
 
@@ -574,8 +598,14 @@ def _detect_trend_pullback(sym, df, atr, vol_ratio):
     # Uptrend context — either SMA180 uptrend OR 50>200 stack
     sma180_prev = _sma_at(closes[:-10], SMA_LONG)
     trend_ok = False
-    if (sma180_prev is not None and sma180 > sma180_prev and close > sma180) or (
-        sma50 is not None and sma200 is not None and sma50 > sma200 and close > sma50
+    if (
+        sma180_prev is not None
+        and sma180 > sma180_prev
+        and close > sma180
+        or sma50 is not None
+        and sma200 is not None
+        and sma50 > sma200
+        and close > sma50
     ):
         trend_ok = True
     if not trend_ok:
@@ -607,7 +637,8 @@ def _detect_trend_pullback(sym, df, atr, vol_ratio):
             "trend_pullback_playbook",
             close,
             "HIGH",
-            f"Trend pullback: close ₹{_fmt_num(close)} near SMA180 ₹{_fmt_num(sma180)}, bullish bounce",
+            f"Trend pullback: close ₹{_fmt_num(close)} near "
+            f"SMA180 ₹{_fmt_num(sma180)}, bullish bounce",
             {"close": float(close), "sma180": sma180, "sma50": sma50, "vol_ratio": vol_ratio},
         )
     ]
@@ -698,11 +729,13 @@ def _scan_symbol(sym, df):
 # ----------------------------------------------------------------
 # Universe scan
 # ----------------------------------------------------------------
-def scan(conn=None, limit=800):
+def scan(conn=None, limit=800, symbols=None):
     own = conn is None
     if own:
         conn = db.get_conn()
-    syms = band_universe(conn, limit=limit)
+    from traders.base import select_scan_symbols
+
+    syms = select_scan_symbols(conn, limit, symbols)
     log.info(f"Ishaan scan: {len(syms)} symbols in universe")
 
     signals = []

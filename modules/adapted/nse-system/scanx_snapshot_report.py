@@ -82,21 +82,24 @@ def report(database, as_of=None):
     uri = Path(database).resolve().as_uri() + "?mode=ro"
     conn = sqlite3.connect(uri, uri=True)
     try:
-        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        tables = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
         if "scanx_fundamentals_snapshots" not in tables:
-            msg = "No ScanX snapshot table exists in this database"
-            raise RuntimeError(msg)
+            raise RuntimeError("No ScanX snapshot table exists in this database")
         dates = [
             row[0]
-            for row in conn.execute("SELECT DISTINCT as_of_date FROM scanx_fundamentals_snapshots ORDER BY as_of_date")
+            for row in conn.execute(
+                "SELECT DISTINCT as_of_date FROM scanx_fundamentals_snapshots ORDER BY as_of_date"
+            )
         ]
         if not dates:
-            msg = "The ScanX snapshot table is empty"
-            raise RuntimeError(msg)
+            raise RuntimeError("The ScanX snapshot table is empty")
         selected_date = as_of or dates[-1]
         if selected_date not in dates:
-            msg = f"No ScanX snapshot found for {selected_date}; available dates: {', '.join(dates)}"
-            raise ValueError(msg)
+            raise ValueError(
+                f"No ScanX snapshot found for {selected_date}; available dates: {', '.join(dates)}"
+            )
         row_count = conn.execute(
             "SELECT count(*) FROM scanx_fundamentals_snapshots WHERE as_of_date=?", (selected_date,)
         ).fetchone()[0]
@@ -125,14 +128,18 @@ def report(database, as_of=None):
                     f"modified {artifact[2]}, imported {artifact[5]})"
                 )
                 print(f"Security master: {artifact[3]} (SHA-256 {artifact[4]})")
-            print("File modification time is host metadata, not proof of market-observation or publication time.")
+            print(
+                "File modification time is host metadata, not proof of "
+                "market-observation or publication time."
+            )
         for group, fields in GROUPS.items():
             present = [field for field in fields if field in cols]
             if not present:
                 continue
             select = ",".join(f"count({field})" for field in present)
             counts = conn.execute(
-                f"SELECT {select} FROM scanx_fundamentals_snapshots WHERE as_of_date=?", (selected_date,)
+                f"SELECT {select} FROM scanx_fundamentals_snapshots WHERE as_of_date=?",
+                (selected_date,),
             ).fetchone()
             print(f"\n{group}")
             for field, count in zip(present, counts, strict=False):
@@ -140,13 +147,13 @@ def report(database, as_of=None):
 
         flags = Counter()
         for (payload,) in conn.execute(
-            "SELECT data_quality_flags FROM scanx_fundamentals_snapshots WHERE as_of_date=?", (selected_date,)
+            "SELECT data_quality_flags FROM scanx_fundamentals_snapshots WHERE as_of_date=?",
+            (selected_date,),
         ):
             try:
                 flags.update(json.loads(payload or "[]"))
             except json.JSONDecodeError as exc:
-                msg = "Malformed data_quality_flags JSON in snapshot"
-                raise ValueError(msg) from exc
+                raise ValueError("Malformed data_quality_flags JSON in snapshot") from exc
         print("\nQuality flags (row counts)")
         if flags:
             for flag, count in sorted(flags.items()):

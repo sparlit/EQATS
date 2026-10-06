@@ -93,7 +93,10 @@ EV_ICON = {
 
 def pill(status):
     c = COLORS.get(status, "#64748b")
-    return f'<span class="pill" style="background:{c}22;color:{c};border:1px solid {c}55">{status}</span>'
+    return (
+        f'<span class="pill" style="background:{c}22;color:{c};'
+        f'border:1px solid {c}55">{status}</span>'
+    )
 
 
 def card(title, value, sub=""):
@@ -114,7 +117,9 @@ def goto(sym):
 def ml_explain(conn, sym):
     import numpy as np
 
-    rows = conn.execute("SELECT close FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 300", (sym,)).fetchall()
+    rows = conn.execute(
+        "SELECT close FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 300", (sym,)
+    ).fetchall()
     rows = [r for r in rows if r[0] is not None]
     if len(rows) < 252:
         return None
@@ -165,7 +170,9 @@ if choice == "📡 Radar":
     st.markdown('<div class="hero">RADAR — nothing moves unseen</div>', unsafe_allow_html=True)
     nb = conn.execute("SELECT COUNT(*) FROM universe_broad").fetchone()[0]
     nrec = conn.execute("SELECT COUNT(*) FROM pipeline WHERE status='Recommended'").fetchone()[0]
-    nev = conn.execute("SELECT COUNT(*) FROM events WHERE date=(SELECT MAX(date) FROM events)").fetchone()[0]
+    nev = conn.execute(
+        "SELECT COUNT(*) FROM events WHERE date=(SELECT MAX(date) FROM events)"
+    ).fetchone()[0]
     a, b, c = st.columns(3)
     with a:
         card("Stocks on radar", nb, "mcap ≥ ₹1,000 cr")
@@ -176,7 +183,9 @@ if choice == "📡 Radar":
 
     import broad_scan
 
-    rows = conn.execute("SELECT symbol, perf1m, perf3m, relvol, mcap_cr FROM universe_broad").fetchall()
+    rows = conn.execute(
+        "SELECT symbol, perf1m, perf3m, relvol, mcap_cr FROM universe_broad"
+    ).fetchall()
     groups = {"TURN": [], "VOL": [], "MOM": []}
     for sym, p1, p3, rv, mc in rows:
         tag = broad_scan.classify(p1, p3, rv)
@@ -242,7 +251,9 @@ if choice == "📡 Radar":
             if st.button(sym, key="ev" + sym + kind):
                 goto(sym)
         with c2:
-            st.markdown(f'<div class="evrow">{EV_ICON.get(kind, "•")} {text}</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="evrow">{EV_ICON.get(kind, "•")} {text}</div>', unsafe_allow_html=True
+            )
 
 elif choice == "🏄 Swing Desk":
     import time as _time
@@ -250,7 +261,9 @@ elif choice == "🏄 Swing Desk":
     import swing_live
 
     swing_live.ensure(conn)
-    st.markdown('<div class="hero">SWING DESK — Gabani pullback, live</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="hero">SWING DESK — Gabani pullback, live</div>', unsafe_allow_html=True
+    )
     rc = st.session_state.get("regime_cache")
     if rc is None or (_time.time() - rc[0]) > 3600:
         try:
@@ -276,7 +289,9 @@ elif choice == "🏄 Swing Desk":
             unsafe_allow_html=True,
         )
     else:
-        st.markdown('<div class="evrow">⚠️ regime unavailable (offline)</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="evrow">⚠️ regime unavailable (offline)</div>', unsafe_allow_html=True
+        )
     if st.button("🔁 Run EOD swing scan now"):
         with st.spinner("Grading + scanning..."):
             swing_live.update_outcomes()
@@ -333,7 +348,9 @@ elif choice == "🛩️ Cockpit":
     sec = conn.execute("SELECT sector FROM stocks WHERE symbol=?", (sym,)).fetchone()
     mcr = conn.execute("SELECT mcap_cr FROM universe_broad WHERE symbol=?", (sym,)).fetchone()
     if mcr is None:
-        mcr = conn.execute("SELECT market_cap_cr FROM fundamentals WHERE symbol=?", (sym,)).fetchone()
+        mcr = conn.execute(
+            "SELECT market_cap_cr FROM fundamentals WHERE symbol=?", (sym,)
+        ).fetchone()
     head = sym
     if sec and sec[0]:
         head += f" · {sec[0]}"
@@ -375,7 +392,11 @@ elif choice == "🛩️ Cockpit":
             "FROM scan_results)",
             (sym,),
         ).fetchone()
-        card("Fund score", f"{fr[0]:.0f}" if fr else "—", "40% ROCE + 30% growth + 30% valuation vs sector")
+        card(
+            "Fund score",
+            f"{fr[0]:.0f}" if fr else "—",
+            "40% ROCE + 30% growth + 30% valuation vs sector",
+        )
         with st.expander("Why this score?"):
             rs = pd.read_sql(
                 "SELECT rule_name, passed, reason_text "
@@ -421,7 +442,10 @@ elif choice == "🛩️ Cockpit":
                             txt = f"{v * 100:.2f}%"
                         else:
                             txt = f"{v * 100:.2f}% of price"
-                        st.markdown(f'<div class="evrow">{label}: <b>{txt}</b></div>', unsafe_allow_html=True)
+                        st.markdown(
+                            f'<div class="evrow">{label}: <b>{txt}</b></div>',
+                            unsafe_allow_html=True,
+                        )
                 else:
                     st.info("Not enough history.")
         else:
@@ -430,27 +454,40 @@ elif choice == "🛩️ Cockpit":
     left, right = st.columns([3, 2])
     with left:
         st.subheader("Price + EMA21 + 200DMA")
-        ph = pd.read_sql("SELECT date, close FROM prices_daily WHERE symbol=? ORDER BY date", conn, params=[sym])
+        ph = pd.read_sql(
+            "SELECT date, close FROM prices_daily WHERE symbol=? ORDER BY date", conn, params=[sym]
+        )
         if len(ph) > 0:
             import plotly.graph_objects as go
 
             ph["e21"] = ph["close"].ewm(span=21).mean()
             ph["d200"] = ph["close"].rolling(200).mean()
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=ph.date, y=ph.close, name="Close", line={"color": "#60a5fa"}))
+            fig.add_trace(
+                go.Scatter(x=ph.date, y=ph.close, name="Close", line={"color": "#60a5fa"})
+            )
             fig.add_trace(go.Scatter(x=ph.date, y=ph.e21, name="EMA21", line={"color": "#34d399"}))
-            fig.add_trace(go.Scatter(x=ph.date, y=ph.d200, name="200DMA", line={"color": "#f59e0b", "dash": "dot"}))
-            fig.update_layout(template="plotly_dark", height=400, margin={"l": 10, "r": 10, "t": 20, "b": 10})
+            fig.add_trace(
+                go.Scatter(
+                    x=ph.date, y=ph.d200, name="200DMA", line={"color": "#f59e0b", "dash": "dot"}
+                )
+            )
+            fig.update_layout(
+                template="plotly_dark", height=400, margin={"l": 10, "r": 10, "t": 20, "b": 10}
+            )
             st.plotly_chart(fig, width="stretch")
         st.subheader("📰 News feed (FinBERT)")
         hl = conn.execute(
-            "SELECT title, age_days, label FROM sentiment_headlines WHERE symbol=? ORDER BY age_days LIMIT 12", (sym,)
+            "SELECT title, age_days, label FROM sentiment_headlines "
+            "WHERE symbol=? ORDER BY age_days LIMIT 12",
+            (sym,),
         ).fetchall()
         if hl:
             icon = {"positive": "🟢", "negative": "🔴", "neutral": "⚪"}
             for title, age, label in hl:
                 st.markdown(
-                    f'<div class="evrow">{icon.get(label, "⚪")} [{age}d] {title}</div>', unsafe_allow_html=True
+                    f'<div class="evrow">{icon.get(label, "⚪")} [{age}d] {title}</div>',
+                    unsafe_allow_html=True,
                 )
         else:
             st.info("Press the fetch button above.")
@@ -489,7 +526,11 @@ elif choice == "🛩️ Cockpit":
             med = scoring.sector_pe_medians(conn).get(sector)
             for label, val, ideal, ok in guide.fund_rows(m, sector, med):
                 icon = "✅" if ok else ("➖" if val is None else "⚠️")
-                unit = "%" if any(k in label for k in ["growth", "ROE", "ROCE", "Pledge", "Promoter"]) else ""
+                unit = (
+                    "%"
+                    if any(k in label for k in ["growth", "ROE", "ROCE", "Pledge", "Promoter"])
+                    else ""
+                )
                 vals = f"{val}{unit}" if val is not None else "—"
                 note = ""
                 if val is None and ("Pledge" in label or "Promoter" in label):

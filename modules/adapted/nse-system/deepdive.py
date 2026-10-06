@@ -114,7 +114,11 @@ def score_one(conn, symbol):
                 reason,
             ),
         )
-    for name, sc, w in [("ROCE", r["roce_s"], 40), ("Growth", r["growth_s"], 30), ("Valuation", r["val_s"], 30)]:
+    for name, sc, w in [
+        ("ROCE", r["roce_s"], 40),
+        ("Growth", r["growth_s"], 30),
+        ("Valuation", r["val_s"], 30),
+    ]:
         conn.execute(
             "INSERT INTO scan_reasons VALUES (?,?,?,?,?,?,?)",
             (
@@ -134,17 +138,23 @@ def score_one(conn, symbol):
 def ensure_symbol(symbol):
     conn = db.get_conn()
     try:
-        have = conn.execute("SELECT COUNT(*) FROM prices_daily WHERE symbol=?", (symbol,)).fetchone()[0]
+        have = conn.execute(
+            "SELECT COUNT(*) FROM prices_daily WHERE symbol=?", (symbol,)
+        ).fetchone()[0]
         if have < 100:
             n = download_prices(conn, symbol)
             if n == 0:
                 return False
-        havef = conn.execute("SELECT COUNT(*) FROM fundamentals WHERE symbol=?", (symbol,)).fetchone()[0]
+        havef = conn.execute(
+            "SELECT COUNT(*) FROM fundamentals WHERE symbol=?", (symbol,)
+        ).fetchone()[0]
         if havef == 0:
             try:
                 import fundamentals_compute as fc
 
-                nm = conn.execute("SELECT name FROM universe_broad WHERE symbol=?", (symbol,)).fetchone()
+                nm = conn.execute(
+                    "SELECT name FROM universe_broad WHERE symbol=?", (symbol,)
+                ).fetchone()
                 name = nm[0] if nm else symbol
                 sc = conn.execute("SELECT sector FROM stocks WHERE symbol=?", (symbol,)).fetchone()
                 sector = sc[0] if sc else None

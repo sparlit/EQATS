@@ -28,7 +28,6 @@ v5 (2026-09-12): migrated to central config.
 """
 import time
 from dataclasses import dataclass, field
-from typing import List
 
 import db
 import numpy as np
@@ -104,7 +103,13 @@ class BacktestResult:
     def max_drawdown(self):
         if not self.trades:
             return 0.0
-        eq = np.array([self.initial_capital] + [self.initial_capital * (1 + t.pnl_pct) for t in self.trades])
+        # This is a research-only sequential trade ledger, not an executable
+        # portfolio curve.  Build it cumulatively; the old implementation
+        # compared each individual trade return with initial capital.
+        equity = [self.initial_capital]
+        for t in self.trades:
+            equity.append(equity[-1] * (1 + t.pnl_pct))
+        eq = np.array(equity)
         peak = np.maximum.accumulate(eq)
         return float(np.max((peak - eq) / peak))
 
@@ -118,6 +123,17 @@ class BacktestResult:
         for t in self.trades:
             r *= 1 + t.pnl_pct
         return r - 1.0 if self.trades else 0.0
+
+    def summary(self):
+        """Human-readable legacy API, with honest metric scope labels."""
+        return (
+            f"Research-only synthetic closed-trade sequence (not a portfolio)\n"
+            f"Trades: {self.total_trades} | Win rate: {self.win_rate:.1%} | "
+            f"Profit factor: {self.profit_factor:.2f}\n"
+            f"Sequence return: {self.total_return:.2%} | "
+            f"Sequence max drawdown: {self.max_drawdown:.2%}\n"
+            f"Average holding days: {self.avg_holding_days:.1f}"
+        )
 
 
 def _naive_index(df):
@@ -155,7 +171,9 @@ class Backtester:
         ).fetchall()
         conn.close()
         if len(rows) >= 260:
-            df = pd.DataFrame(list(rows), columns=["date", "Open", "High", "Low", "Close", "Volume"])
+            df = pd.DataFrame(
+                list(rows), columns=["date", "Open", "High", "Low", "Close", "Volume"]
+            )
             df["date"] = pd.to_datetime(df["date"])
             df = df.set_index("date")
             for col in ["Open", "High", "Low", "Close", "Volume"]:
@@ -294,7 +312,8 @@ class Backtester:
                                 self._close_tranche(pos, date, t1_price, self.T_PCT_1, "T2R")
                                 pos["t1_done"] = True
                                 pos["remaining_pct"] -= self.T_PCT_1
-                                pos["stop"] = max(pos["stop"], pos["entry_price"])
+                                if pos["entry_price"] > pos["stop"]:
+                                    pos["stop"] = pos["entry_price"]
                         if not pos["t2_done"] and pos["t1_done"]:
                             t2_price = pos["entry_price"] + self.T_LEVEL_2 * risk
                             if row["High"] >= t2_price:
@@ -305,17 +324,22 @@ class Backtester:
                     if pos["trail_active"] and pos["remaining_pct"] > 0.001:
                         ema = p["e10"][i]
                         if not np.isnan(ema) and row["Close"] < ema:
-                            self._close_tranche(pos, date, row["Close"], pos["remaining_pct"], "TRAIL")
+                            self._close_tranche(
+                                pos, date, row["Close"], pos["remaining_pct"], "TRAIL"
+                            )
                             pos["remaining_pct"] = 0.0
                             self._finalize_trade(sym, pos, date)
                             to_close.append(sym)
                             continue
-                elif row["High"] >= pos["target_r"]:
-                    self._close_tranche(pos, date, pos["target_r"], pos["remaining_pct"], "TARGET")
-                    pos["remaining_pct"] = 0.0
-                    self._finalize_trade(sym, pos, date)
-                    to_close.append(sym)
-                    continue
+                else:
+                    if row["High"] >= pos["target_r"]:
+                        self._close_tranche(
+                            pos, date, pos["target_r"], pos["remaining_pct"], "TARGET"
+                        )
+                        pos["remaining_pct"] = 0.0
+                        self._finalize_trade(sym, pos, date)
+                        to_close.append(sym)
+                        continue
 
                 held = (date - pos["entry_date"]).days
                 if held >= self.HOLD_DAYS_MAX:
@@ -339,7 +363,9 @@ class Backtester:
                     continue
                 row = data[sym].loc[date]
                 if row["High"] >= od["trigger"]:
-                    fill = od["trigger"] * (1 + self.result.slippage_pct + self.result.commission_pct)
+                    fill = od["trigger"] * (
+                        1 + self.result.slippage_pct + self.result.commission_pct
+                    )
                     if od["stop"] < fill:
                         risk = fill - od["stop"]
                         target = fill + self.TARGET_R * risk
@@ -387,7 +413,12 @@ class Backtester:
                     continue
                 prefilter_hits += 1
                 df_slice = pd.DataFrame(
-                    {"Close": c[: i + 1], "High": h[: i + 1], "Low": l[: i + 1], "Volume": v[: i + 1]},
+                    {
+                        "Close": c[: i + 1],
+                        "High": h[: i + 1],
+                        "Low": l[: i + 1],
+                        "Volume": v[: i + 1],
+                    },
                     index=p["idx"][: i + 1],
                 )
                 st = SetupDetector.detect(df_slice, sym)
@@ -400,7 +431,12 @@ class Backtester:
                 risk_pct = (trig - st.stop_loss) / trig
                 if risk_pct <= 0 or risk_pct > 0.05:
                     continue
-                pending_orders[sym] = {"signal_date": date, "trigger": trig, "stop": st.stop_loss, "bars": 0}
+                pending_orders[sym] = {
+                    "signal_date": date,
+                    "trigger": trig,
+                    "stop": st.stop_loss,
+                    "bars": 0,
+                }
                 if len(pending_orders) >= self.result.max_pending_orders:
                     break
 
@@ -408,7 +444,9 @@ class Backtester:
             if data[sym].empty:
                 continue
             ld = data[sym].index[-1]
-            self._close_tranche(pos, ld, data[sym].iloc[-1]["Close"], pos["remaining_pct"], "EOD_CLOSE")
+            self._close_tranche(
+                pos, ld, data[sym].iloc[-1]["Close"], pos["remaining_pct"], "EOD_CLOSE"
+            )
             self._finalize_trade(sym, pos, ld)
 
         print(f"   prefilter hits: {prefilter_hits}")

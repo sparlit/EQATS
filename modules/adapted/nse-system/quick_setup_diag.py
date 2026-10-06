@@ -148,11 +148,14 @@ def main():
 
     for sym in syms:
         rows = conn.execute(
-            "SELECT date, close, high, low, volume FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)
+            "SELECT date, close, high, low, volume FROM prices_daily WHERE symbol=? ORDER BY date",
+            (sym,),
         ).fetchall()
         if len(rows) < 280:
             continue
-        df = pd.DataFrame(list(rows), columns=["date", "Close", "High", "Low", "Volume"]).set_index("date")
+        df = pd.DataFrame(list(rows), columns=["date", "Close", "High", "Low", "Volume"]).set_index(
+            "date"
+        )
         df.index = pd.to_datetime(df.index)
         cutoff = df.index[-1] - pd.Timedelta(days=365 * YEARS)
         df = df[df.index >= cutoff]
@@ -171,7 +174,10 @@ def main():
     dt = time.time() - t0
 
     print(f"[DIAG] {len(syms)} symbols, {total_slices} slices, {dt:.1f}s")
-    print(f"[DIAG] passed screener: {screener_pass} ({screener_pass / max(1, total_slices) * 100:.1f}%)")
+    print(
+        f"[DIAG] passed screener: {screener_pass} "
+        f"({screener_pass / max(1, total_slices) * 100:.1f}%)"
+    )
     print()
     print("setup-stage failures (sorted by count):")
     for k, v in sorted(counts.items(), key=lambda x: -x[1]):

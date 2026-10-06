@@ -94,7 +94,10 @@ def set_flow(fii_net_cr, dii_net_cr, day=None):
     d = (day or dt.date.today()).isoformat()
     conn = db.get_conn()
     _ensure(conn)
-    conn.execute("INSERT OR REPLACE INTO macro_flow VALUES (?,?,?)", (d, float(fii_net_cr), float(dii_net_cr)))
+    conn.execute(
+        "INSERT OR REPLACE INTO macro_flow VALUES (?,?,?)",
+        (d, float(fii_net_cr), float(dii_net_cr)),
+    )
     conn.commit()
     conn.close()
     print(f"[MACRO] manual entry saved: {d} FII {fii_net_cr} / DII {dii_net_cr}")
@@ -106,7 +109,7 @@ def refresh():
     _ensure(conn)
     last = conn.execute("SELECT MAX(date) FROM macro_flow").fetchone()[0]
     conn.close()
-    for back in range(5):
+    for back in range(0, 5):
         day = dt.date.today() - dt.timedelta(days=back)
         iso = day.isoformat()
         if last and iso <= last:
@@ -128,11 +131,18 @@ def refresh():
 def latest():
     conn = db.get_conn()
     _ensure(conn)
-    row = conn.execute("SELECT date, fii_net_cr, dii_net_cr FROM macro_flow ORDER BY date DESC LIMIT 1").fetchone()
+    row = conn.execute(
+        "SELECT date, fii_net_cr, dii_net_cr FROM macro_flow ORDER BY date DESC LIMIT 1"
+    ).fetchone()
     conn.close()
     if not row:
         return None
-    return {"date": row[0], "fii_net": row[1], "dii_net": row[2], "net_flow": round(row[1] + row[2], 1)}
+    return {
+        "date": row[0],
+        "fii_net": row[1],
+        "dii_net": row[2],
+        "net_flow": round(row[1] + row[2], 1),
+    }
 
 
 if __name__ == "__main__":

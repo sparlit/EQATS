@@ -23,13 +23,25 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import datetime as dt
 import os
-import sys
 
 import db
 import joblib
 import numpy as np
+from ml_features import FEATURE_COLUMNS, latest_features
 
 MODEL_PATH = "data/ml_models.pkl"
+MODEL_VERSION = "v0.2-pit-safe"
+
+
+def _compatible(bundle):
+    meta = bundle.get("metadata", {}) if isinstance(bundle, dict) else {}
+    return (
+        isinstance(bundle, dict)
+        and bundle.get("version") == MODEL_VERSION
+        and bundle.get("feat_cols") == FEATURE_COLUMNS
+        and meta.get("features") == FEATURE_COLUMNS
+        and meta.get("imputation_medians")
+    )
 
 
 def predict_all():
@@ -39,6 +51,10 @@ def predict_all():
 
     conn = db.get_conn()
     bundle = joblib.load(MODEL_PATH)
+    if not _compatible(bundle):
+        print("[ml] refusing incompatible/unversioned model; retrain required")
+        conn.close()
+        return 0
     m6 = bundle["m6"]
     m12 = bundle["m12"]
 
@@ -53,21 +69,14 @@ def predict_all():
         if len(rows) < 252:
             continue
         c = np.array([r[0] for r in reversed(rows)])
-        ret_1m = c[-1] / c[-21] - 1
-        ret_3m = c[-1] / c[-63] - 1
-        ret_6m = c[-1] / c[-126] - 1
-        ret_12m = c[-1] / c[-252] - 1
-        rets = np.diff(np.log(c))
-        vol_3m = float(np.std(rets[-63:]))
-        hi = float(np.max(c[-252:]))
-        lo = float(np.min(c[-252:]))
-        dist_high = c[-1] / hi
-        dist_low = c[-1] / lo
-        ma50 = float(np.mean(c[-50:]))
-        ma200 = float(np.mean(c[-200:]))
-        above_ma50 = 1 if c[-1] > ma50 else 0
-        above_ma200 = 1 if c[-1] > ma200 else 0
-        feat = [ret_1m, ret_3m, ret_6m, ret_12m, vol_3m, dist_high, dist_low, above_ma50, above_ma200]
+        feat = latest_features(c)
+        if feat is None:
+            continue
+        medians = bundle["metadata"]["imputation_medians"]
+        feat = [
+            medians.get(k, 0.0) if not np.isfinite(v) else v
+            for k, v in zip(FEATURE_COLUMNS, feat, strict=False)
+        ]
         p6 = float(m6.predict(np.array([feat]))[0])
         p12 = float(m12.predict(np.array([feat]))[0])
         final = round(50 * p6 + 50 * p12, 1)

@@ -31,10 +31,10 @@ import contextlib
 import datetime as dt
 
 import db
-import institutional
 import pandas as pd
 import pwin_cache
 import sector_gate
+import universe_helper as U
 
 
 def _ensure(conn):
@@ -62,7 +62,10 @@ def _sector_rs_map(conn):
             "SELECT symbol, sector FROM stocks WHERE sector IS NOT NULL AND sector!=''"
         ).fetchall():
             symbol_sector[sym] = sec
-        return ({sym: sector_rank.get(sec, 0.5) for sym, sec in symbol_sector.items()}, symbol_sector)
+        return (
+            {sym: sector_rank.get(sec, 0.5) for sym, sec in symbol_sector.items()},
+            symbol_sector,
+        )
     except Exception as e:
         print(f"[TOPPICKS] sector rs skipped: {e}")
         return {}, {}
@@ -73,11 +76,14 @@ def _detect_setup(conn, sym):
         from setup import SetupDetector
 
         rows = conn.execute(
-            "SELECT date, close, high, low, volume FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)
+            "SELECT date, close, high, low, volume FROM prices_daily WHERE symbol=? ORDER BY date",
+            (sym,),
         ).fetchall()
         if len(rows) < 280:
             return 0
-        df = pd.DataFrame(list(rows), columns=["date", "Close", "High", "Low", "Volume"]).set_index("date")
+        df = pd.DataFrame(list(rows), columns=["date", "Close", "High", "Low", "Volume"]).set_index(
+            "date"
+        )
         df.index = pd.to_datetime(df.index)
         st = SetupDetector.detect(df, sym)
         return 1 if st.triggered else 0
@@ -122,24 +128,19 @@ def _delivery_map(conn):
 
 
 def _universe(conn, limit=600):
-    rows = conn.execute(
-        "SELECT symbol FROM universe_broad "
-        "WHERE mcap_cr BETWEEN 1000 AND 8000 "
-        "AND symbol NOT LIKE '%$%' AND symbol NOT LIKE '% %' "
-        "ORDER BY mcap_cr DESC LIMIT ?",
-        (limit,),
-    ).fetchall()
-    return [r[0] for r in rows]
+    return U.band_universe(conn, limit)
 
 
 def compute(force=False):
     conn = db.get_conn()
     _ensure(conn)
     today = dt.date.today().isoformat()
-    if not force:
-        if conn.execute("SELECT COUNT(*) FROM top_picks WHERE date=?", (today,)).fetchone()[0] > 0:
-            conn.close()
-            return
+    if (
+        not force
+        and conn.execute("SELECT COUNT(*) FROM top_picks WHERE date=?", (today,)).fetchone()[0] > 0
+    ):
+        conn.close()
+        return
     pwin = pwin_cache.get_map(conn)
     if not pwin:
         conn.close()
@@ -161,7 +162,7 @@ def compute(force=False):
     for sym in _universe(conn, limit=600):
         if veto_on:
             try:
-                bad, _why = fund_veto.vetoed(sym, conn=conn)
+                bad, why = fund_veto.vetoed(sym, conn=conn)
             except Exception:
                 bad = False
             if bad:

@@ -65,7 +65,6 @@ import db
 import numpy as np
 import pandas as pd
 from log_utils import get_logger
-from universe_helper import band_universe
 
 log = get_logger("trader.oneil")
 
@@ -161,7 +160,8 @@ METHODS = [
     {
         "id": "oneil_high_tight_flag",
         "name": "High Tight Flag Breakout",
-        "description": "100%+ pole in 4-8wk + tight flag 3-5wk + flag breakout on volume. Waits for detector + regime.",
+        "description": "100%+ pole in 4-8wk + tight flag 3-5wk + flag "
+        "breakout on volume. Waits for detector + regime.",
         "direction": "long",
         "scan": True,
         "confidence": "HIGH",
@@ -169,7 +169,8 @@ METHODS = [
     {
         "id": "oneil_ascending_base",
         "name": "Ascending Base Breakout",
-        "description": "3 higher lows + 3 higher highs + breakout on volume. Waits for detector + regime.",
+        "description": "3 higher lows + 3 higher highs + breakout on "
+        "volume. Waits for detector + regime.",
         "direction": "long",
         "scan": True,
         "confidence": "MED",
@@ -177,7 +178,8 @@ METHODS = [
     {
         "id": "oneil_market_direction",
         "name": "Market Direction Filter (Distribution Days)",
-        "description": "Not a trade — a regime filter gating methods 1-6. Waits for index daily data (DR-20).",
+        "description": "Not a trade — a regime filter gating methods "
+        "1-6. Waits for index daily data (DR-20).",
         "direction": "long",
         "scan": False,
         "confidence": "HIGH",
@@ -230,7 +232,8 @@ def _try_emit(sigs, fn):
 # ----------------------------------------------------------------
 def _load_df(conn, sym, limit=500):
     rows = conn.execute(
-        "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
+        "SELECT date, open, high, low, close, volume "
+        "FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
         (sym, limit),
     ).fetchall()
     if not rows or len(rows) < MIN_BARS:
@@ -275,7 +278,7 @@ def _pivots(values, k=3, lookback=200, kind="low"):
     out = []
     for i in range(start, n - k):
         win = values[i - k : i + k + 1]
-        if (kind == "low" and values[i] == win.min()) or (kind == "high" and values[i] == win.max()):
+        if kind == "low" and values[i] == win.min() or kind == "high" and values[i] == win.max():
             out.append((i, float(values[i])))
     return out
 
@@ -287,7 +290,8 @@ def _load_index_df(conn, limit=200):
     """Try common index tickers in prices_daily. Return df or None."""
     for sym in INDEX_TICKER_CANDIDATES:
         rows = conn.execute(
-            "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
+            "SELECT date, open, high, low, close, volume "
+            "FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
             (sym, limit),
         ).fetchall()
         if len(rows) >= 30:
@@ -706,7 +710,18 @@ def _oneil_exits_block(entry_price, atr=None):
 # ----------------------------------------------------------------
 # Signal constructor
 # ----------------------------------------------------------------
-def _signal(sym, method_id, entry, stop, target, confidence, notes, raw, signal_type="LONG_SETUP", overlaps_with=None):
+def _signal(
+    sym,
+    method_id,
+    entry,
+    stop,
+    target,
+    confidence,
+    notes,
+    raw,
+    signal_type="LONG_SETUP",
+    overlaps_with=None,
+):
     sig = {
         "symbol": sym,
         "trader": SLUG,
@@ -818,7 +833,9 @@ def _detect_can_slim(sym, df, fund, market_regime):
         "market_regime": market_regime,
         "exits": _oneil_exits_block(entry, atr),
         "overlap_note": (
-            "Overlaps oshaughnessy fundamentals family (EPS growth + RS) — different gate logic. Marked, not pruned."
+            "Overlaps oshaughnessy fundamentals family "
+            "(EPS growth + RS) — different gate logic. "
+            "Marked, not pruned."
         ),
     }
     return [
@@ -866,7 +883,11 @@ def _breakout_signal(sym, method_id, df, market_regime, base, overlaps):
     entry = closes[-1]
     atr = _atr(df, 20)
     stop_hard = entry * 0.925
-    notes = f"{method_id}: pivot ₹{_fmt_num(pivot)} breakout, vol {_fmt_num(vols[-1] / avg_vol, 2)}x, close near high"
+    notes = (
+        f"{method_id}: pivot ₹{_fmt_num(pivot)} breakout, "
+        f"vol {_fmt_num(vols[-1] / avg_vol, 2)}x, "
+        f"close near high"
+    )
     raw = {
         "pivot": pivot,
         "base": base,
@@ -874,7 +895,19 @@ def _breakout_signal(sym, method_id, df, market_regime, base, overlaps):
         "exits": _oneil_exits_block(entry, atr),
         "overlap_note": "Marked, not pruned (R41).",
     }
-    return [_signal(sym, method_id, entry, stop_hard, entry * 1.225, "HIGH", notes, raw, overlaps_with=overlaps)]
+    return [
+        _signal(
+            sym,
+            method_id,
+            entry,
+            stop_hard,
+            entry * 1.225,
+            "HIGH",
+            notes,
+            raw,
+            overlaps_with=overlaps,
+        )
+    ]
 
 
 # ============================================================
@@ -893,25 +926,45 @@ def _detect_cup(sym, df, market_regime):
 
 def _detect_db(sym, df, market_regime):
     return _breakout_signal(
-        sym, "oneil_double_bottom", df, market_regime, _detect_double_bottom_w(df), ["patterns.DOUBLE_BOTTOM"]
+        sym,
+        "oneil_double_bottom",
+        df,
+        market_regime,
+        _detect_double_bottom_w(df),
+        ["patterns.DOUBLE_BOTTOM"],
     )
 
 
 def _detect_flat(sym, df, market_regime):
     return _breakout_signal(
-        sym, "oneil_flat_base", df, market_regime, _detect_flat_base(df), ["seven_simple_strategies.golden_entry_long"]
+        sym,
+        "oneil_flat_base",
+        df,
+        market_regime,
+        _detect_flat_base(df),
+        ["seven_simple_strategies.golden_entry_long"],
     )
 
 
 def _detect_htf(sym, df, market_regime):
     return _breakout_signal(
-        sym, "oneil_high_tight_flag", df, market_regime, _detect_high_tight_flag(df), ["patterns.HIGH_TIGHT_FLAG"]
+        sym,
+        "oneil_high_tight_flag",
+        df,
+        market_regime,
+        _detect_high_tight_flag(df),
+        ["patterns.HIGH_TIGHT_FLAG"],
     )
 
 
 def _detect_ascending(sym, df, market_regime):
     return _breakout_signal(
-        sym, "oneil_ascending_base", df, market_regime, _detect_ascending_base(df), ["patterns.ASCENDING_TRIANGLE"]
+        sym,
+        "oneil_ascending_base",
+        df,
+        market_regime,
+        _detect_ascending_base(df),
+        ["patterns.ASCENDING_TRIANGLE"],
     )
 
 
@@ -952,7 +1005,7 @@ def _fundamentals_map(conn):
     return out
 
 
-def scan(conn=None, limit=DEFAULT_LIMIT):
+def scan(conn=None, limit=DEFAULT_LIMIT, symbols=None):
     own = conn is None
     if own:
         conn = db.get_conn()
@@ -961,7 +1014,9 @@ def scan(conn=None, limit=DEFAULT_LIMIT):
     market_regime, regime_info = _compute_market_regime(conn)
     log.info(f"O'Neil market regime: {market_regime} (info: {regime_info})")
 
-    syms = band_universe(conn, limit=limit)
+    from traders.base import select_scan_symbols
+
+    syms = select_scan_symbols(conn, limit, symbols)
     fund_map = _fundamentals_map(conn)
     log.info(f"O'Neil scan: {len(syms)} symbols, {len(fund_map)} with fundamentals")
 

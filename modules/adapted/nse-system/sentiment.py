@@ -46,8 +46,12 @@ def get_model():
 
 
 def fetch_headlines(symbol, name):
-    q = name or symbol
-    url = "https://news.google.com/rss/search?q=" + q.replace(" ", "+") + "+stock&hl=en-IN&gl=IN&ceid=IN:en"
+    q = name if name else symbol
+    url = (
+        "https://news.google.com/rss/search?q="
+        + q.replace(" ", "+")
+        + "+stock&hl=en-IN&gl=IN&ceid=IN:en"
+    )
     feed = feedparser.parse(url)
     out = []
     seen = set()
@@ -87,7 +91,10 @@ def score_symbol(symbol):
     for (title, age), p in zip(headlines, preds, strict=False):
         label = p["label"]
         prob = p["score"]
-        conn.execute("INSERT INTO sentiment_headlines VALUES (?,?,?,?,?,?)", (symbol, now, title, age, label, prob))
+        conn.execute(
+            "INSERT INTO sentiment_headlines VALUES (?,?,?,?,?,?)",
+            (symbol, now, title, age, label, prob),
+        )
         if label == "positive":
             pos += 1
             s = 1.0

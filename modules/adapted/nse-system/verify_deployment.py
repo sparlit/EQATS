@@ -126,23 +126,33 @@ def run_checks():
     if not ml_ok:
         fails += 1
     meta_ok = os.path.exists("data/meta_model.pkl")
-    _check(meta_ok, "data/meta_model.pkl", "present" if meta_ok else "missing — run: python meta_model.py train")
+    _check(
+        meta_ok,
+        "data/meta_model.pkl",
+        "present" if meta_ok else "missing — run: python meta_model.py train",
+    )
     if not meta_ok:
         fails += 1
     gcp_ok = os.path.exists("data/gcp_key.json")
-    _check(True, "data/gcp_key.json", "present" if gcp_ok else "absent (sheets sync will skip — OK)")
+    _check(
+        True, "data/gcp_key.json", "present" if gcp_ok else "absent (sheets sync will skip — OK)"
+    )
     print(flush=True)
 
     print("TODAY'S ACTIVITY")
     conn = db.get_conn()
     today = dt.date.today().isoformat()
     try:
-        n = conn.execute("SELECT COUNT(*) FROM swing_signals WHERE signal_date=?", (today,)).fetchone()[0]
+        n = conn.execute(
+            "SELECT COUNT(*) FROM swing_signals WHERE signal_date=?", (today,)
+        ).fetchone()[0]
         _check(True, "swing signals today", f"{n} signals")
     except Exception as e:
         _check(False, "swing signals today", str(e))
     try:
-        n = conn.execute("SELECT COUNT(*) FROM trend_candidates WHERE date=?", (today,)).fetchone()[0]
+        n = conn.execute("SELECT COUNT(*) FROM trend_candidates WHERE date=?", (today,)).fetchone()[
+            0
+        ]
         _check(True, "trend candidates today", f"{n} stocks")
     except Exception as e:
         _check(False, "trend candidates today", str(e))
@@ -213,7 +223,18 @@ def run_pipeline(skip_prices=False):
     print("=" * 70, flush=True)
     t0 = time.time()
 
-    steps = ["prices", "technicals", "scan", "ml", "pwin", "toppicks", "events", "swing", "telegram", "sheets"]
+    steps = [
+        "prices",
+        "technicals",
+        "scan",
+        "ml",
+        "pwin",
+        "toppicks",
+        "events",
+        "swing",
+        "telegram",
+        "sheets",
+    ]
 
     for name in steps:
         if name == "prices" and skip_prices:

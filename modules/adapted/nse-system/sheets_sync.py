@@ -23,7 +23,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import datetime as dt
 import os
-import sys
 
 import db
 
@@ -52,7 +51,7 @@ def write_tab(sh, title, header, rows):
     if ws is None:
         ws = sh.add_worksheet(title=title, rows=max(len(rows) + 5, 20), cols=len(header))
     ws.clear()
-    ws.append_rows([header, *rows])
+    ws.append_rows([header] + rows)
     return ws
 
 
@@ -61,7 +60,7 @@ def sync():
         print(f"[sheets] skipping — missing {KEY} or {SID_FILE}")
         return 0
     try:
-        import gspread
+        import gspread  # noqa: F401
     except ImportError:
         print("[sheets] skipping — gspread not installed")
         return 0
@@ -84,7 +83,19 @@ def sync():
         "ORDER BY r.fundamental_score DESC"
     )
     rows = [list(r) for r in conn.execute(q).fetchall()]
-    header = ["Symbol", "Name", "Sector", "Price", "PE", "ROCE", "D/E", "Profit3Y", "FundScore", "MLScore", "Status"]
+    header = [
+        "Symbol",
+        "Name",
+        "Sector",
+        "Price",
+        "PE",
+        "ROCE",
+        "D/E",
+        "Profit3Y",
+        "FundScore",
+        "MLScore",
+        "Status",
+    ]
     write_tab(sh, "Scores", header, rows)
 
     rec = [r for r in rows if r[10] == "Recommended"]
@@ -98,7 +109,12 @@ def sync():
     ]
     write_tab(sh, "Pipeline", ["Symbol", "Status", "Added", "Reason", "Notes"], prows)
 
-    write_tab(sh, "SyncLog", ["Time", "Scores", "Recommended"], [[dt.datetime.now().isoformat(), len(rows), len(rec)]])
+    write_tab(
+        sh,
+        "SyncLog",
+        ["Time", "Scores", "Recommended"],
+        [[dt.datetime.now().isoformat(), len(rows), len(rec)]],
+    )
     print(f"Sheets synced: {len(rows)} scores | {len(rec)} recommended")
     conn.close()
     return len(rows)

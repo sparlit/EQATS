@@ -36,7 +36,6 @@ Usage:
 """
 import argparse
 import datetime as dt
-import sys
 import time
 
 import db
@@ -65,7 +64,9 @@ def _parse_args():
     p.add_argument("--years", type=float, default=3.0, help="lookback years (default 3.0)")
     p.add_argument("--symbols", type=int, default=400, help="symbol count (default 400)")
     p.add_argument("--max-pos", type=int, default=None, help="max concurrent positions (default 5)")
-    p.add_argument("--tranche", action="store_true", help="enable tranche exits (1/3 @ 2R, 1/3 @ 3R, trail)")
+    p.add_argument(
+        "--tranche", action="store_true", help="enable tranche exits (1/3 @ 2R, 1/3 @ 3R, trail)"
+    )
     p.add_argument("--no-log", action="store_true", help="skip strategy_runs DB logging")
     return p.parse_args()
 
@@ -93,7 +94,10 @@ def main():
     result_obj = BacktestResult()
     if args.max_pos is not None:
         result_obj.max_positions = args.max_pos
-    print(f"[WF] {len(syms)} symbols, {start.isoformat()} to {end.isoformat()} ({args.years}y) | mode={mode}")
+    print(
+        f"[WF] {len(syms)} symbols, {start.isoformat()} to "
+        f"{end.isoformat()} ({args.years}y) | mode={mode}"
+    )
 
     bt = Backtester(result=result_obj)
     result = bt.run([s + ".NS" for s in syms], start.isoformat(), end.isoformat())

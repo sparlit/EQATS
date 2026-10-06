@@ -146,7 +146,9 @@ def run(limit=300, step=10):
     for i, sym in enumerate(syms, 1):
         conn = db.get_conn()
         rows = conn.execute(
-            "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)
+            "SELECT date, open, high, low, close, volume "
+            "FROM prices_daily WHERE symbol=? ORDER BY date",
+            (sym,),
         ).fetchall()
         conn.close()
         if len(rows) < 200:
@@ -181,7 +183,10 @@ def run(limit=300, step=10):
         if ok and (best is None or wr > best[1]):
             best = (name, wr, gl)
     if best:
-        print(f"[BULLFLAG-RESCUE] VERDICT: apply '{best[0]}' (WR {best[1]:.1%} on {best[2]} graded) -> RE-ENABLE")
+        print(
+            f"[BULLFLAG-RESCUE] VERDICT: apply '{best[0]}' "
+            f"(WR {best[1]:.1%} on {best[2]} graded) -> RE-ENABLE"
+        )
     else:
         print("[BULLFLAG-RESCUE] VERDICT: no variant passes -> keep BULL_FLAG DISABLED (kill)")
     return best

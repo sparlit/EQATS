@@ -49,7 +49,6 @@ import db
 import numpy as np
 import pandas as pd
 from log_utils import get_logger
-from universe_helper import band_universe
 
 log = get_logger("trader.seven_simple_strategies")
 
@@ -228,7 +227,8 @@ def _try_emit(sigs, fn):
 
 def _load_df(conn, sym, limit=600):
     rows = conn.execute(
-        "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
+        "SELECT date, open, high, low, close, volume "
+        "FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
         (sym, limit),
     ).fetchall()
     if not rows or len(rows) < MIN_BARS:
@@ -425,7 +425,9 @@ def _detect_breakout_momentum(sym, df, atr, vol_ratio):
             "breakout_with_momentum_long",
             c[-1],
             "HIGH",
-            f"Breakout with momentum ({path}), close at {close_loc * 100:.0f}% of range, vol {_fmt_num(vol_ratio, 2)}x",
+            f"Breakout with momentum ({path}), close at "
+            f"{close_loc * 100:.0f}% of range, "
+            f"vol {_fmt_num(vol_ratio, 2)}x",
             {"path": path, "close_location": round(close_loc, 3), "vol_ratio": vol_ratio},
         )
     ]
@@ -525,7 +527,8 @@ def _detect_trend_line_with_trend(sym, df, atr):
             "trend_line_with_trend_long",
             today_close,
             "MED",
-            f"Uptrend line touch at ₹{_fmt_num(line_price)}, bullish candle closes ₹{_fmt_num(today_close)}",
+            f"Uptrend line touch at ₹{_fmt_num(line_price)}, "
+            f"bullish candle closes ₹{_fmt_num(today_close)}",
             {"line_price": float(line_price), "slope": float(m)},
         )
     ]
@@ -558,7 +561,9 @@ def _detect_trend_line_break(sym, df, atr, vol_ratio):
             "trend_line_break_long",
             today_close,
             "HIGH",
-            f"Downtrend line break by {(today_close - line_price) / atr:.1f}N, vol {_fmt_num(vol_ratio, 2)}x",
+            f"Downtrend line break by "
+            f"{(today_close - line_price) / atr:.1f}N, "
+            f"vol {_fmt_num(vol_ratio, 2)}x",
             {
                 "line_price": float(line_price),
                 "break_atr": float((today_close - line_price) / atr),
@@ -581,7 +586,7 @@ def _detect_channel_trade(sym, df, atr):
     if low_line is None or high_line is None:
         return []
     ml, bl = low_line
-    mh, _bh = high_line
+    mh, bh = high_line
     # channels should be roughly parallel — check slope agreement
     if (ml > 0) != (mh > 0):
         return []
@@ -660,7 +665,14 @@ def _detect_hammer(sym, df, atr):
         return []
     c = float(df["close"].iloc[-1])
     return [
-        _sig(sym, "bullish_hammer_long", c, "MED", f"Bullish hammer after {DOWNTREND_BARS} lower closes", {"close": c})
+        _sig(
+            sym,
+            "bullish_hammer_long",
+            c,
+            "MED",
+            f"Bullish hammer after {DOWNTREND_BARS} lower closes",
+            {"close": c},
+        )
     ]
 
 
@@ -701,13 +713,22 @@ def _scan_symbol(sym, df):
     _try_emit(sigs, lambda: _detect_breakout_momentum(sym, df, atr, vol_ratio))
     _try_emit(sigs, lambda: _detect_mean_reversion(sym, df, atr))
     _try_emit(
-        sigs, lambda: _detect_ma_cross(sym, df, "sma", 50, 200, "ma_crossover_50_200_long", "HIGH", "50SMA/200SMA")
+        sigs,
+        lambda: _detect_ma_cross(
+            sym, df, "sma", 50, 200, "ma_crossover_50_200_long", "HIGH", "50SMA/200SMA"
+        ),
     )
     _try_emit(
-        sigs, lambda: _detect_ma_cross(sym, df, "ema", 10, 24, "ma_crossover_10ema_24sma_long", "HIGH", "10EMA/24SMA")
+        sigs,
+        lambda: _detect_ma_cross(
+            sym, df, "ema", 10, 24, "ma_crossover_10ema_24sma_long", "HIGH", "10EMA/24SMA"
+        ),
     )
     _try_emit(
-        sigs, lambda: _detect_ma_cross(sym, df, "ema", 9, 16, "ma_crossover_9ema_16sma_long", "HIGH", "9EMA/16SMA")
+        sigs,
+        lambda: _detect_ma_cross(
+            sym, df, "ema", 9, 16, "ma_crossover_9ema_16sma_long", "HIGH", "9EMA/16SMA"
+        ),
     )
     _try_emit(sigs, lambda: _detect_trend_line_with_trend(sym, df, atr))
     _try_emit(sigs, lambda: _detect_trend_line_break(sym, df, atr, vol_ratio))
@@ -729,12 +750,14 @@ def _scan_symbol(sym, df):
 # ----------------------------------------------------------------
 # Universe scan
 # ----------------------------------------------------------------
-def scan(conn=None, limit=800):
+def scan(conn=None, limit=800, symbols=None):
     own = conn is None
     if own:
         conn = db.get_conn()
 
-    syms = band_universe(conn, limit=limit)
+    from traders.base import select_scan_symbols
+
+    syms = select_scan_symbols(conn, limit, symbols)
     log.info(f"7SS scan: {len(syms)} symbols in universe")
 
     signals = []

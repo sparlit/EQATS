@@ -32,15 +32,16 @@ def file_metadata(path):
     """Return an artifact's content hash and local modification timestamp."""
     path = Path(path)
     if not path.is_file():
-        msg = f"Source artifact does not exist: {path}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Source artifact does not exist: {path}")
 
     digest = sha256()
     with path.open("rb") as source:
         for chunk in iter(lambda: source.read(1024 * 1024), b""):
             digest.update(chunk)
 
-    modified_at = datetime.fromtimestamp(path.stat().st_mtime).astimezone().isoformat(timespec="seconds")
+    modified_at = (
+        datetime.fromtimestamp(path.stat().st_mtime).astimezone().isoformat(timespec="seconds")
+    )
     return {
         "sha256": digest.hexdigest(),
         "modified_at": modified_at,

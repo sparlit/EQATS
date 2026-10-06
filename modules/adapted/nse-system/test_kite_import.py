@@ -28,7 +28,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import pytest
 from kite_import import _apply, _snapshot_rows
 
 
@@ -160,25 +159,28 @@ class KiteImportTests(unittest.TestCase):
             source_rows = self._read_rows(export)
             snapshots, sentinels, count = _snapshot_rows(source_rows, master, "2026-09-26", export)
 
-            assert count == 3
-            assert len(snapshots) == 2
-            assert sentinels == {"Average Price", "Buy Quantity", "Sell Quantity", "Trade Value (Cr)", "Volume"}
+            self.assertEqual(count, 3)
+            self.assertEqual(len(snapshots), 2)
+            self.assertEqual(
+                sentinels,
+                {"Average Price", "Buy Quantity", "Sell Quantity", "Trade Value (Cr)", "Volume"},
+            )
             mapped = next(row for row in snapshots if row["symbol"])
             unmatched = next(row for row in snapshots if not row["symbol"])
-            assert mapped["symbol"] == "EXAMPLE"
-            assert mapped["isin"] == "INE000A01000"
-            assert re.search(r"^[0-9a-f]{64}$", mapped["source_sha256"])
-            assert re.search(r"^[0-9a-f]{64}$", mapped["security_master_sha256"])
-            assert mapped["duplicate_row_count"] == 2
-            assert mapped["volume"] is None
-            assert mapped["last_price"] == 120
-            assert mapped["revenue_growth_yoy"] == 15
-            assert mapped["financial_period_end"] is None
-            assert mapped["published_at"] is None
-            assert json.loads(mapped["raw_json"])["Volume"] == "0"
-            assert unmatched["symbol"] is None
-            assert unmatched["mapping_method"] == "unmatched"
-            assert unmatched["instrument"] == "Unlisted Alias"
+            self.assertEqual(mapped["symbol"], "EXAMPLE")
+            self.assertEqual(mapped["isin"], "INE000A01000")
+            self.assertRegex(mapped["source_sha256"], r"^[0-9a-f]{64}$")
+            self.assertRegex(mapped["security_master_sha256"], r"^[0-9a-f]{64}$")
+            self.assertEqual(mapped["duplicate_row_count"], 2)
+            self.assertIsNone(mapped["volume"])
+            self.assertEqual(mapped["last_price"], 120)
+            self.assertEqual(mapped["revenue_growth_yoy"], 15)
+            self.assertIsNone(mapped["financial_period_end"])
+            self.assertIsNone(mapped["published_at"])
+            self.assertEqual(json.loads(mapped["raw_json"])["Volume"], "0")
+            self.assertIsNone(unmatched["symbol"])
+            self.assertEqual(unmatched["mapping_method"], "unmatched")
+            self.assertEqual(unmatched["instrument"], "Unlisted Alias")
 
     def test_curated_abbreviation_matches_only_official_master_symbol(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -188,9 +190,9 @@ class KiteImportTests(unittest.TestCase):
 
             snapshots, _, _ = _snapshot_rows([source_row], master, "2026-09-26", export)
 
-            assert snapshots[0]["symbol"] == "ADANIENSOL"
-            assert snapshots[0]["mapping_method"] == "curated_alias"
-            assert snapshots[0]["company_name"] == "Adani Energy Solutions Limited"
+            self.assertEqual(snapshots[0]["symbol"], "ADANIENSOL")
+            self.assertEqual(snapshots[0]["mapping_method"], "curated_alias")
+            self.assertEqual(snapshots[0]["company_name"], "Adani Energy Solutions Limited")
 
     def test_curated_alias_with_missing_master_symbol_fails_explicitly(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -201,7 +203,7 @@ class KiteImportTests(unittest.TestCase):
                 writer = csv.writer(stream)
                 writer.writerow(["SYMBOL", "NAME OF COMPANY", "SERIES", "ISIN NUMBER"])
                 writer.writerow(["EXAMPLE", "Example Industries Limited", "EQ", "INE000A01000"])
-            with pytest.raises(ValueError, match="missing NSE security-master symbol"):
+            with self.assertRaisesRegex(ValueError, "missing NSE security-master symbol"):
                 _snapshot_rows([source_row], master, "2026-09-26", export)
 
     def test_import_is_idempotent_and_never_changes_live_fundamentals(self):
@@ -221,20 +223,25 @@ class KiteImportTests(unittest.TestCase):
             """)
             conn.close()
 
-            assert _apply(database, snapshots) == 2
+            self.assertEqual(_apply(database, snapshots), 2)
             snapshots[0]["last_price"] = 121
-            assert _apply(database, snapshots) == 2
+            self.assertEqual(_apply(database, snapshots), 2)
             conn = sqlite3.connect(database)
-            assert conn.execute("SELECT pe, uploaded_at FROM fundamentals WHERE symbol='EXAMPLE'").fetchone() == (
-                12.5,
-                "legacy",
-            )
-            assert conn.execute("SELECT COUNT(*) FROM kite_market_snapshots").fetchone()[0] == 2
-            assert (
+            self.assertEqual(
                 conn.execute(
-                    "SELECT last_price FROM kite_market_snapshots WHERE instrument_key='exampleindustries'"
-                ).fetchone()[0]
-                == 121
+                    "SELECT pe, uploaded_at FROM fundamentals WHERE symbol='EXAMPLE'"
+                ).fetchone(),
+                (12.5, "legacy"),
+            )
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM kite_market_snapshots").fetchone()[0], 2
+            )
+            self.assertEqual(
+                conn.execute(
+                    "SELECT last_price FROM kite_market_snapshots "
+                    "WHERE instrument_key='exampleindustries'"
+                ).fetchone()[0],
+                121,
             )
             conn.close()
 
@@ -243,7 +250,7 @@ class KiteImportTests(unittest.TestCase):
             export, master = self._files(directory)
             rows = self._read_rows(export)
             rows[1]["Last Price"] = "121"
-            with pytest.raises(ValueError, match="Conflicting duplicate"):
+            with self.assertRaisesRegex(ValueError, "Conflicting duplicate"):
                 _snapshot_rows(rows, master, "2026-09-26", export)
 
 

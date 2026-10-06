@@ -24,6 +24,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """TradingView India scanner adapter for the existing fundamentals fetcher."""
 
 import requests
+
 from data_sources.core import BaseSourceAdapter, SourceRegistry
 
 
@@ -45,8 +46,7 @@ class TradingViewFundamentalsAdapter(BaseSourceAdapter):
             payload = response.json()
             rows = payload.get("data")
             if not isinstance(rows, list):
-                msg = "TradingView response has no data list"
-                raise ValueError(msg)
+                raise ValueError("TradingView response has no data list")
             return rows
 
         return self._execute(request)

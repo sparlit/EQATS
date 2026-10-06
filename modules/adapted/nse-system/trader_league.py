@@ -190,7 +190,7 @@ ADAPTERS = {
     "john_crane": {"fmt": "upper", "min_rows": 260},
     "larry_spears": {"fmt": "upper", "min_rows": 60, "extra": "bench"},
 }
-BACKTESTABLE = [HOME, *list(ADAPTERS)]
+BACKTESTABLE = [HOME] + list(ADAPTERS)
 
 
 def players():
@@ -345,7 +345,7 @@ def inr(x, dec=0):
             head = head[:-2]
         if head:
             parts.insert(0, head)
-        whole = ",".join([*parts, tail])
+        whole = ",".join(parts + [tail])
     return ("-" if neg else "") + "Rs " + whole + ("." + frac if frac else "")
 
 
@@ -435,7 +435,9 @@ def _chunks(seq, n):
 
 def _load_prices(conn, sym):
     rows = conn.execute(
-        "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)
+        "SELECT date, open, high, low, close, volume FROM prices_daily "
+        "WHERE symbol=? ORDER BY date",
+        (sym,),
     ).fetchall()
     if not rows:
         return None
@@ -451,12 +453,17 @@ def _load_wide(conn, symbols, start_date=None):
     """dates x symbols matrix of closes (for breadth / sector ranks)."""
     frames = []
     for ch in _chunks(symbols, 400):
-        q = f"SELECT symbol, date, close FROM prices_daily WHERE symbol IN ({','.join('?' * len(ch))})"
+        q = (
+            "SELECT symbol, date, close FROM prices_daily WHERE symbol IN "
+            f"({','.join('?' * len(ch))})"
+        )
         args = list(ch)
         if start_date:
             q += " AND date >= ?"
             args.append(start_date)
-        frames.append(pd.DataFrame(conn.execute(q, args).fetchall(), columns=["symbol", "date", "close"]))
+        frames.append(
+            pd.DataFrame(conn.execute(q, args).fetchall(), columns=["symbol", "date", "close"])
+        )
     if not frames:
         return pd.DataFrame()
     df = pd.concat(frames, ignore_index=True)
@@ -464,7 +471,9 @@ def _load_wide(conn, symbols, start_date=None):
         return pd.DataFrame()
     df["close"] = pd.to_numeric(df["close"], errors="coerce")
     df["date"] = df["date"].astype(str).str[:10]
-    return df.pivot_table(index="date", columns="symbol", values="close", aggfunc="last").sort_index()
+    return df.pivot_table(
+        index="date", columns="symbol", values="close", aggfunc="last"
+    ).sort_index()
 
 
 # ============================================================
@@ -503,7 +512,9 @@ def _fetch_benchmark(conn, sym, start):
         if d is None or len(d) < 30:
             return 0
         rows = [
-            (sym, idx.strftime("%Y-%m-%d"), float(c)) for idx, c in zip(d.index, d["Close"], strict=False) if c == c
+            (sym, idx.strftime("%Y-%m-%d"), float(c))
+            for idx, c in zip(d.index, d["Close"], strict=False)
+            if c == c
         ]
         conn.executemany("INSERT OR REPLACE INTO league_index VALUES (?,?,?)", rows)
         conn.commit()
@@ -530,7 +541,9 @@ def load_benchmark(conn, start=None, end=None, fetch=True):
     if _covers(ser, start, end):
         return ser.sort_index(), sym
     for s in INDEX_DB_CANDIDATES:
-        rows = conn.execute("SELECT date, close FROM prices_daily WHERE symbol=? ORDER BY date", (s,)).fetchall()
+        rows = conn.execute(
+            "SELECT date, close FROM prices_daily WHERE symbol=? ORDER BY date", (s,)
+        ).fetchall()
         ser2 = pd.Series({str(r[0])[:10]: r[1] for r in rows}, dtype=float)
         if _covers(ser2.dropna(), start, end):
             return ser2.dropna().sort_index(), s
@@ -561,9 +574,14 @@ def regime_levels(bench):
     e20 = c.ewm(span=20, adjust=False).mean()
     slope = (e10 / e10.shift(5) - 1) * 100
     out = {}
-    for d, cv, a, b, s in zip(c.index, c.values, e10.values, e20.values, slope.values, strict=False):
+    for d, cv, a, b, s in zip(
+        c.index, c.values, e10.values, e20.values, slope.values, strict=False
+    ):
         out[d] = rs_classify(
-            close=float(cv), ema10=float(a), ema20=float(b), ema10_slope_pct=0.0 if s != s else float(s)
+            close=float(cv),
+            ema10=float(a),
+            ema20=float(b),
+            ema10_slope_pct=0.0 if s != s else float(s),
         )
     return out
 
@@ -592,7 +610,11 @@ def _sector_scores(conn, wide, dates):
         "SELECT s.symbol, s.sector FROM stocks s JOIN universe_broad u "
         "ON u.symbol=s.symbol WHERE s.sector IS NOT NULL AND s.sector!=''"
     ).fetchall()
-    all_sec = dict(conn.execute("SELECT symbol, sector FROM stocks WHERE sector IS NOT NULL AND sector!=''").fetchall())
+    all_sec = dict(
+        conn.execute(
+            "SELECT symbol, sector FROM stocks WHERE sector IS NOT NULL AND sector!=''"
+        ).fetchall()
+    )
     sec_of = {s: sec for s, sec in rows if s in wide.columns}
     if not sec_of:
         return {}, all_sec
@@ -705,13 +727,7 @@ def build_context(conn, start, end, slugs, book_syms, home_syms):
             sample_n = getattr(breadth, "SAMPLE", 400)
         except Exception:
             sample_n = 400
-        sample = [
-            r[0]
-            for r in conn.execute(
-                "SELECT symbol FROM universe_broad WHERE mcap_cr BETWEEN 1000 AND 8000 ORDER BY mcap_cr DESC LIMIT ?",
-                (sample_n,),
-            )
-        ]
+        sample = U.band_universe(conn, sample_n)
         sec_syms = [
             r[0]
             for r in conn.execute(
@@ -722,14 +738,17 @@ def build_context(conn, start, end, slugs, book_syms, home_syms):
         ]
         wide = _load_wide(conn, sorted(set(sample) | set(sec_syms)), warm)
     dates = sorted(
-        d for d in (set(wide.index) if not wide.empty else set()) | set(ctx["bench_dates"]) if start <= d <= end
+        d
+        for d in (set(wide.index) if not wide.empty else set()) | set(ctx["bench_dates"])
+        if start <= d <= end
     )
     sec_rank, sym_sector = ({}, {})
     if need_sec and not wide.empty:
         sec_rank, sym_sector = _sector_scores(conn, wide, dates)
     ctx["sym_sector"] = sym_sector
     ctx["sector_rank"] = {
-        d: {s: 1.0 - i / max(1, len(lst) - 1) for i, s in enumerate(lst)} for d, lst in sec_rank.items()
+        d: {s: 1.0 - i / max(1, len(lst) - 1) for i, s in enumerate(lst)}
+        for d, lst in sec_rank.items()
     }
     ctx["sector_rank_dates"] = sorted(ctx["sector_rank"])
     if need_gates:
@@ -751,7 +770,13 @@ def build_context(conn, start, end, slugs, book_syms, home_syms):
             b = _asof(br_dates, br, d) if br else None
             bok = True if b is None else (b[0] >= 0.5 and b[1] >= b[2])
             allowed = tuple(sec_rank.get(d, [])[:top_n])
-            gates[d] = (level, SIZE_MULT.get(level, 1.0), ALLOWS_NORMAL_SWING.get(level, True), bok, allowed)
+            gates[d] = (
+                level,
+                SIZE_MULT.get(level, 1.0),
+                ALLOWS_NORMAL_SWING.get(level, True),
+                bok,
+                allowed,
+            )
         ctx["home_gate"] = gates
         ctx["home_gate_dates"] = sorted(gates)
     if "oneil" in slugs:
@@ -803,7 +828,15 @@ def _prep(df):
 def _upper(px):
     if px["up"] is None:
         df = px["df"]
-        up = df.rename(columns={"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"})
+        up = df.rename(
+            columns={
+                "open": "Open",
+                "high": "High",
+                "low": "Low",
+                "close": "Close",
+                "volume": "Volume",
+            }
+        )
         up = up.set_index(pd.to_datetime(up["date"])).drop(columns=["date"])
         px["up"] = up
     return px["up"]
@@ -876,7 +909,10 @@ def _replay_book(slug, sym, px, dates, ctx):
         lo = max(0, i + 1 - limit)
         if i + 1 - lo < min_bars or px["c"][i] < min_price:
             continue
-        w = px["df"].iloc[lo : i + 1].reset_index(drop=True) if ad["fmt"] == "lower" else _upper(px).iloc[lo : i + 1]
+        if ad["fmt"] == "lower":
+            w = px["df"].iloc[lo : i + 1].reset_index(drop=True)
+        else:
+            w = _upper(px).iloc[lo : i + 1]
         try:
             if extra == "bench":
                 sigs = m._scan_symbol(sym, w, _bench_upto(ctx, d))
@@ -945,7 +981,7 @@ def _replay_home(sym, px, dates, ctx):
         g = _asof(gdates, ctx["home_gate"], d)
         if g is None:
             continue
-        _level, size_mult, allows, bok, allowed = g
+        level, size_mult, allows, bok, allowed = g
         if not allows or not bok:
             continue
         if sector and allowed and sector not in allowed:
@@ -1070,7 +1106,9 @@ def _day_after(d):
     return (pd.Timestamp(d) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
 
 
-def replay(years=None, n_symbols=None, slugs=None, workers=1, fresh=False, simulate_after=True, quiet=False):
+def replay(
+    years=None, n_symbols=None, slugs=None, workers=1, fresh=False, simulate_after=True, quiet=False
+):
     """Pre-season replay. Resumable: re-running only fills the gaps."""
     C = config()
     years = float(years or C["REPLAY_YEARS"])
@@ -1086,7 +1124,9 @@ def replay(years=None, n_symbols=None, slugs=None, workers=1, fresh=False, simul
     from universe_helper import band_universe, combined_universe
 
     book_syms = band_universe(conn, limit=n_symbols)
-    home_syms = combined_universe(conn, band_limit=int(C["HOME_BAND_LIMIT"])) if HOME in slugs else []
+    home_syms = (
+        combined_universe(conn, band_limit=int(C["HOME_BAND_LIMIT"])) if HOME in slugs else []
+    )
     if fresh:
         for s in slugs:
             conn.execute("DELETE FROM league_signals WHERE source='replay' AND player=?", (s,))
@@ -1094,7 +1134,9 @@ def replay(years=None, n_symbols=None, slugs=None, workers=1, fresh=False, simul
         conn.commit()
     prog = {
         (p, s): (f, l)
-        for p, s, f, l in conn.execute("SELECT player, symbol, first_date, last_date FROM league_progress")
+        for p, s, f, l in conn.execute(
+            "SELECT player, symbol, first_date, last_date FROM league_progress"
+        )
     }
     tasks = {}
     for p in slugs:
@@ -1109,9 +1151,13 @@ def replay(years=None, n_symbols=None, slugs=None, workers=1, fresh=False, simul
     say(f"  window    : {start} -> {end}  ({years:g} years)")
     say(f"  players   : {len(slugs)}  ({', '.join(slugs)})")
     say(
-        f"  universe  : books {len(book_syms)} stocks" + (f" · our system {len(home_syms)} stocks" if home_syms else "")
+        f"  universe  : books {len(book_syms)} stocks"
+        + (f" · our system {len(home_syms)} stocks" if home_syms else "")
     )
-    say(f"  work      : {len(todo)} stocks to replay" + ("" if todo else "  (nothing new — already up to date)"))
+    say(
+        f"  work      : {len(todo)} stocks to replay"
+        + ("" if todo else "  (nothing new — already up to date)")
+    )
     if todo:
         ctx = build_context(conn, start, end, slugs, book_syms, home_syms)
         say(f"  benchmark : {ctx['bench_label']}")
@@ -1125,7 +1171,9 @@ def replay(years=None, n_symbols=None, slugs=None, workers=1, fresh=False, simul
             rows = res["rows"]
             if rows:
                 conn.executemany(
-                    "INSERT OR REPLACE INTO league_signals VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows
+                    "INSERT OR REPLACE INTO league_signals VALUES "
+                    "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    rows,
                 )
             cnt = {}
             for r in rows:
@@ -1136,7 +1184,8 @@ def replay(years=None, n_symbols=None, slugs=None, workers=1, fresh=False, simul
                 nl = max([x for x in [l] + [s[1] for s in segs] if x])
                 prog[(p, res["symbol"])] = (nf, nl)
                 old = conn.execute(
-                    "SELECT n_signals FROM league_progress WHERE player=? AND symbol=?", (p, res["symbol"])
+                    "SELECT n_signals FROM league_progress WHERE player=? AND symbol=?",
+                    (p, res["symbol"]),
                 ).fetchone()
                 conn.execute(
                     "INSERT OR REPLACE INTO league_progress VALUES (?,?,?,?,?,?,?)",
@@ -1170,7 +1219,9 @@ def replay(years=None, n_symbols=None, slugs=None, workers=1, fresh=False, simul
         if workers and workers > 1:
             import multiprocessing as mp
 
-            with mp.get_context("spawn").Pool(workers, initializer=_worker_init, initargs=(ctx, db_path)) as pool:
+            with mp.get_context("spawn").Pool(
+                workers, initializer=_worker_init, initargs=(ctx, db_path)
+            ) as pool:
                 for res in pool.imap_unordered(_worker_task, todo, chunksize=1):
                     _store(res)
         else:
@@ -1224,7 +1275,10 @@ def _home_profile():
         "max_hold_days": BT.get("HOLD_DAYS_MAX", 30),
     }
     if BT.get("TRANCHES_ENABLED"):
-        p["partials"] = [(BT["T_LEVEL_1"], BT["T_PCT_1"], "be"), (BT["T_LEVEL_2"], BT["T_PCT_2"], "trail")]
+        p["partials"] = [
+            (BT["T_LEVEL_1"], BT["T_PCT_1"], "be"),
+            (BT["T_LEVEL_2"], BT["T_PCT_2"], "trail"),
+        ]
         p["trail_ma"] = ("ema", BT.get("TRAIL_EMA", 10))
         p["trail_needs_flag"] = True
         p["why"] = (
@@ -1312,7 +1366,8 @@ BOOK_PROFILES = {
         "trail_low": 10,
         "trail_after_r": 2.0,
         "max_hold": ("signal", 20),
-        "why": "2-3xATR stop; method targets; after +2R trail the 10-day low; per-method time exits (14-50 sessions).",
+        "why": "2-3xATR stop; method targets; after +2R trail the 10-day "
+        "low; per-method time exits (14-50 sessions).",
     },
     "oneil": {
         "stop": ("pct_cap", 0.08),
@@ -1346,7 +1401,8 @@ BOOK_PROFILES = {
         "sizing": "equal",
         "max_hold": None,
         "rebalance": 252,
-        "why": "Annual rebalance: hold a year, re-rank, keep only names the book still selects. No stops.",
+        "why": "Annual rebalance: hold a year, re-rank, keep only names the "
+        "book still selects. No stops.",
     },
     "quantitative_value": {
         "stop": None,
@@ -1468,7 +1524,9 @@ class PriceBook:
         if name.startswith("atr"):
             n = int(name[3:])
             prev = c.shift(1).values
-            tr = np.nanmax(np.vstack([x["h"] - x["l"], np.abs(x["h"] - prev), np.abs(x["l"] - prev)]), axis=0)
+            tr = np.nanmax(
+                np.vstack([x["h"] - x["l"], np.abs(x["h"] - prev), np.abs(x["l"] - prev)]), axis=0
+            )
             a = pd.Series(tr).rolling(n, min_periods=1).mean().values
         elif name.startswith("ema"):
             a = c.ewm(span=int(name[3:]), adjust=False).mean().values
@@ -1492,38 +1550,38 @@ CONF_RANK = {"HIGH": 0, "MED": 1, "MEDIUM": 1, "LOW": 2}
 
 class _Pos:
     __slots__ = (
-        "actions",
-        "bars",
-        "be_done",
-        "buy_cost",
-        "costs",
-        "entry",
-        "entry_date",
-        "equity_at_entry",
-        "exit_next",
-        "hold_until",
-        "init_shares",
-        "init_stop",
-        "max_close",
-        "max_high",
-        "max_hold",
+        "sym",
         "method",
-        "parts_done",
-        "proceeds",
-        "prof",
-        "rb_due",
-        "reason",
-        "risk_ps",
+        "entry_date",
+        "entry",
         "shares",
-        "sig_date",
-        "sold_qty",
-        "sold_value",
+        "init_shares",
         "stop",
         "stop_reason",
-        "sym",
+        "init_stop",
         "target",
-        "target_off",
+        "risk_ps",
+        "bars",
+        "max_high",
+        "max_close",
+        "be_done",
+        "parts_done",
         "trail_on",
+        "exit_next",
+        "buy_cost",
+        "proceeds",
+        "costs",
+        "sold_qty",
+        "sold_value",
+        "reason",
+        "max_hold",
+        "hold_until",
+        "target_off",
+        "prof",
+        "sig_date",
+        "equity_at_entry",
+        "actions",
+        "rb_due",
     )
 
     def __init__(self, **kw):
@@ -1683,7 +1741,7 @@ def simulate(player, entries, exits, book, dates, profile, C=None, capital=None,
                     continue
                 lvl = pos.entry + r_lvl * pos.risk_ps
                 if high_after >= lvl:
-                    qty = max(1, math.floor(pos.init_shares * frac))
+                    qty = max(1, int(math.floor(pos.init_shares * frac)))
                     pos.parts_done.add(k)
                     pos.actions.append(action)
                     sell(pos, qty, max(o, lvl) if gap_ok else lvl, d, f"T{r_lvl:g}R")
@@ -1711,9 +1769,11 @@ def simulate(player, entries, exits, book, dates, profile, C=None, capital=None,
                 pos.trail_on = True
         pos.actions = []
         if pos.stop is not None and not pos.be_done:
-            hit = (prof.get("be_r") and pos.risk_ps and pos.max_high >= pos.entry + prof["be_r"] * pos.risk_ps) or (
-                prof.get("be_pct") and pos.max_high >= pos.entry * (1 + prof["be_pct"])
-            )
+            hit = (
+                prof.get("be_r")
+                and pos.risk_ps
+                and pos.max_high >= pos.entry + prof["be_r"] * pos.risk_ps
+            ) or (prof.get("be_pct") and pos.max_high >= pos.entry * (1 + prof["be_pct"]))
             if hit:
                 pos.be_done = True
                 if pos.entry > pos.stop:
@@ -1952,7 +2012,9 @@ def simulate(player, entries, exits, book, dates, profile, C=None, capital=None,
                 "shares": pos.shares,
                 "stop": round(pos.stop, 2) if pos.stop else None,
                 "last_close": round(float(lc), 2),
-                "mtm_pnl": round(pos.shares * lc + pos.proceeds - pos.init_shares * pos.entry - pos.buy_cost, 2),
+                "mtm_pnl": round(
+                    pos.shares * lc + pos.proceeds - pos.init_shares * pos.entry - pos.buy_cost, 2
+                ),
             }
         )
     return {"trades": trades, "curve": curve, "open": open_list, "capital": cap0}
@@ -2044,9 +2106,15 @@ def compute_stats(res, bench=None, C=None):
         st["sharpe"] = round(float(r.mean() / r.std() * math.sqrt(252)), 2)
         neg = r[r < 0]
         st["sortino"] = (
-            round(float(r.mean() / neg.std() * math.sqrt(252)), 2) if len(neg) > 5 and neg.std() > 0 else None
+            round(float(r.mean() / neg.std() * math.sqrt(252)), 2)
+            if len(neg) > 5 and neg.std() > 0
+            else None
         )
-    st["calmar"] = round(st["cagr"] / st["max_dd"], 2) if st.get("cagr") is not None and st["max_dd"] > 0 else None
+    st["calmar"] = (
+        round(st["cagr"] / st["max_dd"], 2)
+        if st.get("cagr") is not None and st["max_dd"] > 0
+        else None
+    )
     st["exposure"] = round(float((inv / eq).mean()), 3)
     under = eq < eq.cummax()
     longest = cur = 0
@@ -2061,7 +2129,9 @@ def compute_stats(res, bench=None, C=None):
         rs = [t["r_mult"] for t in trades if t.get("r_mult") is not None]
         st["win_rate"] = round(len(wins) / len(trades), 3)
         st["avg_win_pct"] = round(float(np.mean([t["pnl_pct"] for t in wins])), 4) if wins else None
-        st["avg_loss_pct"] = round(float(np.mean([t["pnl_pct"] for t in losses])), 4) if losses else None
+        st["avg_loss_pct"] = (
+            round(float(np.mean([t["pnl_pct"] for t in losses])), 4) if losses else None
+        )
         pf = _pf(pn)
         st["pf"] = None if pf is None else round(pf, 2)
         st["expectancy_r"] = round(float(np.mean(rs)), 3) if rs else None
@@ -2082,7 +2152,7 @@ def compute_stats(res, bench=None, C=None):
     for y, g in eq.groupby(eq.index.str[:4]):
         prev = eq[eq.index < g.index[0]]
         base = float(prev.iloc[-1]) if len(prev) else cap0
-        yearly[y] = {"return": round(float(g.iloc[-1]) / base - 1, 4), "days": len(g)}
+        yearly[y] = {"return": round(float(g.iloc[-1]) / base - 1, 4), "days": int(len(g))}
     st["yearly"] = yearly
     monthly = {}
     for m_, g in eq.groupby(eq.index.str[:7]):
@@ -2185,10 +2255,16 @@ def readiness(st, live=None, C=None):
     if n == 0:
         verdict, code = "NO DATA — no trades yet", "NO_DATA"
     elif backtest_ok and live_ok:
-        verdict, code = ("READY — start small (25% of planned capital), scale up after 3 good months"), "READY"
+        verdict, code = (
+            ("READY — start small (25% of planned capital), scale up after 3 good months"),
+            "READY",
+        )
     elif backtest_ok:
         verdict, code = (
-            (f"PAPER-TRADE FIRST — backtest passed; needs {C['READY_MIN_LIVE_TRADES']}+ live paper trades"),
+            (
+                "PAPER-TRADE FIRST — backtest passed; needs "
+                f"{C['READY_MIN_LIVE_TRADES']}+ live paper trades"
+            ),
             "PAPER",
         )
     else:
@@ -2267,7 +2343,9 @@ def simulate_all(mode="backtest", exit_mode="book", slugs=None, quiet=False, sav
     if mode == "live":
         entrants = {p["slug"] for p in players()}
     else:
-        entrants = set(have) | {r[0] for r in conn.execute("SELECT DISTINCT player FROM league_progress")}
+        entrants = set(have) | {
+            r[0] for r in conn.execute("SELECT DISTINCT player FROM league_progress")
+        }
     if slugs:
         entrants &= set(slugs)
     start = start or min(v[0] for v in have.values())
@@ -2310,8 +2388,12 @@ def simulate_all(mode="backtest", exit_mode="book", slugs=None, quiet=False, sav
         st = compute_stats(res, bench, C)
         if mode == "backtest" and str(C.get("INTRABAR")).lower() != "worst":
             Cw = dict(C, INTRABAR="worst", MC_RUNS=0)
-            sw = compute_stats(simulate(slug, entries, exits, book, cal, prof, Cw, levels=levels), bench, Cw)
-            st["worst_case"] = {k: sw.get(k) for k in ("pf", "return_pct", "cagr", "max_dd", "win_rate", "trades")}
+            sw = compute_stats(
+                simulate(slug, entries, exits, book, cal, prof, Cw, levels=levels), bench, Cw
+            )
+            st["worst_case"] = {
+                k: sw.get(k) for k in ("pf", "return_pct", "cagr", "max_dd", "win_rate", "trades")
+            }
         st["signals"] = len(entries)
         st["by_method"] = _group(res["trades"], "method")
         st["by_regime"] = _group(res["trades"], "regime")
@@ -2443,7 +2525,11 @@ def signal_genome(conn, mode="backtest", min_trades=10):
             cell[exit_mode] = {
                 "trades": int(count),
                 "win_rate": round(wins / count, 3) if count else None,
-                "pf": (round(gross_win / gross_loss, 2) if gross_loss else (99.0 if gross_win else None)),
+                "pf": (
+                    round(gross_win / gross_loss, 2)
+                    if gross_loss
+                    else (99.0 if gross_win else None)
+                ),
                 "avg_r": round(avg_r, 3) if avg_r is not None else None,
                 "pnl": round(pnl, 0),
             }
@@ -2465,7 +2551,11 @@ def signal_genome(conn, mode="backtest", min_trades=10):
             }
         )
     cells.sort(
-        key=lambda cell: (cell["common"]["avg_r"] is None, -(cell["common"]["avg_r"] or 0), -cell["common"]["trades"])
+        key=lambda cell: (
+            cell["common"]["avg_r"] is None,
+            -(cell["common"]["avg_r"] or 0),
+            -cell["common"]["trades"],
+        )
     )
     ranked = [cell for cell in cells if cell["common"]["avg_r"] is not None]
     return {
@@ -2584,7 +2674,8 @@ def player_detail(slug, mode="backtest", exit_mode="book", n_trades=150):
                 "exit_rules": exit_profile(slug, exit_mode).get("why", ""),
             }
         eq = conn.execute(
-            "SELECT date, equity FROM league_equity WHERE run_id=? AND player=? ORDER BY date", (rid, slug)
+            "SELECT date, equity FROM league_equity WHERE run_id=? AND player=? ORDER BY date",
+            (rid, slug),
         ).fetchall()
         step = max(1, len(eq) // 500)
         curve = [[d, round(v, 0)] for d, v in eq[::step]]
@@ -2592,12 +2683,14 @@ def player_detail(slug, mode="backtest", exit_mode="book", n_trades=150):
             curve.append([eq[-1][0], round(eq[-1][1], 0)])
         bench_curve = []
         if eq:
-            bench, _label = load_benchmark(conn, eq[0][0], eq[-1][0], fetch=False)
+            bench, label = load_benchmark(conn, eq[0][0], eq[-1][0], fetch=False)
             b = bench[(bench.index >= eq[0][0]) & (bench.index <= eq[-1][0])]
             if len(b) > 1:
                 cap = st.get("capital") or config()["CAPITAL"]
                 bstep = max(1, len(b) // 500)
-                bench_curve = [[d, round(cap * v / b.iloc[0], 0)] for d, v in b.iloc[::bstep].items()]
+                bench_curve = [
+                    [d, round(cap * v / b.iloc[0], 0)] for d, v in b.iloc[::bstep].items()
+                ]
         cols = [
             "symbol",
             "method",
@@ -2622,11 +2715,21 @@ def player_detail(slug, mode="backtest", exit_mode="book", n_trades=150):
                 (rid, slug, n_trades),
             )
         ]
-        ocols = ["symbol", "method", "entry_date", "entry_price", "shares", "stop", "last_close", "mtm_pnl"]
+        ocols = [
+            "symbol",
+            "method",
+            "entry_date",
+            "entry_price",
+            "shares",
+            "stop",
+            "last_close",
+            "mtm_pnl",
+        ]
         opens = [
             dict(zip(ocols, r, strict=False))
             for r in conn.execute(
-                f"SELECT {', '.join(ocols)} FROM league_open WHERE run_id=? AND player=? ORDER BY entry_date",
+                f"SELECT {', '.join(ocols)} FROM league_open WHERE run_id=? AND "
+                "player=? ORDER BY entry_date",
                 (rid, slug),
             )
         ]
@@ -2640,7 +2743,9 @@ def player_detail(slug, mode="backtest", exit_mode="book", n_trades=150):
         "playing": True,
         "run": meta,
         "stats": {
-            k: v for k, v in st.items() if k not in ("by_method", "by_regime", "by_reason", "readiness", "monthly")
+            k: v
+            for k, v in st.items()
+            if k not in ("by_method", "by_regime", "by_reason", "readiness", "monthly")
         },
         "monthly": st.get("monthly"),
         "readiness": st.get("readiness"),
@@ -2677,7 +2782,8 @@ def status():
         runs = [
             {"run_id": r, "created_at": c, "start": s, "end": e}
             for r, c, s, e in conn.execute(
-                "SELECT run_id, created_at, start, end FROM league_runs WHERE player='_meta' ORDER BY run_id"
+                "SELECT run_id, created_at, start, end FROM league_runs "
+                "WHERE player='_meta' ORDER BY run_id"
             )
         ]
     finally:
@@ -2725,7 +2831,11 @@ def print_table(mode="backtest", exit_mode="book"):
     if not run:
         print(
             f"No {mode} run yet. "
-            + ("Run: python trader_league.py replay" if mode == "backtest" else "Run: python trader_league.py live")
+            + (
+                "Run: python trader_league.py replay"
+                if mode == "backtest"
+                else "Run: python trader_league.py live"
+            )
         )
         return
     br = run.get("bench_return")
@@ -2762,7 +2872,7 @@ def print_table(mode="backtest", exit_mode="book"):
 
 
 def print_ready(mode="backtest", exit_mode="book"):
-    _meta, per = (lambda c: (_run_rows(c, mode, exit_mode), c.close())[0])(_conn())
+    meta, per = (lambda c: (_run_rows(c, mode, exit_mode), c.close())[0])(_conn())
     st = per.get(HOME)
     print()
     if not st:
@@ -2776,7 +2886,10 @@ def print_ready(mode="backtest", exit_mode="book"):
         f"{st.get('end')}, {st.get('trades')} trades"
     )
     for c in rd["checks"]:
-        print(f"  [{'PASS' if c['ok'] else 'FAIL'}] {c['name']:<32} {c['value']!s:<22} need {c['need']}")
+        print(
+            f"  [{'PASS' if c['ok'] else 'FAIL'}] {c['name']:<32} "
+            f"{str(c['value']):<22} need {c['need']}"
+        )
     print(f"  VERDICT: {rd['verdict']}")
     print(f"  Exit rules used: {st.get('exit_rules')}")
 
@@ -2810,11 +2923,15 @@ def print_player(slug, mode="backtest", exit_mode="book"):
     print("  By market mood at entry:")
     for m in d["by_regime"] or []:
         print(
-            f"    {m['regime']!s:<14} n={m['trades']:<4} win {m['win_rate'] * 100:3.0f}%  PF {m['pf']}  {inr(m['pnl'])}"
+            f"    {str(m['regime']):<14} n={m['trades']:<4} "
+            f"win {m['win_rate'] * 100:3.0f}%  PF {m['pf']}  {inr(m['pnl'])}"
         )
     print("  Last trades:")
     for t in d["trades"][:10]:
-        print(f"    {t['exit_date']} {t['symbol']:<12} {t['reason']:<18} {_pct(t['pnl_pct'])}  R {t['r_mult']}")
+        print(
+            f"    {t['exit_date']} {t['symbol']:<12} {t['reason']:<18} "
+            f"{_pct(t['pnl_pct'])}  R {t['r_mult']}"
+        )
 
 
 # ============================================================
@@ -2891,8 +3008,14 @@ def collect_live(slugs=None):
                         _now(),
                     )
                 )
-            conn.execute("DELETE FROM league_signals WHERE source='live' AND player=? AND date=?", (t.SLUG, d))
-            conn.executemany("INSERT OR REPLACE INTO league_signals VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+            conn.execute(
+                "DELETE FROM league_signals WHERE source='live' AND player=? AND date=?",
+                (t.SLUG, d),
+            )
+            conn.executemany(
+                "INSERT OR REPLACE INTO league_signals VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                rows,
+            )
             conn.commit()
             report[t.SLUG] = f"{len(rows)} signals ({time.time() - t0:.0f}s)"
         if not slugs or HOME in slugs:
@@ -2905,7 +3028,9 @@ def collect_live(slugs=None):
                 ).fetchall()
             except Exception:
                 rs = conn.execute(
-                    "SELECT symbol, entry_trigger, stop, target, 'SWING' FROM swing_signals WHERE signal_date=?", (d,)
+                    "SELECT symbol, entry_trigger, stop, target, 'SWING' "
+                    "FROM swing_signals WHERE signal_date=?",
+                    (d,),
                 ).fetchall()
             size_mult = 1.0
             try:
@@ -2941,8 +3066,13 @@ def collect_live(slugs=None):
                         _now(),
                     )
                 )
-            conn.execute("DELETE FROM league_signals WHERE source='live' AND player=? AND date=?", (HOME, d))
-            conn.executemany("INSERT OR REPLACE INTO league_signals VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+            conn.execute(
+                "DELETE FROM league_signals WHERE source='live' AND player=? AND date=?", (HOME, d)
+            )
+            conn.executemany(
+                "INSERT OR REPLACE INTO league_signals VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                rows,
+            )
             conn.commit()
             report[HOME] = f"{len(rows)} signals from swing_signals"
     finally:
@@ -2975,7 +3105,11 @@ def scorecard_text(mode=None):
     if not play:
         return None
     title = "LIVE paper league" if m == "live" else "BACKTEST (pre-season)"
-    lines = [f"🏆 TRADER LEAGUE — {title}", f"{run['start']} → {run['end']} · ₹10 lakh each · after costs", ""]
+    lines = [
+        f"🏆 TRADER LEAGUE — {title}",
+        f"{run['start']} → {run['end']} · ₹10 lakh each · after costs",
+        "",
+    ]
     if len({round(r.get("final_equity") or 0) for r in play}) == 1 and not any(
         r.get("trades") or r.get("open") for r in play
     ):
@@ -2987,7 +3121,9 @@ def scorecard_text(mode=None):
         return "\n".join(lines)
     for r in play[:6]:
         lines.append(
-            f"{r['rank']:>2}. {r['name'][:22]:<22} {inr(r['final_equity']).replace('Rs ', '₹')} {_pct(r['return_pct'])}"
+            f"{r['rank']:>2}. {r['name'][:22]:<22} "
+            f"{inr(r['final_equity']).replace('Rs ', '₹')} "
+            f"{_pct(r['return_pct'])}"
         )
     home = next((r for r in play if r["slug"] == HOME), None)
     if home:
@@ -3144,7 +3280,13 @@ def start_replay_process(years=None, symbols=None, workers=1, slugs=None, fresh=
     finally:
         out.close()  # the child has its own copy
     _REPLAY_PROC["proc"] = proc
-    info = {"pid": proc.pid, "started": _now(), "years": years, "symbols": symbols, "workers": workers}
+    info = {
+        "pid": proc.pid,
+        "started": _now(),
+        "years": years,
+        "symbols": symbols,
+        "workers": workers,
+    }
     _REPLAY_PID.write_text(json.dumps(info))
     return {"started": True, "state": dict(info, running=True)}
 
@@ -3214,7 +3356,9 @@ def selftest(verbose=True):
             )
         ]
         sigs += list(extra_sigs)
-        return simulate("t", sigs, set(exits), book, dates, lambda m: prof, C, capital=capital), dates
+        return simulate(
+            "t", sigs, set(exits), book, dates, lambda m: prof, C, capital=capital
+        ), dates
 
     if verbose:
         print("Signal Genome:")
@@ -3222,7 +3366,8 @@ def selftest(verbose=True):
 
     genome_conn = sqlite3.connect(":memory:")
     genome_conn.execute(
-        "CREATE TABLE league_trades (run_id TEXT, player TEXT, method TEXT, regime TEXT, pnl REAL, r_mult REAL)"
+        "CREATE TABLE league_trades (run_id TEXT, player TEXT, method TEXT, "
+        "regime TEXT, pnl REAL, r_mult REAL)"
     )
     genome_conn.executemany(
         "INSERT INTO league_trades VALUES (?,?,?,?,?,?)",
@@ -3268,24 +3413,43 @@ def selftest(verbose=True):
     flat = [(100, 101, 99, 100)]
     # 1) stop hit intraday
     res, _ = run(
-        [*flat, (100, 101, 99.5, 100), (99, 99.5, 94, 95), *flat], {"entry": None, "stop": 95.0, "target": 120.0}, prof
+        flat + [(100, 101, 99.5, 100), (99, 99.5, 94, 95)] + flat,
+        {"entry": None, "stop": 95.0, "target": 120.0},
+        prof,
     )
     t = res["trades"][0] if res["trades"] else {}
     fill = 100 * (1 + C["SLIPPAGE_PCT"])
     shares = min(int(10000 / (fill - 95)), int(200000 / fill))
-    check("market entry at next open + slippage", abs(t.get("entry_price", 0) - fill) < 1e-6, f"{t.get('entry_price')}")
+    check(
+        "market entry at next open + slippage",
+        abs(t.get("entry_price", 0) - fill) < 1e-6,
+        f"{t.get('entry_price')}",
+    )
     check("1% risk sizing", t.get("shares") == shares, f"{t.get('shares')}")
-    check("stop exit at stop price - slippage", abs(t.get("exit_price", 0) - 95 * (1 - C["SLIPPAGE_PCT"])) < 1e-6)
+    check(
+        "stop exit at stop price - slippage",
+        abs(t.get("exit_price", 0) - 95 * (1 - C["SLIPPAGE_PCT"])) < 1e-6,
+    )
     exp_pnl = (
         shares * 95 * (1 - C["SLIPPAGE_PCT"])
         - trade_costs("sell", shares * 95 * (1 - C["SLIPPAGE_PCT"]), C)
         - shares * fill
         - trade_costs("buy", shares * fill, C)
     )
-    check("P&L includes every charge", abs(t.get("pnl", 0) - exp_pnl) < 0.02, f"{t.get('pnl')} vs {exp_pnl:.2f}")
-    check("loss is a bit worse than -1R", -1.15 < (t.get("r_mult") or 0) < -1.0, f"R {t.get('r_mult')}")
+    check(
+        "P&L includes every charge",
+        abs(t.get("pnl", 0) - exp_pnl) < 0.02,
+        f"{t.get('pnl')} vs {exp_pnl:.2f}",
+    )
+    check(
+        "loss is a bit worse than -1R",
+        -1.15 < (t.get("r_mult") or 0) < -1.0,
+        f"R {t.get('r_mult')}",
+    )
     # 2) gap through the stop
-    res, _ = run([*flat, (100, 101, 99.5, 100), (90, 92, 89, 91), *flat], {"entry": None, "stop": 95.0}, prof)
+    res, _ = run(
+        flat + [(100, 101, 99.5, 100), (90, 92, 89, 91)] + flat, {"entry": None, "stop": 95.0}, prof
+    )
     t = res["trades"][0]
     check(
         "gap below stop fills at the open (worse)",
@@ -3294,26 +3458,32 @@ def selftest(verbose=True):
     )
     # 3) target
     res, _ = run(
-        [*flat, (100, 101, 99.5, 100), (104, 111, 103, 110), *flat],
+        flat + [(100, 101, 99.5, 100), (104, 111, 103, 110)] + flat,
         {"entry": None, "stop": 95.0, "target": 110.0},
         prof,
     )
     t = res["trades"][0]
-    check("target exit", t["reason"] == "TARGET" and abs(t["exit_price"] - 110 * (1 - C["SLIPPAGE_PCT"])) < 1e-6)
+    check(
+        "target exit",
+        t["reason"] == "TARGET" and abs(t["exit_price"] - 110 * (1 - C["SLIPPAGE_PCT"])) < 1e-6,
+    )
     # 4) stop AND target inside one bar: which came first?
     both = {"entry": None, "stop": 95.0, "target": 110.0}
-    res, _ = run([*flat, (100, 101, 99.5, 100), (100, 111, 94, 105), *flat], both, prof)
+    res, _ = run(flat + [(100, 101, 99.5, 100), (100, 111, 94, 105)] + flat, both, prof)
     check("green bar (open-low-high-close): stop first", res["trades"][0]["reason"] == "STOP")
-    res, _ = run([*flat, (100, 101, 99.5, 100), (100, 111, 94, 96), *flat], both, prof)
+    res, _ = run(flat + [(100, 101, 99.5, 100), (100, 111, 94, 96)] + flat, both, prof)
     check("red bar (open-high-low-close): target first", res["trades"][0]["reason"] == "TARGET")
     C["INTRABAR"] = "worst"
-    res, _ = run([*flat, (100, 101, 99.5, 100), (100, 111, 94, 96), *flat], both, prof)
+    res, _ = run(flat + [(100, 101, 99.5, 100), (100, 111, 94, 96)] + flat, both, prof)
     C["INTRABAR"] = "path"
     check("INTRABAR=worst: stop always first", res["trades"][0]["reason"] == "STOP")
     # 4b) buy-stop filled during a green day whose low came before the fill
     bs = {"entry": 105.0, "stop": 100.0}
     res, _ = run(flat + [(102, 108, 99, 107)] + [(107, 108, 106, 107)] * 2, bs, prof)
-    check("buy-stop day: a low BEFORE the fill can't stop you out", not res["trades"] and len(res["open"]) == 1)
+    check(
+        "buy-stop day: a low BEFORE the fill can't stop you out",
+        not res["trades"] and len(res["open"]) == 1,
+    )
     res, _ = run(flat + [(102, 108, 99, 101)] + [(107, 108, 106, 107)] * 2, bs, prof)
     check(
         "buy-stop day: a red day's later low does stop you out",
@@ -3323,7 +3493,7 @@ def selftest(verbose=True):
     res, _ = run(flat * 6, {"entry": 105.0, "stop": 95.0}, prof)
     check("untriggered buy-stop expires", not res["trades"] and not res["open"])
     # 6) buy-stop with a gap above the trigger fills at the open
-    res, _ = run([*flat, (107, 108, 106, 107), *flat], {"entry": 105.0, "stop": 95.0}, prof)
+    res, _ = run(flat + [(107, 108, 106, 107)] + flat, {"entry": 105.0, "stop": 95.0}, prof)
     op = (res["open"] or [{}])[0]
     check(
         "gap above buy-stop fills at the open",
@@ -3337,21 +3507,34 @@ def selftest(verbose=True):
     # 8) time stop after N sessions at the close
     res, _ = run(flat * 8, {"entry": None, "stop": 90.0}, {"stop": ("signal",), "max_hold": 3})
     t = res["trades"][0]
-    check("time stop at the close of session 3", t["reason"] == "TIME" and t["bars"] == 3, f"{t['reason']} {t['bars']}")
+    check(
+        "time stop at the close of session 3",
+        t["reason"] == "TIME" and t["bars"] == 3,
+        f"{t['reason']} {t['bars']}",
+    )
     # 9) turtle-style trailing low ratchets the stop up
     up = [(100 + i, 101 + i, 99.5 + i, 100.5 + i) for i in range(12)]
     down = [(110, 110, 100, 101), (101, 102, 95, 96)]
     res, _ = run(
-        [(100, 101, 99, 100), *up, *down],
+        [(100, 101, 99, 100)] + up + down,
         {"entry": None, "stop": None},
         {"stop": ("atr", 2.0, 14), "trail_low": 3, "max_hold": None},
     )
     t = res["trades"][0]
-    check("trailing-low stop exits in profit", t["reason"].startswith("TRAIL_STOP") and t["pnl"] > 0, t["reason"])
+    check(
+        "trailing-low stop exits in profit",
+        t["reason"].startswith("TRAIL_STOP") and t["pnl"] > 0,
+        t["reason"],
+    )
     # 10) tranche exits: 1/3 at +2R (stop to breakeven), then breakeven stop
-    tr = [(100, 101, 99.5, 100), (100, 104, 99.8, 103.5), (103, 111, 102, 110), (109, 109.5, 99, 100)]
+    tr = [
+        (100, 101, 99.5, 100),
+        (100, 104, 99.8, 103.5),
+        (103, 111, 102, 110),
+        (109, 109.5, 99, 100),
+    ]
     res, _ = run(
-        [(100, 101, 99, 100), *tr],
+        [(100, 101, 99, 100)] + tr,
         {"entry": None, "stop": 97.0},
         {
             "stop": ("signal",),
@@ -3363,7 +3546,9 @@ def selftest(verbose=True):
     )
     t = res["trades"][0]
     check(
-        "partial profits + breakeven stop", "PARTIAL" in t["reason"] and t["pnl"] > 0, f"{t['reason']} pnl {t['pnl']}"
+        "partial profits + breakeven stop",
+        "PARTIAL" in t["reason"] and t["pnl"] > 0,
+        f"{t['reason']} pnl {t['pnl']}",
     )
     # 11) max positions: 2 slots, 3 signals -> the 2 best confidence fill
     book = PriceBook(
@@ -3403,10 +3588,16 @@ def selftest(verbose=True):
     )
     # 12) O'Neil: +20% inside 3 weeks -> hold (no quick profit-taking)
     rocket = [(100 + 5 * i, 106 + 5 * i, 99 + 5 * i, 105 + 5 * i) for i in range(8)]
-    res, _ = run([(100, 101, 99, 100), *rocket], {"entry": None, "stop": None}, dict(BOOK_PROFILES["oneil"]))
+    res, _ = run(
+        [(100, 101, 99, 100)] + rocket, {"entry": None, "stop": None}, dict(BOOK_PROFILES["oneil"])
+    )
     check("O'Neil 8-week rule keeps a fast winner", not res["trades"] and len(res["open"]) == 1)
     # 13) cash is never negative and equity reconciles
-    res, _ = run([*flat, (100, 101, 99.5, 100), (99, 99.5, 94, 95), *flat], {"entry": None, "stop": 95.0}, prof)
+    res, _ = run(
+        flat + [(100, 101, 99.5, 100), (99, 99.5, 94, 95)] + flat,
+        {"entry": None, "stop": 95.0},
+        prof,
+    )
     end_eq = res["curve"][-1][1]
     check(
         "equity = capital + sum of trade P&L",
@@ -3437,7 +3628,9 @@ def selftest(verbose=True):
         cut = []
         for d in days:
             k = px["pos"][d]
-            r, _ = _replay_book("way_of_the_turtle", "X", _prep(df.iloc[: k + 1].reset_index(drop=True)), [d], ctx)
+            r, _ = _replay_book(
+                "way_of_the_turtle", "X", _prep(df.iloc[: k + 1].reset_index(drop=True)), [d], ctx
+            )
             cut += r
 
         def strip(rows):
@@ -3466,14 +3659,18 @@ def selftest(verbose=True):
 def main(argv=None):
     with contextlib.suppress(Exception):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    ap = argparse.ArgumentParser(description="Trader League: 14 books + our system, Rs 10 lakh each.")
+    ap = argparse.ArgumentParser(
+        description="Trader League: 14 books + our system, Rs 10 lakh each."
+    )
     sub = ap.add_subparsers(dest="cmd")
     r = sub.add_parser("replay", help="pre-season replay (slow, resumable)")
     r.add_argument("--years", type=float)
     r.add_argument("--symbols", type=int)
     r.add_argument("--players", type=str, help="comma list, e.g. home,nison")
     r.add_argument("--workers", type=int, default=1)
-    r.add_argument("--fresh", action="store_true", help="forget stored replay signals for these players")
+    r.add_argument(
+        "--fresh", action="store_true", help="forget stored replay signals for these players"
+    )
     r.add_argument(
         "--changed",
         action="store_true",
@@ -3482,7 +3679,8 @@ def main(argv=None):
     r.add_argument(
         "--background",
         action="store_true",
-        help="start in the background at low priority and return (same as the League tab button; survives SSH logout)",
+        help="start in the background at low priority and return "
+        "(same as the League tab button; survives SSH logout)",
     )
     b = sub.add_parser("backtest", help="simulate stored signals (fast)")
     b.add_argument("--exit", default="book", choices=["book", "common"])
@@ -3530,7 +3728,10 @@ def main(argv=None):
                 print("Progress: python trader_league.py status")
                 print(f"Log file: {_REPLAY_LOG}")
             else:
-                print(f"Not started: {res.get('reason')} (pid {st.get('pid')}, started {st.get('started')}).")
+                print(
+                    f"Not started: {res.get('reason')} (pid "
+                    f"{st.get('pid')}, started {st.get('started')})."
+                )
                 print("See its progress: python trader_league.py status")
             return
         if not _claim_replay(a.years, a.symbols, a.workers):
@@ -3572,7 +3773,10 @@ def main(argv=None):
     elif a.cmd == "status":
         s = status()
         print(f"Last price date: {s['last_price_date']}")
-        print(f"{'Player':<28}{'Replay signals':>15}{'Stocks':>8}  {'Replayed':<25}{'Live signals':>13}")
+        print(
+            f"{'Player':<28}{'Replay signals':>15}{'Stocks':>8}  "
+            f"{'Replayed':<25}{'Live signals':>13}"
+        )
         for p in s["players"]:
             rng_txt = (
                 f"{p['replay_from']} -> {p['replay_to']}"

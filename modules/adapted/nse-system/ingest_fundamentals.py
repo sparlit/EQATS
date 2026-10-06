@@ -26,6 +26,7 @@ import sys
 
 import db
 import pandas as pd
+from fundamentals_store import merge
 
 NUMERIC = [
     "current_price",
@@ -44,6 +45,14 @@ NUMERIC = [
     "pledge_pct",
     "fii_holding",
     "dividend_yield",
+    "roic",
+    "beta_1y",
+    "eps_fy",
+    "book_value",
+    "ev_ebitda",
+    "fcf_fy",
+    "net_debt_fy",
+    "cfo_positive",
 ]
 
 
@@ -57,42 +66,45 @@ def load(path):
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce")
     conn = db.get_conn()
-    now = "csv:" + dt.datetime.now().isoformat()
+    import hashlib
+    import os
+
+    with open(path, "rb") as source:
+        source_hash = hashlib.sha256(source.read()).hexdigest()
+    metadata = {
+        "filename": os.path.basename(path),
+        "sha256": source_hash,
+        "source_modified_at": dt.datetime.fromtimestamp(os.path.getmtime(path))
+        .astimezone()
+        .isoformat(),
+        "imported_at": dt.datetime.now().astimezone().isoformat(),
+        "source_observation_date": None,
+        "financial_period_end": None,
+    }
     n = 0
     for _, r in df.iterrows():
         sym = str(r["symbol"]).strip().upper()
+        for suffix in (".NS", ".NSE", ".BO", ".BSE"):
+            if sym.endswith(suffix):
+                sym = sym[: -len(suffix)]
+                break
         if not sym:
             continue
-        conn.execute("DELETE FROM fundamentals WHERE symbol=?", (sym,))
-        conn.execute(
-            "INSERT INTO fundamentals VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            (
-                sym,
-                r.get("name"),
-                r.get("sector"),
-                r.get("current_price"),
-                r.get("market_cap_cr"),
-                r.get("pe"),
-                r.get("pb"),
-                r.get("roe"),
-                r.get("roce"),
-                r.get("debt_to_equity"),
-                r.get("interest_coverage"),
-                r.get("operating_margin"),
-                r.get("net_profit_margin"),
-                r.get("sales_growth_3y"),
-                r.get("profit_growth_3y"),
-                r.get("promoter_holding"),
-                r.get("pledge_pct"),
-                r.get("fii_holding"),
-                r.get("dividend_yield"),
-                r.get("cfo_positive"),
-                now,
-            ),
-        )
+        vals = {"symbol": sym}
+        for col in NUMERIC + ["name", "sector", "cfo_positive"]:
+            value = r.get(col)
+            if pd.notna(value):
+                vals[col] = int(value) if col == "cfo_positive" else value
+        vals["data_quality_flags"] = [
+            "source_observation_date_unknown",
+            "financial_period_end_unknown",
+            "publication_time_unknown",
+        ]
+        vals["source_metadata"] = metadata
+        merge(conn, vals, source="fundamentals_csv", observed_at=metadata["imported_at"])
         n += 1
     conn.commit()
-    print(f"Fundamentals CSV loaded: {n} stocks (overrides computed)")
+    print(f"Fundamentals CSV loaded: {n} stocks (non-null fields merged)")
     conn.close()
 
 

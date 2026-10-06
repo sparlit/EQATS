@@ -25,11 +25,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 Fast funnel diagnostic — where do setups die?
 100 symbols, 2 years, step=5. Should run in 60-90 seconds.
 """
-import sys
 import time
 
 import db
-import numpy as np
 import pandas as pd
 from scanner import Screener
 from setup import SetupDetector
@@ -60,12 +58,15 @@ def main():
 
     for si, sym in enumerate(syms, 1):
         rows = conn.execute(
-            "SELECT date, close, high, low, volume FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)
+            "SELECT date, close, high, low, volume FROM prices_daily WHERE symbol=? ORDER BY date",
+            (sym,),
         ).fetchall()
         if len(rows) < 280:
             fails["history_short"] += 1
             continue
-        df = pd.DataFrame(list(rows), columns=["date", "Close", "High", "Low", "Volume"]).set_index("date")
+        df = pd.DataFrame(list(rows), columns=["date", "Close", "High", "Low", "Volume"]).set_index(
+            "date"
+        )
         df.index = pd.to_datetime(df.index)
         # last 2 years of bars
         cutoff = df.index[-1] - pd.Timedelta(days=365 * YEARS)
@@ -85,7 +86,9 @@ def main():
                 continue
             totals["setup_trigger"] += 1
             if len(setup_samples) < 10:
-                setup_samples.append((sym, str(hist.index[-1].date()), st.impulse_pct, st.entry_price, st.stop_loss))
+                setup_samples.append(
+                    (sym, str(hist.index[-1].date()), st.impulse_pct, st.entry_price, st.stop_loss)
+                )
 
         if si % 25 == 0:
             print(f"  ...{si}/{len(syms)} symbols, {totals['setup_trigger']} setups so far")
