@@ -26,18 +26,16 @@ Created on Nov 23, 2015
 
 @author: ashish
 """
+# imp.load_source("config","/cygdrive/c/Users/ashish/Desktop/workspace/NSEDataAnalytics/neoPath/config.py")
+
 import csv
 import datetime
-import time
 
-import imp
-
-# imp.load_source("config","/cygdrive/c/Users/ashish/Desktop/workspace/NSEDataAnalytics/neoPath/config.py")
 import MySQLdb
 from dateutil.parser import parse
 
 import config
-from config import tests, type
+from config import type
 
 
 def insert_into_database(File, database, single_or_many):
@@ -46,7 +44,7 @@ def insert_into_database(File, database, single_or_many):
     try:
         csv_data = csv.reader(file(File))
 
-        format = ",".join(["%s" for m in range(len(csv_data.next()))])
+        format = ",".join(["%s" for m in range(0, len(csv_data.next()))])
         if single_or_many:
             for row in csv_data:
                 data = [
@@ -69,7 +67,7 @@ def insert_into_database(File, database, single_or_many):
             data = list(csv_data)
 
             try:
-                format = ",".join(["%s" for m in range(len(data[0]))])
+                format = ",".join(["%s" for m in range(0, len(data[0]))])
 
                 cursor.executemany(f"insert into {database} values({format})", data)
                 db.commit()

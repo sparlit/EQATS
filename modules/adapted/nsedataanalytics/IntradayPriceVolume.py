@@ -24,9 +24,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import sys
 
 import matplotlib.pyplot as plt
-import MySQLdb
 
-import config
 from config import *
 
 query = 'select last ticklast,sum volume by 10 xbar time.minute from fut_one_day where symbol=`$("%s-1M")'
