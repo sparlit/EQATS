@@ -1,4 +1,5 @@
 import datetime
+
 import pytz
 
 
@@ -21,16 +22,16 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 # CANDLE COLUMN ORDER: Call Change OI is beside Call OI; Put Change OI is beside Put OI.
+import glob
+import math
 import os
+import pickle
+import shutil
 import sys
 import time
-import math
-import shutil
-import glob
-import pickle
-from datetime import datetime as dt
 import warnings
-from datetime import timezone, timedelta
+from datetime import datetime as dt
+from datetime import timedelta, timezone
 
 warnings.filterwarnings("ignore")
 try:
@@ -58,11 +59,11 @@ for pkg in [
     except ImportError:
         os.system(f"{sys.executable} -m pip install -U {pkg}")
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 import pyotp
-import xlwings as xw
 import requests
+import xlwings as xw
 from scipy.optimize import brentq
 
 # Fix NumPy 2.0 compatibility
@@ -70,6 +71,8 @@ if not hasattr(np, "PINF"):
     np.PINF = np.inf
 if not hasattr(np, "NINF"):
     np.NINF = -np.inf
+
+import contextlib
 
 from NorenRestApiPy.NorenApi import NorenApi
 
@@ -185,7 +188,7 @@ def nearest_strike(spot, step=50.0):
 
 def epoch_to_ist(epoch_time):
     try:
-        utc_dt = dt.fromtimestamp(int(epoch_time), timezone.utc)
+        utc_dt = dt.fromtimestamp(int(epoch_time), datetime.UTC)
         ist_dt = utc_dt.astimezone(IST)
         return ist_dt
     except Exception as e:
@@ -354,7 +357,10 @@ def _solve_iv(option_price, pricing_function, lower_bound, upper_bound, intrinsi
         return 0.0
     if option_price < lower_bound - 1e-7 or option_price > upper_bound + 1e-7:
         return 0.0
-    objective = lambda sigma: pricing_function(sigma) - option_price
+
+    def objective(sigma):
+        return pricing_function(sigma) - option_price
+
     try:
         iv = brentq(objective, 1e-4, 5.0)
     except ValueError:
@@ -363,7 +369,13 @@ def _solve_iv(option_price, pricing_function, lower_bound, upper_bound, intrinsi
 
 
 def init_iv_calculator(
-    spot_ltp, future_ltp, atm_strike, atm_call_price, atm_put_price, expiry_date, underlying_mode="SPOT"
+    spot_ltp,
+    future_ltp,
+    atm_strike,
+    atm_call_price,
+    atm_put_price,
+    expiry_date,
+    underlying_mode="SPOT",
 ):
     global current_expiry_date, current_spot, current_future
     global current_atm_strike, current_atm_call_price, current_atm_put_price
@@ -378,9 +390,13 @@ def init_iv_calculator(
     current_expiry_date = expiry_date
     current_iv_timestamp = dt.now(IST).replace(tzinfo=None)
 
-    current_iv_underlying_mode = "FUTURE" if str(underlying_mode).strip().upper().startswith("F") else "SPOT"
+    current_iv_underlying_mode = (
+        "FUTURE" if str(underlying_mode).strip().upper().startswith("F") else "SPOT"
+    )
     current_iv_underlying = (
-        current_future if current_iv_underlying_mode == "FUTURE" and current_future > 0 else current_spot
+        current_future
+        if current_iv_underlying_mode == "FUTURE" and current_future > 0
+        else current_spot
     )
 
     session_date = _market_session_date(current_iv_timestamp)
@@ -868,10 +884,8 @@ def daily_rolling_backup():
         if os.path.exists(src):
             stamp_path = src.replace(".", f"_{today}.")
             if not os.path.exists(stamp_path):
-                try:
+                with contextlib.suppress(Exception):
                     shutil.copy2(src, stamp_path)
-                except Exception:
-                    pass
     try:
         for f in glob.glob(os.path.join(BACKUP_DIR, "*_202*.parquet")) + glob.glob(
             os.path.join(BACKUP_DIR, "*_202*.pkl")
@@ -1154,7 +1168,9 @@ def aggregate_candles(history_sheet, candle_sheet, interval_minutes):
                 return pd.Timestamp(value).strftime("%Y-%m-%d %H:%M")
             if isinstance(value, (int, float, np.integer, np.floating)):
                 try:
-                    parsed = pd.to_datetime(float(value), unit="D", origin="1899-12-30", errors="coerce")
+                    parsed = pd.to_datetime(
+                        float(value), unit="D", origin="1899-12-30", errors="coerce"
+                    )
                     if not pd.isna(parsed):
                         return parsed.strftime("%Y-%m-%d %H:%M")
                 except Exception:
@@ -1202,7 +1218,7 @@ def aggregate_candles(history_sheet, candle_sheet, interval_minutes):
                 return str(old).strip() == str(new).strip()
 
             changed = False
-            for old, new in zip(last_row_values, new_values):
+            for old, new in zip(last_row_values, new_values, strict=False):
                 if not values_equal(old, new):
                     changed = True
                     break
@@ -1392,10 +1408,8 @@ def get_all_login_data(login_sheet):
             elif "IP_ADRESS" in field or "IP_ADDRESS" in field:
                 login_data["ip_address"] = value
             elif "TOKEN_TIMESTAMP" in field or "TOKEN TIME" in field:
-                try:
+                with contextlib.suppress(BaseException):
                     login_data["token_timestamp"] = dt.strptime(value, "%Y-%m-%d %H:%M:%S")
-                except:
-                    pass
     if not login_data["client_id"] and login_data["user_id"]:
         login_data["client_id"] = f"{login_data['user_id']}_U"
     return login_data
@@ -1464,12 +1478,13 @@ def is_token_valid(login_data):
 
 def get_auth_code_via_selenium(client_id, user_id, password, totp_secret):
     from selenium import webdriver
-    from selenium.webdriver.common.by import By
     from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.common.by import By
     from webdriver_manager.chrome import ChromeDriverManager
 
     login_url = (
-        f"https://trade.shoonya.com/OAuthlogin/investor-entry-level/login?api_key={client_id}&route_to={user_id}"
+        f"https://trade.shoonya.com/OAuthlogin/"
+        f"investor-entry-level/login?api_key={client_id}&route_to={user_id}"
     )
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
@@ -1584,7 +1599,10 @@ def shoonya_login(login_sheet):
 
     api = _make_api()
     auth_code = get_auth_code_via_selenium(
-        login_data["client_id"], login_data["user_id"], login_data["password"], login_data["totp_secret"]
+        login_data["client_id"],
+        login_data["user_id"],
+        login_data["password"],
+        login_data["totp_secret"],
     )
     if not auth_code:
         print("❌ Browser did not return an OAuth code.")
@@ -1682,9 +1700,9 @@ def load_instruments():
 
 
 def get_index_future_token():
-    df_temp = df_ins_NFO[(df_ins_NFO.Symbol == SYMBOL) & (df_ins_NFO["Instrument"].isin(["FUTIDX"]))].sort_values(
-        by="Expiry"
-    )
+    df_temp = df_ins_NFO[
+        (df_ins_NFO.Symbol == SYMBOL) & (df_ins_NFO["Instrument"].isin(["FUTIDX"]))
+    ].sort_values(by="Expiry")
     if len(df_temp) == 0:
         return None
     return df_temp.iloc[0]["Token"]
@@ -1695,7 +1713,9 @@ def build_option_chain_template():
     if any(t["symbol"] == SYMBOL for t in OptionChain_template):
         return
 
-    df_sym = df_ins_NFO[(df_ins_NFO.Symbol == SYMBOL) & (df_ins_NFO["OptionType"].isin(["CE", "PE"]))]
+    df_sym = df_ins_NFO[
+        (df_ins_NFO.Symbol == SYMBOL) & (df_ins_NFO["OptionType"].isin(["CE", "PE"]))
+    ]
     expiry_strike_list = []
     for expiry in df_sym["Expiry"].unique():
         if str(expiry) == "NaT":
@@ -1722,7 +1742,9 @@ def dump_available_expiries(oc_sheet):
     template = [t for t in OptionChain_template if t["symbol"] == SYMBOL][0]
     expiries = sorted(e["Expiry"] for e in template["Expiry_Strike_token"])
     oc_sheet.range("D1:D50").value = None
-    oc_sheet.range("D1").options(transpose=True).value = [str(e.strftime("%d-%m-%Y")) for e in expiries]
+    oc_sheet.range("D1").options(transpose=True).value = [
+        str(e.strftime("%d-%m-%Y")) for e in expiries
+    ]
 
 
 def _nearest_upcoming_expiry(today=None):
@@ -1759,7 +1781,9 @@ def _report_blank_config_cells(oc_sheet):
         "B3": "RefreshRate(sec)",
         "B4": "Aggregation Interval (min)",
     }
-    blanks = [f"{cell} [{label}]" for cell, label in cell_labels.items() if not oc_sheet.range(cell).value]
+    blanks = [
+        f"{cell} [{label}]" for cell, label in cell_labels.items() if not oc_sheet.range(cell).value
+    ]
     if blanks:
         print(f"⚠️ Blank config cells (defaults will be used): {', '.join(blanks)}")
     else:
@@ -1874,12 +1898,16 @@ def store_tick_data(
                 call_same = df_full[df_full["strike"] == otm_call_strike]
                 if not call_same.empty:
                     r = call_same.iloc[0]
-                    call_iv, _ = calculate_iv_for_strike(otm_call_strike, r.get("CE_lp", 0), r.get("PE_lp", 0))
+                    call_iv, _ = calculate_iv_for_strike(
+                        otm_call_strike, r.get("CE_lp", 0), r.get("PE_lp", 0)
+                    )
 
                 put_same = df_full[df_full["strike"] == otm_put_strike]
                 if not put_same.empty:
                     r = put_same.iloc[0]
-                    _, put_iv = calculate_iv_for_strike(otm_put_strike, r.get("CE_lp", 0), r.get("PE_lp", 0))
+                    _, put_iv = calculate_iv_for_strike(
+                        otm_put_strike, r.get("CE_lp", 0), r.get("PE_lp", 0)
+                    )
             except Exception as e:
                 print(f"⚠️ OTM IV calculation error: {e}")
 
@@ -1905,10 +1933,12 @@ def store_tick_data(
             convert_to_float(call_data.get("CE_coi", 0)),
             convert_to_float(call_data.get("CE_total_buy", 0)),
             convert_to_float(call_data.get("CE_total_sell", 0)),
-            convert_to_float(call_data.get("CE_total_buy", 0)) - convert_to_float(call_data.get("CE_total_sell", 0)),
+            convert_to_float(call_data.get("CE_total_buy", 0))
+            - convert_to_float(call_data.get("CE_total_sell", 0)),
             convert_to_float(call_data.get("CE_bp1", 0)),
             convert_to_float(call_data.get("CE_sp1", 0)),
-            convert_to_float(call_data.get("CE_sp1", 0)) - convert_to_float(call_data.get("CE_bp1", 0)),
+            convert_to_float(call_data.get("CE_sp1", 0))
+            - convert_to_float(call_data.get("CE_bp1", 0)),
             convert_to_float(otm_put_strike),
             convert_to_float(put_data.get("PE_lp", 0)),
             convert_to_float(put_data.get("PE_v", 0)),
@@ -1917,16 +1947,19 @@ def store_tick_data(
             convert_to_float(put_data.get("PE_coi", 0)),
             convert_to_float(put_data.get("PE_total_buy", 0)),
             convert_to_float(put_data.get("PE_total_sell", 0)),
-            convert_to_float(put_data.get("PE_total_buy", 0)) - convert_to_float(put_data.get("PE_total_sell", 0)),
+            convert_to_float(put_data.get("PE_total_buy", 0))
+            - convert_to_float(put_data.get("PE_total_sell", 0)),
             convert_to_float(put_data.get("PE_bp1", 0)),
             convert_to_float(put_data.get("PE_sp1", 0)),
-            convert_to_float(put_data.get("PE_sp1", 0)) - convert_to_float(put_data.get("PE_bp1", 0)),
+            convert_to_float(put_data.get("PE_sp1", 0))
+            - convert_to_float(put_data.get("PE_bp1", 0)),
             pcr_oi,
             pcr_change_oi,
         ]
 
         signature = tuple(
-            round(float(v), 8) if isinstance(v, (int, float, np.number)) else str(v) for v in market_values
+            round(float(v), 8) if isinstance(v, (int, float, np.number)) else str(v)
+            for v in market_values
         )
 
         if last_tick_signature == signature:
@@ -1978,7 +2011,12 @@ def store_tick_data(
         except Exception:
             history_sheet.range("A1:AE1").value = headers
 
-        row_data = [feed_time, now_dt.strftime("%Y-%m-%d %H:%M:%S"), last_traded_time, *market_values]
+        row_data = [
+            feed_time,
+            now_dt.strftime("%Y-%m-%d %H:%M:%S"),
+            last_traded_time,
+            *market_values,
+        ]
 
         try:
             last_row = get_last_actual_row(history_sheet, "A", 1)
@@ -1997,10 +2035,8 @@ def store_tick_data(
         last_tick_signature = signature
 
         if tick_counter == 1 or tick_counter % 50 == 0:
-            try:
+            with contextlib.suppress(Exception):
                 history_sheet.autofit()
-            except Exception:
-                pass
 
         print(
             f"✅ Tick {tick_counter} written at row {next_row} | {now_dt.strftime('%H:%M:%S')} | Spot={market_values[0]:.2f}"
@@ -2034,9 +2070,14 @@ def get_nse_strike_classification(df_full, spot_ltp):
         spot = 0.0
     strikes = []
     try:
-        col = next((c for c in ["Strike", "Strike Price", "strike", "strprc"] if c in df_full.columns), None)
+        col = next(
+            (c for c in ["Strike", "Strike Price", "strike", "strprc"] if c in df_full.columns),
+            None,
+        )
         if col:
-            strikes = sorted({float(x) for x in df_full[col].tolist() if x is not None and str(x).strip() != ""})
+            strikes = sorted(
+                {float(x) for x in df_full[col].tolist() if x is not None and str(x).strip() != ""}
+            )
     except Exception:
         pass
     if not strikes:
@@ -2117,7 +2158,9 @@ def run_option_chain(wb, oc_sheet, history_sheet, candle_sheet):
                 time.sleep(1)
                 continue
 
-            template = [t for t in OptionChain_template if t["symbol"] == SYMBOL][0]["Expiry_Strike_token"]
+            template = [t for t in OptionChain_template if t["symbol"] == SYMBOL][0][
+                "Expiry_Strike_token"
+            ]
             match = [e for e in template if e["Expiry"] == expiry_input]
             if not match:
                 oc_sheet.range("C1").value = f"Expiry {expiry_input} not found - pick from D column"
@@ -2139,13 +2182,17 @@ def run_option_chain(wb, oc_sheet, history_sheet, candle_sheet):
             spot_key = f"{SPOT_EXCHANGE}|{NIFTY_SPOT_TOKEN}"
             spot_ltp = convert_to_float(get_field(spot_key, "lp", 0))
             if spot_ltp == 0:
-                spot_ltp = convert_to_float(api.get_quotes(SPOT_EXCHANGE, str(NIFTY_SPOT_TOKEN)).get("lp"))
+                spot_ltp = convert_to_float(
+                    api.get_quotes(SPOT_EXCHANGE, str(NIFTY_SPOT_TOKEN)).get("lp")
+                )
 
             if fut_token:
                 fut_key = f"{EXCHANGE}|{fut_token}"
                 future_ltp = convert_to_float(get_field(fut_key, "lp", 0))
                 if future_ltp == 0:
-                    future_ltp = convert_to_float(api.get_quotes(EXCHANGE, str(fut_token)).get("lp"))
+                    future_ltp = convert_to_float(
+                        api.get_quotes(EXCHANGE, str(fut_token)).get("lp")
+                    )
             else:
                 future_ltp = spot_ltp
 
@@ -2180,7 +2227,9 @@ def run_option_chain(wb, oc_sheet, history_sheet, candle_sheet):
                         "PE_Token": s["PE_Token"],
                         "CE_oi": ce_oi / lot_size if lot_size > 0 else 0,
                         "CE_coi": (ce_oi - ce_poi) / lot_size if lot_size > 0 else 0,
-                        "CE_v": convert_to_float(get_field(ce_key, "v", 0)) / lot_size if lot_size > 0 else 0,
+                        "CE_v": convert_to_float(get_field(ce_key, "v", 0)) / lot_size
+                        if lot_size > 0
+                        else 0,
                         "CE_lp": ce_lp,
                         "CE_pc": get_field(ce_key, "pc", "-"),
                         "CE_total_buy": ce_total_buy,
@@ -2193,7 +2242,9 @@ def run_option_chain(wb, oc_sheet, history_sheet, candle_sheet):
                         "PE_sp1": pe_sp1,
                         "PE_pc": get_field(pe_key, "pc", "-"),
                         "PE_lp": pe_lp,
-                        "PE_v": convert_to_float(get_field(pe_key, "v", 0)) / lot_size if lot_size > 0 else 0,
+                        "PE_v": convert_to_float(get_field(pe_key, "v", 0)) / lot_size
+                        if lot_size > 0
+                        else 0,
                         "PE_coi": (pe_oi - pe_poi) / lot_size if lot_size > 0 else 0,
                         "PE_oi": pe_oi / lot_size if lot_size > 0 else 0,
                     }
@@ -2220,7 +2271,9 @@ def run_option_chain(wb, oc_sheet, history_sheet, candle_sheet):
                 print("⚠️ IV calculator update failed; IV will be 0 for this refresh.")
             pre_expiry = expiry_input
 
-            otm_call_strike, otm_put_strike = get_first_otm_strikes(df_full, spot_ltp, atm_strike, STRIKE_STEP)
+            otm_call_strike, otm_put_strike = get_first_otm_strikes(
+                df_full, spot_ltp, atm_strike, STRIKE_STEP
+            )
 
             lo = max(0, atm_idx - no_of_strike)
             hi = min(len(df_full), atm_idx + no_of_strike + 1)
@@ -2233,16 +2286,16 @@ def run_option_chain(wb, oc_sheet, history_sheet, candle_sheet):
             total_put_buy = df_display["PE_total_buy"].sum()
             total_put_sell = df_display["PE_total_sell"].sum()
 
-            call_bid_ask_diff = (df_display["CE_sp1"] - df_display["CE_bp1"]).mean() if len(df_display) > 0 else 0
-            put_bid_ask_diff = (df_display["PE_sp1"] - df_display["PE_bp1"]).mean() if len(df_display) > 0 else 0
+            (df_display["CE_sp1"] - df_display["CE_bp1"]).mean() if len(df_display) > 0 else 0
+            (df_display["PE_sp1"] - df_display["PE_bp1"]).mean() if len(df_display) > 0 else 0
 
-            call_buy_sell_diff = total_call_buy - total_call_sell
-            put_buy_sell_diff = total_put_buy - total_put_sell
+            total_call_buy - total_call_sell
+            total_put_buy - total_put_sell
 
             call_iv_list = []
             put_iv_list = []
 
-            for idx, row in df_display.iterrows():
+            for _idx, row in df_display.iterrows():
                 strike = row["strike"]
                 call_price = row["CE_lp"]
                 put_price = row["PE_lp"]
@@ -2319,7 +2372,7 @@ def run_option_chain(wb, oc_sheet, history_sheet, candle_sheet):
                 atm_pe_price,
             )
 
-            current_time = dt.now()
+            dt.now()
             global last_candle_tick_counter
             if tick_counter >= 1 and tick_counter != last_candle_tick_counter:
                 aggregate_candles(history_sheet, candle_sheet, AGGREGATION_INTERVAL)
@@ -2394,7 +2447,9 @@ if __name__ == "__main__":
         print("⚠️ Saved-token WebSocket did not open.")
         login_data = get_all_login_data(login_sheet)
         print("🔐 Trying SAVED AUTH CODE before any browser login...")
-        if login_data.get("auth_code") and _login_from_auth_code(login_sheet, login_data, login_data["auth_code"]):
+        if login_data.get("auth_code") and _login_from_auth_code(
+            login_sheet, login_data, login_data["auth_code"]
+        ):
             if not start_ws_and_wait(15):
                 print("❌ WebSocket still did not open after saved AUTH CODE.")
                 print("   Browser login is NOT started unless AUTH CODE returned None.")
@@ -2442,7 +2497,10 @@ if __name__ == "__main__":
                 print("❌ Password/TOTP missing; cannot generate new OAuth code.")
                 sys.exit(1)
             auth_code_new = get_auth_code_via_selenium(
-                login_data["client_id"], login_data["user_id"], login_data["password"], login_data["totp_secret"]
+                login_data["client_id"],
+                login_data["user_id"],
+                login_data["password"],
+                login_data["totp_secret"],
             )
             if not auth_code_new:
                 print("❌ Browser did not return a new AUTH CODE.")
@@ -2497,7 +2555,9 @@ if __name__ == "__main__":
                     pass
                 time.sleep(5)
                 try:
-                    wb, login_sheet, oc_sheet, history_sheet, candle_sheet = get_or_create_workbook()
+                    wb, login_sheet, oc_sheet, history_sheet, candle_sheet = (
+                        get_or_create_workbook()
+                    )
                     print("✅ Excel reopened + data restored. Resuming in 10s...")
                     time.sleep(10)
                 except Exception as re_err:

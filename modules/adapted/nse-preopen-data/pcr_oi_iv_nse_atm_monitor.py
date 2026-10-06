@@ -248,9 +248,12 @@ def beep():
 
 def main():
     session = make_session()
-    _wb, sht, next_row = ensure_workbook()
+    wb, sht, next_row = ensure_workbook()
     last_store_time = 0.0
-    print(f"Monitoring {SYMBOL} ATM strike (expiry {EXPIRY}) | storing to {XLSM_PATH} every {STORE_MINUTES} min\n")
+    print(
+        f"Monitoring {SYMBOL} ATM strike (expiry {EXPIRY}) "
+        f"| storing to {XLSM_PATH} every {STORE_MINUTES} min\n"
+    )
 
     while True:
         data = fetch_option_chain(session)
@@ -293,8 +296,12 @@ def main():
             if last is not None and last.get("Strike") == strike:
                 last_ce_mid = (float(last["CE_Bid"]) + float(last["CE_Ask"])) / 2
                 last_pe_mid = (float(last["PE_Bid"]) + float(last["PE_Ask"])) / 2
-                ce_signal = classify_buildup(ce["OI"] - float(last["CE_OI"]), ce["Mid"] - last_ce_mid)
-                pe_signal = classify_buildup(pe["OI"] - float(last["PE_OI"]), pe["Mid"] - last_pe_mid)
+                ce_signal = classify_buildup(
+                    ce["OI"] - float(last["CE_OI"]), ce["Mid"] - last_ce_mid
+                )
+                pe_signal = classify_buildup(
+                    pe["OI"] - float(last["PE_OI"]), pe["Mid"] - last_pe_mid
+                )
             else:
                 ce_signal = "No Baseline"
                 pe_signal = "No Baseline"
