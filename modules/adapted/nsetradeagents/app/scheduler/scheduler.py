@@ -107,7 +107,7 @@ def review_positions() -> None:
     try:
         raw = safe_yf_download(tickers, period="1d", interval="5m", group_by="ticker")
     except Exception as e:
-        logger.exception("position_review_fetch_failed", error=str(e))
+        logger.error("position_review_fetch_failed", error=str(e))
         return
 
     if raw is None or raw.empty:
@@ -130,7 +130,7 @@ def review_positions() -> None:
             current_price = float(df["Close"].dropna().iloc[-1])
             live_prices[ticker] = current_price
         except Exception as e:
-            logger.exception("position_review_fetch_failed", ticker=ticker, error=str(e))
+            logger.error("position_review_fetch_failed", ticker=ticker, error=str(e))
             continue
 
         result = evaluate_exit(
@@ -152,7 +152,7 @@ def review_positions() -> None:
         logger.info("position_review_exit", ticker=ticker, price=exit_price, reason=reason)
         simulator.close_trade(ticker, exit_price, reason=reason)
 
-    simulator.save_snapshot(open_prices=live_prices or None)
+    simulator.save_snapshot(open_prices=live_prices if live_prices else None)
 
 
 def review_trail_eod() -> None:
@@ -173,7 +173,7 @@ def review_trail_eod() -> None:
     try:
         raw = safe_yf_download(tickers, period="2d", group_by="ticker")
     except Exception as e:
-        logger.exception("trail_eod_fetch_failed", error=str(e))
+        logger.error("trail_eod_fetch_failed", error=str(e))
         return
 
     if raw is None or raw.empty:
@@ -193,7 +193,7 @@ def review_trail_eod() -> None:
                 continue
             close_price = float(df["Close"].dropna().iloc[-1])
         except Exception as e:
-            logger.exception("trail_eod_fetch_failed", ticker=ticker, error=str(e))
+            logger.error("trail_eod_fetch_failed", ticker=ticker, error=str(e))
             continue
 
         entry_price = position["entry_price"]

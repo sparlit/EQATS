@@ -363,7 +363,11 @@ def run_backtest(
         equity = cash
         for pos in open_positions:
             bars = all_bars.get(pos.ticker)
-            price = float(bars.at[ts, "Close"]) if bars is not None and ts in bars.index else pos.entry_price
+            price = (
+                float(bars.at[ts, "Close"])
+                if bars is not None and ts in bars.index
+                else pos.entry_price
+            )
             equity += pos.shares * price
         equity_curve.append((day, equity))
 
@@ -379,9 +383,13 @@ def run_backtest(
     # Force-close any surviving positions at final day's close
     if trading_days:
         last_ts = pd.Timestamp(trading_days[-1])
-        for pos in open_positions:
+        for pos in list(open_positions):
             bars = all_bars.get(pos.ticker)
-            price = float(bars.at[last_ts, "Close"]) if bars is not None and last_ts in bars.index else pos.entry_price
+            price = (
+                float(bars.at[last_ts, "Close"])
+                if bars is not None and last_ts in bars.index
+                else pos.entry_price
+            )
             proceeds = pos.shares * price
             pnl = proceeds - pos.capital_used
             cash += proceeds

@@ -39,14 +39,17 @@ class BacktestStore:
         Taken from the Nifty index, so days the index didn't trade are excluded.
         """
         cur = self._conn.execute(
-            "SELECT DISTINCT date FROM bars WHERE ticker='^NSEI' AND date>=? and date<=? ORDER BY date",
+            "SELECT DISTINCT date FROM bars "
+            "WHERE ticker='^NSEI' AND date>=? and date<=? ORDER BY date",
             (start.isoformat(), end.isoformat()),
         )
         return [date.fromisoformat(row[0]) for row in cur.fetchall()]
 
     def get_universe(self) -> list[str]:
         """Every stock ticker in the cache, excluding indices."""
-        cur = self._conn.execute("SELECT DISTINCT ticker FROM bars WHERE ticker NOT LIKE '^%' ORDER BY ticker")
+        cur = self._conn.execute(
+            "SELECT DISTINCT ticker FROM bars WHERE ticker NOT LIKE '^%' ORDER BY ticker"
+        )
         return [row[0] for row in cur.fetchall()]
 
     def preload(self, warmup_start: date, end: date) -> dict[str, pd.DataFrame]:

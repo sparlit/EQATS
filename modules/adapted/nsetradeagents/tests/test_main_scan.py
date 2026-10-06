@@ -101,7 +101,7 @@ def scan_env(db_session, monkeypatch):
     monkeypatch.setattr(main, "get_db", _get_db)
     monkeypatch.setattr(main, "fetch_universe", lambda: ["A.NS", "B.NS"])
     monkeypatch.setattr(main.simulator, "is_circuit_breaker_active", lambda: False)
-    monkeypatch.setattr(main.simulator, "get_portfolio_state", portfolio)
+    monkeypatch.setattr(main.simulator, "get_portfolio_state", lambda: portfolio())
     monkeypatch.setattr(main.simulator, "save_snapshot", lambda *a, **k: None)
     monkeypatch.setattr(main.simulator, "open_trade", lambda **k: None)
     monkeypatch.setattr(main.settings, "max_positions", 5)
@@ -262,11 +262,12 @@ def test_one_bad_ticker_does_not_stop_the_scan(scan_env, monkeypatch):
 
     def flaky(*, ticker, **k):
         if ticker == "A.NS":
-            msg = "yfinance exploded"
-            raise RuntimeError(msg)
+            raise RuntimeError("yfinance exploded")
         return state(executed=False)
 
-    monkeypatch.setattr(main, "screen", lambda t: ([candidate("A.NS"), candidate("B.NS")], True, 62.0))
+    monkeypatch.setattr(
+        main, "screen", lambda t: ([candidate("A.NS"), candidate("B.NS")], True, 62.0)
+    )
     monkeypatch.setattr(main, "analyze_ticker", flaky)
 
     main.run_scan()
@@ -301,7 +302,9 @@ def test_scan_records_a_run_even_when_nothing_is_found(scan_env, monkeypatch):
 
 
 def test_scan_records_the_candidate_count(scan_env, monkeypatch):
-    monkeypatch.setattr(main, "screen", lambda t: ([candidate("A.NS"), candidate("B.NS")], True, 62.0))
+    monkeypatch.setattr(
+        main, "screen", lambda t: ([candidate("A.NS"), candidate("B.NS")], True, 62.0)
+    )
     monkeypatch.setattr(main, "analyze_ticker", lambda **k: state(executed=False))
 
     main.run_scan()
@@ -325,8 +328,7 @@ def test_scan_records_the_error_when_it_crashes(scan_env, monkeypatch):
     """A crashed scan must leave a trace, not just vanish."""
 
     def boom(tickers):
-        msg = "universe fetch died"
-        raise RuntimeError(msg)
+        raise RuntimeError("universe fetch died")
 
     monkeypatch.setattr(main, "screen", boom)
 
@@ -347,13 +349,14 @@ def test_a_broken_heartbeat_write_does_not_mask_the_real_error(monkeypatch):
 
     @contextmanager
     def dead_db():
-        msg = "database unreachable"
-        raise RuntimeError(msg)
+        raise RuntimeError("database unreachable")
         yield  # pragma: no cover
 
     monkeypatch.setattr(main, "get_db", dead_db)
     monkeypatch.setattr(main, "fetch_universe", lambda: ["A.NS"])
-    monkeypatch.setattr(main, "screen", lambda t: (_ for _ in ()).throw(ValueError("the real problem")))
+    monkeypatch.setattr(
+        main, "screen", lambda t: (_ for _ in ()).throw(ValueError("the real problem"))
+    )
 
     with pytest.raises(ValueError, match="the real problem"):
         main.run_scan()
@@ -522,8 +525,7 @@ def test_a_snapshot_is_saved_even_when_the_scan_crashes(scan_env, monkeypatch):
     saved = []
 
     def boom(tickers):
-        msg = "universe fetch died"
-        raise RuntimeError(msg)
+        raise RuntimeError("universe fetch died")
 
     monkeypatch.setattr(main, "screen", boom)
     monkeypatch.setattr(main.simulator, "save_snapshot", lambda *a, **k: saved.append(1))
@@ -539,8 +541,7 @@ def test_a_failing_snapshot_does_not_mask_the_real_error(scan_env, monkeypatch):
     out — same trap as the heartbeat write."""
 
     def boom(tickers):
-        msg = "the real problem"
-        raise ValueError(msg)
+        raise ValueError("the real problem")
 
     monkeypatch.setattr(main, "screen", boom)
     monkeypatch.setattr(
