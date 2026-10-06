@@ -1,5 +1,5 @@
 {
-  "current_index": 106,
+  "current_index": 107,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -853,7 +853,7 @@
       "name": "project-nifty",
       "target": "debopam-d/project-nifty",
       "url": "https://github.com/debopam-d/project-nifty",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
