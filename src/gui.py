@@ -313,15 +313,15 @@ class ScalperGui:
                 if self.original_stdout:
                     try:
                         self.original_stdout.write(string)
-                    except Exception:
-                        pass
+                    except Exception as err:
+                        _log.debug("ConsoleRedirector stdout write error: %s", err)
 
             def flush(self) -> None:
                 if self.original_stdout:
                     try:
                         self.original_stdout.flush()
-                    except Exception:
-                        pass
+                    except Exception as err:
+                        _log.debug("ConsoleRedirector stdout flush error: %s", err)
 
         self.console_redirector = ConsoleRedirector(self.log_to_console)
         sys.stdout = self.console_redirector
@@ -372,8 +372,8 @@ class ScalperGui:
                 self.console_text.delete("1.0", "2.0")
             self.console_text.see(tk.END)
             self.console_text.configure(state=tk.DISABLED)
-        except Exception:
-            pass
+        except Exception as err:
+            _log.debug("_insert_console_text error: %s", err)
 
     def _build_header(self) -> None:
         """Header Banner"""
@@ -914,8 +914,8 @@ class ScalperGui:
         login_win.attributes("-topmost", True)
         try:
             login_win.attributes("-fullscreen", True)
-        except Exception:
-            pass
+        except Exception as err:
+            _log.debug("login_win fullscreen attribute set error: %s", err)
         screen_w = login_win.winfo_screenwidth()
         screen_h = login_win.winfo_screenheight()
         login_win.geometry(f"{screen_w}x{screen_h}+0+0")
@@ -1035,8 +1035,8 @@ class ScalperGui:
                         drops[i] = random.randint(-15, 0)
                     else:
                         drops[i] += 1
-            except Exception:
-                pass
+            except Exception as err:
+                _log.debug("matrix animation loop error: %s", err)
             if anim_running[0]:
                 login_win.after(35, update_matrix)
 
@@ -1057,8 +1057,8 @@ class ScalperGui:
                     ch = min(740, int(h * 0.88))
                     main_overlay.place_configure(width=cw, height=ch)
                     main_overlay.lift()
-            except Exception:
-                pass
+            except Exception as err:
+                _log.debug("on_resize login window error: %s", err)
 
         login_win.bind("<Configure>", on_resize)
         header_frame = tk.Frame(main_overlay, bg="#030712", pady=12, padx=20)
@@ -1303,13 +1303,13 @@ class ScalperGui:
         if authenticated[0]:
             try:
                 self.root.deiconify()
-            except Exception:
-                pass
+            except Exception as err:
+                _log.debug("self.root.deiconify error: %s", err)
             return True
         try:
             self.root.destroy()
-        except Exception:
-            pass
+        except Exception as err:
+            _log.debug("self.root.destroy error: %s", err)
         return False
 
     def _prompt_secondary_pin(self) -> bool:
@@ -1459,8 +1459,8 @@ class ScalperGui:
         if hasattr(self, "tab_selector_var") and self.tab_selector_var.get() != screen_code:
             try:
                 self.tab_selector_var.set(screen_code)
-            except Exception:
-                pass
+            except Exception as err:
+                _log.debug("tab_selector_var.set error: %s", err)
         if hasattr(self, "tab_selector_menu"):
             self.tab_selector_menu.config(fg=theme["primary"])
         if hasattr(self, "lbl_prompt"):
@@ -2704,8 +2704,8 @@ class ScalperGui:
                         "CONVERGENT BULLISH" if other_vec[0] > self_vec[0] else "BEARISH REJECTION"
                     )
                     distances.append((f"Node_{osym}", f"{l2_dist:.6f}", label_state))
-            except Exception:
-                pass
+            except Exception as err:
+                _log.debug("distance calculation error: %s", err)
         distances.sort(key=lambda x: float(x[1]))
         if not distances:
             distances = [("Node_C412", "0.0124", "CONVERGENT BULLISH")]
@@ -5753,8 +5753,8 @@ class ScalperGui:
         try:
             if os.path.exists(config.DB_PATH):
                 db_size_kb = os.path.getsize(config.DB_PATH) / 1024.0
-        except Exception:
-            pass
+        except Exception as err:
+            _log.debug("DB size check error in mon screen: %s", err)
         import threading
 
         active_threads = threading.active_count()
@@ -6410,15 +6410,15 @@ class ScalperGui:
             for w, default_bg in self.watch_row_widgets[self.selected_watch_row]:
                 try:
                     w.config(bg=default_bg)
-                except tk.TclError:
-                    pass
+                except tk.TclError as err:
+                    _log.debug("TclError resetting watch row bg: %s", err)
         self.selected_watch_row = row_idx
         if row_idx in self.watch_row_widgets:
             for w, _ in self.watch_row_widgets[row_idx]:
                 try:
                     w.config(bg="#1e3a8a")
-                except tk.TclError:
-                    pass
+                except tk.TclError as err:
+                    _log.debug("TclError highlighting watch row bg: %s", err)
         self.selected_symbol_gp = symbol_name
         print(f"🎯 WATCHLIST FULL ROW SELECTED: Row #{row_idx} ({symbol_name})")
 
@@ -6567,8 +6567,8 @@ class ScalperGui:
             try:
                 mkt_nb: Any = self.mkt_notebook
                 mkt_nb.select(tab_idx)
-            except Exception:
-                pass
+            except Exception as err:
+                _log.debug("mkt_notebook.select error: %s", err)
         if hasattr(self, "mkt_subtab_buttons"):
             for idx, btn in enumerate(self.mkt_subtab_buttons):
                 if idx == tab_idx:
@@ -6585,8 +6585,8 @@ class ScalperGui:
                         btn.config(bg="#15803d", fg="#ffffff")
                     else:
                         btn.config(bg="#1c1c1c", fg=self.fg_accent)
-            except Exception:
-                pass
+            except Exception as err:
+                _log.debug("_on_mkt_tab_changed error: %s", err)
 
     def _show_mkt_screen(self) -> None:
         """MKT <GO>: Market movers, scanners, and exchange messages"""
@@ -9234,8 +9234,8 @@ class ScalperGui:
                     v1_vol = float(sum(t.get("volume", 1) for t in t1))
                 if t2:
                     v2_vol = float(sum(t.get("volume", 1) for t in t2))
-            except Exception:
-                pass
+            except Exception as err:
+                _log.debug("polygon volume tick fetch error: %s", err)
         tot_vol = max(1.0, v1_vol + v2_vol)
         v1_pct = int(v1_vol / tot_vol * 100.0)
         v2_pct = 100 - v1_pct
@@ -9259,8 +9259,8 @@ class ScalperGui:
                 if isinstance(px_info, dict) and px_info.get("bid") and (px_info.get("bid") > 0):
                     curr_price = float(px_info["bid"])
                 history_bars = self.scalper.conn.get_history("BTCUSD", 20)
-            except Exception:
-                pass
+            except Exception as err:
+                _log.debug("BTCUSD history fetch error in gui: %s", err)
         if history_bars and isinstance(history_bars, list):
             try:
                 prices = [
@@ -10468,8 +10468,8 @@ class ScalperGui:
                         values=(symbol, rec, buy_pct, hold_pct, sell_pct, price_str),
                         tags=(color_tag,),
                     )
-            except Exception:
-                pass
+            except Exception as err:
+                _log.debug("ANR tree row insert error: %s", err)
         self.anr_tree.tag_configure("green", foreground=self.fg_green)
         self.anr_tree.tag_configure("red", foreground=self.fg_red)
         try:

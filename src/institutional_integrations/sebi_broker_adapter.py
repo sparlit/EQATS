@@ -79,6 +79,12 @@ class SEBIOrderResponse:
     raw_response: dict[str, Any] = field(default_factory=dict)
 
 
+class AbstractSEBIBrokerAdapterError(NotImplementedError):
+    """Raised when an abstract SEBIBrokerAdapter method is invoked without subclass implementation."""
+
+    pass
+
+
 class SEBIBrokerAdapter(abc.ABC):
     """
     Abstract Base Class for SEBI-Registered Indian Broker Integrations.
@@ -100,58 +106,58 @@ class SEBIBrokerAdapter(abc.ABC):
     @abc.abstractmethod
     def connect(self) -> bool:
         """Establishes connection / session authentication with broker API."""
-        raise NotImplementedError
+        raise AbstractSEBIBrokerAdapterError("Subclasses must implement connect()")
 
     @abc.abstractmethod
     def is_connected(self) -> bool:
         """Returns True if connection to SEBI broker API is healthy."""
-        raise NotImplementedError
+        raise AbstractSEBIBrokerAdapterError("Subclasses must implement is_connected()")
 
     @abc.abstractmethod
     def disconnect(self) -> bool:
         """Terminates session and cleans up resources."""
-        raise NotImplementedError
+        raise AbstractSEBIBrokerAdapterError("Subclasses must implement disconnect()")
 
     @abc.abstractmethod
     def get_account_info(self) -> dict[str, Any]:
         """Returns account summary dict with balance, equity, margin_used, available_margin."""
-        raise NotImplementedError
+        raise AbstractSEBIBrokerAdapterError("Subclasses must implement get_account_info()")
 
     @abc.abstractmethod
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
     ) -> list[dict[str, Any]]:
         """Returns historical OHLCV data bars."""
-        raise NotImplementedError
+        raise AbstractSEBIBrokerAdapterError("Subclasses must implement get_history()")
 
     @abc.abstractmethod
     def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         """Returns bid, ask, and last price dict: {'bid': float, 'ask': float, 'last': float}."""
-        raise NotImplementedError
+        raise AbstractSEBIBrokerAdapterError("Subclasses must implement get_current_price()")
 
     @abc.abstractmethod
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
         """Executes an order on the specified Indian exchange with product tag (MIS, CNC, NRML)."""
-        raise NotImplementedError
+        raise AbstractSEBIBrokerAdapterError("Subclasses must implement execute_order()")
 
     @abc.abstractmethod
     def close_order(
         self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
     ) -> SEBIOrderResponse:
         """Square-off or close position for given ticket/symbol."""
-        raise NotImplementedError
+        raise AbstractSEBIBrokerAdapterError("Subclasses must implement close_order()")
 
     @abc.abstractmethod
     def modify_order(
         self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
     ) -> bool:
         """Modifies order parameters."""
-        raise NotImplementedError
+        raise AbstractSEBIBrokerAdapterError("Subclasses must implement modify_order()")
 
     @abc.abstractmethod
     def get_open_orders(self) -> list[dict[str, Any]]:
         """Lists active open orders."""
-        raise NotImplementedError
+        raise AbstractSEBIBrokerAdapterError("Subclasses must implement get_open_orders()")
 
 
 class KiteConnectAdapter(SEBIBrokerAdapter):
