@@ -88,7 +88,7 @@ Total Repositories: 424 | Current Index: 86
 | 83 | bshada/nse-bse-mcp | Processed | https://github.com/sparlit/EQATS/pull/3022 |
 | 84 | buzzsubash/algo_trading_strategies_india | Completed | https://github.com/sparlit/EQATS/pull/3023 |
 | 85 | c3point/in-stock-screener | Completed | https://github.com/sparlit/EQATS/pull/3024 |
-| 86 | c3point/nse-support-tools | Completed | None |
+| 86 | c3point/nse-support-tools | Completed | https://github.com/sparlit/EQATS/pull/3025 |
 | 87 | calumrussell/rotala | pending | None |
 | 88 | ccxt/ccxt | pending | None |
 | 89 | chaitanyarahalkar/financial-info-extractor | pending | None |
