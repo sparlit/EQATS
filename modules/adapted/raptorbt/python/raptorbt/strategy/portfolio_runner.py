@@ -186,7 +186,10 @@ class PortfolioContext:
         from raptorbt.strategy.context import WorkingOrder
 
         sym = symbol or self.symbol
-        return [WorkingOrder(*row, symbol=sym) for row in self._session.working_orders(self._instrument_index(sym))]
+        return [
+            WorkingOrder(*row, symbol=sym)
+            for row in self._session.working_orders(self._instrument_index(sym))
+        ]
 
     def _instrument_index(self, symbol: str | None) -> int:
         return self._index_of[symbol or self.symbol]
@@ -201,8 +204,7 @@ def _as_arrays(arrays: dict) -> dict[str, np.ndarray]:
     n = len(out["timestamps"])
     for key, arr in out.items():
         if len(arr) != n:
-            msg = f"{key} has length {len(arr)}, expected {n}"
-            raise ValueError(msg)
+            raise ValueError(f"{key} has length {len(arr)}, expected {n}")
     return out
 
 
@@ -220,20 +222,17 @@ def drain_intents(strategy, symbol: str, idx: int) -> dict:
     for intent in strategy.drain_orders():
         if isinstance(intent, MarketOrder):
             if entry:
-                msg = f"duplicate entry intents on {symbol} event {idx}"
-                raise ValueError(msg)
+                raise ValueError(f"duplicate entry intents on {symbol} event {idx}")
             entry = True
             size_mult = intent.size_frac
             stop_override = intent.stop_price
             target_override = intent.target_price
         elif isinstance(intent, ClosePosition):
             if exit_:
-                msg = f"duplicate close intents on {symbol} event {idx}"
-                raise ValueError(msg)
+                raise ValueError(f"duplicate close intents on {symbol} event {idx}")
             exit_ = True
         else:
-            msg = f"unknown order intent: {intent!r}"
-            raise ValueError(msg)
+            raise ValueError(f"unknown order intent: {intent!r}")
     return {
         "entry": entry,
         "exit": exit_,
@@ -260,11 +259,9 @@ def apply_commands_on(strategy, session, ctx, symbols, id_map):
                 if parent:
                     mapped = id_map.get(parent)
                     if mapped is None:
-                        msg = f"unknown parent order {parent!r}"
-                        raise ValueError(msg)
+                        raise ValueError(f"unknown parent order {parent!r}")
                     if mapped[0] != instrument:
-                        msg = "parent order belongs to a different symbol"
-                        raise ValueError(msg)
+                        raise ValueError("parent order belongs to a different symbol")
                     parent_engine_id = mapped[1]
                 engine_id = session.submit_order(
                     instrument,
@@ -301,8 +298,7 @@ def apply_commands_on(strategy, session, ctx, symbols, id_map):
                 if len(mapped) >= 2:
                     instruments_involved = {m[0] for m in mapped}
                     if len(instruments_involved) != 1:
-                        msg = "one-cancels-other links cannot span symbols"
-                        raise ValueError(msg)
+                        raise ValueError("one-cancels-other links cannot span symbols")
                     session.link_oco(mapped[0][0], [m[1] for m in mapped])
             elif command[0] == "close":
                 _, position_id, symbol = command
@@ -358,11 +354,11 @@ def run_portfolio_strategy(
     if isinstance(strategy, type):
         strategy = strategy()
     if not isinstance(strategy, Strategy):
-        msg = f"strategy must be a Strategy instance or subclass, got {type(strategy).__name__}"
-        raise ValueError(msg)
+        raise ValueError(
+            f"strategy must be a Strategy instance or subclass, got {type(strategy).__name__}"
+        )
     if not data:
-        msg = "data must contain at least one symbol"
-        raise ValueError(msg)
+        raise ValueError("data must contain at least one symbol")
 
     symbols = list(data.keys())
     arrays = {symbol: _as_arrays(data[symbol]) for symbol in symbols}
@@ -378,7 +374,9 @@ def run_portfolio_strategy(
         )
     for i, symbol in enumerate(symbols):
         a = arrays[symbol]
-        session.set_bars(i, a["timestamps"], a["open"], a["high"], a["low"], a["close"], a["volume"])
+        session.set_bars(
+            i, a["timestamps"], a["open"], a["high"], a["low"], a["close"], a["volume"]
+        )
     session.seal()
 
     ctx = PortfolioContext(session, symbols, arrays)

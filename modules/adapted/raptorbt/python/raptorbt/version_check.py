@@ -60,7 +60,6 @@ import re
 import threading
 import time
 from pathlib import Path
-from typing import Optional, Tuple
 
 __all__ = ["check_for_update", "is_outdated", "parse_version"]
 

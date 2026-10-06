@@ -90,7 +90,9 @@ class TestPortfolioMargin:
 
         assert set(cash_strategy.sizes) == {"AAA", "BBB"}
         # 5x leverage buys 5x the units for the first instrument's slice.
-        assert margin_strategy.sizes["AAA"] == pytest.approx(5.0 * cash_strategy.sizes["AAA"], rel=1e-9)
+        assert margin_strategy.sizes["AAA"] == pytest.approx(
+            5.0 * cash_strategy.sizes["AAA"], rel=1e-9
+        )
 
     def test_shared_account_funds_both_symbols(self):
         """Locks reserve capital without debiting it, so the balance stays
@@ -198,7 +200,9 @@ class TestPortfolioMargin:
         assert result.halted is True
         assert result.halted_at is not None
         # The untouched symbol was halted by the shared account.
-        assert any(symbol == "BBB" and reason == "margin_call" for symbol, reason in strategy.rejects)
+        assert any(
+            symbol == "BBB" and reason == "margin_call" for symbol, reason in strategy.rejects
+        )
 
     def test_reports_rejected_entries(self):
         """Regression: the portfolio total was hardcoded to 0."""
@@ -254,7 +258,9 @@ class TestPortfolioMargin:
     def test_rejects_invalid_account_type(self):
         data = {"AAA": _bars([100.0, 101.0])}
         with pytest.raises(ValueError, match="account_type must be"):
-            run_portfolio_strategy(_EnterOnce(), data, config=_zero_fee_config(), account_type="futures")
+            run_portfolio_strategy(
+                _EnterOnce(), data, config=_zero_fee_config(), account_type="futures"
+            )
         with pytest.raises(ValueError, match="leverage must be > 0"):
             run_portfolio_strategy(
                 _EnterOnce(),

@@ -75,7 +75,7 @@ class TestAggregateBars:
 
     def test_tick_count_unit(self):
         data = _minute_bars(9)
-        ts, _o, _h, _l, _c, v = raptorbt.aggregate_bars(
+        ts, o, h, l, c, v = raptorbt.aggregate_bars(
             data["timestamps"],
             data["open"],
             data["high"],
@@ -124,7 +124,7 @@ class TestBarsFromTicks:
         ltp[5] = 0.0  # missing print: skipped
         buys = np.full(10, 3.0)
         sells = np.full(10, 2.0)
-        bts, _o, _h, _l, _c, v = raptorbt.bars_from_ticks(ts, ltp, buys, sells, 10, "volume")
+        bts, o, h, l, c, v = raptorbt.bars_from_ticks(ts, ltp, buys, sells, 10, "volume")
         # 9 valid trades of size 5: thresholds at 10 -> bars of 2 trades each.
         assert len(bts) >= 4
         assert v[0] == pytest.approx(10.0)
@@ -133,7 +133,7 @@ class TestBarsFromTicks:
         ts = np.arange(6, dtype=np.int64) * 1_000_000_000  # 1s apart
         ltp = np.array([100.0, 101.0, 99.0, 100.5, 102.0, 101.5])
         deltas = np.ones(6)
-        bts, _o, h, l, _c, _v = raptorbt.bars_from_ticks(ts, ltp, deltas, deltas, 3, "s")
+        bts, o, h, l, c, v = raptorbt.bars_from_ticks(ts, ltp, deltas, deltas, 3, "s")
         assert len(bts) == 2
         assert h[0] == pytest.approx(101.0)
         assert l[0] == pytest.approx(99.0)
@@ -265,7 +265,9 @@ class TestRenkoBars:
     def test_bricks_have_no_wicks(self):
         ts = np.array([0, 1], dtype=np.int64)
         px = np.array([100.0, 102.0])
-        _, o, h, l, c, _ = raptorbt.aggregate_bars(ts, px, px, px, px, np.ones(2), 1, "renko", brick_size=1.0)
+        _, o, h, l, c, _ = raptorbt.aggregate_bars(
+            ts, px, px, px, px, np.ones(2), 1, "renko", brick_size=1.0
+        )
         for i in range(len(o)):
             assert h[i] == max(o[i], c[i])
             assert l[i] == min(o[i], c[i])
@@ -275,7 +277,9 @@ class TestRenkoBars:
         n = 20
         ts = np.arange(n, dtype=np.int64) * 3_600_000_000_000
         px = np.full(n, 100.0)
-        out = raptorbt.aggregate_bars(ts, px, px, px, px, np.full(n, 1e6), 1, "renko", brick_size=1.0)
+        out = raptorbt.aggregate_bars(
+            ts, px, px, px, px, np.full(n, 1e6), 1, "renko", brick_size=1.0
+        )
         assert len(out[0]) == 0
 
     def test_streaming_drain_matches_batch(self):
@@ -396,6 +400,8 @@ class TestSignedFlowBars:
         # aggregate_bars carries no flow data; direction comes from price.
         closes = np.array([100.0, 101.0, 102.0, 103.0])
         ts = np.arange(4, dtype=np.int64)
-        out = raptorbt.aggregate_bars(ts, closes, closes, closes, closes, np.ones(4), 2, "tick_imbalance")
+        out = raptorbt.aggregate_bars(
+            ts, closes, closes, closes, closes, np.ones(4), 2, "tick_imbalance"
+        )
         # Four consecutive up-ticks at a threshold of 2.
         assert len(out[0]) == 2

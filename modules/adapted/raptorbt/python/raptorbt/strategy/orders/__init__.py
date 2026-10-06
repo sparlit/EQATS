@@ -52,8 +52,8 @@ __all__ = [
     "MarketOrder",
     "MarketToLimit",
     "StopLimit",
+    "Twap",
     "StopMarket",
     "TrailingStopLimit",
     "TrailingStopMarket",
-    "Twap",
 ]

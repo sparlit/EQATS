@@ -27,16 +27,13 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import logging
-from typing import TYPE_CHECKING
 
 from raptorbt.strategy.cache import Cache
 from raptorbt.strategy.clock import Clock
 from raptorbt.strategy.config import StrategyConfig
+from raptorbt.strategy.context import StrategyContext
 from raptorbt.strategy.orders import ClosePosition, Market, MarketOrder
 from raptorbt.strategy.orders.types import _OrderBase
-
-if TYPE_CHECKING:
-    from raptorbt.strategy.context import StrategyContext
 
 
 class Strategy:
@@ -194,8 +191,7 @@ class Strategy:
             )
             return
         if side not in ("buy", "sell"):
-            msg = f"side must be 'buy' or 'sell', got {side!r}"
-            raise ValueError(msg)
+            raise ValueError(f"side must be 'buy' or 'sell', got {side!r}")
         # A sided entry rides the typed-order path, where the side survives
         # to the kernel. `size_frac` must be explicit: omitting both sizing
         # kwargs means "close the whole position", which an opening order
@@ -277,11 +273,10 @@ class Strategy:
         the symbol whose bar is being processed.
         """
         if not isinstance(order, _OrderBase):
-            msg = (
+            raise TypeError(
                 "submit_order takes a typed order (orders.Market/Limit/StopMarket/"
                 f"StopLimit/...), got {type(order).__name__}"
             )
-            raise TypeError(msg)
         if client_id is None:
             tag = getattr(self.config, "order_id_tag", None) or "O"
             client_id = f"{tag}-{self._order_seq}"
@@ -289,7 +284,9 @@ class Strategy:
         self._pending_commands.append(("submit", client_id, order, parent, symbol))
         return client_id
 
-    def register_indicator(self, indicator, stream_id: int | None = None, symbol: str | None = None):
+    def register_indicator(
+        self, indicator, stream_id: int | None = None, symbol: str | None = None
+    ):
         """Auto-update a streaming indicator (``raptorbt.Indicator``) from
         bar data, *before* handlers see the bar.
 
@@ -323,7 +320,10 @@ class Strategy:
                 lambda: Indicator.sma(10), ctx.symbols
             )
         """
-        return {symbol: self.register_indicator(factory(), stream_id=stream_id, symbol=symbol) for symbol in symbols}
+        return {
+            symbol: self.register_indicator(factory(), stream_id=stream_id, symbol=symbol)
+            for symbol in symbols
+        }
 
     def indicators_initialized(self) -> bool:
         """Whether every registered indicator has completed warmup.
@@ -345,16 +345,14 @@ class Strategy:
         that completed a bar arrives as ``bar.symbol`` (and ``ctx.symbol``).
         """
         if step < 1:
-            msg = "step must be >= 1"
-            raise ValueError(msg)
+            raise ValueError("step must be >= 1")
         self._bar_subscriptions.append((step, unit, brick_size))
         return len(self._bar_subscriptions) - 1
 
     def link_oco(self, *client_ids: str) -> None:
         """Queue a one-cancels-other link between submitted orders."""
         if len(client_ids) < 2:
-            msg = "link_oco needs at least two client ids"
-            raise ValueError(msg)
+            raise ValueError("link_oco needs at least two client ids")
         self._pending_commands.append(("link_oco", list(client_ids)))
 
     def submit_bracket(
@@ -391,7 +389,9 @@ class Strategy:
             )
         )
         stop_id = self.submit_order(stop_order, parent=entry_id)
-        target_id = self.submit_order(Limit(side=exit_side, price=target_price, reduce_only=True), parent=entry_id)
+        target_id = self.submit_order(
+            Limit(side=exit_side, price=target_price, reduce_only=True), parent=entry_id
+        )
         self.link_oco(stop_id, target_id)
         return entry_id, stop_id, target_id
 

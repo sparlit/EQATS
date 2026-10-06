@@ -60,7 +60,9 @@ def _rally_fixture(n=12):
 
 def _run(config):
     ts, o, h, l, c, v, entries, exits = _rally_fixture()
-    return raptorbt.run_single_backtest(ts, o, h, l, c, v, entries, exits, direction=1, config=config)
+    return raptorbt.run_single_backtest(
+        ts, o, h, l, c, v, entries, exits, direction=1, config=config
+    )
 
 
 def _no_cost_config(**kwargs):

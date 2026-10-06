@@ -88,11 +88,10 @@ class StreamState:
             # `Strategy.register_indicator` for why that is rarely wanted.
             if symbols is not None and symbol is not None and symbol not in self._primary:
                 known = ", ".join(str(k) for k in keys)
-                msg = (
+                raise ValueError(
                     f"register_indicator(symbol={symbol!r}) names a symbol that is "
                     f"not in this run; known symbols: {known}"
                 )
-                raise ValueError(msg)
             targets = [symbol] if symbol is not None else keys
             for key in targets:
                 if stream_id is None:
@@ -120,7 +119,9 @@ class StreamState:
             completed = aggregator.push_trade(ts, price, size)
             self._dispatch(strategy, ctx, aggregator, completed, stream_id, step, unit, symbol)
 
-    def _dispatch(self, strategy, ctx, aggregator, completed, stream_id, step, unit, symbol) -> None:
+    def _dispatch(
+        self, strategy, ctx, aggregator, completed, stream_id, step, unit, symbol
+    ) -> None:
         """Dispatch a completed bar and everything queued behind it.
 
         Renko completes several bricks from one record; ``push`` returns

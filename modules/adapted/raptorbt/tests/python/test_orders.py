@@ -110,7 +110,7 @@ class TestOrderFlow:
         strategy = S()
         result = run_strategy_backtest(strategy, **data, config=_zero_fee_config())
         assert strategy.kinds() == ["order_accepted", "order_filled"]
-        _fill_kind, fill_idx, _ = strategy.events[-1]
+        fill_kind, fill_idx, _ = strategy.events[-1]
         assert fill_idx == 3
         assert result.trades()[0].entry_price == pytest.approx(97.0)
 
@@ -120,7 +120,9 @@ class TestOrderFlow:
         class S(EventLog):
             def on_bar(self, ctx):
                 if ctx.idx == 0:
-                    self.submit_order(orders.StopMarket(side="buy", trigger=102.0, units=10.0, stop_price=99.0))
+                    self.submit_order(
+                        orders.StopMarket(side="buy", trigger=102.0, units=10.0, stop_price=99.0)
+                    )
 
         stops = []
 
@@ -179,7 +181,9 @@ class TestOrderFlow:
         class S(EventLog):
             def on_bar(self, ctx):
                 if ctx.idx == 0:
-                    self.submit_order(orders.Limit(side="buy", price=90.0, units=10.0, tif="gtd", expire_ns=2))
+                    self.submit_order(
+                        orders.Limit(side="buy", price=90.0, units=10.0, tif="gtd", expire_ns=2)
+                    )
 
         data = _bars([100.0, 100.0, 100.0, 100.0])
         strategy = S()
@@ -206,7 +210,9 @@ class TestOrderFlow:
         class S(EventLog):
             def on_bar(self, ctx):
                 if ctx.idx == 0:
-                    self.submit_order(orders.StopLimit(side="buy", trigger=102.0, price=101.5, units=10.0))
+                    self.submit_order(
+                        orders.StopLimit(side="buy", trigger=102.0, price=101.5, units=10.0)
+                    )
 
         data = _bars(
             [100.0, 102.5, 101.0, 101.0],
@@ -292,7 +298,11 @@ class TestFillReportedOnce:
 
         # Bar 1 fills the entry at 100; bar 3 trades through 104, so the
         # target fills and the stop sibling is canceled in the same step.
-        data = _bars([100.0, 100.0, 101.0, 105.0, 105.0], lows=[99.0] * 5, highs=[101.0, 101.0, 102.0, 106.0, 106.0])
+        data = _bars(
+            [100.0, 100.0, 101.0, 105.0, 105.0],
+            lows=[99.0] * 5,
+            highs=[101.0, 101.0, 102.0, 106.0, 106.0],
+        )
         strategy = S()
         run_strategy_backtest(strategy, **data, config=_zero_fee_config())
         assert len(strategy.fills) == 2, strategy.fills

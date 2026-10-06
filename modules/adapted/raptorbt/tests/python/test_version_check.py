@@ -52,7 +52,7 @@ from raptorbt.version_check import check_for_update, is_outdated, parse_version
 
 
 @pytest.mark.parametrize(
-    ("installed", "latest", "expected"),
+    "installed,latest,expected",
     [
         ("0.6.2", "0.6.3", True),
         ("0.6.3", "0.6.3", False),
@@ -88,7 +88,7 @@ def test_unparseable_versions_stay_silent(raw):
 
 
 @pytest.mark.parametrize(
-    ("env_name", "env_value"),
+    "env_name,env_value",
     [
         ("RAPTORBT_NO_VERSION_CHECK", "1"),
         ("RAPTORBT_NO_VERSION_CHECK", "true"),
@@ -113,8 +113,7 @@ def test_a_skipping_env_does_no_work_at_all(monkeypatch, env_name, env_value):
 
     def forbidden(*_args, **_kwargs):
         touched.append(1)
-        msg = "the check did work in a skipping environment"
-        raise AssertionError(msg)
+        raise AssertionError("the check did work in a skipping environment")
 
     monkeypatch.setattr(version_check, "_read_cache", forbidden)
     monkeypatch.setattr(version_check, "_fetch_latest", forbidden)
@@ -135,7 +134,7 @@ def test_an_unset_or_falsey_opt_out_still_checks(monkeypatch):
     disable the feature for anyone who set the variable to 0 to mean "on".
     """
     ran = []
-    monkeypatch.setattr(version_check, "_run", ran.append)
+    monkeypatch.setattr(version_check, "_run", lambda installed: ran.append(installed))
     _clear_env(monkeypatch)
     monkeypatch.setenv("RAPTORBT_NO_VERSION_CHECK", "0")
 
@@ -175,8 +174,7 @@ def test_an_exploding_fetch_cannot_escape(monkeypatch, caplog):
     """
 
     def boom():
-        msg = "pypi is on fire"
-        raise RuntimeError(msg)
+        raise RuntimeError("pypi is on fire")
 
     monkeypatch.setattr(version_check, "_read_cache", lambda: None)
     monkeypatch.setattr(version_check, "_fetch_latest", boom)
@@ -378,8 +376,7 @@ print("done")
 """
     )
     assert "done" in stdout
-    assert "99.99.99" in stderr
-    assert "pip install -U raptorbt" in stderr
+    assert "99.99.99" in stderr and "pip install -U raptorbt" in stderr
 
 
 def test_import_is_silent_when_the_network_is_dead():
@@ -412,8 +409,7 @@ def test_the_outer_guard_holds_independently(monkeypatch):
     """
 
     def boom(_installed):
-        msg = "run is broken"
-        raise RuntimeError(msg)
+        raise RuntimeError("run is broken")
 
     monkeypatch.setattr(version_check, "_run", boom)
     _clear_env(monkeypatch)
@@ -431,8 +427,7 @@ def test_the_notice_is_emitted_when_behind(monkeypatch, caplog):
 
     assert len(caplog.records) == 1
     message = caplog.records[0].getMessage()
-    assert "0.0.1" in message
-    assert "9.9.9" in message
+    assert "0.0.1" in message and "9.9.9" in message
     assert "pip install -U raptorbt" in message
     assert "RAPTORBT_NO_VERSION_CHECK" in message
 
@@ -547,6 +542,7 @@ def test_a_hanging_fetch_does_not_delay_the_caller(monkeypatch):
 
     def hang():
         release.wait(timeout=30)
+        return None
 
     monkeypatch.setattr(version_check, "_has_started", False)
     monkeypatch.setattr(version_check, "_read_cache", lambda: None)

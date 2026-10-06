@@ -120,7 +120,9 @@ def test_exposure_never_exceeds_the_time_available():
     close = _close_series()
     for step in (SEC_NS, DAY_NS):
         result = run_strategy_backtest(HoldFourBars, **_ohlcv(close, step))
-        assert 0.0 <= result.metrics.exposure_pct <= 100.0, f"exposure {result.metrics.exposure_pct} is outside 0-100%"
+        assert 0.0 <= result.metrics.exposure_pct <= 100.0, (
+            f"exposure {result.metrics.exposure_pct} is outside 0-100%"
+        )
 
 
 def test_the_metrics_dict_carries_the_seconds_figure():
@@ -130,7 +132,9 @@ def test_the_metrics_dict_carries_the_seconds_figure():
 
     assert "Max Drawdown Duration" in as_dict
     assert "Max Drawdown Duration [s]" in as_dict
-    assert as_dict["Max Drawdown Duration [s]"] == pytest_approx(result.metrics.max_drawdown_duration_secs)
+    assert as_dict["Max Drawdown Duration [s]"] == pytest_approx(
+        result.metrics.max_drawdown_duration_secs
+    )
 
 
 def test_a_tick_run_reports_a_real_holding_duration():
@@ -181,7 +185,9 @@ def test_a_tick_run_reports_a_real_holding_duration():
     )
     # The position opens on the first print and is held to the end, so the
     # hold is the span of the data: (n - 1) one-second rows.
-    assert secs == pytest_approx(float(n - 1)), f"expected ~{n - 1}s of real elapsed hold, got {secs}s"
+    assert secs == pytest_approx(float(n - 1)), (
+        f"expected ~{n - 1}s of real elapsed hold, got {secs}s"
+    )
 
 
 def pytest_approx(value):

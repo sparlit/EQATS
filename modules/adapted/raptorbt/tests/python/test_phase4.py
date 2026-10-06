@@ -77,7 +77,9 @@ class TestNewOrderKinds:
         class S(EventLog):
             def on_bar(self, ctx):
                 if ctx.idx == 0:
-                    self.submit_order(orders.LimitIfTouched(side="buy", trigger=98.0, price=97.5, units=10.0))
+                    self.submit_order(
+                        orders.LimitIfTouched(side="buy", trigger=98.0, price=97.5, units=10.0)
+                    )
 
         data = _bars(
             [100.0, 98.5, 98.0],
@@ -118,7 +120,9 @@ class TestNewOrderKinds:
                 if ctx.idx == 0:
                     self.enter()
                     # Protect with a 200bp trailing sell stop order.
-                    self.submit_order(orders.TrailingStopMarket(side="sell", offset=200.0, offset_kind="bps"))
+                    self.submit_order(
+                        orders.TrailingStopMarket(side="sell", offset=200.0, offset_kind="bps")
+                    )
 
         # Rally to 110 then dip below 110*(1-2%)=107.8. Opens stay above the
         # trigger so the fill lands exactly on it (no gap-through).
@@ -138,7 +142,9 @@ class TestNewOrderKinds:
         class S(EventLog):
             def on_bar(self, ctx):
                 if ctx.idx == 0:
-                    self.submit_order(orders.TrailingStopMarket(side="sell", offset=4.0, offset_kind="ticks"))
+                    self.submit_order(
+                        orders.TrailingStopMarket(side="sell", offset=4.0, offset_kind="ticks")
+                    )
 
         data = _bars([100.0, 101.0])
         with pytest.raises(ValueError, match="price_increment"):
@@ -154,7 +160,9 @@ class TestFlags:
         class S(EventLog):
             def on_bar(self, ctx):
                 if ctx.idx == 0:
-                    self.submit_order(orders.Limit(side="buy", price=101.0, units=10.0, post_only=True))
+                    self.submit_order(
+                        orders.Limit(side="buy", price=101.0, units=10.0, post_only=True)
+                    )
 
         data = _bars([100.0, 100.5, 100.0], opens=[100.0, 100.2, 100.0])
         strategy = S()
@@ -171,7 +179,9 @@ class TestFlags:
 
             def on_bar(self, ctx):
                 if ctx.idx == 0:
-                    self.submit_order(orders.Limit(side="buy", price=99.0, units=10.0, reduce_only=True))
+                    self.submit_order(
+                        orders.Limit(side="buy", price=99.0, units=10.0, reduce_only=True)
+                    )
 
             def on_order_rejected(self, ctx, event):
                 self.rejects.append(event.reject_reason)

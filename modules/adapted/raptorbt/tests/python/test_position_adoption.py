@@ -113,7 +113,9 @@ def _bars(closes, start_ts=0):
 
 def _sealed_session(closes, config=None, account_type="cash", leverage=1.0):
     """A sealed one-instrument session, ready to adopt into."""
-    session = PortfolioSession(config=config or _config(), account_type=account_type, leverage=leverage)
+    session = PortfolioSession(
+        config=config or _config(), account_type=account_type, leverage=leverage
+    )
     instrument = session.add_instrument(SYMBOL, direction=1)
     bars = _bars(closes)
     session.set_bars(
@@ -225,7 +227,9 @@ def test_leveraged_adoption_is_refused_not_guessed():
     misstate free capital — the number that gates every later entry. So this
     stays a refusal rather than becoming a silent estimate.
     """
-    session, instrument = _sealed_session([100.0, 102.0], config=_config(), account_type="margin", leverage=2.0)
+    session, instrument = _sealed_session(
+        [100.0, 102.0], config=_config(), account_type="margin", leverage=2.0
+    )
     with pytest.raises(ValueError, match="fully funded"):
         session.adopt_position(instrument, 0, AVG_PRICE, QUANTITY)
 
@@ -238,7 +242,9 @@ def test_fully_funded_margin_adoption_is_allowed():
     never reaches equity, so refusing margin outright meant a seeded
     long/short book could not be deployed at all.
     """
-    session, instrument = _sealed_session([AVG_PRICE, AVG_PRICE], config=_config(), account_type="margin", leverage=1.0)
+    session, instrument = _sealed_session(
+        [AVG_PRICE, AVG_PRICE], config=_config(), account_type="margin", leverage=1.0
+    )
 
     position_id = session.adopt_position(instrument, 0, AVG_PRICE, QUANTITY)
 
@@ -258,7 +264,9 @@ def test_margin_adoption_locks_rather_than_debiting():
     session stopped reconciling the locked delta and portfolio risk limits
     are being computed against money that is not available.
     """
-    session, instrument = _sealed_session([AVG_PRICE, AVG_PRICE], config=_config(), account_type="margin", leverage=1.0)
+    session, instrument = _sealed_session(
+        [AVG_PRICE, AVG_PRICE], config=_config(), account_type="margin", leverage=1.0
+    )
     session.adopt_position(instrument, 0, AVG_PRICE, QUANTITY)
 
     # The balance is untouched — in margin mode cash() includes locked margin.
@@ -278,7 +286,9 @@ def test_cash_and_fully_funded_margin_report_the_same_numbers():
     """
     results = {}
     for mode in ("cash", "margin"):
-        session, instrument = _sealed_session(FALLING_CLOSES, config=_config(), account_type=mode, leverage=1.0)
+        session, instrument = _sealed_session(
+            FALLING_CLOSES, config=_config(), account_type=mode, leverage=1.0
+        )
         session.adopt_position(instrument, 0, AVG_PRICE, QUANTITY)
         free_capital = session.free_capital()
         session.apply_current()
@@ -298,7 +308,7 @@ def test_cash_and_fully_funded_margin_report_the_same_numbers():
 
 
 @pytest.mark.parametrize(
-    ("price", "size"),
+    "price, size",
     [
         (0.0, QUANTITY),  # no average cost
         (AVG_PRICE, 0.0),  # no shares

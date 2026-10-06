@@ -164,7 +164,14 @@ def _spread_items(k, n_bars, seed=9):
         x[np.arange(120 + i % 7, n_bars, 200)] = True
         items.append(
             r.BatchSpreadItem(
-                f"spread_{i}", prem, [("CE", 1000.0, -1, 75), ("CE", 1050.0, 1, 75)], e, x, "custom", None, None
+                f"spread_{i}",
+                prem,
+                [("CE", 1000.0, -1, 75), ("CE", 1050.0, 1, 75)],
+                e,
+                x,
+                "custom",
+                None,
+                None,
             )
         )
     return items
@@ -227,7 +234,7 @@ def bench_determinism():
         return hashlib.sha256(payload.encode()).hexdigest()
 
     hashes = {digest() for _ in range(20)}
-    return {"runs": 20, "unique_hashes": len(hashes), "sha256": min(hashes)}
+    return {"runs": 20, "unique_hashes": len(hashes), "sha256": sorted(hashes)[0]}
 
 
 def bench_sweep():

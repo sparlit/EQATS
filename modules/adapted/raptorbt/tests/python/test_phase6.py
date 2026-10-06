@@ -73,7 +73,7 @@ class TestCalendarAndSessionBars:
             "close": closes,
             "volume": np.full(3, 10.0),
         }
-        bts, _o, _h, _l, _c, v = raptorbt.aggregate_bars(
+        bts, o, h, l, c, v = raptorbt.aggregate_bars(
             data["timestamps"],
             data["open"],
             data["high"],
@@ -124,7 +124,9 @@ class TestPortfolioSession:
                 if ctx.idx == 0:
                     self.enter(size_frac=0.4)
                 if ctx.idx == 2:
-                    self.snapshots.append((ctx.symbol, ctx.position is not None, ctx.equity, ctx.cash))
+                    self.snapshots.append(
+                        (ctx.symbol, ctx.position is not None, ctx.equity, ctx.cash)
+                    )
 
         data = {
             "AAA": _bars([100.0, 101.0, 102.0, 103.0]),
@@ -188,7 +190,9 @@ class TestPortfolioSession:
 
         data = {
             "AAA": _bars([100.0, 101.0, 102.0, 103.0]),
-            "BBB": _bars([50.0, 50.0, 48.5, 49.5], start_ts=5_000_000_000),  # dips through 49 on its bar 2
+            "BBB": _bars(
+                [50.0, 50.0, 48.5, 49.5], start_ts=5_000_000_000
+            ),  # dips through 49 on its bar 2
         }
         strategy = S()
         result = run_portfolio_strategy(strategy, data, config=_zero_fee_config())
@@ -218,7 +222,7 @@ class TestPortfolioSession:
         summary = {s.symbol: s for s in result.per_instrument}
         assert summary["AAA"].trades == 1
         trades = result.result.trades()
-        aaa = next(t for t in trades if t.symbol == "AAA")
+        aaa = [t for t in trades if t.symbol == "AAA"][0]
         # Closed by the routed request, not by end-of-data finalization.
         assert aaa.exit_reason == "Signal"
 
