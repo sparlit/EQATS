@@ -99,7 +99,7 @@ Total Repositories: 424 | Current Index: 97
 | 94 | chinthan-11/nse-bse-arbitrage-bot | Processed | https://github.com/sparlit/EQATS/pull/3033 |
 | 95 | chulilee/interchangabletrade-protocol | Processed | https://github.com/sparlit/EQATS/pull/3034 |
 | 96 | clayborninconsistent906/indian-stock-market-api | Processed | https://github.com/sparlit/EQATS/pull/3035 |
-| 97 | codegallivant/nse-ohlc-scraper-plotter | Processed | None |
+| 97 | codegallivant/nse-ohlc-scraper-plotter | Processed | https://github.com/sparlit/EQATS/pull/3036 |
 | 98 | conteurshadow/polymarket-trading-bot-rust | pending | None |
 | 99 | crypto-crawler/coinsignal | pending | None |
 | 100 | cutupdev/solana-copytrading-bot | pending | None |
