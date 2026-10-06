@@ -125,7 +125,7 @@ Total Repositories: 424 | Current Index: 123
 | 120 | edison7009/echobird | Processed | https://github.com/sparlit/EQATS/pull/3061 |
 | 121 | edtechre/pybroker | Completed | https://github.com/sparlit/EQATS/pull/3062 |
 | 122 | eggmasonvalue/mtfdb | Processed | https://github.com/sparlit/EQATS/pull/3063 |
-| 123 | ej9909-create/nse_52wk_screener | Completed | None |
+| 123 | ej9909-create/nse_52wk_screener | Completed | https://github.com/sparlit/EQATS/pull/3064 |
 | 124 | ekanshsinghal/indian-stock-market | pending | None |
 | 125 | erio-harrison/rust-trade | pending | None |
 | 126 | featherenvy/botvana | pending | None |
