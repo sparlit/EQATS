@@ -2,19 +2,17 @@
 Unit Tests for Dynamic Plugin Loader, Dashboard Generator, and Webhook Alert Dispatcher
 """
 
-import os
 import sys
 from pathlib import Path
-import pytest
 
 root_dir = Path(__file__).resolve().parent.parent
 scripts_dir = root_dir / ".github" / "scripts"
 sys.path.insert(0, str(root_dir))
 sys.path.insert(0, str(scripts_dir))
 
-from institutional_integrations.dynamic_plugin_loader import DynamicPluginLoader, initialize_dynamic_plugins
-from generate_dashboard import generate_dashboard
 from alert_dispatcher import send_webhook_alert
+from generate_dashboard import generate_dashboard
+from institutional_integrations.dynamic_plugin_loader import DynamicPluginLoader
 
 
 def test_dynamic_plugin_loader():
