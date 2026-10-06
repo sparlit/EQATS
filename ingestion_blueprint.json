@@ -1,5 +1,5 @@
 {
-  "current_index": 88,
+  "current_index": 89,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -709,7 +709,7 @@
       "name": "financial-info-extractor",
       "target": "chaitanyarahalkar/financial-info-extractor",
       "url": "https://github.com/chaitanyarahalkar/financial-info-extractor",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },

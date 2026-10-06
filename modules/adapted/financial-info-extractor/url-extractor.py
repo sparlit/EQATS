@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import time
 
 from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
 
 PATH = ""  # Path to the driver's executable
 
