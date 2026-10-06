@@ -41,6 +41,7 @@ class ReleaseGateRunner:
                 return True
         except Exception as err:
             import logging
+
             logging.getLogger("release_gates").debug("get_account_info check failed: %s", err)
         return False
 
@@ -247,7 +248,10 @@ class ReleaseGateRunner:
                 self.conn.close_order(ticket)
             except Exception as close_err:
                 import logging
-                logging.getLogger("release_gates").debug("Cleanup close_order failed: %s", close_err)
+
+                logging.getLogger("release_gates").debug(
+                    "Cleanup close_order failed: %s", close_err
+                )
             return (False, f"Execution verification failed during validation: {e}")
 
     def _check_g12_reconciliation(self) -> Any:

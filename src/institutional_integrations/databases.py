@@ -219,6 +219,7 @@ def insert_vector_embedding(vector_id: Any, float_vector: Any) -> Any:
         indexed["faiss"] = True
     except ImportError as err:
         import logging
+
         logging.getLogger("databases").debug("faiss vector index library optional: %s", err)
     try:
         import chromadb

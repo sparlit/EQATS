@@ -59,7 +59,10 @@ class BlackLittermanOptimizer:
                     return {k: round(v / tot, 4) for k, v in weights_dict.items()}
         except Exception as err:
             import logging
-            logging.getLogger("portfolio_optimizer").debug("CVXPY solver fallback to deterministic weights: %s", err)
+
+            logging.getLogger("portfolio_optimizer").debug(
+                "CVXPY solver fallback to deterministic weights: %s", err
+            )
         tot_w = sum(bl_weights) if sum(bl_weights) > 0 else 1.0
         weights_dict = {}
         for i, a in enumerate(assets):
