@@ -1,3 +1,4 @@
+# codespell:ignore MIS,IST
 """
 Indian Market State Machine & Tick Size Rounding Module (EQATS Institutional Integration).
 

@@ -1,3 +1,4 @@
+# codespell:ignore MIS,IST
 import math
 
 from .indian_instrument_scheduler import global_indian_scheduler

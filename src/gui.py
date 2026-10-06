@@ -1,3 +1,4 @@
+# codespell:ignore STRAT
 import datetime
 import logging
 import math
@@ -6264,7 +6265,6 @@ class ScalperGui:
             return
         self.cred_text.delete("1.0", tk.END)
         import secrets
-
         from credential_manager import CredentialManager
 
         cm = CredentialManager()

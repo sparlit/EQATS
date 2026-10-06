@@ -1150,8 +1150,8 @@ def _run_interactive_cli(cm: CredentialManager) -> None:
                     f"\nCircuit Breaker State: Halted={cb['is_halted']}, Date={cb['trading_date']}, Baseline=${cb['daily_start_balance']:,.2f}"
                 )
                 if cb["is_halted"]:
-                    ans = input("Clear halt status now? (y/N): ").strip().lower()
-                    if ans == "y":
+                    confirm_input = input("Clear halt status now? (y/N): ").strip().lower()
+                    if confirm_input == "y":
                         cm.reset_circuit_breaker_halt()
                         print("✓ Circuit breaker halt cleared.")
             else:
