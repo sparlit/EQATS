@@ -87,18 +87,19 @@ class TestVolumeBreakoutScanSentinel:
 
         def always_fail(*_args, **_kwargs):
             # Mirrors the real upstream "empty body" failure mode.
-            msg = "Expecting value"
-            raise JSONDecodeError(msg, "", 0)
+            raise JSONDecodeError("Expecting value", "", 0)
 
         with (
             patch.object(scanner_service, "get_multiple_analysis", side_effect=always_fail),
-            patch.object(scanner_service, "load_symbols", return_value=[f"SYM{i}" for i in range(250)]),
+            patch.object(
+                scanner_service, "load_symbols", return_value=[f"SYM{i}" for i in range(250)]
+            ),
+            pytest.raises(BatchExecutionError) as exc_info,
         ):
-            with pytest.raises(BatchExecutionError) as exc_info:
-                scanner_service.volume_breakout_scan(
-                    exchange="KUCOIN",
-                    timeframe="15m",
-                )
+            scanner_service.volume_breakout_scan(
+                exchange="KUCOIN",
+                timeframe="15m",
+            )
 
         # batch_size=100 over 250 symbols => 3 batches attempted (100, 100, 50)
         assert exc_info.value.batches_attempted == 3
@@ -118,12 +119,13 @@ class TestVolumeBreakoutScanSentinel:
 
         def always_fail(*_args, **_kwargs):
             call_count["n"] += 1
-            msg = "Expecting value"
-            raise JSONDecodeError(msg, "", 0)
+            raise JSONDecodeError("Expecting value", "", 0)
 
         with (
             patch.object(scanner_service, "get_multiple_analysis", side_effect=always_fail),
-            patch.object(scanner_service, "load_symbols", return_value=[f"SYM{i}" for i in range(500)]),
+            patch.object(
+                scanner_service, "load_symbols", return_value=[f"SYM{i}" for i in range(500)]
+            ),
         ):
             # batch_size=100 over 500 symbols would normally be 5 batches,
             # but fast-fail should stop us at 2.
@@ -131,7 +133,8 @@ class TestVolumeBreakoutScanSentinel:
                 scanner_service.volume_breakout_scan(exchange="KUCOIN", timeframe="15m")
 
         assert call_count["n"] == 2, (
-            f"Expected fast-fail to stop at 2 consecutive failures; got {call_count['n']} calls to upstream."
+            f"Expected fast-fail to stop at 2 consecutive failures; got "
+            f"{call_count['n']} calls to upstream."
         )
         assert exc_info.value.batches_attempted == 2
         assert exc_info.value.batches_failed == 2
@@ -149,19 +152,22 @@ class TestVolumeBreakoutScanSentinel:
         def alternating(*, screener, interval, symbols):
             call_log.append(len(symbols))
             if len(call_log) % 2 == 1:
-                msg = "Expecting value"
-                raise JSONDecodeError(msg, "", 0)
+                raise JSONDecodeError("Expecting value", "", 0)
             return _make_batch_response(symbols)
 
         with (
             patch.object(scanner_service, "get_multiple_analysis", side_effect=alternating),
-            patch.object(scanner_service, "load_symbols", return_value=[f"SYM{i}" for i in range(500)]),
+            patch.object(
+                scanner_service, "load_symbols", return_value=[f"SYM{i}" for i in range(500)]
+            ),
         ):
             # 500 symbols / 100 = 5 batches. Failures alternate, so no two
             # are consecutive → fast-fail must NOT trip → all 5 attempted.
             result = scanner_service.volume_breakout_scan(exchange="KUCOIN", timeframe="15m")
 
-        assert len(call_log) == 5, f"Expected all 5 batches attempted (alternating failures); got {len(call_log)}."
+        assert len(call_log) == 5, (
+            f"Expected all 5 batches attempted (alternating failures); got {len(call_log)}."
+        )
         # 3 failed, 2 succeeded → not all-fail → returns list (not raise).
         assert isinstance(result, list)
 
@@ -174,7 +180,9 @@ class TestVolumeBreakoutScanSentinel:
 
         with (
             patch.object(scanner_service, "get_multiple_analysis", side_effect=all_good),
-            patch.object(scanner_service, "load_symbols", return_value=[f"SYM{i}" for i in range(150)]),
+            patch.object(
+                scanner_service, "load_symbols", return_value=[f"SYM{i}" for i in range(150)]
+            ),
         ):
             result = scanner_service.volume_breakout_scan(
                 exchange="KUCOIN",
@@ -198,13 +206,14 @@ class TestVolumeBreakoutScanSentinel:
         def first_fails_rest_ok(*, screener, interval, symbols):
             call_count["n"] += 1
             if call_count["n"] == 1:
-                msg = "Expecting value"
-                raise JSONDecodeError(msg, "", 0)
+                raise JSONDecodeError("Expecting value", "", 0)
             return _make_batch_response(symbols)
 
         with (
             patch.object(scanner_service, "get_multiple_analysis", side_effect=first_fails_rest_ok),
-            patch.object(scanner_service, "load_symbols", return_value=[f"SYM{i}" for i in range(250)]),
+            patch.object(
+                scanner_service, "load_symbols", return_value=[f"SYM{i}" for i in range(250)]
+            ),
         ):
             # Must NOT raise — partial success is success.
             result = scanner_service.volume_breakout_scan(
@@ -235,16 +244,17 @@ class TestFetchTrendingAnalysisSentinel:
         from tradingview_mcp.core.services import screener_service
 
         def always_fail(*_args, **_kwargs):
-            msg = "Expecting value"
-            raise JSONDecodeError(msg, "", 0)
+            raise JSONDecodeError("Expecting value", "", 0)
 
         # batch_size=200, so 250 symbols => 2 batches attempted.
         with (
             patch.object(screener_service, "get_multiple_analysis", side_effect=always_fail),
-            patch.object(screener_service, "load_symbols", return_value=[f"S{i}" for i in range(250)]),
+            patch.object(
+                screener_service, "load_symbols", return_value=[f"S{i}" for i in range(250)]
+            ),
+            pytest.raises(BatchExecutionError) as exc_info,
         ):
-            with pytest.raises(BatchExecutionError) as exc_info:
-                screener_service.fetch_trending_analysis(exchange="KUCOIN", timeframe="15m")
+            screener_service.fetch_trending_analysis(exchange="KUCOIN", timeframe="15m")
 
         assert exc_info.value.batches_attempted == 2
         assert exc_info.value.batches_failed == 2
@@ -257,8 +267,7 @@ class TestFetchTrendingAnalysisSentinel:
         def second_fails(*, screener, interval, symbols):
             call_count["n"] += 1
             if call_count["n"] == 2:
-                msg = "Expecting value"
-                raise JSONDecodeError(msg, "", 0)
+                raise JSONDecodeError("Expecting value", "", 0)
             # First batch returns rich enough data for compute_metrics to pass.
             return {
                 f"KUCOIN:{s}": _FakeAnalysis(
@@ -281,9 +290,13 @@ class TestFetchTrendingAnalysisSentinel:
 
         with (
             patch.object(screener_service, "get_multiple_analysis", side_effect=second_fails),
-            patch.object(screener_service, "load_symbols", return_value=[f"S{i}" for i in range(250)]),
+            patch.object(
+                screener_service, "load_symbols", return_value=[f"S{i}" for i in range(250)]
+            ),
         ):
-            result = screener_service.fetch_trending_analysis(exchange="KUCOIN", timeframe="15m", limit=300)
+            result = screener_service.fetch_trending_analysis(
+                exchange="KUCOIN", timeframe="15m", limit=300
+            )
 
         assert isinstance(result, list)
         # First batch (200 symbols) survived; second batch failure was swallowed

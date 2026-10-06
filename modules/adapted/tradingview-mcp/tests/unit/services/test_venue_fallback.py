@@ -66,7 +66,11 @@ def _fake_data():
         }
     )
     return SimpleNamespace(
-        indicators=ind, summary={"RECOMMENDATION": "BUY"}, time=None, exchange="KUCOIN", symbol="HYPEUSDT"
+        indicators=ind,
+        summary={"RECOMMENDATION": "BUY"},
+        time=None,
+        exchange="KUCOIN",
+        symbol="HYPEUSDT",
     )
 
 
@@ -106,12 +110,13 @@ def test_analyze_coin_resolves_on_listing_venue(monkeypatch):
     assert out["requested_exchange"] == "binance"
     assert out["resolved_exchange"] == "KUCOIN"
     assert "not listed on binance" in out["resolution_note"]
-    assert calls[0].startswith("BINANCE:")
-    assert calls[1].startswith("KUCOIN:")
+    assert calls[0].startswith("BINANCE:") and calls[1].startswith("KUCOIN:")
 
 
 def test_analyze_coin_still_errors_when_fallback_venue_is_empty_too(monkeypatch):
-    monkeypatch.setattr(screener_service, "get_multiple_analysis", lambda screener, interval, symbols: {})
+    monkeypatch.setattr(
+        screener_service, "get_multiple_analysis", lambda screener, interval, symbols: {}
+    )
     out = screener_service.analyze_coin("HYPEUSDT", "binance", "15m")
     assert is_error(out)
     assert out["error"]["code"] == "SYMBOL_NOT_FOUND"

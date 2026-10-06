@@ -33,7 +33,7 @@ All public functions return plain dicts / lists and are independently testable
 without the MCP layer.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from tradingview_mcp.core.services.coinlist import load_symbols
 from tradingview_mcp.core.services.indicators import (
@@ -49,11 +49,11 @@ from tradingview_mcp.core.services.indicators import (
 
 # Resilience layer (no tradingview_ta dependency; safe to import unconditionally).
 from tradingview_mcp.core.services.screener_provider import _scan_with_retry
-from tradingview_mcp.core.utils.validators import EXCHANGE_SCREENER, sanitize_timeframe
+from tradingview_mcp.core.utils.validators import EXCHANGE_SCREENER
 
 try:
     # Patched: route through resilience layer (retry + 60s TTL cache).
-    import tradingview_ta
+    import tradingview_ta  # noqa: F401  presence check
     from tradingview_mcp.core.services.screener_provider import (
         resilient_get_multiple_analysis as get_multiple_analysis,
     )
@@ -159,7 +159,9 @@ def get_egx_market_overview(timeframe: str = "1D", limit: int = 10) -> dict:
             "declining": len([s for s in all_stocks if s["changePercent"] < 0]),
             "unchanged": len([s for s in all_stocks if s["changePercent"] == 0]),
             "avg_change": (
-                round(sum(s["changePercent"] for s in all_stocks) / len(all_stocks), 2) if all_stocks else 0
+                round(sum(s["changePercent"] for s in all_stocks) / len(all_stocks), 2)
+                if all_stocks
+                else 0
             ),
         },
     }
@@ -250,7 +252,11 @@ def scan_egx_sector(sector: str = "", timeframe: str = "1D", limit: int = 20) ->
         "timeframe": timeframe,
         "total_stocks": len(results),
         "sector_avg_change": avg_change,
-        "sector_sentiment": "Bullish" if avg_change > 0.5 else "Bearish" if avg_change < -0.5 else "Neutral",
+        "sector_sentiment": "Bullish"
+        if avg_change > 0.5
+        else "Bearish"
+        if avg_change < -0.5
+        else "Neutral",
         "data": results[:limit],
     }
 
@@ -328,7 +334,6 @@ def run_egx_sector_scanner(
         EGX_SECTORS,
         SECTOR_DISPLAY_NAMES,
         get_currency,
-        get_sector,
     )
 
     if not _TA_AVAILABLE:
@@ -461,7 +466,8 @@ def run_egx_sector_scanner(
     valid_sectors = [k for k, v in sector_agg.items() if v.get("total_stocks", 0) > 0]
     sorted_by_change = sorted(valid_sectors, key=lambda k: sector_agg[k]["avg_change"])
     change_rank_map = {
-        k: i / len(sorted_by_change) if len(sorted_by_change) > 1 else 0.5 for i, k in enumerate(sorted_by_change)
+        k: i / len(sorted_by_change) if len(sorted_by_change) > 1 else 0.5
+        for i, k in enumerate(sorted_by_change)
     }
 
     for sector_key in valid_sectors:
@@ -551,7 +557,9 @@ def run_egx_sector_scanner(
     else:
         weighted_change = weighted_rsi = weighted_momentum = 0  # type: ignore[assignment]
 
-    market_sentiment = "Bullish" if weighted_change > 0.5 else "Bearish" if weighted_change < -0.5 else "Neutral"
+    market_sentiment = (
+        "Bullish" if weighted_change > 0.5 else "Bearish" if weighted_change < -0.5 else "Neutral"
+    )
 
     # Step H: top picks
     top_sector_keys = [h["sector"] for h in heatmap[:top_n_sectors] if h["status"] != "No Data"]
@@ -756,7 +764,11 @@ def analyze_egx_index(index: str = "EGX30", timeframe: str = "1D", limit: int = 
             "declining": declining,
             "unchanged": unchanged,
             "breadth": round(advancing / len(all_stocks) * 100, 1) if all_stocks else 0,
-            "sentiment": "Bullish" if avg_change > 0.5 else "Bearish" if avg_change < -0.5 else "Neutral",
+            "sentiment": "Bullish"
+            if avg_change > 0.5
+            else "Bearish"
+            if avg_change < -0.5
+            else "Neutral",
         },
         "sector_breakdown": sector_summary,
         "top_gainers": by_change[:5],
@@ -799,7 +811,10 @@ def screen_egx_stocks(
             symbols = EGX_INDICES[idx_key]["get_symbols"]()
             source_label = idx_key
         else:
-            return {"error": f"Unknown index: {index_filter}", "available": list(EGX_INDICES.keys())}
+            return {
+                "error": f"Unknown index: {index_filter}",
+                "available": list(EGX_INDICES.keys()),
+            }
     else:
         symbols = load_symbols("egx")
         source_label = "All EGX"
@@ -908,8 +923,12 @@ def screen_egx_stocks(
         g = s["grade"]
         grades[g] = grades.get(g, 0) + 1
 
-    qualified = [s for s in scored_stocks if s["stock_score"] >= 70 and s.get("trade_quality_score", 0) >= 65]
-    watchlist = [s for s in scored_stocks if s["stock_score"] < 70 or s.get("trade_quality_score", 0) < 65]
+    qualified = [
+        s for s in scored_stocks if s["stock_score"] >= 70 and s.get("trade_quality_score", 0) >= 65
+    ]
+    watchlist = [
+        s for s in scored_stocks if s["stock_score"] < 70 or s.get("trade_quality_score", 0) < 65
+    ]
 
     return {
         "source": source_label,
@@ -952,7 +971,9 @@ def generate_egx_trade_plan(symbol: str, timeframe: str = "1D") -> dict:
     screener = EXCHANGE_SCREENER.get("egx", "egypt")
 
     try:
-        analysis = get_multiple_analysis(screener=screener, interval=timeframe, symbols=[full_symbol])
+        analysis = get_multiple_analysis(
+            screener=screener, interval=timeframe, symbols=[full_symbol]
+        )
     except Exception as exc:
         return {"error": f"Analysis failed: {exc}"}
 
@@ -1061,7 +1082,7 @@ def analyze_egx_fibonacci(
     Returns:
         Fibonacci retracement & extension levels, price position, and context.
     """
-    from tradingview_mcp.core.data.egx_sectors import get_currency, get_sector
+    from tradingview_mcp.core.data.egx_sectors import get_sector
 
     if not _TA_AVAILABLE:
         return {"error": "tradingview_ta is missing; run `uv sync`."}
@@ -1088,7 +1109,12 @@ def analyze_egx_fibonacci(
     if _SCREENER_AVAILABLE:
         try:
             high_col, low_col = LOOKBACK_COLUMNS[lookback]
-            q = Query().set_markets("egypt").select("close", high_col, low_col).set_tickers([full_symbol])
+            q = (
+                Query()
+                .set_markets("egypt")
+                .select("close", high_col, low_col)
+                .set_tickers([full_symbol])
+            )
             # Route through resilience layer (retry + stale-while-error).
             # Cache key scoped to egx_fib_swing so it doesn't collide with
             # other screener queries on the same ticker.
@@ -1106,7 +1132,9 @@ def analyze_egx_fibonacci(
             pass
 
     try:
-        analysis = get_multiple_analysis(screener=screener, interval=timeframe, symbols=[full_symbol])
+        analysis = get_multiple_analysis(
+            screener=screener, interval=timeframe, symbols=[full_symbol]
+        )
     except Exception as exc:
         return {"error": f"Analysis failed: {exc}"}
 
@@ -1170,7 +1198,9 @@ def analyze_egx_fibonacci(
     vol_sma = ind.get("volume.SMA20")
     vol_ratio = round(vol / vol_sma, 2) if vol and vol_sma and vol_sma > 0 else None
     change_pct = (
-        round(((close - ind.get("open", close)) / ind.get("open", close)) * 100, 2) if ind.get("open") else None
+        round(((close - ind.get("open", close)) / ind.get("open", close)) * 100, 2)
+        if ind.get("open")
+        else None
     )
 
     interp_parts = [f"Price is at {position['retracement_depth_pct']}% retracement of the {trend}."]

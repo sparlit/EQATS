@@ -40,7 +40,9 @@ def _tools():
 
 
 def test_every_tool_is_async_after_offload():
-    still_sync = [t.name for t in _tools() if not t.is_async or not inspect.iscoroutinefunction(t.fn)]
+    still_sync = [
+        t.name for t in _tools() if not t.is_async or not inspect.iscoroutinefunction(t.fn)
+    ]
     assert still_sync == [], f"tools still blocking the event loop: {still_sync}"
     assert server._OFFLOADED_TOOL_COUNT >= 25  # the historical sync set
 
@@ -63,7 +65,6 @@ def test_wrapped_tool_still_returns_the_original_result(monkeypatch):
 
 def test_offload_preserves_annotations_and_metadata():
     for t in _tools():
-        assert t.annotations is not None
-        assert t.annotations.title
+        assert t.annotations is not None and t.annotations.title
         assert t.annotations.readOnlyHint is True
         assert t.fn_metadata is not None  # validation schema still from the original signature

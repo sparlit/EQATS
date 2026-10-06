@@ -31,9 +31,10 @@ Asserts the structured-error rules the MCP guidance calls for:
 - Message prefixes stay backward-compatible ("No data found for",
   "Analysis failed:") for anyone substring-matching the old strings.
 """
-import pytest
+
+import tradingview_mcp.core.services.scanner_service as scanner_service
+import tradingview_mcp.core.services.screener_service as screener_service
 from tradingview_mcp.core.errors import is_error
-from tradingview_mcp.core.services import scanner_service, screener_service
 
 
 class _NoIndicators:
@@ -72,12 +73,11 @@ def test_analyze_coin_unknown_ticker_says_verify_spelling(monkeypatch):
 
 def test_analyze_coin_upstream_outage_is_retryable(monkeypatch):
     def boom(**kwargs):
-        msg = (
+        raise RuntimeError(
             "Upstream TradingView scanner returned transient errors on all 3 "
             "attempts spanning 5s (JSONDecodeError('Expecting value: line 1 "
             "column 1 (char 0)'))."
         )
-        raise RuntimeError(msg)
 
     monkeypatch.setattr(screener_service, "get_multiple_analysis", boom)
     monkeypatch.setattr(screener_service, "_TA_AVAILABLE", True)
@@ -122,8 +122,9 @@ def test_volume_confirmation_no_indicator_row_not_retryable(monkeypatch):
 
 def test_volume_confirmation_upstream_outage_is_retryable(monkeypatch):
     def boom(**kwargs):
-        msg = "Upstream TradingView scanner returned transient errors on all 3 attempts spanning 4s."
-        raise RuntimeError(msg)
+        raise RuntimeError(
+            "Upstream TradingView scanner returned transient errors on all 3 attempts spanning 4s."
+        )
 
     monkeypatch.setattr(scanner_service, "get_multiple_analysis", boom)
 

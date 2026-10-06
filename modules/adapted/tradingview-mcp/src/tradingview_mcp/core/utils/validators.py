@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import os
-from typing import Set
 
 ALLOWED_TIMEFRAMES: set[str] = {"5m", "15m", "1h", "4h", "1D", "1W", "1M"}
 _TIMEFRAME_ALIASES = {
@@ -35,6 +34,19 @@ _TIMEFRAME_ALIASES = {
     "1d": "1D",
     "1w": "1W",
     "1m": "1M",
+    # TradingView's own interval codes: minutes as a bare number, D/W for day
+    # and week. Programmatic integrations send these ("60", "240"). Before
+    # 0.9.0 an unknown value silently fell back to the tool default, so a
+    # "60" request quietly got 15m data; since 0.9.0 it raised
+    # INVALID_TIMEFRAME. Only intervals the server supports are mapped, so
+    # "30", "120" etc. still fail loudly.
+    "5": "5m",
+    "15": "15m",
+    "60": "1h",
+    "240": "4h",
+    "1440": "1D",
+    "d": "1D",
+    "w": "1W",
 }
 
 # Exchanges that represent stock markets (not crypto)
@@ -319,5 +331,7 @@ def resolve_screener_for_symbol(full_symbol: str, exchange: str) -> str:
     caller originally passed. Falls back to the exchange's screener (then
     ``crypto``) when the symbol carries no explicit prefix.
     """
-    prefix = (full_symbol.split(":", 1)[0] if ":" in full_symbol else (exchange or "")).strip().lower()
+    prefix = (
+        (full_symbol.split(":", 1)[0] if ":" in full_symbol else (exchange or "")).strip().lower()
+    )
     return EXCHANGE_SCREENER.get(prefix) or _TA_ONLY_SCREENERS.get(prefix) or "crypto"

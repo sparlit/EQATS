@@ -47,8 +47,7 @@ Two parallel APIs:
 
 import json
 import urllib.request
-from datetime import UTC, datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import httpx
 from tradingview_mcp.core.services.proxy_manager import (
@@ -151,7 +150,11 @@ def _format_quote(symbol: str, chart_result: dict) -> dict:
     # silently reported change=0.0, indistinguishable from a genuinely flat
     # session.
     chg = round(price - prev_close, 4) if (price and prev_close) else None
-    chg_pct = round((price - prev_close) / prev_close * 100, 2) if (price and prev_close and prev_close != 0) else None
+    chg_pct = (
+        round((price - prev_close) / prev_close * 100, 2)
+        if (price and prev_close and prev_close != 0)
+        else None
+    )
 
     return {
         "symbol": symbol.upper(),

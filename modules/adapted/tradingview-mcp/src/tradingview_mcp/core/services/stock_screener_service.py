@@ -124,8 +124,7 @@ def _clean(value: Any) -> Any:
 
 def _require_available() -> None:
     if not _AVAILABLE:
-        msg = "tradingview_screener not installed"
-        raise RuntimeError(msg)
+        raise RuntimeError("tradingview_screener not installed")
 
 
 def screen_stocks(
@@ -169,14 +168,12 @@ def screen_stocks(
     _require_available()
     stock_type = (stock_type or "common").strip().lower()
     if stock_type not in STOCK_TYPES:
-        msg = f"stock_type must be one of {list(STOCK_TYPES)}, got {stock_type!r}"
-        raise ValueError(msg)
+        raise ValueError(f"stock_type must be one of {list(STOCK_TYPES)}, got {stock_type!r}")
     country = (country or "america").strip().lower()
     limit = max(1, min(int(limit), MAX_SCREEN_LIMIT))
     sort_col = SORT_FIELDS.get((sort_by or "market_cap").strip().lower())
     if not sort_col:
-        msg = f"sort_by must be one of {list(SORT_FIELDS)}, got {sort_by!r}"
-        raise ValueError(msg)
+        raise ValueError(f"sort_by must be one of {list(SORT_FIELDS)}, got {sort_by!r}")
 
     filters = [col("type") == "stock", col("typespecs").has([stock_type])]
     if exclude_otc:
@@ -233,15 +230,16 @@ def fetch_stock_prices(tickers: str) -> dict[str, Any]:
     _require_available()
     parsed = [t.strip().upper() for t in (tickers or "").split(",") if t.strip()]
     if not parsed:
-        msg = "tickers required — comma-separated EXCHANGE:SYMBOL, e.g. 'NASDAQ:NVDA, KRX:005930'"
-        raise ValueError(msg)
+        raise ValueError(
+            "tickers required — comma-separated EXCHANGE:SYMBOL, e.g. 'NASDAQ:NVDA, KRX:005930'"
+        )
     if len(parsed) > MAX_PRICE_TICKERS:
-        msg = f"max {MAX_PRICE_TICKERS} tickers per call, got {len(parsed)}"
-        raise ValueError(msg)
+        raise ValueError(f"max {MAX_PRICE_TICKERS} tickers per call, got {len(parsed)}")
     malformed = [t for t in parsed if ":" not in t]
     if malformed:
-        msg = f"tickers must be EXCHANGE:SYMBOL (e.g. NASDAQ:NVDA, KRX:005930); invalid: {malformed}"
-        raise ValueError(msg)
+        raise ValueError(
+            f"tickers must be EXCHANGE:SYMBOL (e.g. NASDAQ:NVDA, KRX:005930); invalid: {malformed}"
+        )
 
     # .limit() is load-bearing: the scanner's default page size is 50, so
     # without it a 1,000-ticker request silently returns only 50 rows

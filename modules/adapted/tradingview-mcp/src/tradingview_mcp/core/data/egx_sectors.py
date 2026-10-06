@@ -30,7 +30,7 @@ Symbols validated against the live TradingView egypt-market listing on
 NOT auto-assigned to sectors (sector membership needs manual research) —
 the full live universe lives in coinlist/egx.txt.
 """
-from typing import Any, Dict, List, Set
+from typing import Any
 
 # Sector metadata: market cap weight (%), value traded (LE), volume, market cap (LE)
 EGX_SECTOR_META: dict[str, dict[str, Any]] = {

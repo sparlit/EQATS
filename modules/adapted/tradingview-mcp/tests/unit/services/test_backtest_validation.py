@@ -44,34 +44,29 @@ def test_valid_inputs_pass():
 
 def test_zero_capital_rejected():
     msg = _validate_numeric_inputs(0.0, 0.1, 0.05)
-    assert msg is not None
-    assert "initial_capital" in msg
+    assert msg is not None and "initial_capital" in msg
 
 
 def test_negative_capital_rejected():
     msg = _validate_numeric_inputs(-100.0, 0.1, 0.05)
-    assert msg is not None
-    assert "initial_capital" in msg
+    assert msg is not None and "initial_capital" in msg
 
 
 def test_negative_commission_rejected():
     # Negative cost would credit the account every trade, inflating returns.
     msg = _validate_numeric_inputs(10_000.0, -0.1, 0.05)
-    assert msg is not None
-    assert "commission_pct" in msg
+    assert msg is not None and "commission_pct" in msg
 
 
 def test_negative_slippage_rejected():
     msg = _validate_numeric_inputs(10_000.0, 0.1, -0.05)
-    assert msg is not None
-    assert "slippage_pct" in msg
+    assert msg is not None and "slippage_pct" in msg
 
 
 def test_absurd_cost_rejected():
     # Out of range: a value passed in basis points (250) instead of percent (2.5).
     msg = _validate_numeric_inputs(10_000.0, 250.0, 0.05)
-    assert msg is not None
-    assert "commission_pct" in msg
+    assert msg is not None and "commission_pct" in msg
 
 
 def test_cost_boundaries_inclusive():
@@ -84,17 +79,14 @@ def test_cost_boundaries_inclusive():
 
 def test_run_backtest_rejects_bad_capital_offline():
     out = run_backtest("BTC-USD", "rsi", period="1y", interval="1d", initial_capital=0.0)
-    assert "error" in out
-    assert "initial_capital" in out["error"]
+    assert "error" in out and "initial_capital" in out["error"]
 
 
 def test_walk_forward_rejects_negative_commission_offline():
     out = walk_forward_backtest("BTC-USD", "rsi", period="2y", interval="1d", commission_pct=-0.1)
-    assert "error" in out
-    assert "commission_pct" in out["error"]
+    assert "error" in out and "commission_pct" in out["error"]
 
 
 def test_compare_strategies_rejects_bad_capital_offline():
     out = compare_strategies("BTC-USD", period="1y", interval="1d", initial_capital=-5.0)
-    assert "error" in out
-    assert "initial_capital" in out["error"]
+    assert "error" in out and "initial_capital" in out["error"]

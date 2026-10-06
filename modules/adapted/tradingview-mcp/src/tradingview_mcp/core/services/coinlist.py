@@ -25,7 +25,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import os
 from functools import lru_cache
-from typing import Dict, FrozenSet, List
 
 from ..utils.validators import COINLIST_DIR
 
@@ -95,7 +94,9 @@ def _coinlist_index() -> dict[str, frozenset[str]]:
             with open(os.path.join(COINLIST_DIR, name), encoding="utf-8") as f:
                 # Lines ship as "EXCHANGE:TICKER" (e.g. "KUCOIN:HYPEUSDT");
                 # index the bare ticker so lookups match either input form.
-                symbols = frozenset(line.strip().upper().split(":")[-1] for line in f if line.strip())
+                symbols = frozenset(
+                    line.strip().upper().split(":")[-1] for line in f if line.strip()
+                )
         except (OSError, UnicodeDecodeError):
             continue
         if symbols:

@@ -44,13 +44,24 @@ from tradingview_mcp.core.services import backtest_service
 
 def _candles(n: int = 200) -> list[dict]:
     return [
-        {"date": f"2024-{1 + i // 28:02d}-{1 + i % 28:02d}", "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0}
+        {
+            "date": f"2024-{1 + i // 28:02d}-{1 + i % 28:02d}",
+            "open": 100.0,
+            "high": 101.0,
+            "low": 99.0,
+            "close": 100.0,
+        }
         for i in range(n)
     ]
 
 
 def _trade(entry: float, exit_: float) -> dict:
-    return {"entry_date": "2024-01-01", "exit_date": "2024-01-02", "entry_price": entry, "exit_price": exit_}
+    return {
+        "entry_date": "2024-01-01",
+        "exit_date": "2024-01-02",
+        "entry_price": entry,
+        "exit_price": exit_,
+    }
 
 
 def _fake_strategy(train_exit: float, test_exit: float):
