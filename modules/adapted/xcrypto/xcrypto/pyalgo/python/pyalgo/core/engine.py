@@ -25,7 +25,6 @@ import signal
 import sys
 from pathlib import Path
 from time import sleep
-from typing import Dict, Tuple
 
 from pyalgo import init_logger
 
