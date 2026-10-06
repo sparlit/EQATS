@@ -41,7 +41,8 @@ exchange = ccxt.poloniex(
 )
 
 # print 10 times with appropriate delay
-for _i in range(10):
+for _i in range(0, 10):
     print("--------------------------------------------------------------------")
     ticker = exchange.fetch_ticker(symbol)
     ticker = exchange.omit(ticker, "info")
+    pprint(ticker)

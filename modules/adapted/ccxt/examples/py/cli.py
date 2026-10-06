@@ -93,7 +93,10 @@ parser.add_argument("--no-keys", action="store_true", help="don t load keys")
 parser.add_argument("--raw", action="store_true", help="raw output")
 parser.add_argument("--no-load-markets", action="store_true", help="no load markets")
 parser.add_argument(
-    "-p", "--prediction", action="store_true", help="use the prediction-markets namespace (ccxt.prediction)"
+    "-p",
+    "--prediction",
+    action="store_true",
+    help="use the prediction-markets namespace (ccxt.prediction)",
 )
 parser.add_argument("exchange_id", type=str, help="exchange id in lowercase", nargs="?")
 parser.add_argument("method", type=str, help="method or property", nargs="?")
@@ -106,7 +109,7 @@ parser.parse_args(namespace=argv)
 
 def table(values):
     first = values[0]
-    keys = list(first.keys()) if isinstance(first, dict) else range(len(first))
+    keys = list(first.keys()) if isinstance(first, dict) else range(0, len(first))
     widths = [max([len(str(v[k])) for v in values]) for k in keys]
     string = " | ".join(["{:<" + str(w) + "}" for w in widths])
     return "\n".join([string.format(*[str(v[k]) for k in keys]) for v in values])
@@ -206,7 +209,9 @@ async def main():
         requiredCredentials = exchange.requiredCredentials
         for credential, isRequired in requiredCredentials.items():
             if isRequired and credential and not getattr(exchange, credential, None):
-                credentialEnvName = (argv.exchange_id + "_" + credential).upper()  # example: KRAKEN_APIKEY
+                credentialEnvName = (
+                    argv.exchange_id + "_" + credential
+                ).upper()  # example: KRAKEN_APIKEY
                 if credentialEnvName in os.environ:
                     credentialValue = os.environ[credentialEnvName]
                     if credentialValue.startswith("-----BEGIN"):
@@ -238,7 +243,9 @@ async def main():
             args.append(int(arg))
         elif re.match(r"^[.eE0-9+-]+$", arg):
             args.append(float(arg))
-        elif re.match(r"^[0-9]{4}[-]?[0-9]{2}[-]?[0-9]{2}[T\s]?[0-9]{2}[:]?[0-9]{2}[:]?[0-9]{2}", arg):
+        elif re.match(
+            r"^[0-9]{4}[-]?[0-9]{2}[-]?[0-9]{2}[T\s]?[0-9]{2}[:]?[0-9]{2}[:]?[0-9]{2}", arg
+        ):
             args.append(exchange.parse8601(arg))
         else:
             args.append(arg)
@@ -285,7 +292,7 @@ async def main():
                 elif argv.raw:
                     print(exchange.json(result))
                 else:
-                    pass
+                    pprint(result)
                 if not is_ws_method:
                     await exchange.close()
                     return
@@ -297,10 +304,10 @@ async def main():
         elif argv.raw:
             print(exchange.json(result))
         else:
-            pass
+            pprint(result)
         await exchange.close()
     else:
-        pass
+        pprint(dir(exchange))
 
 
 if __name__ == "__main__":

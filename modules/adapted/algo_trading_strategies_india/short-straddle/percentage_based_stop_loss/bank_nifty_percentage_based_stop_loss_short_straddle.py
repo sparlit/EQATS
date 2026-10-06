@@ -182,7 +182,8 @@ def get_order_status(order_id):
 
     if len(df) > 0:
         return "executed"
-    return "pending"
+    else:
+        return "pending"
 
 
 def cancel_order(order_id):
@@ -220,8 +221,12 @@ def calculate_atm_and_place_order():
     ce_stoploss_value = round_5ps(ce_sell_price * ce_stoploss_per / 100)
     pe_stoploss_value = round_5ps(pe_sell_price * pe_stoploss_per / 100)
 
-    ce_sl_orderid = stoploss_order_buy(ce_symbol, lots * 25, float(round_5ps(ce_sell_price + ce_stoploss_value)))
-    pe_sl_orderid = stoploss_order_buy(pe_symbol, lots * 25, float(round_5ps(pe_sell_price + pe_stoploss_value)))
+    ce_sl_orderid = stoploss_order_buy(
+        ce_symbol, lots * 25, float(round_5ps(ce_sell_price + ce_stoploss_value))
+    )
+    pe_sl_orderid = stoploss_order_buy(
+        pe_symbol, lots * 25, float(round_5ps(pe_sell_price + pe_stoploss_value))
+    )
 
 
 #######################################################

@@ -59,15 +59,15 @@ def error(msg: str):
 
 
 __all__ = [
-    "BarSubscription",
-    "Context",
-    "DepthSubscription",
-    "Engine",
-    "SmartOrder",
-    "debug",
-    "error",
     "info",
+    "debug",
     "warn",
+    "error",
+    "DepthSubscription",
+    "BarSubscription",
+    "Engine",
+    "Context",
+    "SmartOrder",
 ]
 
 __doc__ = pyalgo.__doc__

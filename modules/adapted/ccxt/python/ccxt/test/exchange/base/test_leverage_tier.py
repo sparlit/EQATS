@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,7 +37,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_leverage_tier(exchange, skipped_properties, method, entry):
@@ -48,9 +50,22 @@ def test_leverage_tier(exchange, skipped_properties, method, entry):
         "info": {},
     }
     empty_allowed_for = ["maintenanceMarginRate"]
-    test_shared_methods.assert_structure(exchange, skipped_properties, method, entry, format, empty_allowed_for)
-    test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, entry, "tier", "0")
-    test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, entry, "minNotional", "0")
-    test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, entry, "maxNotional", "0")
-    test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, entry, "maxLeverage", "1")
-    test_shared_methods.assert_less_or_equal(exchange, skipped_properties, method, entry, "maintenanceMarginRate", "1")
+    test_shared_methods.assert_structure(
+        exchange, skipped_properties, method, entry, format, empty_allowed_for
+    )
+    #
+    test_shared_methods.assert_greater_or_equal(
+        exchange, skipped_properties, method, entry, "tier", "0"
+    )
+    test_shared_methods.assert_greater_or_equal(
+        exchange, skipped_properties, method, entry, "minNotional", "0"
+    )
+    test_shared_methods.assert_greater_or_equal(
+        exchange, skipped_properties, method, entry, "maxNotional", "0"
+    )
+    test_shared_methods.assert_greater_or_equal(
+        exchange, skipped_properties, method, entry, "maxLeverage", "1"
+    )
+    test_shared_methods.assert_less_or_equal(
+        exchange, skipped_properties, method, entry, "maintenanceMarginRate", "1"
+    )

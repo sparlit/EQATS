@@ -127,7 +127,7 @@ class FIXEngine:
         msg = self.construct_and_send_message("A", tags)
         with self.lock:
             self.session_active = True
-        _log.info("FIXEngine: Logon sent, session marked active")
+        _log.info("FIXEngine: Logon sent (len=%d), session marked active", len(msg))
 
     def logon(self, heartbeat_int: Any = 30) -> Any:
         """Builds and transmits Logon (35=A)."""

@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_binary_concat():
@@ -56,5 +56,7 @@ def test_binary_concat():
     result2 = exchange.binary_concat(binary3, binary4, binary5)
     assert exchange.binary_to_string(result2) == "foobarbaz"
     # Test 3: Concat with hex bytes
-    result3 = exchange.binary_concat(exchange.base16_to_binary("68656c6c6f"), exchange.string_to_binary(" world"))
+    result3 = exchange.binary_concat(
+        exchange.base16_to_binary("68656c6c6f"), exchange.string_to_binary(" world")
+    )
     assert exchange.binary_to_string(result3) == "hello world"

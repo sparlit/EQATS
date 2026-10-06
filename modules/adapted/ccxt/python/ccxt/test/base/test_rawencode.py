@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_rawencode():
@@ -44,8 +44,8 @@ def test_rawencode():
             "id": "sampleexchange",
         }
     )
-    # TODO: add sort
-    # TODO: add nulls
+    # todo: add sort
+    # todo: add nulls
     dict2 = {
         "a": 1,
         "b": "+&",

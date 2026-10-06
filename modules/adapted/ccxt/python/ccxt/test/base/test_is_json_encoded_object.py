@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_is_json_encoded_object():
@@ -47,7 +47,7 @@ def test_is_json_encoded_object():
     assert exchange.is_json_encoded_object('{"key":"value"}')
     assert exchange.is_json_encoded_object("{}")
     assert exchange.is_json_encoded_object("[]")
-    # TODO: the belows  are not ideal, but currently valid
+    # todo: the belows  are not ideal, but currently valid
     assert exchange.is_json_encoded_object("{x")
     assert exchange.is_json_encoded_object("[x")
     assert exchange.is_json_encoded_object("{")

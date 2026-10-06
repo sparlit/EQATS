@@ -23,11 +23,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import json
 import logging
-import sys
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 from defs.dates import Dates
@@ -96,8 +94,9 @@ def extract_pr_zip(zip_file) -> pd.DataFrame | None:
 
                 mcap.loc[:, "rank"] = mcap.Series.map(priority)
                 mcap = mcap.sort_values("rank")
-                return mcap[~mcap.index.duplicated(keep="first")]
-    return None
+                mcap = mcap[~mcap.index.duplicated(keep="first")]
+
+            return mcap
 
 
 logger = logging.getLogger("MKT BREADTH")
@@ -121,7 +120,7 @@ try:
     nse = NSE(DIR, server=True)
 except (TimeoutError, ConnectionError, ConnectError) as e:
     logger.warning(f"Network error connecting to NSE - Please try again later. - {e!r}")
-    sys.exit()
+    exit()
 
 priority = {"EQ": 1, "BE": 2, "BZ": 3}
 
@@ -146,13 +145,13 @@ while True:
 
         if modified:
             mb_df.to_csv(MARKET_TRACKER_FILE)
-        sys.exit()
+        exit()
 
     # Date guard - don't sync beyond EOD2 last update
     if dates.dt > eod2_last_updated:
         logger.info("Make sure EOD2 data is synced, before running.")
         logger.info("All upto date")
-        sys.exit()
+        exit()
 
     if checkForHolidays(nse, dates):
         meta["market_breadth_last_update"] = dates.lastUpdate = dates.dt
@@ -185,7 +184,7 @@ while True:
         # On daily sync exit on error
         nse.exit()
         logger.warning(e)
-        sys.exit()
+        exit()
 
     if mcap is None:
         continue

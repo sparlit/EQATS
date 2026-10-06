@@ -31,8 +31,6 @@ run = import_module(next(filter(find_spec, ("uvloop", "winloop", "asyncio")))).r
 import os
 import sys
 import time
-from pprint import pprint
-from random import randint
 
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.append(root + "/python")
@@ -67,11 +65,14 @@ order_sizes = {
 
 
 async def get_last_funding_infos():
-    tasks = [exchange.public_get_funding_stats_symbol_hist({"symbol": currency, "limit": 1}) for currency in currencies]
+    tasks = [
+        exchange.public_get_funding_stats_symbol_hist({"symbol": currency, "limit": 1})
+        for currency in currencies
+    ]
     results = await asyncio.gather(*tasks)
     fundingInfos = {}
     # parse results
-    for i in range(len(currencies)):
+    for i in range(0, len(currencies)):
         currency = currencies[i]
         data = results[i][0]
         fundingInfos[currency] = {

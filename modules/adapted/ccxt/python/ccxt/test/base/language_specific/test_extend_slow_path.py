@@ -38,7 +38,7 @@ sys.path.append(root)
 # none of which are covered by the transpiled fast-path tests.
 # ----------------------------------------------------------------------------
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_extend_slow_path():
@@ -58,16 +58,20 @@ def test_extend_slow_path():
     merged3 = exchange.extend({"a": 1}, {"b": 2}, {"a": 3, "c": 4})
     assert merged3 == {"a": 3, "b": 2, "c": 4}, "extend() with 3 args should merge left-to-right"
     merged4 = exchange.extend({"a": 1}, {"b": 2}, {"c": 3}, {"d": 4})
-    assert merged4 == {"a": 1, "b": 2, "c": 3, "d": 4}, "extend() with 4 args should merge all of them"
+    assert merged4 == {"a": 1, "b": 2, "c": 3, "d": 4}, (
+        "extend() with 4 args should merge all of them"
+    )
     # --- OrderedDict as the first argument: arg_type is not `dict`, so even with
     # exactly 2 args this must skip the fast path and preserve the OrderedDict type
     # and insertion order via the slow path's `result = collections.OrderedDict()` branch
     ordered = collections.OrderedDict([("z", 1), ("a", 2)])
     result = exchange.extend(ordered, {"m": 3})
-    assert isinstance(result, collections.OrderedDict), "extend(OrderedDict, dict) should preserve OrderedDict"
-    assert list(result.keys()) == ["z", "a", "m"], "extend(OrderedDict, dict) should preserve insertion order"
-    assert result["z"] == 1
-    assert result["a"] == 2
-    assert result["m"] == 3
+    assert isinstance(result, collections.OrderedDict), (
+        "extend(OrderedDict, dict) should preserve OrderedDict"
+    )
+    assert list(result.keys()) == ["z", "a", "m"], (
+        "extend(OrderedDict, dict) should preserve insertion order"
+    )
+    assert result["z"] == 1 and result["a"] == 2 and result["m"] == 3
     # original OrderedDict must not be mutated
     assert list(ordered.keys()) == ["z", "a"], "extend() must not mutate the original OrderedDict"

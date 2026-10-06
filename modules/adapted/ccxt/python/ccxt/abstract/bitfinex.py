@@ -27,7 +27,9 @@ _List = list[object]
 
 
 class ImplicitAPI:
-    public_get_conf_config = publicGetConfConfig = Entry[_List]("conf/{config}", "public", "GET", {"cost": 2.7})
+    public_get_conf_config = publicGetConfConfig = Entry[_List](
+        "conf/{config}", "public", "GET", {"cost": 2.7}
+    )
     public_get_conf_pub_action_object = publicGetConfPubActionObject = Entry[_List](
         "conf/pub:{action}:{object}", "public", "GET", {"cost": 2.7}
     )
@@ -103,31 +105,51 @@ class ImplicitAPI:
     public_get_conf_pub_info_tx_status = publicGetConfPubInfoTxStatus = Entry[_List](
         "conf/pub:info:tx:status", "public", "GET", {"cost": 2.7}
     )
-    public_get_conf_pub_fees = publicGetConfPubFees = Entry[_List]("conf/pub:fees", "public", "GET", {"cost": 2.7})
-    public_get_platform_status = publicGetPlatformStatus = Entry[_List]("platform/status", "public", "GET", {"cost": 8})
+    public_get_conf_pub_fees = publicGetConfPubFees = Entry[_List](
+        "conf/pub:fees", "public", "GET", {"cost": 2.7}
+    )
+    public_get_platform_status = publicGetPlatformStatus = Entry[_List](
+        "platform/status", "public", "GET", {"cost": 8}
+    )
     public_get_tickers = publicGetTickers = Entry[_List]("tickers", "public", "GET", {"cost": 2.7})
-    public_get_ticker_symbol = publicGetTickerSymbol = Entry[_List]("ticker/{symbol}", "public", "GET", {"cost": 2.7})
-    public_get_tickers_hist = publicGetTickersHist = Entry[_List]("tickers/hist", "public", "GET", {"cost": 2.7})
+    public_get_ticker_symbol = publicGetTickerSymbol = Entry[_List](
+        "ticker/{symbol}", "public", "GET", {"cost": 2.7}
+    )
+    public_get_tickers_hist = publicGetTickersHist = Entry[_List](
+        "tickers/hist", "public", "GET", {"cost": 2.7}
+    )
     public_get_trades_symbol_hist = publicGetTradesSymbolHist = Entry[_List](
         "trades/{symbol}/hist", "public", "GET", {"cost": 2.7}
     )
     public_get_book_symbol_precision = publicGetBookSymbolPrecision = Entry[_List](
         "book/{symbol}/{precision}", "public", "GET", {"cost": 1}
     )
-    public_get_book_symbol_p0 = publicGetBookSymbolP0 = Entry[_List]("book/{symbol}/P0", "public", "GET", {"cost": 1})
-    public_get_book_symbol_p1 = publicGetBookSymbolP1 = Entry[_List]("book/{symbol}/P1", "public", "GET", {"cost": 1})
-    public_get_book_symbol_p2 = publicGetBookSymbolP2 = Entry[_List]("book/{symbol}/P2", "public", "GET", {"cost": 1})
-    public_get_book_symbol_p3 = publicGetBookSymbolP3 = Entry[_List]("book/{symbol}/P3", "public", "GET", {"cost": 1})
-    public_get_book_symbol_r0 = publicGetBookSymbolR0 = Entry[_List]("book/{symbol}/R0", "public", "GET", {"cost": 1})
-    public_get_stats1_key_size_symbol_side_section = publicGetStats1KeySizeSymbolSideSection = Entry[_List](
-        "stats1/{key}:{size}:{symbol}:{side}/{section}", "public", "GET", {"cost": 2.7}
+    public_get_book_symbol_p0 = publicGetBookSymbolP0 = Entry[_List](
+        "book/{symbol}/P0", "public", "GET", {"cost": 1}
     )
-    public_get_stats1_key_size_symbol_side_last = publicGetStats1KeySizeSymbolSideLast = Entry[_List](
-        "stats1/{key}:{size}:{symbol}:{side}/last", "public", "GET", {"cost": 2.7}
+    public_get_book_symbol_p1 = publicGetBookSymbolP1 = Entry[_List](
+        "book/{symbol}/P1", "public", "GET", {"cost": 1}
     )
-    public_get_stats1_key_size_symbol_side_hist = publicGetStats1KeySizeSymbolSideHist = Entry[_List](
-        "stats1/{key}:{size}:{symbol}:{side}/hist", "public", "GET", {"cost": 2.7}
+    public_get_book_symbol_p2 = publicGetBookSymbolP2 = Entry[_List](
+        "book/{symbol}/P2", "public", "GET", {"cost": 1}
     )
+    public_get_book_symbol_p3 = publicGetBookSymbolP3 = Entry[_List](
+        "book/{symbol}/P3", "public", "GET", {"cost": 1}
+    )
+    public_get_book_symbol_r0 = publicGetBookSymbolR0 = Entry[_List](
+        "book/{symbol}/R0", "public", "GET", {"cost": 1}
+    )
+    public_get_stats1_key_size_symbol_side_section = publicGetStats1KeySizeSymbolSideSection = (
+        Entry[_List](
+            "stats1/{key}:{size}:{symbol}:{side}/{section}", "public", "GET", {"cost": 2.7}
+        )
+    )
+    public_get_stats1_key_size_symbol_side_last = publicGetStats1KeySizeSymbolSideLast = Entry[
+        _List
+    ]("stats1/{key}:{size}:{symbol}:{side}/last", "public", "GET", {"cost": 2.7})
+    public_get_stats1_key_size_symbol_side_hist = publicGetStats1KeySizeSymbolSideHist = Entry[
+        _List
+    ]("stats1/{key}:{size}:{symbol}:{side}/hist", "public", "GET", {"cost": 2.7})
     public_get_stats1_key_size_symbol_section = publicGetStats1KeySizeSymbolSection = Entry[_List](
         "stats1/{key}:{size}:{symbol}/{section}", "public", "GET", {"cost": 2.7}
     )
@@ -137,56 +159,70 @@ class ImplicitAPI:
     public_get_stats1_key_size_symbol_hist = publicGetStats1KeySizeSymbolHist = Entry[_List](
         "stats1/{key}:{size}:{symbol}/hist", "public", "GET", {"cost": 2.7}
     )
-    public_get_stats1_key_size_symbol_long_last = publicGetStats1KeySizeSymbolLongLast = Entry[_List](
-        "stats1/{key}:{size}:{symbol}:long/last", "public", "GET", {"cost": 2.7}
+    public_get_stats1_key_size_symbol_long_last = publicGetStats1KeySizeSymbolLongLast = Entry[
+        _List
+    ]("stats1/{key}:{size}:{symbol}:long/last", "public", "GET", {"cost": 2.7})
+    public_get_stats1_key_size_symbol_long_hist = publicGetStats1KeySizeSymbolLongHist = Entry[
+        _List
+    ]("stats1/{key}:{size}:{symbol}:long/hist", "public", "GET", {"cost": 2.7})
+    public_get_stats1_key_size_symbol_short_last = publicGetStats1KeySizeSymbolShortLast = Entry[
+        _List
+    ]("stats1/{key}:{size}:{symbol}:short/last", "public", "GET", {"cost": 2.7})
+    public_get_stats1_key_size_symbol_short_hist = publicGetStats1KeySizeSymbolShortHist = Entry[
+        _List
+    ]("stats1/{key}:{size}:{symbol}:short/hist", "public", "GET", {"cost": 2.7})
+    public_get_candles_trade_timeframe_symbol_period_section = (
+        publicGetCandlesTradeTimeframeSymbolPeriodSection
+    ) = Entry[_List](
+        "candles/trade:{timeframe}:{symbol}:{period}/{section}", "public", "GET", {"cost": 2.7}
     )
-    public_get_stats1_key_size_symbol_long_hist = publicGetStats1KeySizeSymbolLongHist = Entry[_List](
-        "stats1/{key}:{size}:{symbol}:long/hist", "public", "GET", {"cost": 2.7}
+    public_get_candles_trade_timeframe_symbol_section = (
+        publicGetCandlesTradeTimeframeSymbolSection
+    ) = Entry[_List]("candles/trade:{timeframe}:{symbol}/{section}", "public", "GET", {"cost": 2.7})
+    public_get_candles_trade_timeframe_symbol_last = publicGetCandlesTradeTimeframeSymbolLast = (
+        Entry[_List]("candles/trade:{timeframe}:{symbol}/last", "public", "GET", {"cost": 2.7})
     )
-    public_get_stats1_key_size_symbol_short_last = publicGetStats1KeySizeSymbolShortLast = Entry[_List](
-        "stats1/{key}:{size}:{symbol}:short/last", "public", "GET", {"cost": 2.7}
+    public_get_candles_trade_timeframe_symbol_hist = publicGetCandlesTradeTimeframeSymbolHist = (
+        Entry[_List]("candles/trade:{timeframe}:{symbol}/hist", "public", "GET", {"cost": 2.7})
     )
-    public_get_stats1_key_size_symbol_short_hist = publicGetStats1KeySizeSymbolShortHist = Entry[_List](
-        "stats1/{key}:{size}:{symbol}:short/hist", "public", "GET", {"cost": 2.7}
+    public_get_status_type = publicGetStatusType = Entry[_List](
+        "status/{type}", "public", "GET", {"cost": 2.7}
     )
-    public_get_candles_trade_timeframe_symbol_period_section = publicGetCandlesTradeTimeframeSymbolPeriodSection = (
-        Entry[_List]("candles/trade:{timeframe}:{symbol}:{period}/{section}", "public", "GET", {"cost": 2.7})
+    public_get_status_deriv = publicGetStatusDeriv = Entry[_List](
+        "status/deriv", "public", "GET", {"cost": 2.7}
     )
-    public_get_candles_trade_timeframe_symbol_section = publicGetCandlesTradeTimeframeSymbolSection = Entry[_List](
-        "candles/trade:{timeframe}:{symbol}/{section}", "public", "GET", {"cost": 2.7}
-    )
-    public_get_candles_trade_timeframe_symbol_last = publicGetCandlesTradeTimeframeSymbolLast = Entry[_List](
-        "candles/trade:{timeframe}:{symbol}/last", "public", "GET", {"cost": 2.7}
-    )
-    public_get_candles_trade_timeframe_symbol_hist = publicGetCandlesTradeTimeframeSymbolHist = Entry[_List](
-        "candles/trade:{timeframe}:{symbol}/hist", "public", "GET", {"cost": 2.7}
-    )
-    public_get_status_type = publicGetStatusType = Entry[_List]("status/{type}", "public", "GET", {"cost": 2.7})
-    public_get_status_deriv = publicGetStatusDeriv = Entry[_List]("status/deriv", "public", "GET", {"cost": 2.7})
     public_get_status_deriv_symbol_hist = publicGetStatusDerivSymbolHist = Entry[_List](
         "status/deriv/{symbol}/hist", "public", "GET", {"cost": 2.7}
     )
     public_get_liquidations_hist = publicGetLiquidationsHist = Entry[_List](
         "liquidations/hist", "public", "GET", {"cost": 80}
     )
-    public_get_rankings_key_timeframe_symbol_section = publicGetRankingsKeyTimeframeSymbolSection = Entry[_List](
+    public_get_rankings_key_timeframe_symbol_section = (
+        publicGetRankingsKeyTimeframeSymbolSection
+    ) = Entry[_List](
         "rankings/{key}:{timeframe}:{symbol}/{section}", "public", "GET", {"cost": 2.7}
     )
-    public_get_rankings_key_timeframe_symbol_hist = publicGetRankingsKeyTimeframeSymbolHist = Entry[_List](
-        "rankings/{key}:{timeframe}:{symbol}/hist", "public", "GET", {"cost": 2.7}
+    public_get_rankings_key_timeframe_symbol_hist = publicGetRankingsKeyTimeframeSymbolHist = Entry[
+        _List
+    ]("rankings/{key}:{timeframe}:{symbol}/hist", "public", "GET", {"cost": 2.7})
+    public_get_pulse_hist = publicGetPulseHist = Entry[_List](
+        "pulse/hist", "public", "GET", {"cost": 2.7}
     )
-    public_get_pulse_hist = publicGetPulseHist = Entry[_List]("pulse/hist", "public", "GET", {"cost": 2.7})
     public_get_pulse_profile_nickname = publicGetPulseProfileNickname = Entry[_List](
         "pulse/profile/{nickname}", "public", "GET", {"cost": 2.7}
     )
     public_get_funding_stats_symbol_hist = publicGetFundingStatsSymbolHist = Entry[_List](
         "funding/stats/{symbol}/hist", "public", "GET", {"cost": 10}
     )
-    public_get_ext_vasps = publicGetExtVasps = Entry[_List]("ext/vasps", "public", "GET", {"cost": 1})
+    public_get_ext_vasps = publicGetExtVasps = Entry[_List](
+        "ext/vasps", "public", "GET", {"cost": 1}
+    )
     public_post_calc_trade_avg = publicPostCalcTradeAvg = Entry[_List](
         "calc/trade/avg", "public", "POST", {"cost": 2.7}
     )
-    public_post_calc_fx = publicPostCalcFx = Entry[_List]("calc/fx", "public", "POST", {"cost": 2.7})
+    public_post_calc_fx = publicPostCalcFx = Entry[_List](
+        "calc/fx", "public", "POST", {"cost": 2.7}
+    )
     private_post_auth_r_wallets = privatePostAuthRWallets = Entry[_List](
         "auth/r/wallets", "private", "POST", {"cost": 2.7}
     )
@@ -219,6 +255,9 @@ class ImplicitAPI:
     )
     private_post_auth_r_orders_hist = privatePostAuthROrdersHist = Entry[_List](
         "auth/r/orders/hist", "private", "POST", {"cost": 2.7}
+    )
+    private_post_auth_r_orders_otc_symbol_hist = privatePostAuthROrdersOtcSymbolHist = Entry[_List](
+        "auth/r/orders/otc/{symbol}/hist", "private", "POST", {"cost": 2.7}
     )
     private_post_auth_r_order_symbol_id_trades = privatePostAuthROrderSymbolIdTrades = Entry[_List](
         "auth/r/order/{symbol}:{id}/trades", "private", "POST", {"cost": 2.7}
@@ -253,9 +292,9 @@ class ImplicitAPI:
     private_post_auth_w_position_increase = privatePostAuthWPositionIncrease = Entry[_List](
         "auth/w/position/increase:", "private", "POST", {"cost": 2.7}
     )
-    private_post_auth_r_position_increase_info = privatePostAuthRPositionIncreaseInfo = Entry[_List](
-        "auth/r/position/increase/info", "private", "POST", {"cost": 2.7}
-    )
+    private_post_auth_r_position_increase_info = privatePostAuthRPositionIncreaseInfo = Entry[
+        _List
+    ]("auth/r/position/increase/info", "private", "POST", {"cost": 2.7})
     private_post_auth_r_positions_hist = privatePostAuthRPositionsHist = Entry[_List](
         "auth/r/positions/hist", "private", "POST", {"cost": 2.7}
     )
@@ -265,12 +304,15 @@ class ImplicitAPI:
     private_post_auth_r_positions_snap = privatePostAuthRPositionsSnap = Entry[_List](
         "auth/r/positions/snap", "private", "POST", {"cost": 2.7}
     )
+    private_post_auth_w_position_update_funding_type = privatePostAuthWPositionUpdateFundingType = (
+        Entry[_List]("auth/w/position/update/funding/type", "private", "POST", {"cost": 2.7})
+    )
     private_post_auth_w_deriv_collateral_set = privatePostAuthWDerivCollateralSet = Entry[_List](
         "auth/w/deriv/collateral/set", "private", "POST", {"cost": 2.7}
     )
-    private_post_auth_w_deriv_collateral_limits = privatePostAuthWDerivCollateralLimits = Entry[_List](
-        "auth/w/deriv/collateral/limits", "private", "POST", {"cost": 2.7}
-    )
+    private_post_auth_w_deriv_collateral_limits = privatePostAuthWDerivCollateralLimits = Entry[
+        _List
+    ]("auth/w/deriv/collateral/limits", "private", "POST", {"cost": 2.7})
     private_post_auth_r_funding_offers = privatePostAuthRFundingOffers = Entry[_List](
         "auth/r/funding/offers", "private", "POST", {"cost": 2.7}
     )
@@ -283,9 +325,9 @@ class ImplicitAPI:
     private_post_auth_w_funding_offer_cancel = privatePostAuthWFundingOfferCancel = Entry[_List](
         "auth/w/funding/offer/cancel", "private", "POST", {"cost": 2.7}
     )
-    private_post_auth_w_funding_offer_cancel_all = privatePostAuthWFundingOfferCancelAll = Entry[_List](
-        "auth/w/funding/offer/cancel/all", "private", "POST", {"cost": 2.7}
-    )
+    private_post_auth_w_funding_offer_cancel_all = privatePostAuthWFundingOfferCancelAll = Entry[
+        _List
+    ]("auth/w/funding/offer/cancel/all", "private", "POST", {"cost": 2.7})
     private_post_auth_w_funding_close = privatePostAuthWFundingClose = Entry[_List](
         "auth/w/funding/close", "private", "POST", {"cost": 2.7}
     )
@@ -295,8 +337,8 @@ class ImplicitAPI:
     private_post_auth_w_funding_keep = privatePostAuthWFundingKeep = Entry[_List](
         "auth/w/funding/keep", "private", "POST", {"cost": 2.7}
     )
-    private_post_auth_r_funding_offers_symbol_hist = privatePostAuthRFundingOffersSymbolHist = Entry[_List](
-        "auth/r/funding/offers/{symbol}/hist", "private", "POST", {"cost": 2.7}
+    private_post_auth_r_funding_offers_symbol_hist = privatePostAuthRFundingOffersSymbolHist = (
+        Entry[_List]("auth/r/funding/offers/{symbol}/hist", "private", "POST", {"cost": 2.7})
     )
     private_post_auth_r_funding_offers_hist = privatePostAuthRFundingOffersHist = Entry[_List](
         "auth/r/funding/offers/hist", "private", "POST", {"cost": 2.7}
@@ -310,23 +352,23 @@ class ImplicitAPI:
     private_post_auth_r_funding_loans_symbol = privatePostAuthRFundingLoansSymbol = Entry[_List](
         "auth/r/funding/loans/{symbol}", "private", "POST", {"cost": 2.7}
     )
-    private_post_auth_r_funding_loans_symbol_hist = privatePostAuthRFundingLoansSymbolHist = Entry[_List](
-        "auth/r/funding/loans/{symbol}/hist", "private", "POST", {"cost": 2.7}
-    )
+    private_post_auth_r_funding_loans_symbol_hist = privatePostAuthRFundingLoansSymbolHist = Entry[
+        _List
+    ]("auth/r/funding/loans/{symbol}/hist", "private", "POST", {"cost": 2.7})
     private_post_auth_r_funding_credits = privatePostAuthRFundingCredits = Entry[_List](
         "auth/r/funding/credits", "private", "POST", {"cost": 2.7}
     )
     private_post_auth_r_funding_credits_hist = privatePostAuthRFundingCreditsHist = Entry[_List](
         "auth/r/funding/credits/hist", "private", "POST", {"cost": 2.7}
     )
-    private_post_auth_r_funding_credits_symbol = privatePostAuthRFundingCreditsSymbol = Entry[_List](
-        "auth/r/funding/credits/{symbol}", "private", "POST", {"cost": 2.7}
+    private_post_auth_r_funding_credits_symbol = privatePostAuthRFundingCreditsSymbol = Entry[
+        _List
+    ]("auth/r/funding/credits/{symbol}", "private", "POST", {"cost": 2.7})
+    private_post_auth_r_funding_credits_symbol_hist = privatePostAuthRFundingCreditsSymbolHist = (
+        Entry[_List]("auth/r/funding/credits/{symbol}/hist", "private", "POST", {"cost": 2.7})
     )
-    private_post_auth_r_funding_credits_symbol_hist = privatePostAuthRFundingCreditsSymbolHist = Entry[_List](
-        "auth/r/funding/credits/{symbol}/hist", "private", "POST", {"cost": 2.7}
-    )
-    private_post_auth_r_funding_trades_symbol_hist = privatePostAuthRFundingTradesSymbolHist = Entry[_List](
-        "auth/r/funding/trades/{symbol}/hist", "private", "POST", {"cost": 2.7}
+    private_post_auth_r_funding_trades_symbol_hist = privatePostAuthRFundingTradesSymbolHist = (
+        Entry[_List]("auth/r/funding/trades/{symbol}/hist", "private", "POST", {"cost": 2.7})
     )
     private_post_auth_r_funding_trades_hist = privatePostAuthRFundingTradesHist = Entry[_List](
         "auth/r/funding/trades/hist", "private", "POST", {"cost": 2.7}
@@ -346,7 +388,9 @@ class ImplicitAPI:
     private_post_auth_r_permissions = privatePostAuthRPermissions = Entry[_List](
         "auth/r/permissions", "private", "POST", {"cost": 2.7}
     )
-    private_post_auth_w_token = privatePostAuthWToken = Entry[_List]("auth/w/token", "private", "POST", {"cost": 2.7})
+    private_post_auth_w_token = privatePostAuthWToken = Entry[_List](
+        "auth/w/token", "private", "POST", {"cost": 2.7}
+    )
     private_post_auth_r_audit_hist = privatePostAuthRAuditHist = Entry[_List](
         "auth/r/audit/hist", "private", "POST", {"cost": 2.7}
     )
@@ -356,17 +400,26 @@ class ImplicitAPI:
     private_post_auth_w_deposit_address = privatePostAuthWDepositAddress = Entry[_List](
         "auth/w/deposit/address", "private", "POST", {"cost": 24}
     )
+    private_post_auth_r_deposit_address_all = privatePostAuthRDepositAddressAll = Entry[_List](
+        "auth/r/deposit/address/all", "private", "POST", {"cost": 24}
+    )
     private_post_auth_w_deposit_invoice = privatePostAuthWDepositInvoice = Entry[_List](
         "auth/w/deposit/invoice", "private", "POST", {"cost": 24}
+    )
+    private_post_auth_r_ext_invoice_payments = privatePostAuthRExtInvoicePayments = Entry[_List](
+        "auth/r/ext/invoice/payments", "private", "POST", {"cost": 2.7}
     )
     private_post_auth_w_withdraw = privatePostAuthWWithdraw = Entry[_List](
         "auth/w/withdraw", "private", "POST", {"cost": 24}
     )
-    private_post_auth_r_movements_currency_hist = privatePostAuthRMovementsCurrencyHist = Entry[_List](
-        "auth/r/movements/{currency}/hist", "private", "POST", {"cost": 2.7}
-    )
+    private_post_auth_r_movements_currency_hist = privatePostAuthRMovementsCurrencyHist = Entry[
+        _List
+    ]("auth/r/movements/{currency}/hist", "private", "POST", {"cost": 2.7})
     private_post_auth_r_movements_hist = privatePostAuthRMovementsHist = Entry[_List](
         "auth/r/movements/hist", "private", "POST", {"cost": 2.7}
+    )
+    private_post_auth_r_movements_info = privatePostAuthRMovementsInfo = Entry[_List](
+        "auth/r/movements/info", "private", "POST", {"cost": 2.7}
     )
     private_post_auth_r_alerts = privatePostAuthRAlerts = Entry[_List](
         "auth/r/alerts", "private", "POST", {"cost": 5.34}
@@ -374,11 +427,11 @@ class ImplicitAPI:
     private_post_auth_w_alert_set = privatePostAuthWAlertSet = Entry[_List](
         "auth/w/alert/set", "private", "POST", {"cost": 2.7}
     )
-    private_post_auth_w_alert_price_symbol_price_del = privatePostAuthWAlertPriceSymbolPriceDel = Entry[_List](
-        "auth/w/alert/price:{symbol}:{price}/del", "private", "POST", {"cost": 2.7}
+    private_post_auth_w_alert_price_symbol_price_del = privatePostAuthWAlertPriceSymbolPriceDel = (
+        Entry[_List]("auth/w/alert/price:{symbol}:{price}/del", "private", "POST", {"cost": 2.7})
     )
-    private_post_auth_w_alert_type_symbol_price_del = privatePostAuthWAlertTypeSymbolPriceDel = Entry[_List](
-        "auth/w/alert/{type}:{symbol}:{price}/del", "private", "POST", {"cost": 2.7}
+    private_post_auth_w_alert_type_symbol_price_del = privatePostAuthWAlertTypeSymbolPriceDel = (
+        Entry[_List]("auth/w/alert/{type}:{symbol}:{price}/del", "private", "POST", {"cost": 2.7})
     )
     private_post_auth_calc_order_avail = privatePostAuthCalcOrderAvail = Entry[_List](
         "auth/calc/order/avail", "private", "POST", {"cost": 2.7}
@@ -401,3 +454,12 @@ class ImplicitAPI:
     private_post_auth_w_pulse_del = privatePostAuthWPulseDel = Entry[_List](
         "auth/w/pulse/del", "private", "POST", {"cost": 2.7}
     )
+    private_post_auth_w_ext_wallets_deposits_request = privatePostAuthWExtWalletsDepositsRequest = (
+        Entry[_List]("auth/w/ext/wallets/deposits/request", "private", "POST", {"cost": 2.7})
+    )
+    private_post_auth_w_ext_wallets_withdrawals_request = (
+        privatePostAuthWExtWalletsWithdrawalsRequest
+    ) = Entry[_List]("auth/w/ext/wallets/withdrawals/request", "private", "POST", {"cost": 2.7})
+    private_post_auth_r_ext_wallets_transfers_free_count = (
+        privatePostAuthRExtWalletsTransfersFreeCount
+    ) = Entry[_List]("auth/r/ext/wallets/transfers/free/count", "private", "POST", {"cost": 2.7})

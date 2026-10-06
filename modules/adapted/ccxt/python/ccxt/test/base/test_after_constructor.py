@@ -35,8 +35,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+import ccxt.async_support as ccxt  # noqa: F402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def helper_test_init_throttler():
@@ -46,8 +46,10 @@ def helper_test_init_throttler():
             "rateLimit": 10.8,
         }
     )
-    # TODO: assert (exchange.MAX_VALUE !== undefined);
-    token_bucket = test_shared_methods.exchange_prop(exchange, "tokenBucket")  # trick for uncamelcase transpilation
+    # todo: assert (exchange.MAX_VALUE !== undefined);
+    token_bucket = test_shared_methods.exchange_prop(
+        exchange, "tokenBucket"
+    )  # trick for uncamelcase transpilation
     assert token_bucket is not None
     rate_limit = test_shared_methods.exchange_prop(exchange, "rateLimit")
     assert rate_limit == 10.8
@@ -59,7 +61,9 @@ def helper_test_init_throttler():
         exchange.safe_string_2(token_bucket, "cost", "defaultCost")
     )  # python sync, todo fix
     assert exchange.in_array(cost, [1, 1])
-    assert "maxCapacity" not in token_bucket or exchange.in_array(token_bucket["maxCapacity"], [1000, 1000])
+    assert "maxCapacity" not in token_bucket or exchange.in_array(
+        token_bucket["maxCapacity"], [1000, 1000]
+    )
 
 
 def helper_test_sandbox_state(exchange, expect_enabled=True):
@@ -77,7 +81,7 @@ def helper_test_sandbox_state(exchange, expect_enabled=True):
 
 
 def helper_test_init_sandbox():
-    # TODO: sandbox for real exchanges
+    # todo: sandbox for real exchanges
     opts = {
         "id": "sampleexchange",
         "options": {
@@ -129,8 +133,7 @@ def helper_test_init_market():
             },
         }
     )
-    assert exchange2.markets is not None
-    assert exchange2.markets["BTC/USD"] is not None
+    assert (exchange2.markets is not None) and (exchange2.markets["BTC/USD"] is not None)
 
 
 def helper_test_properties():
@@ -140,7 +143,7 @@ def helper_test_properties():
     #
     keys = ["chrome", "chrome39", "chrome100"]
     assert test_shared_methods.exchange_prop(exchange, "userAgents") is not None
-    for i in range(len(keys)):
+    for i in range(0, len(keys)):
         key = keys[i]
         user_agent = test_shared_methods.exchange_prop(exchange, "userAgents")[key]
         assert user_agent is not None
@@ -158,14 +161,20 @@ def helper_test_properties():
     #
     # credentials
     #
-    assert test_shared_methods.exchange_prop(exchange, "apiKey") is None, "apiKey should be empty string"
+    assert test_shared_methods.exchange_prop(exchange, "apiKey") is None, (
+        "apiKey should be empty string"
+    )
     assert exchange.secret is None, "secret should be empty string"
     assert exchange.uid is None, "uid should be empty string"
     assert exchange.login is None, "login should be empty string"
     assert exchange.password is None, "password should be empty string"
     assert exchange.twofa is None, "twofa should be undefined"
-    assert test_shared_methods.exchange_prop(exchange, "privateKey") is None, "privateKey should be empty string"
-    assert test_shared_methods.exchange_prop(exchange, "walletAddress") is None, "walletAddress should be empty string"
+    assert test_shared_methods.exchange_prop(exchange, "privateKey") is None, (
+        "privateKey should be empty string"
+    )
+    assert test_shared_methods.exchange_prop(exchange, "walletAddress") is None, (
+        "walletAddress should be empty string"
+    )
     assert exchange.token is None, "token should be empty string"
     required_credentials = {
         "apiKey": True,
@@ -190,35 +199,49 @@ def helper_test_properties():
     # proxies
     #
     assert exchange.proxy is None, "proxy should be undefined"
-    assert test_shared_methods.exchange_prop(exchange, "proxyUrl") is None, "proxyUrl should be undefined"
+    assert test_shared_methods.exchange_prop(exchange, "proxyUrl") is None, (
+        "proxyUrl should be undefined"
+    )
     assert exchange.proxy_url is None, "proxy_url should be undefined"
     assert test_shared_methods.exchange_prop(exchange, "proxyUrlCallback") is None, (
         "proxyUrlCallback should be undefined"
     )
     assert exchange.proxy_url_callback is None, "proxy_url_callback should be undefined"
-    assert test_shared_methods.exchange_prop(exchange, "httpProxy") is None, "httpProxy should be undefined"
+    assert test_shared_methods.exchange_prop(exchange, "httpProxy") is None, (
+        "httpProxy should be undefined"
+    )
     assert exchange.http_proxy is None, "http_proxy should be undefined"
     assert test_shared_methods.exchange_prop(exchange, "httpProxyCallback") is None, (
         "httpProxyCallback should be undefined"
     )
     assert exchange.http_proxy_callback is None, "http_proxy_callback should be undefined"
-    assert test_shared_methods.exchange_prop(exchange, "httpsProxy") is None, "httpsProxy should be undefined"
+    assert test_shared_methods.exchange_prop(exchange, "httpsProxy") is None, (
+        "httpsProxy should be undefined"
+    )
     assert exchange.https_proxy is None, "https_proxy should be undefined"
     assert test_shared_methods.exchange_prop(exchange, "httpsProxyCallback") is None, (
         "httpsProxyCallback should be undefined"
     )
     assert exchange.https_proxy_callback is None, "https_proxy_callback should be undefined"
-    assert test_shared_methods.exchange_prop(exchange, "socksProxy") is None, "socksProxy should be undefined"
+    assert test_shared_methods.exchange_prop(exchange, "socksProxy") is None, (
+        "socksProxy should be undefined"
+    )
     assert exchange.socks_proxy is None, "socks_proxy should be undefined"
     assert test_shared_methods.exchange_prop(exchange, "socksProxyCallback") is None, (
         "socksProxyCallback should be undefined"
     )
     assert exchange.socks_proxy_callback is None, "socks_proxy_callback should be undefined"
-    assert test_shared_methods.exchange_prop(exchange, "wsProxy") is None, "wsProxy should be undefined"
+    assert test_shared_methods.exchange_prop(exchange, "wsProxy") is None, (
+        "wsProxy should be undefined"
+    )
     assert exchange.ws_proxy is None, "ws_proxy should be undefined"
-    assert test_shared_methods.exchange_prop(exchange, "wssProxy") is None, "wssProxy should be undefined"
+    assert test_shared_methods.exchange_prop(exchange, "wssProxy") is None, (
+        "wssProxy should be undefined"
+    )
     assert exchange.wss_proxy is None, "wss_proxy should be undefined"
-    assert test_shared_methods.exchange_prop(exchange, "wsSocksProxy") is None, "wsSocksProxy should be undefined"
+    assert test_shared_methods.exchange_prop(exchange, "wsSocksProxy") is None, (
+        "wsSocksProxy should be undefined"
+    )
     assert exchange.ws_socks_proxy is None, "ws_socks_proxy should be undefined"
     #
     # request-response
@@ -253,11 +276,15 @@ def helper_test_properties():
     assert test_shared_methods.exchange_prop(exchange, "isSandboxModeEnabled") is False, (
         "isSandboxModeEnabled should be false"
     )
-    assert test_shared_methods.exchange_prop(exchange, "enableRateLimit"), "enableRateLimit should be true"
+    assert test_shared_methods.exchange_prop(exchange, "enableRateLimit"), (
+        "enableRateLimit should be true"
+    )
     assert test_shared_methods.exchange_prop(exchange, "rateLimiterAlgorithm") == "leakyBucket", (
         'rateLimiterAlgorithm should be "leakyBucket"'
     )
-    assert test_shared_methods.exchange_prop(exchange, "rateLimit") == 2000, "rateLimit should be 2000"
+    assert test_shared_methods.exchange_prop(exchange, "rateLimit") == 2000, (
+        "rateLimit should be 2000"
+    )
     assert exchange.certified is False, "certified should be false"
     assert exchange.pro is False, "pro should be false"
     assert exchange.alias is False, "alias should be false"
@@ -289,7 +316,7 @@ def helper_test_properties():
         "530",
     ]
     # php errors with below, bcz integer key cast
-    # testSharedMethods.assertDeepEqual (exchange, {}, 'httpExceptionKeys', Object.keys (testSharedMethods.exchangeProp (exchange, 'httpExceptions')), httpExceptionKeys); # TODO: add better deepAssert with error classes
+    # testSharedMethods.assertDeepEqual (exchange, {}, 'httpExceptionKeys', Object.keys (testSharedMethods.exchangeProp (exchange, 'httpExceptions')), httpExceptionKeys); # todo: add better deepAssert with error classes
     assert len(list(test_shared_methods.exchange_prop(exchange, "httpExceptions").keys())) == len(
         http_exception_keys
     ), "httpExceptions should have " + str(len(http_exception_keys)) + " keys"
@@ -370,22 +397,24 @@ def helper_test_properties():
     test_shared_methods.assert_deep_equal(exchange, {}, "status", exchange.status, status)
     assert exchange.timeout == 10000, "timeout should be 10000"
     assert exchange.verbose is False, "verbose should be false"
-    # assert (testSharedMethods.exchangeProp (exchange, 'newUpdates') === true, 'newUpdates should be true'); # TODO WS
+    # assert (testSharedMethods.exchangeProp (exchange, 'newUpdates') === true, 'newUpdates should be true'); # todo WS
     assert test_shared_methods.exchange_prop(exchange, "reloadingMarkets") is not True, (
         "reloadingMarkets should be false"
     )
-    assert test_shared_methods.exchange_prop(exchange, "marketsLoading") is None, "marketsLoading should be undefined"
+    assert test_shared_methods.exchange_prop(exchange, "marketsLoading") is None, (
+        "marketsLoading should be undefined"
+    )
     # undefined or false
     assert exchange.version is None, "version should be undefined"
     assert exchange.name is None, "name should be undefined"
     assert exchange.exceptions is None, "exceptions should be undefined"
     assert exchange.timeframes is None, "timeframes should be undefined"
-    # testSharedMethods.assertDeepEqual (exchange, {}, 'clients', testSharedMethods.exchangeProp (exchange, 'clients'), {}); # TODO WS
-    # testSharedMethods.assertDeepEqual (exchange, {}, 'streaming', testSharedMethods.exchangeProp (exchange, 'streaming'), {}); # TODO WS
+    # testSharedMethods.assertDeepEqual (exchange, {}, 'clients', testSharedMethods.exchangeProp (exchange, 'clients'), {}); # todo WS
+    # testSharedMethods.assertDeepEqual (exchange, {}, 'streaming', testSharedMethods.exchangeProp (exchange, 'streaming'), {}); # todo WS
     #
     # instance dynamic cache
     #
-    # TODO: remove initialization from GO
+    # todo: remove initialization from GO
     test_shared_methods.assert_deep_equal(
         exchange, {}, "balance", exchange.balance, exchange.create_safe_dictionary(True)
     )
@@ -420,12 +449,18 @@ def helper_test_properties():
     assert exchange.markets_by_id is None, "markets_by_id should be undefined"
     assert exchange.ids is None, "ids should be undefined"
     test_shared_methods.assert_deep_equal(exchange, {}, "currencies", exchange.currencies, {})
-    assert test_shared_methods.exchange_prop(exchange, "baseCurrencies") is None, "baseCurrencies should be undefined"
-    assert test_shared_methods.exchange_prop(exchange, "quoteCurrencies") is None, "quoteCurrencies should be undefined"
+    assert test_shared_methods.exchange_prop(exchange, "baseCurrencies") is None, (
+        "baseCurrencies should be undefined"
+    )
+    assert test_shared_methods.exchange_prop(exchange, "quoteCurrencies") is None, (
+        "quoteCurrencies should be undefined"
+    )
     assert exchange.currencies_by_id is None, "currencies_by_id should be undefined"
     assert exchange.codes is None, "codes should be undefined"
     assert exchange.accounts is None, "accounts should be undefined"
-    assert test_shared_methods.exchange_prop(exchange, "accountsById") is None, "accountsById should be undefined"
+    assert test_shared_methods.exchange_prop(exchange, "accountsById") is None, (
+        "accountsById should be undefined"
+    )
     # @SKIP_END_GO
     test_shared_methods.assert_deep_equal(
         exchange,

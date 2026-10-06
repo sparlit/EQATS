@@ -40,6 +40,7 @@ class HttpClient:
         )
         s.mount("https://", HTTPAdapter(max_retries=retries))
         self.s = s
+        return
 
     def init(self, start_date, end_date, frequency):
         val = f'{{"start_date": {start_date}, "end_date": {end_date}, "frequency": {frequency}}}'
@@ -54,16 +55,14 @@ class HttpClient:
 
     def tick(self):
         if self.backtest_id is None:
-            msg = "Called before init"
-            raise ValueError(msg)
+            raise ValueError("Called before init")
 
         r = self.s.get(f"{self.base_url}/backtest/{self.backtest_id}/tick")
         return r.json()
 
     def insert_orders(self, orders):
         if self.backtest_id is None:
-            msg = "Called before init"
-            raise ValueError(msg)
+            raise ValueError("Called before init")
 
         serialized_orders_str = ",".join([o.serialize() for o in orders])
         val = f'{{"orders": [{serialized_orders_str}]}}'
@@ -76,8 +75,7 @@ class HttpClient:
 
     def info(self):
         if self.backtest_id is None:
-            msg = "Called before init"
-            raise ValueError(msg)
+            raise ValueError("Called before init")
 
         r = self.s.get(f"{self.base_url}/backtest/{self.backtest_id}/info")
         return r.json()

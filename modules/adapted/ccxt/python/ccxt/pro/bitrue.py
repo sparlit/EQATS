@@ -27,10 +27,14 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 import ccxt.async_support
-from ccxt.async_support.base.ws.cache import ArrayCache, ArrayCacheBySymbolById, ArrayCacheByTimestamp
+from ccxt.async_support.base.ws.cache import (
+    ArrayCache,
+    ArrayCacheBySymbolById,
+    ArrayCacheByTimestamp,
+)
 from ccxt.async_support.base.ws.client import Client
-from ccxt.base.errors import AuthenticationError, NotSupported
-from ccxt.base.types import Balances, Int, Market, Order, OrderBook, Str, Ticker, Trade
+from ccxt.base.errors import AuthenticationError, ExchangeError, NotSupported
+from ccxt.base.types import Balances, Int, Market, Num, Order, OrderBook, Str, Ticker, Trade
 
 
 class bitrue(ccxt.async_support.bitrue):
@@ -96,7 +100,7 @@ class bitrue(ccxt.async_support.bitrue):
             },
         )
 
-    async def watch_balance(self, params=None) -> Balances:
+    async def watch_balance(self, params: dict = None) -> Balances:
         """
         watch balance and get the amount of funds available for trading or funds locked in orders
 
@@ -118,7 +122,7 @@ class bitrue(ccxt.async_support.bitrue):
         request = self.deep_extend(message, params)
         return await self.watch(url, messageHash, request, messageHash)
 
-    def handle_balance(self, client: Client, message: object):
+    def handle_balance(self, client: Client, message: dict):
         #
         #     {
         #         "e": "BALANCE",
@@ -164,12 +168,12 @@ class bitrue(ccxt.async_support.bitrue):
         #      "u": 2285311
         #    }
         #
-        balances = self.safe_value(message, "B", [])
+        balances = self.safe_list(message, "B", [])
         self.parse_ws_balances(balances)
         messageHash = "balance"
         client.resolve(self.balance, messageHash)
 
-    def parse_ws_balances(self, balances: object):
+    def parse_ws_balances(self, balances: list[object]):
         #
         #    [{
         #         "a": "btc",
@@ -187,8 +191,8 @@ class bitrue(ccxt.async_support.bitrue):
         #     }]
         #
         self.balance["info"] = balances
-        for i in range(len(balances)):
-            balance = balances[i]
+        for i in range(0, len(balances)):
+            balance = self.safe_dict(balances, i)
             currencyId = self.safe_string(balance, "a")
             code = self.safe_currency_code(currencyId)
             account = self.account()
@@ -207,7 +211,9 @@ class bitrue(ccxt.async_support.bitrue):
                     self.balance[code] = account
         self.balance = self.safe_balance(self.balance)
 
-    async def watch_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params=None) -> list[Order]:
+    async def watch_orders(
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Order]:
         """
         watches information on user orders
 
@@ -223,9 +229,10 @@ class bitrue(ccxt.async_support.bitrue):
             params = {}
         if self.markets is None:
             await self.load_markets()
+        symbolResolved = None
         if symbol is not None:
             market = self.market(symbol)
-            symbol = market["symbol"]
+            symbolResolved = self.safe_string(market, "symbol")
         url = await self.authenticate()
         messageHash = "orders"
         message = {
@@ -236,11 +243,12 @@ class bitrue(ccxt.async_support.bitrue):
         }
         request = self.deep_extend(message, params)
         orders = await self.watch(url, messageHash, request, messageHash)
+        limitResolved = limit
         if self.newUpdates:
-            limit = orders.getLimit(symbol, limit)
-        return self.filter_by_symbol_since_limit(orders, symbol, since, limit, True)
+            limitResolved = orders.getLimit(symbolResolved, limit)
+        return self.filter_by_symbol_since_limit(orders, symbolResolved, since, limitResolved, True)
 
-    def handle_order(self, client: Client, message: object):
+    def handle_order(self, client: Client, message: dict):
         #
         #    {
         #        "e": "ORDER",
@@ -273,7 +281,7 @@ class bitrue(ccxt.async_support.bitrue):
         messageHash = "orders"
         client.resolve(self.orders, messageHash)
 
-    def parse_ws_order(self, order: object, market: Market = None):
+    def parse_ws_order(self, order: dict, market: Market = None) -> Order:
         #
         #    {
         #        "e": "ORDER",
@@ -303,7 +311,9 @@ class bitrue(ccxt.async_support.bitrue):
         sideId = self.safe_integer(order, "S")
         # 1: buy
         # 2: sell
-        side = "buy" if (sideId == 1) else "sell"
+        side = "sell"
+        if sideId == 1:
+            side = "buy"
         statusId = self.safe_string(order, "X")
         feeCurrencyId = self.safe_string(order, "N")
         return self.safe_order(
@@ -335,14 +345,16 @@ class bitrue(ccxt.async_support.bitrue):
             market,
         )
 
-    async def watch_order_book(self, symbol: str, limit: Int = None, params=None) -> OrderBook:
+    async def watch_order_book(
+        self, symbol: str, limit: Int = None, params: dict = None
+    ) -> OrderBook:
         if params is None:
             params = {}
         if self.markets is None:
             await self.load_markets()
         market = self.market(symbol)
-        symbol = market["symbol"]
-        messageHash = "orderbook:" + symbol
+        symbolValue = market["symbol"]
+        messageHash = "orderbook:" + symbolValue
         url = None
         channel = None
         cbId = None
@@ -368,7 +380,7 @@ class bitrue(ccxt.async_support.bitrue):
         request = self.deep_extend(message, params)
         return await self.watch(url, messageHash, request, messageHash)
 
-    def handle_order_book(self, client: Client, message: object):
+    def handle_order_book(self, client: Client, message: dict):
         #
         #     {
         #         "channel": "market_ethbtc_simple_depth_step0",
@@ -414,7 +426,7 @@ class bitrue(ccxt.async_support.bitrue):
             market = self.safe_market(marketId)
         symbol = market["symbol"]
         timestamp = self.safe_integer(message, "ts")
-        tick = self.safe_value(message, "tick", {})
+        tick = self.safe_dict(message, "tick", {})
         parseable = tick
         if isFutures:
             rawAsks = self.safe_list(tick, "asks", [])
@@ -436,27 +448,34 @@ class bitrue(ccxt.async_support.bitrue):
         if markets is None:
             return None
         symbols = list(markets.keys())
-        for i in range(len(symbols)):
+        for i in range(0, len(symbols)):
             candidate = markets[symbols[i]]
-            if candidate["swap"] is not True:
+            if not self.safe_bool(candidate, "swap", False):
                 continue
-            baseId = self.safe_string_lower(candidate, "baseId", "")
-            quoteId = self.safe_string_lower(candidate, "quoteId", "")
+            baseId = self.safe_string_lower(candidate, "baseId")
+            quoteId = self.safe_string_lower(candidate, "quoteId")
+            if baseId is None or quoteId is None:
+                raise ExchangeError(
+                    self.id
+                    + " findSwapMarketByWsBaseQuote() market "
+                    + symbols[i]
+                    + " has no baseId or quoteId"
+                )
             if baseId + quoteId == wsBaseQuote:
                 return candidate
         return None
 
-    def parse_contract_bids_asks(self, bidsAsks: object, symbol: str):
+    def parse_contract_bids_asks(self, bidsAsks: list[object], symbol: str) -> list:
         result = []
-        for i in range(len(bidsAsks)):
-            level = bidsAsks[i]
+        for i in range(0, len(bidsAsks)):
+            level = self.safe_list(bidsAsks, i)
             price = self.safe_number(level, 0)
             rawAmount = self.safe_number(level, 1)
             amount = self.convert_from_raw_quantity(symbol, rawAmount)
             result.append([price, amount])
         return result
 
-    def convert_from_raw_quantity(self, symbol: str, rawQuantity: object):
+    def convert_from_raw_quantity(self, symbol: str, rawQuantity: Num):
         if rawQuantity is None:
             return None
         market = self.market(symbol)
@@ -465,7 +484,9 @@ class bitrue(ccxt.async_support.bitrue):
         contractSize = self.safe_number(market, "contractSize", 1)
         return rawQuantity * contractSize
 
-    async def watch_trades(self, symbol: str, since: Int = None, limit: Int = None, params=None) -> list[Trade]:
+    async def watch_trades(
+        self, symbol: str, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Trade]:
         """
         watches public trades for a swap(futures) market
 
@@ -482,14 +503,14 @@ class bitrue(ccxt.async_support.bitrue):
         if self.markets is None:
             await self.load_markets()
         market = self.market(symbol)
-        symbol = market["symbol"]
+        symbolValue = market["symbol"]
         if market["swap"] is not True:
             raise NotSupported(self.id + " watchTrades is only supported for swap markets")
         baseIdLower = self.safe_string_lower(market, "baseId")
         quoteIdLower = self.safe_string_lower(market, "quoteId")
         wsId = "e_" + baseIdLower + quoteIdLower
         channel = "market_" + wsId + "_trade_ticker"
-        messageHash = "trades:" + symbol
+        messageHash = "trades:" + symbolValue
         url = self.urls["api"]["ws"]["futurePublic"]
         message = {
             "event": "sub",
@@ -500,11 +521,12 @@ class bitrue(ccxt.async_support.bitrue):
         }
         request = self.deep_extend(message, params)
         trades = await self.watch(url, messageHash, request, messageHash)
+        limitResolved = limit
         if self.newUpdates:
-            limit = trades.getLimit(symbol, limit)
-        return self.filter_by_since_limit(trades, since, limit, "timestamp", True)
+            limitResolved = trades.getLimit(symbolValue, limit)
+        return self.filter_by_since_limit(trades, since, limitResolved, "timestamp", True)
 
-    def handle_trades(self, client: Client, message: object):
+    def handle_trades(self, client: Client, message: dict):
         #
         #     {
         #         "event_rep": "",
@@ -532,11 +554,11 @@ class bitrue(ccxt.async_support.bitrue):
         if market is None:
             return
         symbol = market["symbol"]
-        tick = self.safe_value(message, "tick", {})
+        tick = self.safe_dict(message, "tick", {})
         data = self.safe_list(tick, "data", [])
         appended = False
         stored = self.safe_value(self.trades, symbol)
-        for i in range(len(data)):
+        for i in range(0, len(data)):
             if stored is None:
                 limit = self.safe_integer(self.options, "tradesLimit", 1000)
                 stored = ArrayCache(limit)
@@ -548,7 +570,7 @@ class bitrue(ccxt.async_support.bitrue):
             messageHash = "trades:" + symbol
             client.resolve(stored, messageHash)
 
-    def parse_ws_trade(self, trade: object, market: Market = None):
+    def parse_ws_trade(self, trade: dict, market: Market = None) -> Trade:
         symbol = market["symbol"]
         timestamp = self.safe_integer(trade, "ts")
         sideLower = self.safe_string_lower(trade, "side")
@@ -575,7 +597,12 @@ class bitrue(ccxt.async_support.bitrue):
         )
 
     async def watch_ohlcv(
-        self, symbol: str, timeframe="1m", since: Int = None, limit: Int = None, params=None
+        self,
+        symbol: str,
+        timeframe: str = "1m",
+        since: Int = None,
+        limit: Int = None,
+        params: dict = None,
     ) -> list[list]:
         """
         watches OHLCV candles for a swap(futures) market
@@ -594,7 +621,7 @@ class bitrue(ccxt.async_support.bitrue):
         if self.markets is None:
             await self.load_markets()
         market = self.market(symbol)
-        symbol = market["symbol"]
+        symbolValue = market["symbol"]
         if market["swap"] is not True:
             raise NotSupported(self.id + " watchOHLCV is only supported for swap markets")
         futuresTimeframes = self.safe_dict(self.options, "futuresTimeframes", {})
@@ -605,7 +632,7 @@ class bitrue(ccxt.async_support.bitrue):
         quoteIdLower = self.safe_string_lower(market, "quoteId")
         wsId = "e_" + baseIdLower + quoteIdLower
         channel = "market_" + wsId + "_kline_" + interval
-        messageHash = "ohlcv:" + symbol + ":" + timeframe
+        messageHash = "ohlcv:" + symbolValue + ":" + timeframe
         url = self.urls["api"]["ws"]["futurePublic"]
         message = {
             "event": "sub",
@@ -616,11 +643,12 @@ class bitrue(ccxt.async_support.bitrue):
         }
         request = self.deep_extend(message, params)
         ohlcv = await self.watch(url, messageHash, request, messageHash)
+        limitResolved = limit
         if self.newUpdates:
-            limit = ohlcv.getLimit(symbol, limit)
-        return self.filter_by_since_limit(ohlcv, since, limit, 0, True)
+            limitResolved = ohlcv.getLimit(symbolValue, limit)
+        return self.filter_by_since_limit(ohlcv, since, limitResolved, 0, True)
 
-    def handle_ohlcv(self, client: Client, message: object):
+    def handle_ohlcv(self, client: Client, message: dict):
         #
         #     {
         #         "channel": "market_e_btcusdt_kline_1min",
@@ -649,7 +677,7 @@ class bitrue(ccxt.async_support.bitrue):
         wsInterval = self.safe_string(parts, 4)
         futuresTimeframes = self.safe_dict(self.options, "futuresTimeframes", {})
         timeframe = self.find_timeframe(wsInterval, futuresTimeframes)
-        tick = self.safe_value(message, "tick")
+        tick = self.safe_dict(message, "tick")
         if tick is None:
             return
         parsed = self.parse_ws_ohlcv(tick, market)
@@ -675,7 +703,7 @@ class bitrue(ccxt.async_support.bitrue):
         baseVolume = self.convert_from_raw_quantity(symbol, rawVol)
         return [timestamp, open, high, low, close, baseVolume]
 
-    async def watch_ticker(self, symbol: str, params=None) -> Ticker:
+    async def watch_ticker(self, symbol: str, params: dict = None) -> Ticker:
         """
         watches a 24h ticker for a swap(futures) market
 
@@ -690,14 +718,14 @@ class bitrue(ccxt.async_support.bitrue):
         if self.markets is None:
             await self.load_markets()
         market = self.market(symbol)
-        symbol = market["symbol"]
+        symbolValue = market["symbol"]
         if market["swap"] is not True:
             raise NotSupported(self.id + " watchTicker is only supported for swap markets")
         baseIdLower = self.safe_string_lower(market, "baseId")
         quoteIdLower = self.safe_string_lower(market, "quoteId")
         wsId = "e_" + baseIdLower + quoteIdLower
         channel = "market_" + wsId + "_ticker"
-        messageHash = "ticker:" + symbol
+        messageHash = "ticker:" + symbolValue
         url = self.urls["api"]["ws"]["futurePublic"]
         message = {
             "event": "sub",
@@ -709,7 +737,7 @@ class bitrue(ccxt.async_support.bitrue):
         request = self.deep_extend(message, params)
         return await self.watch(url, messageHash, request, messageHash)
 
-    def handle_ticker(self, client: Client, message: object):
+    def handle_ticker(self, client: Client, message: dict):
         #
         #     {
         #         "channel": "market_e_btcusdt_ticker",
@@ -733,7 +761,7 @@ class bitrue(ccxt.async_support.bitrue):
         if market is None:
             return
         symbol = market["symbol"]
-        tick = self.safe_value(message, "tick")
+        tick = self.safe_dict(message, "tick")
         if tick is None:
             return
         timestamp = self.safe_integer(message, "ts")
@@ -742,7 +770,7 @@ class bitrue(ccxt.async_support.bitrue):
         messageHash = "ticker:" + symbol
         client.resolve(parsed, messageHash)
 
-    def parse_ws_ticker(self, tick: object, market: object, timestamp: Int = None) -> Ticker:
+    def parse_ws_ticker(self, tick: dict, market: object, timestamp: Int = None) -> Ticker:
         symbol = market["symbol"]
         rawVol = self.safe_number(tick, "vol")
         rawAmount = self.safe_number(tick, "amount")
@@ -777,7 +805,7 @@ class bitrue(ccxt.async_support.bitrue):
             market,
         )
 
-    def parse_ws_order_type(self, typeId: object):
+    def parse_ws_order_type(self, typeId: Str) -> Str:
         types = {
             "1": "limit",
             "2": "market",
@@ -785,7 +813,7 @@ class bitrue(ccxt.async_support.bitrue):
         }
         return self.safe_string(types, typeId, typeId)
 
-    def parse_ws_order_status(self, status: object):
+    def parse_ws_order_status(self, status: Str) -> Str:
         statuses = {
             "0": "open",  # The order has not been accepted by the engine.
             "1": "open",  # The order has been accepted by the engine.
@@ -796,10 +824,10 @@ class bitrue(ccxt.async_support.bitrue):
         }
         return self.safe_string(statuses, status, status)
 
-    def handle_ping(self, client: Client, message: object):
+    def handle_ping(self, client: Client, message: dict):
         self.spawn(self.pong, client, message)
 
-    async def pong(self, client: Client, message: object):
+    async def pong(self, client: Client, message: dict):
         #
         #     {
         #         "ping": 1670057540627
@@ -811,7 +839,7 @@ class bitrue(ccxt.async_support.bitrue):
         }
         await client.send(pong)
 
-    def handle_message(self, client: Client, message: object):
+    def handle_message(self, client: Client, message: dict):
         if "channel" in message:
             channel = self.safe_string(message, "channel")
             if channel.find("_depth_step") > -1:
@@ -834,10 +862,10 @@ class bitrue(ccxt.async_support.bitrue):
             if handler is not None:
                 handler(client, message)
 
-    async def authenticate(self, params=None):
+    async def authenticate(self, params: dict = None) -> Str:
         if params is None:
             params = {}
-        listenKey = self.safe_value(self.options, "listenKey")
+        listenKey = self.safe_string(self.options, "listenKey")
         if listenKey is None:
             # single-flight leader election on a never-dialed client, see
             # https://github.com/ccxt/ccxt/issues/29393: the key rides the
@@ -853,9 +881,9 @@ class bitrue(ccxt.async_support.bitrue):
                 # a flight is already in progress - wake when the leader
                 # settles it: the listenKey url is then in the options
                 await client.future(messageHash)
-                return self.options["listenKeyUrl"]
+                return self.safe_string(self.options, "listenKeyUrl")
             # register before the first await, so a concurrent caller entering
-            # authenticate() while self one is inside the fetch sees the flight
+            # authenticate () while this one is inside the fetch sees the flight
             future = client.reusableFuture(messageHash)
             try:
                 response = await self.openV1PrivatePostPoseidonApiV1ListenKey(params)
@@ -868,17 +896,22 @@ class bitrue(ccxt.async_support.bitrue):
                 #         }
                 #     }
                 #
-                data = self.safe_value(response, "data", {})
+                data = self.safe_dict(response, "data", {})
                 key = self.safe_string(data, "listenKey")
                 if key is None:
                     # reject instead of caching an empty credential, so
                     # waiters retry rather than dial a hollow stream url
-                    raise AuthenticationError(self.id + " authenticate() received an empty listenKey")
+                    raise AuthenticationError(
+                        self.id + " authenticate() received an empty listenKey"
+                    )
                 self.options["listenKey"] = key
-                self.options["listenKeyUrl"] = self.urls["api"]["ws"]["private"] + "/stream?listenKey=" + key
+                wsUrl = self.safe_string(self.urls["api"]["ws"], "private")
+                if wsUrl is None:
+                    raise ExchangeError(self.id + " authenticate() has no private websocket url")
+                self.options["listenKeyUrl"] = wsUrl + "/stream?listenKey=" + key
                 client.resolve(key, messageHash)
             except Exception as e:
-                # reject the flight - all waiters raise and the next caller
+                # reject the flight - all waiters throw and the next caller
                 # re-leads instead of deadlocking on a dead flight
                 client.reject(e, messageHash)
             # rethrows to the leader on failure and attaches the handler that
@@ -886,17 +919,17 @@ class bitrue(ccxt.async_support.bitrue):
             await future
             # only the leader schedules the keepalive, so a burst of watchers
             # no longer stacks one refresh timer per racing caller. waiters
-            # early-return above, so self runs once per successful flight.
+            # early-return above, so this runs once per successful flight.
             # it also has to stay the LAST statement of the block: master's
-            # build/csharpTranspiler.ts:154 rewrites self.delay with a greedy
-            # /self\.delay\(([^,]+),([^,]+),(.+)\)/ whose [^,] spans newlines,
+            # build/csharpTranspiler.ts:154 rewrites this.delay with a greedy
+            # /this\.delay\(([^,]+),([^,]+),(.+)\)/ whose [^,] spans newlines,
             # so any following statement carrying a comma gets swallowed into
             # a bogus `new object[] {...}` argument
             refreshTimeout = self.safe_integer(self.options, "listenKeyRefreshRate", 1800000)
             self.delay(refreshTimeout, self.keep_alive_listen_key)
-        return self.options["listenKeyUrl"]
+        return self.safe_string(self.options, "listenKeyUrl")
 
-    async def keep_alive_listen_key(self, params=None):
+    async def keep_alive_listen_key(self, params: dict = None):
         if params is None:
             params = {}
         listenKey = self.safe_string(self.options, "listenKey")

@@ -32,7 +32,6 @@ import os
 import sys
 
 import pandas as pd
-import pandas_ta as ta
 
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(root + "/python")

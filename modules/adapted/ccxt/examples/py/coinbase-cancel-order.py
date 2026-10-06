@@ -52,6 +52,7 @@ order_id = "04204eaf-94d6-444a-b9b7-2f8a485311f6"
 try:
     cancel_order = exchange.cancel_order(order_id)
     # cancel_orders = exchange.cancel_orders(order_ids)
+    pprint(cancel_order)
     # pprint(cancel_orders)
 except Exception as err:
     print(err)

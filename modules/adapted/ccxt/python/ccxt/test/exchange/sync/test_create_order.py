@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,19 +37,15 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.base.decimal_to_precision import (
-    ROUND,
-    ROUND_UP,
-    TICK_SIZE,
-    TRUNCATE,
-    decimal_to_precision,
-    number_to_string,
-)
-from ccxt.base.precise import Precise  # noqa: E402
-from ccxt.test.exchange.base import (
-    test_order,
-    test_shared_methods,
-)
+from ccxt.base.decimal_to_precision import TICK_SIZE  # noqa E402
+from ccxt.base.decimal_to_precision import TRUNCATE  # noqa E402
+from ccxt.base.decimal_to_precision import ROUND  # noqa E402
+from ccxt.base.decimal_to_precision import ROUND_UP  # noqa E402
+from ccxt.base.decimal_to_precision import decimal_to_precision  # noqa E402
+from ccxt.base.decimal_to_precision import number_to_string  # noqa E402
+from ccxt.base.precise import Precise  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
+from ccxt.test.exchange.base import test_order  # noqa E402
 
 
 # ----------------------------------------------------------------------------
@@ -64,8 +62,12 @@ def tco_debug(exchange, symbol, message):
 # ----------------------------------------------------------------------------
 def test_create_order(exchange, skipped_properties, symbol):
     log_prefix = test_shared_methods.log_template(exchange, "createOrder", [symbol])
-    has_cancel_order = (exchange.has["cancelOrder"] is not None) and (exchange.has["cancelOrder"] is not False)
-    has_cancel_orders = (exchange.has["cancelOrders"] is not None) and (exchange.has["cancelOrders"] is not False)
+    has_cancel_order = (exchange.has["cancelOrder"] is not None) and (
+        exchange.has["cancelOrder"] is not False
+    )
+    has_cancel_orders = (exchange.has["cancelOrders"] is not None) and (
+        exchange.has["cancelOrders"] is not False
+    )
     has_cancel_all_orders = (exchange.has["cancelAllOrders"] is not None) and (
         exchange.has["cancelAllOrders"] is not False
     )
@@ -74,10 +76,12 @@ def test_create_order(exchange, skipped_properties, symbol):
         + " does not have cancelOrder|cancelOrders|canelAllOrders method, which is needed to make tests for `createOrder` method. Skipping the test..."
     )
     # pre-define some coefficients, which will be used down below
-    limit_price_safety_multiplier_from_median = 1.045  # TODO: when this https://github.com/ccxt/ccxt/issues/22442 is implemented, we'll remove hardcoded value. atm 5% is enough
+    limit_price_safety_multiplier_from_median = 1.045  # todo: when this https://github.com/ccxt/ccxt/issues/22442 is implemented, we'll remove hardcoded value. atm 5% is enough
     market = exchange.market(symbol)
     is_swap_future = (market["swap"]) or (market["future"])
-    has_fetch_balance = (exchange.has["fetchBalance"] is not None) and (exchange.has["fetchBalance"] is not False)
+    has_fetch_balance = (exchange.has["fetchBalance"] is not None) and (
+        exchange.has["fetchBalance"] is not False
+    )
     assert has_fetch_balance, (
         log_prefix
         + " does not have fetchBalance() method, which is needed to make tests for `createOrder` method. Skipping the test..."
@@ -193,19 +197,42 @@ def tco_create_unfillable_order(
                 exchange, market, limit_buy_price_non_fillable, predefined_amount
             )
             created_order = tco_create_order_safe(
-                exchange, symbol, "limit", "buy", order_amount, limit_buy_price_non_fillable, {}, skipped_properties
+                exchange,
+                symbol,
+                "limit",
+                "buy",
+                order_amount,
+                limit_buy_price_non_fillable,
+                {},
+                skipped_properties,
             )
         else:
             order_amount = tco_get_minimum_amount_for_limit_price(
                 exchange, market, limit_sell_price_non_fillable, predefined_amount
             )
             created_order = tco_create_order_safe(
-                exchange, symbol, "limit", "sell", order_amount, limit_sell_price_non_fillable, {}, skipped_properties
+                exchange,
+                symbol,
+                "limit",
+                "sell",
+                order_amount,
+                limit_sell_price_non_fillable,
+                {},
+                skipped_properties,
             )
-        fetched_order = test_shared_methods.fetch_order(exchange, symbol, created_order["id"], skipped_properties)
+        fetched_order = test_shared_methods.fetch_order(
+            exchange, symbol, created_order["id"], skipped_properties
+        )
         # test fetched order object
         if fetched_order is not None:
-            test_order(exchange, skipped_properties, "createOrder", fetched_order, symbol, exchange.milliseconds())
+            test_order(
+                exchange,
+                skipped_properties,
+                "createOrder",
+                fetched_order,
+                symbol,
+                exchange.milliseconds(),
+            )
         # ensure that order is not filled
         test_shared_methods.assert_order_state(
             exchange, skipped_properties, "createdOrder", created_order, "open", False
@@ -251,11 +278,20 @@ def tco_create_fillable_order(
             best_bid / limit_price_safety_multiplier_from_median
             if is_buy
             else best_ask * limit_price_safety_multiplier_from_median
-        )  # TODO revise: (tcoMininumCost (exchange, market) / amountToClose) / limitPriceSafetyMultiplierFromMedian;
+        )  # todo revise: (tcoMininumCost (exchange, market) / amountToClose) / limitPriceSafetyMultiplierFromMedian;
+        #
+        #
         symbol = market["symbol"]
         entry_amount = tco_get_minimum_amount_for_limit_price(exchange, market, entryorder_price)
         entryorder_filled = tco_create_order_safe(
-            exchange, symbol, "limit", entry_side, entry_amount, entryorder_price, {}, skipped_properties
+            exchange,
+            symbol,
+            "limit",
+            entry_side,
+            entry_amount,
+            entryorder_price,
+            {},
+            skipped_properties,
         )
         # just for case, cancel any possible unfilled amount (though it is not be expected because the order was fillable)
         tco_try_cancel_order(exchange, symbol, entryorder_filled, skipped_properties)
@@ -276,14 +312,23 @@ def tco_create_fillable_order(
         #
         # ### close the traded position ###
         #
-        amount_to_close = exchange.parse_to_numeric(exchange.safe_string(entryorder_fetched, "filled"))
+        amount_to_close = exchange.parse_to_numeric(
+            exchange.safe_string(entryorder_fetched, "filled")
+        )
         params = {}
         # as we want to close position, we should use 'reduceOnly' to ensure we don't open a margined position accidentally, because some exchanges might have automatically enabled margin-mode (on spot) or hedge-mode (on contracts)
         if is_swap_future:
             params["reduceOnly"] = True
         exitorder_price_arg = None if (market["spot"]) else exitorder_price
         exitorder_filled = tco_create_order_safe(
-            exchange, symbol, "market", exit_side, amount_to_close, exitorder_price_arg, params, skipped_properties
+            exchange,
+            symbol,
+            "market",
+            exit_side,
+            amount_to_close,
+            exitorder_price_arg,
+            params,
+            skipped_properties,
         )
         exitorder_fetched = test_shared_methods.fetch_order(
             exchange, symbol, exitorder_filled["id"], skipped_properties
@@ -304,7 +349,14 @@ def tco_create_fillable_order(
 
 
 def tco_assert_filled_order(
-    exchange, market, log_prefix, skipped_properties, created_order, fetched_order, requested_side, requested_amount
+    exchange,
+    market,
+    log_prefix,
+    skipped_properties,
+    created_order,
+    fetched_order,
+    requested_side,
+    requested_amount,
 ):
     # test filled amount
     precision_amount = exchange.safe_string(market["precision"], "amount")
@@ -328,8 +380,12 @@ def tco_assert_filled_order(
         + exchange.json(fetched_order)
     )
     # order state should be "closed"
-    test_shared_methods.assert_order_state(exchange, skipped_properties, "createdOrder", created_order, "closed", False)
-    test_shared_methods.assert_order_state(exchange, skipped_properties, "fetchedOrder", fetched_order, "closed", True)
+    test_shared_methods.assert_order_state(
+        exchange, skipped_properties, "createdOrder", created_order, "closed", False
+    )
+    test_shared_methods.assert_order_state(
+        exchange, skipped_properties, "fetchedOrder", fetched_order, "closed", True
+    )
     # ensure that order side matches
     test_shared_methods.assert_in_array(
         exchange, skipped_properties, "createdOrder", created_order, "side", [None, requested_side]
@@ -352,13 +408,15 @@ def tco_cancel_order(exchange, symbol, order_id=None):
     ):
         used_method = "cancelOrder"
         cancel_result = exchange.cancel_order(order_id, symbol)
-    elif (exchange.has["cancelAllOrders"] is not None) and (exchange.has["cancelAllOrders"] is not False):
+    elif (exchange.has["cancelAllOrders"] is not None) and (
+        exchange.has["cancelAllOrders"] is not False
+    ):
         used_method = "cancelAllOrders"
         cancel_result = exchange.cancel_all_orders(symbol)
     elif (exchange.has["cancelOrders"] is not None) and (exchange.has["cancelOrders"] is not False):
         raise Error(log_prefix + " cancelOrders method is not unified yet, coming soon...")
     tco_debug(exchange, symbol, "canceled order using " + used_method + ":" + cancel_result["id"])
-    # TODO:
+    # todo:
     # testSharedMethods.assertOrderState (exchange, skippedProperties, 'cancelOrder', cancelResult, 'canceled', false);
     # testSharedMethods.assertOrderState (exchange, skippedProperties, 'cancelOrder', cancelResult, 'closed', true);
     return True
@@ -366,7 +424,9 @@ def tco_cancel_order(exchange, symbol, order_id=None):
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
-def tco_create_order_safe(exchange, symbol, order_type, side, amount, price=None, params=None, skipped_properties=None):
+def tco_create_order_safe(
+    exchange, symbol, order_type, side, amount, price=None, params=None, skipped_properties=None
+):
     if skipped_properties is None:
         skipped_properties = {}
     if params is None:
@@ -374,30 +434,45 @@ def tco_create_order_safe(exchange, symbol, order_type, side, amount, price=None
     tco_debug(
         exchange,
         symbol,
-        "Executing createOrder " + order_type + " " + side + " " + amount + " " + price + " " + exchange.json(params),
+        "Executing createOrder "
+        + order_type
+        + " "
+        + side
+        + " "
+        + amount
+        + " "
+        + price
+        + " "
+        + exchange.json(params),
     )
     order = exchange.create_order(symbol, order_type, side, amount, price, params)
     try:
-        test_order(exchange, skipped_properties, "createOrder", order, symbol, int(time.time() * 1000))
-    except Exception:
+        test_order(
+            exchange, skipped_properties, "createOrder", order, symbol, int(time.time() * 1000)
+        )
+    except Exception as e:
         if order_type != "market":
             # if it was limit order, try to cancel it before exiting the script
             tco_try_cancel_order(exchange, symbol, order, skipped_properties)
-        raise
+        raise e
     return order
 
 
 def tco_mininum_amount(exchange, market):
     amount_values = exchange.safe_dict(market["limits"], "amount", {})
     amount_min = exchange.safe_number(amount_values, "min")
-    assert amount_min is not None, exchange.id + " " + market["symbol"] + " can not determine minimum amount for order"
+    assert amount_min is not None, (
+        exchange.id + " " + market["symbol"] + " can not determine minimum amount for order"
+    )
     return amount_min
 
 
 def tco_mininum_cost(exchange, market):
     cost_values = exchange.safe_dict(market["limits"], "cost", {})
     cost_min = exchange.safe_number(cost_values, "min")
-    assert cost_min is not None, exchange.id + " " + market["symbol"] + " can not determine minimum cost for order"
+    assert cost_min is not None, (
+        exchange.id + " " + market["symbol"] + " can not determine minimum cost for order"
+    )
     return cost_min
 
 
@@ -409,34 +484,43 @@ def tco_get_minimum_amount_for_limit_price(exchange, market, price, predefined_a
     minimum_amount = tco_mininum_amount(exchange, market)
     minimum_cost = tco_mininum_cost(exchange, market)
     final_amount = minimum_amount
-    if minimum_cost is not None:
-        if final_amount * price < minimum_cost:
-            final_amount = minimum_cost / price
+    if minimum_cost is not None and final_amount * price < minimum_cost:
+        final_amount = minimum_cost / price
     if predefined_amount is not None:
         final_amount = max(final_amount, predefined_amount)
     # because it's possible that calculated value might get truncated down in "createOrder" (i.e. 0.129 -> 0.12), we should ensure that final amount * price would bypass minimum cost requirements, by adding the "minimum precision"
     amount_precision = exchange.safe_number(market["precision"], "amount")
     is_tick_size_precision = exchange.precisionMode == 4
     if amount_precision is None:
-        amount_precision = 1e-15  # TODO: revise this for better way in future
-    # TODO: remove after TICK_SIZE unification
-    elif not is_tick_size_precision:
-        amount_precision = 1 / math.pow(10, amount_precision)  # this converts DECIMAL_PRECISION into TICK_SIZE
+        amount_precision = 1e-15  # todo: revise this for better way in future
+    else:
+        # todo: remove after TICK_SIZE unification
+        if not is_tick_size_precision:
+            amount_precision = 1 / math.pow(
+                10, amount_precision
+            )  # this converts DECIMAL_PRECISION into TICK_SIZE
     final_amount = final_amount + amount_precision
     final_amount = final_amount * 1.1  # add around 10% to ensure "cost" is enough
-    return float(
-        exchange.decimal_to_precision(final_amount, 2, market["precision"]["amount"], exchange.precisionMode)
+    final_amount = float(
+        exchange.decimal_to_precision(
+            final_amount, 2, market["precision"]["amount"], exchange.precisionMode
+        )
     )  # 2 stands for ROUND_UP constant, 0 stands for TRUNCATE
+    return final_amount
 
 
 def tco_try_cancel_order(exchange, symbol, order, skipped_properties):
-    order_fetched = test_shared_methods.fetch_order(exchange, symbol, order["id"], skipped_properties)
+    order_fetched = test_shared_methods.fetch_order(
+        exchange, symbol, order["id"], skipped_properties
+    )
     if order_fetched is None:
         return True
     needs_cancel = exchange.in_array(order_fetched["status"], ["open", "pending", None])
     # if it was not reported as closed/filled, then try to cancel it
     if needs_cancel:
-        tco_debug(exchange, symbol, "trying to cancel the remaining amount of partially filled order...")
+        tco_debug(
+            exchange, symbol, "trying to cancel the remaining amount of partially filled order..."
+        )
         try:
             tco_cancel_order(exchange, symbol, order["id"])
         except Exception as e:

@@ -27,6 +27,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 from ccxt.abstract.binancecoinm import ImplicitAPI
+from ccxt.base.types import TransferEntry
 from ccxt.binance import binance
 
 
@@ -66,13 +67,13 @@ class binancecoinm(binance, ImplicitAPI):
             },
         )
 
-    def transfer_in(self, code: str, amount: object, params=None):
+    def transfer_in(self, code: str, amount: float, params: dict = None) -> TransferEntry:
         # transfer from spot wallet to coinm futures wallet
         if params is None:
             params = {}
         return self.futuresTransfer(code, amount, 3, params)
 
-    def transfer_out(self, code: str, amount: object, params=None):
+    def transfer_out(self, code: str, amount: float, params: dict = None) -> TransferEntry:
         # transfer from coinm futures wallet to spot wallet
         if params is None:
             params = {}

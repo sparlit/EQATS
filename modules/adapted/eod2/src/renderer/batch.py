@@ -23,19 +23,16 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from typing import TYPE_CHECKING, cast
+from pathlib import Path
+from typing import cast
 
 import matplotlib as mpl
+import pandas as pd
 from defs.config import config
 
-from .breadth_render import BREADTH_INDICATORS, BreadthRenderer
+from .breadth_render import BREADTH_INDICATORS
 from .candle_render import CandlestickRenderer
 from .dtypes import TF_MAP, BreadthOption, PlotCommand, RenderContext
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    import pandas as pd
 
 
 class NoDataError(RuntimeError):
@@ -54,14 +51,12 @@ def worker(
 
     if is_stock_mode:
         if not context.indicator_pipeline:
-            msg = "IndicatorPipeline not set"
-            raise RuntimeError(msg)
+            raise RuntimeError("IndicatorPipeline not set")
 
         df = context.loader.load(symbol)
 
         if df is None or df.empty:
-            msg = f"No data for {symbol}"
-            raise NoDataError(msg)
+            raise NoDataError(f"No data for {symbol}")
 
         # Enrich with indicators
         df = context.indicator_pipeline.enrich(df)
@@ -72,7 +67,7 @@ def worker(
         if context.plugin_runner:
             context.plugin_runner.apply(df, plot_args, period)
         df = df[-period:]
-        df = cast("pd.DataFrame", df)
+        df = cast(pd.DataFrame, df)
 
         # Add SNR levels
         if cmd.snr and is_stock_mode:
@@ -91,7 +86,7 @@ def worker(
 
         breadth_info = BREADTH_INDICATORS[symbol]
         df = df[breadth_info.columns]
-        df = cast("pd.DataFrame", df)
+        df = cast(pd.DataFrame, df)
 
     plot_args["xlim"] = (-2, df.shape[0] + 15)
 

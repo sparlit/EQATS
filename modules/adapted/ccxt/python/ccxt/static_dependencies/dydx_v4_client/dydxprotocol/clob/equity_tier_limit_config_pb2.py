@@ -35,14 +35,14 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
-from ...gogoproto import gogo_pb2 as gogoproto_dot_gogo__pb2
-
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
     b'\n0dydxprotocol/clob/equity_tier_limit_config.proto\x12\x11\x64ydxprotocol.clob\x1a\x14gogoproto/gogo.proto"\xbe\x01\n\x1c\x45quityTierLimitConfiguration\x12O\n\x1dshort_term_order_equity_tiers\x18\x01 \x03(\x0b\x32".dydxprotocol.clob.EquityTierLimitB\x04\xc8\xde\x1f\x00\x12M\n\x1bstateful_order_equity_tiers\x18\x02 \x03(\x0b\x32".dydxprotocol.clob.EquityTierLimitB\x04\xc8\xde\x1f\x00"\x84\x01\n\x0f\x45quityTierLimit\x12\x62\n\x10usd_tnc_required\x18\x01 \x01(\x0c\x42H\xda\xde\x1f@github.com/dydxprotocol/v4-chain/protocol/dtypes.SerializableInt\xc8\xde\x1f\x00\x12\r\n\x05limit\x18\x02 \x01(\rB8Z6github.com/dydxprotocol/v4-chain/protocol/x/clob/typesb\x06proto3'
 )
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
-_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, "dydxprotocol.clob.equity_tier_limit_config_pb2", globals())
+_builder.BuildTopDescriptorsAndMessages(
+    DESCRIPTOR, "dydxprotocol.clob.equity_tier_limit_config_pb2", globals()
+)
 if not _descriptor._USE_C_DESCRIPTORS:
     DESCRIPTOR._options = None
     DESCRIPTOR._serialized_options = b"Z6github.com/dydxprotocol/v4-chain/protocol/x/clob/types"
@@ -57,9 +57,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
     _EQUITYTIERLIMIT.fields_by_name["usd_tnc_required"]._options = None
     _EQUITYTIERLIMIT.fields_by_name[
         "usd_tnc_required"
-    ]._serialized_options = (
-        b"\332\336\037@github.com/dydxprotocol/v4-chain/protocol/dtypes.SerializableInt\310\336\037\000"
-    )
+    ]._serialized_options = b"\332\336\037@github.com/dydxprotocol/v4-chain/protocol/dtypes.SerializableInt\310\336\037\000"
     _EQUITYTIERLIMITCONFIGURATION._serialized_start = 94
     _EQUITYTIERLIMITCONFIGURATION._serialized_end = 284
     _EQUITYTIERLIMIT._serialized_start = 287

@@ -31,7 +31,6 @@ sys.path.append(root + "/python")
 
 import ccxt
 import pandas as pd
-import pandas_ta as ta
 
 # -----------------------------------------------------------------------------
 

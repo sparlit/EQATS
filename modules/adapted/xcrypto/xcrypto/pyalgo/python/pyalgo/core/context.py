@@ -21,8 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from typing import Dict, Union
-
 from pyalgo import *
 
 from .trd import *
@@ -66,8 +64,7 @@ class Context(ContextBase):
 
     def subscribe(self, symbol: str, stream: str) -> DepthSubscription | BarSubscription:
         if symbol in self.tradings:
-            msg = f"Duplicate subscribe {symbol}"
-            raise Exception(msg)
+            raise Exception(f"Duplicate subscribe {symbol}")
 
         sub = self.session.subscribe(symbol, stream)
         key = symbol + "@" + stream
@@ -79,15 +76,15 @@ class Context(ContextBase):
 
             return bar
 
-        if stream.startswith("depth") or stream == "bbo":
+        elif stream.startswith("depth") or stream == "bbo":
             depth = DepthSubscription(sub, self)
             self.subscriptions[key] = depth
             self.tradings[symbol] = depth
 
             return depth
 
-        msg = f"Unsupported stream {stream}"
-        raise Exception(msg)
+        else:
+            raise Exception(f"Unsupported stream {stream}")
 
     def process(self):
         if event := self.session.process():
@@ -99,7 +96,6 @@ class Context(ContextBase):
                     self.on_order(event.data)
 
             return event
-        return None
 
     def add_order(
         self,

@@ -45,4 +45,4 @@ timeframe_duration_in_seconds = exchange.parse_timeframe(timeframe)
 timeframe_duration_in_milliseconds = timeframe_duration_in_seconds * 1000
 ohlcvs = exchange.fetch_ohlcv(symbol, timeframe)
 for ohlcv in ohlcvs:
-    print([exchange.iso8601(ohlcv[0] + timeframe_duration_in_milliseconds - 1), *ohlcv[1:]])
+    print([exchange.iso8601(ohlcv[0] + timeframe_duration_in_milliseconds - 1)] + ohlcv[1:])

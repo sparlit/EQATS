@@ -40,9 +40,8 @@ except ImportError:
 
 import builtins
 import contextlib
-from asyncio import BaseEventLoop, TimeoutError, ensure_future, sleep, wait_for
+from asyncio import BaseEventLoop, ensure_future, sleep, wait_for
 from asyncio import Future as asyncioFuture
-from typing import Dict
 
 from aiohttp import WSMsgType
 
@@ -85,7 +84,13 @@ class Client:
     decompressBinary = True  # decompress binary messages by default
 
     def __init__(
-        self, url, on_message_callback, on_error_callback, on_close_callback, on_connected_callback, config=None
+        self,
+        url,
+        on_message_callback,
+        on_error_callback,
+        on_close_callback,
+        on_connected_callback,
+        config=None,
     ):
         if config is None:
             config = {}
@@ -169,6 +174,51 @@ class Client:
                 self.reject(result, message_hash)
         return result
 
+    def reset(self, error):
+        # mirrors the js/php/c#/go clients: stop the keepalive timer and
+        # reject every pending future, so exchange-level teardown paths
+        # (e.g. an unrecoverable orderbook desync) behave the same in every
+        # language - transpiled code calls client.reset(error)
+        #
+        # cancelling the keepalive here is deliberate parity with
+        # ts/src/base/ws/Client.ts reset() (clearPingInterval) and
+        # php/pro/Client.php reset() (clear_ping_interval), NOT a copy of
+        # aiohttp_close(): unlike that one, reset() runs on a socket that stays
+        # open and nothing restarts the looper - it is only ever assigned in
+        # open(). Callers that reset without reconnecting therefore lose the
+        # pong-miss watchdog for the rest of the connection's life (e.g.
+        # python/ccxt/pro/cryptocom.py pong()). That is how every other port
+        # behaves, so the behaviour is kept; the dead pipe is still caught by
+        # the receive loop / server close, just not by the keepalive timer.
+        if self.ping_looper:
+            self.ping_looper.cancel()
+        # js rejects a promise with any value, python can only reject a Future
+        # with a BaseException. callers do pass raw wire payloads - binance
+        # resets with the 5xx error dict itself (ts/src/pro/binance.ts
+        # handleWsError -> python/ccxt/pro/binance.py:5175) - and
+        # Future.set_exception then raises TypeError('invalid exception object')
+        # out of the message handler, aborting the broadcast on the first
+        # pending future and leaving every watcher hanging: the exact failure
+        # mode reset() exists to prevent
+        if not isinstance(error, BaseException):
+            error = NetworkError(self.stringify_reset_payload(error))
+        self.reject(error)
+
+    @staticmethod
+    def stringify_reset_payload(payload):
+        # keep the wire payload readable in the rejection message, but never let
+        # the formatting itself raise - reset() is a teardown path, a throw here
+        # would strand every pending future
+        if isinstance(payload, (dict, list)):
+            try:
+                return Exchange.json(payload)
+            except Exception:
+                pass
+        try:
+            return str(payload)
+        except Exception:
+            return "connection reset"
+
     def receive_loop(self):
         if self.verbose:
             self.log(Exchange.iso8601(Exchange.milliseconds()), "receive loop")
@@ -202,7 +252,12 @@ class Client:
                 else:
                     error = NetworkError(str(exception))
                     if self.verbose:
-                        self.log(Exchange.iso8601(Exchange.milliseconds()), "receive_loop", "Exception", error)
+                        self.log(
+                            Exchange.iso8601(Exchange.milliseconds()),
+                            "receive_loop",
+                            "Exception",
+                            error,
+                        )
                     self.reject(error)
 
             task.add_done_callback(after_interrupt)
@@ -294,7 +349,9 @@ class Client:
         if self.verbose:
             self.log(Exchange.iso8601(Exchange.milliseconds()), "on_close", code)
         if not self.error:
-            self.reject(NetworkError("Connection closed by remote server, closing code " + str(code)))
+            self.reject(
+                NetworkError("Connection closed by remote server, closing code " + str(code))
+            )
         self.on_close_callback(self, code)
         ensure_future(self.aiohttp_close(), loop=self.asyncio_loop)
 
@@ -344,6 +401,7 @@ class Client:
             self.lastPong = Exchange.milliseconds()
             if self.verbose:
                 self.log(Exchange.iso8601(Exchange.milliseconds()), "pong", message)
+            pass
         elif message.type == WSMsgType.CLOSE:
             if self.verbose:
                 self.log(Exchange.iso8601(Exchange.milliseconds()), "close", self.closed(), message)
@@ -395,8 +453,7 @@ class Client:
         send_msg = None
         send_msg = message if isinstance(message, str) else json_dumps(message)
         if self.closed():
-            msg = "Cannot Send Message: Connection closed before send"
-            raise ConnectionError(msg)
+            raise ConnectionError("Cannot Send Message: Connection closed before send")
         return await self.connection.send_str(send_msg)
 
     async def close(self, code=1000):
@@ -431,27 +488,30 @@ class Client:
             if (self.lastPong + self.keepAlive * self.maxPingPongMisses) < now:
                 self.on_error(
                     RequestTimeout(
-                        "Connection to " + self.url + " timed out due to a ping-pong keepalive missing on time"
+                        "Connection to "
+                        + self.url
+                        + " timed out due to a ping-pong keepalive missing on time"
                     )
                 )
             # the following ping-clause is not necessary with aiohttp's built-in ws
             # since it has a heartbeat option (see create_connection above)
             # however some exchanges require a text-type ping message
             # therefore we need this clause anyway
-            elif self.ping:
-                try:
-                    await self.send(self.ping(self))
-                except Exception as e:
-                    self.on_error(e)
             else:
-                try:
-                    await self.connection.ping()
-                except Exception as e:
-                    # the transport can enter closing between the loop
-                    # condition and the write, a server initiated close or
-                    # a network drop, which raised out of the ping task as
-                    # unretrieved noise, see
-                    # https://github.com/ccxt/ccxt/issues/22075
-                    if not self.closed():
+                if self.ping:
+                    try:
+                        await self.send(self.ping(self))
+                    except Exception as e:
                         self.on_error(e)
-                    return
+                else:
+                    try:
+                        await self.connection.ping()
+                    except Exception as e:
+                        # the transport can enter closing between the loop
+                        # condition and the write, a server initiated close or
+                        # a network drop, which raised out of the ping task as
+                        # unretrieved noise, see
+                        # https://github.com/ccxt/ccxt/issues/22075
+                        if not self.closed():
+                            self.on_error(e)
+                        return

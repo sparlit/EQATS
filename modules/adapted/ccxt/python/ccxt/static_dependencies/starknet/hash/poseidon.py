@@ -85,8 +85,7 @@ def _poseidon_round(values, is_full, index):
 def poseidon_hash(values):
     width = RATE + CAPACITY
     if len(values) != width:
-        msg = "Poseidon: wrong values length"
-        raise ValueError(msg)
+        raise ValueError("Poseidon: wrong values length")
     values = [_field(value) for value in values]
     round_index = 0
     half_rounds_full = ROUNDS_FULL // 2

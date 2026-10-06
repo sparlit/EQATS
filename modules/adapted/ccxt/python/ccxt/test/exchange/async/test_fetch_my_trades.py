@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,10 +37,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import (
-    test_shared_methods,
-    test_trade,
-)
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
+from ccxt.test.exchange.base import test_trade  # noqa E402
 
 
 async def test_fetch_my_trades(exchange, skipped_properties, symbol):
@@ -46,7 +46,7 @@ async def test_fetch_my_trades(exchange, skipped_properties, symbol):
     trades = await exchange.fetch_my_trades(symbol)
     test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, trades, symbol)
     now = exchange.milliseconds()
-    for i in range(len(trades)):
-        test_trade(exchange, skipped_properties, method, trades[i], symbol, now)
+    for i in range(0, len(trades)):
+        test_trade(exchange, skipped_properties, method, trades[i], symbol, now, False)
     test_shared_methods.assert_timestamp_order(exchange, method, symbol, trades)
     return True

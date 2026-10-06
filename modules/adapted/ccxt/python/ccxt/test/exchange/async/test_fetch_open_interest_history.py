@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,16 +37,16 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import (
-    test_open_interest,
-    test_shared_methods,
-)
+from ccxt.test.exchange.base import test_open_interest  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 async def test_fetch_open_interest_history(exchange, skipped_properties, symbol):
     method = "fetchOpenInterestHistory"
     open_interest_history = await exchange.fetch_open_interest_history(symbol)
-    test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, open_interest_history, symbol)
-    for i in range(len(open_interest_history)):
+    test_shared_methods.assert_non_emtpy_array(
+        exchange, skipped_properties, method, open_interest_history, symbol
+    )
+    for i in range(0, len(open_interest_history)):
         test_open_interest(exchange, skipped_properties, method, open_interest_history[i])
     return True

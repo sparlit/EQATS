@@ -173,7 +173,8 @@ def get_order_status(order_id):
 
     if len(df) > 0:
         return "executed"
-    return "pending"
+    else:
+        return "pending"
 
 
 def round_5ps(price):
@@ -206,8 +207,12 @@ def calculate_atm_and_place_order():
     ce_sell_price = get_trade_price(ce_order_id)
     pe_sell_price = get_trade_price(pe_order_id)
 
-    ce_sl_orderid = stoploss_order_buy(ce_symbol, lots * 25, float(round_5ps(ce_sell_price + ce_stoploss_value)))
-    pe_sl_orderid = stoploss_order_buy(pe_symbol, lots * 25, float(round_5ps(pe_sell_price + pe_stoploss_value)))
+    ce_sl_orderid = stoploss_order_buy(
+        ce_symbol, lots * 25, float(round_5ps(ce_sell_price + ce_stoploss_value))
+    )
+    pe_sl_orderid = stoploss_order_buy(
+        pe_symbol, lots * 25, float(round_5ps(pe_sell_price + pe_stoploss_value))
+    )
 
 
 # downloading instrument dump

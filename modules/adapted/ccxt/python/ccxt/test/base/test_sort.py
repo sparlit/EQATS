@@ -35,8 +35,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+import ccxt.async_support as ccxt  # noqa: F402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_sort():
@@ -50,7 +50,9 @@ def test_sort():
     # single element
     test_shared_methods.assert_deep_equal(exchange, None, "sort", exchange.sort(["a"]), ["a"])
     # already sorted (idempotent)
-    test_shared_methods.assert_deep_equal(exchange, None, "sort", exchange.sort(["a", "b", "c"]), ["a", "b", "c"])
+    test_shared_methods.assert_deep_equal(
+        exchange, None, "sort", exchange.sort(["a", "b", "c"]), ["a", "b", "c"]
+    )
     # duplicates
     test_shared_methods.assert_deep_equal(
         exchange, None, "sort", exchange.sort(["b", "a", "b", "c"]), ["a", "b", "b", "c"]
@@ -58,8 +60,8 @@ def test_sort():
     test_shared_methods.assert_deep_equal(
         exchange, None, "sort", exchange.sort(["b", "a", "c", "d"]), ["a", "b", "c", "d"]
     )
-    # TODO 1: atm, `sort` is only meant for strings. we should update to support numerics
-    # TODO 2: add test for above 10, eg: 1, 2, 10, 20, 21
+    # todo 1: atm, `sort` is only meant for strings. we should update to support numerics
+    # todo 2: add test for above 10, eg: 1, 2, 10, 20, 21
     # # integers (single-digit, safe for cross-language lexicographic/numeric consistency)
     # testSharedMethods.assertDeepEqual (exchange, undefined, 'sort', exchange.sort ([ 3, 1, 2 ]), [ 1, 2, 3 ]);
     # testSharedMethods.assertDeepEqual (exchange, undefined, 'sort', exchange.sort ([ 5, 3, 1, 4, 2 ]), [ 1, 2, 3, 4, 5 ]);

@@ -51,12 +51,20 @@ async def fetch_ohlcvs_continuously(exchange, timeframe, symbol, fetching_time):
     end_time = now + fetching_time
     while now < end_time:
         since = int(now / duration_in_milliseconds) * duration_in_milliseconds
-        time_to_wait = duration_in_milliseconds - now % duration_in_milliseconds + 10000  # +10 seconds buffer
+        time_to_wait = (
+            duration_in_milliseconds - now % duration_in_milliseconds + 10000
+        )  # +10 seconds buffer
         print(exchange.id, timeframe, symbol, "time now is", exchange.iso8601(now))
         print(exchange.id, timeframe, symbol, "time to wait is", time_to_wait / 1000, "seconds")
         print(exchange.id, timeframe, symbol, "sleeping till", exchange.iso8601(now + time_to_wait))
         await exchange.sleep(time_to_wait)
-        print(exchange.id, timeframe, symbol, "done sleeping at", exchange.iso8601(exchange.milliseconds()))
+        print(
+            exchange.id,
+            timeframe,
+            symbol,
+            "done sleeping at",
+            exchange.iso8601(exchange.milliseconds()),
+        )
         while True:
             try:
                 ohlcvs = await exchange.fetch_ohlcv(symbol, timeframe, since, limit)
@@ -86,7 +94,9 @@ async def fetch_ohlcvs_continuously(exchange, timeframe, symbol, fetching_time):
 async def fetch_all_ohlcvs_continuously(exchange_id, timeframe, symbols, fetching_time):
     exchange_class = getattr(ccxt, exchange_id)
     exchange = exchange_class()
-    input_coroutines = [fetch_ohlcvs_continuously(exchange, timeframe, symbol, fetching_time) for symbol in symbols]
+    input_coroutines = [
+        fetch_ohlcvs_continuously(exchange, timeframe, symbol, fetching_time) for symbol in symbols
+    ]
     results = await asyncio.gather(*input_coroutines, return_exceptions=True)
     await exchange.close()
     return exchange.extend(*results)
@@ -100,4 +110,5 @@ timeframe = "5m"
 fetching_time = 15 * 60 * 1000  # stop after 15 minutes (approximately 4 iterations)
 coroutine = fetch_all_ohlcvs_continuously(exchange_id, timeframe, symbols, fetching_time)
 results = run(coroutine)
+pprint(results)
 # results  # if you run this code in Jupyter then uncomment thisline to see the output result

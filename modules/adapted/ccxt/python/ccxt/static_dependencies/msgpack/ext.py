@@ -31,14 +31,11 @@ class ExtType(namedtuple("ExtType", "code data")):
 
     def __new__(cls, code, data):
         if not isinstance(code, int):
-            msg = "code must be int"
-            raise TypeError(msg)
+            raise TypeError("code must be int")
         if not isinstance(data, bytes):
-            msg = "data must be bytes"
-            raise TypeError(msg)
+            raise TypeError("data must be bytes")
         if not 0 <= code <= 127:
-            msg = "code must be 0~127"
-            raise ValueError(msg)
+            raise ValueError("code must be 0~127")
         return super().__new__(cls, code, data)
 
 
@@ -52,7 +49,7 @@ class Timestamp:
     This class is immutable: Do not override seconds and nanoseconds.
     """
 
-    __slots__ = ["nanoseconds", "seconds"]
+    __slots__ = ["seconds", "nanoseconds"]
 
     def __init__(self, seconds, nanoseconds=0):
         """Initialize a Timestamp object.
@@ -68,14 +65,11 @@ class Timestamp:
         Note: Negative times (before the UNIX epoch) are represented as neg. seconds + pos. ns.
         """
         if not isinstance(seconds, int):
-            msg = "seconds must be an integer"
-            raise TypeError(msg)
+            raise TypeError("seconds must be an integer")
         if not isinstance(nanoseconds, int):
-            msg = "nanoseconds must be an integer"
-            raise TypeError(msg)
+            raise TypeError("nanoseconds must be an integer")
         if not (0 <= nanoseconds < 10**9):
-            msg = "nanoseconds must be a non-negative integer less than 999999999."
-            raise ValueError(msg)
+            raise ValueError("nanoseconds must be a non-negative integer less than 999999999.")
         self.seconds = seconds
         self.nanoseconds = nanoseconds
 
@@ -118,8 +112,9 @@ class Timestamp:
         elif len(b) == 12:
             nanoseconds, seconds = struct.unpack("!Iq", b)
         else:
-            msg = "Timestamp type can only be created from 32, 64, or 96-bit byte objects"
-            raise ValueError(msg)
+            raise ValueError(
+                "Timestamp type can only be created from 32, 64, or 96-bit byte objects"
+            )
         return Timestamp(seconds, nanoseconds)
 
     def to_bytes(self):

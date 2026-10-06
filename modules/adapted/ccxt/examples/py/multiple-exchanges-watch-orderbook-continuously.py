@@ -48,8 +48,9 @@ async def main():
     exchange_ids = ["coinbaseexchange", "okcoin", "kucoin"]
     exchanges = [getattr(ccxt.pro, exchange_id)() for exchange_id in exchange_ids]
     try:
-        done, _pending = await asyncio.wait(
-            {watch_book(exchange, "CELO/USD") for exchange in exchanges}, return_when=asyncio.FIRST_EXCEPTION
+        done, pending = await asyncio.wait(
+            {watch_book(exchange, "CELO/USD") for exchange in exchanges},
+            return_when=asyncio.FIRST_EXCEPTION,
         )
         for completed in done:
             # trigger the exception here

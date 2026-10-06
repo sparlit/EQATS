@@ -29,6 +29,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 from ccxt.abstract.binanceusdm import ImplicitAPI
 from ccxt.async_support.binance import binance
 from ccxt.base.errors import InvalidOrder
+from ccxt.base.types import TransferEntry
 
 
 class binanceusdm(binance, ImplicitAPI):
@@ -73,19 +74,19 @@ class binanceusdm(binance, ImplicitAPI):
                     "exact": {
                         "-5021": InvalidOrder,  # {"code":-5021,"msg":"Due to the order could not be filled immediately, the FOK order has been rejected."}
                         "-5022": InvalidOrder,  # {"code":-5022,"msg":"Due to the order could not be executed as maker, the Post Only order will be rejected."}
-                        "-5028": InvalidOrder,  # {"code":-5028,"msg":"Timestamp for self request is outside of the ME recvWindow."}
+                        "-5028": InvalidOrder,  # {"code":-5028,"msg":"Timestamp for this request is outside of the ME recvWindow."}
                     },
                 },
             },
         )
 
-    async def transfer_in(self, code: str, amount: object, params=None):
+    async def transfer_in(self, code: str, amount: float, params: dict = None) -> TransferEntry:
         # transfer from spot wallet to usdm futures wallet
         if params is None:
             params = {}
         return await self.futuresTransfer(code, amount, 1, params)
 
-    async def transfer_out(self, code: str, amount: object, params=None):
+    async def transfer_out(self, code: str, amount: float, params: dict = None) -> TransferEntry:
         # transfer from usdm futures wallet to spot wallet
         if params is None:
             params = {}

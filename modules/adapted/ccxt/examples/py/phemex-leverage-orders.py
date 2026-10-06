@@ -60,6 +60,7 @@ print(order)
 
 # Canceling pending contract
 closingOrder = exchange.create_order(symbol, "market", "sell", amount)
+pprint(closingOrder)
 
 # Reset leverage to 1
 leverageResponse = exchange.set_leverage(1, symbol)

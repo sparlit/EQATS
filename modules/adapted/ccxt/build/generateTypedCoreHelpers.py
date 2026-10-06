@@ -27,6 +27,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 # Emits, for every struct family named by the table:
 #   ToX(object) / ToXList(object)     - untyped dict  -> typed struct
 #   FromX(object) / FromXList(object) - typed struct  -> untyped dict (pass-through when not an X)
+#   FromX(X) / FromXList(List<X>)     - the same conversion for the funnel call sites, whose
+#     argument IS the struct, so the pass-through arm is unreachable and the static type of the
+#     call is the box the object overload builds (read back by build/csharp-local-types.js)
 #
 # The From* helpers are derived by parsing the struct constructors in
 # cs/ccxt/base/Exchange.Types.cs and cs/ccxt/base/PredictionTypes.cs, so the
@@ -46,7 +49,7 @@ need = collections.defaultdict(set)
 for const in ("const TYPED_CORES", "const PREDICTION_TYPED_CORES"):
     table = src[src.index(const) :]
     table = table[: table.index("\n};")]
-    for csharpType in re.findall(r"^\s*'\w+': '([\w<>]+)',", table, re.MULTILINE):
+    for csharpType in re.findall(r"^\s*'\w+': '([\w<>]+)',", table, re.M):
         if csharpType in ("Int64", "string", "object"):
             continue
         if csharpType.startswith("List<"):
@@ -63,7 +66,7 @@ for const in ("const TYPED_CORES", "const PREDICTION_TYPED_CORES"):
 # public, so dropping one because its core left the table would be a silent API removal
 try:
     prev = open("cs/ccxt/base/Exchange.TypedCores.cs").read()
-    for name in re.findall(r"^    public static (\w+) To\1\(object value\)$", prev, re.MULTILINE):
+    for name in re.findall(r"^    public static (\w+) To\1\(object value\)$", prev, re.M):
         need[name].add(False)
 except FileNotFoundError:
     pass
@@ -72,7 +75,9 @@ except FileNotFoundError:
 IDENT = r"@?\w+"
 ASSIGN = r"^(?:this\.)?(?P<f>" + IDENT + r") = "
 
-SCALAR = re.compile(ASSIGN + r'Exchange\.Safe(?P<kind>String|Float|Integer)\(\w+, "(?P<k>[^"]+)"\);$')
+SCALAR = re.compile(
+    ASSIGN + r'Exchange\.Safe(?P<kind>String|Float|Integer)\(\w+, "(?P<k>[^"]+)"\);$'
+)
 BOOLF = re.compile(ASSIGN + r'Exchange\.SafeBool\(\w+, "(?P<k>[^"]+)"(?:, (?:true|false))?\);$')
 BOOLV = re.compile(
     ASSIGN
@@ -88,7 +93,8 @@ RAWDICT = re.compile(
     + r'Exchange\.SafeValue\(\w+, "(?P<k>[^"]+)"\) != null \? \(Dictionary<string, object>\)Exchange\.SafeValue\(\w+, "(?P=k)"\) : null;$'
 )
 NEST_CK = re.compile(
-    ASSIGN + r'(?P<v>\w+)\.ContainsKey\("(?P<k>[^"]+)"\) \? new (?P<t>\w+)\((?P=v)\["(?P=k)"\]\) : null;$'
+    ASSIGN
+    + r'(?P<v>\w+)\.ContainsKey\("(?P<k>[^"]+)"\) \? new (?P<t>\w+)\((?P=v)\["(?P=k)"\]\) : null;$'
 )
 NEST_SV = re.compile(
     ASSIGN
@@ -102,6 +108,10 @@ LIST_ST = re.compile(
     ASSIGN
     + r'(?P<v>\w+)\.ContainsKey\("(?P<k>[^"]+)"\)(?: && (?P=v)\["(?P=k)"\] != null)? \? \(\(IEnumerable<object>\)(?P=v)\["(?P=k)"\]\)\.Select\(x => new (?P<t>\w+)\(x\)\)(?:\.ToList\(\))? : null;$'
 )
+LIST_SV = re.compile(
+    ASSIGN
+    + r'Exchange\.SafeValue\(\w+, "(?P<k>[^"]+)"\) != null \? \(\(IEnumerable<object>\)Exchange\.SafeValue\(\w+, "(?P=k)"\)\)\.Select\(x => new (?P<t>\w+)\(x\)\)\.ToList\(\) : null;$'
+)
 LIST_STR = re.compile(
     ASSIGN
     + r'(?P<v>\w+)\.ContainsKey\("(?P<k>[^"]+)"\)(?: && (?P=v)\["(?P=k)"\] != null)? \? \(\(IEnumerable<object>\)(?P=v)\["(?P=k)"\]\)\.Select\(x => \(string\)x\)\.ToList\(\) : null;$'
@@ -110,9 +120,6 @@ ALIAS = re.compile(r"^var \w+ = \(I?Dictionary<string, object>\)\w+;$")
 # safeOrder()/safeTrade() attach a `fees` list next to `fee`; Helper.GetFees returns null
 # when the source has no `fees` key, so it inverts exactly like a struct list.
 FEES = re.compile(ASSIGN + r"Helper\.GetFees\(\w+\);$")
-# `extra = Helper.GetExtra(src, <Struct>Keys);` holds every source key with no struct
-# field, so writing the bag back restores venue-only keys the struct cannot name.
-EXTRA = re.compile(ASSIGN + r"Helper\.GetExtra\(\w+, \w+\);$")
 DECL = re.compile(r"^\s*public (?P<type>[\w\.<>,\? ]+?) (?P<name>@?\w+);\s*$")
 
 structs = {}  # name -> {'fields': [...], 'decls': {name: type}, 'error': str|None}
@@ -130,7 +137,7 @@ SPLAT_TOP = re.compile(
     r"\s*(?:this\.)?(?P=f)\.Add\((?P=v)\.Key, new (?P=t)\((?P=v)\.Value\)\);\s*\n"
     r"(?:\s*\}\s*\n)?"
     r"\s*\}\s*$",
-    re.MULTILINE,
+    re.M,
 )
 
 SPLAT_TOP_LIST = re.compile(
@@ -141,7 +148,7 @@ SPLAT_TOP_LIST = re.compile(
     r"\s*var (?P<l2>\w+) = (?P=l1)\.Select\(x => new (?P=t)\(x\)\)\.ToList\(\);\s*\n"
     r"\s*(?:this\.)?(?P=f)\.Add\((?P=v)\.Key, (?P=l2)\);\s*\n"
     r"\s*\}\s*\n\s*\}\s*$",
-    re.MULTILINE,
+    re.M,
 )
 
 SPLAT_KEY = re.compile(
@@ -153,7 +160,7 @@ SPLAT_KEY = re.compile(
     r"\s*\{\s*\n"
     r"\s*(?:this\.)?(?P=f)\.Add\((?P=v)\.Key, new (?P=t)\((?P=v)\.Value\)\);\s*\n"
     r"\s*\}\s*\n\s*\}\s*$",
-    re.MULTILINE,
+    re.M,
 )
 
 # order-book sides: List<List<double>> built from the raw [price, amount] rows
@@ -177,7 +184,7 @@ NUMSPLAT = re.compile(
     r"\s*\{\s*\n"
     r"\s*(?:this\.)?(?P=f)\.Add\((?P=v)\.Key, (?P=v)\.Value == null \? \(double\?\)null : Convert\.ToDouble\((?P=v)\.Value\)\);\s*\n"
     r"\s*\}\s*\n\s*\}\s*$",
-    re.MULTILINE,
+    re.M,
 )
 
 # Balances skips a fixed key set when splatting the per-currency rows
@@ -189,7 +196,7 @@ BAL_SPLAT = re.compile(
     r"\s*\{\s*\n"
     r"\s*(?:this\.)?(?P=f)\.Add\((?P=v)\.Key, new (?P=t)\((?P=v)\.Value\)\);\s*\n"
     r"\s*\}\s*\n\s*\}\s*$",
-    re.MULTILINE,
+    re.M,
 )
 
 # Currency / DepositWithdrawFee declare the empty dict early and fill it in a later
@@ -202,22 +209,31 @@ SPLATKEY_FILL = re.compile(
     r"\s*\{\s*\n"
     r"\s*(?:this\.)?(?P<f>@?\w+)\.Add\((?P=v)\.Key, new (?P<t>\w+)\((?P=v)\.Value\)\);\s*\n"
     r"\s*\}\s*\n\s*\}\s*$",
-    re.MULTILINE,
+    re.M,
 )
 
 # a scalar read via a local temp: `var pct = SafeValue(x, "percentage"); ... f = pct != null ? (bool)pct : null;`
-TEMP_BOOL_DECL = re.compile(r'^\s*var (?P<v>\w+) = Exchange\.SafeValue\(\w+, "(?P<k>[^"]+)"\);\s*$', re.MULTILINE)
+TEMP_BOOL_DECL = re.compile(
+    r'^\s*var (?P<v>\w+) = Exchange\.SafeValue\(\w+, "(?P<k>[^"]+)"\);\s*$', re.M
+)
 TEMP_BOOL_USE = re.compile(
-    r"^\s*(?:this\.)?(?P<f>@?\w+) = (?P<v>\w+) != null \? \(bool\)(?P=v) : null;\s*$", re.MULTILINE
+    r"^\s*(?:this\.)?(?P<f>@?\w+) = (?P<v>\w+) != null \? \(bool\)(?P=v) : null;\s*$", re.M
 )
 
 
 def collapse_splats(body):
-    body = SPLAT_TOP_LIST.sub(lambda m: "        @@SPLATLIST {} {}".format(m.group("f"), m.group("t")), body)
+    body = SPLAT_TOP_LIST.sub(
+        lambda m: "        @@SPLATLIST {} {}".format(m.group("f"), m.group("t")), body
+    )
     body = SPLAT_TOP.sub(lambda m: "        @@SPLAT {} {}".format(m.group("f"), m.group("t")), body)
     body = BAL_SPLAT.sub(lambda m: "        @@SPLAT {} {}".format(m.group("f"), m.group("t")), body)
-    body = NUMSPLAT.sub(lambda m: "        @@NUMSPLAT {} {}".format(m.group("f"), m.group("k")), body)
-    body = SPLAT_KEY.sub(lambda m: "        @@SPLATKEY {} {} {}".format(m.group("f"), m.group("t"), m.group("k")), body)
+    body = NUMSPLAT.sub(
+        lambda m: "        @@NUMSPLAT {} {}".format(m.group("f"), m.group("k")), body
+    )
+    body = SPLAT_KEY.sub(
+        lambda m: "        @@SPLATKEY {} {} {}".format(m.group("f"), m.group("t"), m.group("k")),
+        body,
+    )
     filled = set()
 
     def fill(m):
@@ -228,7 +244,10 @@ def collapse_splats(body):
     # drop the now-redundant empty-dict declaration that the fill block populates
     for f in filled:
         body = re.sub(
-            rf"^\s*(?:this\.)?{re.escape(f)} = new Dictionary<string, \w+>\(\);\s*$\n", "", body, flags=re.MULTILINE
+            rf"^\s*(?:this\.)?{re.escape(f)} = new Dictionary<string, \w+>\(\);\s*$\n",
+            "",
+            body,
+            flags=re.M,
         )
     # inline a `var tmp = SafeValue(x, "k");` used only by a `f = tmp != null ? (bool)tmp : null;`
     temps = {m.group("v"): m.group("k") for m in TEMP_BOOL_DECL.finditer(body)}
@@ -297,10 +316,6 @@ def parse_struct(name, body, ctor_param):
         if m:
             fields.append(("info", m.group("f"), "info", None))
             continue
-        m = EXTRA.match(line)
-        if m:
-            fields.append(("extra", m.group("f"), None, None))
-            continue
         m = FEES.match(line)
         if m:
             fields.append(("structlist", m.group("f"), "fees", "Fee"))
@@ -313,7 +328,7 @@ def parse_struct(name, body, ctor_param):
         if m:
             fields.append(("strlist", m.group("f"), m.group("k"), None))
             continue
-        m = LIST_ST.match(line)
+        m = LIST_ST.match(line) or LIST_SV.match(line)
         if m:
             fields.append(("structlist", m.group("f"), m.group("k"), m.group("t")))
             continue
@@ -325,16 +340,24 @@ def parse_struct(name, body, ctor_param):
 
 for path in TYPE_FILES:
     text = open(path).read() + "\n"
-    for m in re.finditer(r"\npublic struct (\w+)\s*\n\{\n(.*?)\n\}(?=\n)", text, re.DOTALL):
+    for m in re.finditer(r"\npublic struct (\w+)\s*\n\{\n(.*?)\n\}(?=\n)", text, re.S):
         name, block = m.group(1), m.group(2)
         decls = {}
         for line in block.split("\n"):
             d = DECL.match(line)
             if d and not d.group("type").startswith("static"):
                 decls[d.group("name")] = d.group("type").strip()
-        cm = re.search(rf"\n    public {name}\(object (\w+)\)\s*\n    \{{\n(.*?)\n    \}}\n", block + "\n", re.DOTALL)
+        cm = re.search(
+            rf"\n    public {name}\(object (\w+)\)\s*\n    \{{\n(.*?)\n    \}}\n",
+            block + "\n",
+            re.S,
+        )
         if not cm:
-            structs[name] = {"fields": None, "decls": decls, "error": "no single-object constructor found"}
+            structs[name] = {
+                "fields": None,
+                "decls": decls,
+                "error": "no single-object constructor found",
+            }
             continue
         fields, err = parse_struct(name, cm.group(2), cm.group(1))
         structs[name] = {"fields": fields, "decls": decls, "error": err}
@@ -365,9 +388,11 @@ def resolve(name, stack=()):
             reason[name] = f"field {fname} has no public declaration"
             return False
         if kind in ("struct", "structlist", "splat", "splatlist", "splatkey"):
-            if not resolve(tname, (*stack, name)):
+            if not resolve(tname, stack + (name,)):
                 resolved[name] = False
-                reason[name] = "nested type {} is not reversible ({})".format(tname, reason.get(tname, "?"))
+                reason[name] = "nested type {} is not reversible ({})".format(
+                    tname, reason.get(tname, "?")
+                )
                 return False
     resolved[name] = True
     return True
@@ -384,7 +409,9 @@ if "--capabilities" in sys.argv:
         json.dumps(
             {
                 "reversible": sorted(n for n in structs if resolve(n)),
-                "not_reversible": {n: reason.get(n, "unknown") for n in sorted(structs) if not resolve(n)},
+                "not_reversible": {
+                    n: reason.get(n, "unknown") for n in sorted(structs) if not resolve(n)
+                },
             }
         )
     )
@@ -403,7 +430,10 @@ queue = list(emit_from)
 while queue:
     cur = queue.pop()
     for kind, fname, key, tname in structs[cur]["fields"]:
-        if kind in ("struct", "structlist", "splat", "splatlist", "splatkey") and tname not in emit_from:
+        if (
+            kind in ("struct", "structlist", "splat", "splatlist", "splatkey")
+            and tname not in emit_from
+        ):
             emit_from.append(tname)
             queue.append(tname)
 emit_from = sorted(set(emit_from))
@@ -414,6 +444,42 @@ def nullable(decl):
     if decl.endswith("?"):
         return True
     return not re.match(r"^(bool|double|float|int|long|Int64|Int32|decimal)$", decl)
+
+
+def typed_from_box(info):
+    """The box `From<t>(object)` builds on its MATCHING path — the return type the typed
+    overload `From<t>(<t> value)` carries. A family whose matching path returns a box this
+    generator cannot name (a `wholeinfo` family whose struct field is not a plain dictionary)
+    keeps its object-only funnel, so no overload is emitted for it."""
+    whole = [f for f in info["fields"] if f[0] == "wholeinfo"]
+    if whole:
+        decl = info["decls"].get(whole[0][1], "").strip()
+        return decl if decl == "Dictionary<string, object>" else None
+    return "Dictionary<string, object>"
+
+
+def emit_typed_from(out, t, box):
+    """The typed value overload. `From<t>(<t> value)` cannot reach the object overload's
+    pass-through arm — <t> is a struct here, so `value is <t>` is always true — and its only
+    other arm builds exactly `box`, so the delegate's cast is an identity. The caller that
+    reads the funnel's static type is build/csharp-local-types.js#typedCoreFunnelType."""
+    if box is None:
+        return
+    out.append(f"    public static {box} From{t}({t} value)")
+    out.append("    {")
+    out.append(f"        return ({box})From{t}((object)value);")
+    out.append("    }")
+    out.append("")
+
+
+def emit_typed_from_list(out, t):
+    """The typed list overload: null passes through as null (the object overload's null arm),
+    a non-null List of the family always takes the rebox arm, which builds a List<object>."""
+    out.append(f"    public static List<object> From{t}List(List<{t}> values)")
+    out.append("    {")
+    out.append(f"        return (List<object>)From{t}List((object)values);")
+    out.append("    }")
+    out.append("")
 
 
 # ---------------------------------------------- mandatory keys from types.ts
@@ -435,12 +501,14 @@ try:
     def ts_members(name):
         if "." in name:
             owner, member = name.split(".", 1)
-            body = re.search(rf"export interface {owner} \{{(.*?)\n\}}", ts_src, re.DOTALL)
+            body = re.search(rf"export interface {owner} \{{(.*?)\n\}}", ts_src, re.S)
             if not body:
                 return ""
-            nested = re.search(rf"\n\s+{member}\??: \{{(.*?)\n\s+\}};", body.group(1), re.DOTALL)
+            nested = re.search(rf"\n\s+{member}\??: \{{(.*?)\n\s+\}};", body.group(1), re.S)
             return nested.group(1) if nested else ""
-        body = re.search(rf"export interface {name}(?: extends [^{{]+)? \{{(.*?)\n\}}", ts_src, re.DOTALL)
+        body = re.search(
+            rf"export interface {name}(?: extends [^{{]+)? \{{(.*?)\n\}}", ts_src, re.S
+        )
         return body.group(1) if body else ""
 
     for cs_name, ts_name in ts_of.items():
@@ -457,13 +525,30 @@ except FileNotFoundError:
 out = []
 out.append("namespace ccxt;")
 out.append("")
-out.append("// Conversions used by the typed C# cores (see TYPED_CORES in build/csharpTranspiler.ts).")
+out.append(
+    "// Conversions used by the typed C# cores (see TYPED_CORES in build/csharpTranspiler.ts)."
+)
 out.append("// The generated core returns the struct itself, so the PascalCase wrapper is a plain")
 out.append("// `return res;` instead of re-materialising `new T(res)` on every call.")
 out.append("// The From* helpers are the reverse direction: they hand a typed struct back to the")
-out.append("// untyped object pipeline (pagination, arrayConcat, filterBySinceLimit, sortBy) as the")
+out.append(
+    "// untyped object pipeline (pagination, arrayConcat, filterBySinceLimit, sortBy) as the"
+)
 out.append("// plain unified dictionary the struct was built from. They pass non-matching values")
 out.append("// through unchanged so they are safe to apply blindly.")
+out.append(
+    "// Every family also carries typed overloads (From<t>(<t>) / From<t>List(List<t>)): the"
+)
+out.append(
+    "// funnel call sites hand them the struct itself, so the matching arm is the only reachable"
+)
+out.append(
+    "// one (a struct is never null) and the overload returns the plain box above; a List<t>"
+)
+out.append(
+    "// argument takes the rebox arm, null passes through. build/csharp-local-types.js reads"
+)
+out.append("// these signatures back to declare the funnel locals, so both sides cannot drift.")
 out.append("// This file is generated by build/generateTypedCoreHelpers.py — do not hand-edit.")
 out.append("public partial class BaseExchange")
 out.append("{")
@@ -513,6 +598,7 @@ for t in emit_from:
         out.append("    }")
         out.append("")
         helpers.append(f"From{t}")
+        emit_typed_from(out, t, typed_from_box(info))
         out.append(f"    public static object From{t}List(object values)")
         out.append("    {")
         out.append(f"        if (!(values is List<{t}>))")
@@ -529,6 +615,7 @@ for t in emit_from:
         out.append("    }")
         out.append("")
         helpers.append(f"From{t}List")
+        emit_typed_from_list(out, t)
         continue
     out.append("        var result = new Dictionary<string, object>();")
     for kind, fname, key, tname in info["fields"]:
@@ -555,7 +642,9 @@ for t in emit_from:
                 "var {}Rows = new List<object>();".format(fname.lstrip("@")),
                 f"foreach (var level in {access})",
                 "{",
-                "    {}Rows.Add(new List<object>(level.Select(v => (object)v)));".format(fname.lstrip("@")),
+                "    {}Rows.Add(new List<object>(level.Select(v => (object)v)));".format(
+                    fname.lstrip("@")
+                ),
                 "}",
                 'result["{}"] = {}Rows;'.format(key, fname.lstrip("@")),
             ]
@@ -575,16 +664,21 @@ for t in emit_from:
             else:
                 inner = [f"        {var}Target[entry.Key] = From{tname}(entry.Value);"]
             if kind == "splatkey":
-                body = [
-                    f"var {var}Target = new Dictionary<string, object>();",
-                    f"foreach (var entry in {access})",
-                    "{",
-                    *inner,
-                    "}",
-                    f'result["{key}"] = {var}Target;',
-                ]
+                body = (
+                    [
+                        f"var {var}Target = new Dictionary<string, object>();",
+                        f"foreach (var entry in {access})",
+                        "{",
+                    ]
+                    + inner
+                    + ["}", f'result["{key}"] = {var}Target;']
+                )
             else:
-                body = [f"var {var}Target = result;", f"foreach (var entry in {access})", "{", *inner, "}"]
+                body = (
+                    [f"var {var}Target = result;", f"foreach (var entry in {access})", "{"]
+                    + inner
+                    + ["}"]
+                )
         elif kind == "numsplat":
             var = fname.lstrip("@")
             body = [
@@ -595,9 +689,6 @@ for t in emit_from:
                 "}",
                 f'result["{key}"] = {var}Target;',
             ]
-        elif kind == "extra":
-            # written last: restores source keys that map to no struct field
-            body = [f"foreach (var pair in {access})", "{", "    result[pair.Key] = pair.Value;", "}"]
         else:
             raise Exception("unhandled kind " + kind)
         if guard:
@@ -619,6 +710,7 @@ for t in emit_from:
     out.append("    }")
     out.append("")
     helpers.append(f"From{t}")
+    emit_typed_from(out, t, typed_from_box(info))
     out.append(f"    public static object From{t}List(object values)")
     out.append("    {")
     out.append(f"        if (!(values is List<{t}>))")
@@ -635,6 +727,7 @@ for t in emit_from:
     out.append("    }")
     out.append("")
     helpers.append(f"From{t}List")
+    emit_typed_from_list(out, t)
 
 # One runtime dispatcher for the reflective pipeline: callDynamically /
 # fetchPaginatedCall* / promiseAll erase the static type, so AwaitAsObject cannot know

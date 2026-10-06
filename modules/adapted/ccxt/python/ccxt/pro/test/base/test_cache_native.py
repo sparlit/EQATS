@@ -24,10 +24,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
-from ccxt.async_support.base.ws.cache import (
+from ccxt.async_support.base.ws.cache import (  # noqa: F402
     ArrayCache,
     ArrayCacheByOutcomeById,
     ArrayCacheBySymbolById,
@@ -64,7 +66,7 @@ def test_max_size_zero_is_unbounded():
     # drops every row on append while getLimit keeps reporting new updates, so the
     # consumer sees a permanently empty cache that claims to be receiving data.
     array_cache = ArrayCache(0)
-    for i in range(5):
+    for i in range(0, 5):
         array_cache.append(
             {
                 "symbol": "BTC/USDT",
@@ -76,7 +78,7 @@ def test_max_size_zero_is_unbounded():
     assert array_cache[4]["data"] == 4
 
     by_symbol_id = ArrayCacheBySymbolById(0)
-    for i in range(5):
+    for i in range(0, 5):
         by_symbol_id.append(
             {
                 "symbol": "BTC/USDT",
@@ -88,13 +90,13 @@ def test_max_size_zero_is_unbounded():
     assert len(by_symbol_id.hashmap["BTC/USDT"]) == 5
 
     by_timestamp = ArrayCacheByTimestamp(0)
-    for i in range(5):
+    for i in range(0, 5):
         by_timestamp.append([i * 10, i, i, i, i, i])
     assert len(by_timestamp) == 5
 
     # a truthy max_size must still bound the cache
     bounded = ArrayCache(2)
-    for i in range(5):
+    for i in range(0, 5):
         bounded.append(
             {
                 "symbol": "BTC/USDT",
@@ -329,13 +331,13 @@ def test_clear_resets_the_sidecar_bookkeeping():
     # ArrayCacheByTimestamp: a stale hashmap swallows the re-appended candles,
     # they take the merge branch and never make it back into the deque
     by_timestamp = ArrayCacheByTimestamp()
-    for i in range(3):
+    for i in range(0, 3):
         by_timestamp.append([i * 10, i, i, i, i, i])
     by_timestamp.clear()
     assert len(by_timestamp) == 0
     assert by_timestamp.hashmap == {}
     assert by_timestamp.get_limit(None, None) == 0
-    for i in range(3):
+    for i in range(0, 3):
         by_timestamp.append([i * 10, i, i, i, i, i])
     assert len(by_timestamp) == 3
     assert by_timestamp.get_limit(None, None) == 3

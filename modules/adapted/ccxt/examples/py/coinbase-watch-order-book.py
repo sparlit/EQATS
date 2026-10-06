@@ -51,10 +51,10 @@ async def main():
                     "ask",
                     orderbook["asks"][0],
                 )
-            except Exception:
+            except Exception as e:
                 # stop
                 await exchange.close()
-                raise
+                raise e
                 # or retry
                 # pass
     else:

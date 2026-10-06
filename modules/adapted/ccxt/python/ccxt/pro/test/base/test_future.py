@@ -27,7 +27,9 @@ import sys
 
 # Assuming the structure of test_shared_methods based on common unittest methods
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 from ccxt import ExchangeClosedByUser
@@ -56,7 +58,9 @@ async def test_resolve_before():
     expected_result = "test"
     future.resolve(expected_result)
     assert future.done(), "Future is not marked as done"
-    assert future.result() == expected_result, f"Expected result '{expected_result}', got '{future.result()}'"
+    assert future.result() == expected_result, (
+        f"Expected result '{expected_result}', got '{future.result()}'"
+    )
 
 
 async def test_reject():
@@ -67,10 +71,9 @@ async def test_reject():
     assert future.done(), "Future is not marked as done"
     try:
         future.result()
-        msg = "Expected an exception but none was raised"
-        raise AssertionError(msg)
+        raise AssertionError("Expected an exception but none was raised")
     except Exception as e:
-        assert str(e) == "test error", f"Expected 'test error', got '{e!s}'"
+        assert str(e) == "test error", f"Expected 'test error', got '{str(e)}'"
 
 
 async def test_race_success_before():
@@ -102,10 +105,9 @@ async def test_race_return_first_exception():
     future1.reject(Exception("Error in future1"))
     try:
         await race_future
-        msg = "Expected an exception but none was raised"
-        raise AssertionError(msg)
+        raise AssertionError("Expected an exception but none was raised")
     except Exception as e:
-        assert str(e) == "Error in future1", f"Expected 'Error in future1', got '{e!s}'"
+        assert str(e) == "Error in future1", f"Expected 'Error in future1', got '{str(e)}'"
 
 
 async def test_await_canceled_future():
@@ -114,8 +116,7 @@ async def test_await_canceled_future():
     try:
         future.cancel()
         await future
-        msg = "Expected an exception but none was raised"
-        raise AssertionError(msg)
+        raise AssertionError("Expected an exception but none was raised")
     except asyncio.CancelledError as e:
         assert isinstance(e, asyncio.CancelledError), "Expected asyncio.CancelledError"
 
@@ -126,8 +127,7 @@ async def test_cancel():
     asyncio.create_task(cancel_later(future, 0.1))
     try:
         await future
-        msg = "Expected an exception but none was raised"
-        raise AssertionError(msg)
+        raise AssertionError("Expected an exception but none was raised")
     except asyncio.CancelledError as e:
         assert isinstance(e, asyncio.CancelledError), "Expected asyncio.CancelledError"
 
@@ -141,8 +141,7 @@ async def test_race_cancel():
         race_future.cancel()
         future1.resolve("success")
         await race_future
-        msg = "Expected a cancelledError"
-        raise AssertionError(msg)
+        raise AssertionError("Expected a cancelledError")
     except asyncio.CancelledError:
         assert True
 
@@ -170,8 +169,7 @@ async def test_race_with_wait_for_timeout():
     try:
         race_future = Future.race([future1])
         await asyncio.wait_for(race_future, timeout=1)  # Timeout is set deliberately short
-        msg = "Expected a timeout but race_future completed"
-        raise AssertionError(msg)
+        raise AssertionError("Expected a timeout but race_future completed")
     except TimeoutError:
         # Expected outcome, the race_future should not complete within the timeout
         assert True
@@ -191,8 +189,7 @@ async def test_race_with_wait_for_completion():
         result = await asyncio.wait_for(race_future, timeout=1)
         assert result == "completed first", f"Unexpected race result: {result}"
     except TimeoutError:
-        msg = "Did not expect a timeout"
-        raise AssertionError(msg)
+        raise AssertionError("Did not expect a timeout")
     await task
 
 
@@ -204,7 +201,9 @@ async def test_race_with_precompleted_future():
     # Immediately resolved future before race call
     race_future = Future.race([future1, future2])
     result = await race_future
-    assert result == "immediate success", "Race did not correctly prioritize already completed future."
+    assert result == "immediate success", (
+        "Race did not correctly prioritize already completed future."
+    )
 
 
 async def test_closed_by_user():
@@ -216,15 +215,13 @@ async def test_closed_by_user():
     task2 = asyncio.create_task(reject_later(future2, ExchangeClosedByUser(), 0.1))
     try:
         await race_future
-        msg = "Expected an ExchangeClosedByUser"
-        raise AssertionError(msg)
+        raise AssertionError("Expected an ExchangeClosedByUser")
     except ExchangeClosedByUser:
         assert True
         assert task1.done()
         assert task2.done()
     except Exception as e:
-        msg = f"Received Exception {e}"
-        raise AssertionError(msg)
+        raise AssertionError(f"Received Exception {e}")
 
 
 async def test_race_broadcast_reject_no_unretrieved():
@@ -247,8 +244,7 @@ async def test_race_broadcast_reject_no_unretrieved():
             future.reject(error)
         try:
             await asyncio.wait_for(raced, 1)
-            msg = "race should have rejected"
-            raise AssertionError(msg)
+            raise AssertionError("race should have rejected")
         except ExchangeClosedByUser:
             pass
         del raced
@@ -257,9 +253,25 @@ async def test_race_broadcast_reject_no_unretrieved():
             gc.collect()
             await asyncio.sleep(0.05)
         unretrieved = [message for message in complaints if "never retrieved" in message]
-        assert len(unretrieved) == 0, f"broadcast reject leaked {len(unretrieved)} unretrieved exceptions"
+        assert len(unretrieved) == 0, (
+            f"broadcast reject leaked {len(unretrieved)} unretrieved exceptions"
+        )
     finally:
         loop.set_exception_handler(previous_handler)
+
+
+async def test_race_pending_loser_callbacks_bounded():
+    # a cached pending future raced repeatedly must not accumulate done-callbacks
+    print("test_race_pending_loser_callbacks_bounded")
+    stuck = Future()
+    for i in range(50):
+        winner = Future()
+        raced = Future.race([winner, stuck])
+        winner.resolve(i)
+        assert await raced == i
+    assert len(stuck._callbacks) == 1, f"pending loser kept {len(stuck._callbacks)} callbacks"
+    stuck.reject(ExchangeClosedByUser("closed"))
+    await asyncio.sleep(0)
 
 
 async def test_ws_future():
@@ -276,3 +288,4 @@ async def test_ws_future():
     await test_race_with_precompleted_future()
     await test_closed_by_user()
     await test_race_broadcast_reject_no_unretrieved()
+    await test_race_pending_loser_callbacks_bounded()

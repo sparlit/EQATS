@@ -35,8 +35,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+import ccxt.async_support as ccxt  # noqa: F402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_sum():
@@ -45,6 +45,6 @@ def test_sum():
             "id": "sampleexchange",
         }
     )
-    # testSharedMethods.assertDeepEqual (exchange, undefined, 'testSum', exchange.sum (), undefined); # TODO: bugs in py
+    # testSharedMethods.assertDeepEqual (exchange, undefined, 'testSum', exchange.sum (), undefined); # todo: bugs in py
     test_shared_methods.assert_deep_equal(exchange, None, "testSum", exchange.sum(2), 2)
     test_shared_methods.assert_deep_equal(exchange, None, "testSum", exchange.sum(2, 30, 400), 432)

@@ -102,7 +102,9 @@ class Config:
     PLOT_TLINE_COLOR: str = "darkturquoise"
     PLOT_ALINE_COLOR: str = "mediumseagreen"
 
-    WATCH: dict[str, Path] = field(default_factory=lambda: {"SECTORS": (DIR / "data" / "sectors.csv").resolve()})
+    WATCH: dict[str, Path] = field(
+        default_factory=lambda: {"SECTORS": (DIR / "data" / "sectors.csv").resolve()}
+    )
 
     PRESET: dict[str, Any] = field(default_factory=dict)
 

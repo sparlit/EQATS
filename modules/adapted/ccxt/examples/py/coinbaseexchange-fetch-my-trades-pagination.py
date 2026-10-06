@@ -38,7 +38,12 @@ for fetchClosedOrders
 """
 
 exchange = ccxt.coinbasepro(
-    {"apiKey": "123456", "secret": "/abcdefghijklmnop/w==", "password": "987654321", "enableRateLimit": True}
+    {
+        "apiKey": "123456",
+        "secret": "/abcdefghijklmnop/w==",
+        "password": "987654321",
+        "enableRateLimit": True,
+    }
 )
 
 param_key = ""

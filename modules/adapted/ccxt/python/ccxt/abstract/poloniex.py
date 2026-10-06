@@ -29,17 +29,27 @@ _Dict = dict[str, object]
 
 class ImplicitAPI:
     public_get_markets = publicGetMarkets = Entry[_List]("markets", "public", "GET", {"cost": 20})
-    public_get_markets_symbol = publicGetMarketsSymbol = Entry[_List]("markets/{symbol}", "public", "GET", {"cost": 1})
-    public_get_currencies = publicGetCurrencies = Entry[_List]("currencies", "public", "GET", {"cost": 20})
+    public_get_markets_symbol = publicGetMarketsSymbol = Entry[_List](
+        "markets/{symbol}", "public", "GET", {"cost": 1}
+    )
+    public_get_currencies = publicGetCurrencies = Entry[_List](
+        "currencies", "public", "GET", {"cost": 20}
+    )
     public_get_currencies_currency = publicGetCurrenciesCurrency = Entry[_Dict](
         "currencies/{currency}", "public", "GET", {"cost": 20}
     )
-    public_get_v2_currencies = publicGetV2Currencies = Entry[_List]("v2/currencies", "public", "GET", {"cost": 20})
+    public_get_v2_currencies = publicGetV2Currencies = Entry[_List](
+        "v2/currencies", "public", "GET", {"cost": 20}
+    )
     public_get_v2_currencies_currency = publicGetV2CurrenciesCurrency = Entry[_Dict](
         "v2/currencies/{currency}", "public", "GET", {"cost": 20}
     )
-    public_get_timestamp = publicGetTimestamp = Entry[_Dict]("timestamp", "public", "GET", {"cost": 1})
-    public_get_markets_price = publicGetMarketsPrice = Entry[_List]("markets/price", "public", "GET", {"cost": 1})
+    public_get_timestamp = publicGetTimestamp = Entry[_Dict](
+        "timestamp", "public", "GET", {"cost": 1}
+    )
+    public_get_markets_price = publicGetMarketsPrice = Entry[_List](
+        "markets/price", "public", "GET", {"cost": 1}
+    )
     public_get_markets_symbol_price = publicGetMarketsSymbolPrice = Entry[_Dict](
         "markets/{symbol}/price", "public", "GET", {"cost": 1}
     )
@@ -49,8 +59,8 @@ class ImplicitAPI:
     public_get_markets_symbol_markprice = publicGetMarketsSymbolMarkPrice = Entry[_Dict](
         "markets/{symbol}/markPrice", "public", "GET", {"cost": 1}
     )
-    public_get_markets_symbol_markpricecomponents = publicGetMarketsSymbolMarkPriceComponents = Entry[_Dict](
-        "markets/{symbol}/markPriceComponents", "public", "GET", {"cost": 1}
+    public_get_markets_symbol_markpricecomponents = publicGetMarketsSymbolMarkPriceComponents = (
+        Entry[_Dict]("markets/{symbol}/markPriceComponents", "public", "GET", {"cost": 1})
     )
     public_get_markets_symbol_orderbook = publicGetMarketsSymbolOrderBook = Entry[_Dict](
         "markets/{symbol}/orderBook", "public", "GET", {"cost": 1}
@@ -70,13 +80,15 @@ class ImplicitAPI:
     public_get_markets_collateralinfo = publicGetMarketsCollateralInfo = Entry[_List](
         "markets/collateralInfo", "public", "GET", {"cost": 1}
     )
-    public_get_markets_currency_collateralinfo = publicGetMarketsCurrencyCollateralInfo = Entry[_Dict](
-        "markets/{currency}/collateralInfo", "public", "GET", {"cost": 1}
-    )
+    public_get_markets_currency_collateralinfo = publicGetMarketsCurrencyCollateralInfo = Entry[
+        _Dict
+    ]("markets/{currency}/collateralInfo", "public", "GET", {"cost": 1})
     public_get_markets_borrowratesinfo = publicGetMarketsBorrowRatesInfo = Entry[_List](
         "markets/borrowRatesInfo", "public", "GET", {"cost": 1}
     )
-    private_get_accounts = privateGetAccounts = Entry[_Dict]("accounts", "private", "GET", {"cost": 4})
+    private_get_accounts = privateGetAccounts = Entry[_Dict](
+        "accounts", "private", "GET", {"cost": 4}
+    )
     private_get_accounts_balances = privateGetAccountsBalances = Entry[_Dict](
         "accounts/balances", "private", "GET", {"cost": 4}
     )
@@ -92,11 +104,15 @@ class ImplicitAPI:
     private_get_accounts_transfer_id = privateGetAccountsTransferId = Entry[_Dict](
         "accounts/transfer/{id}", "private", "GET", {"cost": 4}
     )
-    private_get_feeinfo = privateGetFeeinfo = Entry[_Dict]("feeinfo", "private", "GET", {"cost": 20})
+    private_get_feeinfo = privateGetFeeinfo = Entry[_Dict](
+        "feeinfo", "private", "GET", {"cost": 20}
+    )
     private_get_accounts_interest_history = privateGetAccountsInterestHistory = Entry[_List](
         "accounts/interest/history", "private", "GET", {"cost": 1}
     )
-    private_get_subaccounts = privateGetSubaccounts = Entry[_Dict]("subaccounts", "private", "GET", {"cost": 4})
+    private_get_subaccounts = privateGetSubaccounts = Entry[_Dict](
+        "subaccounts", "private", "GET", {"cost": 4}
+    )
     private_get_subaccounts_balances = privateGetSubaccountsBalances = Entry[_List](
         "subaccounts/balances", "private", "GET", {"cost": 20}
     )
@@ -124,13 +140,19 @@ class ImplicitAPI:
     private_get_margin_borrowstatus = privateGetMarginBorrowStatus = Entry[_List](
         "margin/borrowStatus", "private", "GET", {"cost": 4}
     )
-    private_get_margin_maxsize = privateGetMarginMaxSize = Entry[_Dict]("margin/maxSize", "private", "GET", {"cost": 4})
+    private_get_margin_maxsize = privateGetMarginMaxSize = Entry[_Dict](
+        "margin/maxSize", "private", "GET", {"cost": 4}
+    )
     private_get_orders = privateGetOrders = Entry[_List]("orders", "private", "GET", {"cost": 20})
-    private_get_orders_id = privateGetOrdersId = Entry[_List]("orders/{id}", "private", "GET", {"cost": 4})
+    private_get_orders_id = privateGetOrdersId = Entry[_List](
+        "orders/{id}", "private", "GET", {"cost": 4}
+    )
     private_get_orders_killswitchstatus = privateGetOrdersKillSwitchStatus = Entry[_Dict](
         "orders/killSwitchStatus", "private", "GET", {"cost": 4}
     )
-    private_get_smartorders = privateGetSmartorders = Entry[_List]("smartorders", "private", "GET", {"cost": 20})
+    private_get_smartorders = privateGetSmartorders = Entry[_List](
+        "smartorders", "private", "GET", {"cost": 20}
+    )
     private_get_smartorders_id = privateGetSmartordersId = Entry[_List](
         "smartorders/{id}", "private", "GET", {"cost": 4}
     )
@@ -160,16 +182,24 @@ class ImplicitAPI:
         "v2/wallets/withdraw", "private", "POST", {"cost": 20}
     )
     private_post_orders = privatePostOrders = Entry[_Dict]("orders", "private", "POST", {"cost": 4})
-    private_post_orders_batch = privatePostOrdersBatch = Entry[_Dict]("orders/batch", "private", "POST", {"cost": 20})
+    private_post_orders_batch = privatePostOrdersBatch = Entry[_Dict](
+        "orders/batch", "private", "POST", {"cost": 20}
+    )
     private_post_orders_killswitch = privatePostOrdersKillSwitch = Entry[_Dict](
         "orders/killSwitch", "private", "POST", {"cost": 4}
     )
-    private_post_smartorders = privatePostSmartorders = Entry[_Dict]("smartorders", "private", "POST", {"cost": 4})
-    private_delete_orders_id = privateDeleteOrdersId = Entry[_Dict]("orders/{id}", "private", "DELETE", {"cost": 4})
+    private_post_smartorders = privatePostSmartorders = Entry[_Dict](
+        "smartorders", "private", "POST", {"cost": 4}
+    )
+    private_delete_orders_id = privateDeleteOrdersId = Entry[_Dict](
+        "orders/{id}", "private", "DELETE", {"cost": 4}
+    )
     private_delete_orders_cancelbyids = privateDeleteOrdersCancelByIds = Entry[_List](
         "orders/cancelByIds", "private", "DELETE", {"cost": 20}
     )
-    private_delete_orders = privateDeleteOrders = Entry[_List]("orders", "private", "DELETE", {"cost": 20})
+    private_delete_orders = privateDeleteOrders = Entry[_List](
+        "orders", "private", "DELETE", {"cost": 20}
+    )
     private_delete_smartorders_id = privateDeleteSmartordersId = Entry[_Dict](
         "smartorders/{id}", "private", "DELETE", {"cost": 4}
     )
@@ -179,7 +209,9 @@ class ImplicitAPI:
     private_delete_smartorders = privateDeleteSmartorders = Entry[_List](
         "smartorders", "private", "DELETE", {"cost": 20}
     )
-    private_put_orders_id = privatePutOrdersId = Entry[_Dict]("orders/{id}", "private", "PUT", {"cost": 20})
+    private_put_orders_id = privatePutOrdersId = Entry[_Dict](
+        "orders/{id}", "private", "PUT", {"cost": 20}
+    )
     private_put_smartorders_id = privatePutSmartordersId = Entry[_Dict](
         "smartorders/{id}", "private", "PUT", {"cost": 20}
     )
@@ -195,21 +227,21 @@ class ImplicitAPI:
     swappublic_get_v3_market_candles = swapPublicGetV3MarketCandles = Entry[_Dict](
         "v3/market/candles", "swapPublic", "GET", {"cost": 10}
     )
-    swappublic_get_v3_market_indexpricecandlesticks = swapPublicGetV3MarketIndexPriceCandlesticks = Entry[_Dict](
-        "v3/market/indexPriceCandlesticks", "swapPublic", "GET", {"cost": 10}
-    )
-    swappublic_get_v3_market_premiumindexcandlesticks = swapPublicGetV3MarketPremiumIndexCandlesticks = Entry[_Dict](
-        "v3/market/premiumIndexCandlesticks", "swapPublic", "GET", {"cost": 10}
-    )
-    swappublic_get_v3_market_markpricecandlesticks = swapPublicGetV3MarketMarkPriceCandlesticks = Entry[_Dict](
-        "v3/market/markPriceCandlesticks", "swapPublic", "GET", {"cost": 10}
+    swappublic_get_v3_market_indexpricecandlesticks = (
+        swapPublicGetV3MarketIndexPriceCandlesticks
+    ) = Entry[_Dict]("v3/market/indexPriceCandlesticks", "swapPublic", "GET", {"cost": 10})
+    swappublic_get_v3_market_premiumindexcandlesticks = (
+        swapPublicGetV3MarketPremiumIndexCandlesticks
+    ) = Entry[_Dict]("v3/market/premiumIndexCandlesticks", "swapPublic", "GET", {"cost": 10})
+    swappublic_get_v3_market_markpricecandlesticks = swapPublicGetV3MarketMarkPriceCandlesticks = (
+        Entry[_Dict]("v3/market/markPriceCandlesticks", "swapPublic", "GET", {"cost": 10})
     )
     swappublic_get_v3_market_trades = swapPublicGetV3MarketTrades = Entry[_Dict](
         "v3/market/trades", "swapPublic", "GET", {"cost": 0.6666666666666666}
     )
-    swappublic_get_v3_market_liquidationorder = swapPublicGetV3MarketLiquidationOrder = Entry[_Dict](
-        "v3/market/liquidationOrder", "swapPublic", "GET", {"cost": 0.6666666666666666}
-    )
+    swappublic_get_v3_market_liquidationorder = swapPublicGetV3MarketLiquidationOrder = Entry[
+        _Dict
+    ]("v3/market/liquidationOrder", "swapPublic", "GET", {"cost": 0.6666666666666666})
     swappublic_get_v3_market_tickers = swapPublicGetV3MarketTickers = Entry[_Dict](
         "v3/market/tickers", "swapPublic", "GET", {"cost": 0.6666666666666666}
     )
@@ -219,12 +251,17 @@ class ImplicitAPI:
     swappublic_get_v3_market_indexprice = swapPublicGetV3MarketIndexPrice = Entry[_Dict](
         "v3/market/indexPrice", "swapPublic", "GET", {"cost": 0.6666666666666666}
     )
-    swappublic_get_v3_market_indexpricecomponents = swapPublicGetV3MarketIndexPriceComponents = Entry[_Dict](
-        "v3/market/indexPriceComponents", "swapPublic", "GET", {"cost": 0.6666666666666666}
+    swappublic_get_v3_market_indexpricecomponents = swapPublicGetV3MarketIndexPriceComponents = (
+        Entry[_Dict](
+            "v3/market/indexPriceComponents", "swapPublic", "GET", {"cost": 0.6666666666666666}
+        )
     )
     swappublic_get_v3_market_fundingrate = swapPublicGetV3MarketFundingRate = Entry[_Dict](
         "v3/market/fundingRate", "swapPublic", "GET", {"cost": 0.6666666666666666}
     )
+    swappublic_get_v3_market_fundingrate_history = swapPublicGetV3MarketFundingRateHistory = Entry[
+        _Dict
+    ]("v3/market/fundingRate/history", "swapPublic", "GET", {"cost": 0.6666666666666666})
     swappublic_get_v3_market_openinterest = swapPublicGetV3MarketOpenInterest = Entry[_Dict](
         "v3/market/openInterest", "swapPublic", "GET", {"cost": 0.6666666666666666}
     )
@@ -233,6 +270,9 @@ class ImplicitAPI:
     )
     swappublic_get_v3_market_risklimit = swapPublicGetV3MarketRiskLimit = Entry[_Dict](
         "v3/market/riskLimit", "swapPublic", "GET", {"cost": 0.6666666666666666}
+    )
+    swappublic_get_v3_market_limitprice = swapPublicGetV3MarketLimitPrice = Entry[_Dict](
+        "v3/market/limitPrice", "swapPublic", "GET", {"cost": 0.6666666666666666}
     )
     swapprivate_get_v3_account_balance = swapPrivateGetV3AccountBalance = Entry[_Dict](
         "v3/account/balance", "swapPrivate", "GET", {"cost": 4}
@@ -249,6 +289,9 @@ class ImplicitAPI:
     swapprivate_get_v3_trade_order_history = swapPrivateGetV3TradeOrderHistory = Entry[_Dict](
         "v3/trade/order/history", "swapPrivate", "GET", {"cost": 20}
     )
+    swapprivate_get_v3_trade_order_details = swapPrivateGetV3TradeOrderDetails = Entry[_Dict](
+        "v3/trade/order/details", "swapPrivate", "GET", {"cost": 20}
+    )
     swapprivate_get_v3_trade_position_opens = swapPrivateGetV3TradePositionOpens = Entry[_Dict](
         "v3/trade/position/opens", "swapPrivate", "GET", {"cost": 20}
     )
@@ -260,6 +303,9 @@ class ImplicitAPI:
     )
     swapprivate_get_v3_position_mode = swapPrivateGetV3PositionMode = Entry[_Dict](
         "v3/position/mode", "swapPrivate", "GET", {"cost": 20}
+    )
+    swapprivate_get_v3_position_risklimit = swapPrivateGetV3PositionRiskLimit = Entry[_Dict](
+        "v3/position/riskLimit", "swapPrivate", "GET", {"cost": 20}
     )
     swapprivate_post_v3_trade_order = swapPrivatePostV3TradeOrder = Entry[_Dict](
         "v3/trade/order", "swapPrivate", "POST", {"cost": 4}

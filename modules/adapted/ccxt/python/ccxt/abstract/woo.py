@@ -28,9 +28,15 @@ _List = list[object]
 
 
 class ImplicitAPI:
-    v1_pub_get_hist_kline = v1PubGetHistKline = Entry[_Dict]("hist/kline", ["v1", "pub"], "GET", {"cost": 10})
-    v1_pub_get_hist_trades = v1PubGetHistTrades = Entry[_Dict]("hist/trades", ["v1", "pub"], "GET", {"cost": 10})
-    v1_public_get_info = v1PublicGetInfo = Entry[_Dict]("info", ["v1", "public"], "GET", {"cost": 1})
+    v1_pub_get_hist_kline = v1PubGetHistKline = Entry[_Dict](
+        "hist/kline", ["v1", "pub"], "GET", {"cost": 10}
+    )
+    v1_pub_get_hist_trades = v1PubGetHistTrades = Entry[_Dict](
+        "hist/trades", ["v1", "pub"], "GET", {"cost": 10}
+    )
+    v1_public_get_info = v1PublicGetInfo = Entry[_Dict](
+        "info", ["v1", "public"], "GET", {"cost": 1}
+    )
     v1_public_get_info_symbol = v1PublicGetInfoSymbol = Entry[_Dict](
         "info/{symbol}", ["v1", "public"], "GET", {"cost": 1}
     )
@@ -40,7 +46,9 @@ class ImplicitAPI:
     v1_public_get_market_trades = v1PublicGetMarketTrades = Entry[_Dict](
         "market_trades", ["v1", "public"], "GET", {"cost": 1}
     )
-    v1_public_get_token = v1PublicGetToken = Entry[_Dict]("token", ["v1", "public"], "GET", {"cost": 1})
+    v1_public_get_token = v1PublicGetToken = Entry[_Dict](
+        "token", ["v1", "public"], "GET", {"cost": 1}
+    )
     v1_public_get_token_network = v1PublicGetTokenNetwork = Entry[_Dict](
         "token_network", ["v1", "public"], "GET", {"cost": 1}
     )
@@ -53,22 +61,30 @@ class ImplicitAPI:
     v1_public_get_funding_rate_history = v1PublicGetFundingRateHistory = Entry[_Dict](
         "funding_rate_history", ["v1", "public"], "GET", {"cost": 1}
     )
-    v1_public_get_futures = v1PublicGetFutures = Entry[_Dict]("futures", ["v1", "public"], "GET", {"cost": 1})
+    v1_public_get_futures = v1PublicGetFutures = Entry[_Dict](
+        "futures", ["v1", "public"], "GET", {"cost": 1}
+    )
     v1_public_get_futures_symbol = v1PublicGetFuturesSymbol = Entry[_Dict](
         "futures/{symbol}", ["v1", "public"], "GET", {"cost": 1}
     )
     v1_public_get_orderbook_symbol = v1PublicGetOrderbookSymbol = Entry[_Dict](
         "orderbook/{symbol}", ["v1", "public"], "GET", {"cost": 1}
     )
-    v1_public_get_kline = v1PublicGetKline = Entry[_Dict]("kline", ["v1", "public"], "GET", {"cost": 1})
+    v1_public_get_kline = v1PublicGetKline = Entry[_Dict](
+        "kline", ["v1", "public"], "GET", {"cost": 1}
+    )
     v1_private_get_client_token = v1PrivateGetClientToken = Entry[_Dict](
         "client/token", ["v1", "private"], "GET", {"cost": 1}
     )
-    v1_private_get_order_oid = v1PrivateGetOrderOid = Entry[_Dict]("order/{oid}", ["v1", "private"], "GET", {"cost": 1})
-    v1_private_get_client_order_client_order_id = v1PrivateGetClientOrderClientOrderId = Entry[_Dict](
-        "client/order/{client_order_id}", ["v1", "private"], "GET", {"cost": 1}
+    v1_private_get_order_oid = v1PrivateGetOrderOid = Entry[_Dict](
+        "order/{oid}", ["v1", "private"], "GET", {"cost": 1}
     )
-    v1_private_get_orders = v1PrivateGetOrders = Entry[_Dict]("orders", ["v1", "private"], "GET", {"cost": 1})
+    v1_private_get_client_order_client_order_id = v1PrivateGetClientOrderClientOrderId = Entry[
+        _Dict
+    ]("client/order/{client_order_id}", ["v1", "private"], "GET", {"cost": 1})
+    v1_private_get_orders = v1PrivateGetOrders = Entry[_Dict](
+        "orders", ["v1", "private"], "GET", {"cost": 1}
+    )
     v1_private_get_client_trade_tid = v1PrivateGetClientTradeTid = Entry[_Dict](
         "client/trade/{tid}", ["v1", "private"], "GET", {"cost": 1}
     )
@@ -105,8 +121,8 @@ class ImplicitAPI:
     v1_private_get_sub_account_ip_restriction = v1PrivateGetSubAccountIpRestriction = Entry[_Dict](
         "sub_account/ip_restriction", ["v1", "private"], "GET", {"cost": 10}
     )
-    v1_private_get_asset_main_sub_transfer_history = v1PrivateGetAssetMainSubTransferHistory = Entry[_Dict](
-        "asset/main_sub_transfer_history", ["v1", "private"], "GET", {"cost": 30}
+    v1_private_get_asset_main_sub_transfer_history = v1PrivateGetAssetMainSubTransferHistory = (
+        Entry[_Dict]("asset/main_sub_transfer_history", ["v1", "private"], "GET", {"cost": 30})
     )
     v1_private_get_token_interest = v1PrivateGetTokenInterest = Entry[_Dict](
         "token_interest", ["v1", "private"], "GET", {"cost": 60}
@@ -135,7 +151,9 @@ class ImplicitAPI:
     v1_private_get_client_futures_leverage = v1PrivateGetClientFuturesLeverage = Entry[_Dict](
         "client/futures_leverage", ["v1", "private"], "GET", {"cost": 60}
     )
-    v1_private_post_order = v1PrivatePostOrder = Entry[_Dict]("order", ["v1", "private"], "POST", {"cost": 1})
+    v1_private_post_order = v1PrivatePostOrder = Entry[_Dict](
+        "order", ["v1", "private"], "POST", {"cost": 1}
+    )
     v1_private_post_order_cancel_all_after = v1PrivatePostOrderCancelAllAfter = Entry[_Dict](
         "order/cancel_all_after", ["v1", "private"], "POST", {"cost": 1}
     )
@@ -163,35 +181,51 @@ class ImplicitAPI:
     v1_private_post_client_isolated_margin = v1PrivatePostClientIsolatedMargin = Entry[_Dict](
         "client/isolated_margin", ["v1", "private"], "POST", {"cost": 30}
     )
-    v1_private_delete_order = v1PrivateDeleteOrder = Entry[_Dict]("order", ["v1", "private"], "DELETE", {"cost": 1})
+    v1_private_delete_order = v1PrivateDeleteOrder = Entry[_Dict](
+        "order", ["v1", "private"], "DELETE", {"cost": 1}
+    )
     v1_private_delete_client_order = v1PrivateDeleteClientOrder = Entry[_Dict](
         "client/order", ["v1", "private"], "DELETE", {"cost": 1}
     )
-    v1_private_delete_orders = v1PrivateDeleteOrders = Entry[_List]("orders", ["v1", "private"], "DELETE", {"cost": 1})
+    v1_private_delete_orders = v1PrivateDeleteOrders = Entry[_List](
+        "orders", ["v1", "private"], "DELETE", {"cost": 1}
+    )
     v1_private_delete_asset_withdraw = v1PrivateDeleteAssetWithdraw = Entry[_Dict](
         "asset/withdraw", ["v1", "private"], "DELETE", {"cost": 120}
     )
-    v3_public_get_systeminfo = v3PublicGetSystemInfo = Entry[_Dict]("systemInfo", ["v3", "public"], "GET", {"cost": 1})
+    v3_public_get_systeminfo = v3PublicGetSystemInfo = Entry[_Dict](
+        "systemInfo", ["v3", "public"], "GET", {"cost": 1}
+    )
     v3_public_get_instruments = v3PublicGetInstruments = Entry[_Dict](
         "instruments", ["v3", "public"], "GET", {"cost": 1}
     )
-    v3_public_get_token = v3PublicGetToken = Entry[_Dict]("token", ["v3", "public"], "GET", {"cost": 1})
+    v3_public_get_token = v3PublicGetToken = Entry[_Dict](
+        "token", ["v3", "public"], "GET", {"cost": 1}
+    )
     v3_public_get_tokennetwork = v3PublicGetTokenNetwork = Entry[_Dict](
         "tokenNetwork", ["v3", "public"], "GET", {"cost": 1}
     )
-    v3_public_get_tokeninfo = v3PublicGetTokenInfo = Entry[_Dict]("tokenInfo", ["v3", "public"], "GET", {"cost": 1})
+    v3_public_get_tokeninfo = v3PublicGetTokenInfo = Entry[_Dict](
+        "tokenInfo", ["v3", "public"], "GET", {"cost": 1}
+    )
     v3_public_get_markettrades = v3PublicGetMarketTrades = Entry[_Dict](
         "marketTrades", ["v3", "public"], "GET", {"cost": 1}
     )
     v3_public_get_markettradeshistory = v3PublicGetMarketTradesHistory = Entry[_Dict](
         "marketTradesHistory", ["v3", "public"], "GET", {"cost": 1}
     )
-    v3_public_get_orderbook = v3PublicGetOrderbook = Entry[_Dict]("orderbook", ["v3", "public"], "GET", {"cost": 1})
-    v3_public_get_kline = v3PublicGetKline = Entry[_Dict]("kline", ["v3", "public"], "GET", {"cost": 1})
+    v3_public_get_orderbook = v3PublicGetOrderbook = Entry[_Dict](
+        "orderbook", ["v3", "public"], "GET", {"cost": 1}
+    )
+    v3_public_get_kline = v3PublicGetKline = Entry[_Dict](
+        "kline", ["v3", "public"], "GET", {"cost": 1}
+    )
     v3_public_get_klinehistory = v3PublicGetKlineHistory = Entry[_Dict](
         "klineHistory", ["v3", "public"], "GET", {"cost": 1}
     )
-    v3_public_get_futures = v3PublicGetFutures = Entry[_Dict]("futures", ["v3", "public"], "GET", {"cost": 1})
+    v3_public_get_futures = v3PublicGetFutures = Entry[_Dict](
+        "futures", ["v3", "public"], "GET", {"cost": 1}
+    )
     v3_public_get_fundingrate = v3PublicGetFundingRate = Entry[_Dict](
         "fundingRate", ["v3", "public"], "GET", {"cost": 1}
     )
@@ -237,8 +271,8 @@ class ImplicitAPI:
     v3_private_get_account_referral_summary = v3PrivateGetAccountReferralSummary = Entry[_Dict](
         "account/referral/summary", ["v3", "private"], "GET", {"cost": 60}
     )
-    v3_private_get_account_referral_rewardhistory = v3PrivateGetAccountReferralRewardHistory = Entry[_Dict](
-        "account/referral/rewardHistory", ["v3", "private"], "GET", {"cost": 60}
+    v3_private_get_account_referral_rewardhistory = v3PrivateGetAccountReferralRewardHistory = (
+        Entry[_Dict]("account/referral/rewardHistory", ["v3", "private"], "GET", {"cost": 60})
     )
     v3_private_get_account_credentials = v3PrivateGetAccountCredentials = Entry[_Dict](
         "account/credentials", ["v3", "private"], "GET", {"cost": 60}
@@ -276,9 +310,9 @@ class ImplicitAPI:
     v3_private_get_spotmargin_interestrate = v3PrivateGetSpotMarginInterestRate = Entry[_Dict](
         "spotMargin/interestRate", ["v3", "private"], "GET", {"cost": 60}
     )
-    v3_private_get_spotmargin_interesthistory = v3PrivateGetSpotMarginInterestHistory = Entry[_Dict](
-        "spotMargin/interestHistory", ["v3", "private"], "GET", {"cost": 60}
-    )
+    v3_private_get_spotmargin_interesthistory = v3PrivateGetSpotMarginInterestHistory = Entry[
+        _Dict
+    ]("spotMargin/interestHistory", ["v3", "private"], "GET", {"cost": 60})
     v3_private_get_spotmargin_maxmargin = v3PrivateGetSpotMarginMaxMargin = Entry[_Dict](
         "spotMargin/maxMargin", ["v3", "private"], "GET", {"cost": 60}
     )
@@ -291,7 +325,9 @@ class ImplicitAPI:
     v3_private_get_positions = v3PrivateGetPositions = Entry[_Dict](
         "positions", ["v3", "private"], "GET", {"cost": 3.33}
     )
-    v3_private_get_buypower = v3PrivateGetBuypower = Entry[_Dict]("buypower", ["v3", "private"], "GET", {"cost": 1})
+    v3_private_get_buypower = v3PrivateGetBuypower = Entry[_Dict](
+        "buypower", ["v3", "private"], "GET", {"cost": 1}
+    )
     v3_private_get_convert_exchangeinfo = v3PrivateGetConvertExchangeInfo = Entry[_Dict](
         "convert/exchangeInfo", ["v3", "private"], "GET", {"cost": 1}
     )
@@ -334,6 +370,12 @@ class ImplicitAPI:
     v3_private_post_spotmargin_interestrepay = v3PrivatePostSpotMarginInterestRepay = Entry[_Dict](
         "spotMargin/interestRepay", ["v3", "private"], "POST", {"cost": 60}
     )
+    v3_private_post_futures_defaultmarginmode_reset = v3PrivatePostFuturesDefaultMarginModeReset = (
+        Entry[_Dict]("futures/defaultMarginMode/reset", ["v3", "private"], "POST", {"cost": 60})
+    )
+    v3_private_post_isolatedmargin_margin = v3PrivatePostIsolatedMarginMargin = Entry[_Dict](
+        "isolatedMargin/margin", ["v3", "private"], "POST", {"cost": 60}
+    )
     v3_private_post_algo_order = v3PrivatePostAlgoOrder = Entry[_Dict](
         "algo/order", ["v3", "private"], "POST", {"cost": 5}
     )
@@ -352,15 +394,23 @@ class ImplicitAPI:
     v3_private_put_futures_positionmode = v3PrivatePutFuturesPositionMode = Entry[_Dict](
         "futures/positionMode", ["v3", "private"], "PUT", {"cost": 120}
     )
-    v3_private_put_order_oid = v3PrivatePutOrderOid = Entry[_Dict]("order/{oid}", ["v3", "private"], "PUT", {"cost": 2})
-    v3_private_put_order_client_client_order_id = v3PrivatePutOrderClientClientOrderId = Entry[_Dict](
-        "order/client/{client_order_id}", ["v3", "private"], "PUT", {"cost": 2}
+    v3_private_put_futures_defaultmarginmode = v3PrivatePutFuturesDefaultMarginMode = Entry[_Dict](
+        "futures/defaultMarginMode", ["v3", "private"], "PUT", {"cost": 60}
     )
+    v3_private_put_futures_defaultmarginmode_symbol = v3PrivatePutFuturesDefaultMarginModeSymbol = (
+        Entry[_Dict]("futures/defaultMarginMode/{symbol}", ["v3", "private"], "PUT", {"cost": 60})
+    )
+    v3_private_put_order_oid = v3PrivatePutOrderOid = Entry[_Dict](
+        "order/{oid}", ["v3", "private"], "PUT", {"cost": 2}
+    )
+    v3_private_put_order_client_client_order_id = v3PrivatePutOrderClientClientOrderId = Entry[
+        _Dict
+    ]("order/client/{client_order_id}", ["v3", "private"], "PUT", {"cost": 2})
     v3_private_put_algo_order_oid = v3PrivatePutAlgoOrderOid = Entry[_Dict](
         "algo/order/{oid}", ["v3", "private"], "PUT", {"cost": 2}
     )
-    v3_private_put_algo_order_client_client_order_id = v3PrivatePutAlgoOrderClientClientOrderId = Entry[_Dict](
-        "algo/order/client/{client_order_id}", ["v3", "private"], "PUT", {"cost": 2}
+    v3_private_put_algo_order_client_client_order_id = v3PrivatePutAlgoOrderClientClientOrderId = (
+        Entry[_Dict]("algo/order/client/{client_order_id}", ["v3", "private"], "PUT", {"cost": 2})
     )
     v3_private_delete_trade_order = v3PrivateDeleteTradeOrder = Entry[_Dict](
         "trade/order", ["v3", "private"], "DELETE", {"cost": 1}
@@ -383,9 +433,14 @@ class ImplicitAPI:
     v3_private_delete_algo_orders_pending = v3PrivateDeleteAlgoOrdersPending = Entry[_Dict](
         "algo/orders/pending", ["v3", "private"], "DELETE", {"cost": 1}
     )
-    v3_private_delete_algo_orders_pending_symbol = v3PrivateDeleteAlgoOrdersPendingSymbol = Entry[_Dict](
-        "algo/orders/pending/{symbol}", ["v3", "private"], "DELETE", {"cost": 1}
-    )
+    v3_private_delete_algo_orders_pending_symbol = v3PrivateDeleteAlgoOrdersPendingSymbol = Entry[
+        _Dict
+    ]("algo/orders/pending/{symbol}", ["v3", "private"], "DELETE", {"cost": 1})
     v3_private_delete_orders_pending = v3PrivateDeleteOrdersPending = Entry[_Dict](
         "orders/pending", ["v3", "private"], "DELETE", {"cost": 1}
+    )
+    v3_private_delete_asset_wallet_withdraw_withdrawid = (
+        v3PrivateDeleteAssetWalletWithdrawWithdrawId
+    ) = Entry[_Dict](
+        "asset/wallet/withdraw/{withdrawId}", ["v3", "private"], "DELETE", {"cost": 60}
     )

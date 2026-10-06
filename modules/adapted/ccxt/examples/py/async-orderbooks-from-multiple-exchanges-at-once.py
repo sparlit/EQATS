@@ -68,7 +68,8 @@ async def async_client(exchange_id):
 
 async def multi_orderbooks(exchanges):
     input_coroutines = [async_client(exchange) for exchange in exchanges]
-    return await asyncio.gather(*input_coroutines, return_exceptions=True)
+    orderbooks = await asyncio.gather(*input_coroutines, return_exceptions=True)
+    return orderbooks
 
 
 if __name__ == "__main__":
