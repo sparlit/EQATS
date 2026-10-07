@@ -30,15 +30,20 @@ from sklearn.pipeline import Pipeline
 
 
 def readcsv():
-    df = pd.read_csv("../../data/dataset/csv/dataset_sentiment.csv")
+    df = pd.read_csv(
+        "../../data/dataset/csv/dataset_sentiment.csv",
+    )
     X = df.text
     y = df.label
     return X, y
 
 
 def createNB(X, y):
-    nb_clf = Pipeline([("vect", CountVectorizer()), ("tfidf", TfidfTransformer()), ("nb", MultinomialNB())])
-    return nb_clf.fit(X, y)
+    nb_clf = Pipeline(
+        [("vect", CountVectorizer()), ("tfidf", TfidfTransformer()), ("nb", MultinomialNB())]
+    )
+    nb_clf = nb_clf.fit(X, y)
+    return nb_clf
 
 
 def naive_bayes_ngram(X, y):
@@ -68,7 +73,11 @@ def naive_bayes_ngram(X, y):
     print(metrics.accuracy_score(y_test, ypred4))
     print(metrics.classification_report(y_test, ypred4))
     nb5 = Pipeline(
-        [("vect", CountVectorizer(ngram_range=(1, 2))), ("tfidf", TfidfTransformer()), ("nb", MultinomialNB())]
+        [
+            ("vect", CountVectorizer(ngram_range=(1, 2))),
+            ("tfidf", TfidfTransformer()),
+            ("nb", MultinomialNB()),
+        ]
     )
     nb5 = nb5.fit(X_train, y_train)
     ypred5 = nb5.predict(X_test)
@@ -77,7 +86,11 @@ def naive_bayes_ngram(X, y):
     print(metrics.accuracy_score(y_test, ypred5))
     print(metrics.classification_report(y_test, ypred5))
     nb6 = Pipeline(
-        [("vect", CountVectorizer(ngram_range=(1, 3))), ("tfidf", TfidfTransformer()), ("nb", MultinomialNB())]
+        [
+            ("vect", CountVectorizer(ngram_range=(1, 3))),
+            ("tfidf", TfidfTransformer()),
+            ("nb", MultinomialNB()),
+        ]
     )
     nb6 = nb6.fit(X_train, y_train)
     ypred6 = nb6.predict(X_test)
