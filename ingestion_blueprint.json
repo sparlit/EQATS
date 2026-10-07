@@ -1486,8 +1486,8 @@
       "target": "khakhasshi/optionworkstation",
       "url": "https://github.com/khakhasshi/optionworkstation",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3128",
+      "merged": true
     },
     {
       "name": "nse-option-chain",
