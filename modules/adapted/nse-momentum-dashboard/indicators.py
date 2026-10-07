@@ -67,7 +67,9 @@ def monthly_rsi(close: pd.Series, period: int = 14) -> float:
     return float(rsi(monthly, period).iloc[-1])
 
 
-def _higher_tf_trend_ok(resampled_close: pd.Series, period_primary: int = 200, period_fallback: int = 50) -> float:
+def _higher_tf_trend_ok(
+    resampled_close: pd.Series, period_primary: int = 200, period_fallback: int = 50
+) -> float:
     """True if the latest (possibly still-forming) bar closed above its own
     EMA(period_primary); falls back to EMA(period_fallback) when there
     isn't enough resampled history for the primary period yet (e.g. early
@@ -167,7 +169,9 @@ def _precompute_higher_tf_trend_ok_daily(
     lengths = np.arange(1, n + 1)
     use_primary = lengths >= period_primary
     use_fallback = (~use_primary) & (lengths >= period_fallback)
-    chosen_ema = np.where(use_primary, ema_primary_full, np.where(use_fallback, ema_fallback_full, np.nan))
+    chosen_ema = np.where(
+        use_primary, ema_primary_full, np.where(use_fallback, ema_fallback_full, np.nan)
+    )
     complete_ok = complete_vals > chosen_ema  # NaN comparisons -> False; masked below
     complete_valid = use_primary | use_fallback
 
@@ -220,12 +224,16 @@ def precompute_weekly_monthly_trend_ok(df: pd.DataFrame, cfg: dict) -> tuple[pd.
     close = df["close"]
     period_primary = cfg.get("ema_slow", 200)
     period_fallback = cfg.get("ema_fast", 50)
-    weekly_ok = _precompute_higher_tf_trend_ok_daily(close, "W-FRI", period_primary, period_fallback)
+    weekly_ok = _precompute_higher_tf_trend_ok_daily(
+        close, "W-FRI", period_primary, period_fallback
+    )
     monthly_ok = _precompute_higher_tf_trend_ok_daily(close, "ME", period_primary, period_fallback)
     return weekly_ok, monthly_ok
 
 
-def _fast_higher_tf_close(precomputed_full: pd.Series, close_upto_date: pd.Series, date, freq: str) -> pd.Series:
+def _fast_higher_tf_close(
+    precomputed_full: pd.Series, close_upto_date: pd.Series, date, freq: str
+) -> pd.Series:
     """Reconstructs exactly what close_upto_date.resample(freq).last().
     dropna() would produce, without re-resampling all of close_upto_date --
     see precompute_weekly_monthly_bars's docstring for why this is safe.
@@ -372,7 +380,9 @@ def relative_strength(close: pd.Series, bench_close: pd.Series, lookback: int) -
         bench_ret = (bench_close.iloc[-1] / bench_close.iloc[-tail_n] - 1) * 100
         return stock_ret - bench_ret
     buffer = lookback + 30
-    aligned = pd.concat([close.tail(buffer), bench_close.tail(buffer)], axis=1, join="inner").dropna()
+    aligned = pd.concat(
+        [close.tail(buffer), bench_close.tail(buffer)], axis=1, join="inner"
+    ).dropna()
     if len(aligned) < lookback + 1:
         return np.nan
     s, b = aligned.iloc[:, 0], aligned.iloc[:, 1]
@@ -603,7 +613,11 @@ def compute_snapshot(
         if precomputed_weekly_monthly_ok is not None and asof_date is not None:
             weekly_ok_daily, monthly_ok_daily = precomputed_weekly_monthly_ok
             w = weekly_ok_daily.get(asof_date, pd.NA) if hasattr(weekly_ok_daily, "get") else pd.NA
-            m = monthly_ok_daily.get(asof_date, pd.NA) if hasattr(monthly_ok_daily, "get") else pd.NA
+            m = (
+                monthly_ok_daily.get(asof_date, pd.NA)
+                if hasattr(monthly_ok_daily, "get")
+                else pd.NA
+            )
             weekly_trend_ok = np.nan if pd.isna(w) else bool(w)
             monthly_trend_ok = np.nan if pd.isna(m) else bool(m)
         elif precomputed_weekly_monthly is not None and asof_date is not None:
@@ -623,8 +637,12 @@ def compute_snapshot(
                 asof_date=asof_date,
             )
         else:
-            weekly_trend_ok = weekly_above_ema(wk_close, cfg.get("ema_slow", 200), cfg.get("ema_fast", 50))
-            monthly_trend_ok = monthly_above_ema(wk_close, cfg.get("ema_slow", 200), cfg.get("ema_fast", 50))
+            weekly_trend_ok = weekly_above_ema(
+                wk_close, cfg.get("ema_slow", 200), cfg.get("ema_fast", 50)
+            )
+            monthly_trend_ok = monthly_above_ema(
+                wk_close, cfg.get("ema_slow", 200), cfg.get("ema_fast", 50)
+            )
     else:
         weekly_trend_ok = monthly_trend_ok = np.nan
 
@@ -634,7 +652,9 @@ def compute_snapshot(
     # (default) reproduces the original plain two-point return exactly;
     # "regression" swaps in the R^2-weighted regression-slope version.
     rs_func = (
-        regression_relative_strength if cfg.get("mom_method", "fixed_lookback") == "regression" else relative_strength
+        regression_relative_strength
+        if cfg.get("mom_method", "fixed_lookback") == "regression"
+        else relative_strength
     )
     return {
         "price": price,
@@ -749,7 +769,9 @@ def xirr(cash_flows: list[tuple[dt.date, float]]) -> float | None:
         return sum(a / (1 + rate) ** y for a, y in zip(amounts, years, strict=False))
 
     def dnpv(rate: float) -> float:
-        return sum(-y * a / (1 + rate) ** (y + 1) for a, y in zip(amounts, years, strict=False) if y > 0)
+        return sum(
+            -y * a / (1 + rate) ** (y + 1) for a, y in zip(amounts, years, strict=False) if y > 0
+        )
 
     rate = 0.1
     for _ in range(100):

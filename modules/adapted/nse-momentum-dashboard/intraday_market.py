@@ -56,7 +56,6 @@ import time
 
 import intraday_strategy as strat
 import nse_api
-import pandas as pd
 import sector_universe
 
 INDEX_TRACKER_URL = sector_universe.INDEX_TRACKER_URL
@@ -70,7 +69,9 @@ def fetch_nifty50_constituents(force_refresh: bool = False) -> list[str]:
     like every other NSE reference-data fetch in this app -- constituent
     changes happen a few times a year, not intraday."""
     age_days = (
-        (time.time() - os.path.getmtime(NIFTY50_CACHE_PATH)) / 86400 if os.path.exists(NIFTY50_CACHE_PATH) else 1e9
+        (time.time() - os.path.getmtime(NIFTY50_CACHE_PATH)) / 86400
+        if os.path.exists(NIFTY50_CACHE_PATH)
+        else 1e9
     )
     if not force_refresh and age_days < NIFTY50_CACHE_MAX_AGE_DAYS:
         with open(NIFTY50_CACHE_PATH) as f:
@@ -78,7 +79,9 @@ def fetch_nifty50_constituents(force_refresh: bool = False) -> list[str]:
 
     s = nse_api.session()
     r = s.get(
-        INDEX_TRACKER_URL, params={"functionName": "getConstituents", "index": "NIFTY 50", "noofrecords": 0}, timeout=15
+        INDEX_TRACKER_URL,
+        params={"functionName": "getConstituents", "index": "NIFTY 50", "noofrecords": 0},
+        timeout=15,
     )
     r.raise_for_status()
     symbols = sorted({row["cmSymbol"] for row in r.json().get("data", []) if row.get("cmSymbol")})
@@ -107,7 +110,9 @@ def fetch_advance_decline(index: str = "NIFTY 50") -> dict:
     if cached is not None and time.time() - cached[0] < AD_CACHE_TTL_SECONDS:
         return cached[1]
     s = nse_api.session()
-    r = s.get(INDEX_TRACKER_URL, params={"functionName": "getAdvanceDecline", "index": index}, timeout=15)
+    r = s.get(
+        INDEX_TRACKER_URL, params={"functionName": "getAdvanceDecline", "index": index}, timeout=15
+    )
     r.raise_for_status()
     row = r.json()["data"][0]
     result = {

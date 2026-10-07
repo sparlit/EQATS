@@ -85,12 +85,13 @@ def main() -> None:
     manifest_path = static_dir / "manifest.json"
 
     if not index_html.exists():
-        msg = f"Not found: {index_html} -- is this the right venv?"
-        raise SystemExit(msg)
+        raise SystemExit(f"Not found: {index_html} -- is this the right venv?")
     for src in (SOURCE_FAVICON, SOURCE_APPLE_ICON, SOURCE_ICON_192, SOURCE_ICON_512):
         if not src.exists():
-            msg = f"Not found: {src} -- run this from the repo root, with the assets/ icon files already generated."
-            raise SystemExit(msg)
+            raise SystemExit(
+                f"Not found: {src} -- run this from the repo root, "
+                "with the assets/ icon files already generated."
+            )
 
     html = index_html.read_text(encoding="utf-8")
     changed = False

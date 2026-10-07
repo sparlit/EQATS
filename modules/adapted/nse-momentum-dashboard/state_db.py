@@ -374,21 +374,52 @@ def get_conn(db_path: str | None = None) -> sqlite3.Connection:
     fix)."""
     db_path = db_path or DB_PATH
     os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    conn.executescript(_SCHEMA)
-    conn.commit()
-    _migrate_equity_log_once(conn)
-    _migrate_fund_state_to_cash_flow(conn)
-    _migrate_positions_schema(conn)
-    _migrate_stop_update_log_schema(conn)
-    _migrate_trades_schema(conn)
-    _migrate_rebalance_buys_schema(conn)
-    _migrate_rebalance_runs_schema(conn)
-    _migrate_rebalance_status_columns(conn)
-    _migrate_equity_log_schema(conn)
-    _migrate_backfill_missing_trades(conn)
-    return conn
+    # timeout=30 (not sqlite3's 5s default): every call here re-runs the
+    # full schema script + 9 migration functions below, and this is a
+    # fresh connection per call (no long-lived shared one) -- under real
+    # concurrency (a multi-minute background job's own state_db.job_run()
+    # writes racing the main UI thread's own get_conn() calls on every
+    # page rerun) that setup cost is enough for two connections to
+    # genuinely collide, and 5s wasn't always enough margin to wait it
+    # out (confirmed live: a multi-minute Intraday Backtest run crashed
+    # the main thread with "database is locked" on ensure_dashboard_auth_
+    # seeded()). WAL mode on top lets readers and the one writer proceed
+    # without blocking each other at all, rather than just waiting longer
+    # for the same rollback-journal exclusive lock -- but switching INTO
+    # WAL mode itself needs a brief exclusive lock and can raise "database
+    # is locked" immediately (doesn't honor timeout=) if another
+    # connection is mid-transaction right then, so it's skipped once a
+    # connection reports it's already in WAL (true for every connection
+    # after the very first one ever succeeds). The retry loop below is
+    # what actually absorbs that one-time race, plus the same-class race
+    # in the migration functions' own check-then-ALTER pattern (confirmed
+    # under a 25-thread stress test against a fresh DB).
+    last_err = None
+    for attempt in range(8):
+        try:
+            conn = sqlite3.connect(db_path, timeout=30)
+            if conn.execute("PRAGMA journal_mode").fetchone()[0] != "wal":
+                conn.execute("PRAGMA journal_mode=WAL")
+            conn.row_factory = sqlite3.Row
+            conn.executescript(_SCHEMA)
+            conn.commit()
+            _migrate_equity_log_once(conn)
+            _migrate_fund_state_to_cash_flow(conn)
+            _migrate_positions_schema(conn)
+            _migrate_stop_update_log_schema(conn)
+            _migrate_trades_schema(conn)
+            _migrate_rebalance_buys_schema(conn)
+            _migrate_rebalance_runs_schema(conn)
+            _migrate_rebalance_status_columns(conn)
+            _migrate_equity_log_schema(conn)
+            _migrate_backfill_missing_trades(conn)
+            return conn
+        except sqlite3.OperationalError as e:
+            last_err = e
+            if "locked" not in str(e).lower() and "duplicate column" not in str(e).lower():
+                raise
+            time.sleep(0.1 * (attempt + 1))
+    raise last_err
 
 
 def _migrate_equity_log_once(conn: sqlite3.Connection) -> None:
@@ -403,7 +434,10 @@ def _migrate_equity_log_once(conn: sqlite3.Connection) -> None:
     except Exception:
         return
     for _, row in legacy.iterrows():
-        conn.execute("INSERT OR IGNORE INTO equity_log (date, value) VALUES (?, ?)", (row["date"], float(row["value"])))
+        conn.execute(
+            "INSERT OR IGNORE INTO equity_log (date, value) VALUES (?, ?)",
+            (row["date"], float(row["value"])),
+        )
     conn.commit()
 
 
@@ -421,7 +455,11 @@ def _migrate_fund_state_to_cash_flow(conn: sqlite3.Connection) -> None:
         return
     conn.execute(
         "INSERT INTO cash_flows (date, amount, note) VALUES (?, ?, ?)",
-        (row["captured_date"], row["initial_capital"], "Migrated from initial capital auto-capture"),
+        (
+            row["captured_date"],
+            row["initial_capital"],
+            "Migrated from initial capital auto-capture",
+        ),
     )
     conn.commit()
 
@@ -512,7 +550,12 @@ def _migrate_rebalance_buys_schema(conn: sqlite3.Connection) -> None:
     back via get_last_rebalance_run() instead of a fresh propose_rebalance()
     call) would silently lose them."""
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(rebalance_buys)")}
-    for col, coltype in [("rsi", "REAL"), ("pct_52w_high", "REAL"), ("vol_expansion", "REAL"), ("reason", "TEXT")]:
+    for col, coltype in [
+        ("rsi", "REAL"),
+        ("pct_52w_high", "REAL"),
+        ("vol_expansion", "REAL"),
+        ("reason", "TEXT"),
+    ]:
         if col not in cols:
             conn.execute(f"ALTER TABLE rebalance_buys ADD COLUMN {col} {coltype}")
     conn.commit()
@@ -548,7 +591,12 @@ def _migrate_rebalance_status_columns(conn: sqlite3.Connection) -> None:
     'proposed' rather than guessed at; the next real rebalance run's
     save_rebalance_run() call will correctly expire any that are still
     stale by then."""
-    for table in ("rebalance_sells", "rebalance_buys", "rebalance_top_ups", "rebalance_stop_updates"):
+    for table in (
+        "rebalance_sells",
+        "rebalance_buys",
+        "rebalance_top_ups",
+        "rebalance_stop_updates",
+    ):
         cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
         if "status" not in cols:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN status TEXT NOT NULL DEFAULT 'proposed'")
@@ -622,7 +670,9 @@ def _migrate_stop_update_log_schema(conn: sqlite3.Connection) -> None:
 # ---------------------------------------------------------------------------
 
 
-def record_new_position(symbol: str, entry_price: float, qty: int, stop: float, gtt_trigger_id: int | None) -> int:
+def record_new_position(
+    symbol: str, entry_price: float, qty: int, stop: float, gtt_trigger_id: int | None
+) -> int:
     """Call right after a buy (+ GTT, if placed) succeeds -- seeds this
     symbol's trailing-stop bookkeeping. gtt_trigger_id=None if the GTT
     placement failed or was skipped. Returns the new position's row id --
@@ -653,7 +703,9 @@ def get_stale_open_symbols(held_symbols: set[str]) -> list[str]:
     return [r["symbol"] for r in open_rows if r["symbol"] not in held_symbols]
 
 
-def reconciled_positions(held_symbols: set[str], exit_prices: dict[str, float] | None = None) -> dict[str, dict]:
+def reconciled_positions(
+    held_symbols: set[str], exit_prices: dict[str, float] | None = None
+) -> dict[str, dict]:
     """Marks any 'open' row whose symbol isn't in held_symbols as 'closed'
     (closed_date=today) instead of deleting -- a GTT can close a position
     without any of this app's code running, so every read reconciles
@@ -685,7 +737,9 @@ def reconciled_positions(held_symbols: set[str], exit_prices: dict[str, float] |
     for row in open_rows:
         if row["symbol"] not in held_symbols:
             exit_price = exit_prices.get(row["symbol"])
-            realized_pnl = (exit_price - row["entry_price"]) * row["qty"] if exit_price is not None else None
+            realized_pnl = (
+                (exit_price - row["entry_price"]) * row["qty"] if exit_price is not None else None
+            )
             conn.execute(
                 "UPDATE positions SET status = 'closed', closed_date = ?, "
                 "exit_price = ?, realized_pnl = ? WHERE id = ?",
@@ -710,13 +764,18 @@ def close_position(symbol: str, exit_price: float | None) -> None:
     until the next scheduled scan or gap-check happens to run. No-ops if
     there's no open position for this symbol."""
     conn = get_conn()
-    row = conn.execute("SELECT * FROM positions WHERE symbol = ? AND status = 'open'", (symbol,)).fetchone()
+    row = conn.execute(
+        "SELECT * FROM positions WHERE symbol = ? AND status = 'open'", (symbol,)
+    ).fetchone()
     if row is None:
         conn.close()
         return
-    realized_pnl = (exit_price - row["entry_price"]) * row["qty"] if exit_price is not None else None
+    realized_pnl = (
+        (exit_price - row["entry_price"]) * row["qty"] if exit_price is not None else None
+    )
     conn.execute(
-        "UPDATE positions SET status = 'closed', closed_date = ?, exit_price = ?, realized_pnl = ? WHERE id = ?",
+        "UPDATE positions SET status = 'closed', closed_date = ?, "
+        "exit_price = ?, realized_pnl = ? WHERE id = ?",
         (dt.date.today().isoformat(), exit_price, realized_pnl, row["id"]),
     )
     conn.commit()
@@ -728,12 +787,16 @@ def get_realized_pnl() -> float:
     without a supplied exit price) don't contribute, same as SQL SUM's
     normal NULL handling."""
     conn = get_conn()
-    row = conn.execute("SELECT SUM(realized_pnl) AS total FROM positions WHERE status = 'closed'").fetchone()
+    row = conn.execute(
+        "SELECT SUM(realized_pnl) AS total FROM positions WHERE status = 'closed'"
+    ).fetchone()
     conn.close()
     return float(row["total"]) if row["total"] is not None else 0.0
 
 
-def update_position_stop(symbol: str, highest_close: float, atr_value: float, new_stop: float) -> None:
+def update_position_stop(
+    symbol: str, highest_close: float, atr_value: float, new_stop: float
+) -> None:
     """Called once daily (from live_rebalance.py's compute_stop_updates())
     for every open position, ratchet or not -- records a stop_update_log
     row EVERY time (atr_value + whether this check actually ratcheted the
@@ -747,7 +810,9 @@ def update_position_stop(symbol: str, highest_close: float, atr_value: float, ne
     compares live LTP against current_stop specifically because it needs
     the real, broker-side stop, not a theoretical unapplied one."""
     conn = get_conn()
-    row = conn.execute("SELECT * FROM positions WHERE symbol = ? AND status = 'open'", (symbol,)).fetchone()
+    row = conn.execute(
+        "SELECT * FROM positions WHERE symbol = ? AND status = 'open'", (symbol,)
+    ).fetchone()
     if row is None:
         conn.close()
         return
@@ -755,10 +820,18 @@ def update_position_stop(symbol: str, highest_close: float, atr_value: float, ne
     conn.execute(
         "INSERT INTO stop_update_log (position_id, date, old_stop, "
         "new_stop, atr_value, ratcheted, applied) VALUES (?, ?, ?, ?, ?, ?, 0)",
-        (row["id"], dt.date.today().isoformat(), row["current_stop"], new_stop, atr_value, int(ratcheted)),
+        (
+            row["id"],
+            dt.date.today().isoformat(),
+            row["current_stop"],
+            new_stop,
+            atr_value,
+            int(ratcheted),
+        ),
     )
     conn.execute(
-        "UPDATE positions SET highest_close = ?, recommended_stop = ?, updated_at = datetime('now') WHERE id = ?",
+        "UPDATE positions SET highest_close = ?, recommended_stop = ?, "
+        "updated_at = datetime('now') WHERE id = ?",
         (highest_close, max(new_stop, row["current_stop"]), row["id"]),
     )
     conn.commit()
@@ -779,16 +852,20 @@ def apply_stop_update(symbol: str) -> float | None:
     row stays unapplied, accurately reflecting that its value was
     superseded before ever being pushed."""
     conn = get_conn()
-    row = conn.execute("SELECT * FROM positions WHERE symbol = ? AND status = 'open'", (symbol,)).fetchone()
+    row = conn.execute(
+        "SELECT * FROM positions WHERE symbol = ? AND status = 'open'", (symbol,)
+    ).fetchone()
     if row is None or row["recommended_stop"] is None:
         conn.close()
         return None
     new_current = row["recommended_stop"]
     conn.execute(
-        "UPDATE positions SET current_stop = ?, updated_at = datetime('now') WHERE id = ?", (new_current, row["id"])
+        "UPDATE positions SET current_stop = ?, updated_at = datetime('now') WHERE id = ?",
+        (new_current, row["id"]),
     )
     last_log_id = conn.execute(
-        "SELECT id FROM stop_update_log WHERE position_id = ? ORDER BY id DESC LIMIT 1", (row["id"],)
+        "SELECT id FROM stop_update_log WHERE position_id = ? ORDER BY id DESC LIMIT 1",
+        (row["id"],),
     ).fetchone()
     if last_log_id is not None:
         conn.execute("UPDATE stop_update_log SET applied = 1 WHERE id = ?", (last_log_id["id"],))
@@ -854,12 +931,15 @@ def get_corporate_action_flags(status: str | None = "pending") -> pd.DataFrame:
     conn = get_conn()
     if status:
         df = pd.read_sql(
-            "SELECT * FROM corporate_action_flags WHERE status = ? ORDER BY detected_date DESC, id DESC",
+            "SELECT * FROM corporate_action_flags WHERE status = ? "
+            "ORDER BY detected_date DESC, id DESC",
             conn,
             params=(status,),
         )
     else:
-        df = pd.read_sql("SELECT * FROM corporate_action_flags ORDER BY detected_date DESC, id DESC", conn)
+        df = pd.read_sql(
+            "SELECT * FROM corporate_action_flags ORDER BY detected_date DESC, id DESC", conn
+        )
     conn.close()
     return df
 
@@ -873,17 +953,25 @@ def resolve_corporate_action_flag(flag_id: int, status: str) -> None:
 
 
 def apply_corporate_action_to_position(
-    position_id: int, new_qty: int, new_entry_price: float, new_current_stop: float, new_highest_close: float
+    position_id: int,
+    new_qty: int,
+    new_entry_price: float,
+    new_current_stop: float,
+    new_highest_close: float,
 ) -> None:
     """Rescales one position's bookkeeping after a confirmed split/bonus --
     see live_rebalance.apply_corporate_action_adjustment(). recommended_stop
     is rescaled too when it was already set (proportionally, same ratio),
     left NULL otherwise."""
     conn = get_conn()
-    row = conn.execute("SELECT recommended_stop FROM positions WHERE id = ?", (position_id,)).fetchone()
+    row = conn.execute(
+        "SELECT recommended_stop FROM positions WHERE id = ?", (position_id,)
+    ).fetchone()
     new_recommended = None
     if row is not None and row["recommended_stop"] is not None:
-        old_row = conn.execute("SELECT current_stop FROM positions WHERE id = ?", (position_id,)).fetchone()
+        old_row = conn.execute(
+            "SELECT current_stop FROM positions WHERE id = ?", (position_id,)
+        ).fetchone()
         if old_row is not None and old_row["current_stop"]:
             ratio = new_current_stop / old_row["current_stop"]
             new_recommended = row["recommended_stop"] * ratio
@@ -891,19 +979,29 @@ def apply_corporate_action_to_position(
         "UPDATE positions SET qty = ?, entry_price = ?, current_stop = ?, "
         "highest_close = ?, recommended_stop = ?, updated_at = datetime('now') "
         "WHERE id = ?",
-        (new_qty, new_entry_price, new_current_stop, new_highest_close, new_recommended, position_id),
+        (
+            new_qty,
+            new_entry_price,
+            new_current_stop,
+            new_highest_close,
+            new_recommended,
+            position_id,
+        ),
     )
     conn.commit()
     conn.close()
 
 
-def apply_corporate_action_to_trade(symbol: str, new_qty: int, new_entry_price: float, new_initial_stop: float) -> None:
+def apply_corporate_action_to_trade(
+    symbol: str, new_qty: int, new_entry_price: float, new_initial_stop: float
+) -> None:
     """Rescales the matching OPEN trades row so realized P&L stays correct
     once this position eventually closes -- otherwise entry_price would
     stay in pre-split terms while qty/exit_price are post-split."""
     conn = get_conn()
     conn.execute(
-        "UPDATE trades SET qty = ?, entry_price = ?, initial_stop = ? WHERE symbol = ? AND status = 'open'",
+        "UPDATE trades SET qty = ?, entry_price = ?, initial_stop = ? "
+        "WHERE symbol = ? AND status = 'open'",
         (new_qty, new_entry_price, new_initial_stop, symbol),
     )
     conn.commit()
@@ -939,7 +1037,9 @@ def top_up_trade(symbol: str, extra_qty: int, price: float) -> None:
     ever opens a brand-new position. No-ops if there's no open position
     for this symbol."""
     conn = get_conn()
-    row = conn.execute("SELECT * FROM positions WHERE symbol = ? AND status = 'open'", (symbol,)).fetchone()
+    row = conn.execute(
+        "SELECT * FROM positions WHERE symbol = ? AND status = 'open'", (symbol,)
+    ).fetchone()
     if row is None or extra_qty <= 0:
         conn.close()
         return
@@ -954,7 +1054,8 @@ def top_up_trade(symbol: str, extra_qty: int, price: float) -> None:
 
     trades_conn = get_conn()
     trade_row = trades_conn.execute(
-        "SELECT * FROM trades WHERE symbol = ? AND status = 'open' ORDER BY id DESC LIMIT 1", (symbol,)
+        "SELECT * FROM trades WHERE symbol = ? AND status = 'open' ORDER BY id DESC LIMIT 1",
+        (symbol,),
     ).fetchone()
     if trade_row is not None:
         t_new_qty = trade_row["qty"] + extra_qty
@@ -967,7 +1068,9 @@ def top_up_trade(symbol: str, extra_qty: int, price: float) -> None:
     trades_conn.close()
 
 
-def upsert_manual_position(symbol: str, entry_price: float, qty: int, stop: float, gtt_trigger_id: int | None) -> None:
+def upsert_manual_position(
+    symbol: str, entry_price: float, qty: int, stop: float, gtt_trigger_id: int | None
+) -> None:
     """Used when placing a stop-loss for a position this app didn't itself
     open (e.g. bought directly on Kite, outside the Live Rebalance/manual-
     order flows) -- creates a new open position row if none exists yet
@@ -984,13 +1087,23 @@ def upsert_manual_position(symbol: str, entry_price: float, qty: int, stop: floa
     reconciled_positions()'s generic fallback with no trades row to close
     at all, silently missing it from the tradebook entirely."""
     conn = get_conn()
-    row = conn.execute("SELECT id FROM positions WHERE symbol = ? AND status = 'open'", (symbol,)).fetchone()
+    row = conn.execute(
+        "SELECT id FROM positions WHERE symbol = ? AND status = 'open'", (symbol,)
+    ).fetchone()
     if row is None:
         cur = conn.execute(
             "INSERT INTO positions (symbol, entry_date, entry_price, qty, "
             "highest_close, current_stop, gtt_trigger_id, status) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, 'open')",
-            (symbol, dt.date.today().isoformat(), entry_price, qty, entry_price, stop, gtt_trigger_id),
+            (
+                symbol,
+                dt.date.today().isoformat(),
+                entry_price,
+                qty,
+                entry_price,
+                stop,
+                gtt_trigger_id,
+            ),
         )
         new_position_id = cur.lastrowid
         conn.commit()
@@ -1008,7 +1121,8 @@ def upsert_manual_position(symbol: str, entry_price: float, qty: int, stop: floa
         )
         return
     conn.execute(
-        "UPDATE positions SET current_stop = ?, gtt_trigger_id = ?, updated_at = datetime('now') WHERE id = ?",
+        "UPDATE positions SET current_stop = ?, gtt_trigger_id = ?, "
+        "updated_at = datetime('now') WHERE id = ?",
         (stop, gtt_trigger_id, row["id"]),
     )
     conn.commit()
@@ -1030,7 +1144,9 @@ def record_cash_flow(date: str, amount: float, note: str = "") -> None:
     automated beyond the very first entry (see
     ensure_first_cash_flow_captured)."""
     conn = get_conn()
-    conn.execute("INSERT INTO cash_flows (date, amount, note) VALUES (?, ?, ?)", (date, amount, note))
+    conn.execute(
+        "INSERT INTO cash_flows (date, amount, note) VALUES (?, ?, ?)", (date, amount, note)
+    )
     conn.commit()
     conn.close()
 
@@ -1050,7 +1166,10 @@ def update_cash_flow(id: int, date: str, amount: float, note: str = "") -> None:
     """Corrects an existing entry (wrong date/amount/note typo) in place --
     used by the Admin page's editable ledger table."""
     conn = get_conn()
-    conn.execute("UPDATE cash_flows SET date = ?, amount = ?, note = ? WHERE id = ?", (date, amount, note, id))
+    conn.execute(
+        "UPDATE cash_flows SET date = ?, amount = ?, note = ? WHERE id = ?",
+        (date, amount, note, id),
+    )
     conn.commit()
     conn.close()
 
@@ -1093,10 +1212,13 @@ def get_recurring_charges() -> pd.DataFrame:
     return df
 
 
-def add_recurring_charge(note: str, amount: float, interval_months: int, next_due_date: str) -> None:
+def add_recurring_charge(
+    note: str, amount: float, interval_months: int, next_due_date: str
+) -> None:
     conn = get_conn()
     conn.execute(
-        "INSERT INTO recurring_charges (note, amount, interval_months, next_due_date, active) VALUES (?, ?, ?, ?, 1)",
+        "INSERT INTO recurring_charges (note, amount, interval_months, "
+        "next_due_date, active) VALUES (?, ?, ?, ?, 1)",
         (note, amount, interval_months, next_due_date),
     )
     conn.commit()
@@ -1144,14 +1266,23 @@ def post_due_recurring_charges() -> list[str]:
             due = _add_months(due, row["interval_months"])
         if due != row["next_due_date"]:
             conn = get_conn()
-            conn.execute("UPDATE recurring_charges SET next_due_date = ? WHERE id = ?", (due, row["id"]))
+            conn.execute(
+                "UPDATE recurring_charges SET next_due_date = ? WHERE id = ?", (due, row["id"])
+            )
             conn.commit()
             conn.close()
     return posted
 
 
 def record_cash_sweep(
-    date: str, action: str, symbol: str, qty: int, price: float, amount: float, reason: str, order_id: str | None = None
+    date: str,
+    action: str,
+    symbol: str,
+    qty: int,
+    price: float,
+    amount: float,
+    reason: str,
+    order_id: str | None = None,
 ) -> None:
     """One row per real buy/sell of the cash-sweep instrument -- see
     live_rebalance.sweep_idle_cash()/ensure_cash_for_buys(). Pure audit
@@ -1190,7 +1321,9 @@ def ensure_first_cash_flow_captured(available_cash: float) -> None:
     conn.close()
     if existing or available_cash <= 0:
         return
-    record_cash_flow(dt.date.today().isoformat(), available_cash, "Auto-captured initial available cash")
+    record_cash_flow(
+        dt.date.today().isoformat(), available_cash, "Auto-captured initial available cash"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1220,7 +1353,9 @@ def log_equity_snapshot(
         (today, value, invested_amount, holdings_value),
     )
     conn.commit()
-    log = pd.read_sql("SELECT date, value, invested_amount, holdings_value FROM equity_log ORDER BY date", conn)
+    log = pd.read_sql(
+        "SELECT date, value, invested_amount, holdings_value FROM equity_log ORDER BY date", conn
+    )
     conn.close()
     return log
 
@@ -1243,7 +1378,9 @@ def get_equity_log(include_soft_deleted: bool = False) -> pd.DataFrame:
     conn = get_conn()
     where = "" if include_soft_deleted else "WHERE soft_deleted = 0"
     log = pd.read_sql(
-        f"SELECT date, value, invested_amount, holdings_value, soft_deleted FROM equity_log {where} ORDER BY date", conn
+        f"SELECT date, value, invested_amount, holdings_value, soft_deleted "
+        f"FROM equity_log {where} ORDER BY date",
+        conn,
     )
     conn.close()
     return log
@@ -1278,8 +1415,16 @@ def save_rebalance_run(result: dict) -> int:
     'proposed' forever once a newer proposal exists."""
     conn = get_conn()
     now = dt.datetime.now().isoformat()
-    for table in ("rebalance_sells", "rebalance_buys", "rebalance_top_ups", "rebalance_stop_updates"):
-        conn.execute(f"UPDATE {table} SET status = 'expired', resolved_at = ? WHERE status = 'proposed'", (now,))
+    for table in (
+        "rebalance_sells",
+        "rebalance_buys",
+        "rebalance_top_ups",
+        "rebalance_stop_updates",
+    ):
+        conn.execute(
+            f"UPDATE {table} SET status = 'expired', resolved_at = ? WHERE status = 'proposed'",
+            (now,),
+        )
     cur = conn.execute(
         "INSERT INTO rebalance_runs (run_time, open_slots, status, "
         "target_per_slot, cash_pool, cash_needed_for_full_equal_weight, "
@@ -1297,7 +1442,8 @@ def save_rebalance_run(result: dict) -> int:
     run_id = cur.lastrowid
     for _, r in result["sells"].iterrows():
         conn.execute(
-            "INSERT INTO rebalance_sells (run_id, symbol, qty, avg_price, reason) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO rebalance_sells (run_id, symbol, qty, avg_price, reason) "
+            "VALUES (?, ?, ?, ?, ?)",
             (run_id, r["symbol"], int(r["qty"]), float(r["avg_price"]), r["reason"]),
         )
     for _, r in result["buys"].iterrows():
@@ -1336,7 +1482,8 @@ def save_rebalance_run(result: dict) -> int:
         )
     for _, r in result.get("top_ups", pd.DataFrame()).iterrows():
         conn.execute(
-            "INSERT INTO rebalance_top_ups (run_id, symbol, extra_qty, price, gtt_trigger_id) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO rebalance_top_ups (run_id, symbol, extra_qty, price, "
+            "gtt_trigger_id) VALUES (?, ?, ?, ?, ?)",
             (
                 run_id,
                 r["symbol"],
@@ -1373,7 +1520,9 @@ def get_rebalance_run_items(run_id: int) -> dict:
     pending again there."""
     conn = get_conn()
     sells = pd.read_sql(
-        "SELECT symbol, qty, avg_price, reason, status FROM rebalance_sells WHERE run_id = ?", conn, params=(run_id,)
+        "SELECT symbol, qty, avg_price, reason, status FROM rebalance_sells WHERE run_id = ?",
+        conn,
+        params=(run_id,),
     )
     buys = pd.read_sql(
         "SELECT symbol, qty, price, stop, score, fundamental_score, "
@@ -1389,7 +1538,8 @@ def get_rebalance_run_items(run_id: int) -> dict:
         params=(run_id,),
     )
     top_ups = pd.read_sql(
-        "SELECT symbol, extra_qty, price, gtt_trigger_id, status FROM rebalance_top_ups WHERE run_id = ?",
+        "SELECT symbol, extra_qty, price, gtt_trigger_id, status "
+        "FROM rebalance_top_ups WHERE run_id = ?",
         conn,
         params=(run_id,),
     )
@@ -1461,7 +1611,9 @@ def get_last_rebalance_run() -> dict | None:
     (holdings isn't persisted -- callers already fetch that fresh from
     Kite, it's only ever a live snapshot, never historical)."""
     conn = get_conn()
-    run = conn.execute("SELECT * FROM rebalance_runs WHERE status = 'success' ORDER BY id DESC LIMIT 1").fetchone()
+    run = conn.execute(
+        "SELECT * FROM rebalance_runs WHERE status = 'success' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
     if run is None:
         conn.close()
         return None
@@ -1470,7 +1622,8 @@ def get_last_rebalance_run() -> dict | None:
     # shouldn't show as still needing action (see _mark_rebalance_items()
     # and save_rebalance_run()'s expiry step).
     sells = pd.read_sql(
-        "SELECT symbol, qty, avg_price, reason FROM rebalance_sells WHERE run_id = ? AND status = 'proposed'",
+        "SELECT symbol, qty, avg_price, reason FROM rebalance_sells "
+        "WHERE run_id = ? AND status = 'proposed'",
         conn,
         params=(run_id,),
     )
@@ -1573,7 +1726,11 @@ def get_rebalance_history(
 
 
 def _mark_rebalance_items(
-    table: str, run_id: int | None, symbols: list[str], status: str, error_message: str | None = None
+    table: str,
+    run_id: int | None,
+    symbols: list[str],
+    status: str,
+    error_message: str | None = None,
 ) -> None:
     """Shared implementation for every mark_rebalance_*_executed/failed()
     below -- sets status + resolved_at (and error_message, for failures)
@@ -1591,7 +1748,8 @@ def _mark_rebalance_items(
     conn = get_conn()
     now = dt.datetime.now().isoformat()
     conn.executemany(
-        f"UPDATE {table} SET status = ?, resolved_at = ?, error_message = ? WHERE run_id = ? AND symbol = ?",
+        f"UPDATE {table} SET status = ?, resolved_at = ?, error_message = ? "
+        "WHERE run_id = ? AND symbol = ?",
         [(status, now, error_message, run_id, s) for s in symbols],
     )
     conn.commit()
@@ -1643,7 +1801,9 @@ def set_rebalance_open_slots(run_id: int | None, open_slots: int) -> None:
     if run_id is None:
         return
     conn = get_conn()
-    conn.execute("UPDATE rebalance_runs SET open_slots = ? WHERE id = ?", (max(int(open_slots), 0), run_id))
+    conn.execute(
+        "UPDATE rebalance_runs SET open_slots = ? WHERE id = ?", (max(int(open_slots), 0), run_id)
+    )
     conn.commit()
     conn.close()
 
@@ -1739,12 +1899,15 @@ def create_remember_token(username: str) -> tuple[str, int]:
     handed to the browser as a cookie value and never itself stored; only
     its SHA-256 hash lives in the DB (see module note above)."""
     conn = get_conn()
-    conn.execute("DELETE FROM remember_tokens WHERE expires_at < ?", (dt.datetime.now().isoformat(),))
+    conn.execute(
+        "DELETE FROM remember_tokens WHERE expires_at < ?", (dt.datetime.now().isoformat(),)
+    )
     token = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(token.encode()).hexdigest()
     expires_at = _next_daily_cutoff()
     conn.execute(
-        "INSERT INTO remember_tokens (username, token_hash, created_at, expires_at) VALUES (?, ?, ?, ?)",
+        "INSERT INTO remember_tokens (username, token_hash, created_at, expires_at) "
+        "VALUES (?, ?, ?, ?)",
         (username, token_hash, dt.datetime.now().isoformat(), expires_at.isoformat()),
     )
     conn.commit()
@@ -1803,7 +1966,8 @@ def get_strategy_config(defaults: dict) -> dict:
     missing = {k: v for k, v in defaults.items() if k not in stored}
     if missing:
         conn.executemany(
-            "INSERT INTO strategy_config (key, value) VALUES (?, ?)", [(k, json.dumps(v)) for k, v in missing.items()]
+            "INSERT INTO strategy_config (key, value) VALUES (?, ?)",
+            [(k, json.dumps(v)) for k, v in missing.items()],
         )
         conn.commit()
     conn.close()
@@ -1859,7 +2023,9 @@ def get_skipped_symbols() -> list[str]:
 
 def get_skipped_symbols_df() -> pd.DataFrame:
     conn = get_conn()
-    df = pd.read_sql_query("SELECT symbol, reason, added_at FROM skipped_symbols ORDER BY symbol", conn)
+    df = pd.read_sql_query(
+        "SELECT symbol, reason, added_at FROM skipped_symbols ORDER BY symbol", conn
+    )
     conn.close()
     return df
 
@@ -1884,7 +2050,12 @@ def ensure_kite_credentials_seeded(api_key: str, api_secret: str, access_token: 
         conn.execute(
             "INSERT INTO kite_credentials (id, api_key, api_secret, "
             "access_token, access_token_updated_at) VALUES (1, ?, ?, ?, ?)",
-            (api_key, api_secret, access_token, dt.datetime.now().isoformat() if access_token else None),
+            (
+                api_key,
+                api_secret,
+                access_token,
+                dt.datetime.now().isoformat() if access_token else None,
+            ),
         )
         conn.commit()
     conn.close()
@@ -1897,7 +2068,12 @@ def get_kite_credentials() -> dict:
     row = conn.execute("SELECT * FROM kite_credentials WHERE id = 1").fetchone()
     conn.close()
     if row is None:
-        return {"api_key": "", "api_secret": "", "access_token": "", "access_token_updated_at": None}
+        return {
+            "api_key": "",
+            "api_secret": "",
+            "access_token": "",
+            "access_token_updated_at": None,
+        }
     return dict(row)
 
 
@@ -1918,7 +2094,10 @@ def update_kite_api_credentials(api_key: str, api_secret: str) -> None:
     """Used by the dashboard's Kite API settings form, for whenever the
     user regenerates keys in the Kite developer console."""
     conn = get_conn()
-    conn.execute("UPDATE kite_credentials SET api_key = ?, api_secret = ? WHERE id = 1", (api_key, api_secret))
+    conn.execute(
+        "UPDATE kite_credentials SET api_key = ?, api_secret = ? WHERE id = 1",
+        (api_key, api_secret),
+    )
     conn.commit()
     conn.close()
 
@@ -1935,7 +2114,8 @@ def update_kite_api_credentials(api_key: str, api_secret: str) -> None:
 def start_job_run(job_type: str, trigger_type: str) -> int:
     conn = get_conn()
     cur = conn.execute(
-        "INSERT INTO job_runs (job_type, trigger_type, started_at, status) VALUES (?, ?, ?, 'running')",
+        "INSERT INTO job_runs (job_type, trigger_type, started_at, status) "
+        "VALUES (?, ?, ?, 'running')",
         (job_type, trigger_type, dt.datetime.now().isoformat()),
     )
     run_id = cur.lastrowid
@@ -1944,7 +2124,9 @@ def start_job_run(job_type: str, trigger_type: str) -> int:
     return run_id
 
 
-def finish_job_run(run_id: int, status: str, summary: str | None = None, error: str | None = None) -> None:
+def finish_job_run(
+    run_id: int, status: str, summary: str | None = None, error: str | None = None
+) -> None:
     conn = get_conn()
     row = conn.execute("SELECT started_at FROM job_runs WHERE id = ?", (run_id,)).fetchone()
     started = dt.datetime.fromisoformat(row["started_at"])
@@ -1952,7 +2134,14 @@ def finish_job_run(run_id: int, status: str, summary: str | None = None, error: 
     conn.execute(
         "UPDATE job_runs SET finished_at = ?, duration_sec = ?, status = ?, "
         "summary = ?, error_message = ? WHERE id = ?",
-        (finished.isoformat(), (finished - started).total_seconds(), status, summary, error, run_id),
+        (
+            finished.isoformat(),
+            (finished - started).total_seconds(),
+            status,
+            summary,
+            error,
+            run_id,
+        ),
     )
     conn.commit()
     conn.close()
@@ -1987,7 +2176,9 @@ def job_run(job_type: str, trigger_type: str):
         # any other reason, or the proactive check itself not having run.
         title = "KK Trading -- Kite login needed"
         message = f"{job_type} failed: Kite session expired. Log in to resume automated runs."
-        for dead in notify.send_webpush_all(get_push_subscriptions(), title, message, notify.DASHBOARD_URL):
+        for dead in notify.send_webpush_all(
+            get_push_subscriptions(), title, message, notify.DASHBOARD_URL
+        ):
             delete_push_subscription(dead)
         raise
     except Exception:
@@ -2001,7 +2192,9 @@ def job_run(job_type: str, trigger_type: str):
         if job_type == "rebalance_scan" and trigger_type == "scheduled":
             title = "KK Trading -- rebalance complete"
             message = result.get("summary") or "Rebalance scan finished."
-            for dead in notify.send_webpush_all(get_push_subscriptions(), title, message, notify.DASHBOARD_URL):
+            for dead in notify.send_webpush_all(
+                get_push_subscriptions(), title, message, notify.DASHBOARD_URL
+            ):
                 delete_push_subscription(dead)
 
 
@@ -2042,7 +2235,10 @@ def cleanup_stale_manual_jobs() -> int:
 
 
 def get_job_runs(
-    job_type: str | None = None, status: str | None = None, since: str | None = None, limit: int = 200
+    job_type: str | None = None,
+    status: str | None = None,
+    since: str | None = None,
+    limit: int = 200,
 ) -> pd.DataFrame:
     """since: an ISO date/datetime string, inclusive lower bound on
     started_at. All filters optional -- omit to get the unfiltered history
@@ -2059,7 +2255,9 @@ def get_job_runs(
         where.append("started_at >= ?")
         params.append(since)
     clause = f"WHERE {' AND '.join(where)}" if where else ""
-    df = pd.read_sql(f"SELECT * FROM job_runs {clause} ORDER BY id DESC LIMIT ?", conn, params=[*params, limit])
+    df = pd.read_sql(
+        f"SELECT * FROM job_runs {clause} ORDER BY id DESC LIMIT ?", conn, params=params + [limit]
+    )
     conn.close()
     return df
 
@@ -2081,7 +2279,9 @@ def get_last_job_run(job_type: str) -> dict | None:
     """For the Job Log page's quick-glance strip -- last run of one job
     type, whatever its status."""
     conn = get_conn()
-    row = conn.execute("SELECT * FROM job_runs WHERE job_type = ? ORDER BY id DESC LIMIT 1", (job_type,)).fetchone()
+    row = conn.execute(
+        "SELECT * FROM job_runs WHERE job_type = ? ORDER BY id DESC LIMIT 1", (job_type,)
+    ).fetchone()
     conn.close()
     return dict(row) if row else None
 
@@ -2166,7 +2366,8 @@ def close_trade(symbol: str, exit_price: float | None, exit_reason: str) -> None
     loaded by the time any caller actually reaches this function."""
     conn = get_conn()
     row = conn.execute(
-        "SELECT * FROM trades WHERE symbol = ? AND status = 'open' ORDER BY id DESC LIMIT 1", (symbol,)
+        "SELECT * FROM trades WHERE symbol = ? AND status = 'open' ORDER BY id DESC LIMIT 1",
+        (symbol,),
     ).fetchone()
     if row is None:
         conn.close()
@@ -2209,7 +2410,8 @@ def correct_trade_exit_price(symbol: str, exit_date: str, real_exit_price: float
     today, or was already reconciled by a different day's run)."""
     conn = get_conn()
     rows = conn.execute(
-        "SELECT id, entry_price, qty FROM trades WHERE symbol = ? AND exit_date = ? AND status = 'closed'",
+        "SELECT id, entry_price, qty FROM trades WHERE symbol = ? "
+        "AND exit_date = ? AND status = 'closed'",
         (symbol, exit_date),
     ).fetchall()
     for row in rows:
@@ -2230,7 +2432,9 @@ def correct_trade_exit_price(symbol: str, exit_date: str, real_exit_price: float
     return len(rows)
 
 
-def get_trades(symbol: str | None = None, status: str | None = None, since: str | None = None) -> pd.DataFrame:
+def get_trades(
+    symbol: str | None = None, status: str | None = None, since: str | None = None
+) -> pd.DataFrame:
     """Also carries the position's latest known stop as
     latest_recommended_stop -- COALESCE(p.recommended_stop, p.current_stop):
     p.recommended_stop is the trailing-stop value compute_stop_updates()
@@ -2304,7 +2508,10 @@ def get_push_subscriptions() -> list[dict]:
     conn = get_conn()
     rows = conn.execute("SELECT endpoint, p256dh, auth FROM push_subscriptions").fetchall()
     conn.close()
-    return [{"endpoint": r["endpoint"], "keys": {"p256dh": r["p256dh"], "auth": r["auth"]}} for r in rows]
+    return [
+        {"endpoint": r["endpoint"], "keys": {"p256dh": r["p256dh"], "auth": r["auth"]}}
+        for r in rows
+    ]
 
 
 def get_entry_confirm_streaks() -> dict[str, int]:
@@ -2334,7 +2541,9 @@ def update_entry_confirm_streaks(confirm_syms_now: set[str], today: str) -> bool
     to have already been updated today). Returns True if it actually
     updated, False if it was a no-op."""
     conn = get_conn()
-    rows = conn.execute("SELECT symbol, streak, last_confirmed_date FROM entry_confirm_streak").fetchall()
+    rows = conn.execute(
+        "SELECT symbol, streak, last_confirmed_date FROM entry_confirm_streak"
+    ).fetchall()
     if rows and all(r["last_confirmed_date"] == today for r in rows):
         conn.close()
         return False

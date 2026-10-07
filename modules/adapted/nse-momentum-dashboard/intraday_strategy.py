@@ -223,6 +223,20 @@ def choose_trail_ema(direction: str, target: float, ema10: float | None) -> int 
     return TRAIL_EMA_SLOW if target < ema10 else None
 
 
+def signal_trend_ok(direction: str, close: float, ema50: float | None) -> bool:
+    """v5.4 §5m -- the signal candle must close on the trend side of
+    EMA50 (5-min, continuous, span=50, min_periods=50): LONG needs
+    close > EMA50, SHORT needs close < EMA50. A symbol with fewer than
+    50 candles of history (NaN EMA50) fails closed -- REJECTS the
+    signal rather than passing it, same fail-closed convention as
+    signal_in_range(). Supersedes §5l as the adopted configuration --
+    6-year-consistent but a light touch (spec's own measured bound: 69
+    of ~5,900 evaluated signals skipped, 6 fewer positions overall)."""
+    if ema50 is None or pd.isna(ema50):
+        return False
+    return close > ema50 if direction == LONG else close < ema50
+
+
 def trail_crossed(direction: str, close: float, ema: float | None) -> bool:
     """v5.2 §1 step 3 -- a candle's own close vs that same candle's own
     EMA (both known simultaneously at candle close): LONG crosses when
@@ -296,7 +310,9 @@ def sector_gate_pass(sector_ratio: float, direction: str) -> bool:
     return sector_ratio < SECTOR_GATE_RATIO_SHORT_MAX
 
 
-def select_candidates(fno_ret_first15: pd.Series, bias: str, n: int = TOP_N_CANDIDATES) -> pd.Series:
+def select_candidates(
+    fno_ret_first15: pd.Series, bias: str, n: int = TOP_N_CANDIDATES
+) -> pd.Series:
     """Spec.md §2.3-2.4 -- rank the F&O universe (NOT NIFTY50 -- that's
     only used for the breadth ratio above) by first15_return, best-first
     for LONG / worst-first for SHORT, and take the top `n`. No sector or
@@ -318,7 +334,11 @@ def select_candidates(fno_ret_first15: pd.Series, bias: str, n: int = TOP_N_CAND
 
 
 def signal_in_range(
-    direction: str, open_: float, close: float, sig_range_low: float | None, sig_range_high: float | None
+    direction: str,
+    open_: float,
+    close: float,
+    sig_range_low: float | None,
+    sig_range_high: float | None,
 ) -> bool:
     """v5.4 §5i.1 -- the "one-sided signal gate": a candle may only
     become a FRESH signal candle if its BODY (open/close -- wicks
@@ -353,6 +373,41 @@ def signal_in_range(
     return body_hi <= sig_range_high
 
 
+def fair_value_gap(
+    candle0_high: float, candle0_low: float, candle2_high: float, candle2_low: float
+) -> tuple[float | None, float | None]:
+    """v5.4 §5n -- the day's fixed fair-value-gap zone, from the 1st
+    (09:15, index 0) and 3rd (09:25, index 2) candles' own high/low --
+    a price zone that traded only once that morning. Returns (fvg_lo,
+    fvg_hi), or (None, None) if the two candles overlap (no gap that
+    day -- the veto below is then inert, NOT fail-closed, since "no
+    gap" is a normal, common outcome, not a data problem):
+
+      bullish gap  candle0_high < candle2_low   -> [candle0_high, candle2_low]
+      bearish gap  candle0_low  > candle2_high  -> [candle2_high, candle0_low]
+      no gap       the two candles overlap      -> (None, None), filter inert
+    """
+    if candle0_high < candle2_low:
+        return candle0_high, candle2_low
+    if candle0_low > candle2_high:
+        return candle2_high, candle0_low
+    return None, None
+
+
+def fvg_vetoed(close: float, fvg_lo: float | None, fvg_hi: float | None) -> bool:
+    """v5.4 §5n -- True if a signal candle's own CLOSE falls inside the
+    day's fair-value-gap zone (bounds INCLUSIVE -- a close landing
+    exactly on a zone edge counts as inside, per the spec's own
+    measured choice). A day with no gap (fvg_lo/hi both None) never
+    vetoes anything -- this is the opposite fail-direction from
+    signal_in_range()'s fail-closed-on-missing-data convention,
+    deliberately, since "no gap" isn't missing data, it's the normal
+    case for most days."""
+    if fvg_lo is None or fvg_hi is None:
+        return False
+    return fvg_lo <= close <= fvg_hi
+
+
 def find_entry(
     day: pd.DataFrame,
     direction: str,
@@ -362,6 +417,9 @@ def find_entry(
     first_candle_high: float,
     sig_range_low: float | None = None,
     sig_range_high: float | None = None,
+    ema50_series: pd.Series | None = None,
+    fvg_lo: float | None = None,
+    fvg_hi: float | None = None,
 ) -> dict | None:
     """Spec v2 §3.2's walk-forward loop, for one candidate on one day.
 
@@ -372,10 +430,21 @@ def find_entry(
     `first_candle_low`/`first_candle_high`: the day's very first (09:15)
     candle's own low/high, captured once before this loop runs (§3.2 v2
     step 1b) -- a fixed value for the whole day, not looked up per candle.
+    `ema50_series`: v5.4 §5m's trend filter on the signal candle, same
+    continuous-series/lookup-by-timestamp convention as ema21_series.
+    None disables the filter entirely (pre-§5m behavior) -- pass a real
+    series (strat.ema_n(close, 50)) to turn it on; a real series with a
+    NaN value at a given timestamp (not enough history yet) still fails
+    that candle closed, same as a missing sig_range.
     `sig_range_low`/`sig_range_high`: v5.4 §5i.1's one-sided signal gate
     reference range (09:20+09:25 candles), also fixed for the whole day.
     None disables signal formation entirely for this call (fail-closed,
     see signal_in_range()) -- pass real values once the range is known.
+    `fvg_lo`/`fvg_hi`: v5.4 §5n's fair-value-gap veto zone (see
+    fair_value_gap()), also fixed for the whole day. None (the default,
+    either because the caller didn't wire this in, or because
+    fair_value_gap() itself found no gap that day) means the veto is
+    simply INERT -- opposite fail-direction from sig_range above.
 
     Returns {"signal_time", "entry_time", "entry_price", "stop_price"}
     on a triggered entry, else None (day invalidated, or no signal ever
@@ -394,23 +463,26 @@ def find_entry(
     invalidated = False
     active_signal = None  # {"time", "hi", "lo", "atr", "volume", "signal_close"}
     breakout_counter = 0
-    chain_len = 0  # v5.3: 0 = active signal is a fresh one; 1 = it's itself a re-signal
 
     for ts, row in win.iterrows():
         sig_atr = atr14_series.get(ts)  # this candle's own ATR -- needed both
-        # for a fresh signal formation below AND for a re-signal check while
+        # for a fresh signal formation below AND for the continuation gate while
         # an existing signal is active, computed once here either way.
         # 1. EMA21 day-invalidation gate -- checked every candle,
         # regardless of any active signal (Spec §3.2 step 1, §9.5).
         e21 = ema21_series.get(ts)
-        if pd.notna(e21):
-            if (direction == LONG and row["close"] < e21) or (direction == SHORT and row["close"] > e21):
-                invalidated = True
+        if pd.notna(e21) and (
+            direction == LONG and row["close"] < e21 or direction == SHORT and row["close"] > e21
+        ):
+            invalidated = True
         # 1b. NEW v2 -- first-candle-close-through invalidation gate,
         # same whole-day-kill-switch semantics as the EMA21 gate above,
         # just a different reference level (the day's own 09:15 candle).
-        if (direction == LONG and row["close"] < first_candle_low) or (
-            direction == SHORT and row["close"] > first_candle_high
+        if (
+            direction == LONG
+            and row["close"] < first_candle_low
+            or direction == SHORT
+            and row["close"] > first_candle_high
         ):
             invalidated = True
         if invalidated:
@@ -431,7 +503,11 @@ def find_entry(
                 trigger_level = active_signal["lo"] - buf
                 triggered = row["low"] <= trigger_level
             if triggered:
-                stop_price = (active_signal["lo"] - buf) if direction == LONG else (active_signal["hi"] + buf)
+                stop_price = (
+                    (active_signal["lo"] - buf)
+                    if direction == LONG
+                    else (active_signal["hi"] + buf)
+                )
                 return {
                     "signal_time": active_signal["time"],
                     "entry_time": ts,
@@ -448,15 +524,6 @@ def find_entry(
             # waiting out the remaining window candle(s) (Spec v3 §6
             # point 1, extended). See step_candle()'s own comment for the
             # live-vs-backtest rationale, kept identical here.
-            # v5.1/v5.3 -- "re-signal on close", tightened in v5.3: see
-            # step_candle()'s own comment for the full rationale. A candle
-            # that fails to keep the window open -- candle #1 failing this
-            # gate, or candle #2 exhausting the window -- gets one more
-            # chance to become a brand-new signal candle if ALL of: its
-            # own close extended the pullback beyond the CURRENT active
-            # signal's close, its volume is strictly LOWER than that
-            # signal's, and the active signal is a FRESH one (chain_len
-            # == 0 -- a re-signaled candle can never re-signal again).
             gate_ok = False
             if breakout_counter < BREAKOUT_WINDOW:
                 confirm_is_green = row["close"] > row["open"]
@@ -467,57 +534,353 @@ def find_entry(
                 gate_ok = wants_confirm_color and volume_ok and range_ok
             if gate_ok:
                 continue
-            resig_ok = (
-                row["close"] < active_signal["signal_close"]
-                if direction == LONG
-                else row["close"] > active_signal["signal_close"]
+            # §5l -- v5.1/v5.3's "re-signal on close" is REMOVED entirely
+            # (no close-extension test, no volume-vs-signal test, no
+            # chain_len cap). The dying signal's own candle -- candle #1
+            # that just failed the continuation gate above, or candle #2
+            # that exhausted the window -- falls straight through to
+            # step 3 below and is re-tested as an ORDINARY fresh signal
+            # candle: same day's-lowest-volume/color/one-sided-gate bar
+            # as any other candle, nothing special carried over from the
+            # dying signal. If it doesn't qualify, nothing is active and
+            # the scan just continues from the next candle. Verified
+            # worth +1.83 CAGR / -0.88pp drawdown over the old re-signal
+            # rule (Spec §5l.1) -- the old rule only required volume
+            # lower than the signal it replaced, not the day's actual
+            # running minimum, so it manufactured weaker setups from
+            # already-failing ones.
+            active_signal = None
+            breakout_counter = 0
+            # falls through to step 3 -- deliberately no `continue` here
+
+        # 3. No active signal (either never had one this candle, or it
+        # just died above) -- check whether THIS candle is a fresh
+        # signal candle (only before NEW_SIGNAL_CUTOFF).
+        if active_signal is None:
+            if ts.time() > NEW_SIGNAL_CUTOFF:
+                continue
+            is_red = row["close"] < row["open"]
+            is_green = row["close"] > row["open"]
+            wants_color = is_red if direction == LONG else is_green
+            vol_min_so_far = vol_so_far_full.loc[:ts].min()
+            is_lowest_volume = row["volume"] <= vol_min_so_far * (1 + VOL_THRESHOLD_PCT)
+            in_range = signal_in_range(
+                direction, float(row["open"]), float(row["close"]), sig_range_low, sig_range_high
             )
+            # v5.4 §5m -- trend_ok defaults to True (filter off) when no
+            # ema50_series is given at all, matching the spec's own
+            # --trend-filter=off toggle; once a series IS given, a NaN
+            # value (not enough history) fails this candle closed.
+            trend_ok = (
+                signal_trend_ok(direction, float(row["close"]), ema50_series.get(ts))
+                if ema50_series is not None
+                else True
+            )
+            fvg_ok = not fvg_vetoed(float(row["close"]), fvg_lo, fvg_hi)
             if (
-                resig_ok
-                and chain_len == 0
-                and row["volume"] < active_signal["volume"]
+                wants_color
+                and is_lowest_volume
+                and in_range
+                and trend_ok
+                and fvg_ok
                 and pd.notna(sig_atr)
                 and sig_atr > 0
             ):
+                # float(...) on every field here, not just open/close above --
+                # a candle whose OHLCV all happen to be whole numbers (no
+                # paise) gets fetched as an int64 dtype column, and a raw
+                # numpy.int64 (unlike numpy.float64) silently serializes to
+                # a BLOB instead of a number if this dict's values ever
+                # reach sqlite3 unwrapped (verified live: BAJAJ-AUTO,
+                # 2026-10-01, every OHLC value a round number that day).
                 active_signal = {
                     "time": ts,
-                    "hi": row["high"],
-                    "lo": row["low"],
+                    "hi": float(row["high"]),
+                    "lo": float(row["low"]),
                     "atr": sig_atr,
-                    "volume": row["volume"],
-                    "signal_close": row["close"],
+                    "volume": float(row["volume"]),
+                    "signal_close": float(row["close"]),
                 }
                 breakout_counter = 0
-                chain_len += 1
-            else:
-                active_signal = None
-                breakout_counter = 0
-                chain_len = 0
-            continue
-
-        # 3. No active signal -- check whether THIS candle is a fresh
-        # signal candle (only before NEW_SIGNAL_CUTOFF).
-        if ts.time() > NEW_SIGNAL_CUTOFF:
-            continue
-        is_red = row["close"] < row["open"]
-        is_green = row["close"] > row["open"]
-        wants_color = is_red if direction == LONG else is_green
-        vol_min_so_far = vol_so_far_full.loc[:ts].min()
-        is_lowest_volume = row["volume"] <= vol_min_so_far * (1 + VOL_THRESHOLD_PCT)
-        in_range = signal_in_range(direction, float(row["open"]), float(row["close"]), sig_range_low, sig_range_high)
-        if wants_color and is_lowest_volume and in_range and pd.notna(sig_atr) and sig_atr > 0:
-            active_signal = {
-                "time": ts,
-                "hi": row["high"],
-                "lo": row["low"],
-                "atr": sig_atr,
-                "volume": row["volume"],
-                "signal_close": row["close"],
-            }
-            breakout_counter = 0
-            chain_len = 0
 
     return None
+
+
+def diagnose_day(
+    day: pd.DataFrame,
+    direction: str,
+    ema21_series: pd.Series,
+    atr14_series: pd.Series,
+    first_candle_low: float,
+    first_candle_high: float,
+    sig_range_low: float | None = None,
+    sig_range_high: float | None = None,
+    ema50_series: pd.Series | None = None,
+    fvg_lo: float | None = None,
+    fvg_hi: float | None = None,
+) -> dict:
+    """Read-only diagnostic twin of find_entry() -- walks the IDENTICAL
+    §3.2/§5l/§5m/§5n loop, candle-by-candle-for-candle, but instead of stopping at
+    the first trigger, records WHY every candle that didn't advance the
+    state machine failed to, and ends with a synthesized plain-English
+    final outcome. Built for the Intraday Logs page's "why didn't/did
+    this candidate trade today" view -- pure reconstruction from the same
+    real candle data + rules find_entry()/step_candle() themselves use,
+    no DB writes, no effect on the live engine or its state.
+
+    Deliberately kept as a SEPARATE function rather than adding a
+    trace-collecting flag to find_entry() -- that function is the one
+    backtest.py actually calls for real P&L, and every added branch here
+    is a branch that function doesn't need to carry just to explain
+    itself after the fact.
+
+    Returns {"trace": [...], "outcome": {...}}:
+      trace: one dict per evaluated candle, {"time", "stage", "result"
+        ("ok"/"fail"/"triggered"), "reason", plus the raw OHLCV/checks
+        that produced it} -- "stage" is "invalidation", "continuation"
+        (checking an active signal's window candle), or "fresh" (checking
+        whether this candle becomes a new signal).
+      outcome: {"type", "detail", ...} where type is one of:
+        "invalidated", "triggered", "expired_no_retrigger" (a signal
+        formed and died, nothing else ever qualified after it),
+        "no_signal_all_day" (not invalidated, but nothing EVER passed
+        the fresh-signal checks), "empty" (no candles in the window at
+        all, e.g. a holiday/data gap).
+    """
+    win = day.between_time(SIGNAL_WINDOW_START, SIGNAL_WINDOW_END)
+    trace: list[dict] = []
+    if win.empty:
+        return {
+            "trace": trace,
+            "outcome": {"type": "empty", "detail": "No candles in the signal window."},
+        }
+
+    day_open_ts = win.index[0].normalize() + pd.Timedelta(hours=9, minutes=15)
+    vol_so_far_full = day.loc[day.index >= day_open_ts, "volume"]
+
+    active_signal = None
+    breakout_counter = 0
+    any_signal_ever = False
+    last_signal_death: dict | None = None  # {"time", "reason"} of the most recent expiry
+
+    for ts, row in win.iterrows():
+        sig_atr = atr14_series.get(ts)
+        e21 = ema21_series.get(ts)
+        invalidated_now = False
+        inval_reason = None
+        if pd.notna(e21):
+            if direction == LONG and row["close"] < e21:
+                invalidated_now, inval_reason = (
+                    True,
+                    f"closed {row['close']:.2f} below EMA21 {e21:.2f}",
+                )
+            elif direction == SHORT and row["close"] > e21:
+                invalidated_now, inval_reason = (
+                    True,
+                    f"closed {row['close']:.2f} above EMA21 {e21:.2f}",
+                )
+        if not invalidated_now:
+            if direction == LONG and row["close"] < first_candle_low:
+                invalidated_now = True
+                inval_reason = (
+                    f"closed {row['close']:.2f} below the day's 09:15 low {first_candle_low:.2f}"
+                )
+            elif direction == SHORT and row["close"] > first_candle_high:
+                invalidated_now = True
+                inval_reason = (
+                    f"closed {row['close']:.2f} above the day's 09:15 high {first_candle_high:.2f}"
+                )
+        if invalidated_now:
+            trace.append(
+                {"time": ts, "stage": "invalidation", "result": "fail", "reason": inval_reason}
+            )
+            return {
+                "trace": trace,
+                "outcome": {"type": "invalidated", "time": ts, "detail": inval_reason},
+            }
+
+        if active_signal is not None:
+            breakout_counter += 1
+            buf = active_signal["atr"] * ATR_PCT_BUFFER
+            if direction == LONG:
+                trigger_level = active_signal["hi"] + buf
+                triggered = row["high"] >= trigger_level
+            else:
+                trigger_level = active_signal["lo"] - buf
+                triggered = row["low"] <= trigger_level
+            if triggered:
+                stop_price = (
+                    (active_signal["lo"] - buf)
+                    if direction == LONG
+                    else (active_signal["hi"] + buf)
+                )
+                reason = (
+                    f"triggered on window candle #{breakout_counter} -- "
+                    f"{'high' if direction == LONG else 'low'} crossed "
+                    f"{trigger_level:.2f} (signal from {active_signal['time']:%H:%M})"
+                )
+                trace.append(
+                    {"time": ts, "stage": "continuation", "result": "triggered", "reason": reason}
+                )
+                return {
+                    "trace": trace,
+                    "outcome": {
+                        "type": "triggered",
+                        "signal_time": active_signal["time"],
+                        "entry_time": ts,
+                        "entry_price": trigger_level,
+                        "stop_price": stop_price,
+                        "detail": reason,
+                    },
+                }
+
+            confirm_is_green = row["close"] > row["open"]
+            confirm_is_red = row["close"] < row["open"]
+            wants_confirm_color = confirm_is_green if direction == LONG else confirm_is_red
+            volume_ok = row["volume"] < active_signal["volume"]
+            range_ok = row["high"] <= active_signal["hi"] and row["low"] >= active_signal["lo"]
+            gate_ok = (
+                breakout_counter < BREAKOUT_WINDOW
+                and wants_confirm_color
+                and volume_ok
+                and range_ok
+            )
+            if gate_ok:
+                trace.append(
+                    {
+                        "time": ts,
+                        "stage": "continuation",
+                        "result": "ok",
+                        "reason": f"window candle #{breakout_counter} kept the "
+                        f"{active_signal['time']:%H:%M} signal alive",
+                    }
+                )
+                continue
+
+            fails = []
+            if breakout_counter >= BREAKOUT_WINDOW:
+                fails.append(f"{BREAKOUT_WINDOW}-candle breakout window exhausted")
+            else:
+                if not wants_confirm_color:
+                    fails.append("wrong confirming color")
+                if not volume_ok:
+                    fails.append(
+                        f"volume {row['volume']:,.0f} not below signal's "
+                        f"{active_signal['volume']:,.0f}"
+                    )
+                if not range_ok:
+                    fails.append("high/low broke outside the signal candle's own range")
+            dead_reason = f"{active_signal['time']:%H:%M} signal died: " + "; ".join(fails)
+            trace.append(
+                {"time": ts, "stage": "continuation", "result": "fail", "reason": dead_reason}
+            )
+            last_signal_death = {"time": ts, "reason": dead_reason}
+            active_signal = None
+            breakout_counter = 0
+            # falls through to the fresh check below -- §5l, no re-signal
+
+        if active_signal is None:
+            if ts.time() > NEW_SIGNAL_CUTOFF:
+                trace.append(
+                    {
+                        "time": ts,
+                        "stage": "fresh",
+                        "result": "fail",
+                        "reason": f"past the {NEW_SIGNAL_CUTOFF:%H:%M} new-signal cutoff",
+                    }
+                )
+                continue
+            is_red = row["close"] < row["open"]
+            is_green = row["close"] > row["open"]
+            wants_color = is_red if direction == LONG else is_green
+            vol_min_so_far = vol_so_far_full.loc[:ts].min()
+            is_lowest_volume = row["volume"] <= vol_min_so_far * (1 + VOL_THRESHOLD_PCT)
+            in_range = signal_in_range(
+                direction, float(row["open"]), float(row["close"]), sig_range_low, sig_range_high
+            )
+            atr_ok = pd.notna(sig_atr) and sig_atr > 0
+            e50 = ema50_series.get(ts) if ema50_series is not None else None
+            trend_ok = True if e50 is None else signal_trend_ok(direction, float(row["close"]), e50)
+            fvg_ok = not fvg_vetoed(float(row["close"]), fvg_lo, fvg_hi)
+            if wants_color and is_lowest_volume and in_range and trend_ok and fvg_ok and atr_ok:
+                any_signal_ever = True
+                active_signal = {
+                    "time": ts,
+                    "hi": float(row["high"]),
+                    "lo": float(row["low"]),
+                    "atr": sig_atr,
+                    "volume": float(row["volume"]),
+                    "signal_close": float(row["close"]),
+                }
+                breakout_counter = 0
+                trace.append(
+                    {
+                        "time": ts,
+                        "stage": "fresh",
+                        "result": "ok",
+                        "reason": f"new {'LONG' if direction == LONG else 'SHORT'} "
+                        f"signal candle (H {row['high']:.2f} / L {row['low']:.2f})",
+                    }
+                )
+                continue
+
+            fails = []
+            if not wants_color:
+                fails.append(f"wrong color (need {'red' if direction == LONG else 'green'})")
+            if not is_lowest_volume:
+                fails.append(
+                    f"volume {row['volume']:,.0f} not the day's lowest "
+                    f"(so-far min {vol_min_so_far:,.0f})"
+                )
+            if not in_range:
+                if sig_range_low is None or sig_range_high is None:
+                    fails.append("one-sided gate reference range unavailable (fails closed)")
+                elif direction == LONG:
+                    body_lo = min(row["open"], row["close"])
+                    fails.append(
+                        f"body low {body_lo:.2f} dipped below the one-sided gate's "
+                        f"floor {sig_range_low:.2f} (09:20/09:25 reference)"
+                    )
+                else:
+                    body_hi = max(row["open"], row["close"])
+                    fails.append(
+                        f"body high {body_hi:.2f} rose above the one-sided gate's "
+                        f"ceiling {sig_range_high:.2f} (09:20/09:25 reference)"
+                    )
+            if not trend_ok:
+                if ema50_series is not None and pd.isna(e50):
+                    fails.append("EMA50 unavailable (fewer than 50 candles of history)")
+                else:
+                    fails.append(
+                        f"close {row['close']:.2f} on the wrong side of EMA50 "
+                        f"{e50:.2f} (§5m trend filter)"
+                    )
+            if not fvg_ok:
+                fails.append(
+                    f"close {row['close']:.2f} sits inside the fair-value-gap zone "
+                    f"[{fvg_lo:.2f}, {fvg_hi:.2f}] (§5n veto)"
+                )
+            if not atr_ok:
+                fails.append("ATR unavailable")
+            trace.append(
+                {"time": ts, "stage": "fresh", "result": "fail", "reason": "; ".join(fails)}
+            )
+
+    if any_signal_ever:
+        outcome = {
+            "type": "expired_no_retrigger",
+            "detail": (
+                last_signal_death["reason"]
+                if last_signal_death
+                else "Signal(s) formed but none ever triggered."
+            ),
+        }
+    else:
+        outcome = {
+            "type": "no_signal_all_day",
+            "detail": "No candle today ever qualified as a fresh signal candle.",
+        }
+    return {"trace": trace, "outcome": outcome}
 
 
 # ---------------------------------------------------------------------------
@@ -533,7 +896,7 @@ def find_entry(
 
 def new_signal_state() -> dict:
     """A fresh per-candidate-per-day state for step_candle()."""
-    return {"invalidated": False, "active_signal": None, "breakout_counter": 0, "chain_len": 0}
+    return {"invalidated": False, "active_signal": None, "breakout_counter": 0}
 
 
 def step_candle(
@@ -548,6 +911,9 @@ def step_candle(
     first_candle_high: float,
     sig_range_low: float | None = None,
     sig_range_high: float | None = None,
+    e50: float | None = None,
+    fvg_lo: float | None = None,
+    fvg_hi: float | None = None,
 ) -> tuple[dict, dict | None]:
     """One incremental step of the §3.2 walk-forward loop. Does NOT
     mutate `state` -- returns a new state dict (caller keeps its own
@@ -562,31 +928,51 @@ def step_candle(
     `first_candle_low`/`first_candle_high`: the day's 09:15 candle's own
     low/high (v2 §3.2 step 1b) -- fixed for the whole day, the caller
     captures it once and passes the same value on every call.
+    `e50`: v5.4 §5m's trend filter on the signal candle -- this candle's
+    own EMA50 value. Python `None` (the default) means the filter is OFF
+    entirely (pre-§5m behavior, matching find_entry()'s own ema50_series
+    =None convention); a real NaN (e.g. `float("nan")`, what a pandas
+    lookup actually returns for a timestamp before 50 candles of history
+    exist) means the filter IS on but unavailable for this candle, which
+    fails it closed -- `None` and NaN are deliberately distinguishable
+    here (`x is None` vs `pd.isna(x)`), not the same "missing" bucket.
     `sig_range_low`/`sig_range_high`: v5.4 §5i.1's one-sided signal gate
     reference range (09:20+09:25 candles), also fixed for the whole day.
     None fails closed -- see signal_in_range().
+    `fvg_lo`/`fvg_hi`: v5.4 §5n's fair-value-gap veto zone (see
+    fair_value_gap()), fixed for the whole day. None means inert (no
+    veto) -- either no gap that day, or the caller didn't wire this in.
 
     Returns (new_state, event) -- event is None (nothing happened this
     candle) or one of:
       {"type": "invalidated"}
-      {"type": "signal_formed", "time", "high", "low", "atr"}
+      {"type": "signal_formed", "time", "high", "low", "atr", "replaced_expired"}
       {"type": "signal_expired"}
       {"type": "triggered", "signal_time", "entry_time", "entry_price", "stop_price"}
+
+    "signal_formed"'s "replaced_expired" is True when this same candle
+    just killed a DIFFERENT signal before qualifying as a fresh one
+    itself (§5l) -- the caller (intraday_engine.process_candle) needs
+    this to know to retire the OLD signal_db_id as "expired" before
+    creating a row for the new one, since step_candle() itself never
+    emits a separate signal_expired event for that intermediate death.
     """
     if state["invalidated"]:
         return state, None
     state = dict(state)
 
     if pd.notna(e21):
-        if (direction == LONG and row["close"] < e21) or (direction == SHORT and row["close"] > e21):
+        if direction == LONG and row["close"] < e21 or direction == SHORT and row["close"] > e21:
             state["invalidated"] = True
     # v2 NEW -- first-candle-close-through gate (§3.2 step 1b), same
     # whole-day-kill-switch semantics as the EMA21 gate just above.
-    if not state["invalidated"]:
-        if (direction == LONG and row["close"] < first_candle_low) or (
-            direction == SHORT and row["close"] > first_candle_high
-        ):
-            state["invalidated"] = True
+    if not state["invalidated"] and (
+        direction == LONG
+        and row["close"] < first_candle_low
+        or direction == SHORT
+        and row["close"] > first_candle_high
+    ):
+        state["invalidated"] = True
     if state["invalidated"]:
         state["active_signal"] = None
         return state, {"type": "invalidated"}
@@ -636,29 +1022,10 @@ def step_candle(
         # tick during its own formation -- process_candle()'s own
         # tracker.done guard skips calling this entirely once a tick has
         # already triggered.
-        # v5.1 -- "re-signal on close", tightened in v5.3: rather than
-        # being the final word, a candle that fails to keep the window
-        # open (either candle #1 failing the color/volume/range gate, or
-        # candle #2 exhausting the window) gets ONE more chance to
-        # become a brand-new signal candle in its own right, if ALL of:
-        #   - its own close extended the pullback beyond the CURRENT
-        #     active signal's close (a deeper low for LONG, a higher
-        #     high for SHORT -- still fading, just further);
-        #   - v5.3: its volume is strictly LOWER than the signal candle
-        #     it replaces (otherwise a heavy-volume selling candle could
-        #     become a "low-volume pullback" signal -- ASIANPAINT
-        #     2021-10-27's 4-hop chain ended on a 122,767-share candle);
-        #   - v5.3: the active signal is a FRESH one (chain_len == 0) --
-        #     a re-signaled candle still gets its normal 2-candle window
-        #     and can trigger, but can never re-signal again.
-        # Only ever uses this candle's own already-closed facts vs an
-        # already-known fixed signal, so it's exactly as real-time-safe
-        # as everything else here. Verified (single run, 2026-09-19,
-        # scratch_..._resigvol_nochain.py): drawdown -10.23%, PF 1.53.
         gate_ok = False
         if state["breakout_counter"] < BREAKOUT_WINDOW:
             # Candle #1 only -- same continuation gate as before decides
-            # whether candle #2 gets a look BEFORE trying a re-signal.
+            # whether candle #2 gets a look.
             confirm_is_green = row["close"] > row["open"]
             confirm_is_red = row["close"] < row["open"]
             wants_confirm_color = confirm_is_green if direction == LONG else confirm_is_red
@@ -667,52 +1034,71 @@ def step_candle(
             gate_ok = wants_confirm_color and volume_ok and range_ok
         if gate_ok:
             return state, None
-        # Gate failed (candle #1) or window exhausted (candle #2) --
-        # try a re-signal before giving up entirely.
-        resig_ok = row["close"] < active["signal_close"] if direction == LONG else row["close"] > active["signal_close"]
-        if (
-            resig_ok
-            and state.get("chain_len", 0) == 0
-            and row["volume"] < active["volume"]
-            and pd.notna(sig_atr)
-            and sig_atr > 0
-        ):
-            state["active_signal"] = {
-                "time": ts,
-                "hi": row["high"],
-                "lo": row["low"],
-                "atr": sig_atr,
-                "volume": row["volume"],
-                "signal_close": row["close"],
-            }
-            state["breakout_counter"] = 0
-            state["chain_len"] = state.get("chain_len", 0) + 1
-            return state, {"type": "re_signaled", "time": ts, "high": row["high"], "low": row["low"], "atr": sig_atr}
+        # §5l -- v5.1/v5.3's "re-signal on close" is REMOVED entirely (no
+        # close-extension test, no volume-vs-signal test, no chain_len
+        # cap). The dying signal's own candle -- candle #1 that just
+        # failed the continuation gate above, or candle #2 that
+        # exhausted the window -- falls straight through below and is
+        # re-tested as an ORDINARY fresh signal candle: same day's-
+        # lowest-volume/color/one-sided-gate bar as any other candle,
+        # nothing carried over from the dying signal. Verified worth
+        # +1.83 CAGR / -0.88pp drawdown over the old re-signal rule
+        # (Spec §5l.1) -- the old rule only required volume lower than
+        # the signal it replaced, not the day's actual running minimum,
+        # so it manufactured weaker setups from already-failing ones.
         state["active_signal"] = None
         state["breakout_counter"] = 0
-        state["chain_len"] = 0
-        return state, {"type": "signal_expired"}
+        replaced_expired = True
+    else:
+        replaced_expired = False
 
     if ts.time() > NEW_SIGNAL_CUTOFF:
-        return state, None
+        return state, ({"type": "signal_expired"} if replaced_expired else None)
     is_red = row["close"] < row["open"]
     is_green = row["close"] > row["open"]
     wants_color = is_red if direction == LONG else is_green
     is_lowest_volume = row["volume"] <= vol_min_so_far * (1 + VOL_THRESHOLD_PCT)
-    in_range = signal_in_range(direction, float(row["open"]), float(row["close"]), sig_range_low, sig_range_high)
-    if wants_color and is_lowest_volume and in_range and pd.notna(sig_atr) and sig_atr > 0:
+    in_range = signal_in_range(
+        direction, float(row["open"]), float(row["close"]), sig_range_low, sig_range_high
+    )
+    # v5.4 §5m -- e50=None means the filter is off entirely; a real NaN
+    # (filter on, not enough history yet) fails this candle closed. See
+    # this function's own docstring for the None-vs-NaN distinction.
+    trend_ok = True if e50 is None else signal_trend_ok(direction, float(row["close"]), e50)
+    fvg_ok = not fvg_vetoed(float(row["close"]), fvg_lo, fvg_hi)
+    if (
+        wants_color
+        and is_lowest_volume
+        and in_range
+        and trend_ok
+        and fvg_ok
+        and pd.notna(sig_atr)
+        and sig_atr > 0
+    ):
+        # float(...) throughout -- see find_entry()'s matching comment:
+        # an all-whole-number OHLCV candle (int64 dtype) silently
+        # serializes to a BLOB instead of a number if a raw numpy.int64
+        # ever reaches sqlite3 unwrapped (verified live: BAJAJ-AUTO,
+        # 2026-10-01 -- crashed _render_live_section() downstream).
+        hi, lo = float(row["high"]), float(row["low"])
         state["active_signal"] = {
             "time": ts,
-            "hi": row["high"],
-            "lo": row["low"],
+            "hi": hi,
+            "lo": lo,
             "atr": sig_atr,
-            "volume": row["volume"],
-            "signal_close": row["close"],
+            "volume": float(row["volume"]),
+            "signal_close": float(row["close"]),
         }
         state["breakout_counter"] = 0
-        state["chain_len"] = 0
-        return state, {"type": "signal_formed", "time": ts, "high": row["high"], "low": row["low"], "atr": sig_atr}
-    return state, None
+        return state, {
+            "type": "signal_formed",
+            "time": ts,
+            "high": hi,
+            "low": lo,
+            "atr": sig_atr,
+            "replaced_expired": replaced_expired,
+        }
+    return state, ({"type": "signal_expired"} if replaced_expired else None)
 
 
 def check_tick_trigger(state: dict, direction: str, ltp: float, ts) -> dict | None:
@@ -758,7 +1144,9 @@ def check_tick_trigger(state: dict, direction: str, ltp: float, ts) -> dict | No
     }
 
 
-def target_price(entry: float, stop: float, direction: str, reward_risk: float = REWARD_RISK) -> float:
+def target_price(
+    entry: float, stop: float, direction: str, reward_risk: float = REWARD_RISK
+) -> float:
     """Spec.md §5 -- flat reward:risk target."""
     risk = abs(entry - stop)
     return entry + reward_risk * risk if direction == LONG else entry - reward_risk * risk
@@ -792,17 +1180,171 @@ def simulate_exit(
         hit_target = row["high"] >= target if direction == LONG else row["low"] <= target
 
         if hit_stop:
-            legs.append({"exit_time": ts, "exit_price": stop, "reason": "stop", "qty_frac": remaining_frac})
+            legs.append(
+                {"exit_time": ts, "exit_price": stop, "reason": "stop", "qty_frac": remaining_frac}
+            )
             return legs
 
         if not target_taken and hit_target:
-            legs.append({"exit_time": ts, "exit_price": target, "reason": "target", "qty_frac": 0.5})
+            legs.append(
+                {"exit_time": ts, "exit_price": target, "reason": "target", "qty_frac": 0.5}
+            )
             remaining_frac = 0.5
             target_taken = True
 
         if squareoff_ts is not None and ts >= squareoff_ts:
             legs.append(
-                {"exit_time": ts, "exit_price": float(row["close"]), "reason": "squareoff", "qty_frac": remaining_frac}
+                {
+                    "exit_time": ts,
+                    "exit_price": float(row["close"]),
+                    "reason": "squareoff",
+                    "qty_frac": remaining_frac,
+                }
+            )
+            return legs
+
+    last = day.iloc[-1]
+    legs.append(
+        {
+            "exit_time": day.index[-1],
+            "exit_price": float(last["close"]),
+            "reason": "eod_data_end",
+            "qty_frac": remaining_frac,
+        }
+    )
+    return legs
+
+
+def simulate_exit_v54(
+    day: pd.DataFrame,
+    entry_time: pd.Timestamp,
+    entry: float,
+    stop: float,
+    direction: str,
+    ema10_series: pd.Series,
+    reward_risk: float = REWARD_RISK,
+    squareoff_time: str = SQUAREOFF_TIME,
+) -> list[dict]:
+    """Batch/backtest equivalent of the LIVE engine's actual adopted exit
+    management -- intraday_engine.py's check_entry_candle_close() +
+    check_intracandle_exit() + step_position_boundary() + force_squareoff()
+    combined into one candle-by-candle walk, instead of live's tick-driven
+    version of the same rules. Unlike simulate_exit() above (the older,
+    pre-§5b/§5i.2 v5.1 rule -- no breakeven, no EMA10 trail -- kept only
+    for history/comparison, not what the live engine runs today), this is
+    what intraday_backtest.py uses, since it's the only pure-logic version
+    of the CURRENT live rule set:
+
+      1. Entry-candle-close rule (§5i.3): if the entry candle's own CLOSE
+         already breaches the stop, exit the FULL position at that close.
+      2. Stop/breakeven (§5b): the original stop protects the full
+         position until the first half books (fixed target or EMA10
+         trail); from the candle AFTER that booking, the stop protecting
+         the runner is the ENTRY price instead.
+      3. Target touch -> EMA10 trail decision (§5i.2, choose_trail_ema()):
+         at the 1:2R touch, defer and trail EMA10 if the target sits on
+         its momentum side, else book the half at the fixed target
+         immediately. ema10_series must be ema_n(close, TRAIL_EMA_SLOW)
+         computed over the SAME continuous multi-day series find_entry()'s
+         caller already built (never cold-started per day).
+      4. Trail-crossed exit (step_position_boundary()): the first candle
+         AFTER the touch candle whose own close crosses back through
+         EMA10 books the half at the NEXT candle's open (or, if there is
+         no next candle in `day`, that crossing candle's own close -- the
+         closest batch equivalent of live's "fall back to the current
+         price" case).
+      5. Squareoff at the "15:10"-labeled candle's own CLOSE (Spec v3 §9 --
+         NOT force_squareoff()'s real-time-LTP convention, which only
+         exists because live can't achieve this exact price).
+
+    Deliberate batch-vs-tick approximation: the touch candle's own EMA10
+    (not the prior COMPLETED candle's) decides the trail, since a 5-min
+    candle walk has no tick-level "still forming" distinction once that
+    candle's full OHLC is already known -- the same convention the
+    strategy's reference backtest uses, and what the spec's published
+    CAGR/DD numbers are measured against."""
+    target = target_price(entry, stop, direction, reward_risk)
+    sq = day.between_time(squareoff_time, squareoff_time).index
+    squareoff_ts = sq[0] if len(sq) else None
+
+    if entry_time in day.index:
+        ec = day.loc[entry_time]
+        breached = (
+            (float(ec["close"]) <= stop) if direction == LONG else (float(ec["close"]) >= stop)
+        )
+        if breached:
+            return [
+                {
+                    "exit_time": entry_time,
+                    "exit_price": float(ec["close"]),
+                    "reason": "entry_candle_close",
+                    "qty_frac": 1.0,
+                }
+            ]
+
+    legs: list[dict] = []
+    target_touched = False
+    target_taken = False
+    trailing = False
+    remaining_frac = 1.0
+    active_stop = stop
+
+    rows_after = list(day[day.index > entry_time].iterrows())
+    for k, (ts, row) in enumerate(rows_after):
+        hit_stop = row["low"] <= active_stop if direction == LONG else row["high"] >= active_stop
+        if hit_stop:
+            reason = "breakeven" if target_taken else "stop"
+            legs.append(
+                {
+                    "exit_time": ts,
+                    "exit_price": active_stop,
+                    "reason": reason,
+                    "qty_frac": remaining_frac,
+                }
+            )
+            return legs
+
+        if not target_touched:
+            hit_target = row["high"] >= target if direction == LONG else row["low"] <= target
+            if hit_target:
+                target_touched = True
+                trail_span = choose_trail_ema(direction, target, ema10_series.get(ts))
+                if trail_span is None:
+                    legs.append(
+                        {"exit_time": ts, "exit_price": target, "reason": "target", "qty_frac": 0.5}
+                    )
+                    remaining_frac = 0.5
+                    target_taken = True
+                    active_stop = entry
+                else:
+                    trailing = True
+        elif trailing and not target_taken:
+            if trail_crossed(direction, float(row["close"]), ema10_series.get(ts)):
+                fill_ts, fill_px = ts, float(row["close"])
+                if k + 1 < len(rows_after):
+                    nts, nrow = rows_after[k + 1]
+                    if squareoff_ts is None or nts <= squareoff_ts:
+                        fill_ts, fill_px = nts, float(nrow["open"])
+                legs.append(
+                    {
+                        "exit_time": fill_ts,
+                        "exit_price": fill_px,
+                        "reason": f"ema{TRAIL_EMA_SLOW}_trail_exit",
+                        "qty_frac": 0.5,
+                    }
+                )
+                remaining_frac = 0.5
+                target_taken = True
+                active_stop = entry
+
+        if squareoff_ts is not None and ts >= squareoff_ts:
+            legs.append(
+                {
+                    "exit_time": ts,
+                    "exit_price": float(row["close"]),
+                    "reason": "squareoff",
+                    "qty_frac": remaining_frac,
+                }
             )
             return legs
 
@@ -849,7 +1391,9 @@ def leg_quantities(qty: int, legs: list[dict]) -> list[int]:
 # ---------------------------------------------------------------------------
 
 
-def round_trip_cost(entry_price: float, exit_price: float, qty: int, direction: str = LONG) -> float:
+def round_trip_cost(
+    entry_price: float, exit_price: float, qty: int, direction: str = LONG
+) -> float:
     """Spec.md §8 -- total cost (brokerage + STT + exchange + GST) for
     one round-trip (one buy leg + one sell leg) of `qty` shares.
 
@@ -866,7 +1410,9 @@ def round_trip_cost(entry_price: float, exit_price: float, qty: int, direction: 
     sell_turnover = exit_price * qty
     stt_turnover = sell_turnover if direction == LONG else buy_turnover
 
-    brokerage = min(BROKERAGE_PCT * buy_turnover, BROKERAGE_CAP) + min(BROKERAGE_PCT * sell_turnover, BROKERAGE_CAP)
+    brokerage = min(BROKERAGE_PCT * buy_turnover, BROKERAGE_CAP) + min(
+        BROKERAGE_PCT * sell_turnover, BROKERAGE_CAP
+    )
     stt = STT_SELL_PCT * stt_turnover
     exchange_txn = EXCHANGE_TXN_PCT * (buy_turnover + sell_turnover)
     gst = GST_PCT * (brokerage + exchange_txn)

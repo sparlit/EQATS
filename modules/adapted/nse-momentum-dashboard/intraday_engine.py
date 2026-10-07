@@ -67,7 +67,9 @@ import state_db
 
 import config
 
-EMA_WARMUP_DAYS = 120  # >> "several weeks" Spec.md §1 asks for, comfortably covers EMA21/ATR14 warmup
+EMA_WARMUP_DAYS = (
+    120  # >> "several weeks" Spec.md §1 asks for, comfortably covers EMA21/ATR14 warmup
+)
 # Per-boundary refresh window -- deliberately small (see run_live()'s own
 # comment on this): only needs to safely reach back to the last candle
 # already in a tracker's cached t.hist, which is at most a few calendar
@@ -103,7 +105,9 @@ def _push(title: str, message: str) -> None:
     engine's own trading logic: notification delivery is best-effort,
     not a hard dependency for anything that calls this."""
     try:
-        for dead in notify.send_webpush_all(state_db.get_push_subscriptions(), title, message, notify.DASHBOARD_URL):
+        for dead in notify.send_webpush_all(
+            state_db.get_push_subscriptions(), title, message, notify.DASHBOARD_URL
+        ):
             state_db.delete_push_subscription(dead)
     except Exception as e:
         print(f"[intraday_engine] push notification failed -- {e}")
@@ -127,7 +131,9 @@ def run_selection(
     intraday_days/intraday_daily_selection and returns
     {"nifty_ratio", "day_bias", "candidates": [{"symbol","direction"}]}
     -- candidates is empty when day_bias is None (skip day)."""
-    nifty_ratio, nifty_rets = mkt.compute_first15_breadth(nifty50_symbols, close_0925, prev_day_close)
+    nifty_ratio, nifty_rets = mkt.compute_first15_breadth(
+        nifty50_symbols, close_0925, prev_day_close
+    )
     bias = strat.day_bias(nifty_ratio)
     advancers = sum(1 for v in nifty_rets.values() if v > 0)
     decliners = sum(1 for v in nifty_rets.values() if v < 0)
@@ -168,7 +174,9 @@ def run_selection(
         if len(accepted) >= strat.TOP_N_CANDIDATES:
             break
 
-    candidates = [{"symbol": sym, "direction": bias, "rank": i + 1} for i, (sym, _, _) in enumerate(accepted)]
+    candidates = [
+        {"symbol": sym, "direction": bias, "rank": i + 1} for i, (sym, _, _) in enumerate(accepted)
+    ]
     idb.record_candidates(
         date,
         [
@@ -199,7 +207,11 @@ def _overnight_gap_pct(symbol: str, prev_close: float | None, today: dt.date) ->
 
 
 def resolve_sector_gates(
-    date: str, candidates: list[dict], close_0925: dict[str, float], prev_close: dict[str, float], today: dt.date
+    date: str,
+    candidates: list[dict],
+    close_0925: dict[str, float],
+    prev_close: dict[str, float],
+    today: dt.date,
 ) -> None:
     """Spec v2 §6 -- for each candidate, resolve its primary sector and
     compute that sector's OWN first-15m A/D ratio ONCE (§6.4: fixed for
@@ -284,12 +296,28 @@ class CandidateTracker:
         sector_gate_pass: bool = False,
         sig_range_low: float | None = None,
         sig_range_high: float | None = None,
+        ema50_series: pd.Series | None = None,
+        fvg_lo: float | None = None,
+        fvg_hi: float | None = None,
     ):
         self.date = date
         self.symbol = symbol
         self.direction = direction
         self.ema21_series = ema21_series
         self.atr14_series = atr14_series
+        # v5.4 §5n -- the fair-value-gap veto zone, from the day's 09:15
+        # and 09:25 candles -- fixed for the whole day like sig_range_low/
+        # high, no mid-day refresh needed (both source candles are fully
+        # known and unchanging well before this tracker is even built).
+        self.fvg_lo = fvg_lo
+        self.fvg_hi = fvg_hi
+        # v5.4 §5m -- the signal candle's own trend filter. None (not
+        # just an all-NaN series) would mean "filter off" to step_candle()
+        # -- run_live() always builds a real series (see tracker
+        # construction below), so this is adopted/on for every live
+        # tracker; kept as a constructor default only so other callers
+        # (tests) aren't forced to supply one.
+        self.ema50_series = ema50_series
         # v3 Spec §4 -- this candidate's rank in the day's top-5 pool,
         # used ONLY to break ties when two-or-more candidates confirm a
         # breakout at the exact same candle timestamp (lower rank wins).
@@ -366,6 +394,7 @@ def process_candle(tracker: CandidateTracker, ts: pd.Timestamp, row: pd.Series) 
         return None
     e21 = tracker.ema21_series.get(ts)
     sig_atr = tracker.atr14_series.get(ts)
+    e50 = tracker.ema50_series.get(ts) if tracker.ema50_series is not None else None
     new_state, event = strat.step_candle(
         tracker.signal_state,
         ts,
@@ -378,6 +407,9 @@ def process_candle(tracker: CandidateTracker, ts: pd.Timestamp, row: pd.Series) 
         tracker.first_candle_high,
         tracker.sig_range_low,
         tracker.sig_range_high,
+        e50=e50,
+        fvg_lo=tracker.fvg_lo,
+        fvg_hi=tracker.fvg_hi,
     )
     tracker.signal_state = new_state
 
@@ -397,24 +429,22 @@ def process_candle(tracker: CandidateTracker, ts: pd.Timestamp, row: pd.Series) 
         return event
 
     if event["type"] == "signal_formed":
+        # §5l -- re-signal removed: "replaced_expired" is True when this
+        # same candle just killed a DIFFERENT signal (the old continuation
+        # gate/window exhausted) before qualifying as an ordinary fresh
+        # signal in its own right, all within the same step_candle() call
+        # -- retire that old row as "expired" (step_candle() never emits
+        # a separate signal_expired event for it) before creating the new
+        # one, so the Dashboard/tradebook still shows both lines.
+        if event.get("replaced_expired") and tracker.signal_db_id is not None:
+            idb.update_signal_status(tracker.signal_db_id, "expired")
         tracker.signal_db_id = idb.create_signal(
-            tracker.date, tracker.symbol, str(event["time"]), event["high"], event["low"], event["atr"]
-        )
-        return event
-
-    if event["type"] == "re_signaled":
-        # v5.1 "re-signal on close" -- a window candle that failed to
-        # keep the old signal's window open became a brand-new signal
-        # candle in its own right instead of dying outright. Retire the
-        # OLD signal row (a distinct status from "expired" so the
-        # Dashboard/tradebook can tell "this line of signals eventually
-        # got replaced" apart from "this signal just died") and create a
-        # fresh row for the new one, exactly like signal_formed does --
-        # can chain, so this may fire more than once per candidate/day.
-        if tracker.signal_db_id is not None:
-            idb.update_signal_status(tracker.signal_db_id, "re_signaled")
-        tracker.signal_db_id = idb.create_signal(
-            tracker.date, tracker.symbol, str(event["time"]), event["high"], event["low"], event["atr"]
+            tracker.date,
+            tracker.symbol,
+            str(event["time"]),
+            event["high"],
+            event["low"],
+            event["atr"],
         )
         return event
 
@@ -463,7 +493,11 @@ def _open_position_from_trigger(
             f"Breakout triggered but {tracker.symbol}'s sector ({_sector_detail}) "
             f"didn't confirm {tracker.direction} -- no trade taken ({mode} mode).",
         )
-        return {"type": "sector_gate_failed", "sector": tracker.sector, "sector_ratio": tracker.sector_ratio}
+        return {
+            "type": "sector_gate_failed",
+            "sector": tracker.sector,
+            "sector_ratio": tracker.sector_ratio,
+        }
 
     entry_price, stop_price = event["entry_price"], event["stop_price"]
     qty = strat.position_size(capital_alloc, risk_budget, entry_price, stop_price)
@@ -475,7 +509,13 @@ def _open_position_from_trigger(
     if mode == "live":
         side = "BUY" if tracker.direction == strat.LONG else "SELL"
         order_id = kite_client.place_order(
-            tracker.symbol, qty, side, product="MIS", order_type="SL", price=entry_price, trigger_price=entry_price
+            tracker.symbol,
+            qty,
+            side,
+            product="MIS",
+            order_type="SL",
+            price=entry_price,
+            trigger_price=entry_price,
         )
     tracker.position_id = idb.record_new_position(
         tracker.date,
@@ -490,9 +530,11 @@ def _open_position_from_trigger(
         signal_time=str(event["signal_time"]),
         order_id=order_id,
     )
+    capital_used = qty * entry_price  # notional deployed -- qty x fill price, not margin/leverage
     _push(
         f"KK Trading — {tracker.symbol} position opened ({mode})",
-        f"{tracker.direction} qty {qty} @ ₹{entry_price:.2f} -- stop ₹{stop_price:.2f}, target ₹{target:.2f}",
+        f"{tracker.direction} qty {qty} @ ₹{entry_price:.2f} (₹{capital_used:,.2f} deployed) -- "
+        f"stop ₹{stop_price:.2f}, target ₹{target:.2f}",
     )
     return {
         "type": "position_opened",
@@ -501,6 +543,7 @@ def _open_position_from_trigger(
         "entry_price": entry_price,
         "stop_price": stop_price,
         "target": target,
+        "capital_used": capital_used,
     }
 
 
@@ -561,7 +604,9 @@ def _floor5(ts: pd.Timestamp) -> pd.Timestamp:
     return ts.replace(second=0, microsecond=0, nanosecond=0) - pd.Timedelta(minutes=ts.minute % 5)
 
 
-def check_intracandle_exit(tracker: CandidateTracker, ltp: float, now: dt.datetime, mode: str) -> dict | None:
+def check_intracandle_exit(
+    tracker: CandidateTracker, ltp: float, now: dt.datetime, mode: str
+) -> dict | None:
     """v5.4 exit, tick-driven part (§2.2/§5b/§5i.2). Between candle
     closes, watch LTP against the open position's stop/target:
 
@@ -615,7 +660,9 @@ def check_intracandle_exit(tracker: CandidateTracker, ltp: float, now: dt.dateti
     # Target logic applies only once: not yet touched.
     if pos.get("target_touch_time") is not None:
         return None
-    hit_target = ltp >= pos["target_price"] if direction == strat.LONG else ltp <= pos["target_price"]
+    hit_target = (
+        ltp >= pos["target_price"] if direction == strat.LONG else ltp <= pos["target_price"]
+    )
     if not hit_target:
         return None
 
@@ -647,7 +694,12 @@ def check_intracandle_exit(tracker: CandidateTracker, ltp: float, now: dt.dateti
         f"1:2R target {pos['target_price']:.2f} reached -- first-half booking "
         f"deferred, trailing EMA{trail}; original stop still protects the full position.",
     )
-    return {"type": "target_touched", "trail_ema": trail, "target": pos["target_price"], "ema10": float(e10)}
+    return {
+        "type": "target_touched",
+        "trail_ema": trail,
+        "target": pos["target_price"],
+        "ema10": float(e10),
+    }
 
 
 def check_entry_candle_close(
@@ -686,7 +738,11 @@ def check_entry_candle_close(
         return None
     close_px = float(row.iloc[0]["close"])
     direction = pos["direction"]
-    breached = (close_px <= pos["stop_price"]) if direction == strat.LONG else (close_px >= pos["stop_price"])
+    breached = (
+        (close_px <= pos["stop_price"])
+        if direction == strat.LONG
+        else (close_px >= pos["stop_price"])
+    )
     if not breached:
         return None
     return _close_leg(tracker, pos, "entry_candle_close", pos["qty_remaining"], close_px, now, mode)
@@ -700,7 +756,9 @@ def _refresh_position_hist(tracker: CandidateTracker, boundary: pd.Timestamp) ->
     False (leaving hist untouched) if the fetch fails, so a transient API
     error can't take down the engine loop while a position is open."""
     try:
-        delta = kite_client.fetch_intraday_candles(tracker.symbol, days=_REFRESH_WINDOW_DAYS, interval="5minute")
+        delta = kite_client.fetch_intraday_candles(
+            tracker.symbol, days=_REFRESH_WINDOW_DAYS, interval="5minute"
+        )
     except Exception as e:
         print(f"[intraday_engine] {tracker.symbol}: candle refresh failed -- {e}")
         return False
@@ -766,7 +824,9 @@ def step_position_boundary(
     return None
 
 
-def force_squareoff(tracker: CandidateTracker, ltp: float, now: dt.datetime, mode: str) -> dict | None:
+def force_squareoff(
+    tracker: CandidateTracker, ltp: float, now: dt.datetime, mode: str
+) -> dict | None:
     """Spec §5.4 -- force-close, time-driven regardless of price. Called
     by run_live() once its own loop exits at 15:10:00 real time -- a
     2-minute safety buffer before Zerodha's own 15:12:00 auto-square-off
@@ -785,17 +845,27 @@ def force_squareoff(tracker: CandidateTracker, ltp: float, now: dt.datetime, mod
 
 
 def _close_leg(
-    tracker: CandidateTracker, pos: dict, leg_type: str, qty: int, exit_price: float, now: dt.datetime, mode: str
+    tracker: CandidateTracker,
+    pos: dict,
+    leg_type: str,
+    qty: int,
+    exit_price: float,
+    now: dt.datetime,
+    mode: str,
 ) -> dict:
     side = "SELL" if pos["direction"] == strat.LONG else "BUY"
     order_id = None
     if mode == "live":
-        order_id = kite_client.place_order(pos["symbol"], qty, side, product="MIS", order_type="MARKET")
+        order_id = kite_client.place_order(
+            pos["symbol"], qty, side, product="MIS", order_type="MARKET"
+        )
     sign = 1 if pos["direction"] == strat.LONG else -1
     gross = (exit_price - pos["entry_price"]) * qty * sign
     cost = strat.round_trip_cost(pos["entry_price"], exit_price, qty, direction=pos["direction"])
     net = gross - cost
-    idb.close_position_leg(tracker.position_id, leg_type, qty, exit_price, str(now), gross, cost, net, order_id)
+    idb.close_position_leg(
+        tracker.position_id, leg_type, qty, exit_price, str(now), gross, cost, net, order_id
+    )
     if leg_type in ("stop", "squareoff", "breakeven", "entry_candle_close"):
         # All four always close the FULL remaining quantity (breakeven
         # is the §5b runner exit, entry_candle_close is §5i.3's own
@@ -806,7 +876,13 @@ def _close_leg(
         f"KK Trading — {pos['symbol']} {leg_type} hit ({mode})",
         f"qty {qty} @ ₹{exit_price:.2f} -- net P&L ₹{net:+,.2f}",
     )
-    return {"type": "leg_closed", "leg_type": leg_type, "qty": qty, "exit_price": exit_price, "net_pnl": net}
+    return {
+        "type": "leg_closed",
+        "leg_type": leg_type,
+        "qty": qty,
+        "exit_price": exit_price,
+        "net_pnl": net,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -815,7 +891,9 @@ def _close_leg(
 # ---------------------------------------------------------------------------
 
 
-def _prev_close_and_0925(symbols: list[str], today: dt.date) -> tuple[dict[str, float], dict[str, float]]:
+def _prev_close_and_0925(
+    symbols: list[str], today: dt.date
+) -> tuple[dict[str, float], dict[str, float]]:
     """Fetches, for each symbol: previous trading day's daily close, and
     today's 09:25-candle close (= price at 09:30 real time). A symbol
     missing either is silently excluded (matches the validated scratch
@@ -947,7 +1025,8 @@ def run_live(mode: str = "paper") -> None:
         return
     date_str = today.isoformat()
     starting_capital = config.STRATEGY.get(
-        "intraday_live_capital" if mode == "live" else "intraday_paper_capital", DEFAULT_PAPER_CAPITAL
+        "intraday_live_capital" if mode == "live" else "intraday_paper_capital",
+        DEFAULT_PAPER_CAPITAL,
     )
     idb.ensure_capital_seeded(mode, starting_capital)
 
@@ -961,7 +1040,10 @@ def run_live(mode: str = "paper") -> None:
     close_0925, prev_close = _prev_close_and_0925(all_syms, today)
 
     sel = run_selection(date_str, nifty50, fno_syms, close_0925, prev_close, mode)
-    print(f"nifty_ratio={sel['nifty_ratio']:.2f}  day_bias={sel['day_bias']}  candidates={sel['candidates']}")
+    print(
+        f"nifty_ratio={sel['nifty_ratio']:.2f}  day_bias={sel['day_bias']}  "
+        f"candidates={sel['candidates']}"
+    )
     if sel["day_bias"] is None:
         print("No clear day bias -- no trading today.")
         _push(
@@ -998,7 +1080,8 @@ def run_live(mode: str = "paper") -> None:
     )
     _push(
         f"KK Trading — {sel['day_bias']} day ({mode})",
-        f"NIFTY 50 ratio {sel['nifty_ratio']:.2f} -> {sel['day_bias']}. Candidates: {_cand_summary}",
+        f"NIFTY 50 ratio {sel['nifty_ratio']:.2f} -> {sel['day_bias']}. "
+        f"Candidates: {_cand_summary}",
     )
 
     capital = idb.get_capital(mode)["current_capital"]
@@ -1011,10 +1094,19 @@ def run_live(mode: str = "paper") -> None:
         hist = kite_client.fetch_intraday_candles(sym, days=EMA_WARMUP_DAYS, interval="5minute")
         ema21_series = strat.ema21(hist["close"])
         atr14_series = strat.atr14(hist)
+        # v5.4 §5m (adopted, supersedes §5l) -- the signal candle must
+        # also close on the trend side of EMA50. EMA_WARMUP_DAYS=120 is
+        # ~9,000 5-min candles, comfortably past the 50-candle min_periods
+        # for any symbol with at least a few hours of trading history, so
+        # this only ever fails closed (NaN) in a genuinely new listing's
+        # first day or two.
+        ema50_series = strat.ema_n(hist["close"], 50)
         today_so_far = hist[hist.index.normalize() == pd.Timestamp(today)]
         # v2 Spec §3.2 step 1b -- the day's very first (09:15) candle's
         # own low/high, captured once, fixed for the whole day.
-        first_candle = today_so_far.loc[today_so_far.index == pd.Timestamp(today) + pd.Timedelta(hours=9, minutes=15)]
+        first_candle = today_so_far.loc[
+            today_so_far.index == pd.Timestamp(today) + pd.Timedelta(hours=9, minutes=15)
+        ]
         if first_candle.empty:
             print(
                 f"[intraday_engine] {sym}: 09:15 candle missing -- cannot apply the "
@@ -1030,8 +1122,12 @@ def run_live(mode: str = "paper") -> None:
         # history by the time this runs (09:30+), same timing guarantee
         # as the 09:15 candle. Missing either -> fail closed (None),
         # matching signal_in_range()'s own fail-closed contract.
-        c20 = today_so_far.loc[today_so_far.index == pd.Timestamp(today) + pd.Timedelta(hours=9, minutes=20)]
-        c25 = today_so_far.loc[today_so_far.index == pd.Timestamp(today) + pd.Timedelta(hours=9, minutes=25)]
+        c20 = today_so_far.loc[
+            today_so_far.index == pd.Timestamp(today) + pd.Timedelta(hours=9, minutes=20)
+        ]
+        c25 = today_so_far.loc[
+            today_so_far.index == pd.Timestamp(today) + pd.Timedelta(hours=9, minutes=25)
+        ]
         if not c20.empty and not c25.empty:
             sig_range_low = min(float(c20.iloc[0]["low"]), float(c25.iloc[0]["low"]))
             sig_range_high = max(float(c20.iloc[0]["high"]), float(c25.iloc[0]["high"]))
@@ -1041,6 +1137,20 @@ def run_live(mode: str = "paper") -> None:
                 f"signal gate fails closed, no fresh signal can form for this candidate today."
             )
             sig_range_low, sig_range_high = None, None
+        # v5.4 §5n (adopted, supersedes §5m) -- the fair-value-gap veto
+        # zone, from the SAME 09:15 (first_candle) and 09:25 (c25)
+        # candles already fetched above -- no new data needed. (None,
+        # None) when c25 is missing or there's genuinely no gap that day
+        # -- both correctly leave the veto inert (see fvg_vetoed()).
+        if not c25.empty:
+            fvg_lo, fvg_hi = strat.fair_value_gap(
+                first_candle_high,
+                first_candle_low,
+                float(c25.iloc[0]["high"]),
+                float(c25.iloc[0]["low"]),
+            )
+        else:
+            fvg_lo, fvg_hi = None, None
         t = CandidateTracker(
             date_str,
             sym,
@@ -1055,12 +1165,17 @@ def run_live(mode: str = "paper") -> None:
             sector_gate_pass=c.get("sector_gate_pass", False),
             sig_range_low=sig_range_low,
             sig_range_high=sig_range_high,
+            ema50_series=ema50_series,
+            fvg_lo=fvg_lo,
+            fvg_hi=fvg_hi,
         )
         t.hist = hist
         # Seed the running vol-min from today's pre-window candles (09:15-
         # 09:30) -- see step_candle()'s docstring; the running min starts
         # at session open, not at the 09:30 signal-window start.
-        pre_window = today_so_far.loc[today_so_far.index < pd.Timestamp(today) + pd.Timedelta(hours=9, minutes=30)]
+        pre_window = today_so_far.loc[
+            today_so_far.index < pd.Timestamp(today) + pd.Timedelta(hours=9, minutes=30)
+        ]
         t.vol_min_so_far = float(pre_window["volume"].min()) if not pre_window.empty else None
         trackers.append(t)
 
@@ -1199,7 +1314,9 @@ def run_live(mode: str = "paper") -> None:
                     # still settle/revise slightly for a few minutes after
                     # its close -- confirmed live 2026-09-17) before
                     # recomputing the continuous EMA21/ATR14 series.
-                    delta = kite_client.fetch_intraday_candles(t.symbol, days=_REFRESH_WINDOW_DAYS, interval="5minute")
+                    delta = kite_client.fetch_intraday_candles(
+                        t.symbol, days=_REFRESH_WINDOW_DAYS, interval="5minute"
+                    )
                     row_df = delta[delta.index == boundary]
                     if row_df.empty:
                         continue
@@ -1208,9 +1325,20 @@ def run_live(mode: str = "paper") -> None:
                     t.hist = _closed_only(t.hist, boundary)  # no look-ahead: never a forming candle
                     t.ema21_series = strat.ema21(t.hist["close"])
                     t.atr14_series = strat.atr14(t.hist)
+                    # v5.4 §5m -- same frozen-snapshot bug class as the
+                    # ema21/atr14 refresh above (2026-09-16 YESBANK fix):
+                    # without refreshing this too, ema50_series would stay
+                    # pinned to its 09:15-ish initial snapshot all day,
+                    # silently going stale (though its own NaN-fails-closed
+                    # behavior means staleness here would block signals
+                    # rather than wrongly admit them -- still wrong, just a
+                    # safer failure direction than the original bug).
+                    t.ema50_series = strat.ema_n(t.hist["close"], 50)
                     row = row_df.iloc[0]
                     t.vol_min_so_far = (
-                        row["volume"] if t.vol_min_so_far is None else min(t.vol_min_so_far, row["volume"])
+                        row["volume"]
+                        if t.vol_min_so_far is None
+                        else min(t.vol_min_so_far, row["volume"])
                     )
                     event = process_candle(t, boundary, row)
                     if event and event["type"] == "triggered":
@@ -1269,7 +1397,9 @@ def run_live(mode: str = "paper") -> None:
                 # checked against a trigger is already within the candle
                 # immediately following the signal candle, never before.
                 if t.position_id is None:
-                    event = check_tick_entry(t, ltp, now2, capital_alloc, risk_budget, mode, day_state)
+                    event = check_tick_entry(
+                        t, ltp, now2, capital_alloc, risk_budget, mode, day_state
+                    )
                 else:
                     event = check_intracandle_exit(t, ltp, now2, mode)
                 if event:
@@ -1321,7 +1451,8 @@ def run_live(mode: str = "paper") -> None:
     new_capital = idb.apply_day_pnl(mode, total_day_pnl)
     print(f"\nDay done. Net P&L: Rs.{total_day_pnl:+,.2f}  New capital: Rs.{new_capital:,.2f}")
     _push(
-        f"KK Trading — intraday day done ({mode})", f"Net P&L ₹{total_day_pnl:+,.2f} -- new capital ₹{new_capital:,.2f}"
+        f"KK Trading — intraday day done ({mode})",
+        f"Net P&L ₹{total_day_pnl:+,.2f} -- new capital ₹{new_capital:,.2f}",
     )
 
 
@@ -1347,5 +1478,8 @@ if __name__ == "__main__":
     else:
         _mode = "live" if live_enabled else "paper"
         if "--live" in sys.argv and not live_enabled:
-            print("intraday_live_enabled is off in config.STRATEGY -- refusing --live, running paper mode instead.")
+            print(
+                "intraday_live_enabled is off in config.STRATEGY -- refusing --live, "
+                "running paper mode instead."
+            )
     run_live(mode=_mode)

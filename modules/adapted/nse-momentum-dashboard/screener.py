@@ -46,7 +46,6 @@ import os
 
 import fundamentals_agent as fa
 import kite_client
-import numpy as np
 import pandas as pd
 import sector_universe
 import state_db
@@ -146,7 +145,9 @@ def build_technical_table(
         long_close = long_df["close"] if long_df is not None and not long_df.empty else None
         precomputed_row = precomputed.get(sym) if precomputed else None
         precomputed_wm = precomputed_weekly_monthly.get(sym) if precomputed_weekly_monthly else None
-        precomputed_wm_ok = precomputed_weekly_monthly_ok.get(sym) if precomputed_weekly_monthly_ok else None
+        precomputed_wm_ok = (
+            precomputed_weekly_monthly_ok.get(sym) if precomputed_weekly_monthly_ok else None
+        )
         precomputed_mad_df = precomputed_mad.get(sym) if precomputed_mad else None
         snap = indicators.compute_snapshot(
             df,
@@ -259,7 +260,9 @@ def apply_gates(
             t["quality_ok"] = t["fundamental_score"].isna() | (t["fundamental_score"] >= min_score)
             t["quality_fails"] = t.apply(
                 lambda r: (
-                    "" if r["quality_ok"] else f"fundamental score {r['fundamental_score']:.0f} < {min_score:.0f}"
+                    ""
+                    if r["quality_ok"]
+                    else f"fundamental score {r['fundamental_score']:.0f} < {min_score:.0f}"
                 ),
                 axis=1,
             )
@@ -271,7 +274,12 @@ def apply_gates(
         t["quality_fails"] = ""
 
     t["all_gates"] = (
-        t["trend_ok"] & t["near_high_ok"] & t["rsi_ok"] & t["quality_ok"] & t["price_ok"] & t["weekly_monthly_gate_ok"]
+        t["trend_ok"]
+        & t["near_high_ok"]
+        & t["rsi_ok"]
+        & t["quality_ok"]
+        & t["price_ok"]
+        & t["weekly_monthly_gate_ok"]
     )
     # BACKTEST-ONLY (for now), off by default -- restricts entries to
     # stocks whose best sector is currently among the top-N strongest
@@ -312,7 +320,9 @@ def score(t: pd.DataFrame, cfg: dict = config.STRATEGY) -> pd.DataFrame:
     # history, or genuinely nothing nearby) contributes neutrally rather
     # than being favored or penalized for missing data.
     if cfg.get("resistance_zone_weight", 0.0) and "resistance_clearance" in t.columns:
-        t["score"] += cfg["resistance_zone_weight"] * _zscore(t["resistance_clearance"].astype(float)).fillna(0)
+        t["score"] += cfg["resistance_zone_weight"] * _zscore(
+            t["resistance_clearance"].astype(float)
+        ).fillna(0)
 
     # EXPERIMENTAL, backtest-only for now -- tilts ranking toward higher
     # fundamental-quality names among gate-passers, same mechanic as the
@@ -324,7 +334,9 @@ def score(t: pd.DataFrame, cfg: dict = config.STRATEGY) -> pd.DataFrame:
     # added yet. NaN fundamental_score (not available for a symbol) ->
     # zscore NaN -> fillna(0), neutral rather than penalized.
     if cfg.get("fundamental_bonus_weight", 0.0) and "fundamental_score" in t.columns:
-        t["score"] += cfg["fundamental_bonus_weight"] * _zscore(t["fundamental_score"].astype(float)).fillna(0)
+        t["score"] += cfg["fundamental_bonus_weight"] * _zscore(
+            t["fundamental_score"].astype(float)
+        ).fillna(0)
 
     # BACKTEST-ONLY (for now), off by default -- EMA13/21 pullback-
     # proximity tilt (see indicators.precompute_ema_pullback_proximity).
@@ -335,7 +347,9 @@ def score(t: pd.DataFrame, cfg: dict = config.STRATEGY) -> pd.DataFrame:
     # (fillna(0) below -> neutral, not penalized); one sitting right at
     # EMA13/21 from below after a pullback scores highest.
     if cfg.get("ema_pullback_weight", 0.0) and "ema_pullback_proximity" in t.columns:
-        t["score"] += cfg["ema_pullback_weight"] * _zscore(t["ema_pullback_proximity"].astype(float)).fillna(0)
+        t["score"] += cfg["ema_pullback_weight"] * _zscore(
+            t["ema_pullback_proximity"].astype(float)
+        ).fillna(0)
 
     return t.sort_values("score", ascending=False)
 
@@ -353,7 +367,11 @@ def position_size(capital: float, price: float, stop: float, cfg: dict = config.
 
 
 def capital_position_size(
-    total_equity: float, remaining_cash: float, price: float, open_slots_remaining: int, max_positions: int
+    total_equity: float,
+    remaining_cash: float,
+    price: float,
+    open_slots_remaining: int,
+    max_positions: int,
 ) -> int:
     """Equal-weight capital allocation: each of up to max_positions slots
     gets roughly total_equity / max_positions, so per-trade capital scales
@@ -430,13 +448,18 @@ def sell_check(
                 and r.get("quality_ok", True)
                 and r.get("price_ok", True)
             )
-            if non_rsi_gates_ok and float(r.get("rsi", 0)) <= cfg.get("rsi_exit_max", cfg["rsi_max"]):
+            if non_rsi_gates_ok and float(r.get("rsi", 0)) <= cfg.get(
+                "rsi_exit_max", cfg["rsi_max"]
+            ):
                 return None
         keep_zone_size = max_positions * 2
         if sym in candidates.index:
             rank = candidates.index.get_loc(sym) + 1
             return f"dropped out of top {keep_zone_size} rank (now #{rank} of {len(candidates)})"
-        return f"failed a technical gate (trend/near-high/RSI) -- not in the top {keep_zone_size} at all"
+        return (
+            f"failed a technical gate (trend/near-high/RSI) -- "
+            f"not in the top {keep_zone_size} at all"
+        )
     return None
 
 
@@ -555,7 +578,12 @@ def allocate_equal_weight_buys(
         top_ups[sym] = qty
         remaining_pool -= qty * price
 
-    return {"new_buys": new_buys, "top_ups": top_ups, "stopped_at": stopped_at, "remaining_cash": remaining_pool}
+    return {
+        "new_buys": new_buys,
+        "top_ups": top_ups,
+        "stopped_at": stopped_at,
+        "remaining_cash": remaining_pool,
+    }
 
 
 def run_screen(
@@ -594,10 +622,14 @@ def run_screen(
     # call-time import since both modules are already fully loaded by
     # the time run_screen() actually runs.
     long_candles = None
-    if config.STRATEGY.get("weekly_monthly_gate_enabled", False) or config.STRATEGY.get("resistance_zone_weight", 0.0):
+    if config.STRATEGY.get("weekly_monthly_gate_enabled", False) or config.STRATEGY.get(
+        "resistance_zone_weight", 0.0
+    ):
         import backtest as bt
 
-        report("Fetching deep history for weekly/monthly trend gate and/or resistance zones...", 0.35)
+        report(
+            "Fetching deep history for weekly/monthly trend gate and/or resistance zones...", 0.35
+        )
         long_candles = bt.load_long_history_cached(
             config.UNIVERSE,
             end_date=dt.date.today() - dt.timedelta(days=1),
@@ -633,7 +665,9 @@ def run_screen(
                     float(tech.loc[sym, "price"]),
                     pd.Timestamp(dt.date.today()),
                     lookback_years=config.STRATEGY.get("resistance_zone_lookback_years", 5.0),
-                    tolerance_pct=config.STRATEGY.get("resistance_zone_cluster_tolerance_pct", 0.03),
+                    tolerance_pct=config.STRATEGY.get(
+                        "resistance_zone_cluster_tolerance_pct", 0.03
+                    ),
                     search_pct=config.STRATEGY.get("resistance_zone_search_pct", 0.20),
                 )
             )
@@ -665,19 +699,30 @@ def run_screen(
     # resolve above (not before) so the composite-score branch's pre-gates
     # breadth check sees real fundamental data, matching backtest's own
     # ordering (fundamentals resolved before its sector block runs).
-    if config.STRATEGY.get("sector_bonus_weight", 0.0) or config.STRATEGY.get("sector_diversification_enabled", False):
+    if config.STRATEGY.get("sector_bonus_weight", 0.0) or config.STRATEGY.get(
+        "sector_diversification_enabled", False
+    ):
         report("Fetching sector index data...", 0.93)
         sector_membership, sector_candles = sector_universe.sector_membership_and_candles(
             config.UNIVERSE, days=days, verbose=False
         )
         sector_rank = sector_universe.sector_rs_asof(
-            sector_candles, bench, bench.index[-1], config.STRATEGY.get("sector_rs_lookback_days", 126)
+            sector_candles,
+            bench,
+            bench.index[-1],
+            config.STRATEGY.get("sector_rs_lookback_days", 126),
         )
-        tech["sector_rs"] = [sector_universe.stock_sector_rs(sym, sector_membership, sector_rank) for sym in tech.index]
-        tech["top_sector"] = [
-            sector_universe.stock_top_sector(sym, sector_membership, sector_rank) for sym in tech.index
+        tech["sector_rs"] = [
+            sector_universe.stock_sector_rs(sym, sector_membership, sector_rank)
+            for sym in tech.index
         ]
-        tech["sector_group"] = tech["top_sector"].apply(lambda s: sector_universe.industry_group(s) if s else s)
+        tech["top_sector"] = [
+            sector_universe.stock_top_sector(sym, sector_membership, sector_rank)
+            for sym in tech.index
+        ]
+        tech["sector_group"] = tech["top_sector"].apply(
+            lambda s: sector_universe.industry_group(s) if s else s
+        )
         if config.STRATEGY.get("sector_diversification_enabled", False):
             top_n = config.STRATEGY.get("top_n_sectors", 3)
             if config.STRATEGY.get("sector_composite_score_enabled", False):
@@ -686,7 +731,9 @@ def run_screen(
                 composite = sector_universe.sector_composite_score(
                     sector_rank, sector_candles, bench.index[-1], breadth
                 )
-                group_rank = composite.groupby(composite.index.to_series().apply(sector_universe.industry_group)).max()
+                group_rank = composite.groupby(
+                    composite.index.to_series().apply(sector_universe.industry_group)
+                ).max()
             else:
                 group_rank = sector_rank.groupby(
                     sector_rank.index.to_series().apply(sector_universe.industry_group)
@@ -716,7 +763,9 @@ def main():
         result = run_screen(with_fundamentals=True)
         os.makedirs("cache", exist_ok=True)
         result.to_pickle(SCREEN_CACHE)
-        jr["summary"] = f"{len(result)} candidates ({int(result['all_gates'].sum())} passing all gates)"
+        jr["summary"] = (
+            f"{len(result)} candidates ({int(result['all_gates'].sum())} passing all gates)"
+        )
 
 
 if __name__ == "__main__":

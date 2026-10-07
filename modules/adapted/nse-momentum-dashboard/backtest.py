@@ -98,7 +98,11 @@ def _tz_naive(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def load_candles_cached(
-    symbols: list[str], days: int, end_date: dt.date | None = None, progress_cb=None, offline: bool = False
+    symbols: list[str],
+    days: int,
+    end_date: dt.date | None = None,
+    progress_cb=None,
+    offline: bool = False,
 ) -> tuple[dict, pd.DataFrame]:
     """Fetch from Kite, caching each symbol as CSV (refreshed once per day).
 
@@ -173,7 +177,8 @@ def load_candles_cached(
                         # rather than crashing the entire multi-hour backtest
                         # data load over a single transient network blip.
                         print(
-                            f"[warn] {sym}: fetch failed after 3 attempts ({e}); using stale cache if any, else empty"
+                            f"[warn] {sym}: fetch failed after 3 attempts "
+                            f"({e}); using stale cache if any, else empty"
                         )
                         df = cached if os.path.exists(path) else pd.DataFrame()
                     else:
@@ -294,7 +299,8 @@ def load_long_history_cached(
                 out[sym] = combined
             except Exception as e:
                 print(
-                    f"[warn] {sym}: long-history incremental fetch failed ({e}); using stale cache ({gap_days}d behind)"
+                    f"[warn] {sym}: long-history incremental fetch failed "
+                    f"({e}); using stale cache ({gap_days}d behind)"
                 )
                 out[sym] = cached
         else:
@@ -312,7 +318,9 @@ def load_long_history_cached(
     return out
 
 
-def make_synthetic_universe(n_symbols: int = 30, n_days: int = 900, seed: int = 3) -> tuple[dict, pd.DataFrame]:
+def make_synthetic_universe(
+    n_symbols: int = 30, n_days: int = 900, seed: int = 3
+) -> tuple[dict, pd.DataFrame]:
     """Synthetic market with momentum autocorrelation baked in, plus a few
     long-base-then-rally stocks for price-pattern diversity — used to verify
     engine mechanics without needing a live Kite connection."""
@@ -348,7 +356,8 @@ def make_synthetic_universe(n_symbols: int = 30, n_days: int = 900, seed: int = 
         c = np.concatenate(
             [
                 np.linspace(100, peak, 250),
-                peak * (0.75 + 0.1 * np.sin(np.linspace(0, 9, n_days - 350))) + rng.normal(0, 1.5, n_days - 350),
+                peak * (0.75 + 0.1 * np.sin(np.linspace(0, 9, n_days - 350)))
+                + rng.normal(0, 1.5, n_days - 350),
                 np.linspace(peak * 0.98, peak * 1.18, 100),
             ]
         )
@@ -478,7 +487,9 @@ def rank_universe_asof(
     precomputed_rows = None
     if precomputed is not None:
         precomputed_rows = {
-            s: precomputed[s].loc[date] for s in sliced if s in precomputed and date in precomputed[s].index
+            s: precomputed[s].loc[date]
+            for s in sliced
+            if s in precomputed and date in precomputed[s].index
         }
     tech = screener.build_technical_table(
         sliced,
@@ -498,8 +509,13 @@ def rank_universe_asof(
 
         fundamentals = fundamentals_agent.score_asof(fundamentals_history, date, score_cache)
     if sector_candles is not None and sector_membership is not None:
-        sector_rank = sector_universe.sector_rs_asof(sector_candles, bench_slice, date, cfg["sector_rs_lookback_days"])
-        tech["sector_rs"] = [sector_universe.stock_sector_rs(sym, sector_membership, sector_rank) for sym in tech.index]
+        sector_rank = sector_universe.sector_rs_asof(
+            sector_candles, bench_slice, date, cfg["sector_rs_lookback_days"]
+        )
+        tech["sector_rs"] = [
+            sector_universe.stock_sector_rs(sym, sector_membership, sector_rank)
+            for sym in tech.index
+        ]
         # BACKTEST-ONLY (for now), off by default -- top_sector/sector_group
         # are always attached whenever sector data is given (cheap, and
         # needed by the per-sector position cap in run_backtest()'s
@@ -516,9 +532,12 @@ def rank_universe_asof(
         # raw winner) so "top N sectors" means top N GROUPS, each
         # represented by its own strongest member index.
         tech["top_sector"] = [
-            sector_universe.stock_top_sector(sym, sector_membership, sector_rank) for sym in tech.index
+            sector_universe.stock_top_sector(sym, sector_membership, sector_rank)
+            for sym in tech.index
         ]
-        tech["sector_group"] = tech["top_sector"].apply(lambda s: sector_universe.industry_group(s) if s else s)
+        tech["sector_group"] = tech["top_sector"].apply(
+            lambda s: sector_universe.industry_group(s) if s else s
+        )
         if cfg.get("sector_diversification_enabled", False):
             top_n = cfg.get("top_n_sectors", 3)
             # BACKTEST-ONLY (for now), off by default -- an alternative to
@@ -535,8 +554,12 @@ def rank_universe_asof(
             if cfg.get("sector_composite_score_enabled", False):
                 pre_gates = screener.apply_gates(tech, fundamentals=fundamentals, cfg=cfg)
                 breadth = sector_universe.sector_breadth(sector_membership, pre_gates["all_gates"])
-                composite = sector_universe.sector_composite_score(sector_rank, sector_candles, date, breadth)
-                group_rank = composite.groupby(composite.index.to_series().apply(sector_universe.industry_group)).max()
+                composite = sector_universe.sector_composite_score(
+                    sector_rank, sector_candles, date, breadth
+                )
+                group_rank = composite.groupby(
+                    composite.index.to_series().apply(sector_universe.industry_group)
+                ).max()
             else:
                 group_rank = sector_rank.groupby(
                     sector_rank.index.to_series().apply(sector_universe.industry_group)
@@ -566,7 +589,9 @@ def rank_universe_asof(
     return screener.score(gated, cfg)
 
 
-def _apply_sector_cap(ordered_syms: list[str], positions: dict, ranked: pd.DataFrame, cfg: dict) -> list[str]:
+def _apply_sector_cap(
+    ordered_syms: list[str], positions: dict, ranked: pd.DataFrame, cfg: dict
+) -> list[str]:
     """Filters an already score-sorted list of NEW-entry candidates,
     dropping any symbol whose sector_group (see rank_universe_asof -- the
     industry-grouped counterpart to the raw top_sector, e.g. "Healthcare"
@@ -583,7 +608,11 @@ def _apply_sector_cap(ordered_syms: list[str], positions: dict, ranked: pd.DataF
     pass held positions separately for top-ups. No-op (returns the input
     unchanged) when the feature is off or sector_group data isn't
     available, e.g. no sector data was fetched this run."""
-    if not cfg.get("sector_diversification_enabled", False) or ranked.empty or "sector_group" not in ranked.columns:
+    if (
+        not cfg.get("sector_diversification_enabled", False)
+        or ranked.empty
+        or "sector_group" not in ranked.columns
+    ):
         return ordered_syms
     max_per_sector = cfg.get("max_positions_per_sector", 3)
     sector_counts: dict[str, int] = {}
@@ -788,7 +817,11 @@ def run_backtest(
     # small and roughly constant per year of history (unlike daily bar
     # count), so this and its per-day lookup stay cheap regardless of how
     # long the backtest window is.
-    if precomputed_pivots is None and long_candles is not None and cfg.get("resistance_zone_weight", 0.0):
+    if (
+        precomputed_pivots is None
+        and long_candles is not None
+        and cfg.get("resistance_zone_weight", 0.0)
+    ):
         precomputed_pivots = {}
         window = cfg.get("resistance_zone_pivot_window", 10)
         for sym, df in long_candles.items():
@@ -813,8 +846,12 @@ def run_backtest(
     if long_candles is not None and cfg.get("weekly_monthly_gate_enabled", False):
         for sym, df in long_candles.items():
             if not df.empty:
-                precomputed_weekly_monthly[sym] = indicators.precompute_weekly_monthly_bars(df["close"])
-                precomputed_weekly_monthly_ok[sym] = indicators.precompute_weekly_monthly_trend_ok(df, cfg)
+                precomputed_weekly_monthly[sym] = indicators.precompute_weekly_monthly_bars(
+                    df["close"]
+                )
+                precomputed_weekly_monthly_ok[sym] = indicators.precompute_weekly_monthly_trend_ok(
+                    df, cfg
+                )
 
     # Lazy, per-symbol cache of the MAD volatility trail (see mad_trail_
     # strategy.precompute_mad_trail), only when mad_stop_enabled -- same
@@ -877,7 +914,9 @@ def run_backtest(
         # day of the week" instead of the Friday the user actually means.
         weekday_dates = dates[dates.dayofweek < 5]
         iso = weekday_dates.isocalendar()
-        rb_dates = set(pd.Series(weekday_dates).groupby([iso["year"].values, iso["week"].values]).max())
+        rb_dates = set(
+            pd.Series(weekday_dates).groupby([iso["year"].values, iso["week"].values]).max()
+        )
     else:
         # first trading day of each month
         rb_dates = set(pd.Series(dates).groupby([dates.year, dates.month]).min())
@@ -917,7 +956,16 @@ def run_backtest(
         proceeds = pos.qty * price * (1 - cost)
         cash += proceeds
         trades.append(
-            Trade(sym, pos.entry_date, date, pos.entry_price, price * (1 - cost), pos.qty, reason, sector=pos.sector)
+            Trade(
+                sym,
+                pos.entry_date,
+                date,
+                pos.entry_price,
+                price * (1 - cost),
+                pos.qty,
+                reason,
+                sector=pos.sector,
+            )
         )
 
     def _price_asof(sym: str, date) -> float | None:
@@ -942,7 +990,9 @@ def run_backtest(
         if qty_override is not None:
             qty = qty_override
         else:
-            equity_now = cash + sum(p.qty * (_price_asof(s, date) or 0.0) for s, p in positions.items())
+            equity_now = cash + sum(
+                p.qty * (_price_asof(s, date) or 0.0) for s, p in positions.items()
+            )
             if cfg.get("capital_equal_weight_sizing", False):
                 open_slots_remaining = cfg["max_positions"] - len(positions)
                 qty = screener.capital_position_size(
@@ -968,7 +1018,9 @@ def run_backtest(
         # categories (sectoral or thematic), so there's always a genuine
         # index name to show, not a made-up bucket.
         sector = row.get("top_sector") if hasattr(row, "get") else None
-        positions[sym] = Position(sym, qty, entry_price, stop, date, highest_close=entry_price, sector=sector)
+        positions[sym] = Position(
+            sym, qty, entry_price, stop, date, highest_close=entry_price, sector=sector
+        )
         if verbose:
             print(f"{date.date()} BUY  {sym:8s} x{qty} @ {price:.1f} stop {stop:.1f}")
 
@@ -1039,7 +1091,8 @@ def run_backtest(
                 if mad is None or date not in mad.index:
                     continue
                 new_stop = float(mad.loc[date, "lower"])
-                pos.stop = max(pos.stop, new_stop)
+                if new_stop > pos.stop:
+                    pos.stop = new_stop
         elif cfg.get("trailing_stop_enabled", False):
             for sym, pos in positions.items():
                 df = candles[sym]
@@ -1048,7 +1101,8 @@ def run_backtest(
                 pos.highest_close = max(pos.highest_close, float(df.loc[date, "close"]))
                 atr_now = float(indicators.atr(df.loc[:date], cfg["atr_period"]).iloc[-1])
                 new_stop = pos.highest_close - cfg["trailing_atr_multiple"] * atr_now
-                pos.stop = max(pos.stop, new_stop)
+                if new_stop > pos.stop:
+                    pos.stop = new_stop
 
         # 2) monthly rebalance: recompute the universe, drop trend/rank
         # failures, and refresh the standing watchlist (see step 2b).
@@ -1077,7 +1131,9 @@ def run_backtest(
                     px = candles[sym].loc[date, "close"] if date in candles[sym].index else None
                     if px is None:
                         continue
-                    if screener.sell_check(sym, ranked, candidates, keep_zone, cfg["max_positions"], cfg):
+                    if screener.sell_check(
+                        sym, ranked, candidates, keep_zone, cfg["max_positions"], cfg
+                    ):
                         close_position(sym, float(px), date, "rebalance")
 
                 # Replace the watchlist wholesale -- next rebalance is the
@@ -1095,7 +1151,9 @@ def run_backtest(
                 # sell_check and current_candidate_syms above are unaffected.
                 confirm_days = cfg.get("entry_confirm_days", 0)
                 if confirm_days:
-                    confirm_pool_size = cfg.get("entry_confirm_pool_size") or cfg["max_positions"] * 2
+                    confirm_pool_size = (
+                        cfg.get("entry_confirm_pool_size") or cfg["max_positions"] * 2
+                    )
                     confirm_syms_now = set(candidates.head(confirm_pool_size).index)
                     for sym in list(candidate_streak.keys()):
                         if sym not in confirm_syms_now:
@@ -1103,7 +1161,9 @@ def run_backtest(
                     for sym in confirm_syms_now:
                         candidate_streak[sym] = candidate_streak.get(sym, 0) + 1
                     watchlist = {
-                        sym: row for sym, row in watchlist.items() if candidate_streak.get(sym, 0) >= confirm_days
+                        sym: row
+                        for sym, row in watchlist.items()
+                        if candidate_streak.get(sym, 0) >= confirm_days
                     }
 
         # 2b) fill any open slot from the standing watchlist -- every day,
@@ -1117,7 +1177,9 @@ def run_backtest(
             # of try_enter()'s one-symbol-at-a-time greedy fill below.
             ordered_syms = [
                 sym
-                for sym, _ in sorted(watchlist.items(), key=lambda kv: kv[1].get("score", 0), reverse=True)
+                for sym, _ in sorted(
+                    watchlist.items(), key=lambda kv: kv[1].get("score", 0), reverse=True
+                )
                 if date in candles[sym].index
             ]
             ordered_syms = _apply_sector_cap(ordered_syms, positions, ranked, cfg)
@@ -1127,17 +1189,23 @@ def run_backtest(
             # itself (that's specifically "what's biddable"), so without
             # this the top-up path could never fire at all.
             held_still_candidates = [
-                sym for sym in current_candidate_syms if sym in positions and date in candles[sym].index
+                sym
+                for sym in current_candidate_syms
+                if sym in positions and date in candles[sym].index
             ]
             allocator_syms = ordered_syms + held_still_candidates
-            prices = {sym: float(candles[sym].loc[:date, "close"].iloc[-1]) for sym in allocator_syms}
+            prices = {
+                sym: float(candles[sym].loc[:date, "close"].iloc[-1]) for sym in allocator_syms
+            }
             held_info = {}
             for sym, pos in positions.items():
                 p = _price_asof(sym, date)
                 if p is not None:
                     held_info[sym] = (pos.qty, p)
                     prices.setdefault(sym, p)
-            equity_now = cash + sum(p.qty * (_price_asof(s, date) or 0.0) for s, p in positions.items())
+            equity_now = cash + sum(
+                p.qty * (_price_asof(s, date) or 0.0) for s, p in positions.items()
+            )
             alloc = screener.allocate_equal_weight_buys(
                 allocator_syms,
                 prices,
@@ -1285,11 +1353,15 @@ def compute_metrics(equity: pd.Series, trades: list[Trade], bench: pd.DataFrame)
         "Trades": len(trades),
         "Win rate %": round(100 * len(wins) / len(trades), 1) if trades else np.nan,
         "Profit factor": round(gross_win / gross_loss, 2) if gross_loss else np.inf,
-        "Avg hold (days)": round(np.mean([t.holding_days for t in trades]), 0) if trades else np.nan,
+        "Avg hold (days)": round(np.mean([t.holding_days for t in trades]), 0)
+        if trades
+        else np.nan,
     }
 
 
-def yearly_performance(equity: pd.Series, bench: pd.DataFrame, trades: pd.DataFrame) -> pd.DataFrame:
+def yearly_performance(
+    equity: pd.Series, bench: pd.DataFrame, trades: pd.DataFrame
+) -> pd.DataFrame:
     """Calendar-year breakdown of the equity curve vs NIFTY, plus each
     year's trade count/win rate (by exit date -- a trade's P&L is realized
     in the year it closes, not the year it opened). A year's starting value
@@ -1310,7 +1382,10 @@ def yearly_performance(equity: pd.Series, bench: pd.DataFrame, trades: pd.DataFr
         n_start = prior_nifty.iloc[-1] if not prior_nifty.empty else yr_nifty.iloc[0]
         nifty_ret = (yr_nifty.iloc[-1] / n_start - 1) * 100
 
-        yr_trades = trades[pd.to_datetime(trades["exit_date"]).dt.year == yr] if not trades.empty else trades
+        if not trades.empty:
+            yr_trades = trades[pd.to_datetime(trades["exit_date"]).dt.year == yr]
+        else:
+            yr_trades = trades
         n_trades = len(yr_trades)
         win_rate = (100 * (yr_trades["pnl"] > 0).sum() / n_trades) if n_trades else np.nan
 
@@ -1334,18 +1409,27 @@ def yearly_performance(equity: pd.Series, bench: pd.DataFrame, trades: pd.DataFr
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--synthetic", action="store_true", help="run on synthetic data (no Kite needed)")
     ap.add_argument(
-        "--years", type=float, default=3.0, help="trailing years from today (ignored if --start-date given)"
+        "--synthetic", action="store_true", help="run on synthetic data (no Kite needed)"
+    )
+    ap.add_argument(
+        "--years",
+        type=float,
+        default=3.0,
+        help="trailing years from today (ignored if --start-date given)",
     )
     ap.add_argument(
         "--start-date",
         type=str,
         default=None,
-        help="YYYY-MM-DD -- simulate a specific historical window instead of trailing --years from today",
+        help="YYYY-MM-DD -- simulate a specific historical window "
+        "instead of trailing --years from today",
     )
     ap.add_argument(
-        "--end-date", type=str, default=None, help="YYYY-MM-DD, defaults to today -- only used with --start-date"
+        "--end-date",
+        type=str,
+        default=None,
+        help="YYYY-MM-DD, defaults to today -- only used with --start-date",
     )
     ap.add_argument("--capital", type=float, default=1_000_000)
     ap.add_argument(
@@ -1366,7 +1450,11 @@ def main():
         candles, bench = make_synthetic_universe()
     elif args.start_date:
         start = dt.datetime.strptime(args.start_date, "%Y-%m-%d").date()
-        end = dt.datetime.strptime(args.end_date, "%Y-%m-%d").date() if args.end_date else dt.date.today()
+        end = (
+            dt.datetime.strptime(args.end_date, "%Y-%m-%d").date()
+            if args.end_date
+            else dt.date.today()
+        )
         days = (dt.date.today() - start).days + 400  # extra for indicator warmup
         candles, bench = load_candles_cached(config.UNIVERSE, days, end_date=end)
         sim_start_date = start

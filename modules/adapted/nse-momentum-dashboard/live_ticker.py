@@ -72,8 +72,7 @@ class LiveTicker:
 
     def __init__(self, symbol_by_token: dict[int, str], mode: str = "ltp"):
         if mode not in _KITE_MODES:
-            msg = f"mode must be one of {list(_KITE_MODES)}, got {mode!r}"
-            raise ValueError(msg)
+            raise ValueError(f"mode must be one of {list(_KITE_MODES)}, got {mode!r}")
         self.mode = mode
         self.symbol_by_token = dict(symbol_by_token)
         self.token_by_symbol = {sym: tok for tok, sym in symbol_by_token.items()}
@@ -82,8 +81,12 @@ class LiveTicker:
         self._ticks: dict[int, dict] = {}
         self._last_tick_at: dict[int, dt.datetime] = {}
         self._connected = threading.Event()
-        self.started = False  # True once start() has been called (even if the handshake is still pending)
-        self._consecutive_403s = 0  # reset on any successful connect -- see _give_up_if_auth_failure()
+        self.started = (
+            False  # True once start() has been called (even if the handshake is still pending)
+        )
+        self._consecutive_403s = (
+            0  # reset on any successful connect -- see _give_up_if_auth_failure()
+        )
         self.kws = KiteTicker(config.KITE_API_KEY, config.KITE_ACCESS_TOKEN)
         self.kws.on_ticks = self._on_ticks
         self.kws.on_connect = self._on_connect
@@ -110,7 +113,10 @@ class LiveTicker:
         self.started = True
         self.kws.connect(threaded=True)
         if not self._connected.wait(timeout=timeout):
-            print(f"[live_ticker] WARNING: no connect callback within {timeout}s -- ticks may not be arriving yet.")
+            print(
+                f"[live_ticker] WARNING: no connect callback within {timeout}s "
+                "-- ticks may not be arriving yet."
+            )
 
     def stop(self) -> None:
         with contextlib.suppress(Exception):
