@@ -38,10 +38,14 @@ _DB_METADATA = None
 
 def get_all_scrips_names_in_db(metadata=None):
     all_scrips_table = create_or_get_all_scrips_table(metadata=metadata)
-    scrips_select_st = select_expr([all_scrips_table.c.nse_symbol]).where(all_scrips_table.c.nse_traded)
+    scrips_select_st = select_expr([all_scrips_table.c.nse_symbol]).where(
+        all_scrips_table.c.nse_traded
+    )
 
     result = execute_one(scrips_select_st, engine=metadata.bind)
-    return [row[0] for row in result.fetchall()]
+    symbols = [row[0] for row in result.fetchall()]
+
+    return symbols
 
 
 # FIXME metadata=None doesn't look correct, we need to pass db_meta perhaps?
@@ -76,9 +80,9 @@ def get_hist_data_as_dataframes_dict(metadata=None, limit=0, max_scrips=16000):
         scripdata = pd.io.sql.read_sql(sql_st, e)
 
         scripdata.columns = ["date", "open", "high", "low", "close", "volume", "delivery"]
-        scripdata = scripdata.reset_index()
-        scripdata = scripdata.set_index(pd.DatetimeIndex(scripdata["date"]))
-        scripdata = scripdata.drop("date", axis=1)
+        scripdata.reset_index(inplace=True)
+        scripdata.set_index(pd.DatetimeIndex(scripdata["date"]), inplace=True)
+        scripdata.drop("date", axis=1, inplace=True)
         scripdata_dict[scrip] = scripdata
 
         scrips += 1
