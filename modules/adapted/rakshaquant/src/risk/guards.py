@@ -53,7 +53,8 @@ class DrawdownTracker:
     def update(self, equity: float) -> float:
         """Record the latest total equity (cash + positions) and update the drawdown."""
         self.current_equity = equity
-        self.peak_equity = max(self.peak_equity, equity)
+        if equity > self.peak_equity:
+            self.peak_equity = equity
         self.max_drawdown = max(self.max_drawdown, self.peak_equity - equity)
         return self.max_drawdown
 
@@ -62,7 +63,9 @@ class DrawdownTracker:
         return (self.max_drawdown / self.peak_equity * 100.0) if self.peak_equity > 0 else 0.0
 
 
-def is_circuit_locked(change_percent: float, band_pct: float = NSE_DEFAULT_CIRCUIT_BAND_PCT) -> bool:
+def is_circuit_locked(
+    change_percent: float, band_pct: float = NSE_DEFAULT_CIRCUIT_BAND_PCT
+) -> bool:
     """
     True if the day's move is at/through the circuit band (no reliable fills near the limit).
 

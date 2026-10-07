@@ -1,0 +1,81 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""Base classes for domain records: immutable, strictly-shaped and JSON round-trippable."""
+
+from decimal import Decimal
+from typing import Annotated, ClassVar, NamedTuple
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class DomainModel(BaseModel):
+    """Frozen, extra-forbidding Pydantic model. Change one with ``model_copy(update=...)``."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+
+class Routing(NamedTuple):
+    """The lineage keys an event envelope copies from its payload."""
+
+    decision_id: str | None = None
+    book_id: str | None = None
+    instrument_key: str | None = None
+
+
+class EventPayload(DomainModel):
+    """A record that can be appended to the event store under ``event_type``.
+
+    ``schema_version`` is bumped whenever a payload's stored shape changes incompatibly.
+    """
+
+    event_type: ClassVar[str]
+    schema_version: ClassVar[int] = 1
+
+    def routing(self) -> Routing:
+        """Lineage keys for the envelope. Payloads that nest them override this."""
+        return Routing(
+            decision_id=_str_attr(self, "decision_id"),
+            book_id=_str_attr(self, "book_id"),
+            instrument_key=_str_attr(self, "instrument_key"),
+        )
+
+
+def _str_attr(obj: object, name: str) -> str | None:
+    value = getattr(obj, name, None)
+    return value if isinstance(value, str) else None
+
+
+# Money and prices that reach the OMS, a broker or the cost model are exact decimals.
+Price = Annotated[Decimal, Field(gt=0, allow_inf_nan=False)]
+Money = Annotated[Decimal, Field(allow_inf_nan=False)]
+NonNegMoney = Annotated[Decimal, Field(ge=0, allow_inf_nan=False)]
+
+# Market data and features are floats.
+PosFloat = Annotated[float, Field(gt=0, allow_inf_nan=False)]
+NonNegFloat = Annotated[float, Field(ge=0, allow_inf_nan=False)]
+Probability = Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
+
+PosInt = Annotated[int, Field(gt=0)]
+NonNegInt = Annotated[int, Field(ge=0)]
+NonEmptyStr = Annotated[str, Field(min_length=1)]
