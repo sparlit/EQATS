@@ -1382,8 +1382,8 @@
       "target": "jerryshell/midas",
       "url": "https://github.com/jerryshell/midas",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3114",
+      "merged": true
     },
     {
       "name": "nsedownload",
