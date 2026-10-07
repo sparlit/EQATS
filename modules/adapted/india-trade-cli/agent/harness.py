@@ -72,10 +72,9 @@ from datetime import date
 from pathlib import Path
 
 from agent.core import get_provider
+from config.paths import app_data_path
 from engine.trade_executor import execute_trade_plan
 from rich.console import Console
-
-from config.paths import app_data_path
 
 console = Console()
 
@@ -219,7 +218,8 @@ def _build_harness_system_prompt(trader_context: str) -> str:
 
     execution_rules = {
         HARNESS_MODE_PROMPT: (
-            "Ask for confirmation before calling execute_trade. The tool itself will present a preview and prompt."
+            "Ask for confirmation before calling execute_trade. "
+            "The tool itself will present a preview and prompt."
         ),
         HARNESS_MODE_PLAN: (
             "Complete ALL analysis first. Then present the full trade plan "
@@ -496,7 +496,7 @@ def run(
 
     # Load session history and append the new user message
     prior = _load_history(history_file=history_file)
-    messages = [*prior, {"role": "user", "content": query}]
+    messages = prior + [{"role": "user", "content": query}]
 
     mode_label = {
         HARNESS_MODE_PROMPT: "[cyan]prompt[/cyan]",

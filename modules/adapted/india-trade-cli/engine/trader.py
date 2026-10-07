@@ -58,7 +58,6 @@ Usage:
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 from agent.schema_parser import parse_synthesis_output
 from rich.console import Console
@@ -271,7 +270,13 @@ class TradePlan:
 
     def print_plan(self) -> None:
         """Display the trade plan as a Rich panel."""
-        dir_style = "green" if self.direction == "LONG" else "red" if self.direction == "SHORT" else "yellow"
+        dir_style = (
+            "green"
+            if self.direction == "LONG"
+            else "red"
+            if self.direction == "SHORT"
+            else "yellow"
+        )
 
         lines = [
             f"  [bold]{self.strategy_name}[/bold]  [{dir_style}]{self.direction}[/{dir_style}]",
@@ -293,7 +298,8 @@ class TradePlan:
         for i, leg in enumerate(self.entry_orders, 1):
             price_str = f"@ {leg.price:,.2f}" if leg.price else "@ MARKET"
             lines.append(
-                f"  [{i}] {leg.action} {leg.quantity} {leg.instrument} ({leg.product}) {leg.order_type} {price_str}"
+                f"  [{i}] {leg.action} {leg.quantity} {leg.instrument} "
+                f"({leg.product}) {leg.order_type} {price_str}"
             )
 
         if self.exit_plan:
@@ -307,9 +313,13 @@ class TradePlan:
                 ]
             )
             if ep.target_2:
-                lines.append(f"  Target 2   : {ep.target_2:,.2f} ({ep.target_2_pct:+.1f}%) → {ep.target_2_action}")
+                lines.append(
+                    f"  Target 2   : {ep.target_2:,.2f} ({ep.target_2_pct:+.1f}%) → {ep.target_2_action}"
+                )
             if ep.trail_trigger:
-                lines.append(f"  Trailing   : Start at +{ep.trail_trigger:.1f}%, step {ep.trail_step:.1f}%")
+                lines.append(
+                    f"  Trailing   : Start at +{ep.trail_trigger:.1f}%, step {ep.trail_step:.1f}%"
+                )
             if ep.time_exit:
                 lines.append(f"  Time Exit  : {ep.time_exit}")
             if ep.max_hold_days:
@@ -618,9 +628,12 @@ class TraderAgent:
         # Capital deployed
         table.add_row(
             "Capital",
-            _val(plans_list[0], "capital_deployed", "{:,.0f}") + f" ({_val(plans_list[0], 'capital_pct', '{:.0f}')}%)",
-            _val(plans_list[1], "capital_deployed", "{:,.0f}") + f" ({_val(plans_list[1], 'capital_pct', '{:.0f}')}%)",
-            _val(plans_list[2], "capital_deployed", "{:,.0f}") + f" ({_val(plans_list[2], 'capital_pct', '{:.0f}')}%)",
+            _val(plans_list[0], "capital_deployed", "{:,.0f}")
+            + f" ({_val(plans_list[0], 'capital_pct', '{:.0f}')}%)",
+            _val(plans_list[1], "capital_deployed", "{:,.0f}")
+            + f" ({_val(plans_list[1], 'capital_pct', '{:.0f}')}%)",
+            _val(plans_list[2], "capital_deployed", "{:,.0f}")
+            + f" ({_val(plans_list[2], 'capital_pct', '{:.0f}')}%)",
         )
 
         # Max risk
@@ -1099,7 +1112,9 @@ class TraderAgent:
             conditions.append(f"LOW CONFIDENCE ({confidence}%) — consider paper trading first")
 
         if vix and vix > 20:
-            conditions.append(f"VIX elevated ({vix:.1f}) — position size reduced, use defined-risk only")
+            conditions.append(
+                f"VIX elevated ({vix:.1f}) — position size reduced, use defined-risk only"
+            )
 
         # Check for upcoming events
         try:

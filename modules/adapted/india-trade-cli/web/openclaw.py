@@ -411,7 +411,8 @@ MANIFEST: dict = {
                 "required": ["symbol"],
             },
             "output_description": (
-                "rows: list of {strike, call_iv, put_iv, mid_iv} sorted by strike. symbol, expiry echoed back."
+                "rows: list of {strike, call_iv, put_iv, mid_iv} sorted by strike. "
+                "symbol, expiry echoed back."
             ),
         },
         {
@@ -666,7 +667,8 @@ MANIFEST: dict = {
                 "required": [],
             },
             "output_description": (
-                "current_delta, target_delta, gap, suggestions: list of {action, instrument, quantity, rationale}."
+                "current_delta, target_delta, gap, "
+                "suggestions: list of {action, instrument, quantity, rationale}."
             ),
         },
         {

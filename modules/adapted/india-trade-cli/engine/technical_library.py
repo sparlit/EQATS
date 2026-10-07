@@ -80,7 +80,9 @@ class TechnicalTemplate:
     risks: list[str]
     tags: list[str]
     complexity: str = "beginner"  # "beginner" | "intermediate" | "advanced"
-    backtest_key: str | None = None  # key in engine/backtest.STRATEGIES; None = not yet backtestable
+    backtest_key: str | None = (
+        None  # key in engine/backtest.STRATEGIES; None = not yet backtestable
+    )
 
 
 # ── Template definitions ──────────────────────────────────────
@@ -1838,15 +1840,15 @@ class TechnicalLibrary:
         """Filter by category (case-insensitive). Raises ValueError for unknown categories."""
         cat = category.lower()
         if cat not in TECH_CATEGORIES:
-            msg = f"Unknown category '{category}'. Valid: {', '.join(TECH_CATEGORIES)}"
-            raise ValueError(msg)
+            raise ValueError(f"Unknown category '{category}'. Valid: {', '.join(TECH_CATEGORIES)}")
         return [t for t in self.list_all() if t.category == cat]
 
     def get(self, id: str) -> TechnicalTemplate:
         """Exact-match lookup by id. Raises KeyError if not found."""
         if id not in self._templates:
-            msg = f"Strategy '{id}' not found. Run 'strategy library --type technical' to see all."
-            raise KeyError(msg)
+            raise KeyError(
+                f"Strategy '{id}' not found. Run 'strategy library --type technical' to see all."
+            )
         return self._templates[id]
 
     def search(self, query: str) -> list[TechnicalTemplate]:

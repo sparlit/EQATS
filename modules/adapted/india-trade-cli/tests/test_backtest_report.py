@@ -128,8 +128,7 @@ class TestGenerateHtmlReport:
         path = generate_html_report([result], output_path=str(tmp_path / "r.html"))
         content = open(path).read()
         # The equity curve data should appear somewhere in the HTML
-        assert "100" in content
-        assert "125" in content
+        assert "100" in content and "125" in content
 
     def test_empty_results_raises(self):
         from engine.backtest_report import generate_html_report

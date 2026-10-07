@@ -85,9 +85,8 @@ from abc import ABC, abstractmethod
 
 from agent.prompts import build_system_prompt
 from agent.tools import ToolRegistry, build_registry
-from rich.console import Console
-
 from config.credentials import get_credential
+from rich.console import Console
 
 console = Console()
 
@@ -180,23 +179,23 @@ class AnthropicProvider(LLMProvider):
 
             self._sdk = _sdk
             # Use required=False so we never prompt interactively inside a command
-            api_key = get_credential("ANTHROPIC_API_KEY", "Anthropic API Key", secret=True, required=False)
+            api_key = get_credential(
+                "ANTHROPIC_API_KEY", "Anthropic API Key", secret=True, required=False
+            )
             if not api_key:
-                msg = (
+                raise RuntimeError(
                     "Anthropic API key not set.\n"
                     "To fix, run one of:\n"
                     "  credentials setup          (interactive wizard)\n"
                     "  provider claude_subscription  (use Claude Pro/Max subscription instead)\n"
                     "  provider gemini             (switch to free Gemini)"
                 )
-                raise RuntimeError(msg)
             self._client = _sdk.Anthropic(api_key=api_key)
         except ImportError:
-            msg = (
+            raise RuntimeError(
                 "anthropic package not installed. Run: pip install anthropic\n"
                 "Or switch provider: provider gemini  (free, no install needed)"
             )
-            raise RuntimeError(msg)
 
     @property
     def provider_name(self) -> str:
@@ -208,7 +207,9 @@ class AnthropicProvider(LLMProvider):
         final = ""
 
         for _ in range(MAX_TOOL_ROUNDS):
-            text, tool_calls = self._stream_round(local, tools) if stream else self._call_round(local, tools)
+            text, tool_calls = (
+                self._stream_round(local, tools) if stream else self._call_round(local, tools)
+            )
 
             if tool_calls:
                 # Build assistant content block list
@@ -359,11 +360,10 @@ class OpenAIProvider(LLMProvider):
             )
             self._base_url = resolved_base
         except ImportError:
-            msg = (
+            raise RuntimeError(
                 "openai package not installed. Run: pip install openai\n"
                 "Or switch provider: provider gemini  (free, no install needed)"
             )
-            raise RuntimeError(msg)
 
     @property
     def provider_name(self) -> str:
@@ -375,7 +375,7 @@ class OpenAIProvider(LLMProvider):
 
     def chat(self, messages: list[dict], stream: bool = True) -> str:
         # OpenAI takes system message inline
-        oai = [{"role": "system", "content": self.system_prompt}, *list(messages)]
+        oai = [{"role": "system", "content": self.system_prompt}] + list(messages)
         tools = self.registry.openai_schema()
         final = ""
 
@@ -403,7 +403,9 @@ class OpenAIProvider(LLMProvider):
                 for tc in tcs:
                     _print_tool_call(tc["name"], tc["input"])
                     result = self.registry.execute(tc["name"], tc["input"])
-                    oai.append({"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(result)})
+                    oai.append(
+                        {"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(result)}
+                    )
             else:
                 final = text
                 break
@@ -431,7 +433,9 @@ class OpenAIProvider(LLMProvider):
         text = ""
         tc_acc: dict[int, dict] = {}
 
-        stream = self._client.chat.completions.create(model=self.model, messages=messages, tools=tools, stream=True)
+        stream = self._client.chat.completions.create(
+            model=self.model, messages=messages, tools=tools, stream=True
+        )
         for chunk in stream:
             if not chunk.choices:
                 continue
@@ -507,12 +511,11 @@ class ClaudeCLIProvider(LLMProvider):
             path = shutil.which(name)
             if path:
                 return path
-        msg = (
+        raise RuntimeError(
             "Claude CLI not found. Install it with:\n"
             "  npm install -g @anthropic-ai/claude-code\n"
             "Then run `claude login` to authenticate."
         )
-        raise RuntimeError(msg)
 
     def chat(self, messages: list[dict], stream: bool = True) -> str:
         """
@@ -543,7 +546,9 @@ class ClaudeCLIProvider(LLMProvider):
         last_user_msg = ""
         for m in reversed(messages):
             if m["role"] == "user":
-                last_user_msg = m["content"] if isinstance(m["content"], str) else json.dumps(m["content"])
+                last_user_msg = (
+                    m["content"] if isinstance(m["content"], str) else json.dumps(m["content"])
+                )
                 break
 
         # ── Phase 1: in-process tool matching (no subprocess) ─────
@@ -553,7 +558,9 @@ class ClaudeCLIProvider(LLMProvider):
         # names that exist in our registry.  This is instant and reliable.
         tool_plan = self._match_tools_in_text(last_user_msg)
         if tool_plan:
-            console.print(f"[dim]  Matched {len(tool_plan)} tools: {[t[0] for t in tool_plan]}[/dim]")
+            console.print(
+                f"[dim]  Matched {len(tool_plan)} tools: {[t[0] for t in tool_plan]}[/dim]"
+            )
 
         # ── Phase 2: execute matched tools locally (fast) ─────────
         # Suppress interactive credential prompts during batch tool execution.
@@ -565,8 +572,10 @@ class ClaudeCLIProvider(LLMProvider):
             _print_tool_call(name, args)
             try:
                 result = self.registry.execute(name, args)
-                collected.append(f'<tool_result name="{name}">\n{json.dumps(result, indent=2)}\n</tool_result>')
-                # tool executed OK
+                collected.append(
+                    f'<tool_result name="{name}">\n{json.dumps(result, indent=2)}\n</tool_result>'
+                )
+                pass  # tool executed OK
             except Exception as exc:
                 console.print(f"[dim]  ⚠ {name} skipped: {exc}[/dim]")
         os.environ.pop("_CLI_BATCH_MODE", None)
@@ -629,7 +638,12 @@ class ClaudeCLIProvider(LLMProvider):
         }
         needs_reasoning = any(kw in last_user_msg.lower() for kw in _reasoning_keywords)
         matched_names = {t[0] for t in tool_plan}
-        if collected and matched_names and matched_names.issubset(data_only_tools) and not needs_reasoning:
+        if (
+            collected
+            and matched_names
+            and matched_names.issubset(data_only_tools)
+            and not needs_reasoning
+        ):
             # Format data directly — no LLM needed
             response = _format_tool_results_directly(collected, last_user_msg)
             console.print(response, highlight=False)
@@ -657,7 +671,9 @@ class ClaudeCLIProvider(LLMProvider):
         history_parts: list[str] = []
         for msg in messages[:-1]:  # all messages except the last (already in last_user_msg)
             role = msg["role"].upper()
-            content = msg["content"] if isinstance(msg["content"], str) else json.dumps(msg["content"])
+            content = (
+                msg["content"] if isinstance(msg["content"], str) else json.dumps(msg["content"])
+            )
             # Truncate very long assistant messages to keep prompt manageable
             if role == "ASSISTANT" and len(content) > 1500:
                 content = content[:1500] + "\n[...truncated...]"
@@ -1270,11 +1286,10 @@ class OpenAISubscriptionProvider(LLMProvider):
             r.raise_for_status()
             return r.json().get("accessToken", "")
         except Exception as e:
-            msg = (
+            raise RuntimeError(
                 f"Failed to authenticate with ChatGPT session token: {e}\n"
                 "Token may be expired — log in to chatgpt.com and get a fresh token."
             )
-            raise RuntimeError(msg)
 
     def chat(self, messages: list[dict], stream: bool = True) -> str:
         """
@@ -1283,7 +1298,9 @@ class OpenAISubscriptionProvider(LLMProvider):
         Tools are described in the system prompt as JSON instructions.
         """
         # Build payload — simplified, no tool calling
-        user_text = "\n\n".join(msg["content"] for msg in messages if isinstance(msg.get("content"), str))
+        user_text = "\n\n".join(
+            msg["content"] for msg in messages if isinstance(msg.get("content"), str)
+        )
 
         combined = (
             f"{self.system_prompt}\n\n"
@@ -1373,21 +1390,19 @@ class GeminiProvider(LLMProvider):
                 "GEMINI_API_KEY", "Google Gemini API Key", secret=True, required=False
             ) or os.environ.get("GOOGLE_API_KEY", "")
             if not api_key:
-                msg = (
+                raise RuntimeError(
                     "GEMINI_API_KEY not set.\n"
                     "Get a free key at: https://aistudio.google.com/apikey\n"
                     "Then run: credentials set GEMINI_API_KEY"
                 )
-                raise RuntimeError(msg)
             self._client = genai.Client(api_key=api_key)
             self._tools_schema = self._build_gemini_tools()
         except ImportError:
-            msg = (
+            raise RuntimeError(
                 "google-genai package not installed.\n"
                 "Run: pip install google-genai\n"
                 "Or switch provider: provider anthropic"
             )
-            raise RuntimeError(msg)
 
     @property
     def provider_name(self) -> str:
@@ -1539,12 +1554,11 @@ class GeminiVertexProvider(LLMProvider):
             self._Tool = Tool
 
             if not self._project:
-                msg = (
+                raise RuntimeError(
                     "GOOGLE_CLOUD_PROJECT not set.\n"
                     "Run: gcloud config set project <PROJECT_ID>\n"
                     "and add GOOGLE_CLOUD_PROJECT=<id> to .env"
                 )
-                raise RuntimeError(msg)
 
             vertexai.init(project=self._project, location=self._location)
 
@@ -1556,8 +1570,9 @@ class GeminiVertexProvider(LLMProvider):
             )
 
         except ImportError:
-            msg = "google-cloud-aiplatform not installed.\nRun: pip install google-cloud-aiplatform"
-            raise RuntimeError(msg)
+            raise RuntimeError(
+                "google-cloud-aiplatform not installed.\nRun: pip install google-cloud-aiplatform"
+            )
 
     @property
     def provider_name(self) -> str:
@@ -1577,7 +1592,9 @@ class GeminiVertexProvider(LLMProvider):
 
     def chat(self, messages: list[dict], stream: bool = True) -> str:
         """Same agentic loop as GeminiProvider, using Vertex AI client."""
-        gemini_history = GeminiProvider._to_gemini_history(messages[:-1]) if len(messages) > 1 else []
+        gemini_history = (
+            GeminiProvider._to_gemini_history(messages[:-1]) if len(messages) > 1 else []
+        )
         last_msg = messages[-1]["content"] if messages else ""
 
         chat_session = self._model_obj.start_chat(history=gemini_history)
@@ -1667,8 +1684,10 @@ def get_provider(
     system = build_system_prompt()
 
     if chosen == "none":
-        msg = "No AI provider configured.\nRun [bold]credentials setup[/bold] → AI Provider to set one up."
-        raise RuntimeError(msg)
+        raise RuntimeError(
+            "No AI provider configured.\n"
+            "Run [bold]credentials setup[/bold] → AI Provider to set one up."
+        )
 
     dispatch = {
         PROVIDER_ANTHROPIC: AnthropicProvider,
@@ -1705,8 +1724,10 @@ def get_provider(
 
         chosen = _first_time_provider_setup()
         if chosen == "none":
-            msg = "No AI provider configured.\nRun [bold]credentials setup[/bold] → AI Provider to set one up."
-            raise RuntimeError(msg) from exc
+            raise RuntimeError(
+                "No AI provider configured.\n"
+                "Run [bold]credentials setup[/bold] → AI Provider to set one up."
+            ) from exc
 
         return _build_provider(chosen, _default_model(chosen), reg, system)
 
@@ -1744,11 +1765,10 @@ def _first_time_provider_setup() -> str:
     """
     import shutil
 
+    from config.credentials import _kr_set
     from rich.console import Console
     from rich.panel import Panel
     from rich.prompt import Prompt
-
-    from config.credentials import _kr_set
 
     _c = Console()
 
@@ -1807,10 +1827,12 @@ def _first_time_provider_setup() -> str:
         _c.print("  [green]✓ Using Claude subscription (claude CLI)[/green]\n")
         return PROVIDER_CLAUDE_CLI
 
-    if choice == "2":
+    elif choice == "2":
         from config.credentials import get_credential
 
-        api_key = get_credential("ANTHROPIC_API_KEY", "Anthropic API Key", secret=True, required=False)
+        api_key = get_credential(
+            "ANTHROPIC_API_KEY", "Anthropic API Key", secret=True, required=False
+        )
         if api_key:
             _save("AI_PROVIDER", PROVIDER_ANTHROPIC)
             _c.print("  [green]✓ Using Anthropic API[/green]\n")
@@ -1819,19 +1841,24 @@ def _first_time_provider_setup() -> str:
         _save("AI_PROVIDER", "none")
         return "none"
 
-    if choice == "3":
+    elif choice == "3":
         from config.credentials import get_credential
 
-        api_key = get_credential("GEMINI_API_KEY", "Google Gemini API Key", secret=True, required=False)
+        api_key = get_credential(
+            "GEMINI_API_KEY", "Google Gemini API Key", secret=True, required=False
+        )
         if api_key:
             _save("AI_PROVIDER", PROVIDER_GEMINI)
-            _c.print("  [green]✓ Using Gemini.[/green]  [dim]Get a free key at aistudio.google.com[/dim]\n")
+            _c.print(
+                "  [green]✓ Using Gemini.[/green]  "
+                "[dim]Get a free key at aistudio.google.com[/dim]\n"
+            )
             return PROVIDER_GEMINI
         _c.print("  [yellow]No key entered — skipping AI.[/yellow]\n")
         _save("AI_PROVIDER", "none")
         return "none"
 
-    if choice == "4":
+    elif choice == "4":
         from config.credentials import get_credential
 
         api_key = get_credential("OPENAI_API_KEY", "OpenAI API Key", secret=True, required=False)
@@ -1843,14 +1870,16 @@ def _first_time_provider_setup() -> str:
         _save("AI_PROVIDER", "none")
         return "none"
 
-    if choice == "5":
+    elif choice == "5":
         _c.print(
             "\n  [dim]Get token: chatgpt.com → F12 DevTools → Application → Cookies[/dim]\n"
             "  [dim]→ __Secure-next-auth.session-token[/dim]\n"
         )
         from config.credentials import get_credential
 
-        token = get_credential("OPENAI_SESSION_TOKEN", "ChatGPT Session Token", secret=True, required=False)
+        token = get_credential(
+            "OPENAI_SESSION_TOKEN", "ChatGPT Session Token", secret=True, required=False
+        )
         if token:
             _save("AI_PROVIDER", PROVIDER_OPENAI_SUB)
             _c.print("  [green]✓ Using ChatGPT Plus subscription[/green]\n")
@@ -1859,9 +1888,9 @@ def _first_time_provider_setup() -> str:
         _save("AI_PROVIDER", "none")
         return "none"
 
-    # skip
-    _c.print("  [dim]AI skipped for this session.[/dim]\n")
-    return "none"
+    else:  # skip
+        _c.print("  [dim]AI skipped for this session.[/dim]\n")
+        return "none"
 
 
 def _auto_detect_provider() -> str:
@@ -2008,7 +2037,9 @@ class TradingAgent:
 
         return response
 
-    def run_multi_agent_analysis(self, symbol: str, exchange: str = "NSE", risk_debate: bool = False) -> str:
+    def run_multi_agent_analysis(
+        self, symbol: str, exchange: str = "NSE", risk_debate: bool = False
+    ) -> str:
         """
         Run multi-agent analysis pipeline: analysts + bull/bear debate + synthesis.
 
@@ -2060,7 +2091,8 @@ class TradingAgent:
             pass  # keychain unavailable — in-session switch still worked
 
         console.print(
-            f"[green]✓ Switched to {self._provider.provider_name}[/green] [dim](saved — will persist on restart)[/dim]"
+            f"[green]✓ Switched to {self._provider.provider_name}[/green]"
+            f" [dim](saved — will persist on restart)[/dim]"
         )
 
     def run_setup_wizard(self) -> None:
@@ -2366,7 +2398,9 @@ def build_fast_provider_from_env(registry=None) -> LLMProvider:
     sys = "You are a concise financial data extraction assistant."
 
     # Provider to use for the fast model
-    chosen = fast_provider_name or os.environ.get("AI_PROVIDER", "").lower() or _auto_detect_provider()
+    chosen = (
+        fast_provider_name or os.environ.get("AI_PROVIDER", "").lower() or _auto_detect_provider()
+    )
     model = fast_model or _default_model(chosen)
 
     dispatch = {

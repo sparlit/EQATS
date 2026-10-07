@@ -44,7 +44,8 @@ from unittest.mock import MagicMock
 
 def _bypass_init(cls):
     """Return an instance of cls with __init__ bypassed."""
-    return cls.__new__(cls)
+    obj = cls.__new__(cls)
+    return obj
 
 
 # ─────────────────────────────────────────────────────────────────────────────

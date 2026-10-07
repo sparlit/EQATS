@@ -133,7 +133,9 @@ class TestHintEndpoint:
                 json={"stream_id": "INFY_NSE_abc123", "hint": "Focus on AI deals"},
             )
 
-        analyzer.progress_callback.assert_called_once_with({"type": "hint_ack", "hint": "Focus on AI deals"})
+        analyzer.progress_callback.assert_called_once_with(
+            {"type": "hint_ack", "hint": "Focus on AI deals"}
+        )
 
     def test_empty_hint_ignored(self, client):
         """Empty or whitespace-only hint should not be queued."""

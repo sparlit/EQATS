@@ -44,7 +44,6 @@ Usage:
 
 import contextlib
 from dataclasses import dataclass, field
-from typing import Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -261,7 +260,9 @@ def _get_fcf_quality(ticker) -> dict | None:
         ocf = cf.loc["Operating Cash Flow"].iloc[0] if "Operating Cash Flow" in cf.index else None
         capex = cf.loc["Capital Expenditure"].iloc[0] if "Capital Expenditure" in cf.index else None
         prev_capex = (
-            cf.loc["Capital Expenditure"].iloc[1] if "Capital Expenditure" in cf.index and len(cf.columns) > 1 else None
+            cf.loc["Capital Expenditure"].iloc[1]
+            if "Capital Expenditure" in cf.index and len(cf.columns) > 1
+            else None
         )
 
         if fcf and ocf:
@@ -385,7 +386,9 @@ def dcf_for_symbol(
                         )
                     if ny and not _is_nan_val(ny) and ny > 0.02:
                         ny_pct = round(float(ny) * 100, 1)
-                        candidates.append((ny_pct, f"analyst consensus: next year EPS growth {ny_pct:.1f}%"))
+                        candidates.append(
+                            (ny_pct, f"analyst consensus: next year EPS growth {ny_pct:.1f}%")
+                        )
             except Exception:
                 pass
 
@@ -451,7 +454,9 @@ def dcf_for_symbol(
         sources = {
             "fcf": f"yfinance annual cash flow statement (TTM: ₹{fcf:,.0f} Cr)",
             "growth": growth_source,
-            "beta": f"yfinance ({raw_beta:.2f}, floored to {beta:.2f})" if raw_beta < 0.5 else f"yfinance ({beta:.2f})",
+            "beta": f"yfinance ({raw_beta:.2f}, floored to {beta:.2f})"
+            if raw_beta < 0.5
+            else f"yfinance ({beta:.2f})",
             "wacc": f"CAPM: Rf {RISK_FREE_RATE}% + β {beta:.1f} × ERP {EQUITY_RISK_PREMIUM}% = Ke {RISK_FREE_RATE + beta * EQUITY_RISK_PREMIUM:.1f}%, D/E {de:.2f}",
             "net_debt": f"yfinance: total debt ₹{total_debt:,.0f} Cr - cash ₹{total_cash:,.0f} Cr",
             "terminal_growth": f"{TERMINAL_GROWTH}% (India nominal GDP growth assumption)",
@@ -465,7 +470,9 @@ def dcf_for_symbol(
                 f"⚠ Growth rate {growth_rate:.1f}% is very low — may be using trailing data. Consider analyst estimates or revenue growth."
             )
         if growth_rate > 20:
-            commentary.append(f"⚠ Growth rate {growth_rate:.1f}% is aggressive — sustainable for how long?")
+            commentary.append(
+                f"⚠ Growth rate {growth_rate:.1f}% is aggressive — sustainable for how long?"
+            )
         if beta < 0.5:
             commentary.append(
                 f"⚠ Raw beta {raw_beta:.2f} is unusually low — floored to 0.5 for WACC. May understate risk."
@@ -479,7 +486,9 @@ def dcf_for_symbol(
                 "⚠ Stock trades at >2× DCF value. Either market expects much higher growth or DCF assumptions are too conservative."
             )
         if result.margin_of_safety > 50:
-            commentary.append("✓ Large margin of safety. But verify: is FCF sustainable? Any one-time items?")
+            commentary.append(
+                "✓ Large margin of safety. But verify: is FCF sustainable? Any one-time items?"
+            )
         if computed_wacc - TERMINAL_GROWTH < 3:
             commentary.append(
                 f"⚠ WACC ({computed_wacc:.1f}%) - terminal growth ({TERMINAL_GROWTH}%) = {computed_wacc - TERMINAL_GROWTH:.1f}% spread. Small spread makes terminal value very sensitive."
@@ -516,7 +525,9 @@ def dcf_for_symbol(
             # Phase 1: FCF quality
             "fcf_quality": _get_fcf_quality(t),
             # Phase 2: Bank model (if applicable)
-            "bank_model": _get_bank_model(snap, beta) if is_bank_stock(snap.sector, snap.industry) else None,
+            "bank_model": _get_bank_model(snap, beta)
+            if is_bank_stock(snap.sector, snap.industry)
+            else None,
             # Phase 4: Scenarios
             "scenarios": compute_scenarios(
                 fcf_cr=fcf,
@@ -616,14 +627,20 @@ def print_dcf(symbol: str, growth_rate: float | None = None, wacc: float | None 
     tv_pct = data.get("terminal_pct", 0)
     if tv_pct:
         tv_style = "yellow" if tv_pct > 70 else "dim"
-        console.print(f"\n  [{tv_style}]Terminal value = {tv_pct:.0f}% of enterprise value[/{tv_style}]")
+        console.print(
+            f"\n  [{tv_style}]Terminal value = {tv_pct:.0f}% of enterprise value[/{tv_style}]"
+        )
         if tv_pct > 80:
-            console.print("  [yellow]⚠ Terminal value dominates — consider extending projection to 10 years[/yellow]")
+            console.print(
+                "  [yellow]⚠ Terminal value dominates — consider extending projection to 10 years[/yellow]"
+            )
 
     # Reverse DCF
     implied = data.get("implied_growth")
     if implied is not None:
-        console.print(f"\n  [bold]Reverse DCF:[/bold] Market implies {implied:.1f}% growth at ₹{cmp:,.0f}")
+        console.print(
+            f"\n  [bold]Reverse DCF:[/bold] Market implies {implied:.1f}% growth at ₹{cmp:,.0f}"
+        )
         gap = implied - data["growth_rate"]
         if abs(gap) > 5:
             gap_style = "red" if gap > 0 else "green"
@@ -647,14 +664,18 @@ def print_dcf(symbol: str, growth_rate: float | None = None, wacc: float | None 
         for key in ("bull", "base", "bear"):
             s = scenarios[key]
             sc = "green" if key == "bull" else "red" if key == "bear" else "yellow"
-            console.print(f"  [{sc}]{s['label']:5s}[/{sc}] (growth {s['growth']:.0f}%): ₹{s['intrinsic_value']:,.0f}")
+            console.print(
+                f"  [{sc}]{s['label']:5s}[/{sc}] (growth {s['growth']:.0f}%): ₹{s['intrinsic_value']:,.0f}"
+            )
 
     # Bank model
     bank = data.get("bank_model")
     if bank:
         console.print("\n  [bold]Bank P/BV Model:[/bold]")
         console.print(f"  Book Value: ₹{bank['bv_per_share']:,.0f} | ROE: {bank['roe']:.1f}%")
-        console.print(f"  Justified P/BV: {bank['justified_pbv']:.2f}× | Fair Value: ₹{bank['fair_value']:,.0f}")
+        console.print(
+            f"  Justified P/BV: {bank['justified_pbv']:.2f}× | Fair Value: ₹{bank['fair_value']:,.0f}"
+        )
 
 
 # ── Phase 1: Reverse DCF ─────────────────────────────────────
@@ -723,7 +744,9 @@ def check_fcf_quality(
             pass  # healthy — FCF close to OCF
         elif fcf_ocf_ratio > 0.5:
             quality = "MEDIUM"
-            warnings.append(f"FCF is {fcf_ocf_ratio:.0%} of operating cash flow — moderate capex burden")
+            warnings.append(
+                f"FCF is {fcf_ocf_ratio:.0%} of operating cash flow — moderate capex burden"
+            )
         else:
             quality = "LOW"
             warnings.append(f"FCF is only {fcf_ocf_ratio:.0%} of operating cash flow — heavy capex")
@@ -733,9 +756,13 @@ def check_fcf_quality(
         capex_change = (abs(capex) - abs(prev_capex)) / abs(prev_capex)
         if capex_change < -0.3:
             quality = "LOW"
-            warnings.append(f"Capex dropped {abs(capex_change):.0%} vs prior year — FCF may be temporarily inflated")
+            warnings.append(
+                f"Capex dropped {abs(capex_change):.0%} vs prior year — FCF may be temporarily inflated"
+            )
         elif capex_change > 0.3:
-            warnings.append(f"Capex increased {capex_change:.0%} — investing for growth (FCF may dip)")
+            warnings.append(
+                f"Capex increased {capex_change:.0%} — investing for growth (FCF may dip)"
+            )
 
     if not warnings:
         warnings.append("FCF closely tracks operating cash flow with stable capex")
@@ -788,7 +815,11 @@ def compute_bank_pbv(
         "fair_value": round(fair_value, 2),
         "current_price": current_price,
         "margin_of_safety": round(margin, 1),
-        "verdict": "UNDERVALUED" if margin > 15 else "OVERVALUED" if margin < -15 else "FAIRLY_VALUED",
+        "verdict": "UNDERVALUED"
+        if margin > 15
+        else "OVERVALUED"
+        if margin < -15
+        else "FAIRLY_VALUED",
     }
 
 

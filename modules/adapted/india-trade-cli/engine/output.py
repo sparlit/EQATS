@@ -50,11 +50,9 @@ Install for PDF: pip install fpdf2
 import os
 import re
 from datetime import datetime
-from typing import Optional
-
-from rich.console import Console
 
 from config.paths import app_data_path, pdf_output_dir
+from rich.console import Console
 
 console = Console()
 
@@ -73,7 +71,12 @@ def _build_pdf(content: str, title: str) -> object:
     clean = _strip_rich_markup(content)
     clean = clean.replace("\u20b9", "Rs.").replace("\u2192", "->").replace("\u2190", "<-")
     clean = clean.replace("\u2501", "-").replace("\u2500", "-").replace("\u2502", "|")
-    clean = clean.replace("\u2554", "+").replace("\u2557", "+").replace("\u255a", "+").replace("\u255d", "+")
+    clean = (
+        clean.replace("\u2554", "+")
+        .replace("\u2557", "+")
+        .replace("\u255a", "+")
+        .replace("\u255d", "+")
+    )
     # Remove any remaining non-latin1 characters
     clean = clean.encode("latin-1", errors="replace").decode("latin-1")
 
@@ -190,7 +193,7 @@ def export_to_pdf(
         Path to the saved PDF file (on Desktop).
     """
     try:
-        from fpdf import FPDF
+        from fpdf import FPDF  # noqa: F401 — just check availability
     except ImportError:
         console.print("[red]fpdf2 not installed. Run: pip install fpdf2[/red]")
         return ""
@@ -339,10 +342,11 @@ def _llm_explain(content: str, llm_provider) -> str:
             clean = clean[:3000] + "\n...(truncated)"
 
         prompt = EXPLAIN_PROMPT.format(content=clean)
-        return llm_provider.chat(
+        response = llm_provider.chat(
             messages=[{"role": "user", "content": prompt}],
             stream=True,
         )
+        return response
     except Exception as e:
         return f"(Could not generate simple explanation: {e})"
 
@@ -381,7 +385,9 @@ def _rule_based_explain(content: str) -> str:
     for term, simple in replacements.items():
         result = result.replace(term, f"{term} ({simple})")
 
-    return "\n--- SIMPLE EXPLANATION ---\nHere's what the above means in plain English:\n\n" + result
+    return (
+        "\n--- SIMPLE EXPLANATION ---\nHere's what the above means in plain English:\n\n" + result
+    )
 
 
 # ── Flag Parser ──────────────────────────────────────────────

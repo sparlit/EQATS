@@ -125,13 +125,11 @@ class TestScoreMetric:
     # NPM (bull≥15, bear<5)
     def test_npm_bullish(self):
         tm, contrib, _, _ = _score_metric("npm", 18.0)
-        assert tm == "BULLISH"
-        assert contrib == 1.0
+        assert tm == "BULLISH" and contrib == 1.0
 
     def test_npm_bearish(self):
         tm, contrib, _, _ = _score_metric("npm", 3.0)
-        assert tm == "BEARISH"
-        assert contrib == -1.0
+        assert tm == "BEARISH" and contrib == -1.0
 
     # Revenue growth (bull≥15, bear<5)
     def test_sales_growth_bullish(self):
@@ -166,22 +164,19 @@ class TestScoreMetric:
     # Pledged % (inverted: lower is better)
     def test_pledged_bullish_low(self):
         tm, contrib, _, _ = _score_metric("pledged_pct", 5.0)
-        assert tm == "BULLISH"
-        assert contrib == 1.0
+        assert tm == "BULLISH" and contrib == 1.0
 
     def test_pledged_bearish_high(self):
         tm, contrib, _, _ = _score_metric("pledged_pct", 45.0)
-        assert tm == "BEARISH"
-        assert contrib == -1.0
+        assert tm == "BEARISH" and contrib == -1.0
 
     def test_pledged_neutral(self):
         tm, contrib, _, _ = _score_metric("pledged_pct", 20.0)
-        assert tm == "NEUTRAL"
-        assert contrib == 0.0
+        assert tm == "NEUTRAL" and contrib == 0.0
 
     # P/E (inverted custom logic)
     def test_pe_bullish_low(self):
-        tm, contrib, _label, _ = _score_metric("pe", 15.0)
+        tm, contrib, label, _ = _score_metric("pe", 15.0)
         assert tm == "BULLISH"
         assert contrib == 1.0
 

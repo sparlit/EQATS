@@ -124,8 +124,7 @@ def test_preset_dags_each_has_description():
 
     for name, cfg in PRESET_DAGS.items():
         assert "description" in cfg, f"Preset '{name}' missing description"
-        assert isinstance(cfg["description"], str)
-        assert cfg["description"]
+        assert isinstance(cfg["description"], str) and cfg["description"]
 
 
 # ── DAGNode tests ─────────────────────────────────────────────
@@ -373,8 +372,7 @@ def test_run_dag_failed_analyst_captured(monkeypatch):
     from agent.dag_orchestrator import ANALYST_REGISTRY
 
     def raising_analyze(self, symbol, exchange="NSE"):
-        msg = "data feed down"
-        raise RuntimeError(msg)
+        raise RuntimeError("data feed down")
 
     def ok_analyze(self, symbol, exchange="NSE"):
         return _make_report("Fundamental")

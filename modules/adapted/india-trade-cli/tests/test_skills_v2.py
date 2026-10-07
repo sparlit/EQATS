@@ -317,7 +317,9 @@ class TestWalkForward:
         assert d["consistency"] == "MODERATE"
 
     def test_default_strategy_is_rsi(self, client):
-        with patch("engine.backtest.walk_forward_test", return_value=FakeWalkForwardResult()) as mock:
+        with patch(
+            "engine.backtest.walk_forward_test", return_value=FakeWalkForwardResult()
+        ) as mock:
             client.post("/skills/walkforward", json={"symbol": "NIFTY"})
         _, kwargs = mock.call_args
         assert kwargs["strategy_name"] == "rsi"
@@ -624,7 +626,11 @@ class TestAnalyzeFollowup:
         # Direct LLM call with system + user messages
         assert mock_provider.chat.call_count == 1
         call_kwargs = mock_provider.chat.call_args
-        messages = call_kwargs.kwargs.get("messages") or call_kwargs[1].get("messages") or call_kwargs[0][0]
+        messages = (
+            call_kwargs.kwargs.get("messages")
+            or call_kwargs[1].get("messages")
+            or call_kwargs[0][0]
+        )
         # Should have system message + user question
         assert any("INFY" in str(m) for m in messages)
 

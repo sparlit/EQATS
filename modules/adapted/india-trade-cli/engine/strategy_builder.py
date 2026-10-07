@@ -47,7 +47,6 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -120,8 +119,7 @@ class StrategyStore:
         """Dynamically import a saved strategy and return an instance."""
         py_file = self.base_dir / f"{name}.py"
         if not py_file.exists():
-            msg = f"Strategy '{name}' not found at {py_file}"
-            raise FileNotFoundError(msg)
+            raise FileNotFoundError(f"Strategy '{name}' not found at {py_file}")
 
         spec = importlib.util.spec_from_file_location(f"user_strategy_{name}", str(py_file))
         module = importlib.util.module_from_spec(spec)
@@ -144,8 +142,7 @@ class StrategyStore:
                 except TypeError:
                     return obj()
 
-        msg = f"No Strategy subclass found in {py_file}"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"No Strategy subclass found in {py_file}")
 
     def get_metadata(self, name: str) -> dict | None:
         """Load metadata JSON for a strategy."""
@@ -215,7 +212,9 @@ class StrategyStore:
             "name": meta.get("name", name),
             "description": meta.get("description", ""),
             "author": meta.get("author", ""),
-            "created_at": meta.get("created", meta.get("created_at", datetime.now().isoformat()[:10])),
+            "created_at": meta.get(
+                "created", meta.get("created_at", datetime.now().isoformat()[:10])
+            ),
             "code": code,
             "backtest": meta.get("backtest", {}),
             "tags": meta.get("tags", []),
@@ -238,7 +237,7 @@ class StrategyStore:
         Args:
             source: Local file path or HTTP(S) URL.
         """
-        if source.startswith(("http://", "https://")):
+        if source.startswith("http://") or source.startswith("https://"):
             import requests
 
             resp = requests.get(source, timeout=15)
@@ -251,8 +250,7 @@ class StrategyStore:
         required = ("name", "code")
         missing = [f for f in required if not package.get(f)]
         if missing:
-            msg = f"Strategy package missing required fields: {missing}"
-            raise ValueError(msg)
+            raise ValueError(f"Strategy package missing required fields: {missing}")
 
         name = package["name"]
         code = package["code"]
@@ -490,8 +488,7 @@ def build_and_test(
                 break
 
         if not strategy:
-            msg = "No Strategy subclass found in generated code."
-            raise ValueError(msg)
+            raise ValueError("No Strategy subclass found in generated code.")
 
         bt = Backtester(symbol=symbol, period=period, capital=capital)
         result = bt.run(strategy)
@@ -535,7 +532,8 @@ def extract_strategy_payload(response: str) -> dict | None:
                 if depth == 0:
                     end = i + 1
                     break
-        return json.loads(rest[start:end])
+        payload = json.loads(rest[start:end])
+        return payload
     except (json.JSONDecodeError, ValueError):
         pass
 
@@ -586,7 +584,9 @@ def extract_strategy_payload(response: str) -> dict | None:
 def print_strategy_list(strategies: list[dict]) -> None:
     """Print a Rich table of saved strategies."""
     if not strategies:
-        console.print("[dim]No saved strategies. Use [bold]strategy new[/bold] to create one.[/dim]")
+        console.print(
+            "[dim]No saved strategies. Use [bold]strategy new[/bold] to create one.[/dim]"
+        )
         return
 
     table = Table(title="Saved Strategies", show_lines=False)
@@ -691,7 +691,8 @@ class StrategyBuilderSession:
         self.description = description
         self._pre_fill_from_description(description)
         # Return only questions not already answered
-        return [q for k, q in self._questions if k not in self.answers]
+        unanswered = [q for k, q in self._questions if k not in self.answers]
+        return unanswered
 
     def answer(self, question_key: str, value: str) -> None:
         """Record an answer to a question key."""
@@ -738,12 +739,12 @@ class StrategyBuilderSession:
         import re
 
         # Stop loss
-        m = re.search(r"stop[\s\-_]*(?:loss)?[\s:@]*(\d+(?:\.\d+)?)\s*%", text, re.IGNORECASE)
+        m = re.search(r"stop[\s\-_]*(?:loss)?[\s:@]*(\d+(?:\.\d+)?)\s*%", text, re.I)
         if m:
             self.answers.setdefault("stop_loss_pct", m.group(1))
 
         # Target
-        m = re.search(r"target[\s:@]*(\d+(?:\.\d+)?)\s*%", text, re.IGNORECASE)
+        m = re.search(r"target[\s:@]*(\d+(?:\.\d+)?)\s*%", text, re.I)
         if m:
             self.answers.setdefault("target_pct", m.group(1))
 

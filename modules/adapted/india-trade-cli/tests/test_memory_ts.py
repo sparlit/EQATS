@@ -166,7 +166,9 @@ class TestAnalysisSnapshot:
         from engine.memory import trade_memory
 
         snap = {"verdict": "BUY", "confidence": 70, "custom_field": "value"}
-        record = trade_memory.store(symbol="NIFTY", verdict="BUY", confidence=70, analysis_snapshot=snap)
+        record = trade_memory.store(
+            symbol="NIFTY", verdict="BUY", confidence=70, analysis_snapshot=snap
+        )
         assert record.analysis_snapshot == snap
 
 

@@ -49,7 +49,6 @@ Usage:
 
 import math
 from dataclasses import dataclass, field
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -317,7 +316,9 @@ def _momentum_signal(df: pd.DataFrame) -> StrategyVote:
         components.append(f"6M={r6m * 100:+.1f}%")
 
     if total_w < 0.3:
-        return StrategyVote(0, STRATEGY_WEIGHTS["momentum"], "NEUTRAL", "Insufficient history for momentum")
+        return StrategyVote(
+            0, STRATEGY_WEIGHTS["momentum"], "NEUTRAL", "Insufficient history for momentum"
+        )
 
     # Normalise
     score = blended / total_w if total_w > 0 else 0.0
@@ -368,9 +369,13 @@ def _volatility_signal(df: pd.DataFrame) -> StrategyVote:
     detail = f"ATR%={current:.2f}%, median={median:.2f}%, ratio={ratio:.2f}x"
 
     if ratio < 0.70:
-        return StrategyVote(1, STRATEGY_WEIGHTS["volatility"], "BULLISH", f"{detail} — low vol regime")
+        return StrategyVote(
+            1, STRATEGY_WEIGHTS["volatility"], "BULLISH", f"{detail} — low vol regime"
+        )
     if ratio > 1.50:
-        return StrategyVote(-1, STRATEGY_WEIGHTS["volatility"], "BEARISH", f"{detail} — elevated vol")
+        return StrategyVote(
+            -1, STRATEGY_WEIGHTS["volatility"], "BEARISH", f"{detail} — elevated vol"
+        )
 
     return StrategyVote(0, STRATEGY_WEIGHTS["volatility"], "NEUTRAL", detail)
 
@@ -389,7 +394,9 @@ def _statistical_signal(df: pd.DataFrame) -> tuple[StrategyVote, float | None]:
     h = _hurst_exponent(close)
 
     if h is None:
-        vote = StrategyVote(0, STRATEGY_WEIGHTS["statistical"], "NEUTRAL", "Insufficient data for Hurst")
+        vote = StrategyVote(
+            0, STRATEGY_WEIGHTS["statistical"], "NEUTRAL", "Insufficient data for Hurst"
+        )
         return vote, None
 
     if h > 0.55:
@@ -468,7 +475,7 @@ def ensemble_signal(df: pd.DataFrame) -> EnsembleSignal:
     # Tally weighted scores
     bull_score = 0.0
     bear_score = 0.0
-    for vote in breakdown.values():
+    for _name, vote in breakdown.items():
         if vote.signal == 1:
             bull_score += vote.weight
         elif vote.signal == -1:
@@ -522,7 +529,9 @@ def format_ensemble(sig: EnsembleSignal, symbol: str = "") -> str:
         f" Bear score: {sig.bear_score:.2f}  {bar_bear}",
     ]
     if sig.hurst is not None:
-        regime = "trending" if sig.hurst > 0.55 else "mean-reverting" if sig.hurst < 0.45 else "random"
+        regime = (
+            "trending" if sig.hurst > 0.55 else "mean-reverting" if sig.hurst < 0.45 else "random"
+        )
         lines.append(f" Hurst:      {sig.hurst:.3f} ({regime})")
     if sig.adx is not None:
         lines.append(f" ADX:        {sig.adx:.1f}")
@@ -531,7 +540,9 @@ def format_ensemble(sig: EnsembleSignal, symbol: str = "") -> str:
     lines.append(" Strategy breakdown:")
     for name, vote in sig.breakdown.items():
         prefix = {"BULLISH": "▲", "BEARISH": "▼", "NEUTRAL": "◆"}[vote.label]
-        lines.append(f"   {name:<12} {prefix} {vote.label:<8} (w={vote.weight:.0%}) {vote.detail[:55]}")
+        lines.append(
+            f"   {name:<12} {prefix} {vote.label:<8} (w={vote.weight:.0%}) {vote.detail[:55]}"
+        )
 
     lines.append(f"{'─' * 50}")
     return "\n".join(lines)

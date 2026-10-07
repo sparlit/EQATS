@@ -112,7 +112,9 @@ def execute_trade_plan(plan, broker: BrokerAPI) -> list[dict]:
             )
 
         except Exception as e:
-            console.print(f"  [{i}] {leg.action} {leg.quantity} {leg.instrument} → [red]FAILED: {e}[/red]")
+            console.print(
+                f"  [{i}] {leg.action} {leg.quantity} {leg.instrument} → [red]FAILED: {e}[/red]"
+            )
             results.append(
                 {
                     "symbol": leg.instrument,

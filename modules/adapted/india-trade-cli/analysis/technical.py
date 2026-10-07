@@ -205,7 +205,9 @@ def analyse(
 
     ema20_val = float(ema(close, 20).iloc[-1])
     ema50_val = float(ema(close, 50).iloc[-1])
-    sma200_val = float(sma(close, 200).iloc[-1]) if len(df) >= 200 else float(sma(close, len(df)).iloc[-1])
+    sma200_val = (
+        float(sma(close, 200).iloc[-1]) if len(df) >= 200 else float(sma(close, len(df)).iloc[-1])
+    )
 
     bb_upper, bb_mid, bb_lower = bollinger_bands(close)
     bb_u = float(bb_upper.iloc[-1])

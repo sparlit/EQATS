@@ -193,8 +193,9 @@ def _topological_sort(nodes: dict[str, DAGNode]) -> list[str]:
                 queue.append(neighbor)
 
     if len(order) != len(nodes):
-        msg = f"Circular dependency detected in DAG. Processed {len(order)}/{len(nodes)} nodes."
-        raise ValueError(msg)
+        raise ValueError(
+            f"Circular dependency detected in DAG. Processed {len(order)}/{len(nodes)} nodes."
+        )
 
     return order
 
@@ -211,19 +212,20 @@ def build_dag(dag_config: dict) -> list[DAGNode]:
     # Validate all analyst names
     for name in analysts:
         if name not in ANALYST_REGISTRY:
-            msg = f"Unknown analyst '{name}'. Valid names: {sorted(ANALYST_REGISTRY.keys())}"
-            raise ValueError(msg)
+            raise ValueError(
+                f"Unknown analyst '{name}'. Valid names: {sorted(ANALYST_REGISTRY.keys())}"
+            )
 
     # Validate dependency targets also exist in the analyst list
     analyst_set = set(analysts)
     for dependent, deps in dependencies.items():
         if dependent not in analyst_set:
-            msg = f"Dependency key '{dependent}' is not in the analysts list."
-            raise ValueError(msg)
+            raise ValueError(f"Dependency key '{dependent}' is not in the analysts list.")
         for dep in deps:
             if dep not in analyst_set:
-                msg = f"Dependency target '{dep}' (for '{dependent}') is not in the analysts list."
-                raise ValueError(msg)
+                raise ValueError(
+                    f"Dependency target '{dep}' (for '{dependent}') is not in the analysts list."
+                )
 
     # Build DAGNode dict
     nodes: dict[str, DAGNode] = {}
@@ -302,8 +304,10 @@ def run_dag(
                 ready = [n for n in remaining if all(dep in completed for dep in n.depends_on)]
                 if not ready:
                     # Safety: should not happen if topo sort is correct, but guard anyway
-                    msg = f"DAG execution stalled — no nodes ready to run. Remaining: {[n.name for n in remaining]}"
-                    raise RuntimeError(msg)
+                    raise RuntimeError(
+                        "DAG execution stalled — no nodes ready to run. "
+                        f"Remaining: {[n.name for n in remaining]}"
+                    )
 
                 futures = {executor.submit(_run_analyst, node): node for node in ready}
                 for future in as_completed(futures, timeout=timeout_seconds):

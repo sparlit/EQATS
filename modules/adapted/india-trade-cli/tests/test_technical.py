@@ -95,13 +95,13 @@ class TestMACD:
 
 class TestBollingerBands:
     def test_upper_above_lower(self, ohlcv_df):
-        upper, _mid, lower = bollinger_bands(ohlcv_df["close"])
+        upper, mid, lower = bollinger_bands(ohlcv_df["close"])
         valid_idx = upper.dropna().index
         assert (upper.loc[valid_idx] >= lower.loc[valid_idx]).all()
 
     def test_mid_is_sma(self, ohlcv_df):
         """Middle band should be SMA(20)."""
-        _upper, mid, _lower = bollinger_bands(ohlcv_df["close"], period=20)
+        upper, mid, lower = bollinger_bands(ohlcv_df["close"], period=20)
         expected = sma(ohlcv_df["close"], 20)
         common = mid.dropna().index.intersection(expected.dropna().index)
         np.testing.assert_allclose(mid.loc[common].values, expected.loc[common].values, atol=1e-10)

@@ -37,6 +37,7 @@ import pytest
 def temp_risk_db(tmp_path, monkeypatch):
     """Each test gets an isolated in-memory risk DB."""
     monkeypatch.setenv("RISK_DB_PATH", str(tmp_path / "risk_limits.db"))
+    yield
 
 
 def _fresh_limits(**env_overrides):
@@ -183,21 +184,27 @@ class TestNoPyramiding:
         # Simulate: held INFY avg 1400, current price is 1300 (losing)
         # Trying to add more INFY = pyramiding into loser
         with pytest.raises(RiskLimitError, match="pyramid|losing"):
-            rl.check("INFY", "BUY", 10, 1300.0, current_position={"avg_price": 1400.0, "quantity": 50})
+            rl.check(
+                "INFY", "BUY", 10, 1300.0, current_position={"avg_price": 1400.0, "quantity": 50}
+            )
 
     def test_allows_buying_into_winning_long(self, monkeypatch):
         from engine.risk_limits import RiskLimits
 
         rl = RiskLimits()
         # Held INFY avg 1200, current price 1400 (winning) — ok to add more
-        rl.check("INFY", "BUY", 10, 1400.0, current_position={"avg_price": 1200.0, "quantity": 50})  # should not raise
+        rl.check(
+            "INFY", "BUY", 10, 1400.0, current_position={"avg_price": 1200.0, "quantity": 50}
+        )  # should not raise
 
     def test_allows_closing_losing_position(self, monkeypatch):
         from engine.risk_limits import RiskLimits
 
         rl = RiskLimits()
         # SELL of a losing long = closing/reducing, not pyramiding — should be allowed
-        rl.check("INFY", "SELL", 10, 1300.0, current_position={"avg_price": 1400.0, "quantity": 50})  # should not raise
+        rl.check(
+            "INFY", "SELL", 10, 1300.0, current_position={"avg_price": 1400.0, "quantity": 50}
+        )  # should not raise
 
     def test_no_position_allows_new_buy(self):
         from engine.risk_limits import RiskLimits

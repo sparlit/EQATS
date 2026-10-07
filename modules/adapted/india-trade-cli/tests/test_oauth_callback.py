@@ -50,7 +50,9 @@ class TestOAuthLocalServer:
 
         def _hit():
             time.sleep(0.05)
-            urllib.request.urlopen(f"http://127.0.0.1:{port}/fyers/callback?auth_code=TESTCODE123&state=xyz")
+            urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/fyers/callback?auth_code=TESTCODE123&state=xyz"
+            )
 
         threading.Thread(target=_hit, daemon=True).start()
         result = _oauth_local_server(port, "/fyers/callback", "auth_code", timeout=5)
@@ -61,7 +63,9 @@ class TestOAuthLocalServer:
 
         def _hit():
             time.sleep(0.05)
-            urllib.request.urlopen(f"http://127.0.0.1:{port}/zerodha/callback?request_token=ZTOKEN&status=success")
+            urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/zerodha/callback?request_token=ZTOKEN&status=success"
+            )
 
         threading.Thread(target=_hit, daemon=True).start()
         result = _oauth_local_server(port, "/zerodha/callback", "request_token", timeout=5)

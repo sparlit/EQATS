@@ -66,14 +66,18 @@ class TestTimestampAlwaysSet:
     def test_price_at_analysis_stored(self):
         from engine.memory import trade_memory
 
-        record = trade_memory.store(symbol="RELIANCE", verdict="BUY", confidence=72, price_at_analysis=2950.0)
+        record = trade_memory.store(
+            symbol="RELIANCE", verdict="BUY", confidence=72, price_at_analysis=2950.0
+        )
         assert record.price_at_analysis == 2950.0
 
     def test_synthesis_text_stored(self):
         from engine.memory import trade_memory
 
         synth = "VERDICT: BUY\nCONFIDENCE: 72%\nStrategy: Delivery Buy"
-        record = trade_memory.store(symbol="INFY", verdict="BUY", confidence=72, synthesis_text=synth)
+        record = trade_memory.store(
+            symbol="INFY", verdict="BUY", confidence=72, synthesis_text=synth
+        )
         assert record.synthesis_text == synth
 
 
@@ -172,8 +176,10 @@ class TestParseSynthesisFixed:
     def test_verdict_in_middle_of_text(self):
         from engine.memory import _parse_synthesis
 
-        text = "Based on analysis...\nFinal VERDICT: BUY\nCONFIDENCE: 68%\nStrategy: Iron Bull Spread"
-        verdict, conf, _strategy = _parse_synthesis(text)
+        text = (
+            "Based on analysis...\nFinal VERDICT: BUY\nCONFIDENCE: 68%\nStrategy: Iron Bull Spread"
+        )
+        verdict, conf, strategy = _parse_synthesis(text)
         assert verdict == "BUY"
         assert conf == 68
 

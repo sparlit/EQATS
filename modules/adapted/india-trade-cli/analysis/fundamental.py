@@ -42,7 +42,6 @@ Main entry points:
 import contextlib
 import re
 from dataclasses import dataclass, field
-from typing import Optional
 
 import httpx
 
@@ -137,7 +136,9 @@ class FundamentalSnapshot:
     five_yr_avg_div_yield: float | None = None
 
     # Insider transactions (59g)
-    insider_transactions: list = field(default_factory=list)  # [{"date", "insider", "transaction", "shares", "value"}]
+    insider_transactions: list = field(
+        default_factory=list
+    )  # [{"date", "insider", "transaction", "shares", "value"}]
 
     # Quarterly trend (last 4 quarters, most recent first)
     quarterly_revenue: list = field(default_factory=list)
@@ -264,7 +265,11 @@ def _score(parsed: dict) -> tuple[int, list[FundamentalFlag]]:
             flags.append(FundamentalFlag(metric, round(value, 2), "BAD", bad_msg))
             score -= bad_pts
         else:
-            flags.append(FundamentalFlag(metric, round(value, 2), "WARN", f"{metric} is acceptable but not strong"))
+            flags.append(
+                FundamentalFlag(
+                    metric, round(value, 2), "WARN", f"{metric} is acceptable but not strong"
+                )
+            )
 
     # PE Ratio (lower is cheaper, but negative = loss-making)
     pe = parsed.get("pe")
@@ -281,7 +286,9 @@ def _score(parsed: dict) -> tuple[int, list[FundamentalFlag]]:
             flags.append(FundamentalFlag("P/E", round(pe, 1), "BAD", "Expensive (>40)"))
             score -= 10
     elif pe and pe < 0:
-        flags.append(FundamentalFlag("P/E", round(pe, 1), "BAD", "Negative — company making losses"))
+        flags.append(
+            FundamentalFlag("P/E", round(pe, 1), "BAD", "Negative — company making losses")
+        )
         score -= 20
 
     flag(
@@ -354,10 +361,18 @@ def _score(parsed: dict) -> tuple[int, list[FundamentalFlag]]:
     ph = parsed.get("promoter_holding")
     if ph is not None:
         if ph >= 50:
-            flags.append(FundamentalFlag("Promoter Holding", f"{ph:.1f}%", "GOOD", "High promoter confidence"))
+            flags.append(
+                FundamentalFlag(
+                    "Promoter Holding", f"{ph:.1f}%", "GOOD", "High promoter confidence"
+                )
+            )
             score += 8
         elif ph >= 35:
-            flags.append(FundamentalFlag("Promoter Holding", f"{ph:.1f}%", "WARN", "Moderate promoter holding"))
+            flags.append(
+                FundamentalFlag(
+                    "Promoter Holding", f"{ph:.1f}%", "WARN", "Moderate promoter holding"
+                )
+            )
         else:
             flags.append(
                 FundamentalFlag(
@@ -372,10 +387,18 @@ def _score(parsed: dict) -> tuple[int, list[FundamentalFlag]]:
     pledged = parsed.get("pledged_pct")
     if pledged is not None and pledged > 0:
         if pledged > 25:
-            flags.append(FundamentalFlag("Pledged %", f"{pledged:.1f}%", "BAD", "High pledge — risk of forced selling"))
+            flags.append(
+                FundamentalFlag(
+                    "Pledged %", f"{pledged:.1f}%", "BAD", "High pledge — risk of forced selling"
+                )
+            )
             score -= 15
         elif pledged > 5:
-            flags.append(FundamentalFlag("Pledged %", f"{pledged:.1f}%", "WARN", "Some promoter shares pledged"))
+            flags.append(
+                FundamentalFlag(
+                    "Pledged %", f"{pledged:.1f}%", "WARN", "Some promoter shares pledged"
+                )
+            )
             score -= 5
 
     # ── Governance risk (59e) ────────────────────────────────
@@ -530,9 +553,17 @@ def _fetch_yfinance(symbol: str) -> dict:
                     roe_computed = round((net_income / equity) * 100, 1)
 
                 ebit = inc.loc["EBIT"].iloc[0] if "EBIT" in inc.index else None
-                total_assets = bs.loc["Total Assets"].iloc[0] if "Total Assets" in bs.index else None
-                current_liab = bs.loc["Current Liabilities"].iloc[0] if "Current Liabilities" in bs.index else None
-                current_assets = bs.loc["Current Assets"].iloc[0] if "Current Assets" in bs.index else None
+                total_assets = (
+                    bs.loc["Total Assets"].iloc[0] if "Total Assets" in bs.index else None
+                )
+                current_liab = (
+                    bs.loc["Current Liabilities"].iloc[0]
+                    if "Current Liabilities" in bs.index
+                    else None
+                )
+                current_assets = (
+                    bs.loc["Current Assets"].iloc[0] if "Current Assets" in bs.index else None
+                )
 
                 if ebit and total_assets and current_liab and not _is_nan(ebit):
                     capital_employed = total_assets - current_liab
@@ -540,7 +571,12 @@ def _fetch_yfinance(symbol: str) -> dict:
                         roce_computed = round((ebit / capital_employed) * 100, 1)
 
                 # Current ratio: Current Assets / Current Liabilities
-                if current_assets and current_liab and not _is_nan(current_assets) and current_liab > 0:
+                if (
+                    current_assets
+                    and current_liab
+                    and not _is_nan(current_assets)
+                    and current_liab > 0
+                ):
                     current_ratio_computed = round(current_assets / current_liab, 2)
 
                 # Interest coverage: EBIT / Interest Expense
@@ -604,7 +640,11 @@ def _fetch_yfinance(symbol: str) -> dict:
             if not q_inc.empty:
                 for col in q_inc.columns[:4]:
                     q_date = str(col)[:10]
-                    rev = q_inc.loc["Total Revenue"].get(col) if "Total Revenue" in q_inc.index else None
+                    rev = (
+                        q_inc.loc["Total Revenue"].get(col)
+                        if "Total Revenue" in q_inc.index
+                        else None
+                    )
                     ni = (
                         q_inc.loc["Net Income Common Stockholders"].get(col)
                         if "Net Income Common Stockholders" in q_inc.index
@@ -629,7 +669,9 @@ def _fetch_yfinance(symbol: str) -> dict:
             "npm": round(npm_raw * 100, 1) if npm_raw else None,
             "sales_growth": round(rev_growth_raw * 100, 1) if rev_growth_raw else None,
             "profit_growth": round(earn_growth_raw * 100, 1) if earn_growth_raw else None,
-            "debt_equity": round(info.get("debtToEquity", 0) / 100, 2) if info.get("debtToEquity") else None,
+            "debt_equity": round(info.get("debtToEquity", 0) / 100, 2)
+            if info.get("debtToEquity")
+            else None,
             "current_ratio": cr,
             "interest_coverage": locals().get("interest_coverage_computed"),
             "free_cash_flow": fcf,
@@ -665,9 +707,15 @@ def _fetch_yfinance(symbol: str) -> dict:
             "audit_risk": info.get("auditRisk"),
             "board_risk": info.get("boardRisk"),
             # 59h: Margins
-            "operating_margin": round(info["operatingMargins"] * 100, 1) if info.get("operatingMargins") else None,
-            "gross_margin": round(info["grossMargins"] * 100, 1) if info.get("grossMargins") else None,
-            "ebitda_margin": round(info["ebitdaMargins"] * 100, 1) if info.get("ebitdaMargins") else None,
+            "operating_margin": round(info["operatingMargins"] * 100, 1)
+            if info.get("operatingMargins")
+            else None,
+            "gross_margin": round(info["grossMargins"] * 100, 1)
+            if info.get("grossMargins")
+            else None,
+            "ebitda_margin": round(info["ebitdaMargins"] * 100, 1)
+            if info.get("ebitdaMargins")
+            else None,
             # 59i: Cash & debt
             "total_cash_cr": round(info["totalCash"] / 1e7, 0) if info.get("totalCash") else None,
             "total_debt_cr": round(info["totalDebt"] / 1e7, 0) if info.get("totalDebt") else None,
@@ -912,7 +960,11 @@ def analyse(symbol: str, **_kwargs) -> FundamentalSnapshot:
         )
     elif analyst_rating in ("sell", "strong_sell"):
         score -= 8
-        flags.append(FundamentalFlag("Analyst Consensus", analyst_rating, "BAD", "Analysts recommend selling"))
+        flags.append(
+            FundamentalFlag(
+                "Analyst Consensus", analyst_rating, "BAD", "Analysts recommend selling"
+            )
+        )
 
     # ── Free cash flow scoring ────────────────────────────────
     fcf = parsed.get("free_cash_flow")
@@ -955,7 +1007,9 @@ def analyse(symbol: str, **_kwargs) -> FundamentalSnapshot:
         if shareholding.get("retail_pct"):
             parsed["retail_holding"] = shareholding["retail_pct"]
         if shareholding.get("pledged") is not None:
-            parsed["pledged_pct"] = 0.0 if not shareholding["pledged"] else parsed.get("pledged_pct")
+            parsed["pledged_pct"] = (
+                0.0 if not shareholding["pledged"] else parsed.get("pledged_pct")
+            )
         parsed["shareholding_quarter"] = shareholding.get("quarter", "")
 
     # ── Fetch announcements (best-effort, non-blocking) ──────
@@ -1081,7 +1135,8 @@ class FundamentalsScore:
         """Compact text for CLI or LLM consumption."""
         lines = [
             f"Fundamentals Score: {self.symbol}",
-            (f"Signal: {self.signal}  |  Score: {self.overall_score:+.2f}  |  Data: {self.data_quality}"),
+            f"Signal: {self.signal}  |  Score: {self.overall_score:+.2f}  |  "
+            f"Data: {self.data_quality}",
             "",
         ]
         for name, m in self.metrics.items():

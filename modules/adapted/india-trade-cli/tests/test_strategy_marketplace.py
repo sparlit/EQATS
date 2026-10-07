@@ -52,7 +52,9 @@ class TestStrategyExport:
             "created_at": "2026-04-11",
         }
         (tmp_path / "test_rsi.json").write_text(json.dumps(meta))
-        (tmp_path / "test_rsi.py").write_text("from engine.backtest import Strategy\nclass TestRsi(Strategy): pass\n")
+        (tmp_path / "test_rsi.py").write_text(
+            "from engine.backtest import Strategy\nclass TestRsi(Strategy): pass\n"
+        )
 
         out_path = tmp_path / "exported.json"
         store.export_strategy("test_rsi", str(out_path))

@@ -469,7 +469,11 @@ class TestParseJsonPath:
 
     def test_json_with_surrounding_text(self):
         """JSON embedded in prose text (LLM often wraps JSON in explanation)."""
-        text = "Here is my analysis:\n" + VALID_JSON_TEXT + "\nPlease use the above for your trade plan."
+        text = (
+            "Here is my analysis:\n"
+            + VALID_JSON_TEXT
+            + "\nPlease use the above for your trade plan."
+        )
         result = parse_synthesis_output(text)
         assert result.verdict == "SELL"
 

@@ -31,12 +31,8 @@ Shows % capital deployed, free cash, unrealised P&L, and risk rating.
 """
 
 
-from typing import TYPE_CHECKING
-
+from textual.app import ComposeResult
 from textual.widgets import Label, Static
-
-if TYPE_CHECKING:
-    from textual.app import ComposeResult
 
 
 class RiskMeterWidget(Static):

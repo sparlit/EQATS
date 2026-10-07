@@ -35,7 +35,7 @@ class TestParseOutputFlags:
         assert explain_save is False
 
     def test_explain_flag(self):
-        args, pdf, explain, _explain_save = parse_output_flags(["RELIANCE", "--explain"])
+        args, pdf, explain, explain_save = parse_output_flags(["RELIANCE", "--explain"])
         assert args == ["RELIANCE"]
         assert pdf is False
         assert explain is True
@@ -48,7 +48,7 @@ class TestParseOutputFlags:
         assert explain_save is True
 
     def test_no_flags(self):
-        args, pdf, explain, _explain_save = parse_output_flags(["RELIANCE"])
+        args, pdf, explain, explain_save = parse_output_flags(["RELIANCE"])
         assert args == ["RELIANCE"]
         assert pdf is False
         assert explain is False
@@ -60,7 +60,7 @@ class TestParseOutputFlags:
         assert explain is True
 
     def test_empty_args(self):
-        args, pdf, _explain, _ = parse_output_flags([])
+        args, pdf, explain, _ = parse_output_flags([])
         assert args == []
         assert pdf is False
 

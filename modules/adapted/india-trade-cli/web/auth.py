@@ -37,13 +37,12 @@ import os
 import re
 import secrets
 import sqlite3
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
+from config.paths import app_data_path
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
-
-from config.paths import app_data_path
 
 # ── Database ─────────────────────────────────────────────────────
 
@@ -107,11 +106,9 @@ def create_user(email: str, password: str) -> dict:
     """
     email = email.strip().lower()
     if not _EMAIL_RE.match(email):
-        msg = "Invalid email format"
-        raise ValueError(msg)
+        raise ValueError("Invalid email format")
     if len(password) < 8:
-        msg = "Password must be at least 8 characters"
-        raise ValueError(msg)
+        raise ValueError("Password must be at least 8 characters")
 
     salt = secrets.token_hex(16)
     password_hash = salt + ":" + hashlib.sha256((salt + password).encode()).hexdigest()
@@ -126,8 +123,7 @@ def create_user(email: str, password: str) -> dict:
         conn.commit()
         return {"id": cursor.lastrowid, "email": email, "created_at": now}
     except sqlite3.IntegrityError:
-        msg = "An account with this email already exists"
-        raise ValueError(msg)
+        raise ValueError("An account with this email already exists")
     finally:
         conn.close()
 

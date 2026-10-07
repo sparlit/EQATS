@@ -222,8 +222,7 @@ class TestFromYFinance:
         from market.gift_nifty import _from_yfinance
 
         def raising_ticker(sym):
-            msg = "network error"
-            raise RuntimeError(msg)
+            raise RuntimeError("network error")
 
         with patch("yfinance.Ticker", side_effect=raising_ticker):
             result = _from_yfinance(nifty_spot=None)

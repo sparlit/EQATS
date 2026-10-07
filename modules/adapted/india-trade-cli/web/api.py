@@ -111,9 +111,15 @@ async def auth_middleware(request: _Request, call_next):
     path = request.url.path
     # Public paths — no auth required
     if (
-        path.startswith(("/auth/", "/.well-known/", "/fyers/", "/zerodha/", "/groww/", "/upstox/", "/angelone/"))
+        path.startswith("/auth/")
         or path == "/health"
-        or not (path.startswith(("/api/", "/skills/")))
+        or path.startswith("/.well-known/")
+        or path.startswith("/fyers/")  # OAuth callbacks
+        or path.startswith("/zerodha/")  # OAuth callbacks
+        or path.startswith("/groww/")
+        or path.startswith("/upstox/")
+        or path.startswith("/angelone/")
+        or not (path.startswith("/api/") or path.startswith("/skills/"))
     ):
         return await call_next(request)
 
@@ -559,7 +565,9 @@ def _success_card(broker_name: str, btn_cls: str, profile, funds, note: str) -> 
     </div>"""
 
 
-def _broker_btn(label: str, icon: str, cls: str, path: str, configured: bool, authenticated: bool) -> str:
+def _broker_btn(
+    label: str, icon: str, cls: str, path: str, configured: bool, authenticated: bool
+) -> str:
     tag = f"✓ Connected — {label}" if authenticated else label
     href = f'href="{path}"' if configured else ""
     dis = "" if configured else 'disabled title="API keys not configured — run credentials setup"'
@@ -573,7 +581,9 @@ def _broker_btn(label: str, icon: str, cls: str, path: str, configured: bool, au
 # In non-web mode, GET / serves the broker login page directly.
 
 _web_static_dir = os.path.join(os.path.dirname(__file__), "static")
-_web_mode = os.path.isdir(_web_static_dir) and os.path.exists(os.path.join(_web_static_dir, "auth.html"))
+_web_mode = os.path.isdir(_web_static_dir) and os.path.exists(
+    os.path.join(_web_static_dir, "auth.html")
+)
 
 _broker_login_path = "/broker-login" if _web_mode else "/"
 
@@ -646,7 +656,11 @@ async def index():
             _zerodha_auth(),
         )
     }
-      {_broker_btn("Login with Groww", "🟢", "btn-groww", "/groww/login", _has_groww(), _groww_auth())}
+      {
+        _broker_btn(
+            "Login with Groww", "🟢", "btn-groww", "/groww/login", _has_groww(), _groww_auth()
+        )
+    }
       <div class="divider">or</div>
       <a href="/demo" class="btn btn-demo">🎭&nbsp; Demo Mode (no credentials needed)</a>
     </div>
@@ -906,7 +920,9 @@ async def fyers_login():
         from brokers.fyers import FyersAPI
 
         redirect = _env("FYERS_REDIRECT_URL") or "http://localhost:8765/fyers/callback"
-        b = FyersAPI(app_id=_env("FYERS_APP_ID"), secret_key=_env("FYERS_SECRET_KEY"), redirect_uri=redirect)
+        b = FyersAPI(
+            app_id=_env("FYERS_APP_ID"), secret_key=_env("FYERS_SECRET_KEY"), redirect_uri=redirect
+        )
         url = b.get_login_url()
     except Exception as e:
         body = f"""<div class="card"><div class="err-box">❌ Could not generate login URL: {e}</div>
@@ -929,7 +945,9 @@ async def fyers_callback(auth_code: str = "", state: str = "", s: str = ""):
         from brokers.session import register_broker
 
         redirect = _env("FYERS_REDIRECT_URL") or "http://localhost:8765/fyers/callback"
-        b = FyersAPI(app_id=_env("FYERS_APP_ID"), secret_key=_env("FYERS_SECRET_KEY"), redirect_uri=redirect)
+        b = FyersAPI(
+            app_id=_env("FYERS_APP_ID"), secret_key=_env("FYERS_SECRET_KEY"), redirect_uri=redirect
+        )
         profile = b.complete_login(auth_code=code)
         funds = b.get_funds()
         register_broker("fyers", b)
@@ -1022,7 +1040,9 @@ async def status_page():
             if auth_fn():
                 rows.append(f"<li>{badge} ✅ Connected</li>")
             else:
-                rows.append(f'<li>{badge} Configured — <a href="{login_path}" style="color:{color}">Login →</a></li>')
+                rows.append(
+                    f'<li>{badge} Configured — <a href="{login_path}" style="color:{color}">Login →</a></li>'
+                )
         else:
             rows.append(
                 f'<li><span class="badge {badge_cls}" style="opacity:.5">{bname}</span> '
@@ -1165,7 +1185,11 @@ async def onboarding_test_provider(req: TestProviderRequest):
                 return {"ok": False, "error": f"Invalid key (HTTP {r.status_code})"}
 
         elif req.provider == "openai":
-            base = req.model if req.model and req.model.startswith("http") else "https://api.openai.com/v1"
+            base = (
+                req.model
+                if req.model and req.model.startswith("http")
+                else "https://api.openai.com/v1"
+            )
             async with httpx.AsyncClient() as client:
                 r = await client.get(
                     f"{base}/models",
@@ -1242,7 +1266,7 @@ async def onboarding_setup_provider(req: SetupProviderRequest):
                     "next_step": "install",
                 }
 
-            if req.step == "install":
+            elif req.step == "install":
                 brew_path = shutil.which("brew")
                 if not brew_path:
                     return {
@@ -1268,7 +1292,7 @@ async def onboarding_setup_provider(req: SetupProviderRequest):
                     "error": f"Install failed: {result.stderr[-500:]}",
                 }
 
-            if req.step == "start":
+            elif req.step == "start":
                 # Start ollama serve in background
                 subprocess.Popen(
                     ["ollama", "serve"],
@@ -1280,7 +1304,7 @@ async def onboarding_setup_provider(req: SetupProviderRequest):
                 await asyncio.sleep(2)
                 return {"ok": True, "message": "Ollama started", "next_step": "pull_model"}
 
-            if req.step == "pull_model":
+            elif req.step == "pull_model":
                 result = subprocess.run(
                     ["ollama", "pull", "llama3.1"],
                     capture_output=True,
@@ -1324,7 +1348,7 @@ async def onboarding_setup_provider(req: SetupProviderRequest):
                     "next_step": "install",
                 }
 
-            if req.step == "install":
+            elif req.step == "install":
                 npm_path = shutil.which("npm")
                 if not npm_path:
                     return {
@@ -1456,7 +1480,9 @@ async def set_broker_role_endpoint(req: BrokerRoleRequest, request: Request):
     if req.role not in ("data", "execution", "both"):
         from fastapi import HTTPException
 
-        raise HTTPException(status_code=400, detail=f"Invalid role: {req.role}. Must be data, execution, or both.")
+        raise HTTPException(
+            status_code=400, detail=f"Invalid role: {req.role}. Must be data, execution, or both."
+        )
 
     set_broker_role(session_key, req.role)
     return {"ok": True, "broker": req.broker, "role": req.role}

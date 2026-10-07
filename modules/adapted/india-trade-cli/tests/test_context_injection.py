@@ -51,13 +51,14 @@ def _make_analyzer(**kwargs):
     # provider.chat returns a canned synthesis string
     provider.chat = MagicMock(return_value="Mocked synthesis output")
 
-    return MultiAgentAnalyzer(
+    analyzer = MultiAgentAnalyzer(
         registry=registry,
         llm_provider=provider,
         parallel=False,
         verbose=False,
         **kwargs,
     )
+    return analyzer
 
 
 def _fake_report(name="Technical", verdict="BUY", confidence=75):

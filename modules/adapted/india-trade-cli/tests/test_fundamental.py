@@ -57,7 +57,7 @@ class TestScore:
 
     def test_good_roe_rewarded(self):
         """ROE > 15% should add points."""
-        score, _flags = _score({"roe": 25.0})
+        score, flags = _score({"roe": 25.0})
         assert score > 50
 
     def test_high_pledging_penalized(self):

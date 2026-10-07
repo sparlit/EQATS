@@ -156,7 +156,9 @@ def _run_raw() -> None:
             if result.ok and result.summary:
                 console.print(result.summary[:1500])
                 if result.citations:
-                    console.print("\n[dim]Sources: " + "  |  ".join(result.citations[:3]) + "[/dim]")
+                    console.print(
+                        "\n[dim]Sources: " + "  |  ".join(result.citations[:3]) + "[/dim]"
+                    )
             else:
                 console.print(f"[dim]Finance data unavailable: {result.error}[/dim]")
     except Exception:
@@ -205,7 +207,9 @@ def _print_snapshot(snap) -> None:
             f"[{g_color}]{sign}{g.change:+.0f}pts, {sign}{g.change_pct:.2f}%[/{g_color}]{gap_str}",
         )
 
-    posture_color = {"BULLISH": "green", "BEARISH": "red", "VOLATILE": "yellow"}.get(snap.posture, "white")
+    posture_color = {"BULLISH": "green", "BEARISH": "red", "VOLATILE": "yellow"}.get(
+        snap.posture, "white"
+    )
     console.print(
         Panel(
             t,
@@ -233,7 +237,11 @@ def _print_fii(fii_data) -> None:
             dii_net = entry.get("dii_net", 0)
             fc = "green" if fii_net >= 0 else "red"
             dc = "green" if dii_net >= 0 else "red"
-            console.print(f"  {date_str}  FII [{fc}]₹{fii_net:+,.0f}Cr[/{fc}]  DII [{dc}]₹{dii_net:+,.0f}Cr[/{dc}]")
+            console.print(
+                f"  {date_str}  "
+                f"FII [{fc}]₹{fii_net:+,.0f}Cr[/{fc}]  "
+                f"DII [{dc}]₹{dii_net:+,.0f}Cr[/{dc}]"
+            )
     console.print()
 
 
@@ -299,7 +307,9 @@ def _print_memory_watchlist() -> None:
     now = datetime.now()
     for sym, rec in list(seen.items())[:8]:  # show max 8 symbols
         verdict = rec.verdict or "—"
-        verdict_color = "green" if verdict == "BULLISH" else "red" if verdict == "BEARISH" else "yellow"
+        verdict_color = (
+            "green" if verdict == "BULLISH" else "red" if verdict == "BEARISH" else "yellow"
+        )
 
         # Days since analysis
         try:
@@ -310,7 +320,9 @@ def _print_memory_watchlist() -> None:
             age = "—"
 
         conf = f"({rec.confidence}%)" if rec.confidence else ""
-        console.print(f"  [{verdict_color}]{verdict:<8}[/{verdict_color}] {sym:<12} {conf:<7} [dim]{age}[/dim]")
+        console.print(
+            f"  [{verdict_color}]{verdict:<8}[/{verdict_color}] {sym:<12} {conf:<7} [dim]{age}[/dim]"
+        )
 
     console.print()
 

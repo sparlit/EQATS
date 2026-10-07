@@ -37,8 +37,6 @@ Usage:
 """
 
 
-from typing import Optional
-
 import pandas as pd
 from rich.console import Console
 from rich.table import Table
@@ -56,9 +54,10 @@ def classify_skew(otm_put_iv: float, atm_iv: float, otm_call_iv: float) -> str:
 
     if put_skew > 3.0 and put_skew > call_skew + 2.0:
         return "PUT_SKEW"  # Crash protection premium — market fears downside
-    if call_skew > 3.0 and call_skew > put_skew + 2.0:
+    elif call_skew > 3.0 and call_skew > put_skew + 2.0:
         return "CALL_SKEW"  # Rally expectation — market fears missing upside
-    return "SYMMETRIC"  # Normal smile — balanced expectations
+    else:
+        return "SYMMETRIC"  # Normal smile — balanced expectations
 
 
 def classify_term_structure(near_iv: float, far_iv: float) -> str:
@@ -66,7 +65,7 @@ def classify_term_structure(near_iv: float, far_iv: float) -> str:
     diff = far_iv - near_iv
     if diff > 1.5:
         return "CONTANGO"  # Normal — far expiry IV higher
-    if diff < -1.5:
+    elif diff < -1.5:
         return "BACKWARDATION"  # Event risk — near expiry IV higher (unusual)
     return "FLAT"
 
@@ -106,7 +105,7 @@ def compute_iv_smile(underlying: str, expiry: str | None = None) -> pd.DataFrame
                 try:
                     from analysis.options import compute_greeks
 
-                    exp_str = c.expiry or expiry
+                    exp_str = c.expiry if c.expiry else expiry
                     if exp_str:
                         g = compute_greeks(spot, s, exp_str, c.option_type, c.last_price)
                         iv_val = g.iv_pct if g.iv_pct > 0 else None
@@ -216,7 +215,15 @@ def print_iv_smile(underlying: str, expiry: str | None = None) -> None:
     if len(valid) >= 3:
         atm_idx = valid["moneyness"].abs().idxmin()
         atm_iv = valid.loc[atm_idx, "pe_iv"] or valid.loc[atm_idx, "ce_iv"] or 0
-        otm_put = valid[valid["moneyness"] < -3]["pe_iv"].mean() if len(valid[valid["moneyness"] < -3]) else atm_iv
-        otm_call = valid[valid["moneyness"] > 3]["ce_iv"].mean() if len(valid[valid["moneyness"] > 3]) else atm_iv
+        otm_put = (
+            valid[valid["moneyness"] < -3]["pe_iv"].mean()
+            if len(valid[valid["moneyness"] < -3])
+            else atm_iv
+        )
+        otm_call = (
+            valid[valid["moneyness"] > 3]["ce_iv"].mean()
+            if len(valid[valid["moneyness"] > 3])
+            else atm_iv
+        )
         skew = classify_skew(otm_put, atm_iv, otm_call)
         console.print(f"  Skew: [bold]{skew}[/bold]")

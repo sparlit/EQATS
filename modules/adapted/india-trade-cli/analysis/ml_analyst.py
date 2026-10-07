@@ -46,7 +46,7 @@ Compatible with agent/multi_agent.py BaseAnalyst interface.
 
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from agent.multi_agent import AnalystReport
@@ -108,7 +108,7 @@ class MLPredictor:
         _, _, macd_hist = macd(close)
 
         # Bollinger %B
-        bb_upper, _bb_mid, bb_lower = bollinger_bands(close)
+        bb_upper, bb_mid, bb_lower = bollinger_bands(close)
         bb_range = bb_upper - bb_lower
         bb_pct_b = (close - bb_lower) / bb_range.replace(0, np.nan)
 
@@ -174,7 +174,7 @@ class MLPredictor:
         """Return an XGBoost or sklearn GradientBoostingClassifier."""
         if self._try_xgboost:
             try:
-                import xgboost as xgb
+                import xgboost as xgb  # noqa: F401
 
                 clf = xgb.XGBClassifier(
                     n_estimators=self.n_estimators,
@@ -257,8 +257,7 @@ class MLPredictor:
         Must call train() first (or raises RuntimeError).
         """
         if self.model is None:
-            msg = "MLPredictor has not been trained yet. Call train() first."
-            raise RuntimeError(msg)
+            raise RuntimeError("MLPredictor has not been trained yet. Call train() first.")
 
         if df is None:
             df = get_ohlcv(symbol=symbol, exchange=exchange, days=730)
@@ -347,7 +346,8 @@ class MLAnalyst:
 
             # Build key points
             key_points = [
-                (f"ML model predicts {prediction.direction} with {prediction.confidence_pct}% confidence"),
+                f"ML model predicts {prediction.direction} with "
+                f"{prediction.confidence_pct}% confidence",
                 f"Model: {prediction.model_type}, Test accuracy: {prediction.test_accuracy:.1%}",
                 f"Trained on {prediction.training_samples} samples",
             ]

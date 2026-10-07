@@ -35,7 +35,6 @@ which broker is active.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 # ── Shared dataclasses ────────────────────────────────────────────────────────
 
@@ -293,8 +292,7 @@ class BrokerAPI(ABC):
         Override in broker subclasses that support historical data.
         Falls back to NotImplementedError so the caller can use mock data.
         """
-        msg = f"{self.__class__.__name__} does not support historical data"
-        raise NotImplementedError(msg)
+        raise NotImplementedError(f"{self.__class__.__name__} does not support historical data")
 
     # ── Convenience helpers (non-abstract, shared by all) ─────
 

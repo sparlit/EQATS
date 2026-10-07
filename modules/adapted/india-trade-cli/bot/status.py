@@ -34,7 +34,6 @@ persistent indicator when a Telegram command is being processed.
 
 
 import threading
-from typing import Optional
 
 _lock = threading.Lock()
 _active_command: str | None = None  # e.g. "/analyze RELIANCE"

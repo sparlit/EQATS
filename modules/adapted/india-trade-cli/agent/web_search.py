@@ -50,7 +50,6 @@ The function never raises — it returns an empty list on total failure.
 
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 # ── Data model ────────────────────────────────────────────────
 
@@ -163,7 +162,9 @@ def available_providers() -> list[str]:
 def web_search_available() -> bool:
     """Return True if at least one keyed provider (Exa/Tavily/Perplexity) is configured."""
     return bool(
-        os.environ.get("EXA_API_KEY") or os.environ.get("TAVILY_API_KEY") or os.environ.get("PERPLEXITY_API_KEY")
+        os.environ.get("EXA_API_KEY")
+        or os.environ.get("TAVILY_API_KEY")
+        or os.environ.get("PERPLEXITY_API_KEY")
     )
 
 
@@ -187,14 +188,17 @@ def format_search_results(results: list[WebSearchResult]) -> str:
 def _dispatch(provider: str, query: str, n: int) -> list[WebSearchResult]:
     if provider == "exa":
         return _exa_search(query, n)
-    if provider == "tavily":
+    elif provider == "tavily":
         return _tavily_search(query, n)
-    if provider == "duckduckgo":
+    elif provider == "duckduckgo":
         return _search_duckduckgo(query, n)
-    if provider == "perplexity":
+    elif provider == "perplexity":
         return _perplexity_search(query, n)
-    msg = f"Unknown search provider: {provider!r}. Use 'exa', 'tavily', 'duckduckgo', or 'perplexity'."
-    raise ValueError(msg)
+    else:
+        raise ValueError(
+            f"Unknown search provider: {provider!r}. "
+            "Use 'exa', 'tavily', 'duckduckgo', or 'perplexity'."
+        )
 
 
 # ── Exa ───────────────────────────────────────────────────────
@@ -210,14 +214,12 @@ def _exa_search(query: str, n: int) -> list[WebSearchResult]:
     """
     key = os.environ.get("EXA_API_KEY")
     if not key:
-        msg = "EXA_API_KEY not set"
-        raise ValueError(msg)
+        raise ValueError("EXA_API_KEY not set")
 
     try:
         from exa_py import Exa
     except ImportError as e:
-        msg = "exa-py not installed. Run: pip install exa-py"
-        raise ImportError(msg) from e
+        raise ImportError("exa-py not installed. Run: pip install exa-py") from e
 
     exa = Exa(api_key=key)
     response = exa.search_and_contents(
@@ -244,7 +246,9 @@ def _exa_search(query: str, n: int) -> list[WebSearchResult]:
 # ── Tavily ────────────────────────────────────────────────────
 
 
-def _tavily_search(query: str, n: int = 5, *, max_results: int | None = None) -> list[WebSearchResult]:
+def _tavily_search(
+    query: str, n: int = 5, *, max_results: int | None = None
+) -> list[WebSearchResult]:
     """
     Tavily research-focused search (tavily.com).
     Returns well-structured results with content snippets.
@@ -253,16 +257,14 @@ def _tavily_search(query: str, n: int = 5, *, max_results: int | None = None) ->
     """
     key = os.environ.get("TAVILY_API_KEY")
     if not key:
-        msg = "TAVILY_API_KEY not set"
-        raise RuntimeError(msg)
+        raise RuntimeError("TAVILY_API_KEY not set")
 
     limit = max_results if max_results is not None else n
 
     try:
         from tavily import TavilyClient
     except ImportError as e:
-        msg = "tavily-python not installed. Run: pip install tavily-python"
-        raise ImportError(msg) from e
+        raise ImportError("tavily-python not installed. Run: pip install tavily-python") from e
 
     client = TavilyClient(api_key=key)
     response = client.search(query, max_results=limit, search_depth="basic")
@@ -296,8 +298,7 @@ def _search_duckduckgo(query: str, n: int) -> list[WebSearchResult]:
     try:
         import httpx
     except ImportError as e:
-        msg = "httpx not installed. Run: pip install httpx"
-        raise ImportError(msg) from e
+        raise ImportError("httpx not installed. Run: pip install httpx") from e
 
     encoded = urllib.parse.quote_plus(query)
     url = f"https://api.duckduckgo.com/?q={encoded}&format=json&no_html=1&skip_disambig=1"
@@ -348,14 +349,12 @@ def _perplexity_search(query: str, n: int) -> list[WebSearchResult]:
     """
     key = os.environ.get("PERPLEXITY_API_KEY")
     if not key:
-        msg = "PERPLEXITY_API_KEY not set"
-        raise ValueError(msg)
+        raise ValueError("PERPLEXITY_API_KEY not set")
 
     try:
         import requests
     except ImportError as e:
-        msg = "requests not installed. Run: pip install requests"
-        raise ImportError(msg) from e
+        raise ImportError("requests not installed. Run: pip install requests") from e
 
     headers = {
         "Authorization": f"Bearer {key}",
@@ -389,7 +388,9 @@ def _perplexity_search(query: str, n: int) -> list[WebSearchResult]:
     ]
     for cite in citations[: n - 1]:
         if isinstance(cite, str):
-            results.append(WebSearchResult(title="Citation", url=cite, snippet="", source="perplexity"))
+            results.append(
+                WebSearchResult(title="Citation", url=cite, snippet="", source="perplexity")
+            )
         elif isinstance(cite, dict):
             results.append(
                 WebSearchResult(

@@ -38,7 +38,6 @@ import contextlib
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 from urllib.parse import urlencode
 
 import httpx
@@ -158,24 +157,22 @@ class GrowwAPI(BrokerAPI):
         except Exception:
             status = r.status_code
             if status == 401:
-                msg = (
+                raise RuntimeError(
                     "Groww login failed: invalid credentials.\n"
                     "Check your Client ID and Secret, then re-enter with:\n"
                     "  credentials delete GROWW_CLIENT_ID\n"
                     "  credentials delete GROWW_CLIENT_SECRET"
                 )
-                raise RuntimeError(msg)
-            if status == 429:
-                msg = "Groww login failed: rate limited. Wait a minute and try again."
-                raise RuntimeError(msg)
-            msg = (
-                f"Groww login failed (HTTP {status}): {r.text[:200]}\n"
-                "This may be a temporary server issue. Wait a moment and try again.\n"
-                "If it persists, verify your credentials and try:\n"
-                "  credentials delete GROWW_CLIENT_ID\n"
-                "  credentials delete GROWW_CLIENT_SECRET"
-            )
-            raise RuntimeError(msg)
+            elif status == 429:
+                raise RuntimeError("Groww login failed: rate limited. Wait a minute and try again.")
+            else:
+                raise RuntimeError(
+                    f"Groww login failed (HTTP {status}): {r.text[:200]}\n"
+                    "This may be a temporary server issue. Wait a moment and try again.\n"
+                    "If it persists, verify your credentials and try:\n"
+                    "  credentials delete GROWW_CLIENT_ID\n"
+                    "  credentials delete GROWW_CLIENT_SECRET"
+                )
         self._save_token(r.json())
         return self.get_profile()
 
