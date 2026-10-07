@@ -22,14 +22,15 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 #!/usr/bin/env python3
-import json
 
 import requests
 
 try:
     # Test JSON-RPC tools/list
     response = requests.post(
-        "http://localhost:8000/jsonrpc", json={"jsonrpc": "2.0", "method": "tools/list", "id": 1}, timeout=5
+        "http://localhost:8000/jsonrpc",
+        json={"jsonrpc": "2.0", "method": "tools/list", "id": 1},
+        timeout=5,
     )
 
     if response.status_code == 200:

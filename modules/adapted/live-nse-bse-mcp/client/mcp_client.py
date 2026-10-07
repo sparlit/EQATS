@@ -30,32 +30,14 @@ using the official Python MCP SDK.
 """
 
 import asyncio
-import json
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
-from urllib.parse import urlparse
+from typing import Any
 
 import httpx
-from mcp import Client
 from mcp.client.session import ClientSession
 from mcp.client.stdio import stdio_client
 from mcp.types import (
-    AnyRequest,
-    CallToolRequest,
-    CallToolResult,
-    GetPromptRequest,
-    GetPromptResult,
-    InitializeRequest,
-    InitializeResult,
-    ListPromptsRequest,
-    ListPromptsResult,
-    ListResourcesRequest,
-    ListResourcesResult,
-    ListToolsRequest,
-    ListToolsResult,
-    ReadResourceRequest,
-    ReadResourceResult,
     Tool,
 )
 
@@ -93,29 +75,36 @@ class HTTPTransport:
         self._request_id += 1
         return self._request_id
 
-    async def send_request(self, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def send_request(
+        self, method: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Send JSON-RPC request over HTTP"""
-        request_data = {"jsonrpc": "2.0", "method": method, "params": params or {}, "id": self._next_id()}
+        request_data = {
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params or {},
+            "id": self._next_id(),
+        }
 
         logger.debug(f"Sending request: {method}")
 
         try:
             response = await self.client.post(
-                self.url, json=request_data, headers={"Content-Type": "application/json", **self.headers}
+                self.url,
+                json=request_data,
+                headers={"Content-Type": "application/json", **self.headers},
             )
             response.raise_for_status()
             result = response.json()
 
             if "error" in result:
-                msg = f"MCP Error: {result['error']}"
-                raise Exception(msg)
+                raise Exception(f"MCP Error: {result['error']}")
 
             return result.get("result", {})
 
         except httpx.HTTPError as e:
-            logger.exception(f"HTTP error: {e}")
-            msg = f"HTTP request failed: {e!s}"
-            raise Exception(msg)
+            logger.error(f"HTTP error: {e}")
+            raise Exception(f"HTTP request failed: {str(e)}")
 
     async def close(self):
         """Close HTTP client"""
@@ -137,19 +126,18 @@ class MCPClient:
         try:
             if self.config.transport_type == "stdio":
                 return await self._connect_stdio()
-            if self.config.transport_type == "http":
+            elif self.config.transport_type == "http":
                 return await self._connect_http()
-            msg = f"Unsupported transport type: {self.config.transport_type}"
-            raise ValueError(msg)
+            else:
+                raise ValueError(f"Unsupported transport type: {self.config.transport_type}")
         except Exception as e:
-            logger.exception(f"Failed to connect to {self.config.name}: {e}")
+            logger.error(f"Failed to connect to {self.config.name}: {e}")
             return False
 
     async def _connect_stdio(self) -> bool:
         """Connect using stdio transport"""
         if not self.config.command:
-            msg = "Command required for stdio transport"
-            raise ValueError(msg)
+            raise ValueError("Command required for stdio transport")
 
         # Create stdio client session
         async with stdio_client(
@@ -168,8 +156,7 @@ class MCPClient:
     async def _connect_http(self) -> bool:
         """Connect using HTTP transport"""
         if not self.config.url:
-            msg = "URL required for HTTP transport"
-            raise ValueError(msg)
+            raise ValueError("URL required for HTTP transport")
 
         self.http_transport = HTTPTransport(url=self.config.url, headers=self.config.headers)
 
@@ -215,7 +202,9 @@ class MCPClient:
             self.tools = []
             for tool_data in tools_data:
                 tool = Tool(
-                    name=tool_data["name"], description=tool_data["description"], inputSchema=tool_data["inputSchema"]
+                    name=tool_data["name"],
+                    description=tool_data["description"],
+                    inputSchema=tool_data["inputSchema"],
                 )
                 self.tools.append(tool)
 
@@ -233,13 +222,13 @@ class MCPClient:
             # Stdio tool call
             result = await self.session.call_tool(name, arguments)
             return result.content
-        if self.http_transport:
+        elif self.http_transport:
             # HTTP tool call
             params = {"name": name, "arguments": arguments}
             result = await self.http_transport.send_request("tools/call", params)
             return result.get("content", [])
-        msg = "Not connected to any server"
-        raise Exception(msg)
+        else:
+            raise Exception("Not connected to any server")
 
     async def get_tool_by_name(self, name: str) -> Tool | None:
         """Get tool by name"""
@@ -306,8 +295,9 @@ class MCPClientManager:
             self.clients[config.name] = client
             logger.info(f"Successfully connected to {config.name}")
             return True
-        logger.error(f"Failed to connect to {config.name}")
-        return False
+        else:
+            logger.error(f"Failed to connect to {config.name}")
+            return False
 
     def get_client(self, name: str) -> MCPClient | None:
         """Get client by name"""
@@ -326,8 +316,7 @@ class MCPClientManager:
         """Call a tool on a specific server"""
         client = self.clients.get(server_name)
         if not client:
-            msg = f"Server {server_name} not found"
-            raise Exception(msg)
+            raise Exception(f"Server {server_name} not found")
 
         return await client.call_tool(tool_name, arguments)
 
@@ -354,7 +343,9 @@ async def create_stdio_client(
     command: str, args: list[str] | None = None, env: dict[str, str] | None = None
 ) -> MCPClient:
     """Create stdio MCP client"""
-    config = MCPServerConfig(name="stdio-server", transport_type="stdio", command=command, args=args, env=env)
+    config = MCPServerConfig(
+        name="stdio-server", transport_type="stdio", command=command, args=args, env=env
+    )
 
     client = MCPClient(config)
     await client.connect()

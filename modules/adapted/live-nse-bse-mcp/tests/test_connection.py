@@ -26,7 +26,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 Test connection to MCP server from external client (like VSCode)
 """
 
-import json
 
 import requests
 
@@ -53,9 +52,15 @@ def test_cors_and_connection():
 
         print(f"   Status: {options_response.status_code}")
         cors_headers = {
-            "Access-Control-Allow-Origin": options_response.headers.get("Access-Control-Allow-Origin"),
-            "Access-Control-Allow-Methods": options_response.headers.get("Access-Control-Allow-Methods"),
-            "Access-Control-Allow-Headers": options_response.headers.get("Access-Control-Allow-Headers"),
+            "Access-Control-Allow-Origin": options_response.headers.get(
+                "Access-Control-Allow-Origin"
+            ),
+            "Access-Control-Allow-Methods": options_response.headers.get(
+                "Access-Control-Allow-Methods"
+            ),
+            "Access-Control-Allow-Headers": options_response.headers.get(
+                "Access-Control-Allow-Headers"
+            ),
         }
         print(f"   CORS Headers: {cors_headers}")
 

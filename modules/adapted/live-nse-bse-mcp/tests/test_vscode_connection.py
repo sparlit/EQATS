@@ -27,7 +27,6 @@ Test VSCode-style connection to debug fetch failed issue
 """
 
 import asyncio
-import json
 
 import aiohttp
 
@@ -41,7 +40,9 @@ async def test_vscode_style_connection():
 
     # Create session with VSCode-like settings
     timeout = aiohttp.ClientTimeout(total=10, connect=5)
-    connector = aiohttp.TCPConnector(keepalive_timeout=30, enable_cleanup_closed=True, limit=10, limit_per_host=5)
+    connector = aiohttp.TCPConnector(
+        keepalive_timeout=30, enable_cleanup_closed=True, limit=10, limit_per_host=5
+    )
 
     async with aiohttp.ClientSession(
         timeout=timeout, connector=connector, headers={"User-Agent": "vscode/1.85.0"}

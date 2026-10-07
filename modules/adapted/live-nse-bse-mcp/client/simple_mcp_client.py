@@ -30,10 +30,9 @@ like the Indian Stock Exchange server.
 """
 
 import asyncio
-import json
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -68,29 +67,36 @@ class SimpleMCPClient:
         self._request_id += 1
         return self._request_id
 
-    async def _send_request(self, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def _send_request(
+        self, method: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Send JSON-RPC request"""
-        request_data = {"jsonrpc": "2.0", "method": method, "params": params or {}, "id": self._next_id()}
+        request_data = {
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params or {},
+            "id": self._next_id(),
+        }
 
         logger.debug(f"→ {method}")
 
         try:
             response = await self.client.post(
-                self.url, json=request_data, headers={"Content-Type": "application/json", **self.headers}
+                self.url,
+                json=request_data,
+                headers={"Content-Type": "application/json", **self.headers},
             )
             response.raise_for_status()
             result = response.json()
 
             if "error" in result:
-                msg = f"MCP Error: {result['error']}"
-                raise Exception(msg)
+                raise Exception(f"MCP Error: {result['error']}")
 
             return result.get("result", {})
 
         except httpx.HTTPError as e:
-            logger.exception(f"HTTP error: {e}")
-            msg = f"Request failed: {e!s}"
-            raise Exception(msg)
+            logger.error(f"HTTP error: {e}")
+            raise Exception(f"Request failed: {str(e)}")
 
     async def connect(self) -> bool:
         """Connect and initialize MCP session"""
@@ -112,30 +118,32 @@ class SimpleMCPClient:
             self.tools = []
             for tool_data in tools_data:
                 tool = Tool(
-                    name=tool_data["name"], description=tool_data["description"], inputSchema=tool_data["inputSchema"]
+                    name=tool_data["name"],
+                    description=tool_data["description"],
+                    inputSchema=tool_data["inputSchema"],
                 )
                 self.tools.append(tool)
 
             self.connected = True
-            logger.info(f"Connected to {self.server_info.get('name', 'Unknown')} - {len(self.tools)} tools")
+            logger.info(
+                f"Connected to {self.server_info.get('name', 'Unknown')} - {len(self.tools)} tools"
+            )
             return True
 
         except Exception as e:
-            logger.exception(f"Connection failed: {e}")
+            logger.error(f"Connection failed: {e}")
             return False
 
     async def list_tools(self) -> list[Tool]:
         """Get available tools"""
         if not self.connected:
-            msg = "Not connected. Call connect() first."
-            raise Exception(msg)
+            raise Exception("Not connected. Call connect() first.")
         return self.tools
 
     async def call_tool(self, name: str, arguments: dict[str, Any] | None = None) -> Any:
         """Call a tool"""
         if not self.connected:
-            msg = "Not connected. Call connect() first."
-            raise Exception(msg)
+            raise Exception("Not connected. Call connect() first.")
 
         params = {"name": name, "arguments": arguments or {}}
 
@@ -227,13 +235,18 @@ class ISEMCPClient(SimpleMCPClient):
     ) -> dict[str, Any]:
         """Get historical stock data"""
         result = await self.call_tool(
-            "get_historical_data", {"stock_name": stock_name, "period": period, "filter": filter_type}
+            "get_historical_data",
+            {"stock_name": stock_name, "period": period, "filter": filter_type},
         )
         return result[0]["text"] if result else {}
 
-    async def get_historical_stats(self, stock_name: str, stats_type: str = "quarter_results") -> dict[str, Any]:
+    async def get_historical_stats(
+        self, stock_name: str, stats_type: str = "quarter_results"
+    ) -> dict[str, Any]:
         """Get historical statistics for a stock"""
-        result = await self.call_tool("get_historical_stats", {"stock_name": stock_name, "stats": stats_type})
+        result = await self.call_tool(
+            "get_historical_stats", {"stock_name": stock_name, "stats": stats_type}
+        )
         return result[0]["text"] if result else {}
 
 
