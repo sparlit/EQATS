@@ -195,7 +195,7 @@ Total Repositories: 424 | Current Index: 193
 | 190 | kondaiahpola1-wq/nse-bse-event-driven-quant-research-platform | Completed | https://github.com/sparlit/EQATS/pull/3132 |
 | 191 | kostorub/backtest | Processed | https://github.com/sparlit/EQATS/pull/3133 |
 | 192 | krakenfx/kraken-cli | Processed | https://github.com/sparlit/EQATS/pull/3134 |
-| 193 | kuldeeepy/algo-trader | Completed | None |
+| 193 | kuldeeepy/algo-trader | Completed | https://github.com/sparlit/EQATS/pull/3135 |
 | 194 | kwoshvick/nse-stock-price-crawler | pending | None |
 | 195 | kwoshvick/nse-stock-price-prediction | pending | None |
 | 196 | kwoshvick/nse_sentiment_analysis | pending | None |
