@@ -60,7 +60,6 @@ import asyncio
 import logging
 import os
 import threading
-from typing import Optional
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -182,7 +181,9 @@ def _md_to_html(text: str) -> str:
 
     # 7. Horizontal rules
     text = _re.sub(r"━{3,}", "—", text)
-    return _re.sub(r"^-{3,}$", "—", text, flags=_re.MULTILINE)
+    text = _re.sub(r"^-{3,}$", "—", text, flags=_re.MULTILINE)
+
+    return text
 
 
 # ── Lazy imports to avoid startup overhead ───────────────────
@@ -209,8 +210,9 @@ def _get_telegram():
             filters,
         )
     except ImportError:
-        msg = "python-telegram-bot not installed. Run:\n  pip install python-telegram-bot"
-        raise RuntimeError(msg)
+        raise RuntimeError(
+            "python-telegram-bot not installed. Run:\n  pip install python-telegram-bot"
+        )
 
 
 # ── Bot token management ─────────────────────────────────────
@@ -227,13 +229,12 @@ def _get_bot_token() -> str:
         except Exception:
             pass
     if not token:
-        msg = (
+        raise RuntimeError(
             "TELEGRAM_BOT_TOKEN not set.\n"
             "1. Talk to @BotFather on Telegram → create a bot → copy the token\n"
             "2. Run: credentials setup → enter Telegram Bot Token\n"
             "   Or set TELEGRAM_BOT_TOKEN in .env"
         )
-        raise RuntimeError(msg)
     return token
 
 
@@ -339,7 +340,8 @@ async def cmd_analyze(update, context) -> None:
 
     symbol = context.args[0].upper()
     await update.message.reply_text(
-        f"🔍 Running full analysis on {symbol}...\n(7 analysts + debate + synthesis — takes 3-4 min)"
+        f"🔍 Running full analysis on {symbol}...\n"
+        f"(7 analysts + debate + synthesis — takes 3-4 min)"
     )
 
     def _run_analysis() -> tuple:
@@ -351,7 +353,7 @@ async def cmd_analyze(update, context) -> None:
 
         _logfile = pathlib.Path(tempfile.gettempdir()) / "tg_analyze.log"
 
-        def _log(msg):
+        def _log(msg):  # noqa: E731
             with open(_logfile, "a") as f:
                 f.write(f"{msg}\n")
 
@@ -447,7 +449,9 @@ async def cmd_analyze(update, context) -> None:
             loop.run_in_executor(None, _run_analysis),
             timeout=300,  # 5 minute hard timeout
         )
-        msg1, msg2, msg3 = result if isinstance(result, tuple) and len(result) == 3 else (str(result), "", "")
+        msg1, msg2, msg3 = (
+            result if isinstance(result, tuple) and len(result) == 3 else (str(result), "", "")
+        )
         # Telegram limit is 4096 chars per message.
         if msg1:
             await update.message.reply_text(_md_to_html(msg1[:4000]), parse_mode="HTML")
@@ -472,7 +476,8 @@ async def cmd_deepanalyze(update, context) -> None:
 
     symbol = context.args[0].upper()
     await update.message.reply_text(
-        f"🔬 Running deep analysis on {symbol}...\n(11 LLM calls — every analyst uses AI — takes 7-10 min)"
+        f"🔬 Running deep analysis on {symbol}...\n"
+        f"(11 LLM calls — every analyst uses AI — takes 7-10 min)"
     )
 
     def _run_deep() -> tuple:
@@ -552,7 +557,9 @@ async def cmd_deepanalyze(update, context) -> None:
             loop.run_in_executor(None, _run_deep),
             timeout=600,  # 10 minute timeout for deep analysis
         )
-        msg1, msg2, msg3 = result if isinstance(result, tuple) and len(result) == 3 else (str(result), "", "")
+        msg1, msg2, msg3 = (
+            result if isinstance(result, tuple) and len(result) == 3 else (str(result), "", "")
+        )
         if msg1:
             await update.message.reply_text(_md_to_html(msg1[:4000]), parse_mode="HTML")
         if msg2:
@@ -733,7 +740,9 @@ async def cmd_memory(update, context) -> None:
         lines = ["📝 Recent Analyses\n"]
         for r in recent:
             outcome = f" → {r.outcome}" if r.outcome else ""
-            lines.append(f"  [{r.id}] {r.timestamp[:10]} {r.symbol}: {r.verdict} ({r.confidence}%){outcome}")
+            lines.append(
+                f"  [{r.id}] {r.timestamp[:10]} {r.symbol}: {r.verdict} ({r.confidence}%){outcome}"
+            )
         await update.message.reply_text("\n".join(lines))
     except Exception as e:
         await update.message.reply_text(f"Memory failed: {e}")
@@ -899,7 +908,9 @@ def run_setup_wizard() -> None:
                 console.print("  [green]✓ Token saved to keychain[/green]")
             else:
                 os.environ["TELEGRAM_BOT_TOKEN"] = token
-                console.print("  [yellow]⚠  Keychain unavailable — token active for this session only.[/yellow]")
+                console.print(
+                    "  [yellow]⚠  Keychain unavailable — token active for this session only.[/yellow]"
+                )
         except Exception:
             os.environ["TELEGRAM_BOT_TOKEN"] = token
 
@@ -944,7 +955,9 @@ def run_setup_wizard() -> None:
             if send_test_push(chat_id, token):
                 console.print("  [green]✓ Test message delivered. Check your Telegram.[/green]")
             else:
-                console.print("  [yellow]⚠  Bot connected but test message failed — try /start again.[/yellow]")
+                console.print(
+                    "  [yellow]⚠  Bot connected but test message failed — try /start again.[/yellow]"
+                )
         else:
             console.print(
                 "\n  [yellow]⏱  Timed out — didn't receive /start within 2 minutes.[/yellow]\n"
@@ -1029,7 +1042,9 @@ def patch_alert_manager() -> None:
 
 def run_bot() -> None:
     """Start the Telegram bot (blocking — runs the event loop)."""
-    _Update, _Bot, ApplicationBuilder, CommandHandler, _ContextTypes, MessageHandler, filters = _get_telegram()
+    Update, Bot, ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters = (
+        _get_telegram()
+    )
 
     token = _get_bot_token()
 

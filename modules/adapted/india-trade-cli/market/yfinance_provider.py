@@ -60,7 +60,6 @@ Install:
 
 
 from datetime import datetime
-from typing import Optional
 
 from brokers.base import Quote
 
@@ -118,7 +117,8 @@ def _from_instrument(instrument: str) -> str:
     """Convert 'NSE:RELIANCE' or 'NSE:RELIANCE-EQ' format to yfinance ticker."""
     if ":" in instrument:
         exchange, symbol = instrument.split(":", 1)
-        symbol = symbol.removesuffix("-EQ")
+        if symbol.endswith("-EQ"):
+            symbol = symbol[:-3]
         return _to_yf_symbol(symbol, exchange)
     return _to_yf_symbol(instrument)
 
@@ -133,11 +133,10 @@ def _get_yf():
 
         return yf
     except ImportError:
-        msg = (
+        raise RuntimeError(
             "yfinance not installed. Run: pip install yfinance\n"
             "This is needed for free market data without a broker login."
         )
-        raise RuntimeError(msg)
 
 
 # ── Quote functions ──────────────────────────────────────────
@@ -188,8 +187,7 @@ def yf_get_quote(symbol: str, exchange: str = "NSE") -> Quote:
             change_pct=change_pct,
         )
     except Exception as e:
-        msg = f"yfinance quote failed for {symbol}: {e}"
-        raise RuntimeError(msg) from e
+        raise RuntimeError(f"yfinance quote failed for {symbol}: {e}") from e
 
 
 def yf_get_quotes(instruments: list[str]) -> dict[str, Quote]:
@@ -205,7 +203,8 @@ def yf_get_quotes(instruments: list[str]) -> dict[str, Quote]:
         else:
             exchange, symbol = "NSE", inst
 
-        symbol = symbol.removesuffix("-EQ")
+        if symbol.endswith("-EQ"):
+            symbol = symbol[:-3]
 
         try:
             quote = yf_get_quote(symbol, exchange)
@@ -310,7 +309,7 @@ def yf_get_ohlcv(
 def yf_available() -> bool:
     """Check if yfinance is installed."""
     try:
-        import yfinance
+        import yfinance  # noqa: F401
 
         return True
     except ImportError:

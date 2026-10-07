@@ -38,7 +38,6 @@ Principles:
 
 import os
 from datetime import datetime
-from typing import Optional
 
 from .base import (
     BrokerAPI,
@@ -120,16 +119,14 @@ class MockBrokerAPI(BrokerAPI):
     # ── Market Data (always passthrough to yfinance) ──────────
 
     def get_quote(self, instruments: list[str]) -> dict[str, Quote]:
-        msg = "Mock broker — use yfinance for real quotes"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Mock broker — use yfinance for real quotes")
 
     def get_options_chain(
         self,
         underlying: str,
         expiry: str | None = None,
     ) -> list[OptionsContract]:
-        msg = "Mock broker — use NSE/yfinance for options"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Mock broker — use NSE/yfinance for options")
 
     # ── Orders ────────────────────────────────────────────────
 
@@ -177,5 +174,4 @@ class MockBrokerAPI(BrokerAPI):
         from_date: datetime | None = None,
         to_date: datetime | None = None,
     ) -> list[dict]:
-        msg = "Mock broker — use yfinance for historical data"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Mock broker — use yfinance for historical data")

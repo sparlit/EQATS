@@ -185,7 +185,7 @@ class VolatilityAdjustedSizer:
         # ── Step 3: Correlation penalty ───────────────────────────
         corr_penalty = 0.0
         if existing_symbols:
-            all_syms = [symbol, *existing_symbols]
+            all_syms = [symbol] + existing_symbols
             try:
                 corr_matrix = self.compute_correlation_matrix(all_syms)
                 # Find max |correlation| between new symbol and any existing symbol

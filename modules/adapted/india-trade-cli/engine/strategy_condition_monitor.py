@@ -51,7 +51,6 @@ import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -164,9 +163,9 @@ class StrategyCondition:
 
         if operator == "ABOVE":
             return value >= self.threshold
-        if operator == "BELOW":
+        elif operator == "BELOW":
             return value <= self.threshold
-        if operator == "BETWEEN":
+        elif operator == "BETWEEN":
             return self.threshold <= value <= self.threshold2
         return False
 

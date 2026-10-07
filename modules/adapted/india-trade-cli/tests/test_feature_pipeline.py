@@ -327,7 +327,7 @@ class TestComputeFeatures:
         close = df["close"]
         from analysis.technical import bollinger_bands
 
-        _upper, mid, _lower = bollinger_bands(close)
+        upper, mid, lower = bollinger_bands(close)
         df.loc[df.index[-1], "close"] = float(mid.iloc[-1])
         df.loc[df.index[-1], "high"] = float(mid.iloc[-1]) + 1
         df.loc[df.index[-1], "low"] = float(mid.iloc[-1]) - 1
@@ -437,7 +437,9 @@ class TestADXCalculation:
         with patch("analysis.feature_pipeline.get_ohlcv", return_value=flat_df):
             fs_flat = compute_features("FLAT")
 
-        assert fs_trend.adx > fs_flat.adx, f"Trending ADX ({fs_trend.adx:.1f}) should be > flat ADX ({fs_flat.adx:.1f})"
+        assert fs_trend.adx > fs_flat.adx, (
+            f"Trending ADX ({fs_trend.adx:.1f}) should be > flat ADX ({fs_flat.adx:.1f})"
+        )
 
 
 # ── get_features — caching behaviour ────────────────────────

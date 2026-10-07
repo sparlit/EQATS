@@ -169,8 +169,12 @@ def _cmd_new(args: list[str]) -> None:
     console.print("\n[bold cyan]━━━ Strategy Builder ━━━[/bold cyan]")
     if simple_mode:
         console.print("[dim]Simple mode: everything explained in plain language[/dim]")
-    console.print("[dim]Describe your strategy idea and the AI will guide you through building it.[/dim]")
-    console.print("[dim]Type [bold]done[/bold] to finish early, [bold]cancel[/bold] to abort.[/dim]\n")
+    console.print(
+        "[dim]Describe your strategy idea and the AI will guide you through building it.[/dim]"
+    )
+    console.print(
+        "[dim]Type [bold]done[/bold] to finish early, [bold]cancel[/bold] to abort.[/dim]\n"
+    )
 
     agent = get_agent()
 
@@ -263,7 +267,9 @@ def _cmd_new(args: list[str]) -> None:
 
     if not strategy_payload:
         agent._history = _saved_history
-        console.print("[yellow]Could not generate strategy code. Try again with [bold]strategy new[/bold].[/yellow]")
+        console.print(
+            "[yellow]Could not generate strategy code. Try again with [bold]strategy new[/bold].[/yellow]"
+        )
         return
 
     # ── Validate and backtest ────────────────────────────────
@@ -282,7 +288,9 @@ def _cmd_new(args: list[str]) -> None:
         ok, error = validate_strategy_code(code)
         if ok:
             break
-        console.print(f"[yellow]Code validation failed (attempt {attempt + 1}/{max_retries}): {error}[/yellow]")
+        console.print(
+            f"[yellow]Code validation failed (attempt {attempt + 1}/{max_retries}): {error}[/yellow]"
+        )
         if attempt < max_retries - 1:
             console.print("[dim]Asking AI to fix...[/dim]")
             fix_response = agent.chat(
@@ -308,7 +316,7 @@ def _cmd_new(args: list[str]) -> None:
     # Run backtest
     console.print(f"\n[bold]Running backtest on {symbol} (1 year)...[/bold]")
     try:
-        _strategy_obj, result = build_and_test(code, symbol=symbol, period="1y")
+        strategy_obj, result = build_and_test(code, symbol=symbol, period="1y")
         result.print_summary()
         if result.trades:
             result.print_trades(10)
@@ -387,7 +395,9 @@ def _cmd_backtest(args: list[str]) -> None:
     try:
         strategy = strategy_store.load_strategy(name)
     except FileNotFoundError:
-        console.print(f"[red]Strategy '{name}' not found. Run [bold]strategy list[/bold] to see available.[/red]")
+        console.print(
+            f"[red]Strategy '{name}' not found. Run [bold]strategy list[/bold] to see available.[/red]"
+        )
         return
     except Exception as e:
         console.print(f"[red]Failed to load strategy: {e}[/red]")
@@ -463,7 +473,9 @@ def _cmd_run(args: list[str]) -> None:
         latest_signal = int(signals.iloc[-1]) if len(signals) > 0 else 0
         prev_signal = int(signals.iloc[-2]) if len(signals) > 1 else 0
         latest_price = float(df["close"].iloc[-1])
-        latest_date = str(df.index[-1].date()) if hasattr(df.index[-1], "date") else str(df.index[-1])
+        latest_date = (
+            str(df.index[-1].date()) if hasattr(df.index[-1], "date") else str(df.index[-1])
+        )
 
         signal_map = {
             1: "[green bold]BUY[/green bold]",
@@ -473,13 +485,16 @@ def _cmd_run(args: list[str]) -> None:
         console.print(f"\n  {symbol} @ Rs.{latest_price:,.2f} ({latest_date})")
         console.print(f"  Signal: {signal_map.get(latest_signal, 'HOLD')}")
 
-        if latest_signal not in (prev_signal, 0):
-            console.print(f"  [yellow]Signal changed![/yellow] Previous: {signal_map.get(prev_signal, 'HOLD')}")
+        if latest_signal != prev_signal and latest_signal != 0:
+            console.print(
+                f"  [yellow]Signal changed![/yellow] Previous: {signal_map.get(prev_signal, 'HOLD')}"
+            )
 
         # Show recent signal history
         recent = signals.tail(10)
         signal_str = " ".join(
-            "[green]+[/green]" if s == 1 else "[red]-[/red]" if s == -1 else "[dim].[/dim]" for s in recent
+            "[green]+[/green]" if s == 1 else "[red]-[/red]" if s == -1 else "[dim].[/dim]"
+            for s in recent
         )
         console.print(f"  Last 10 days: {signal_str}")
 
@@ -515,7 +530,9 @@ def _cmd_run(args: list[str]) -> None:
                 console.print(f"[red]Paper trade failed: {e}[/red]")
 
         elif paper_mode and latest_signal == -1:
-            console.print(f"\n[bold yellow]Signal is SELL — check your positions for {symbol}[/bold yellow]")
+            console.print(
+                f"\n[bold yellow]Signal is SELL — check your positions for {symbol}[/bold yellow]"
+            )
         elif paper_mode:
             console.print("\n[dim]Signal is HOLD — no action taken.[/dim]")
 
@@ -586,7 +603,9 @@ def _cmd_export(args: list[str]) -> None:
     pine_mode = "--pine" in args
 
     if not pine_mode:
-        console.print("[red]Only --pine export is supported. Usage: strategy export <name> --pine[/red]")
+        console.print(
+            "[red]Only --pine export is supported. Usage: strategy export <name> --pine[/red]"
+        )
         return
 
     code = strategy_store.get_code(name)
@@ -654,7 +673,9 @@ def _cmd_library(args: list[str]) -> None:
             opt_matches = strategy_library.search(category)
             tech_matches = tech_library.search(category)
             if opt_matches or tech_matches:
-                console.print(f"[yellow]Unknown category '{category}'. Showing search results:[/yellow]\n")
+                console.print(
+                    f"[yellow]Unknown category '{category}'. Showing search results:[/yellow]\n"
+                )
                 if opt_matches:
                     console.print("[bold]Options strategies:[/bold]")
                     _print_library_table(opt_matches)
@@ -672,28 +693,38 @@ def _cmd_library(args: list[str]) -> None:
     # No category filter — show based on --type
     if lib_type == "options":
         templates = strategy_library.list_all()
-        console.print(f"\n[bold cyan]Options Strategy Library[/bold cyan] [dim]({len(templates)} strategies)[/dim]\n")
+        console.print(
+            f"\n[bold cyan]Options Strategy Library[/bold cyan] "
+            f"[dim]({len(templates)} strategies)[/dim]\n"
+        )
         _print_library_table(templates)
 
     elif lib_type == "technical":
         templates = tech_library.list_all()
-        console.print(f"\n[bold cyan]Technical Strategy Library[/bold cyan] [dim]({len(templates)} strategies)[/dim]\n")
+        console.print(
+            f"\n[bold cyan]Technical Strategy Library[/bold cyan] "
+            f"[dim]({len(templates)} strategies)[/dim]\n"
+        )
         _print_technical_table(templates)
 
     else:  # all
         opt_templates = strategy_library.list_all()
         tech_templates = tech_library.list_all()
         console.print(
-            f"\n[bold cyan]Options Strategy Library[/bold cyan] [dim]({len(opt_templates)} strategies)[/dim]\n"
+            f"\n[bold cyan]Options Strategy Library[/bold cyan] "
+            f"[dim]({len(opt_templates)} strategies)[/dim]\n"
         )
         _print_library_table(opt_templates)
         console.print(
-            f"\n[bold cyan]Technical Strategy Library[/bold cyan] [dim]({len(tech_templates)} strategies)[/dim]\n"
+            f"\n[bold cyan]Technical Strategy Library[/bold cyan] "
+            f"[dim]({len(tech_templates)} strategies)[/dim]\n"
         )
         _print_technical_table(tech_templates)
 
     console.print("\n[dim]Run: [bold]strategy learn <id>[/bold]  to see full explanation[/dim]")
-    console.print("[dim]Run: [bold]strategy use <id> SYMBOL[/bold]  to apply with live data[/dim]\n")
+    console.print(
+        "[dim]Run: [bold]strategy use <id> SYMBOL[/bold]  to apply with live data[/dim]\n"
+    )
 
 
 def _print_technical_table(templates) -> None:
@@ -952,7 +983,10 @@ def _cmd_learn(args: list[str]) -> None:
             for m in all_matches[:4]:
                 console.print(f"  [cyan]{m.id}[/cyan] — {m.name}")
         else:
-            console.print(f"[red]Strategy '{name}' not found.[/red] Run [bold]strategy library[/bold] to see all.")
+            console.print(
+                f"[red]Strategy '{name}' not found.[/red] "
+                "Run [bold]strategy library[/bold] to see all."
+            )
         return
 
     if is_technical:
@@ -980,7 +1014,9 @@ def _learn_options(t) -> None:
         f"[bold]WHEN NOT TO USE[/bold]\n{t.when_not_to_use}\n\n"
         f"[bold]MAX PROFIT[/bold]  {t.max_profit}\n"
         f"[bold]MAX LOSS[/bold]    {t.max_loss}\n\n"
-        f"[bold]RISKS[/bold]\n" + "\n".join(f"  • {r}" for r in t.risks) + f"\n\n[dim]Tags: {' '.join(t.tags)}[/dim]"
+        f"[bold]RISKS[/bold]\n"
+        + "\n".join(f"  • {r}" for r in t.risks)
+        + f"\n\n[dim]Tags: {' '.join(t.tags)}[/dim]"
     )
 
     console.print(
@@ -1009,7 +1045,8 @@ def _learn_technical(t) -> None:
         example = rule.get("example", "")
         sig_color = "green" if sig == "BUY" else "red" if sig == "SELL" else "yellow"
         signal_lines.append(
-            f"  [{sig_color}]{sig:<5}[/{sig_color}] [dim]{cond}[/dim]\n         [dim]e.g. {example}[/dim]"
+            f"  [{sig_color}]{sig:<5}[/{sig_color}] [dim]{cond}[/dim]\n"
+            f"         [dim]e.g. {example}[/dim]"
         )
     signals_str = "\n\n".join(signal_lines)
 
@@ -1019,7 +1056,9 @@ def _learn_technical(t) -> None:
         ptype = pdef.get("type", "")
         default = pdef.get("default", "")
         desc = pdef.get("description", "")
-        param_lines.append(f"  [cyan]{pname}[/cyan] ({ptype}, default={default})  [dim]{desc}[/dim]")
+        param_lines.append(
+            f"  [cyan]{pname}[/cyan] ({ptype}, default={default})  [dim]{desc}[/dim]"
+        )
     params_str = "\n".join(param_lines) if param_lines else "  [dim]None[/dim]"
 
     # Load cached backtest result if available
@@ -1052,7 +1091,8 @@ def _learn_technical(t) -> None:
             )
         else:
             backtest_str = (
-                f"[green]✓ Supported.[/green]  [dim]Run [bold]strategy use {t.id} SYMBOL[/bold] to see results.[/dim]"
+                f"[green]✓ Supported.[/green]  "
+                f"[dim]Run [bold]strategy use {t.id} SYMBOL[/bold] to see results.[/dim]"
             )
     else:
         backtest_str = "[dim]Not yet available (requires intraday/multi-asset data)[/dim]"
@@ -1088,7 +1128,8 @@ def _learn_technical(t) -> None:
         console.print(f"\n[dim]Run backtest: [bold]strategy use {t.id} SYMBOL[/bold][/dim]\n")
     else:
         console.print(
-            "\n[dim]This strategy is documented for learning. Backtest support coming in a future release.[/dim]\n"
+            "\n[dim]This strategy is documented for learning. "
+            "Backtest support coming in a future release.[/dim]\n"
         )
 
 
@@ -1136,7 +1177,8 @@ def _cmd_use(args: list[str]) -> None:
                 console.print(f"  [cyan]{m.id}[/cyan] — {m.name}")
         else:
             console.print(
-                f"[red]Strategy '{strategy_id}' not found.[/red] Run [bold]strategy library[/bold] to see all."
+                f"[red]Strategy '{strategy_id}' not found.[/red] "
+                "Run [bold]strategy library[/bold] to see all."
             )
         return
 
@@ -1169,7 +1211,9 @@ def _cmd_use(args: list[str]) -> None:
 
             spot = FloatPrompt.ask(f"Enter current spot price for {symbol}")
         except Exception:
-            console.print(f"[red]Could not fetch spot price for {symbol}. Provide it manually.[/red]")
+            console.print(
+                f"[red]Could not fetch spot price for {symbol}. Provide it manually.[/red]"
+            )
             return
 
     # Fetch ATM data
@@ -1231,7 +1275,9 @@ def _cmd_use(args: list[str]) -> None:
         f"  Risks          : [dim]{result.risks}[/dim]"
     )
     console.print(Panel(summary, title="P&L Summary", border_style="dim", padding=(0, 2)))
-    console.print(f"\n[dim]For placement: [bold]trade {symbol} {' / '.join(template.views)}[/bold][/dim]\n")
+    console.print(
+        f"\n[dim]For placement: [bold]trade {symbol} {' / '.join(template.views)}[/bold][/dim]\n"
+    )
 
 
 def _use_technical(template, symbol: str, raw_args: list[str]) -> None:
@@ -1258,7 +1304,9 @@ def _use_technical(template, symbol: str, raw_args: list[str]) -> None:
         else:
             i += 1
 
-    console.print(f"\n[dim]Running backtest: [bold]{template.name}[/bold] on {symbol} ({period})...[/dim]")
+    console.print(
+        f"\n[dim]Running backtest: [bold]{template.name}[/bold] on {symbol} ({period})...[/dim]"
+    )
 
     try:
         from engine.backtest import STRATEGIES, Backtester
@@ -1283,11 +1331,14 @@ def _use_technical(template, symbol: str, raw_args: list[str]) -> None:
                 signals = strategy.generate_signals(df)
                 latest = int(signals.iloc[-1]) if len(signals) else 0
                 latest_price = float(df["close"].iloc[-1])
-                latest_date = str(df.index[-1].date()) if hasattr(df.index[-1], "date") else str(df.index[-1])
+                latest_date = (
+                    str(df.index[-1].date()) if hasattr(df.index[-1], "date") else str(df.index[-1])
+                )
                 signal_map = {1: "[green]BUY[/green]", -1: "[red]SELL[/red]", 0: "[dim]HOLD[/dim]"}
                 recent = signals.tail(10)
                 sig_str = " ".join(
-                    "[green]+[/green]" if s == 1 else "[red]-[/red]" if s == -1 else "[dim].[/dim]" for s in recent
+                    "[green]+[/green]" if s == 1 else "[red]-[/red]" if s == -1 else "[dim].[/dim]"
+                    for s in recent
                 )
                 console.print(
                     Panel(

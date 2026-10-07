@@ -55,7 +55,6 @@ import os
 import sqlite3
 from datetime import date, datetime
 from pathlib import Path
-from typing import Optional
 
 
 class RiskLimitError(Exception):
@@ -178,47 +177,43 @@ class RiskLimits:
         # ── 1. Daily loss cap ─────────────────────────────────
         current_loss = self._daily_loss()
         if current_loss <= self.max_daily_loss:
-            msg = (
+            raise RiskLimitError(
                 f"Order blocked — daily loss cap reached.\n"
                 f"  P&L today: -₹{abs(current_loss):,.0f}  "
                 f"(limit: -₹{abs(self.max_daily_loss):,.0f})\n"
                 f"  No more orders allowed today."
             )
-            raise RiskLimitError(msg)
 
         # ── 2. Max trades per day ─────────────────────────────
         trades = self._trades_today()
         if trades >= self.max_daily_trades:
-            msg = (
+            raise RiskLimitError(
                 f"Order blocked — daily trade limit reached.\n"
                 f"  Trades today: {trades} / {self.max_daily_trades}\n"
                 f"  No more orders allowed today."
             )
-            raise RiskLimitError(msg)
 
         # ── 3. Max trades per symbol ──────────────────────────
         sym_trades = self._trades_today_for_symbol(sym)
         if sym_trades >= self.max_trades_per_symbol:
-            msg = (
+            raise RiskLimitError(
                 f"Order blocked — {sym} trade limit reached.\n"
                 f"  {sym} trades today: {sym_trades} / {self.max_trades_per_symbol}\n"
                 f"  Try a different symbol or wait until tomorrow."
             )
-            raise RiskLimitError(msg)
 
         # ── 4. No pyramiding into losers ──────────────────────
         if current_position and action == "BUY" and quantity > 0:
             avg = float(current_position.get("avg_price", 0))
             if avg > 0 and price > 0 and price < avg:
                 loss_pct = (avg - price) / avg * 100
-                msg = (
+                raise RiskLimitError(
                     f"Order blocked — pyramiding into a losing position.\n"
                     f"  {sym}: held at avg ₹{avg:,.2f}, current ₹{price:,.2f} "
                     f"({loss_pct:.1f}% below avg).\n"
                     f"  Cannot add to a losing position (anti-pyramid rule).\n"
                     f"  To override: close the losing position first."
                 )
-                raise RiskLimitError(msg)
 
     # ── Record ────────────────────────────────────────────────
 

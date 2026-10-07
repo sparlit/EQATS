@@ -35,7 +35,6 @@ import contextlib
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from kiteconnect import KiteConnect
 from kiteconnect.exceptions import KiteException
@@ -344,8 +343,7 @@ class ZerodhaAPI(BrokerAPI):
                     token = inst["instrument_token"]
                     break
             if token is None:
-                msg = f"Instrument {symbol} not found on {exchange}"
-                raise ValueError(msg)
+                raise ValueError(f"Instrument {symbol} not found on {exchange}")
 
             raw = self.kite.historical_data(token, from_date, to_date, kite_interval)
             return [
@@ -360,8 +358,7 @@ class ZerodhaAPI(BrokerAPI):
                 for candle in raw
             ]
         except Exception as e:
-            msg = (
+            raise RuntimeError(
                 f"Zerodha historical data error: {e}\n"
                 "Check that the symbol and date range are valid. If your session expired, try: logout → login"
-            )
-            raise RuntimeError(msg) from e
+            ) from e

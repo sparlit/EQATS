@@ -293,7 +293,9 @@ class TestYfinanceFundamentalsFallback:
         good = FinanceSearchResult(query="test", summary="INFY PE=25 ROE=28%")
         with patch("yfinance.Ticker", return_value=empty_ticker):
             with patch("agent.perplexity_finance.perplexity_finance_available", return_value=True):
-                with patch("agent.perplexity_finance.finance_fundamentals_for_symbol", return_value=good):
+                with patch(
+                    "agent.perplexity_finance.finance_fundamentals_for_symbol", return_value=good
+                ):
                     analyst = self._make_analyst()
                     report = analyst.analyze("INFY", "NSE")
 

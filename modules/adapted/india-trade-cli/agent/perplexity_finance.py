@@ -254,7 +254,10 @@ def finance_macro_india(
         context: Optional focus (e.g. "RBI meeting", "Q4 results season")
         model:   Perplexity model to use
     """
-    query = "India stock market today NIFTY outlook FII DII flows RBI USD INR global cues sector rotation NSE BSE 2026"
+    query = (
+        "India stock market today NIFTY outlook FII DII flows RBI USD INR "
+        "global cues sector rotation NSE BSE 2026"
+    )
     if context:
         query = f"India stock market {context} outlook today 2026"
     return _call_finance_search(query, model=model)

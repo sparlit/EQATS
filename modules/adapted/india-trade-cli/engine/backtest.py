@@ -52,7 +52,6 @@ import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Optional
 
 import pandas as pd
 from rich.console import Console
@@ -359,7 +358,9 @@ class SupertrendStrategy(Strategy):
         high, low, close = df["high"], df["low"], df["close"]
 
         # ATR
-        tr = pd.concat([high - low, (high - close.shift()).abs(), (low - close.shift()).abs()], axis=1).max(axis=1)
+        tr = pd.concat(
+            [high - low, (high - close.shift()).abs(), (low - close.shift()).abs()], axis=1
+        ).max(axis=1)
         atr = tr.rolling(self.period).mean()
 
         hl2 = (high + low) / 2
@@ -494,9 +495,10 @@ class ParabolicSARStrategy(Strategy):
                     sar = ep
                     ep = low[i]
                     af = self.step
-                elif high[i] > ep:
-                    ep = high[i]
-                    af = min(af + self.step, self.max_step)
+                else:
+                    if high[i] > ep:
+                        ep = high[i]
+                        af = min(af + self.step, self.max_step)
             else:
                 sar = prev_sar + af * (ep - prev_sar)
                 sar = max(sar, high[i - 1], high[max(0, i - 2)])
@@ -505,9 +507,10 @@ class ParabolicSARStrategy(Strategy):
                     sar = ep
                     ep = high[i]
                     af = self.step
-                elif low[i] < ep:
-                    ep = low[i]
-                    af = min(af + self.step, self.max_step)
+                else:
+                    if low[i] < ep:
+                        ep = low[i]
+                        af = min(af + self.step, self.max_step)
 
             sar_vals.append(sar)
             trend.append(1 if bull else -1)
@@ -672,8 +675,7 @@ class Backtester:
         )
 
         if df.empty:
-            msg = f"No historical data available for {self.symbol}"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"No historical data available for {self.symbol}")
 
         # Drop rows with NaN close prices (common in yfinance for current day)
         df = df.dropna(subset=["close"])
@@ -753,7 +755,12 @@ class Backtester:
                 position = 0
 
             equity.append(
-                capital + (position * capital * (price - entry_price) / entry_price if position and entry_price else 0)
+                capital
+                + (
+                    position * capital * (price - entry_price) / entry_price
+                    if position and entry_price
+                    else 0
+                )
             )
 
         # Close any open position at last price
@@ -780,7 +787,9 @@ class Backtester:
         # Calculate metrics
         total_return = (capital - self.initial_capital) / self.initial_capital * 100
         first_close = float(df["close"].dropna().iloc[0]) if not df["close"].dropna().empty else 1
-        last_close = float(df["close"].dropna().iloc[-1]) if not df["close"].dropna().empty else first_close
+        last_close = (
+            float(df["close"].dropna().iloc[-1]) if not df["close"].dropna().empty else first_close
+        )
         buy_hold = (last_close - first_close) / first_close * 100 if first_close else 0
 
         # CAGR
@@ -800,7 +809,9 @@ class Backtester:
         drawdown = (equity_series - peak) / peak * 100
         max_dd = float(drawdown.min())
         max_dd_idx = int(drawdown.idxmin()) if not drawdown.empty else 0
-        max_dd_date = str(df.index[min(max_dd_idx, len(df) - 1)])[:10] if max_dd_idx < len(df) else ""
+        max_dd_date = (
+            str(df.index[min(max_dd_idx, len(df) - 1)])[:10] if max_dd_idx < len(df) else ""
+        )
 
         # Trade stats
         winners = [t for t in trades if t.pnl > 0]
@@ -998,8 +1009,7 @@ class MultiBacktester:
         for sym in self.symbols:
             df = get_ohlcv(symbol=sym, exchange=self.exchange, interval="day", days=days)
             if df.empty:
-                msg = f"No historical data for {sym}"
-                raise RuntimeError(msg)
+                raise RuntimeError(f"No historical data for {sym}")
             df = df.dropna(subset=["close"])
             raw[sym] = df
 
@@ -1009,11 +1019,10 @@ class MultiBacktester:
             common_idx = common_idx.intersection(raw[sym].index)
 
         if len(common_idx) < 20:
-            msg = (
+            raise RuntimeError(
                 f"Only {len(common_idx)} common trading days across {self.symbols}. "
                 "Need at least 20 for a meaningful backtest."
             )
-            raise RuntimeError(msg)
 
         for sym in self.symbols:
             raw[sym] = raw[sym].loc[common_idx]
@@ -1042,8 +1051,9 @@ class MultiBacktester:
         elif isinstance(signals, pd.DataFrame):
             sig_df = signals
         else:
-            msg = f"generate_signals must return Series or DataFrame, got {type(signals)}"
-            raise TypeError(msg)
+            raise TypeError(
+                f"generate_signals must return Series or DataFrame, got {type(signals)}"
+            )
 
         # Align signals to common index
         common_idx = primary_df.index
@@ -1106,7 +1116,10 @@ class MultiBacktester:
                             xp = prices[sym]
                             direction = "LONG" if positions[sym] == 1 else "SHORT"
 
-                            pnl_pct = (xp - ep) / ep * 100 if positions[sym] == 1 else (ep - xp) / ep * 100
+                            if positions[sym] == 1:
+                                pnl_pct = (xp - ep) / ep * 100
+                            else:
+                                pnl_pct = (ep - xp) / ep * 100
 
                             pnl = capital_per_leg * pnl_pct / 100
                             total_pnl += pnl
@@ -1124,7 +1137,9 @@ class MultiBacktester:
                             )
 
                     capital += total_pnl
-                    combined_pct = total_pnl / (capital_per_leg * len(list(legs))) * 100 if legs else 0
+                    combined_pct = (
+                        total_pnl / (capital_per_leg * len(list(legs))) * 100 if legs else 0
+                    )
 
                     try:
                         entry_dt = pd.Timestamp(entry_date)
@@ -1178,7 +1193,9 @@ class MultiBacktester:
                     ep = entry_prices[sym]
                     xp = last_prices[sym]
                     direction = "LONG" if positions[sym] == 1 else "SHORT"
-                    pnl_pct = ((xp - ep) / ep * 100) if positions[sym] == 1 else ((ep - xp) / ep * 100)
+                    pnl_pct = (
+                        ((xp - ep) / ep * 100) if positions[sym] == 1 else ((ep - xp) / ep * 100)
+                    )
                     pnl = capital_per_leg * pnl_pct / 100
                     total_pnl += pnl
                     legs.append(
@@ -1297,8 +1314,9 @@ def run_backtest(
         except ImportError:
             pass
 
-        msg = f"Unknown strategy: {strategy_name}. Available: {', '.join(STRATEGIES.keys())}"
-        raise ValueError(msg)
+        raise ValueError(
+            f"Unknown strategy: {strategy_name}. Available: {', '.join(STRATEGIES.keys())}"
+        )
 
     strategy = factory(strategy_args or [])
     bt = Backtester(symbol=symbol, period=period, capital=capital)
@@ -1384,8 +1402,7 @@ def walk_forward_test(
 
     factory = STRATEGIES.get(strategy_name.lower())
     if not factory:
-        msg = f"Unknown strategy: {strategy_name}"
-        raise ValueError(msg)
+        raise ValueError(f"Unknown strategy: {strategy_name}")
 
     strategy = factory(strategy_args or [])
 
@@ -1429,8 +1446,7 @@ def walk_forward_test(
         current += timedelta(days=window_days)
 
     if not windows:
-        msg = f"No valid windows for {symbol} over {total_period}"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"No valid windows for {symbol} over {total_period}")
 
     avg_return = sum(w["return"] for w in windows) / len(windows)
     avg_sharpe = sum(w["sharpe"] for w in windows) / len(windows)

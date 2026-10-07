@@ -57,7 +57,6 @@ Usage:
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Optional
 
 from rich.console import Console
 from rich.table import Table
@@ -368,7 +367,9 @@ def predict_earnings_surprise(symbol: str) -> dict:
             )
             bullish_count += 1
         elif snap.score < -30:
-            signals.append(f"Weak technical setup (score: {snap.score:+d}) — bearish momentum pre-earnings")
+            signals.append(
+                f"Weak technical setup (score: {snap.score:+d}) — bearish momentum pre-earnings"
+            )
             bearish_count += 1
         else:
             signals.append(f"Neutral technicals (score: {snap.score:+d})")
@@ -376,7 +377,9 @@ def predict_earnings_surprise(symbol: str) -> dict:
         if snap.rsi > 65:
             signals.append(f"RSI {snap.rsi:.0f} — overbought, limited upside on beat")
         elif snap.rsi < 35:
-            signals.append(f"RSI {snap.rsi:.0f} — oversold, positive surprise could trigger sharp rally")
+            signals.append(
+                f"RSI {snap.rsi:.0f} — oversold, positive surprise could trigger sharp rally"
+            )
             bullish_count += 1
     except Exception:
         pass

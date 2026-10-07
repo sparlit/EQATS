@@ -38,8 +38,6 @@ Usage:
 """
 
 
-from typing import Optional
-
 from rich.console import Console
 from rich.table import Table
 
@@ -160,7 +158,9 @@ def scan_options(
 
     return {
         "high_iv": filter_high_iv(high_iv),
-        "unusual_oi": sorted(unusual_oi, key=lambda x: x.get("oi_change_pct", 0), reverse=True)[:10],
+        "unusual_oi": sorted(unusual_oi, key=lambda x: x.get("oi_change_pct", 0), reverse=True)[
+            :10
+        ],
         "high_put_writing": high_put_writing,
         "summary": f"Scanned {len(universe)} symbols. "
         f"High IV: {len(filter_high_iv(high_iv))} | "

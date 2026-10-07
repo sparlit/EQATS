@@ -277,7 +277,9 @@ def build_profile() -> TradingProfile:
 
     profile.avg_winner = sum(win_pnls) / len(win_pnls) if win_pnls else 0
     profile.avg_loser = sum(loss_pnls) / len(loss_pnls) if loss_pnls else 0
-    profile.win_loss_ratio = abs(profile.avg_winner / profile.avg_loser) if profile.avg_loser != 0 else float("inf")
+    profile.win_loss_ratio = (
+        abs(profile.avg_winner / profile.avg_loser) if profile.avg_loser != 0 else float("inf")
+    )
     profile.largest_win = max(win_pnls) if win_pnls else 0
     profile.largest_loss = min(loss_pnls) if loss_pnls else 0
 
@@ -407,13 +409,15 @@ def build_profile() -> TradingProfile:
         )
     if profile.low_conf_win_rate < 40 and profile.high_conf_win_rate > 55:
         recs.append(
-            f"Only trade when confidence > {profile.min_useful_confidence}%. Low confidence trades are losing money."
+            f"Only trade when confidence > {profile.min_useful_confidence}%. "
+            f"Low confidence trades are losing money."
         )
     if profile.best_vix_regime and "Low" in profile.best_vix_regime:
         recs.append("You perform best in low VIX. Reduce size in high-VIX regimes.")
     elif profile.best_vix_regime and "High" in profile.best_vix_regime:
         recs.append(
-            "You perform well in volatile markets — contrarian edge. Consider increasing size when others are fearful."
+            "You perform well in volatile markets — contrarian edge. "
+            "Consider increasing size when others are fearful."
         )
     if profile.longest_loss_streak >= 4:
         recs.append(

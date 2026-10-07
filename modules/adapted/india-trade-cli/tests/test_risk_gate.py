@@ -39,6 +39,7 @@ def temp_risk_db(tmp_path, monkeypatch):
     monkeypatch.setenv("RISK_DB_PATH", str(tmp_path / "risk_limits.db"))
     # Ensure capital env is predictable
     monkeypatch.setenv("TOTAL_CAPITAL", "200000")
+    yield
 
 
 # ── AllowedAction dataclass ───────────────────────────────────
@@ -609,8 +610,7 @@ class TestFormatRiskGateForLLM:
         original_connect = socket.socket.connect
 
         def blocked_connect(*args, **kwargs):
-            msg = "Network call detected in format_risk_gate_for_llm!"
-            raise RuntimeError(msg)
+            raise RuntimeError("Network call detected in format_risk_gate_for_llm!")
 
         socket.socket.connect = blocked_connect
         try:
@@ -678,8 +678,7 @@ class TestEdgeCases:
         original_connect = socket.socket.connect
 
         def blocked_connect(*args, **kwargs):
-            msg = "Network call detected in compute_allowed_actions!"
-            raise RuntimeError(msg)
+            raise RuntimeError("Network call detected in compute_allowed_actions!")
 
         socket.socket.connect = blocked_connect
         try:

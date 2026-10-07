@@ -125,7 +125,7 @@ class TestMakeBroker:
         assert isinstance(broker, MockBrokerAPI)
 
     def test_mock_by_name(self):
-        key, _broker = session_mod._make_broker("demo")
+        key, broker = session_mod._make_broker("demo")
         assert key == "mock"
 
     def test_unknown_choice_raises(self):

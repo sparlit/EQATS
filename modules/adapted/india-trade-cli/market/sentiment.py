@@ -35,12 +35,9 @@ Market sentiment indicators:
 
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 import httpx
-
-if TYPE_CHECKING:
-    from market.news import NewsItem
+from market.news import NewsItem
 
 # ── FII / DII Data ───────────────────────────────────────────
 
@@ -116,7 +113,9 @@ def get_fii_dii_data(days: int = 5) -> list[FIIDIIData]:
         for dt in sorted_dates[:days]:
             vals = by_date[dt]
             fii_net = vals["fii_net"]
-            verdict = "FII_BUYING" if fii_net > 500 else "FII_SELLING" if fii_net < -500 else "NEUTRAL"
+            verdict = (
+                "FII_BUYING" if fii_net > 500 else "FII_SELLING" if fii_net < -500 else "NEUTRAL"
+            )
             result.append(
                 FIIDIIData(
                     date=dt,
@@ -352,7 +351,9 @@ def _fii_dii_signal(days: int = 5) -> tuple[str, float, list[str]]:
         return "NEUTRAL", 0.0, []
 
     cum_fii_net = sum(f.fii_net for f in flows)
-    sources = [f"FII net {days}d: ₹{cum_fii_net:+,.0f} Cr (DII: ₹{sum(f.dii_net for f in flows):+,.0f} Cr)"]
+    sources = [
+        f"FII net {days}d: ₹{cum_fii_net:+,.0f} Cr (DII: ₹{sum(f.dii_net for f in flows):+,.0f} Cr)"
+    ]
 
     if cum_fii_net > 2000:
         return "BULLISH", 1.0, sources
@@ -392,7 +393,9 @@ def _news_signal(symbol: str) -> tuple[str, float, list[str]]:
     bull_pct = bull_count / max(total, 1)
     bear_pct = bear_count / max(total, 1)
 
-    sources = [f"News: {total} articles — {bull_pct * 100:.0f}% bullish, {bear_pct * 100:.0f}% bearish"]
+    sources = [
+        f"News: {total} articles — {bull_pct * 100:.0f}% bullish, {bear_pct * 100:.0f}% bearish"
+    ]
 
     if verdict == "BULLISH":
         score = 0.5 + 0.5 * max(0.0, bull_pct - bear_pct)
@@ -422,7 +425,9 @@ def _bulk_deals_signal(symbol: str, days: int = 10) -> tuple[str, float, list[st
 
     buy_qty = sum(d.quantity for d in deals if d.deal_type == "BUY")
     sell_qty = sum(d.quantity for d in deals if d.deal_type == "SELL")
-    sources = [f"Bulk deals {days}d: {len(deals)} deals (buy:{buy_qty:,} vs sell:{sell_qty:,} shares)"]
+    sources = [
+        f"Bulk deals {days}d: {len(deals)} deals (buy:{buy_qty:,} vs sell:{sell_qty:,} shares)"
+    ]
 
     total = buy_qty + sell_qty
     if total == 0:
@@ -451,7 +456,9 @@ def _breadth_signal() -> tuple[str, float, list[str]]:
     if breadth.verdict == "UNAVAILABLE" or breadth.advances == 0:
         return "NEUTRAL", 0.0, []
 
-    sources = [f"Breadth: {breadth.advances} adv / {breadth.declines} dec (A/D={breadth.ad_ratio:.2f})"]
+    sources = [
+        f"Breadth: {breadth.advances} adv / {breadth.declines} dec (A/D={breadth.ad_ratio:.2f})"
+    ]
 
     if breadth.verdict == "BROAD_RALLY":
         return "BULLISH", min(1.0, breadth.ad_ratio / 2.0), sources
@@ -509,7 +516,9 @@ def get_sentiment(symbol: str, exchange: str = "NSE") -> SentimentSignal:
     confidence = int(min(100, abs(total_score) / 0.3 * 100))
 
     # Key driver: highest absolute weighted contribution
-    weighted_contribs = {k: abs(component_scores[k] * _COMPONENT_WEIGHTS[k]) for k in _COMPONENT_WEIGHTS}
+    weighted_contribs = {
+        k: abs(component_scores[k] * _COMPONENT_WEIGHTS[k]) for k in _COMPONENT_WEIGHTS
+    }
     key_driver_key = max(weighted_contribs, key=weighted_contribs.get)
     key_driver_labels = {
         "fii_dii": "FII/DII flows",

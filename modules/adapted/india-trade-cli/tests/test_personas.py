@@ -62,7 +62,9 @@ class TestPersonaDefinitions:
     @pytest.mark.parametrize("persona_id", ["buffett", "jhunjhunwala", "lynch", "soros", "munger"])
     def test_checklist_has_at_least_five_items(self, persona_id: str):
         persona = PERSONAS[persona_id]
-        assert len(persona.checklist) >= 5, f"{persona_id}.checklist has {len(persona.checklist)} items — need ≥5"
+        assert len(persona.checklist) >= 5, (
+            f"{persona_id}.checklist has {len(persona.checklist)} items — need ≥5"
+        )
 
     @pytest.mark.parametrize("persona_id", ["buffett", "jhunjhunwala", "lynch", "soros", "munger"])
     def test_weights_sum_to_one(self, persona_id: str):

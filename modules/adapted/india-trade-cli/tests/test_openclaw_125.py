@@ -46,18 +46,24 @@ class TestAllSkillsHaveValidEndpoint:
     def test_all_paths_are_non_empty_strings(self):
         for skill in MANIFEST["skills"]:
             path = skill.get("path", "")
-            assert isinstance(path, str) and len(path) > 0, f"Skill '{skill['name']}' has invalid path: {path!r}"
+            assert isinstance(path, str) and len(path) > 0, (
+                f"Skill '{skill['name']}' has invalid path: {path!r}"
+            )
 
     def test_all_paths_start_with_slash(self):
         for skill in MANIFEST["skills"]:
             path = skill.get("path", "")
-            assert path.startswith("/"), f"Skill '{skill['name']}' path '{path}' does not start with '/'"
+            assert path.startswith("/"), (
+                f"Skill '{skill['name']}' path '{path}' does not start with '/'"
+            )
 
     def test_all_paths_contain_skills(self):
         """All skill paths should contain /skills/ prefix."""
         for skill in MANIFEST["skills"]:
             path = skill.get("path", "")
-            assert "/skills/" in path, f"Skill '{skill['name']}' path '{path}' should contain '/skills/'"
+            assert "/skills/" in path, (
+                f"Skill '{skill['name']}' path '{path}' should contain '/skills/'"
+            )
 
     def test_all_skills_have_required_fields(self):
         for skill in MANIFEST["skills"]:

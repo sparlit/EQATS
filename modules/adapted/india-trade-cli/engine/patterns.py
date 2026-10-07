@@ -44,7 +44,6 @@ Usage:
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Optional
 
 
 @dataclass
@@ -318,7 +317,9 @@ def get_pattern_context(today: date | None = None) -> str:
     parts = [f"Active market patterns ({len(patterns)}):"]
     for p in patterns:
         parts.append(
-            f"  [{p.impact}] {p.name} (confidence: {p.confidence}%)\n    {p.description}\n    Action: {p.action}"
+            f"  [{p.impact}] {p.name} (confidence: {p.confidence}%)\n"
+            f"    {p.description}\n"
+            f"    Action: {p.action}"
         )
     return "\n\n".join(parts)
 

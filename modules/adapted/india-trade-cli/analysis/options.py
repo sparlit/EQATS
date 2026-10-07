@@ -35,7 +35,6 @@ All prices in INR. Rates in decimals (0.065 = 6.5%).
 
 import math
 from dataclasses import dataclass, field
-from typing import Optional
 
 import numpy as np
 
@@ -242,7 +241,9 @@ def _bs_greeks_manual(
         d1 = (math.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * math.sqrt(T))
         d2 = d1 - sigma * math.sqrt(T)
         gamma = norm.pdf(d1) / (S * sigma * math.sqrt(T))
-        theta_val = -(S * norm.pdf(d1) * sigma) / (2 * math.sqrt(T)) - r * K * math.exp(-r * T) * norm.cdf(d2)
+        theta_val = -(S * norm.pdf(d1) * sigma) / (2 * math.sqrt(T)) - r * K * math.exp(
+            -r * T
+        ) * norm.cdf(d2)
         return Greeks(
             delta=round(delta, 4),
             gamma=round(gamma, 6),
@@ -559,12 +560,12 @@ def suggest_earnings_straddle(
 
     if move_vs_be > 1.3:
         verdict = "FAVORABLE"
-        reason = (
-            f"Avg move ({avg_earnings_move:.1f}%) > breakeven ({breakeven_pct:.1f}%) by {(move_vs_be - 1) * 100:.0f}%"
-        )
+        reason = f"Avg move ({avg_earnings_move:.1f}%) > breakeven ({breakeven_pct:.1f}%) by {(move_vs_be - 1) * 100:.0f}%"
     elif move_vs_be > 0.9:
         verdict = "MARGINAL"
-        reason = f"Avg move ({avg_earnings_move:.1f}%) roughly equals breakeven ({breakeven_pct:.1f}%)"
+        reason = (
+            f"Avg move ({avg_earnings_move:.1f}%) roughly equals breakeven ({breakeven_pct:.1f}%)"
+        )
     else:
         verdict = "UNFAVORABLE"
         reason = f"Avg move ({avg_earnings_move:.1f}%) < breakeven ({breakeven_pct:.1f}%) — straddle too expensive"

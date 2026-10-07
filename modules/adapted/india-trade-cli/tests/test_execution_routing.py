@@ -154,8 +154,8 @@ class TestPortfolioUsesExecutionBroker:
             calls.append("funds")
             return Funds(available_cash=100000, used_margin=0, total_balance=100000)
 
-        monkeypatch.setattr(exec_broker, "get_holdings", list)
-        monkeypatch.setattr(exec_broker, "get_positions", list)
+        monkeypatch.setattr(exec_broker, "get_holdings", lambda: [])
+        monkeypatch.setattr(exec_broker, "get_positions", lambda: [])
         monkeypatch.setattr(exec_broker, "get_funds", fake_get_funds)
 
         risk_meter()

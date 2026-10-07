@@ -65,7 +65,7 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from agent.schema_parser import parse_synthesis_output as _parse_synthesis_output
 from rich.console import Console
@@ -397,12 +397,12 @@ class TradeMemory:
                 f"The {record.verdict} signal on {record.symbol} was correct{pnl_str}. "
                 f"Similar setups may work in the future."
             )
-        if outcome == "LOSS":
+        elif outcome == "LOSS":
             return (
                 f"The {record.verdict} signal on {record.symbol} was incorrect{pnl_str}. "
                 f"Review the thesis and consider tightening the stop-loss."
             )
-        if outcome in ("BREAKEVEN", "EXPIRED"):
+        elif outcome in ("BREAKEVEN", "EXPIRED"):
             return (
                 f"The {record.symbol} trade was a wash — "
                 f"market conditions may have changed after the {record.verdict} signal."
@@ -592,7 +592,9 @@ class TradeMemory:
 
             outcome_str = ""
             if r.outcome:
-                o_style = "green" if r.outcome == "WIN" else "red" if r.outcome == "LOSS" else "yellow"
+                o_style = (
+                    "green" if r.outcome == "WIN" else "red" if r.outcome == "LOSS" else "yellow"
+                )
                 outcome_str = f"[{o_style}]{r.outcome}[/{o_style}]"
 
             pnl_str = ""
@@ -679,7 +681,9 @@ class TradeMemory:
 
         return "\n".join(parts)
 
-    def get_context_for_conditions(self, vix: float | None = None, fii_net: float | None = None) -> str:
+    def get_context_for_conditions(
+        self, vix: float | None = None, fii_net: float | None = None
+    ) -> str:
         """
         Generate text summary of past trades under similar conditions,
         for injecting into LLM prompts.

@@ -194,8 +194,7 @@ class TestNseScraper:
         from market.nse_scraper import nse_get_options_chain
 
         def raise_error(u, i):
-            msg = "Network unreachable"
-            raise ConnectionError(msg)
+            raise ConnectionError("Network unreachable")
 
         monkeypatch.setattr(nse_mod, "_fetch_nse_chain", raise_error)
 
@@ -265,8 +264,7 @@ class TestOptionsChainFallback:
         from market.source_tracker import get_last_source
 
         def _raise():
-            msg = "no broker"
-            raise RuntimeError(msg)
+            raise RuntimeError("no broker")
 
         monkeypatch.setattr("market.options.get_data_broker", _raise)
 
@@ -336,8 +334,7 @@ class TestOhlcvCache:
         from market import history as hist_mod
 
         def _raise_broker():
-            msg = "no broker"
-            raise RuntimeError(msg)
+            raise RuntimeError("no broker")
 
         monkeypatch.setattr("brokers.session.get_broker", _raise_broker)
         monkeypatch.setattr(
@@ -364,8 +361,7 @@ class TestOhlcvCache:
         from market import history as hist_mod
 
         def _raise_broker():
-            msg = "no broker"
-            raise RuntimeError(msg)
+            raise RuntimeError("no broker")
 
         monkeypatch.setattr("brokers.session.get_broker", _raise_broker)
         monkeypatch.setattr(
@@ -397,8 +393,7 @@ class TestOhlcvCache:
         from market import history as hist_mod
 
         def _raise_broker():
-            msg = "no broker"
-            raise RuntimeError(msg)
+            raise RuntimeError("no broker")
 
         monkeypatch.setattr("brokers.session.get_broker", _raise_broker)
         monkeypatch.setattr("market.history._yfinance_fallback", lambda *a, **kw: [])

@@ -140,7 +140,9 @@ class TestCallFinanceSearch:
             ],
             "citations": ["https://example.com/q4"],
         }
-        with patch("agent.perplexity_finance.requests.post", return_value=self._mock_response(body)):
+        with patch(
+            "agent.perplexity_finance.requests.post", return_value=self._mock_response(body)
+        ):
             from agent.perplexity_finance import _call_finance_search
 
             result = _call_finance_search("INFY India stock news")
@@ -155,7 +157,9 @@ class TestCallFinanceSearch:
             "output": [],  # empty — triggers fallback
             "choices": [{"message": {"content": "RELIANCE reported strong earnings."}}],
         }
-        with patch("agent.perplexity_finance.requests.post", return_value=self._mock_response(body)):
+        with patch(
+            "agent.perplexity_finance.requests.post", return_value=self._mock_response(body)
+        ):
             from agent.perplexity_finance import _call_finance_search
 
             result = _call_finance_search("RELIANCE stock")
@@ -182,7 +186,9 @@ class TestCallFinanceSearch:
 
     def test_returns_error_on_network_exception(self, monkeypatch):
         monkeypatch.setenv("PERPLEXITY_API_KEY", "pplx-test")
-        with patch("agent.perplexity_finance.requests.post", side_effect=ConnectionError("timeout")):
+        with patch(
+            "agent.perplexity_finance.requests.post", side_effect=ConnectionError("timeout")
+        ):
             from agent.perplexity_finance import _call_finance_search
 
             result = _call_finance_search("test")
@@ -192,7 +198,9 @@ class TestCallFinanceSearch:
     def test_empty_output_and_no_choices_returns_error(self, monkeypatch):
         monkeypatch.setenv("PERPLEXITY_API_KEY", "pplx-test")
         body = {"output": [], "choices": []}
-        with patch("agent.perplexity_finance.requests.post", return_value=self._mock_response(body)):
+        with patch(
+            "agent.perplexity_finance.requests.post", return_value=self._mock_response(body)
+        ):
             from agent.perplexity_finance import _call_finance_search
 
             result = _call_finance_search("test")
@@ -293,7 +301,9 @@ class TestFundamentalFallback:
 
         with patch("yfinance.Ticker", return_value=empty_ticker):
             with patch("agent.perplexity_finance.perplexity_finance_available", return_value=True):
-                with patch("agent.perplexity_finance.finance_fundamentals_for_symbol", return_value=good):
+                with patch(
+                    "agent.perplexity_finance.finance_fundamentals_for_symbol", return_value=good
+                ):
                     analyst = self._make_analyst()
                     report = analyst.analyze("INFY", "NSE")
 
@@ -321,7 +331,9 @@ class TestFundamentalFallback:
         empty_ticker.info = {}
         with patch("yfinance.Ticker", return_value=empty_ticker):
             with patch("agent.perplexity_finance.perplexity_finance_available", return_value=True):
-                with patch("agent.perplexity_finance.finance_fundamentals_for_symbol", return_value=bad):
+                with patch(
+                    "agent.perplexity_finance.finance_fundamentals_for_symbol", return_value=bad
+                ):
                     analyst = self._make_analyst()
                     report = analyst.analyze("INFY", "NSE")
 

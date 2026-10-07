@@ -48,7 +48,6 @@ Keys are stored as:   keyring.get_password("india-trade-cli", "KITE_API_KEY")
 
 
 import os
-from typing import Optional
 
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
@@ -215,27 +214,28 @@ def get_credential(
     # 3. Interactive prompt (skip in batch mode — e.g. CLI provider tool loop)
     if os.environ.get("_CLI_BATCH_MODE"):
         if required:
-            msg = (
+            raise RuntimeError(
                 f"Credential '{display}' is not configured.\n"
                 f"Run: credentials setup   (interactive wizard)\n"
                 f"  or: credentials set {key}"
             )
-            raise RuntimeError(msg)
         return ""
 
     console.print(f"\n[yellow]⚠  Missing credential:[/yellow] [bold]{display}[/bold]")
 
-    value = Prompt.ask(f"  Enter {display}", password=True) if secret else Prompt.ask(f"  Enter {display}")
+    if secret:
+        value = Prompt.ask(f"  Enter {display}", password=True)
+    else:
+        value = Prompt.ask(f"  Enter {display}")
 
     value = (value or "").strip()
 
     if not value:
         if required:
-            msg = (
+            raise RuntimeError(
                 f"Credential '{key}' is required but was not provided. "
                 f"Run `credentials setup` or add {key} to your .env file."
             )
-            raise RuntimeError(msg)
         return ""
 
     # Offer to save to keychain
@@ -247,7 +247,9 @@ def get_credential(
                     os.environ[key] = value
                     console.print("  [green]✓ Saved to keychain[/green]\n")
                 else:
-                    console.print("  [yellow]Could not save to keychain — keyring unavailable.[/yellow]\n")
+                    console.print(
+                        "  [yellow]Could not save to keychain — keyring unavailable.[/yellow]\n"
+                    )
         except Exception:
             pass
 
@@ -259,7 +261,9 @@ def set_credential(key: str, value: str) -> None:
     """Save a credential to both the keychain and os.environ."""
     os.environ[key] = value
     if not _kr_set(key, value):
-        console.print("[yellow]keyring unavailable — credential set only for this session.[/yellow]")
+        console.print(
+            "[yellow]keyring unavailable — credential set only for this session.[/yellow]"
+        )
 
 
 def delete_credential(key: str) -> None:
@@ -309,7 +313,9 @@ def run_setup_wizard(keys: list[str] | None = None) -> None:
     Args:
         keys: List of credential keys to configure. If None, runs all.
     """
-    targets = [(k, l, s) for k, l, s in KNOWN_CREDENTIALS if k in keys] if keys else KNOWN_CREDENTIALS
+    targets = (
+        [(k, l, s) for k, l, s in KNOWN_CREDENTIALS if k in keys] if keys else KNOWN_CREDENTIALS
+    )
 
     console.print("\n[bold cyan]Credential Setup Wizard[/bold cyan]")
     console.print(
@@ -389,7 +395,9 @@ def run_setup_wizard(keys: list[str] | None = None) -> None:
                 console.print("  [yellow]⚠ Could not reach keychain — set in .env instead[/yellow]")
         console.print()
 
-    console.print(f"[bold green]✓  Setup complete.[/bold green]  {saved} credential(s) saved to keychain.\n")
+    console.print(
+        f"[bold green]✓  Setup complete.[/bold green]  {saved} credential(s) saved to keychain.\n"
+    )
 
 
 def _wizard_ai_provider(items: list[tuple[str, str, bool]]) -> None:
@@ -409,7 +417,9 @@ def _wizard_ai_provider(items: list[tuple[str, str, bool]]) -> None:
         "  [cyan][8][/cyan] [bold]Ollama (local)[/bold]  [dim](free, runs on your machine)[/dim]\n"
         "  [cyan][9][/cyan] Skip / keep existing\n"
     )
-    choice = Prompt.ask("  Choice", choices=["1", "2", "3", "4", "5", "6", "7", "8", "9"], default="9")
+    choice = Prompt.ask(
+        "  Choice", choices=["1", "2", "3", "4", "5", "6", "7", "8", "9"], default="9"
+    )
 
     if choice == "1":
         _save_cred("AI_PROVIDER", "anthropic")
@@ -473,7 +483,9 @@ def _wizard_ai_provider(items: list[tuple[str, str, bool]]) -> None:
             "    Groq:         [cyan]https://api.groq.com/openai/v1[/cyan]\n"
             "    Together:     [cyan]https://api.together.xyz/v1[/cyan]\n"
         )
-        _prompt_and_save("OPENAI_BASE_URL", "Base URL (e.g. https://openrouter.ai/api/v1)", secret=False)
+        _prompt_and_save(
+            "OPENAI_BASE_URL", "Base URL (e.g. https://openrouter.ai/api/v1)", secret=False
+        )
         _prompt_and_save("OPENAI_API_KEY", "API Key for this provider", secret=True)
         console.print(
             "\n  [dim]Model name depends on your provider. Examples:[/dim]\n"
@@ -533,7 +545,9 @@ def _wizard_telegram(items: list[tuple[str, str, bool]]) -> None:
 
     # Basic format check: Telegram tokens look like  123456789:ABCdef...
     if ":" not in value or len(value) < 20:
-        console.print("  [yellow]⚠  Token format looks unexpected. Expected: 123456789:ABCdef...[/yellow]")
+        console.print(
+            "  [yellow]⚠  Token format looks unexpected. Expected: 123456789:ABCdef...[/yellow]"
+        )
         if not Confirm.ask("  Save anyway?", default=False):
             return
 
@@ -555,12 +569,14 @@ def _prompt_and_save(key: str, label: str, *, secret: bool) -> None:
     current = _kr_get(key) or os.environ.get(key, "")
     hint = " [dim](already set — press Enter to keep)[/dim]" if current else ""
     console.print(f"  {label}{hint}")
-    value = Prompt.ask("  Value", password=True, default="") if secret else Prompt.ask("  Value", default=current or "")
+    if secret:
+        value = Prompt.ask("  Value", password=True, default="")
+    else:
+        value = Prompt.ask("  Value", default=current or "")
     value = value.strip()
-    if value:
-        if _kr_set(key, value):
-            os.environ[key] = value
-            console.print("  [green]✓ Saved[/green]")
+    if value and _kr_set(key, value):
+        os.environ[key] = value
+        console.print("  [green]✓ Saved[/green]")
 
 
 def cmd_credentials(args: list[str]) -> None:
@@ -612,7 +628,9 @@ def cmd_credentials(args: list[str]) -> None:
                 "GEMINI_API_KEY",
             }
             if key in _AI_CREDS:
-                console.print("[dim]Run 'provider openai' (or your provider name) to apply the change.[/dim]")
+                console.print(
+                    "[dim]Run 'provider openai' (or your provider name) to apply the change.[/dim]"
+                )
             console.print()
 
     elif sub == "delete":

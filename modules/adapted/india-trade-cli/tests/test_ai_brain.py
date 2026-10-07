@@ -39,11 +39,8 @@ Tests for all 7 "AI brain" tickets:
 
 
 import json
-from typing import TYPE_CHECKING
+from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 # ── #109: Harness history ─────────────────────────────────────────
 
@@ -235,7 +232,9 @@ class TestWebSearch:
         from agent.web_search import SearchResult, format_search_results
 
         results = [
-            SearchResult(title="RELIANCE Deal", url="https://example.com", text="Huge acquisition announced"),
+            SearchResult(
+                title="RELIANCE Deal", url="https://example.com", text="Huge acquisition announced"
+            ),
         ]
         formatted = format_search_results(results)
         assert "RELIANCE Deal" in formatted

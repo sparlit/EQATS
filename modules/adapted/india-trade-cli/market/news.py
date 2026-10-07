@@ -38,7 +38,7 @@ All functions return a list of NewsItem dicts:
 
 import os
 from dataclasses import dataclass
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
@@ -73,7 +73,9 @@ RSS_FEEDS = {
     "LiveMint Markets": "https://www.livemint.com/rss/markets",
 }
 
-NSE_ANNOUNCEMENTS_URL = "https://www.nseindia.com/api/corporate-announcements?index=equities&symbol={symbol}"
+NSE_ANNOUNCEMENTS_URL = (
+    "https://www.nseindia.com/api/corporate-announcements?index=equities&symbol={symbol}"
+)
 
 NEWSAPI_ENDPOINT = "https://newsapi.org/v2/everything"
 

@@ -42,7 +42,6 @@ Usage:
 import threading
 import time
 from dataclasses import asdict, dataclass
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -249,7 +248,9 @@ def compute_features(
 
     # EMA slope: (ema20[-1] - ema20[-5]) / ema20[-5] * 100
     if len(ema20_s) >= 5 and float(ema20_s.iloc[-5]) != 0:
-        ema_slope_5d = (float(ema20_s.iloc[-1]) - float(ema20_s.iloc[-5])) / float(ema20_s.iloc[-5]) * 100
+        ema_slope_5d = (
+            (float(ema20_s.iloc[-1]) - float(ema20_s.iloc[-5])) / float(ema20_s.iloc[-5]) * 100
+        )
     else:
         ema_slope_5d = 0.0
 

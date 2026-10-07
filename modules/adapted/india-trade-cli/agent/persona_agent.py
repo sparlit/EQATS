@@ -330,7 +330,7 @@ def _score_dimension(dimension: str, brief: dict[str, Any]) -> float:
 
         return max(0.0, min(100.0, score))
 
-    if dimension == "technicals":
+    elif dimension == "technicals":
         score = 50.0
         rsi = tech.get("rsi") or tech.get("RSI")
         if rsi is not None:
@@ -355,7 +355,7 @@ def _score_dimension(dimension: str, brief: dict[str, Any]) -> float:
 
         return max(0.0, min(100.0, score))
 
-    if dimension == "macro":
+    elif dimension == "macro":
         score = 50.0
         # FII flows
         fii_net = fii.get("net") or fii.get("fii_net") or fii.get("FII_net")
@@ -377,7 +377,7 @@ def _score_dimension(dimension: str, brief: dict[str, Any]) -> float:
 
         return max(0.0, min(100.0, score))
 
-    if dimension == "sentiment":
+    elif dimension == "sentiment":
         score = 50.0
         # Use news count or FII direction as a proxy for sentiment
         news = brief.get("news", [])
@@ -386,7 +386,7 @@ def _score_dimension(dimension: str, brief: dict[str, Any]) -> float:
             score += min(5, len(news))
         return max(0.0, min(100.0, score))
 
-    if dimension == "options":
+    elif dimension == "options":
         score = 50.0
         pcr = tech.get("pcr") or tech.get("put_call_ratio")
         if pcr is not None:
@@ -428,7 +428,9 @@ def _rule_based_signal(
         # Produce a checklist entry for each dimension
         level = "strong" if dim_score >= 65 else ("weak" if dim_score <= 40 else "neutral")
         symbol_map = {"strong": "✓", "neutral": "~", "weak": "✗"}
-        checklist_results.append(f"{symbol_map[level]} {dimension.title()} score: {dim_score:.0f}/100 ({level})")
+        checklist_results.append(
+            f"{symbol_map[level]} {dimension.title()} score: {dim_score:.0f}/100 ({level})"
+        )
         key_metrics[dimension.title()] = f"{dim_score:.0f}/100"
 
     # Add persona-specific checklist items

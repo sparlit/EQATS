@@ -45,7 +45,6 @@ Data is synced from trade_memory on demand (lazy, no background threads).
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 SEARCH_DB = Path.home() / ".trading_platform" / "analysis_search.db"
 
@@ -169,7 +168,9 @@ class AnalysisSearch:
             lesson = getattr(r, "lesson", "")
 
             # Build searchable full_text blob
-            full_text = " ".join(filter(None, [symbol, verdict, strategy, synthesis, bull, bear, lesson]))
+            full_text = " ".join(
+                filter(None, [symbol, verdict, strategy, synthesis, bull, bear, lesson])
+            )
 
             conn.execute(
                 """

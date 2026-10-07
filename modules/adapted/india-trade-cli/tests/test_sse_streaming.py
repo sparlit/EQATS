@@ -76,13 +76,11 @@ def sse_server():
     deadline = time.monotonic() + SSE_SERVER_STARTUP_TIMEOUT
     while not server.started and time.monotonic() < deadline:
         if not thread.is_alive():
-            msg = "uvicorn thread exited before the server started"
-            raise RuntimeError(msg)
+            raise RuntimeError("uvicorn thread exited before the server started")
         time.sleep(0.05)
     if not server.started:
         server.should_exit = True
-        msg = f"uvicorn did not start within {SSE_SERVER_STARTUP_TIMEOUT}s"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"uvicorn did not start within {SSE_SERVER_STARTUP_TIMEOUT}s")
 
     port = server.servers[0].sockets[0].getsockname()[1]
     try:
@@ -280,7 +278,8 @@ class TestSSEEventBus:
 
         async def _run_test():
             bus = SSEEventBus()
-            return await bus.publish("empty_channel", {"x": 1})
+            count = await bus.publish("empty_channel", {"x": 1})
+            return count
 
         count = _run(_run_test())
         assert count == 0
@@ -414,7 +413,9 @@ class TestSSEEndpoints:
                 path = getattr(route, "path", None)
                 if path:
                     paths.append(path)
-                children = getattr(route, "routes", None) or getattr(getattr(route, "router", None), "routes", None)
+                children = getattr(route, "routes", None) or getattr(
+                    getattr(route, "router", None), "routes", None
+                )
                 if children:
                     walk(children)
 

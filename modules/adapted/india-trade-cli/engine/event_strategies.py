@@ -45,7 +45,6 @@ Usage:
 
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import Optional
 
 from rich.console import Console
 from rich.table import Table
@@ -206,7 +205,9 @@ def _rbi_strategies(today: date, days_ahead: int) -> list[EventStrategy]:
     return strategies
 
 
-def _earnings_strategies(today: date, days_ahead: int, symbols: list[str] | None = None) -> list[EventStrategy]:
+def _earnings_strategies(
+    today: date, days_ahead: int, symbols: list[str] | None = None
+) -> list[EventStrategy]:
     """Strategies around earnings announcements."""
     try:
         from market.earnings import get_earnings_calendar, get_pre_earnings_iv
@@ -228,12 +229,12 @@ def _earnings_strategies(today: date, days_ahead: int, symbols: list[str] | None
                     avg_move = entry.avg_move or 3.0
 
                     if iv_rank > 60:
-                        strategy = f"Sell {entry.symbol} straddle/strangle — IV elevated (rank: {iv_rank})"
+                        strategy = (
+                            f"Sell {entry.symbol} straddle/strangle — IV elevated (rank: {iv_rank})"
+                        )
                         risk = "MEDIUM"
                     elif iv_rank < 30:
-                        strategy = (
-                            f"Buy {entry.symbol} straddle — IV cheap (rank: {iv_rank}), avg move ±{avg_move:.1f}%"
-                        )
+                        strategy = f"Buy {entry.symbol} straddle — IV cheap (rank: {iv_rank}), avg move ±{avg_move:.1f}%"
                         risk = "MEDIUM"
                     else:
                         strategy = f"Iron condor on {entry.symbol} — neutral IV, expected move ±{avg_move:.1f}%"

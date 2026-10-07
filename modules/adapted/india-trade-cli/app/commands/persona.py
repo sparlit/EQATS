@@ -38,16 +38,14 @@ and renders results with Rich tables.
 """
 
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from agent.persona_agent import run_debate, run_persona_analysis
 from agent.personas import get_persona, list_personas
+from agent.schemas import PersonaSignal
 from rich import box
 from rich.console import Console
 from rich.table import Table
-
-if TYPE_CHECKING:
-    from agent.schemas import PersonaSignal
 
 console = Console()
 
@@ -378,7 +376,9 @@ def run_debate_command(
       args = ["NSE:RELIANCE"]        → explicit exchange
     """
     if not args:
-        console.print("[red]Usage: debate <SYMBOL>[/red]\n[dim]  debate RELIANCE\n  debate NSE:RELIANCE[/dim]")
+        console.print(
+            "[red]Usage: debate <SYMBOL>[/red]\n[dim]  debate RELIANCE\n  debate NSE:RELIANCE[/dim]"
+        )
         return
 
     symbol_arg = args[0].upper()

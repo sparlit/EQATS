@@ -116,7 +116,9 @@ class TestAnalysisSearchQuery:
 
     def test_search_by_strategy_name(self, search_db):
         records = [
-            _make_record("st1", "NIFTY", "BUY", strategy="Iron Condor", synthesis_text="Condor spread setup"),
+            _make_record(
+                "st1", "NIFTY", "BUY", strategy="Iron Condor", synthesis_text="Condor spread setup"
+            ),
             _make_record(
                 "st2",
                 "BANKNIFTY",
@@ -132,7 +134,9 @@ class TestAnalysisSearchQuery:
 
     def test_search_synthesis_text(self, search_db):
         records = [
-            _make_record("tx1", "INFY", "BUY", synthesis_text="MACD crossover bullish signal confirmed"),
+            _make_record(
+                "tx1", "INFY", "BUY", synthesis_text="MACD crossover bullish signal confirmed"
+            ),
             _make_record("tx2", "TCS", "HOLD", synthesis_text="RSI neutral zone no signal"),
         ]
         search_db.index_records(records)
@@ -171,7 +175,10 @@ class TestAnalysisSearchQuery:
         assert r.strategy == "Delivery Buy"
 
     def test_search_with_limit(self, search_db):
-        records = [_make_record(f"lim{i}", "NIFTY", "BUY", synthesis_text="bullish setup") for i in range(10)]
+        records = [
+            _make_record(f"lim{i}", "NIFTY", "BUY", synthesis_text="bullish setup")
+            for i in range(10)
+        ]
         search_db.index_records(records)
         results = search_db.search("bullish", limit=3)
         assert len(results) <= 3

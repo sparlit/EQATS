@@ -49,7 +49,6 @@ import contextlib
 import re
 import time
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -110,7 +109,9 @@ def _parse_quick_response(text: str) -> dict:
             result["confidence"] = int(m.group(1))
 
     # Reasons — lines starting with dash/bullet after REASON:
-    reason_section = re.search(r"reason[s]?\s*[:\s](.*?)(?:entry|sl|stop|target|$)", text, re.IGNORECASE | re.DOTALL)
+    reason_section = re.search(
+        r"reason[s]?\s*[:\s](.*?)(?:entry|sl|stop|target|$)", text, re.IGNORECASE | re.DOTALL
+    )
     if reason_section:
         raw = reason_section.group(1)
         bullets = re.findall(r"[-•*]\s*(.+?)(?:\n|$)", raw)
@@ -118,7 +119,9 @@ def _parse_quick_response(text: str) -> dict:
             result["reasons"] = [b.strip() for b in bullets if b.strip()][:5]
         else:
             # Fallback: split by newlines
-            lines = [l.strip() for l in raw.splitlines() if l.strip() and not l.strip().startswith("#")]
+            lines = [
+                l.strip() for l in raw.splitlines() if l.strip() and not l.strip().startswith("#")
+            ]
             result["reasons"] = lines[:5]
 
     # Entry, SL, Target — parse price values
@@ -187,10 +190,11 @@ class QuickScanner:
             from agent.harness import ToolRegistry
 
             registry = self._registry or ToolRegistry()
-            return build_provider_from_env(registry, system_prompt="You are a concise trading analyst.")
+            return build_provider_from_env(
+                registry, system_prompt="You are a concise trading analyst."
+            )
         except Exception as e:
-            msg = f"No LLM provider available: {e}"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"No LLM provider available: {e}")
 
     def _get_registry(self):
         if self._registry:
@@ -207,7 +211,10 @@ class QuickScanner:
         try:
             registry = self._get_registry()
             if registry:
-                return registry.execute("technical_analyse", {"symbol": symbol, "exchange": exchange}) or {}
+                return (
+                    registry.execute("technical_analyse", {"symbol": symbol, "exchange": exchange})
+                    or {}
+                )
         except Exception:
             pass
         return {}
