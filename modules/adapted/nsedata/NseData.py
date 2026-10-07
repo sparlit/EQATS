@@ -28,11 +28,10 @@ Created on Wed Nov 22 21:50:44 2017
 @author: Sujay
 """
 
+import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import mechanize
-import numpy as np
 from bs4 import BeautifulSoup as bs
-from matplotlib import gridspec
 
 
 class NseData:
@@ -56,7 +55,7 @@ class NseData:
         br.set_handle_refresh(False)
         br.set_handle_robots(False)
         br.open(url)
-        br.form = next(iter(br.forms()))
+        br.form = list(br.forms())[0]
 
         # print br.form
         Datatype = br.form.find_control("dataType")
@@ -126,10 +125,14 @@ class NseData:
 
         while x < len(HighPriceList):
             Aroon_up = (
-                (HighPriceList[x - TimeFrame : x].index(max(HighPriceList[x - TimeFrame : x]))) / float(TimeFrame) * 100
+                (HighPriceList[x - TimeFrame : x].index(max(HighPriceList[x - TimeFrame : x])))
+                / float(TimeFrame)
+                * 100
             )
             Aroon_down = (
-                (LowPriceList[x - TimeFrame : x].index(min(LowPriceList[x - TimeFrame : x]))) / float(TimeFrame) * 100
+                (LowPriceList[x - TimeFrame : x].index(min(LowPriceList[x - TimeFrame : x])))
+                / float(TimeFrame)
+                * 100
             )
             AroonUp.append(Aroon_up)
             AroonDown.append(Aroon_down)
