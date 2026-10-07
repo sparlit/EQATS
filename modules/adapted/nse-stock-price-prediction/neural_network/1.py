@@ -22,27 +22,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import datetime
-import itertools
-import math
-import os
-import time
-from math import sqrt
-from operator import itemgetter
 
-import h5py
-import keras
-import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-import requests
-from keras.layers.core import Activation, Dense, Dropout
-from keras.layers.recurrent import LSTM
-from keras.models import Sequential, load_model
 from pandas import datetime
-from sklearn import preprocessing
-from sklearn.metrics import mean_squared_error
 
 df = pd.read_csv("SCOM.csv", index_col=0)
 df[[3]] = df.close  # Moving close to the last column
-df = df.drop(["close"], 1)  # Moving close to the last column
+df.drop(["close"], 1, inplace=True)  # Moving close to the last column
 df.head()
