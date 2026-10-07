@@ -90,7 +90,9 @@ def apply_cross_sectional_ranks(features_by_symbol: dict) -> None:
             f[rank_key] = round(below / (n - 1), 3)
 
 
-def compute_day_state(obs_window: pd.DataFrame, warmup: pd.DataFrame, market_obs: pd.DataFrame = None) -> dict:
+def compute_day_state(
+    obs_window: pd.DataFrame, warmup: pd.DataFrame, market_obs: pd.DataFrame = None
+) -> dict:
     """
     obs_window: enriched 5m bars for today, 9:15–9:45 only (from indicators.compute_all)
     warmup:     raw OHLCV 5m bars for the prior sessions (oldest first)

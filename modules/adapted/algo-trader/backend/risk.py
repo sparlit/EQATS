@@ -41,7 +41,7 @@ Usage:
     mgr.record_trade(pnl, timestamp)            # call after each trade closes
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
