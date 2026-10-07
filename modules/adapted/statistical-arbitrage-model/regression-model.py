@@ -48,11 +48,8 @@ rcParams["figure.figsize"] = 20, 10
 from sklearn.preprocessing import MinMaxScaler
 
 scaler = MinMaxScaler(feature_range=(0, 1))
-from mlxtend.plotting import plot_decision_regions
 from sklearn.feature_extraction import DictVectorizer
-from sklearn.linear_model import LinearRegression, RANSACRegressor, TheilSenRegressor
-from sklearn.metrics import precision_score, recall_score
-from sklearn.model_selection import train_test_split
+from sklearn.linear_model import TheilSenRegressor
 
 # Reading Data
 stocks = pd.read_csv("20microns.csv")
@@ -71,7 +68,9 @@ stocks["Date"] = pd.to_datetime(stocks.TIMESTAMP, format="%Y-%m-%d")
 stocks.index = stocks["Date"]
 
 # New Dataset
-stocks = stocks[["OPEN", "HIGH", "LOW", "CLOSE", "TOTTRDQTY", "Date", "PREVCLOSE", "TOTTRDVAL", "TOTALTRADES"]]
+stocks = stocks[
+    ["OPEN", "HIGH", "LOW", "CLOSE", "TOTTRDQTY", "Date", "PREVCLOSE", "TOTTRDVAL", "TOTALTRADES"]
+]
 stocks["HL_PCT"] = (stocks["HIGH"] - stocks["LOW"]) / stocks["LOW"] * 100.0
 stocks.index = stocks["Date"]
 
