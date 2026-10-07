@@ -1,5 +1,5 @@
 {
-  "current_index": 205,
+  "current_index": 206,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1645,9 +1645,9 @@
       "name": "financial-data",
       "target": "maheshcharig/financial-data",
       "url": "https://github.com/maheshcharig/financial-data",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3148",
+      "merged": true
     },
     {
       "name": "nseoptionalpha",
