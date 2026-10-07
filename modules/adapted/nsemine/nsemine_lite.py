@@ -139,7 +139,7 @@ def _refresh_cookie(session: requests.Session) -> dict:
 
 
 def _http_get(
-    url: str, payload: dict | None = None, headers: dict | None = None, max_retries: int = 2, timeout: int = 15
+    url: str, payload: dict = None, headers: dict = None, max_retries: int = 2, timeout: int = 15
 ):
     """
     Lightweight GET wrapper with session, cookie refresh, retries.
@@ -155,7 +155,11 @@ def _http_get(
     for attempt in range(max_retries):
         try:
             resp = session.get(
-                url, headers=headers, params=payload, timeout=timeout, cookies=session.cookies.get_dict()
+                url,
+                headers=headers,
+                params=payload,
+                timeout=timeout,
+                cookies=session.cookies.get_dict(),
             )
             resp.raise_for_status()
             # if server returns a JSON with empty/blocked content, still returning the response for caller to decide
@@ -174,7 +178,7 @@ def _http_get(
 
 
 def _http_post(
-    url: str, payload: dict | None = None, headers: dict | None = None, max_retries: int = 2, timeout: int = 15
+    url: str, payload: dict = None, headers: dict = None, max_retries: int = 2, timeout: int = 15
 ):
     """
     Lightweight POST wrapper with session, cookie refresh, retries.
@@ -189,7 +193,13 @@ def _http_post(
 
     for attempt in range(max_retries):
         try:
-            resp = session.post(url, headers=headers, json=payload, timeout=timeout, cookies=session.cookies.get_dict())
+            resp = session.post(
+                url,
+                headers=headers,
+                json=payload,
+                timeout=timeout,
+                cookies=session.cookies.get_dict(),
+            )
             resp.raise_for_status()
             # if server returns a JSON with empty/blocked content, still returning the response for caller to decide
             return resp
@@ -208,7 +218,9 @@ def _http_post(
 # -----------------------
 # Response processing helpers
 # -----------------------
-def remove_pre_and_post_market_prices_from_df(df: pd.DataFrame, unit: str = "ms", interval: int = 3) -> pd.DataFrame:
+def remove_pre_and_post_market_prices_from_df(
+    df: pd.DataFrame, unit: str = "ms", interval: int = 3
+) -> pd.DataFrame:
     try:
         if not isinstance(df, pd.DataFrame):
             return df
@@ -225,7 +237,7 @@ def remove_pre_and_post_market_prices_from_df(df: pd.DataFrame, unit: str = "ms"
         return filtered_df.drop(columns=["time", "temp_datetime"], axis=0)
     except Exception as e:
         print(f"Error occurred while removing pre and post market prices: {e}")
-        raise
+        raise e
 
 
 def process_historical_chart_response(
@@ -234,7 +246,7 @@ def process_historical_chart_response(
     try:
         df = df[["time", "open", "high", "low", "close", "volume"]].copy()
 
-        df = df.rename(columns={"time": "datetime"})
+        df.rename(columns={"time": "datetime"}, inplace=True)
 
         if interval in ("D", "W", "M"):
             df["datetime"] = pd.to_datetime(df["datetime"], unit="ms")
@@ -381,9 +393,8 @@ def get_script_token(
         if get_all:
             return df
 
-        if scrip_type:
-            if scrip_type in {"Equity", "Index", "Futures", "Options"}:
-                df = df[df["type"] == scrip_type]
+        if scrip_type and scrip_type in {"Equity", "Index", "Futures", "Options"}:
+            df = df[df["type"] == scrip_type]
 
         df["symbol"] = df["symbol"].str.split("-").str[0]
         x = df[df["symbol"] == symbol]
@@ -460,8 +471,7 @@ def get_historical_data(
     """
     search_result = get_script_token(symbol=symbol)
     if not search_result:
-        msg = "ERROR: Couldn't find the Symbol"
-        raise ValueError(msg)
+        raise ValueError("ERROR: Couldn't find the Symbol")
 
     # unpacking the tuple
     symbol, token, symbol_type = search_result

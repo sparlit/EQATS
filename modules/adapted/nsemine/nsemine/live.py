@@ -21,19 +21,20 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
+import asyncio
 import contextlib
-import json
 import traceback
 from datetime import datetime
-from time import time
 
 import pandas as pd
 
-from nsemine.bin import scraper
+from nsemine.bin import autils, scraper
 from nsemine.utilities import urls, utils
 
 
-def get_stock_live_quotes(stock_symbol: str, series: str | None = None, raw: bool = False) -> dict | None:
+def get_stock_live_quotes(
+    stock_symbol: str, series: str | None = None, raw: bool = False
+) -> dict | None:
     """
     Fetches the live quote of the given stock symbol.
     Args:
@@ -46,7 +47,9 @@ def get_stock_live_quotes(stock_symbol: str, series: str | None = None, raw: boo
         Returns None if any error occurred.
     """
     try:
-        resp = scraper.get_request(url=urls.nse_equity_quote.format(series or "EQ", stock_symbol.replace("&", "%26")))
+        resp = scraper.get_request(
+            url=urls.nse_equity_quote.format(series or "EQ", stock_symbol.replace("&", "%26"))
+        )
         if resp:
             data = resp.json()
             if raw:
@@ -56,6 +59,41 @@ def get_stock_live_quotes(stock_symbol: str, series: str | None = None, raw: boo
     except Exception as e:
         print(f"ERROR! - {e}\n")
         traceback.print_exc()
+
+
+def get_multiple_stock_live_quotes(
+    symbols: list | set | tuple,
+    series: str = "EQ",
+    raw: bool = False,
+    df: bool = True,
+    max_concurrent: int = 25,
+) -> pd.DataFrame | dict:
+    """
+    Synchronous entry point for fetching multiple stock quotes concurrently with controlled throttling.
+
+    Args:
+        symbols (list | set | tuple): Stock symbols (e.g. ['TCS', 'HDFCBANK', 'INFY'])
+        series (str): Equity series, default 'EQ'
+        raw (bool): If True, returns dict of raw API JSON responses
+        df (bool): If True, returns Pandas DataFrame; if False, returns dict of dicts
+        max_concurrent (int): Maximum simultaneous requests to NSE (default: 25)
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        import nest_asyncio
+
+        nest_asyncio.apply()
+        return loop.run_until_complete(
+            autils.async_get_multiple_stock_quotes(symbols, series, raw, df, max_concurrent)
+        )
+    else:
+        return asyncio.run(
+            autils.async_get_multiple_stock_quotes(symbols, series, raw, df, max_concurrent)
+        )
 
 
 def get_index_live_price(index: str = "NIFTY 50", raw: bool = False):
@@ -77,7 +115,7 @@ def get_index_live_price(index: str = "NIFTY 50", raw: bool = False):
     """
     try:
         index = index.upper().strip()
-        resp = scraper.get_request(url=urls.live_index_watch_json)
+        resp = scraper.get_request(url=urls.all_indices, referer=urls.all_indices_ref)
         raw_data = resp.json()
         if raw:
             return raw_data
@@ -91,7 +129,7 @@ def get_index_live_price(index: str = "NIFTY 50", raw: bool = False):
                 break
 
         if not data:
-            return None
+            return
 
         index_data = {
             "symbol": index,
@@ -130,7 +168,7 @@ def get_all_indices_live_snapshot(raw: bool = False) -> dict | pd.DataFrame | No
         Use raw=True if you don't want this behavior.
     """
     try:
-        resp = scraper.get_request(url=urls.al_indices)
+        resp = scraper.get_request(url=urls.all_indices, referer=urls.all_indices_ref)
         if not resp:
             return None
 
@@ -185,7 +223,9 @@ def get_all_indices_live_snapshot(raw: bool = False) -> dict | pd.DataFrame | No
             "one_month_ago",
             "one_year_ago",
         ]
-        df[["advances", "declines", "unchanged"]] = df[["advances", "declines", "unchanged"]].astype("int")
+        df[["advances", "declines", "unchanged"]] = df[
+            ["advances", "declines", "unchanged"]
+        ].astype("int")
         return df
     except Exception as e:
         print("ERROR! - ", e)
@@ -193,7 +233,9 @@ def get_all_indices_live_snapshot(raw: bool = False) -> dict | pd.DataFrame | No
         return None
 
 
-def get_all_securities_live_snapshot(series: str | list | None = None, raw: bool = False) -> pd.DataFrame | dict | None:
+def get_all_securities_live_snapshot(
+    series: str | list = None, raw: bool = False
+) -> pd.DataFrame | dict | None:
     """Fetches the live snapshot all the available securities in the NSE Exchange.
     This snapshot includes the last price (close), previous_close price, change, change percentage, volume etc.
     Args:
@@ -255,47 +297,95 @@ def get_all_securities_live_snapshot(series: str | list | None = None, raw: bool
             if not series:
                 return df
             if not isinstance(series, list):
-                series = [series]
+                series = [
+                    series,
+                ]
             return df[df["series"].isin(series)].reset_index(drop=True)
     except Exception as e:
         print(f"ERROR! - {e}\n")
         traceback.print_exc()
 
 
-def get_index_constituents_live_snapshot(index: str = "NIFTY 50", raw: bool = False):
+def get_index_constituents_live_snapshot(
+    index: str = "NIFTY 50",
+    raw: bool = False,
+    stats: bool = False,
+    allow_fallback: bool = False,
+) -> pd.DataFrame | tuple[pd.DataFrame, dict] | dict | None:
     """
-    Retrieves live snapshot data of constituents for a specified stock market index from the NSE (National Stock Exchange of India).
+    Retrieves live snapshot data of constituents for a specified stock market index from the NSE.
 
-    This function fetches real-time data for the components of a given index, such as 'NIFTY 50', 'NIFTY BANK', 'NIFTY NEXT 50', etc,.
-    It may return either the raw JSON response or a processed Pandas DataFrame based on the input parameters.
+    This function attempts to fetch real-time data from the primary (v1) endpoint. If the primary
+    endpoint fails or returns empty data, it can optionally fall back to a secondary (v2) endpoint
+    if `allow_fallback=True`.
+
+    Note on Schema Differences:
+        - Primary Endpoint (v1): Full schema (16 columns including OHLC, 52-week highs/lows,
+            historical change %s) and supports `stats=True` (advance/decline).
+        - Fallback Endpoint (v2): Reduced schema (8 columns: `symbol`, `ltp`, `previous_close`,
+            `change`, `changepct`, `weightage`, `volume`, `turnover`). It **does not** contain
+            advance/decline stats (`stats` will return an empty dict `{}`).
 
     Args:
-        index (str, optional): The name of the index for which to retrieve constituent data. Defaults to 'NIFTY 50'.
-        raw (bool, optional): If True, returns the raw JSON response from the API. If False, returns a processed Pandas DataFrame. Defaults to False.
+        index (str, optional): The name of the index to retrieve (e.g., 'NIFTY 50', 'NIFTY BANK'). Defaults to 'NIFTY 50'.
+        raw (bool, optional): If True, returns the raw unparsed JSON payload from the API. Defaults to False.
+        stats (bool, optional): If True, returns a tuple where the first element is the DataFrame
+            and the second element is a dictionary containing advance/decline stats. Defaults to False.
+        allow_fallback (bool, optional): If True, attempts to fetch data from the v2 endpoint if
+            v1 fails or returns empty results. Note that v2 provides a reduced schema (8 columns)
+            and does not support index stats. Defaults to False.
 
     Returns:
-        data (pandas.DataFrame or dict or None): Returns the constituents live snapshot fo the given index.
-                                                Note that the volume is in lakhs and turnover is in crores.
+        pd.DataFrame | tuple[pd.DataFrame, dict] | dict | None:
+            - If `raw=True`: Raw API JSON response dictionary.
+            - If `raw=False` and `stats=False`: Processed constituents DataFrame.
+            - If `raw=False` and `stats=True`: Tuple of (DataFrame, stats_dict).
+            - Returns `None` if requests fail and no valid payload could be retrieved.
 
     Example:
-        To get the processed DataFrame for NIFTY BANK:
-        >>> df = get_index_constituents_live_snapshot(index_name='NIFTY BANK')
+        >>> # Standard strict v1 query (returns full 16-column schema or raises/fails)
+        >>> df = get_index_constituents_live_snapshot(index='NIFTY BANK')
 
-        To get the raw JSON response for NIFTY 50:
-        >>> json_data = get_index_constituents_live_snapshot(index_name='NIFTY BANK', raw=True)
+        >>> # Query with fallback enabled (accepts 8-column schema if v1 endpoint fails)
+        >>> df = get_index_constituents_live_snapshot(index='NIFTY BANK', allow_fallback=True)
     """
     try:
-        params = {
-            "index": index,
-        }
-        resp = scraper.get_request(url=urls.nse_equity_index, params=params)
+        try:
+            # Trying Primary Endpoint v1
+            resp = scraper.get_request(url=urls.nse_equity_index_v1, params={"symbol": index})
+            if resp.status_code != 200:
+                raise RuntimeError(f"v1 endpoint HTTP status: {resp.status_code}")
+
+            data = resp.json()
+            if not data.get("data"):
+                raise ValueError("v1 endpoint returned empty payload or missing 'data' key.")
+
+            if raw:
+                return data
+            # data = {'data': [{'h': 'a'}]}
+            return utils.process_index_constituents_data(data=data, stats=stats)
+
+        except Exception as e:
+            if not allow_fallback:
+                traceback.print_exc()
+                return None
+            print(f"ERROR: v1 Endpoint failed with error: {e}. \nTrying v2 endpoint...")
+
+        # Trying Fqallback Endpoint v2
+        resp = scraper.get_request(url=urls.nse_equity_index_v2, params={"index": index})
+        if resp.status_code != 200:
+            raise RuntimeError(f"v2 endpoint HTTP status: {resp.status_code}")
+
         data = resp.json()
         if raw:
             return data
 
-        # otherwise,
-        data = data["data"]
-        df = pd.DataFrame(data)
+        # processing
+        records = data.get("data", [])
+        if not isinstance(records, list) or not records:
+            raise ValueError("v2 endpoint returned empty records list.")
+
+        df = pd.DataFrame(records)
 
         df.columns = [
             "change",
@@ -308,7 +398,25 @@ def get_index_constituents_live_snapshot(index: str = "NIFTY 50", raw: bool = Fa
         ]
         df.columns = ["change", "symbol", "ltp", "changepct", "volume", "turnover", "weightage"]
         df["previous_close"] = df["ltp"] - df["change"]
-        return df[["symbol", "ltp", "previous_close", "change", "changepct", "weightage", "volume", "turnover"]]
+        df = df[
+            [
+                "symbol",
+                "ltp",
+                "previous_close",
+                "change",
+                "changepct",
+                "weightage",
+                "volume",
+                "turnover",
+            ]
+        ].copy()
+        df["volume"] = (df["volume"] * 100000).astype("int")
+        df["turnover"] = df["turnover"] * 10000000
+
+        if stats:
+            return df, {}
+
+        return df
 
     except Exception as e:
         print(f"ERROR! - {e}\n")
@@ -330,7 +438,7 @@ def get_fno_indices_live_snapshot(df: bool = False) -> pd.DataFrame | dict | Non
         data (DataFrame | dict | None): Live F&O-index snapshot, or None if the source request fails or no supported indices are available.
     """
     try:
-        resp = scraper.get_request(url=urls.live_index_watch_json)
+        resp = scraper.get_request(url=urls.all_indices, referer=urls.all_indices_ref)
 
         if not resp:
             return None
@@ -374,7 +482,11 @@ def get_fno_indices_live_snapshot(df: bool = False) -> pd.DataFrame | dict | Non
                     "low": item.get("low"),
                     "close": close,
                     "previous_close": previous_close,
-                    "change": (round(close - previous_close, 2) if close is not None and previous_close else None),
+                    "change": (
+                        round(close - previous_close, 2)
+                        if close is not None and previous_close
+                        else None
+                    ),
                     "changepct": item.get("percentChange"),
                     "year_high": item.get("yearHigh"),
                     "year_low": item.get("yearLow"),
@@ -402,7 +514,9 @@ def get_fno_indices_live_snapshot(df: bool = False) -> pd.DataFrame | dict | Non
             return None
 
         df["change"] = (df["last"] - df["previousClose"]).round(2)
-        df["changepct_weekly"] = (((df["last"] - df["oneWeekAgoVal"]) / df["oneWeekAgoVal"]) * 100).round(2)
+        df["changepct_weekly"] = (
+            ((df["last"] - df["oneWeekAgoVal"]) / df["oneWeekAgoVal"]) * 100
+        ).round(2)
         df["changepct_monthly"] = df["perChange30d"]
         df["changepct_yearly"] = df["perChange365d"]
 
@@ -458,7 +572,7 @@ def get_fno_indices_live_snapshot(df: bool = False) -> pd.DataFrame | dict | Non
 
 
 def get_stock_intraday_tick_by_tick_data(
-    stock_symbol: str, candle_interval: int | None = None, raw: bool = False
+    stock_symbol: str, candle_interval: int = None, raw: bool = False
 ) -> pd.DataFrame:
     """
     Retrieves intraday tick-by-tick data for a given stock symbol and optionally converts it to OHLC candles.
@@ -491,12 +605,12 @@ def get_stock_intraday_tick_by_tick_data(
     """
     try:
         resp = scraper.get_request(
-            url=urls.ticks_chart.format(stock_symbol.replace("&", "%26")), headers=urls.default_headers
+            url=urls.ticks_chart.format(stock_symbol.replace("&", "%26")),
+            headers=urls.default_headers,
         )
         data = resp.json()
-        if not candle_interval:
-            if raw:
-                return data
+        if not candle_interval and raw:
+            return data
 
         # otherwise
         df = pd.DataFrame(data["grapthData"])
@@ -510,7 +624,9 @@ def get_stock_intraday_tick_by_tick_data(
                 candle_interval = int(candle_interval)
             except ValueError:
                 print("Candle Interval(minutes) must be interger or String value.")
-        return utils.convert_ticks_to_ohlc(data=df, interval=candle_interval, require_validation=True)
+        return utils.convert_ticks_to_ohlc(
+            data=df, interval=candle_interval, require_validation=True
+        )
     except Exception as e:
         print(f"ERROR! - {e}\n")
         traceback.print_exc()
