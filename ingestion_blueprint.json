@@ -1,5 +1,5 @@
 {
-  "current_index": 149,
+  "current_index": 150,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1197,9 +1197,9 @@
       "name": "getbhavcopy",
       "target": "hemenkapadia/getbhavcopy",
       "url": "https://github.com/hemenkapadia/getbhavcopy",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3091",
+      "merged": true
     },
     {
       "name": "nse-tool-stocks-aerial-view",
