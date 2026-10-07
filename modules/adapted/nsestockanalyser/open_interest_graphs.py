@@ -26,7 +26,7 @@ from NseStockAnalyser.utils import *
 
 def open_interest_graphs(stock_code, no_days, strike_price, opt_type):
     index = False
-    if stock_code in {"NIFTY", "NIFTYIT", "BANKNIFTY"}:
+    if stock_code == "NIFTY" or stock_code == "NIFTYIT" or stock_code == "BANKNIFTY":
         index = True
 
     end_date = date.today()
@@ -35,7 +35,7 @@ def open_interest_graphs(stock_code, no_days, strike_price, opt_type):
         get_expiry_date(get_raw_json_data(stock_code)["records"]["expiryDates"]), "%d-%b-%Y"
     ).date()
 
-    if opt_type in {"CE", "PE"}:
+    if opt_type == "CE" or opt_type == "PE":
         stock_opt = get_history(
             symbol=stock_code,
             start=start_date,
@@ -112,9 +112,10 @@ def oi_graph_wrapper():
 
     while True:
         opt_type = input("Please Enter Option Type (CE/PE/TOTAL) : ").upper()
-        if opt_type in {"CE", "PE", "TOTAL"}:
+        if opt_type == "CE" or opt_type == "PE" or opt_type == "TOTAL":
             break
-        print("Please enter valid option type")
-        raise ValueError
+        else:
+            print("Please enter valid option type")
+            raise ValueError
 
     open_interest_graphs(stock_code, no_days, strike_price, opt_type)
