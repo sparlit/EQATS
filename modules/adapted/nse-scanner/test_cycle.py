@@ -29,8 +29,6 @@ Validates JSON outputs, charts, news, and logs.
 """
 
 import json
-import os
-from datetime import date
 from pathlib import Path
 
 import main_pipeline

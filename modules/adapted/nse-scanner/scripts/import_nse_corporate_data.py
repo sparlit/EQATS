@@ -33,18 +33,37 @@ import pandas as pd
 from v2.database import V2Database
 
 SPECS = {
-    "market-cap": ("market_cap_snapshots_v3", {"symbol", "as_of_date", "available_date", "market_cap_cr", "source"}),
-    "shares": ("shares_outstanding_v3", {"symbol", "as_of_date", "available_date", "shares_outstanding", "source"}),
-    "pledge": ("promoter_pledge_v3", {"symbol", "as_of_date", "available_date", "pledge_pct", "event_type", "source"}),
+    "market-cap": (
+        "market_cap_snapshots_v3",
+        {"symbol", "as_of_date", "available_date", "market_cap_cr", "source"},
+    ),
+    "shares": (
+        "shares_outstanding_v3",
+        {"symbol", "as_of_date", "available_date", "shares_outstanding", "source"},
+    ),
+    "pledge": (
+        "promoter_pledge_v3",
+        {"symbol", "as_of_date", "available_date", "pledge_pct", "event_type", "source"},
+    ),
     "governance": (
         "governance_events_v3",
         {"symbol", "event_date", "available_date", "event_type", "severity", "source"},
     ),
     "shareholding": (
         "shareholding_patterns_v3",
-        {"symbol", "as_of_date", "available_date", "shares_outstanding", "promoter_holding_pct", "source"},
+        {
+            "symbol",
+            "as_of_date",
+            "available_date",
+            "shares_outstanding",
+            "promoter_holding_pct",
+            "source",
+        },
     ),
-    "corporate-actions": ("corporate_actions_v3", {"symbol", "ex_date", "available_date", "action_type", "source"}),
+    "corporate-actions": (
+        "corporate_actions_v3",
+        {"symbol", "ex_date", "available_date", "action_type", "source"},
+    ),
 }
 
 
@@ -53,8 +72,7 @@ def import_rows(db_path: str, kind: str, csv_path: str) -> int:
     frame = pd.read_csv(csv_path).where(pd.notna, None)
     missing = required.difference(frame.columns)
     if missing:
-        msg = f"{kind} CSV missing columns: {sorted(missing)}"
-        raise ValueError(msg)
+        raise ValueError(f"{kind} CSV missing columns: {sorted(missing)}")
     frame["symbol"] = frame["symbol"].astype(str).str.strip().str.upper()
     V2Database(db_path).ensure_v3_schema()
     with sqlite3.connect(db_path) as conn:

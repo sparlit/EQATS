@@ -25,15 +25,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """Date-explicit market and sector regime classification for NSE Scanner V2."""
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from v2.indicators import hma
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
 
 
 @dataclass(frozen=True)
@@ -68,16 +65,13 @@ def classify_market_regime(
     required_benchmark = {"close"}
     required_breadth = {"pct_above_50dma", "pct_above_200dma"}
     if not required_benchmark.issubset(benchmark.columns):
-        msg = "benchmark must contain close"
-        raise ValueError(msg)
+        raise ValueError("benchmark must contain close")
     if not required_breadth.issubset(breadth.columns):
-        msg = "breadth must contain pct_above_50dma and pct_above_200dma"
-        raise ValueError(msg)
+        raise ValueError("breadth must contain pct_above_50dma and pct_above_200dma")
 
     common = benchmark.index.intersection(breadth.index)
     if common.empty:
-        msg = "benchmark and breadth have no common dates"
-        raise ValueError(msg)
+        raise ValueError("benchmark and breadth have no common dates")
     date = common.max()
     close = pd.to_numeric(benchmark.loc[common, "close"], errors="coerce")
     baseline = hma(close, hma_length)
@@ -94,7 +88,9 @@ def classify_market_regime(
 
     if above_hma and rising_hma and above_50 >= bull_50dma and above_200 >= bull_200dma:
         state = "BULL"
-    elif (not above_hma) and (not rising_hma) and above_50 <= bear_50dma and above_200 <= bear_200dma:
+    elif (
+        (not above_hma) and (not rising_hma) and above_50 <= bear_50dma and above_200 <= bear_200dma
+    ):
         state = "BEAR"
     else:
         state = "NEUTRAL"
@@ -112,10 +108,14 @@ def classify_market_regime(
 
 def rank_relative_strength(scores: Mapping[str, float]) -> pd.DataFrame:
     """Rank symbols without static sector preference or manual bias."""
-    frame = pd.DataFrame([(symbol, value) for symbol, value in scores.items()], columns=["symbol", "rs_score"]).dropna()
+    frame = pd.DataFrame(
+        [(symbol, value) for symbol, value in scores.items()], columns=["symbol", "rs_score"]
+    ).dropna()
     if frame.empty:
         return pd.DataFrame(columns=["symbol", "rs_score", "rs_rank", "rs_percentile"])
-    frame = frame.sort_values(["rs_score", "symbol"], ascending=[False, True]).reset_index(drop=True)
+    frame = frame.sort_values(["rs_score", "symbol"], ascending=[False, True]).reset_index(
+        drop=True
+    )
     frame["rs_rank"] = frame.index + 1
     count = len(frame)
     frame["rs_percentile"] = 100.0 * (count - frame["rs_rank"] + 1) / count

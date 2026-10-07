@@ -35,5 +35,6 @@ def fetch_json():
 
     if response.status_code == 200:
         return response.json()
-    print("❌ Failed to fetch JSON")
-    return None
+    else:
+        print("❌ Failed to fetch JSON")
+        return None

@@ -46,7 +46,9 @@ def export_snapshots(db_path: str) -> dict[str, int]:
     ROOT.mkdir(parents=True, exist_ok=True)
     counts = {}
     with sqlite3.connect(db_path) as conn:
-        existing = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        existing = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
         for table, filename in TABLES.items():
             if table not in existing:
                 continue
@@ -86,5 +88,7 @@ def restore_snapshots(db_path: str) -> dict[str, int]:
                 ON CONFLICT(symbol,as_of_date,available_date) DO UPDATE SET
                   shares_outstanding=excluded.shares_outstanding,
                   source=excluded.source,filing_id=excluded.filing_id""")
-            counts["shares_outstanding_v3"] = conn.execute("SELECT COUNT(*) FROM shares_outstanding_v3").fetchone()[0]
+            counts["shares_outstanding_v3"] = conn.execute(
+                "SELECT COUNT(*) FROM shares_outstanding_v3"
+            ).fetchone()[0]
     return counts

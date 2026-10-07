@@ -75,7 +75,9 @@ def test_build_health_includes_reviewed_and_pending_positions(tmp_path: Path):
 
 def test_invalid_latest_review_is_not_exposed_as_valid(tmp_path: Path):
     portfolio_path = tmp_path / "portfolio.json"
-    portfolio_path.write_text(json.dumps({"positions": {"TCS": {"status": "OPEN"}}}), encoding="utf-8")
+    portfolio_path.write_text(
+        json.dumps({"positions": {"TCS": {"status": "OPEN"}}}), encoding="utf-8"
+    )
     reports = tmp_path / "reports" / "TCS"
     reports.mkdir(parents=True)
     invalid = _valid_review("WRONG")

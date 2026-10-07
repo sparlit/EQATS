@@ -193,7 +193,10 @@ os.makedirs("logs", exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
-    handlers=[logging.FileHandler("logs/polling_bot.log", encoding="utf-8"), logging.StreamHandler()],
+    handlers=[
+        logging.FileHandler("logs/polling_bot.log", encoding="utf-8"),
+        logging.StreamHandler(),
+    ],
 )
 log = logging.getLogger(__name__)
 
@@ -216,7 +219,8 @@ except ImportError as _oe:
 
 GUIDE_PDF_URL = os.environ.get(
     "GUIDE_PDF_URL",
-    "https://htmlpreview.github.io/?https://github.com/JayeshSRathod/nse-scanner/blob/main/docs/NSE_Scanner_Guide.html",
+    "https://htmlpreview.github.io/?https://github.com/JayeshSRathod/"
+    "nse-scanner/blob/main/docs/NSE_Scanner_Guide.html",
 )
 
 
@@ -294,30 +298,35 @@ def resolve_text_to_command(text):
     c = text.strip().lower()
     if c.startswith("/"):
         return c
-    if c in (
-        "next",
-        "prev",
-        "list",
-        "help",
-        "news",
-        "sort_score",
-        "sort_3m",
-        "sort_top10",
-        "noop",
-        "view_today",
-        "view_new",
-        "view_exit",
-        "view_caution",
-        "view_strong",
-        "view_prime",
-        "view_portfolio",
-        "summary",
-        "back_from_card",
-        "back_to_main",
-        "main_menu",
-        "guide",
-        "broadcast_confirm",
-    ) or c.startswith(("page_", "stock_")):
+    if (
+        c
+        in (
+            "next",
+            "prev",
+            "list",
+            "help",
+            "news",
+            "sort_score",
+            "sort_3m",
+            "sort_top10",
+            "noop",
+            "view_today",
+            "view_new",
+            "view_exit",
+            "view_caution",
+            "view_strong",
+            "view_prime",
+            "view_portfolio",
+            "summary",
+            "back_from_card",
+            "back_to_main",
+            "main_menu",
+            "guide",
+            "broadcast_confirm",
+        )
+        or c.startswith("page_")
+        or c.startswith("stock_")
+    ):
         return c
     if c in GREETINGS:
         return "/start"
@@ -391,7 +400,11 @@ def send_message(chat_id, text, reply_markup=None):
     if reply_markup:
         data["reply_markup"] = json.dumps(reply_markup)
     try:
-        r = requests.post(f"https://api.telegram.org/bot{config.TELEGRAM_TOKEN}/sendMessage", data=data, timeout=10)
+        r = requests.post(
+            f"https://api.telegram.org/bot{config.TELEGRAM_TOKEN}/sendMessage",
+            data=data,
+            timeout=10,
+        )
         if r.status_code != 200:
             print(f"[WARN] send {r.status_code}")
             with contextlib.suppress(Exception):
@@ -479,7 +492,12 @@ def kb_main(cp=0, tp=1, sort="score", view="today"):
 
         s = max(0, min(cp - 2, tp - 5))
         e = min(tp, s + 5)
-        kb.append([{"text": f"●{p + 1}" if p == cp else str(p + 1), "callback_data": f"page_{p}"} for p in range(s, e)])
+        kb.append(
+            [
+                {"text": f"●{p + 1}" if p == cp else str(p + 1), "callback_data": f"page_{p}"}
+                for p in range(s, e)
+            ]
+        )
 
     return {"inline_keyboard": kb}
 
@@ -612,7 +630,7 @@ def handle_command(chat_id, text, is_cb=False, raw_user=None):
         st["sort"] = "score"
         user_name = raw_user.get("first_name", "") if raw_user else ""
         try:
-            from nse_output import build_morning_keyboard, format_welcome_scan
+            from nse_output import format_welcome_scan
 
             msg, kb = format_welcome_scan(user_name)
             return reply(msg, kb)
@@ -643,7 +661,7 @@ def handle_command(chat_id, text, is_cb=False, raw_user=None):
         st["page"] = 0
         user_name = raw_user.get("first_name", "") if raw_user else ""
         try:
-            from nse_output import build_morning_keyboard, format_welcome_scan
+            from nse_output import format_welcome_scan
 
             msg, kb = format_welcome_scan(user_name)
             return reply(msg, kb)
@@ -667,7 +685,7 @@ def handle_command(chat_id, text, is_cb=False, raw_user=None):
             return reply("First page!")
         return today_page(st["page"] - 1, st["sort"])
 
-    elif cmd.startswith(("/page", "page_")):
+    elif cmd.startswith("/page") or cmd.startswith("page_"):
         try:
             pn = int(cmd.split()[1]) - 1 if cmd.startswith("/page") else int(cmd.split("_")[1])
             return today_page(pn, st["sort"])
@@ -698,7 +716,9 @@ def handle_command(chat_id, text, is_cb=False, raw_user=None):
     # ── EXIT ──────────────────────────────────────────────────
     elif cmd in ("/exit", "view_exit"):
         if len(hist) < 2:
-            return view("exit", f"{_b('History Building...')}\nNeed 2+ days. Have: {len(hist)} day(s)")
+            return view(
+                "exit", f"{_b('History Building...')}\nNeed 2+ days. Have: {len(hist)} day(s)"
+            )
         return view("exit", format_exit_stocks(get_exit_stocks(hist), sd))
 
     # ── CAUTION ───────────────────────────────────────────────
@@ -721,7 +741,10 @@ def handle_command(chat_id, text, is_cb=False, raw_user=None):
         ss = sort_stocks(stocks, st["sort"])
         tp = max(1, (len(ss) + ps - 1) // ps)
         pg = max(0, min(st["page"], tp - 1))
-        return reply(format_stock_list(ss, pg * ps, ps, sd, include_news=True), kb_main(pg, tp, st["sort"], "today"))
+        return reply(
+            format_stock_list(ss, pg * ps, ps, sd, include_news=True),
+            kb_main(pg, tp, st["sort"], "today"),
+        )
 
     # ── LIST / SUMMARY ────────────────────────────────────────
     elif cmd in ("/list", "list", "summary"):
@@ -733,7 +756,11 @@ def handle_command(chat_id, text, is_cb=False, raw_user=None):
 
     # ── GUIDE ─────────────────────────────────────────────────
     elif cmd in ("/guide", "guide"):
-        m = format_guide_message() if _ADMIN_OK else f"{_b('NSE Scanner Guide')}\nTap below for the full guide."
+        m = (
+            format_guide_message()
+            if _ADMIN_OK
+            else f"{_b('NSE Scanner Guide')}\nTap below for the full guide."
+        )
         return reply(m, kb_guide())
 
     # ── SIGNAL CARD ───────────────────────────────────────────
@@ -747,7 +774,7 @@ def handle_command(chat_id, text, is_cb=False, raw_user=None):
         st["page"] = 0
         user_name = raw_user.get("first_name", "") if raw_user else ""
         try:
-            from nse_output import build_morning_keyboard, format_welcome_scan
+            from nse_output import format_welcome_scan
 
             msg, kb = format_welcome_scan(user_name)
             return reply(msg, kb)
@@ -791,7 +818,7 @@ def handle_command(chat_id, text, is_cb=False, raw_user=None):
             return reply(m, kb_back())
 
         except Exception as e:
-            log.exception(f"Digest error: {e}")
+            log.error(f"Digest error: {e}")
             return reply(f"Digest error: {e}")
 
     # ── ADMIN ─────────────────────────────────────────────────
@@ -807,7 +834,9 @@ def handle_command(chat_id, text, is_cb=False, raw_user=None):
 
     elif cmd == "/health":
         if _ADMIN_OK and raw_user and is_admin(raw_user.get("id", 0)):
-            send_message(chat_id, format_health_report(generate_health_report()), reply_markup=kb_admin())
+            send_message(
+                chat_id, format_health_report(generate_health_report()), reply_markup=kb_admin()
+            )
         else:
             send_message(chat_id, "Admin access only.")
         return None
@@ -850,7 +879,10 @@ def handle_command(chat_id, text, is_cb=False, raw_user=None):
                 _stocks = _d.get("stocks", [])
                 _prime = sum(1 for s in _stocks if s.get("situation") == "prime")
                 _sd = _d.get("scan_date", "")
-                scan_summary = f"\n\n📊 Today's scan: <b>{len(_stocks)} stocks</b> · 🎯 <b>{_prime} Prime</b> · {_sd}"
+                scan_summary = (
+                    f"\n\n📊 Today's scan: <b>{len(_stocks)} stocks</b> · "
+                    f"🎯 <b>{_prime} Prime</b> · {_sd}"
+                )
         except Exception:
             pass
 
@@ -880,7 +912,7 @@ def handle_command(chat_id, text, is_cb=False, raw_user=None):
             summary = format_broadcast_summary(result)
             return reply(summary, kb_admin())
         except Exception as e:
-            log.exception(f"Broadcast error: {e}")
+            log.error(f"Broadcast error: {e}")
             return reply(f"❌ Broadcast failed: {_code(str(e))}", kb_admin())
 
     # ── Unknown ───────────────────────────────────────────────
@@ -958,7 +990,9 @@ def startup_checks():
     ok = True
 
     try:
-        r = requests.get(f"https://api.telegram.org/bot{config.TELEGRAM_TOKEN}/getMe", timeout=5).json()
+        r = requests.get(
+            f"https://api.telegram.org/bot{config.TELEGRAM_TOKEN}/getMe", timeout=5
+        ).json()
         if r.get("ok"):
             print(f"[OK] Bot: @{r['result']['username']}")
         else:
@@ -969,7 +1003,9 @@ def startup_checks():
 
     try:
         wh = (
-            requests.get(f"https://api.telegram.org/bot{config.TELEGRAM_TOKEN}/getWebhookInfo", timeout=5)
+            requests.get(
+                f"https://api.telegram.org/bot{config.TELEGRAM_TOKEN}/getWebhookInfo", timeout=5
+            )
             .json()
             .get("result", {})
             .get("url", "")
@@ -1004,7 +1040,11 @@ def startup_checks():
         from nse_portfolio import get_portfolio_summary
 
         ps = get_portfolio_summary()
-        print(f"[OK] Portfolio: {ps['open_count']} open | {ps['closed_count']} closed | win rate {ps['win_rate']}%")
+        print(
+            f"[OK] Portfolio: {ps['open_count']} open | "
+            f"{ps['closed_count']} closed | "
+            f"win rate {ps['win_rate']}%"
+        )
     except ImportError:
         print("[WARN] nse_portfolio.py not found — /portfolio disabled")
     except Exception as e:

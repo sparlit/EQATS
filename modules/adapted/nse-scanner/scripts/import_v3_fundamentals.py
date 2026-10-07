@@ -50,8 +50,7 @@ def _flag(value: object) -> int:
             return 1
         if normalized in {"false", "no", "n", "0"}:
             return 0
-        msg = f"invalid boolean value: {value}"
-        raise ValueError(msg)
+        raise ValueError(f"invalid boolean value: {value}")
     return int(bool(value))
 
 
@@ -59,8 +58,7 @@ def import_fundamentals(db_path: str, csv_path: str) -> int:
     frame = pd.read_csv(csv_path)
     missing = REQUIRED.difference(frame.columns)
     if missing:
-        msg = f"fundamental CSV missing columns: {sorted(missing)}"
-        raise ValueError(msg)
+        raise ValueError(f"fundamental CSV missing columns: {sorted(missing)}")
     frame["symbol"] = frame["symbol"].astype(str).str.strip().str.upper()
     with sqlite3.connect(db_path) as conn:
         conn.execute("""CREATE TABLE IF NOT EXISTS fundamental_snapshots_v3 (

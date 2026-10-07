@@ -126,12 +126,10 @@ def is_trading_day(d: date) -> bool:
     """Returns True if d is a valid NSE trading day."""
     if d.weekday() >= 5:  # Saturday=5, Sunday=6
         return False
-    if d in NSE_HOLIDAYS:
-        return False
-    return True
+    return d not in NSE_HOLIDAYS
 
 
-def get_last_trading_day(from_date: date | None = None) -> date:
+def get_last_trading_day(from_date: date = None) -> date:
     """Returns the most recent trading day on or before from_date."""
     d = from_date or date.today()
     while not is_trading_day(d):
@@ -139,7 +137,7 @@ def get_last_trading_day(from_date: date | None = None) -> date:
     return d
 
 
-def get_previous_trading_day(from_date: date | None = None) -> date:
+def get_previous_trading_day(from_date: date = None) -> date:
     """
     Returns the trading day BEFORE from_date.
     This is the data we need to download — yesterday's closing data.
@@ -190,8 +188,8 @@ def run_step(step_num: int, name: str, fn, *args, **kwargs):
     except Exception as e:
         elapsed = round(time() - t0, 1)
         print(f"  FAILED: {e}")
-        log.exception(f"Step {step_num} FAILED: {name} — {e}")
-        log.exception(traceback.format_exc())
+        log.error(f"Step {step_num} FAILED: {name} — {e}")
+        log.error(traceback.format_exc())
         return False, None, elapsed
 
 
@@ -230,7 +228,10 @@ def check_trading_day(today: date, force: bool = False) -> tuple:
     # Edge case: if yesterday was also a holiday, warn
     days_back = (today - data_date).days
     if days_back > 1:
-        reason = f"Today is trading day. Downloading data for {data_date} ({days_back} days ago — previous session)"
+        reason = (
+            f"Today is trading day. Downloading data for "
+            f"{data_date} ({days_back} days ago — previous session)"
+        )
     else:
         reason = f"Today is trading day. Downloading data for {data_date}"
 
@@ -248,7 +249,9 @@ def step_cleanup() -> dict:
         from auto_cleanup_nse_data import cleanup_old_data
 
         deleted, freed, remaining = cleanup_old_data(keep_days=KEEP_HISTORICAL_DAYS, dry_run=False)
-        print(f"  Deleted: {deleted} month(s) | Freed: {freed:.2f} MB | Remaining: {remaining} files")
+        print(
+            f"  Deleted: {deleted} month(s) | Freed: {freed:.2f} MB | Remaining: {remaining} files"
+        )
         return {"deleted": deleted, "freed_mb": freed, "remaining": remaining}
     except ImportError:
         print("  auto_cleanup_nse_data not found — skipping CSV cleanup")
@@ -308,8 +311,7 @@ def step_load(data_date: date) -> dict:
     print(f"  Loaded: {total} rows | status={result['status']}")
 
     if result["status"] not in ("ok", "already_loaded", "partial"):
-        msg = f"Load failed for {data_date}: status={result['status']}"
-        raise ValueError(msg)
+        raise ValueError(f"Load failed for {data_date}: status={result['status']}")
 
     # Trim to rolling 180-day window
     print(f"\n  Trimming to {KEEP_HISTORICAL_DAYS} days rolling window...")
@@ -333,8 +335,7 @@ def step_scan(scan_date: date):
     results = scan_stocks(scan_date=scan_date)
 
     if results.empty:
-        msg = "Scanner returned no results"
-        raise ValueError(msg)
+        raise ValueError("Scanner returned no results")
 
     hc = wl = 0
     if "conviction" in results.columns:
@@ -358,7 +359,9 @@ def step_news(scan_results, scan_date: date) -> dict:
     from nse_news_collector import get_news_for_stocks, save_news
 
     if "conviction" in scan_results.columns:
-        shortlist_df = scan_results[scan_results["conviction"].isin(["HIGH CONVICTION", "Watchlist"])]
+        shortlist_df = scan_results[
+            scan_results["conviction"].isin(["HIGH CONVICTION", "Watchlist"])
+        ]
         shortlist = shortlist_df["symbol"].tolist()
     else:
         shortlist = scan_results.head(10)["symbol"].tolist()
@@ -453,7 +456,8 @@ def print_summary(today: date, data_date: date, steps: list, total_time: float):
     print(f"{'#' * 56}\n")
 
     log.info(
-        f"Pipeline done: run={today} data={data_date} time={total_time:.1f}s status={'OK' if all_ok else 'ERRORS'}"
+        f"Pipeline done: run={today} data={data_date} "
+        f"time={total_time:.1f}s status={'OK' if all_ok else 'ERRORS'}"
     )
 
 
@@ -463,7 +467,7 @@ def print_summary(today: date, data_date: date, steps: list, total_time: float):
 
 
 def run_pipeline(
-    today: date | None = None,
+    today: date = None,
     skip_download: bool = False,
     skip_news: bool = False,
     dry_run: bool = False,
@@ -513,7 +517,9 @@ def run_pipeline(
 
     # ── Step 1: Download yesterday's data (3 files only) ──────────────────
     if not skip_download:
-        ok, _, elapsed = run_step(1, f"Download {data_date.strftime('%d-%b-%Y')} data", step_download, data_date)
+        ok, _, elapsed = run_step(
+            1, f"Download {data_date.strftime('%d-%b-%Y')} data", step_download, data_date
+        )
         steps_log.append((1, "Download (today only)", ok, elapsed))
         if not ok:
             print("  ⚠️  Download failed — will try existing files")
@@ -539,7 +545,9 @@ def run_pipeline(
 
     # ── Step 4: News ──────────────────────────────────────────────────────
     if not skip_news:
-        ok, news_data, elapsed = run_step(4, "Collect news (shortlist only)", step_news, scan_results, data_date)
+        ok, news_data, elapsed = run_step(
+            4, "Collect news (shortlist only)", step_news, scan_results, data_date
+        )
         steps_log.append((4, "News", ok, elapsed))
         if not ok:
             news_data = {}
@@ -549,7 +557,9 @@ def run_pipeline(
         steps_log.append((4, "News (skipped)", True, 0.0))
 
     # ── Step 5: Enrich ────────────────────────────────────────────────────
-    ok, enriched, elapsed = run_step(5, "Enrich with news flags", step_enrich, scan_results, news_data)
+    ok, enriched, elapsed = run_step(
+        5, "Enrich with news flags", step_enrich, scan_results, news_data
+    )
     steps_log.append((5, "Enrich", ok, elapsed))
     final_results = enriched if (ok and enriched is not None) else scan_results
 
@@ -588,9 +598,13 @@ Railway Cron:
 
     parser.add_argument("--date", type=str, help="Run date DD-MM-YYYY (default: today)")
     parser.add_argument("--dry-run", action="store_true", help="Run all steps but skip Telegram")
-    parser.add_argument("--skip-download", action="store_true", help="Skip download — use existing files")
+    parser.add_argument(
+        "--skip-download", action="store_true", help="Skip download — use existing files"
+    )
     parser.add_argument("--skip-news", action="store_true", help="Skip news collection")
-    parser.add_argument("--force-holiday", action="store_true", help="Override holiday check (for testing)")
+    parser.add_argument(
+        "--force-holiday", action="store_true", help="Override holiday check (for testing)"
+    )
 
     args = parser.parse_args()
 

@@ -25,13 +25,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """Shared point-in-time pre-scan tradeability gateway."""
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING
 
 import pandas as pd
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
 
 FALSE_VALUES = {"", "0", "0.0", "false", "no", "n", "inactive"}
 TERMINAL_TYPES = {
@@ -80,7 +77,12 @@ def _is_etf(symbol: str, master_row: Mapping[str, object]) -> bool:
     # ETF suffix (for example HDFCNIFIT and MOMENTUM50).  These are stable
     # product-code families, unlike generic short prefixes.
     etf_prefixes = ("HDFCNIF", "HDFCPVT", "MOSMALL", "MOMENTUM")
-    return "ETF" in explicit or "ETF" in name or ticker.endswith(("ETF", "BEES")) or ticker.startswith(etf_prefixes)
+    return (
+        "ETF" in explicit
+        or "ETF" in name
+        or ticker.endswith(("ETF", "BEES"))
+        or ticker.startswith(etf_prefixes)
+    )
 
 
 def evaluate_tradeability(
@@ -123,41 +125,76 @@ def evaluate_tradeability(
         )
 
     if master_row is None and require_metadata:
-        return TradeabilityResult(symbol, False, "NOT_IN_CURRENT_NSE_UNIVERSE", "SECURITY_MASTER", entry_blocked=True)
+        return TradeabilityResult(
+            symbol, False, "NOT_IN_CURRENT_NSE_UNIVERSE", "SECURITY_MASTER", entry_blocked=True
+        )
     if master_row is None:
         master_row = {"series": "EQ", "active": 1}
     if _is_etf(symbol, master_row):
-        return TradeabilityResult(symbol, False, "ETF_SECURITY", "SECURITY_MASTER", entry_blocked=True)
+        return TradeabilityResult(
+            symbol, False, "ETF_SECURITY", "SECURITY_MASTER", entry_blocked=True
+        )
     series = str(master_row.get("series") or "").upper()
     if series != "EQ":
-        return TradeabilityResult(symbol, False, "NON_EQ_SERIES", "SECURITY_MASTER", entry_blocked=True, detail=series)
+        return TradeabilityResult(
+            symbol, False, "NON_EQ_SERIES", "SECURITY_MASTER", entry_blocked=True, detail=series
+        )
     if not _active(master_row.get("active")):
-        return TradeabilityResult(symbol, False, "INACTIVE_SECURITY", "SECURITY_MASTER", entry_blocked=True)
+        return TradeabilityResult(
+            symbol, False, "INACTIVE_SECURITY", "SECURITY_MASTER", entry_blocked=True
+        )
     delisting = str(master_row.get("delisting_date") or "")
     if delisting and delisting.lower() != "nan" and market_date >= delisting:
-        return TradeabilityResult(symbol, False, "DELISTED_SECURITY", "CORPORATE_LIFECYCLE", entry_blocked=True)
+        return TradeabilityResult(
+            symbol, False, "DELISTED_SECURITY", "CORPORATE_LIFECYCLE", entry_blocked=True
+        )
     if restricted_reason:
         return TradeabilityResult(
-            symbol, False, "RESTRICTED_SECURITY", "REGULATORY", entry_blocked=True, detail=str(restricted_reason)
+            symbol,
+            False,
+            "RESTRICTED_SECURITY",
+            "REGULATORY",
+            entry_blocked=True,
+            detail=str(restricted_reason),
         )
 
     ordered = frame.sort_values("trade_date")
     if ordered.empty:
-        return TradeabilityResult(symbol, False, "NO_PRICE_HISTORY", "DATA_QUALITY", entry_blocked=True)
+        return TradeabilityResult(
+            symbol, False, "NO_PRICE_HISTORY", "DATA_QUALITY", entry_blocked=True
+        )
     latest = pd.Timestamp(ordered["trade_date"].iloc[-1]).date().isoformat()
     if latest > market_date:
-        return TradeabilityResult(symbol, False, "INVALID_LATEST_ROW", "DATA_QUALITY", latest, entry_blocked=True)
+        return TradeabilityResult(
+            symbol, False, "INVALID_LATEST_ROW", "DATA_QUALITY", latest, entry_blocked=True
+        )
     calendar = tuple(day for day in session_calendar if day <= market_date)
     staleness = sum(day > latest for day in calendar)
     if staleness > max_staleness_sessions:
         return TradeabilityResult(
-            symbol, False, "STALE_SYMBOL_PRICE", "DATA_QUALITY", latest, staleness, entry_blocked=True
+            symbol,
+            False,
+            "STALE_SYMBOL_PRICE",
+            "DATA_QUALITY",
+            latest,
+            staleness,
+            entry_blocked=True,
         )
     latest_row = ordered.iloc[-1]
     values = pd.to_numeric(latest_row[["open", "high", "low", "close", "volume"]], errors="coerce")
-    if values.isna().any() or (values[["open", "high", "low", "close"]] <= 0).any() or values["volume"] < 0:
+    if (
+        values.isna().any()
+        or (values[["open", "high", "low", "close"]] <= 0).any()
+        or values["volume"] < 0
+    ):
         return TradeabilityResult(
-            symbol, False, "INVALID_LATEST_ROW", "DATA_QUALITY", latest, staleness, entry_blocked=True
+            symbol,
+            False,
+            "INVALID_LATEST_ROW",
+            "DATA_QUALITY",
+            latest,
+            staleness,
+            entry_blocked=True,
         )
     pending = str(event.get("status") or "").upper() in {"ANNOUNCED", "APPROVED"}
     return TradeabilityResult(

@@ -35,8 +35,7 @@ class GroqProvider(LLMProvider):
 
     def __init__(self, api_key: str, model: str, timeout: int = 90):
         if not api_key:
-            msg = "GROQ_API_KEY is not configured"
-            raise ProviderError(msg)
+            raise ProviderError("GROQ_API_KEY is not configured")
         self.api_key = api_key
         self.model = model
         self.timeout = timeout
@@ -62,6 +61,5 @@ class GroqProvider(LLMProvider):
         try:
             text = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
-            msg = "Groq response did not contain generated text"
-            raise ProviderError(msg) from exc
+            raise ProviderError("Groq response did not contain generated text") from exc
         return ProviderResponse(decode_json_object(text), self.name, self.model)

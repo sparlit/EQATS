@@ -50,7 +50,6 @@ Usage:
 import argparse
 import os
 import shutil
-import sys
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -166,19 +165,25 @@ def cleanup_old_data(keep_days=KEEP_DAYS, dry_run=False):
                 if month_date < cutoff_date:
                     # Count files before deletion
                     file_count = sum(1 for _ in month_dir.rglob("*") if _.is_file())
-                    size_mb = sum(f.stat().st_size for f in month_dir.rglob("*") if f.is_file()) / (1024 * 1024)
+                    size_mb = sum(f.stat().st_size for f in month_dir.rglob("*") if f.is_file()) / (
+                        1024 * 1024
+                    )
 
                     if not dry_run:
                         try:
                             shutil.rmtree(month_dir)
-                            log_deletion("DELETE", f"{year}/{month} ({size_mb:.2f} MB, {file_count} files)")
+                            log_deletion(
+                                "DELETE", f"{year}/{month} ({size_mb:.2f} MB, {file_count} files)"
+                            )
                             deleted_count += 1
                             deleted_size_mb += size_mb
                             deleted_folders.append(f"{year}/{month}")
                         except Exception as e:
-                            log_deletion("ERROR", f"Failed to delete {year}/{month}: {e!s}")
+                            log_deletion("ERROR", f"Failed to delete {year}/{month}: {str(e)}")
                     else:
-                        print(f"  [DRY RUN] Would delete {year}/{month:>2} ({size_mb:6.2f} MB, {file_count:4} files)")
+                        print(
+                            f"  [DRY RUN] Would delete {year}/{month:>2} ({size_mb:6.2f} MB, {file_count:4} files)"
+                        )
                         deleted_count += 1
                         deleted_size_mb += size_mb
                         deleted_folders.append(f"{year}/{month}")
@@ -200,7 +205,9 @@ def cleanup_old_data(keep_days=KEEP_DAYS, dry_run=False):
         print()
 
         if not dry_run:
-            log_deletion("SUMMARY", f"Deleted {deleted_count} month(s), freed {deleted_size_mb:.2f} MB")
+            log_deletion(
+                "SUMMARY", f"Deleted {deleted_count} month(s), freed {deleted_size_mb:.2f} MB"
+            )
     else:
         print(f"\n  ✅ No old data to delete (all data is within {keep_days} days)")
 
@@ -244,14 +251,19 @@ Examples:
         """,
     )
 
-    parser.add_argument("--dry-run", action="store_true", help="Show what would be deleted without deleting")
     parser.add_argument(
-        "--keep-days", type=int, default=KEEP_DAYS, help=f"Number of days to keep (default {KEEP_DAYS})"
+        "--dry-run", action="store_true", help="Show what would be deleted without deleting"
+    )
+    parser.add_argument(
+        "--keep-days",
+        type=int,
+        default=KEEP_DAYS,
+        help=f"Number of days to keep (default {KEEP_DAYS})",
     )
 
     args = parser.parse_args()
 
-    _deleted, _freed, _remaining = cleanup_old_data(keep_days=args.keep_days, dry_run=args.dry_run)
+    deleted, freed, remaining = cleanup_old_data(keep_days=args.keep_days, dry_run=args.dry_run)
 
     if args.dry_run:
         print("💡 TIP: Run without --dry-run to actually delete files")

@@ -48,14 +48,11 @@ class ExecutionConfig:
 
     def validate(self):
         if not (0 <= self.fee_bps < 10000 and 0 <= self.slippage_bps < 10000):
-            msg = "Invalid execution costs"
-            raise ValueError(msg)
+            raise ValueError("Invalid execution costs")
         if min(self.expiry_sessions, self.max_hold_sessions) < 1 or self.cooldown_sessions < 0:
-            msg = "Invalid session limits"
-            raise ValueError(msg)
+            raise ValueError("Invalid session limits")
         if not 0 <= self.partial_fraction < 1 or self.max_gap_pct < 0:
-            msg = "Invalid partial fraction or gap limit"
-            raise ValueError(msg)
+            raise ValueError("Invalid partial fraction or gap limit")
 
 
 def replay(
@@ -82,7 +79,10 @@ def replay(
     trades, events = [], []
     position = pending = None
     cooldown_until = -1
-    calendar = {day: i for i, day in enumerate(session_calendar or d.trade_date.dt.strftime("%Y-%m-%d").tolist())}
+    calendar = {
+        day: i
+        for i, day in enumerate(session_calendar or d.trade_date.dt.strftime("%Y-%m-%d").tolist())
+    }
     last_session = None
     columns = [
         "trade_date",
@@ -140,7 +140,12 @@ def replay(
                 fill = max(r["open"], pending["trigger"]) * (1 + slip)
                 risk = fill - pending["stop"]
                 gap = abs(r["open"] / previous_close - 1) * 100
-                if fill <= pending["entry_cap"] and gap <= config.max_gap_pct and risk > 0 and risk / fill <= 0.08:
+                if (
+                    fill <= pending["entry_cap"]
+                    and gap <= config.max_gap_pct
+                    and risk > 0
+                    and risk / fill <= 0.08
+                ):
                     # Resistance room is rechecked against actual gap/slippage.
                     room = pending.get("resistance")
                     if room is None or (room - fill) / risk >= pending["minimum_room"]:
@@ -215,7 +220,9 @@ def replay(
                     status="CLOSED",
                     net_r=p["pnl"] / p["risk"],
                     holding_sessions=session - p["entry_session"],
-                    giveback_r=None if p["mfe_r"] is None else max(0, p["mfe_r"] - p["pnl"] / p["risk"]),
+                    giveback_r=None
+                    if p["mfe_r"] is None
+                    else max(0, p["mfe_r"] - p["pnl"] / p["risk"]),
                 )
                 trades.append(p)
                 position = None
@@ -292,7 +299,9 @@ def metrics(trades: list[dict], value_key: str = "net_r") -> dict:
         "net": sum(values),
         "average_winner": average_win,
         "average_loser_abs": average_loss,
-        "payoff_ratio": average_win / average_loss if average_win is not None and average_loss else None,
+        "payoff_ratio": average_win / average_loss
+        if average_win is not None and average_loss
+        else None,
         "profit_factor": gross_profit / gross_loss if gross_loss else None,
         "expectancy": sum(values) / n if n else None,
         "average_holding_sessions": average("holding_sessions"),

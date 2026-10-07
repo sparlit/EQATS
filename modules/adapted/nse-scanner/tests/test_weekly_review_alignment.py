@@ -40,8 +40,12 @@ def test_v3_weekly_review_uses_current_plain_language() -> None:
     }
     state = {
         "tables": {
-            "v2_positions": [{"symbol": "XYZ", "state": "OPEN", "entry": 100, "last_price": 105, "stop": 96}],
-            "v2_position_events": [{"event_date": "2026-08-25", "event_type": "CREATE", "to_state": "OPEN"}],
+            "v2_positions": [
+                {"symbol": "XYZ", "state": "OPEN", "entry": 100, "last_price": 105, "stop": 96}
+            ],
+            "v2_position_events": [
+                {"event_date": "2026-08-25", "event_type": "CREATE", "to_state": "OPEN"}
+            ],
             "v2_portfolio_snapshots": [
                 {"portfolio_date": "2026-08-24", "total_pnl": 100},
                 {"portfolio_date": "2026-08-27", "total_pnl": 250},
@@ -66,7 +70,14 @@ def test_hull_weekly_review_is_layman_friendly(tmp_path: Path) -> None:
                 "last_run": "2026-08-27",
                 "events": [],
                 "positions": [
-                    {"symbol": "ABC", "state": "OPEN", "entry": 100, "last_price": 104, "stop": 96, "realised_pnl": 0}
+                    {
+                        "symbol": "ABC",
+                        "state": "OPEN",
+                        "entry": 100,
+                        "last_price": 104,
+                        "stop": 96,
+                        "realised_pnl": 0,
+                    }
                 ],
             }
         ),

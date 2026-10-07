@@ -102,7 +102,9 @@ def test_pivot_becomes_available_only_on_confirmation():
 def test_delivery_missing_is_diagnostic_except_penny():
     a = features(prices())
     b = features(prices().drop(columns="delivery_pct"))
-    pd.testing.assert_series_equal(candidate_mask(a, "V3", "progressive"), candidate_mask(b, "V3", "progressive"))
+    pd.testing.assert_series_equal(
+        candidate_mask(a, "V3", "progressive"), candidate_mask(b, "V3", "progressive")
+    )
     assert b.delivery20.isna().all()
     assert not candidate_mask(b, "Penny", "progressive").any()
 
@@ -120,8 +122,7 @@ def test_next_session_fill_and_partial_accounting():
     t = result["trades"][0]
     assert t["entry_date"] == "2026-01-02"
     assert t["signal_date"] == "2026-01-01"
-    assert t["t1_hit"]
-    assert t["t2_hit"]
+    assert t["t1_hit"] and t["t2_hit"]
     assert t["net_r"] == pytest.approx(0.4 * 1.5 + 0.6 * 3)
 
 
@@ -129,8 +130,7 @@ def test_stop_first_on_ambiguous_day():
     d = replay_rows()
     d.loc[2, ["low", "high"]] = [95, 120]
     t = simulate(d)["trades"][0]
-    assert t["exit_reason"] == "STOP"
-    assert t["net_r"] == -1
+    assert t["exit_reason"] == "STOP" and t["net_r"] == -1
     assert not t["t1_hit"]
 
 
@@ -138,8 +138,7 @@ def test_gap_stop_executes_at_open():
     d = replay_rows()
     d.loc[2, ["open", "low"]] = [94, 93]
     t = simulate(d)["trades"][0]
-    assert t["exit_price"] == 94
-    assert t["net_r"] == -1.5
+    assert t["exit_price"] == 94 and t["net_r"] == -1.5
 
 
 def test_entry_bar_stop_is_not_erased_as_cancelled_setup():
@@ -154,8 +153,7 @@ def test_gap_above_entry_cap_does_not_fill():
     d = replay_rows().iloc[:2].copy()
     d.loc[1, ["open", "high", "low", "close"]] = [105, 107, 104, 106]
     result = simulate(d)
-    assert not result["open"]
-    assert not result["trades"]
+    assert not result["open"] and not result["trades"]
 
 
 def test_missing_session_freezes_open_trade():
@@ -178,10 +176,13 @@ def test_costs_reduce_net_results():
     d.loc[3, "high"] = 114
     free = simulate(d)["trades"][0]["net_r"]
     paid = replay(
-        d, pd.Series([True, False, False, False, False, False]), "TEST", start="2026-01-01", end="2026-01-31"
+        d,
+        pd.Series([True, False, False, False, False, False]),
+        "TEST",
+        start="2026-01-01",
+        end="2026-01-31",
     )["trades"][0]
-    assert paid["net_r"] < free
-    assert paid["fees"] > 0
+    assert paid["net_r"] < free and paid["fees"] > 0
 
 
 def test_unknown_resistance_not_a_pass():
@@ -250,8 +251,7 @@ def test_room_rechecked_after_gap_fill():
     d["room_r"] = 1.5
     d.loc[1, ["open", "high", "low", "close"]] = [101, 103, 99, 102]
     result = simulate(d)
-    assert not result["open"]
-    assert not result["trades"]
+    assert not result["open"] and not result["trades"]
 
 
 def test_negative_monthly_return_does_not_block_progressive_recovery():

@@ -30,13 +30,10 @@ same implementation can be reused by live scanning and future backtests.
 """
 
 import math
-from typing import TYPE_CHECKING
+from collections.abc import Iterable
 
 import numpy as np
 import pandas as pd
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
 
 
 def _series(values: Iterable[float] | pd.Series) -> pd.Series:
@@ -46,8 +43,7 @@ def _series(values: Iterable[float] | pd.Series) -> pd.Series:
 def wma(values: Iterable[float] | pd.Series, length: int) -> pd.Series:
     """Weighted moving average with linearly increasing weights."""
     if length < 1:
-        msg = "length must be >= 1"
-        raise ValueError(msg)
+        raise ValueError("length must be >= 1")
     s = _series(values)
     weights = np.arange(1, length + 1, dtype=float)
     denominator = weights.sum()
@@ -59,8 +55,7 @@ def wma(values: Iterable[float] | pd.Series, length: int) -> pd.Series:
 def hma(values: Iterable[float] | pd.Series, length: int) -> pd.Series:
     """Hull moving average: WMA(2*WMA(n/2)-WMA(n), sqrt(n))."""
     if length < 2:
-        msg = "length must be >= 2"
-        raise ValueError(msg)
+        raise ValueError("length must be >= 2")
     half = max(1, length // 2)
     root = max(1, int(math.sqrt(length)))
     raw = 2.0 * wma(values, half) - wma(values, length)
@@ -71,8 +66,7 @@ def true_range(frame: pd.DataFrame) -> pd.Series:
     required = {"high", "low", "close"}
     missing = required.difference(frame.columns)
     if missing:
-        msg = f"missing columns: {sorted(missing)}"
-        raise ValueError(msg)
+        raise ValueError(f"missing columns: {sorted(missing)}")
     high = pd.to_numeric(frame["high"], errors="coerce")
     low = pd.to_numeric(frame["low"], errors="coerce")
     close = pd.to_numeric(frame["close"], errors="coerce")
@@ -86,8 +80,7 @@ def true_range(frame: pd.DataFrame) -> pd.Series:
 def atr(frame: pd.DataFrame, length: int = 14) -> pd.Series:
     """Wilder ATR using an exponentially smoothed true range."""
     if length < 1:
-        msg = "length must be >= 1"
-        raise ValueError(msg)
+        raise ValueError("length must be >= 1")
     return true_range(frame).ewm(alpha=1.0 / length, adjust=False, min_periods=length).mean()
 
 
@@ -96,7 +89,9 @@ def atr_percent(frame: pd.DataFrame, length: int = 14) -> pd.Series:
     return 100.0 * atr(frame, length) / close.replace(0, np.nan)
 
 
-def extension_from_hma(frame: pd.DataFrame, hma_length: int = 55, atr_length: int = 14) -> pd.Series:
+def extension_from_hma(
+    frame: pd.DataFrame, hma_length: int = 55, atr_length: int = 14
+) -> pd.Series:
     """Distance of close above/below HMA expressed in ATR units."""
     close = pd.to_numeric(frame["close"], errors="coerce")
     baseline = hma(close, hma_length)
@@ -127,8 +122,7 @@ def hybrid_hull(frame: pd.DataFrame, fast: int = 21, slow: int = 55) -> pd.DataF
 def kama(values: Iterable[float] | pd.Series, length: int = 30) -> pd.Series:
     """TradingView-compatible Kaufman adaptive moving average."""
     if length < 1:
-        msg = "length must be >= 1"
-        raise ValueError(msg)
+        raise ValueError("length must be >= 1")
     series = _series(values)
     change = (series - series.shift(length)).abs()
     volatility = series.diff().abs().rolling(length).sum()
@@ -154,8 +148,7 @@ def fixed_hybrid_hull_signals(frame: pd.DataFrame) -> dict[str, float | bool]:
     required = {"trade_date", "open", "high", "low", "close"}
     missing = required.difference(frame.columns)
     if missing:
-        msg = f"missing columns: {sorted(missing)}"
-        raise ValueError(msg)
+        raise ValueError(f"missing columns: {sorted(missing)}")
     data = frame.sort_values("trade_date").copy()
     close = pd.to_numeric(data["close"], errors="coerce")
     hull55 = 2.0 * wma(wma(close, 55), 27) - wma(wma(close, 55), 55)
@@ -184,20 +177,30 @@ def fixed_hybrid_hull_signals(frame: pd.DataFrame) -> dict[str, float | bool]:
     last_atr = float(atr14.iloc[-1])
     distance_atr = (last_close - float(hull55.iloc[-1])) / last_atr if last_atr > 0 else 0.0
     daily_bullish = bool(
-        last_close > float(hull55.iloc[-1]) > float(hull55.iloc[-2]) and float(hma21.iloc[-1]) > float(hma51.iloc[-1])
+        last_close > float(hull55.iloc[-1]) > float(hull55.iloc[-2])
+        and float(hma21.iloc[-1]) > float(hma51.iloc[-1])
     )
     above_hull_5 = close.tail(5).reset_index(drop=True) > hull55.tail(5).reset_index(drop=True)
     hull_slopes_5 = hull55.diff().tail(5)
-    hull_slope_improving = bool((hull_slopes_5 >= 0).sum() >= 2 and hull55.iloc[-1] >= hull55.iloc[-3])
+    hull_slope_improving = bool(
+        (hull_slopes_5 >= 0).sum() >= 2 and hull55.iloc[-1] >= hull55.iloc[-3]
+    )
     hma_aligned = bool(float(hma21.iloc[-1]) > float(hma51.iloc[-1]))
     daily_persistent = bool(above_hull_5.sum() >= 3 and hull_slope_improving and hma_aligned)
     kama_rising = bool(float(kama30.iloc[-1]) > float(kama30.iloc[-2]) and daily_bullish)
     price_band = (close.tail(20).max() - close.tail(20).min()) / max(last_close, 1.0)
-    rotation = abs(distance_atr) < 0.4 and abs(float(hull55.iloc[-1] - hull55.iloc[-2])) < last_atr * 0.15
+    rotation = (
+        abs(distance_atr) < 0.4 and abs(float(hull55.iloc[-1] - hull55.iloc[-2])) < last_atr * 0.15
+    )
     low_hull_impulse = abs(float(hull55.iloc[-1] - hull55.iloc[-2])) < last_atr * 0.08
     chop = bool((low_hull_impulse and price_band < 0.025) or rotation)
 
-    weekly_close = data.set_index(pd.to_datetime(data["trade_date"]))["close"].resample("W-FRI").last().dropna()
+    weekly_close = (
+        data.set_index(pd.to_datetime(data["trade_date"]))["close"]
+        .resample("W-FRI")
+        .last()
+        .dropna()
+    )
     weekly21, weekly51 = hma(weekly_close, 21), hma(weekly_close, 51)
     weekly_bullish = bool(
         len(weekly_close) >= 52
@@ -236,11 +239,12 @@ def relative_strength_ratio(stock_close: pd.Series, benchmark_close: pd.Series) 
     return 100.0 * ratio / valid.iloc[0]
 
 
-def relative_strength_return(stock_close: pd.Series, benchmark_close: pd.Series, lookback: int = 63) -> pd.Series:
+def relative_strength_return(
+    stock_close: pd.Series, benchmark_close: pd.Series, lookback: int = 63
+) -> pd.Series:
     """Stock return minus benchmark return over a fixed trading-session lookback."""
     if lookback < 1:
-        msg = "lookback must be >= 1"
-        raise ValueError(msg)
+        raise ValueError("lookback must be >= 1")
     stock, benchmark = pd.to_numeric(stock_close, errors="coerce").align(
         pd.to_numeric(benchmark_close, errors="coerce"), join="inner"
     )

@@ -31,7 +31,9 @@ from .features import latest_features
 from .scoring import score
 
 
-def run(prices: pd.DataFrame, *, holding_sessions: int = 20, sample_step: int = 120, top_n: int = 25) -> dict:
+def run(
+    prices: pd.DataFrame, *, holding_sessions: int = 20, sample_step: int = 120, top_n: int = 25
+) -> dict:
     """Measure forward close returns for qualified screens without downloads.
 
     This is deliberately labelled a screen-return proxy: it does not claim to
@@ -47,7 +49,8 @@ def run(prices: pd.DataFrame, *, holding_sessions: int = 20, sample_step: int = 
         future_date = dates[index + holding_sessions]
         for _, candidate in qualified.iterrows():
             symbol_prices = prices[
-                (prices["symbol"] == candidate["symbol"]) & (pd.to_datetime(prices["trade_date"]) == future_date)
+                (prices["symbol"] == candidate["symbol"])
+                & (pd.to_datetime(prices["trade_date"]) == future_date)
             ]
             if symbol_prices.empty:
                 continue
@@ -59,12 +62,19 @@ def run(prices: pd.DataFrame, *, holding_sessions: int = 20, sample_step: int = 
                         "symbol": candidate["symbol"],
                         "score": float(candidate["primary_score"]),
                         "horizon": candidate["primary_horizon"],
-                        "forward_return_pct": round((forward_close / float(candidate["close"]) - 1) * 100, 4),
+                        "forward_return_pct": round(
+                            (forward_close / float(candidate["close"]) - 1) * 100, 4
+                        ),
                     }
                 )
     frame = pd.DataFrame(rows)
     if frame.empty:
-        return {"status": "INSUFFICIENT_HISTORY", "method": "screen_return_proxy", "observations": 0, "rows": []}
+        return {
+            "status": "INSUFFICIENT_HISTORY",
+            "method": "screen_return_proxy",
+            "observations": 0,
+            "rows": [],
+        }
     return {
         "status": "COMPLETE",
         "method": "screen_return_proxy_not_execution_backtest",

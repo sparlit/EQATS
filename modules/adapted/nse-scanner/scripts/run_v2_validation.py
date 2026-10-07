@@ -47,8 +47,7 @@ def main() -> int:
 
     prices = V2Database(args.db).load_prices(min_sessions=args.warmup + 1)
     if prices.empty:
-        msg = "No usable price history for validation"
-        raise RuntimeError(msg)
+        raise RuntimeError("No usable price history for validation")
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
 
@@ -60,14 +59,18 @@ def main() -> int:
     )
     report = summarize_performance(trades)
     trades_frame(trades).to_csv(output / "trades.csv", index=False)
-    (output / "performance.json").write_text(json.dumps(report.to_dict(), indent=2, default=str), encoding="utf-8")
+    (output / "performance.json").write_text(
+        json.dumps(report.to_dict(), indent=2, default=str), encoding="utf-8"
+    )
 
     sensitivity = score_sensitivity(
         prices,
         warmup_sessions=args.warmup,
         max_positions=args.max_positions,
     )
-    (output / "score_sensitivity.json").write_text(json.dumps(sensitivity, indent=2, default=str), encoding="utf-8")
+    (output / "score_sensitivity.json").write_text(
+        json.dumps(sensitivity, indent=2, default=str), encoding="utf-8"
+    )
 
     if args.walk_forward:
         rows = anchored_walk_forward(

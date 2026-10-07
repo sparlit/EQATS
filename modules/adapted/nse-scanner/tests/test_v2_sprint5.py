@@ -80,7 +80,12 @@ def test_telegram_is_dry_run_by_default(monkeypatch):
 
 
 def test_telegram_enabled_without_credentials_fails_closed(monkeypatch):
-    for key in ["V3_TELEGRAM_BOT_TOKEN", "V3_TELEGRAM_CHAT_ID", "TELEGRAM_TOKEN", "TELEGRAM_CHAT_ID"]:
+    for key in [
+        "V3_TELEGRAM_BOT_TOKEN",
+        "V3_TELEGRAM_CHAT_ID",
+        "TELEGRAM_TOKEN",
+        "TELEGRAM_CHAT_ID",
+    ]:
         monkeypatch.delenv(key, raising=False)
     result = send_messages(["one"], enabled=True)
     assert not result.sent

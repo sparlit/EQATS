@@ -65,4 +65,7 @@ def test_missing_official_benchmark_can_watch_but_not_action():
         hard_blocks = ()
 
     scores = {"1M": _Score(), "3M": _Score(), "6M": _Score(), "12M": _Score()}
-    assert _classification(scores, _Trigger(), _Plan(), stale_data=False, action_permitted=False) == "WATCH"
+    assert (
+        _classification(scores, _Trigger(), _Plan(), stale_data=False, action_permitted=False)
+        == "WATCH"
+    )

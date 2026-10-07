@@ -77,8 +77,7 @@ def _send(messages: list[str], *, enabled: bool, topic: str) -> DeliveryResult:
             response = requests.post(endpoint, json=payload, timeout=20)
             response.raise_for_status()
             if not response.json().get("ok"):
-                msg = "telegram_rejected"
-                raise RuntimeError(msg)
+                raise RuntimeError("telegram_rejected")
             sent += 1
         except (requests.RequestException, RuntimeError, ValueError) as exc:
             errors.append(f"message_{index}:{type(exc).__name__}")

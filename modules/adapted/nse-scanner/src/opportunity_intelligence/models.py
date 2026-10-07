@@ -45,14 +45,11 @@ class OpportunityEvidence:
 
     def __post_init__(self) -> None:
         if not self.evidence_id.strip():
-            msg = "evidence_id is required"
-            raise ValueError(msg)
+            raise ValueError("evidence_id is required")
         if not self.category.strip():
-            msg = "category is required"
-            raise ValueError(msg)
+            raise ValueError("category is required")
         if not self.source_reference.strip():
-            msg = "source_reference is required"
-            raise ValueError(msg)
+            raise ValueError("source_reference is required")
         date.fromisoformat(self.as_of_date)
 
 
@@ -71,24 +68,17 @@ class OpportunityCandidate:
 
     def __post_init__(self) -> None:
         if not self.symbol.strip():
-            msg = "symbol is required"
-            raise ValueError(msg)
+            raise ValueError("symbol is required")
         date.fromisoformat(self.generated_date)
         if self.status not in _ALLOWED_OPPORTUNITY_STATUS:
-            msg = f"Unsupported opportunity status: {self.status}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported opportunity status: {self.status}")
         if self.horizon not in _ALLOWED_HORIZONS:
-            msg = f"Unsupported horizon: {self.horizon}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported horizon: {self.horizon}")
         if self.confidence not in _ALLOWED_CONFIDENCE:
-            msg = f"Unsupported confidence: {self.confidence}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported confidence: {self.confidence}")
         if not 0 <= self.score <= 100:
-            msg = "score must be between 0 and 100"
-            raise ValueError(msg)
+            raise ValueError("score must be between 0 and 100")
         if self.status == "QUALIFIED" and not self.evidence_ids:
-            msg = "Qualified opportunities require evidence"
-            raise ValueError(msg)
+            raise ValueError("Qualified opportunities require evidence")
         if self.status == "INSUFFICIENT_DATA" and self.confidence == "HIGH":
-            msg = "Insufficient-data opportunities cannot have HIGH confidence"
-            raise ValueError(msg)
+            raise ValueError("Insufficient-data opportunities cannot have HIGH confidence")

@@ -71,10 +71,11 @@ def test_ready_requires_all_entry_gates():
 
 def test_ladder_inspired_profile_requires_recent_cross_without_weaker_penny_gates():
     baseline, _ = evaluate_symbol("BASE", history(), metadata=META)
-    research, _ = evaluate_symbol("RESEARCH", history(), metadata=META, config=PennyConfig(ladder_inspired=True))
+    research, _ = evaluate_symbol(
+        "RESEARCH", history(), metadata=META, config=PennyConfig(ladder_inspired=True)
+    )
     assert baseline.state == "READY"
-    assert research is not None
-    assert research.state != "READY"
+    assert research is not None and research.state != "READY"
     assert not research.metrics["ready_gates"]["READY_RECENT_EMA14_21_CROSS"]
     assert research.metrics["ready_gates"]["READY_MARKET_CAP"]
     assert research.metrics["ready_gates"]["READY_DELIVERY"]
@@ -83,7 +84,9 @@ def test_ladder_inspired_profile_requires_recent_cross_without_weaker_penny_gate
 def test_ladder_inspired_score_uses_volume_mean_and_rsi_evidence():
     frame = history()
     frame.loc[frame.index[-1], "volume"] *= 2
-    candidate, _ = evaluate_symbol("VOLUME", frame, metadata=META, config=PennyConfig(ladder_inspired=True))
+    candidate, _ = evaluate_symbol(
+        "VOLUME", frame, metadata=META, config=PennyConfig(ladder_inspired=True)
+    )
     assert candidate is not None
     assert candidate.metrics["volume_ratio_mean20"] >= 1.8
     assert 0 <= candidate.metrics["rsi14"] <= 100
@@ -91,13 +94,13 @@ def test_ladder_inspired_score_uses_volume_mean_and_rsi_evidence():
 
 
 def test_revised_ready_liquidity_and_high_liquidity_badge():
-    candidate, _ = evaluate_symbol("STANDARD", history(turnover=70.0, recent_turnover=110.0), metadata=META)
-    assert candidate is not None
-    assert candidate.state == "READY"
+    candidate, _ = evaluate_symbol(
+        "STANDARD", history(turnover=70.0, recent_turnover=110.0), metadata=META
+    )
+    assert candidate is not None and candidate.state == "READY"
     assert candidate.metrics["liquidity_tier"] == "STANDARD"
     high, _ = evaluate_symbol("HIGH", history(turnover=120.0, recent_turnover=240.0), metadata=META)
-    assert high is not None
-    assert high.metrics["liquidity_tier"] == "HIGH"
+    assert high is not None and high.metrics["liquidity_tier"] == "HIGH"
 
 
 def test_early_radar_does_not_require_verified_market_cap():
@@ -129,33 +132,36 @@ def test_duplicate_and_stale_rows_fail_closed():
     frame = history()
     duplicated = pd.concat([frame, frame.tail(1)], ignore_index=True)
     candidate, audit = evaluate_symbol("DUP", duplicated, metadata=META)
-    assert candidate is None
-    assert audit["reason_code"] == "DUPLICATE_DATES"
+    assert candidate is None and audit["reason_code"] == "DUPLICATE_DATES"
     candidate, audit = evaluate_symbol(
-        "STALE", frame, metadata=META, expected_as_of=frame["trade_date"].max() + pd.Timedelta(days=1)
+        "STALE",
+        frame,
+        metadata=META,
+        expected_as_of=frame["trade_date"].max() + pd.Timedelta(days=1),
     )
-    assert candidate is None
-    assert audit["reason_code"] == "STALE_LATEST_ROW"
+    assert candidate is None and audit["reason_code"] == "STALE_LATEST_ROW"
 
 
 def test_report_ranks_ready_before_radar_and_keeps_risk_cards():
     early = history(rows=140, last_breakout=False, turnover=30.0, recent_turnover=50.0)
     early["trade_date"] = pd.bdate_range(end=history()["trade_date"].max(), periods=len(early))
     frames = []
-    for symbol, frame in [("A_READY", history()), ("B_LOCKED", history(circuit=True)), ("C_EARLY", early)]:
+    for symbol, frame in [
+        ("A_READY", history()),
+        ("B_LOCKED", history(circuit=True)),
+        ("C_EARLY", early),
+    ]:
         copy = frame.copy()
         copy["symbol"] = symbol
         frames.append(copy)
     master = pd.DataFrame(
-        [{"symbol": s, **META} for s in ("A_READY", "B_LOCKED")] + [{"symbol": "C_EARLY", "series": "EQ", "active": 1}]
+        [{"symbol": s, **META} for s in ("A_READY", "B_LOCKED")]
+        + [{"symbol": "C_EARLY", "series": "EQ", "active": 1}]
     )
     report = scan_market(pd.concat(frames), symbol_master=master)
     assert report["candidates"][0]["state"] == "READY"
     assert report["counts"]["CIRCUIT_LOCKED"] == 1
     risk = "\n".join(render_messages(report, risk_only=True))
-    assert "B_LOCKED" in risk
-    assert "NOT EXECUTABLE" in risk
+    assert "B_LOCKED" in risk and "NOT EXECUTABLE" in risk
     daily = "\n".join(render_messages(report))
-    assert "A_READY" in daily
-    assert "C_EARLY" in daily
-    assert "B_LOCKED" not in daily
+    assert "A_READY" in daily and "C_EARLY" in daily and "B_LOCKED" not in daily

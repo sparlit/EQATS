@@ -60,8 +60,7 @@ def run(db_path: Path, output_dir: Path) -> dict:
     market = V2Database(db_path)
     prices = market.load_prices(min_sessions=55)
     if prices.empty:
-        msg = "No usable market prices were restored"
-        raise RuntimeError(msg)
+        raise RuntimeError("No usable market prices were restored")
 
     indices = market.load_indices()
     benchmark_source = "INDEX_PERF"
@@ -78,7 +77,8 @@ def run(db_path: Path, output_dir: Path) -> dict:
     snapshot["benchmark_source"] = benchmark_source
     snapshot["sector_history_validated"] = False
     snapshot["sector_validation_note"] = (
-        "Sector index history is not persisted in market_data snapshots; sector-relative outputs remain disabled."
+        "Sector index history is not persisted in market_data snapshots; "
+        "sector-relative outputs remain disabled."
     )
     persist_market_snapshot(db_path, snapshot)
 
@@ -87,7 +87,7 @@ def run(db_path: Path, output_dir: Path) -> dict:
     hh = hybrid_hull(sample)
     sample_out = {
         "symbol": latest_symbol,
-        "sessions": len(sample),
+        "sessions": int(len(sample)),
         "latest_atr14": float(atr(sample, 14).iloc[-1]),
         "latest_hybrid_hull_state": int(hh["hybrid_hull_state"].iloc[-1]),
     }
@@ -96,7 +96,9 @@ def run(db_path: Path, output_dir: Path) -> dict:
         benchmark, on="trade_date", how="inner", suffixes=("_stock", "_benchmark")
     )
     if len(aligned) >= 66:
-        rs = relative_strength_return(aligned["close_stock"], aligned["close_benchmark"], lookback=66)
+        rs = relative_strength_return(
+            aligned["close_stock"], aligned["close_benchmark"], lookback=66
+        )
         sample_out["latest_rs66_excess_return"] = float(rs.iloc[-1])
 
     result = {
@@ -105,14 +107,16 @@ def run(db_path: Path, output_dir: Path) -> dict:
         "snapshot_count": len(dates),
         "oldest_snapshot": dates[0] if dates else None,
         "newest_snapshot": dates[-1] if dates else None,
-        "price_rows": len(prices),
+        "price_rows": int(len(prices)),
         "symbols": int(prices["symbol"].nunique()),
         "benchmark_source": benchmark_source,
         "market_regime": snapshot,
         "sample_reconciliation": sample_out,
         "sector_history_validated": False,
     }
-    (output_dir / "sprint2_validation.json").write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
+    (output_dir / "sprint2_validation.json").write_text(
+        json.dumps(result, indent=2, default=str), encoding="utf-8"
+    )
     pd.DataFrame([snapshot]).to_csv(output_dir / "market_regime_snapshot.csv", index=False)
     return result
 

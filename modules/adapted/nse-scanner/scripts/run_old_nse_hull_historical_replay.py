@@ -48,7 +48,9 @@ def main() -> int:
     report = run(load_market_data(args.db), args.db, args.state, args.sessions)
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     Path(args.output).write_text(json.dumps(report, indent=2), encoding="utf-8")
-    print(json.dumps({key: value for key, value in report.items() if key != "as_of_dates"}, indent=2))
+    print(
+        json.dumps({key: value for key, value in report.items() if key != "as_of_dates"}, indent=2)
+    )
     return 0
 
 

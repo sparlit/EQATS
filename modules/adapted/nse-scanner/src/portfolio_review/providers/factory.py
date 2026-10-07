@@ -49,5 +49,4 @@ def build_provider(name: str | None = None) -> LLMProvider:
             model=os.getenv("GROQ_MODEL", os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")),
             timeout=timeout,
         )
-    msg = f"Unsupported LLM provider: {provider}"
-    raise ProviderError(msg)
+    raise ProviderError(f"Unsupported LLM provider: {provider}")

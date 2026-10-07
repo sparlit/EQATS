@@ -79,7 +79,9 @@ except ImportError:
     pass
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN", "").strip()
-ADMIN_CHATID = (os.environ.get("ADMIN_CHAT_ID", "") or os.environ.get("TELEGRAM_CHAT_ID", "")).strip()
+ADMIN_CHATID = (
+    os.environ.get("ADMIN_CHAT_ID", "") or os.environ.get("TELEGRAM_CHAT_ID", "")
+).strip()
 DB_PATH = os.environ.get("DB_PATH", "nse_scanner.db")
 
 _HERE = Path(__file__).parent
@@ -193,7 +195,9 @@ def _db_info() -> dict:
             if r[1] and r[2]:
                 info["date_range"] = f"{r[1]} → {r[2]}"
             # Last load from load_log
-            ll = conn.execute("SELECT date, loaded_at FROM load_log ORDER BY date DESC LIMIT 1").fetchone()
+            ll = conn.execute(
+                "SELECT date, loaded_at FROM load_log ORDER BY date DESC LIMIT 1"
+            ).fetchone()
             if ll:
                 info["last_load"] = f"{ll[0]} at {ll[1][:16]}"
             info["ok"] = True
@@ -402,14 +406,20 @@ def build_user_report() -> str:
         msg += "\n"
 
     if most_active:
-        name = most_active.get("full_name", "") or most_active.get("username", "") or most_active.get("user_id", "")
+        name = (
+            most_active.get("full_name", "")
+            or most_active.get("username", "")
+            or most_active.get("user_id", "")
+        )
         visits = most_active.get("daily_visits", {}).get(today, 0)
         msg += "<b>🏆 Most Active Today</b>\n"
         msg += f"  {name} — {visits} actions\n\n"
 
     if active_today:
         msg += "<b>👤 Active Users Today</b>\n"
-        for u in sorted(active_today, key=lambda x: x.get("daily_visits", {}).get(today, 0), reverse=True)[:8]:
+        for u in sorted(
+            active_today, key=lambda x: x.get("daily_visits", {}).get(today, 0), reverse=True
+        )[:8]:
             name = u.get("full_name", "") or u.get("username", "") or u.get("user_id", "")
             visits = u.get("daily_visits", {}).get(today, 0)
             msg += f"  • {name} ({visits}×)\n"

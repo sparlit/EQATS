@@ -55,8 +55,14 @@ def _ticker(symbol: object) -> str:
 
 def _watch_range(item: dict) -> tuple[float, float]:
     close, atr = _number(item.get("close")), _number(item.get("atr14"))
-    supports = [_number(item.get(name)) for name in ("hybrid_hull", "hma21") if _number(item.get(name)) > 0]
-    center = max(supports) if item.get("overextended") and supports else max(close, max(supports, default=close))
+    supports = [
+        _number(item.get(name)) for name in ("hybrid_hull", "hma21") if _number(item.get(name)) > 0
+    ]
+    center = (
+        max(supports)
+        if item.get("overextended") and supports
+        else max(close, max(supports, default=close))
+    )
     return max(0.01, center - 0.15 * atr), center + 0.15 * atr
 
 
@@ -78,7 +84,9 @@ def render_daily_signals(result: dict) -> str:
     ]
 
     if not created:
-        lines.extend(["", "✅ Scan completed", "Fresh Signals: 0", "No new qualified Pine Hull entry today."])
+        lines.extend(
+            ["", "✅ Scan completed", "Fresh Signals: 0", "No new qualified Pine Hull entry today."]
+        )
     for _rank, position in enumerate(created, 1):
         weekly = "Confirmed" if position.get("htf_weekly_bullish") else "Pending / weak"
         entry = _number(position["entry"])
@@ -101,7 +109,13 @@ def render_daily_signals(result: dict) -> str:
         lines.extend(["", f"<b>More watchlist setups • {len(watch)} stocks</b>"])
         for item in watch:
             timing = str(item.get("timing_state", "EARLY"))
-            state = "EXTENDED" if item.get("overextended") else "EARLY" if timing == "EARLY" else "CONFIRMING"
+            state = (
+                "EXTENDED"
+                if item.get("overextended")
+                else "EARLY"
+                if timing == "EARLY"
+                else "CONFIRMING"
+            )
             reason = "Hull rising • commitment pending"
             if item.get("overextended"):
                 reason = "Extended price • wait for reset"
@@ -119,6 +133,11 @@ def render_daily_signals(result: dict) -> str:
                     "Next: Wait for a confirmed end-of-day signal.",
                 ]
             )
-        lines.extend(["", "🟢 Watch for entry • 🟡 Wait for confirmation • 🔵 Early watchlist • ⚪ No action yet"])
+        lines.extend(
+            [
+                "",
+                "🟢 Watch for entry • 🟡 Wait for confirmation • 🔵 Early watchlist • ⚪ No action yet",
+            ]
+        )
 
     return "\n".join(lines)

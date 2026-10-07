@@ -51,7 +51,9 @@ def main() -> int:
     parser.add_argument("--ladder-report", default="output/old_nse_hull_daily.json")
     parser.add_argument("--ladder-legacy", default="old_nse_hull_paper_state.json")
     parser.add_argument("--output", required=True)
-    parser.add_argument("--v3-capital", type=float, help="Recorded starting capital if no snapshot exists")
+    parser.add_argument(
+        "--v3-capital", type=float, help="Recorded starting capital if no snapshot exists"
+    )
     args = parser.parse_args()
     out = Path(args.output)
     database = V2Database(args.db)
@@ -59,7 +61,9 @@ def main() -> int:
     for scanner in ("Hull", "V3", "Penny", "Momentum Ladder"):
         try:
             if scanner == "Hull":
-                snapshot = hull_snapshot(json.loads(Path(args.hull_state).read_text(encoding="utf-8")))
+                snapshot = hull_snapshot(
+                    json.loads(Path(args.hull_state).read_text(encoding="utf-8"))
+                )
             elif scanner == "V3":
                 snapshot = read_v3(args.db, capital=args.v3_capital)
             else:
@@ -70,7 +74,9 @@ def main() -> int:
                     report,
                     database,
                     out / ("penny.sqlite" if scanner == "Penny" else "momentum_ladder.sqlite"),
-                    legacy=legacy_records(args.ladder_legacy) if scanner == "Momentum Ladder" else None,
+                    legacy=legacy_records(args.ladder_legacy)
+                    if scanner == "Momentum Ladder"
+                    else None,
                     provenance="OFFLINE_REVIEW_COHORT",
                 )
             write_reports(snapshot, out)

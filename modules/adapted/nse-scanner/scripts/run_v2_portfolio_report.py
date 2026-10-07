@@ -41,8 +41,7 @@ def main() -> int:
     args = parser.parse_args()
     row = PortfolioStore(args.db).latest_portfolio_snapshot()
     if row is None:
-        msg = "No V2 portfolio snapshot exists yet. Run the V2 daily pipeline first."
-        raise SystemExit(msg)
+        raise SystemExit("No V2 portfolio snapshot exists yet. Run the V2 daily pipeline first.")
     snapshot = PortfolioSnapshot(**json.loads(row["snapshot_json"]))
     message = render_portfolio_summary(snapshot)
     output = Path(args.output)

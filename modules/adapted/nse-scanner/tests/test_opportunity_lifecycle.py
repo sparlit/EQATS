@@ -23,7 +23,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import pandas as pd
 from pine_hull.opportunity_lifecycle import timing_state as pine_timing_state
 from v2.opportunity_lifecycle import entry_horizon, timing_state
 

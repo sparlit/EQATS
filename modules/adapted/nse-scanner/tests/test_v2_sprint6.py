@@ -37,7 +37,9 @@ def _seed_prices(path):
         conn.execute(
             "CREATE TABLE daily_prices_v2(symbol TEXT, trade_date TEXT, open REAL, high REAL, low REAL, close REAL, volume REAL)"
         )
-        conn.execute("INSERT INTO daily_prices_v2 VALUES ('ABC','2026-07-29',100,105,99,104,100000)")
+        conn.execute(
+            "INSERT INTO daily_prices_v2 VALUES ('ABC','2026-07-29',100,105,99,104,100000)"
+        )
         conn.execute("CREATE TABLE v2_positions(trade_id TEXT, state TEXT)")
         conn.execute("CREATE TABLE v2_position_events(event_id INTEGER)")
         conn.execute("CREATE TABLE v2_watchlist_memory(symbol TEXT, active INTEGER)")
@@ -47,7 +49,9 @@ def test_parse_and_ingest_snapshot(tmp_path):
     frame = parse_index_snapshot(CSV, expected_date="2026-07-29")
     assert set(frame["index_name"]) == {"NIFTY 50", "NIFTY 500"}
     db = tmp_path / "scanner.db"
-    result = ingest_daily_index_snapshot(db, "2026-07-29", content=CSV, snapshot_dir=tmp_path / "snapshots")
+    result = ingest_daily_index_snapshot(
+        db, "2026-07-29", content=CSV, snapshot_dir=tmp_path / "snapshots"
+    )
     assert result.rows_upserted == 2
     with sqlite3.connect(db) as conn:
         assert conn.execute("SELECT COUNT(*) FROM index_perf").fetchone()[0] == 2
@@ -59,8 +63,7 @@ def test_snapshot_date_mismatch_rejected():
     except ValueError as exc:
         assert "date mismatch" in str(exc)
     else:
-        msg = "expected date mismatch"
-        raise AssertionError(msg)
+        raise AssertionError("expected date mismatch")
 
 
 def test_backup_restore_and_health(tmp_path):

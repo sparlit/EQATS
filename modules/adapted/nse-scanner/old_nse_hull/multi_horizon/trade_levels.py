@@ -42,7 +42,11 @@ def build_levels(row: dict) -> dict:
     horizon = str(row.get("primary_horizon", ""))
     if not all(math.isfinite(value) and value > 0 for value in (close, atr, pivot, swing_low)):
         return {"eligible_for_paper": False, "rejection_code": "missing_trade_structure"}
-    entry = pivot + 0.10 * atr if horizon == "1M" else max(close, float(row.get("ema20", close))) + 0.10 * atr
+    entry = (
+        pivot + 0.10 * atr
+        if horizon == "1M"
+        else max(close, float(row.get("ema20", close))) + 0.10 * atr
+    )
     structural_stop = swing_low - 0.25 * atr
     atr_stop = entry - 2.0 * atr
     # The structural level governs validity.  ATR is retained as a diagnostic,
@@ -53,7 +57,11 @@ def build_levels(row: dict) -> dict:
     if stop <= 0 or risk <= 0:
         return {"eligible_for_paper": False, "rejection_code": "invalid_stop"}
     if risk_pct > MAX_RISK_PCT:
-        return {"eligible_for_paper": False, "rejection_code": "risk_exceeds_maximum", "risk_pct": round(risk_pct, 2)}
+        return {
+            "eligible_for_paper": False,
+            "rejection_code": "risk_exceeds_maximum",
+            "risk_pct": round(risk_pct, 2),
+        }
     return {
         "eligible_for_paper": True,
         "entry_trigger": round(entry, 2),

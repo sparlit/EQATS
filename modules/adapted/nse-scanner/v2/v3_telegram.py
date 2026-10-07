@@ -52,7 +52,9 @@ def ticker(symbol: object) -> str:
     return f'<a href="https://www.tradingview.com/chart/?symbol={quote("NSE:" + raw, safe="")}"><b>{label}</b></a>'
 
 
-def fingerprint(scan_date: str, message_type: str, topic_id: int | None, page: int, body: str) -> str:
+def fingerprint(
+    scan_date: str, message_type: str, topic_id: int | None, page: int, body: str
+) -> str:
     digest = hashlib.sha256(body.encode("utf-8")).hexdigest()[:16]
     return f"{scan_date}:{message_type}:{topic_id or 'general'}:{page}:{digest}"
 
@@ -71,4 +73,7 @@ def paginate_cards(header: str, cards: list[str], footer: str = "") -> list[str]
     pages.append(current + ("\n\n" + footer if footer else ""))
     if len(pages) == 1:
         return pages
-    return [page.replace(header, f"{header} ({index}/{len(pages)})", 1) for index, page in enumerate(pages, 1)]
+    return [
+        page.replace(header, f"{header} ({index}/{len(pages)})", 1)
+        for index, page in enumerate(pages, 1)
+    ]

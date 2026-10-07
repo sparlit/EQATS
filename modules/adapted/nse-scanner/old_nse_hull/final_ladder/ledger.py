@@ -51,8 +51,7 @@ def advance(
     fills or silently repricing history. One database contains one scanner only.
     """
     if scanner not in {"Penny", "Momentum Ladder"}:
-        msg = "Only Penny and Ladder use this new lifecycle"
-        raise ValueError(msg)
+        raise ValueError("Only Penny and Ladder use this new lifecycle")
     from datetime import date
 
     date.fromisoformat(day)
@@ -72,17 +71,22 @@ def advance(
     )
     digest = sha256(payload.encode()).hexdigest()
     with sqlite3.connect(target, timeout=30) as conn:
-        conn.execute("CREATE TABLE IF NOT EXISTS ledger (id INTEGER PRIMARY KEY CHECK(id=1), payload TEXT NOT NULL)")
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS ledger (id INTEGER PRIMARY KEY CHECK(id=1), payload TEXT NOT NULL)"
+        )
         conn.execute(
             "CREATE TABLE IF NOT EXISTS sessions (day TEXT PRIMARY KEY, digest TEXT NOT NULL, report TEXT NOT NULL)"
         )
         conn.commit()
         conn.execute("BEGIN IMMEDIATE")
-        existing = conn.execute("SELECT digest, report FROM sessions WHERE day=?", (day,)).fetchone()
+        existing = conn.execute(
+            "SELECT digest, report FROM sessions WHERE day=?", (day,)
+        ).fetchone()
         if existing:
             if existing[0] != digest:
-                msg = "Completed session inputs changed; use a separate reconstruction ledger"
-                raise ValueError(msg)
+                raise ValueError(
+                    "Completed session inputs changed; use a separate reconstruction ledger"
+                )
             return json.loads(existing[1])
         stored = conn.execute("SELECT payload FROM ledger WHERE id=1").fetchone()
         state = (
@@ -99,15 +103,16 @@ def advance(
                 "provenance": provenance,
             }
         )
-        if state["scanner"] != scanner or state["config"] != asdict(config) or state["provenance"] != provenance:
-            msg = "Ledger identity/configuration cannot change"
-            raise ValueError(msg)
+        if (
+            state["scanner"] != scanner
+            or state["config"] != asdict(config)
+            or state["provenance"] != provenance
+        ):
+            raise ValueError("Ledger identity/configuration cannot change")
         if state["last_date"] and day <= state["last_date"]:
-            msg = "Cannot append an older session"
-            raise ValueError(msg)
+            raise ValueError("Cannot append an older session")
         if state["last_date"] and previous_session and state["last_date"] != previous_session:
-            msg = "Missing market session; replay the missing dates before advancing"
-            raise ValueError(msg)
+            raise ValueError("Missing market session; replay the missing dates before advancing")
         state["pending"] = [p for p in state["pending"] if p["sessions_waited"] < 5]
         active = {symbol: dict(bar) for symbol, bar in bars.items()}
         for p in state["positions"]:
@@ -128,6 +133,11 @@ def advance(
             if p["symbol"] in active and not active[p["symbol"]].get("prior_trend", False):
                 active[p["symbol"]]["entry_allowed"] = False
         result = apply_exit(state, day, active, candidates, config, "TRAIL_STRUCT")
-        conn.execute("INSERT OR REPLACE INTO ledger VALUES (1,?)", (json.dumps(state, allow_nan=False),))
-        conn.execute("INSERT INTO sessions VALUES (?,?,?)", (day, digest, json.dumps(result, allow_nan=False)))
+        conn.execute(
+            "INSERT OR REPLACE INTO ledger VALUES (1,?)", (json.dumps(state, allow_nan=False),)
+        )
+        conn.execute(
+            "INSERT INTO sessions VALUES (?,?,?)",
+            (day, digest, json.dumps(result, allow_nan=False)),
+        )
         return result

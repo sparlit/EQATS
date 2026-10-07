@@ -56,7 +56,11 @@ def main() -> int:
     )
     output = result.to_dict()
     output["state_restored"] = restored
-    output["delivery"] = {"sent": delivery.sent, "message_count": delivery.message_count, "reason": delivery.reason}
+    output["delivery"] = {
+        "sent": delivery.sent,
+        "message_count": delivery.message_count,
+        "reason": delivery.reason,
+    }
     destination = Path(args.output)
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(json.dumps(output, indent=2), encoding="utf-8")

@@ -59,7 +59,6 @@ import contextlib
 import glob
 import logging
 import os
-import shutil
 import sqlite3
 import sys
 from datetime import date, datetime, timedelta
@@ -214,7 +213,7 @@ def get_loaded_date_range(path=DB_PATH):
             return row[0], row[1], row[2]
         return None, None, 0
     except Exception as e:
-        log.exception(f"get_loaded_date_range error: {e}")
+        log.error(f"get_loaded_date_range error: {e}")
         return None, None, 0
 
 
@@ -223,7 +222,7 @@ def delete_oldest_day(path=DB_PATH, dry_run=False):
     Deletes the single oldest date from all tables.
     Returns the date that was deleted, or None if DB empty.
     """
-    oldest, _newest, _count = get_loaded_date_range(path)
+    oldest, newest, count = get_loaded_date_range(path)
     if not oldest:
         log.info("delete_oldest_day: DB empty, nothing to delete")
         return None
@@ -235,7 +234,15 @@ def delete_oldest_day(path=DB_PATH, dry_run=False):
 
     try:
         conn = get_db(path)
-        tables = ["daily_prices", "blacklist", "index_perf", "volatility", "week52", "pe_ratios", "load_log"]
+        tables = [
+            "daily_prices",
+            "blacklist",
+            "index_perf",
+            "volatility",
+            "week52",
+            "pe_ratios",
+            "load_log",
+        ]
         total_deleted = 0
         for table in tables:
             try:
@@ -249,7 +256,7 @@ def delete_oldest_day(path=DB_PATH, dry_run=False):
         print(f"  🗑️  Deleted oldest day: {oldest} ({total_deleted} rows)")
         return oldest
     except Exception as e:
-        log.exception(f"delete_oldest_day error: {e}")
+        log.error(f"delete_oldest_day error: {e}")
         return None
 
 
@@ -287,7 +294,10 @@ def trim_to_180_days(keep_days=KEEP_DAYS, path=DB_PATH, dry_run=False):
     print(f"  ✅ Deleted {deleted} old day(s)")
     print(f"  {'─' * 50}\n")
 
-    log.info(f"trim_to_180_days: deleted {deleted} days, DB now {count_after} days ({oldest_after} → {newest_after})")
+    log.info(
+        f"trim_to_180_days: deleted {deleted} days, "
+        f"DB now {count_after} days ({oldest_after} → {newest_after})"
+    )
     return deleted
 
 
@@ -391,7 +401,19 @@ def load_index(conn, df, trade_date):
 
     cols = [
         c
-        for c in ["index_name", "date", "open", "high", "low", "close", "change_pct", "volume", "pe", "pb", "div_yield"]
+        for c in [
+            "index_name",
+            "date",
+            "open",
+            "high",
+            "low",
+            "close",
+            "change_pct",
+            "volume",
+            "pe",
+            "pb",
+            "div_yield",
+        ]
         if c in df.columns
     ]
 
@@ -641,7 +663,10 @@ def show_status():
                 SELECT COUNT(*) as rows, COUNT(DISTINCT date) as days,
                        MIN(date) as earliest, MAX(date) as latest
                 FROM {table}""").fetchone()
-            print(f"  {table:<20} rows={r[0]:>7,}  days={r[1]:>3}  range={r[2] or 'n/a'} → {r[3] or 'n/a'}")
+            print(
+                f"  {table:<20} rows={r[0]:>7,}  days={r[1]:>3}  "
+                f"range={r[2] or 'n/a'} → {r[3] or 'n/a'}"
+            )
         except Exception:
             print(f"  {table:<20} -- not found")
 
@@ -702,7 +727,9 @@ def main():
 
     p.add_argument("--cleanup", action="store_true", help="Delete large CSV files after loading")
     p.add_argument("--force", action="store_true", help="Reload already loaded dates")
-    p.add_argument("--dry-run", action="store_true", help="Show what trim would delete without deleting")
+    p.add_argument(
+        "--dry-run", action="store_true", help="Show what trim would delete without deleting"
+    )
     args = p.parse_args()
 
     init_database()

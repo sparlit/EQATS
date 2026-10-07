@@ -40,8 +40,7 @@ format functions) unchanged.
 """
 
 import json
-import os
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 
 _HERE = Path(__file__).parent
@@ -344,11 +343,15 @@ def update_tracker(current_stocks, scan_date, history=None):
 
             if sig.get("t1_hit_date") is None and sig["highest_price"] >= sig["t1_price"] > 0:
                 sig["t1_hit_date"] = scan_date
-                sig["milestones"].append({"event": "t1_hit", "date": scan_date, "price": sig["highest_price"]})
+                sig["milestones"].append(
+                    {"event": "t1_hit", "date": scan_date, "price": sig["highest_price"]}
+                )
 
             if sig.get("t2_hit_date") is None and sig["highest_price"] >= sig["t2_price"] > 0:
                 sig["t2_hit_date"] = scan_date
-                sig["milestones"].append({"event": "t2_hit", "date": scan_date, "price": sig["highest_price"]})
+                sig["milestones"].append(
+                    {"event": "t2_hit", "date": scan_date, "price": sig["highest_price"]}
+                )
 
             sig["state"] = _determine_state(sig, stock)
             updated_count += 1
@@ -395,7 +398,8 @@ def update_tracker(current_stocks, scan_date, history=None):
     tracker["last_updated"] = str(scan_date)
     _save_tracker(tracker)
 
-    return f"Tracker: +{new_count} new, ~{updated_count} updated, -{exited_count} exited"
+    summary = f"Tracker: +{new_count} new, ~{updated_count} updated, -{exited_count} exited"
+    return summary
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -479,7 +483,7 @@ def _code(v):
 
 
 def _fmt_price(p):
-    return f"₹{round(float(p)):,}"
+    return f"₹{int(round(float(p))):,}"
 
 
 def _fmt_pl(entry, current):
@@ -490,7 +494,7 @@ def _fmt_pl(entry, current):
     diff = current - entry
     pct = diff / entry * 100
     sign = "+" if diff >= 0 else ""
-    return f"{sign}{round(diff):,} ({sign}{pct:.1f}%)"
+    return f"{sign}{int(round(diff)):,} ({sign}{pct:.1f}%)"
 
 
 def format_signal_card(symbol):
@@ -517,7 +521,7 @@ def format_signal_card(symbol):
     sl = float(sig.get("sl_price", 0))
     t1 = float(sig.get("t1_price", 0))
     t2 = float(sig.get("t2_price", 0))
-    score = round(float(sig.get("current_score", 0)))
+    score = int(round(float(sig.get("current_score", 0))))
     streak = sig.get("streak", 0)
     t1_prob = sig.get("t1_prob", 0)
     t2_prob = sig.get("t2_prob", 0)
@@ -584,7 +588,7 @@ def format_signal_card(symbol):
 
 def format_stock_with_prob(stock, signal=None, rank=0, show_frozen=False):
     sym = stock.get("symbol", "?")
-    score = round(float(stock.get("score", 0)))
+    score = int(round(float(stock.get("score", 0))))
     close = float(stock.get("close", 0))
     r3m = float(stock.get("return_3m_pct", 0))
     sl = float(stock.get("sl", round(close * 0.93, 2)))
@@ -611,7 +615,10 @@ def format_stock_with_prob(stock, signal=None, rank=0, show_frozen=False):
     if show_frozen and signal and signal.get("entry_price"):
         pl_str = _fmt_pl(entry, close)
         msg += f"   Entry(frozen) {_fmt_price(entry)} | Now {_fmt_price(close)} | P/L {pl_str}\n"
-    msg += f"   Entry {_fmt_price(close)} | SL {_fmt_price(sl)} | T1 {_fmt_price(t1)} | T2 {_fmt_price(t2)}\n"
+    msg += (
+        f"   Entry {_fmt_price(close)} | SL {_fmt_price(sl)} | "
+        f"T1 {_fmt_price(t1)} | T2 {_fmt_price(t2)}\n"
+    )
     msg += f"   3M {r3m_sign}{r3m:.1f}% | T1 {t1_prob}% | T2 {t2_prob}%\n"
     return msg
 
@@ -621,7 +628,7 @@ def format_exit_card(sig):
     entry = float(sig.get("entry_price", 0))
     exit_p = float(sig.get("exit_price", sig.get("current_price", 0)))
     days = sig.get("days_in_list", 0)
-    score = round(float(sig.get("entry_score", 0)))
+    score = int(round(float(sig.get("entry_score", 0))))
     final_pl = sig.get("final_pl_pct", 0)
     t1_hit = sig.get("t1_hit_date") is not None
     pl_sign = "+" if final_pl >= 0 else ""

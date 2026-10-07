@@ -104,10 +104,20 @@ def test_stale_symbol_is_rejected_in_market_sessions():
 def test_missing_master_fails_closed_only_when_master_is_available():
     prices = frame("X", ["2026-08-25"])
     strict = evaluate_tradeability(
-        "X", prices, market_date="2026-08-25", master_row=None, session_calendar=("2026-08-25",), require_metadata=True
+        "X",
+        prices,
+        market_date="2026-08-25",
+        master_row=None,
+        session_calendar=("2026-08-25",),
+        require_metadata=True,
     )
     bootstrap = evaluate_tradeability(
-        "X", prices, market_date="2026-08-25", master_row=None, session_calendar=("2026-08-25",), require_metadata=False
+        "X",
+        prices,
+        market_date="2026-08-25",
+        master_row=None,
+        session_calendar=("2026-08-25",),
+        require_metadata=False,
     )
     assert strict.reason_code == "NOT_IN_CURRENT_NSE_UNIVERSE"
     assert bootstrap.eligible

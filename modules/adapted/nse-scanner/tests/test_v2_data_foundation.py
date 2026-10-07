@@ -34,8 +34,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def load_module(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
-    assert spec
-    assert spec.loader
+    assert spec and spec.loader
     spec.loader.exec_module(module)
     return module
 
@@ -96,7 +95,9 @@ def test_audit_passes_valid_400_session_fixture(tmp_path: Path):
 def test_migration_is_idempotent(tmp_path: Path):
     db_path = tmp_path / "fixture.db"
     build_v1_fixture(db_path, sessions=100)
-    migration = load_module("migrate_v1_prices_to_v2", ROOT / "scripts" / "migrate_v1_prices_to_v2.py")
+    migration = load_module(
+        "migrate_v1_prices_to_v2", ROOT / "scripts" / "migrate_v1_prices_to_v2.py"
+    )
     schema = ROOT / "migrations" / "v2" / "001_data_foundation.sql"
     first = migration.migrate(db_path, schema)
     second = migration.migrate(db_path, schema)
@@ -122,5 +123,4 @@ def test_migration_blocks_invalid_ohlc(tmp_path: Path):
     except ValueError as exc:
         assert "invalid daily_prices rows" in str(exc)
     else:
-        msg = "Invalid OHLC data should block migration"
-        raise AssertionError(msg)
+        raise AssertionError("Invalid OHLC data should block migration")

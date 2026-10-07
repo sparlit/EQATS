@@ -46,11 +46,19 @@ def _frame(sessions=80):
 
 def _open_position():
     p = new_position("ABC", "SWING_1_3M", "2026-01-02", 100, 90, 110, 120, quantity=10)
-    return transition(transition(p, "QUALIFY", "2026-01-03", price=101), "ENTER", "2026-01-03", price=100)
+    return transition(
+        transition(p, "QUALIFY", "2026-01-03", price=101), "ENTER", "2026-01-03", price=100
+    )
 
 
 def _signals(*_args, **_kwargs):
-    return {"daily_bullish": True, "weekly_bullish": True, "kama_rising": True, "stretched": False, "chop": False}
+    return {
+        "daily_bullish": True,
+        "weekly_bullish": True,
+        "kama_rising": True,
+        "stretched": False,
+        "chop": False,
+    }
 
 
 def test_open_profitable_swing_promotes(monkeypatch):
@@ -76,10 +84,10 @@ def test_promotion_preserves_stop_and_pnl(monkeypatch, tmp_path):
     store.save_position(position, "CREATE")
     decisions = apply_monthly_promotions(store, _frame(), date(2026, 4, 24).isoformat())
     saved = store.get_position(position.trade_id)
-    assert decisions[0].promoted
-    assert saved.horizon == "POSITIONAL_3_6M"
-    assert saved.stop == position.stop
-    assert saved.realised_pnl == position.realised_pnl
+    assert decisions[0].promoted and saved.horizon == "POSITIONAL_3_6M"
+    assert saved.stop == position.stop and saved.realised_pnl == position.realised_pnl
     with store.connect() as conn:
-        event = conn.execute("SELECT event_type FROM v2_position_events ORDER BY event_id DESC LIMIT 1").fetchone()
+        event = conn.execute(
+            "SELECT event_type FROM v2_position_events ORDER BY event_id DESC LIMIT 1"
+        ).fetchone()
     assert event["event_type"] == "HORIZON_PROMOTE"

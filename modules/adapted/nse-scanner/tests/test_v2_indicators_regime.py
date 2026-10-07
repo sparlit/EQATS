@@ -26,7 +26,14 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import numpy as np
 import pandas as pd
 import pytest
-from v2.indicators import atr, fixed_hybrid_hull_signals, hma, hybrid_hull, relative_strength_return, wma
+from v2.indicators import (
+    atr,
+    fixed_hybrid_hull_signals,
+    hma,
+    hybrid_hull,
+    relative_strength_return,
+    wma,
+)
 from v2.regime import classify_market_regime, rank_relative_strength
 
 

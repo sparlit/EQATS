@@ -73,7 +73,6 @@ import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from nse_lifecycle_tracker import apply_lifecycle
 
@@ -141,7 +140,10 @@ os.makedirs(config.LOG_DIR, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)s  %(message)s",
-    handlers=[logging.FileHandler(os.path.join(config.LOG_DIR, "scanner.log")), logging.StreamHandler()],
+    handlers=[
+        logging.FileHandler(os.path.join(config.LOG_DIR, "scanner.log")),
+        logging.StreamHandler(),
+    ],
 )
 log = logging.getLogger(__name__)
 
@@ -191,7 +193,9 @@ def load_data_for_date(scan_date):
     else:
         print(f"  ✅  week52 loaded: {len(w52_df)} stocks")
 
-    w52_map = {row["symbol"]: (row["week52_high"], row["week52_low"]) for _, row in w52_df.iterrows()}
+    w52_map = {
+        row["symbol"]: (row["week52_high"], row["week52_low"]) for _, row in w52_df.iterrows()
+    }
 
     conn.close()
     return {
@@ -235,7 +239,9 @@ def calculate_returns(prices_df, scan_date):
         latest = grp.iloc[-1]
         avg_vol = grp.tail(22)["volume"].mean()
         # Average daily turnover over last 22 days (in lacs)
-        avg_turnover = grp.tail(22)["turnover_lacs"].mean() if "turnover_lacs" in grp.columns else 0.0
+        avg_turnover = (
+            grp.tail(22)["turnover_lacs"].mean() if "turnover_lacs" in grp.columns else 0.0
+        )
         ma50 = grp.tail(50)["close"].mean() if len(grp) >= 50 else current_close
         ma200 = grp.tail(200)["close"].mean() if len(grp) >= 200 else current_close
 
@@ -333,7 +339,10 @@ def assign_horizon_actions(results_df, scan_date):
 
         if entry_ready:
             action = "BUY_TRIGGER"
-            reason = "Daily Hybrid Hull 55, HMA21/51, KAMA30 and weekly HMA trend are aligned; price is not stretched."
+            reason = (
+                "Daily Hybrid Hull 55, HMA21/51, KAMA30 and weekly HMA trend "
+                "are aligned; price is not stretched."
+            )
         elif hull_stretched or (horizon in ("CORE_12M", "DIRECT_6M") and overextended):
             action = "WAIT_PULLBACK"
             reason = "Trend is healthy, but price is stretched above Hybrid Hull support; wait for a calmer entry."
@@ -350,11 +359,15 @@ def assign_horizon_actions(results_df, scan_date):
             elif compression:
                 reason = "Compression is building; wait for a close above the trigger with volume confirmation."
             elif not weekly_hull:
-                reason = "Daily move is improving, but the weekly HMA21/51 trend is not yet confirmed."
+                reason = (
+                    "Daily move is improving, but the weekly HMA21/51 trend is not yet confirmed."
+                )
             else:
                 reason = "Trend is forming; wait for full Daily Hybrid Hull and KAMA alignment."
 
-        trigger = round(float(row.get("high", close)) * 1.001, 2) if action == "BUY_TRIGGER" else None
+        trigger = (
+            round(float(row.get("high", close)) * 1.001, 2) if action == "BUY_TRIGGER" else None
+        )
         return pd.Series(
             {
                 "horizon": horizon,
@@ -465,17 +478,26 @@ def apply_filters(stocks_df, blacklist):
     # 2. Price ≥ ₹50
     n = len(stocks_df)
     stocks_df = stocks_df[stocks_df["close"] >= config.MIN_PRICE]
-    print(f"After price ≥ ₹{config.MIN_PRICE}   : {len(stocks_df):,}  (removed {n - len(stocks_df)} penny stocks)")
+    print(
+        f"After price ≥ ₹{config.MIN_PRICE}   : {len(stocks_df):,}  "
+        f"(removed {n - len(stocks_df)} penny stocks)"
+    )
 
     # 3. Avg volume ≥ 50,000
     n = len(stocks_df)
     stocks_df = stocks_df[stocks_df["avg_volume"] >= config.MIN_VOLUME]
-    print(f"After volume ≥ {config.MIN_VOLUME // 1000}k  : {len(stocks_df):,}  (removed {n - len(stocks_df)} illiquid)")
+    print(
+        f"After volume ≥ {config.MIN_VOLUME // 1000}k  : {len(stocks_df):,}  "
+        f"(removed {n - len(stocks_df)} illiquid)"
+    )
 
     # 4. Delivery % ≥ 35%
     n = len(stocks_df)
     stocks_df = stocks_df[stocks_df["delivery_pct"] >= config.MIN_DELIVERY]
-    print(f"After delivery ≥ {config.MIN_DELIVERY}% : {len(stocks_df):,}  (removed {n - len(stocks_df)} speculative)")
+    print(
+        f"After delivery ≥ {config.MIN_DELIVERY}% : {len(stocks_df):,}  "
+        f"(removed {n - len(stocks_df)} speculative)"
+    )
 
     # 5. Turnover ≥ ₹2 Cr per day (NEW)
     min_turnover = getattr(config, "MIN_TURNOVER", 200)  # lacs
@@ -489,14 +511,19 @@ def apply_filters(stocks_df, blacklist):
         )
         stocks_df = stocks_df[turnover_mask]
         removed = n - len(stocks_df)
-        print(f"After turnover ≥ ₹{min_turnover // 100:.0f}Cr : {len(stocks_df):,}  (removed {removed} low-liquidity)")
+        print(
+            f"After turnover ≥ ₹{min_turnover // 100:.0f}Cr : {len(stocks_df):,}  "
+            f"(removed {removed} low-liquidity)"
+        )
     else:
         print("Turnover filter    : SKIPPED (no data)")
 
     # 6. 3M return > 0 (uptrend gate — replaces old 50% ranking weight)
     n = len(stocks_df)
     stocks_df = stocks_df[stocks_df["return_3m"] > 0]
-    print(f"After uptrend gate  : {len(stocks_df):,}  (removed {n - len(stocks_df)} downtrend stocks)")
+    print(
+        f"After uptrend gate  : {len(stocks_df):,}  (removed {n - len(stocks_df)} downtrend stocks)"
+    )
 
     print(f"{'─' * 60}")
     print(f"Ready for scoring   : {len(stocks_df):,} quality stocks")
@@ -528,7 +555,11 @@ def add_trade_plan(row, tech_row=None):
     """Calculate Entry, SL, T1, T2 for one stock."""
     entry = float(row["close"])
 
-    if tech_row is not None and pd.notna(tech_row.get("stop")) and float(tech_row.get("stop", 0)) > 0:
+    if (
+        tech_row is not None
+        and pd.notna(tech_row.get("stop"))
+        and float(tech_row.get("stop", 0)) > 0
+    ):
         sl = float(tech_row["stop"])
     else:
         sl = round(entry * 0.93, 2)  # fallback: 7% SL
@@ -762,14 +793,28 @@ def scan_stocks(scan_date=None, top_n=None):
         scored_df["conviction"] = scored_df["conviction"].fillna("")
 
         # ── Ranking: forward score, HIGH CONVICTION first ─────
-        hc = scored_df[scored_df["conviction"] == TIER_HIGH_CONVICTION].sort_values("score", ascending=False)
-        wl = scored_df[scored_df["conviction"] == TIER_WATCHLIST].sort_values("score", ascending=False)
-        rest = scored_df[scored_df["conviction"] == ""].sort_values("momentum_score", ascending=False)
+        hc = scored_df[scored_df["conviction"] == TIER_HIGH_CONVICTION].sort_values(
+            "score", ascending=False
+        )
+        wl = scored_df[scored_df["conviction"] == TIER_WATCHLIST].sort_values(
+            "score", ascending=False
+        )
+        rest = scored_df[scored_df["conviction"] == ""].sort_values(
+            "momentum_score", ascending=False
+        )
 
         scored_df = pd.concat([hc, wl, rest], ignore_index=True)
 
-        t1c = (tech_df["weekly_tier"] == WEEKLY_TIER_BULLISH).sum() if "weekly_tier" in tech_df.columns else 0
-        t2c = (tech_df["weekly_tier"] == WEEKLY_TIER_NEUTRAL).sum() if "weekly_tier" in tech_df.columns else 0
+        t1c = (
+            (tech_df["weekly_tier"] == WEEKLY_TIER_BULLISH).sum()
+            if "weekly_tier" in tech_df.columns
+            else 0
+        )
+        t2c = (
+            (tech_df["weekly_tier"] == WEEKLY_TIER_NEUTRAL).sum()
+            if "weekly_tier" in tech_df.columns
+            else 0
+        )
 
         print("\n  After scoring:")
         print(f"    HIGH CONVICTION (≥7): {len(hc)} stocks")
@@ -857,7 +902,9 @@ def scan_stocks(scan_date=None, top_n=None):
 
     # ── Step 10: Score breakdown for Telegram ─────────────────
     if TECH_FILTERS_AVAILABLE and not tech_df.empty:
-        result_df["score_breakdown"] = result_df.apply(lambda r: format_score_breakdown(r.to_dict()), axis=1)
+        result_df["score_breakdown"] = result_df.apply(
+            lambda r: format_score_breakdown(r.to_dict()), axis=1
+        )
 
     log.info(
         f"Scan complete: {len(result_df)} stocks | "
@@ -877,7 +924,9 @@ def scan_stocks(scan_date=None, top_n=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="NSE Stock Scanner v5 — Forward Probability + Weekly Filter")
+    parser = argparse.ArgumentParser(
+        description="NSE Stock Scanner v5 — Forward Probability + Weekly Filter"
+    )
     parser.add_argument("--date", help="Scan date DD-MM-YYYY or YYYY-MM-DD")
     parser.add_argument("--top", type=int, help="Number of stocks (default 25)")
     args = parser.parse_args()
@@ -916,7 +965,7 @@ def main():
             wl = str(row.get("weekly_label", ""))[:16]
             sit = sit_meta.get(row.get("situation", ""), "•")
             print(
-                f"  {i:<4} {row['symbol']!s:<12} "
+                f"  {i:<4} {str(row['symbol']):<12} "
                 f"{int(row.get('score', 0)):>5} "
                 f"{row.get('return_3m_pct', 0):>+7.1f}% "
                 f"{row.get('entry', 0):>8.0f} "
