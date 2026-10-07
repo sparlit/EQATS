@@ -45,7 +45,7 @@ pub enum MultiSigCmd {
     Sign(MultiSigSign),
     Update(UpdateMultiSigCmd),
     SendAsset(MultiSigSendAsset),
-    ConvertToNormalUser(MultiSigConvertToNormalUser),
+    ConvertToNormalUser(ToNormalUserCmd),
 }
 
 impl MultiSigCmd {
@@ -127,7 +127,7 @@ impl MultiSigSign {
 /// This command uses peer-to-peer gossip to collect signatures from authorized
 /// signers to convert a multisig account back to a regular single-signer account.
 #[derive(Args, derive_more::Deref)]
-pub struct MultiSigConvertToNormalUser {
+pub struct ToNormalUserCmd {
     #[deref]
     #[command(flatten)]
     pub common: SignerArgs,
@@ -139,7 +139,7 @@ pub struct MultiSigConvertToNormalUser {
     pub local: bool,
 }
 
-impl MultiSigConvertToNormalUser {
+impl ToNormalUserCmd {
     pub async fn run(self) -> anyhow::Result<()> {
         convert_to_normal_user(self).await
     }
@@ -255,7 +255,7 @@ async fn update(cmd: UpdateMultiSigCmd) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn convert_to_normal_user(cmd: MultiSigConvertToNormalUser) -> anyhow::Result<()> {
+async fn convert_to_normal_user(cmd: ToNormalUserCmd) -> anyhow::Result<()> {
     let hl = HttpClient::new(cmd.chain);
     let multisig_config = hl.multi_sig_config(cmd.multi_sig_addr).await?;
     let signers = find_signers(&cmd.common, &multisig_config.authorized_users).await?;
@@ -725,7 +725,10 @@ mod proto {
 mod tests {
     use super::*;
     use alloy::signers::local::PrivateKeySigner;
+    use clap::Parser;
     use hypercore::Chain;
+
+    use crate::{Cli, Command};
 
     fn payload(lead: Address) -> MultiSigPayload {
         MultiSigPayload {
@@ -733,6 +736,32 @@ mod tests {
             outer_signer: lead.to_string().to_lowercase(),
             action: Box::new(Action::Noop),
         }
+    }
+
+    #[test]
+    fn top_level_and_legacy_normal_user_commands_accept_the_same_options() {
+        let address = "0x1111111111111111111111111111111111111111";
+        let options = ["--multi-sig-addr", address, "--chain", "testnet", "--local"];
+
+        let mut top_level = vec!["hypecli", "to-normal-user"];
+        top_level.extend(options);
+        let Command::ToNormalUser(top_level) =
+            Cli::try_parse_from(top_level).unwrap().command.unwrap()
+        else {
+            panic!("expected top-level to-normal-user command");
+        };
+
+        let mut legacy = vec!["hypecli", "multisig", "convert-to-normal-user"];
+        legacy.extend(options);
+        let Command::Multisig(MultiSigCmd::ConvertToNormalUser(legacy)) =
+            Cli::try_parse_from(legacy).unwrap().command.unwrap()
+        else {
+            panic!("expected legacy convert-to-normal-user command");
+        };
+
+        assert_eq!(top_level.multi_sig_addr, legacy.multi_sig_addr);
+        assert_eq!(top_level.chain, legacy.chain);
+        assert_eq!(top_level.local, legacy.local);
     }
 
     #[test]
