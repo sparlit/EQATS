@@ -1438,8 +1438,8 @@
       "target": "junbeoml22/trusted",
       "url": "https://github.com/junbeoml22/trusted",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3121",
+      "merged": true
     },
     {
       "name": "marketinsight",
