@@ -10,9 +10,9 @@ scripts_dir = root_dir / ".github" / "scripts"
 sys.path.insert(0, str(root_dir))
 sys.path.insert(0, str(scripts_dir))
 
-from alert_dispatcher import send_webhook_alert
-from generate_dashboard import generate_dashboard
-from institutional_integrations.dynamic_plugin_loader import DynamicPluginLoader
+from alert_dispatcher import send_webhook_alert  # noqa: E402
+from generate_dashboard import generate_dashboard  # noqa: E402
+from institutional_integrations.dynamic_plugin_loader import DynamicPluginLoader  # noqa: E402
 
 
 def test_dynamic_plugin_loader():
