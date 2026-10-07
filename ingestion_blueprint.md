@@ -174,7 +174,7 @@ Total Repositories: 424 | Current Index: 172
 | 169 | itsnrk1/nse-scanner | Processed | https://github.com/sparlit/EQATS/pull/3110 |
 | 170 | jandginvestment/cci20-sma20-strategy | Completed | https://github.com/sparlit/EQATS/pull/3111 |
 | 171 | jayeshsrathod/nse-scanner | Completed | https://github.com/sparlit/EQATS/pull/3112 |
-| 172 | jensnesten/rust_bt | Processed | None |
+| 172 | jensnesten/rust_bt | Processed | https://github.com/sparlit/EQATS/pull/3113 |
 | 173 | jerryshell/midas | pending | None |
 | 174 | jinit24/nsedownload | pending | None |
 | 175 | joaquinbejar/optionstratlib | pending | None |
