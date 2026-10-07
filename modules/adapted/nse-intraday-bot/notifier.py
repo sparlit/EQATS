@@ -135,7 +135,8 @@ def _message(sig: dict) -> str:
         + [f"  + {r}" for r in sig.get("reasons", [])]
         + [
             "",
-            (f"VWAP: {sig.get('vwap', '?')}  RSI: {sig.get('rsi', '?')}  Gap: {sig.get('gap_pct', '0')}%"),
+            f"VWAP: {sig.get('vwap', '?')}  RSI: {sig.get('rsi', '?')}  "
+            f"Gap: {sig.get('gap_pct', '0')}%",
             "",
             "Exit rules:",
             "  * Hard SL at setup candle low",
@@ -160,7 +161,8 @@ def _send_telegram(sig: dict) -> bool:
         )
         ok = r.json().get("ok", False)
         print(
-            f"  [TELEGRAM] {sig.get('symbol', '?')} -> {'SENT' if ok else 'FAILED: ' + r.json().get('description', '')}"
+            f"  [TELEGRAM] {sig.get('symbol', '?')} -> "
+            f"{'SENT' if ok else 'FAILED: ' + r.json().get('description', '')}"
         )
         return ok
     except Exception as e:
@@ -171,7 +173,7 @@ def _send_telegram(sig: dict) -> bool:
 # ── PLAIN UTILITY (bot commands, greetings, etc.) ──────────────
 
 
-def telegram_send(text: str, chat_id: str | None = None, markup: dict | None = None) -> bool:
+def telegram_send(text: str, chat_id: str = None, markup: dict = None) -> bool:
     chat_id = chat_id or TELEGRAM_CHAT_ID
     payload = {"chat_id": chat_id, "text": text}
     if markup:

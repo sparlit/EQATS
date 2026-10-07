@@ -62,7 +62,9 @@ _DIR = os.path.dirname(os.path.abspath(__file__))
 
 def load_data(cfg: dict) -> pd.DataFrame:
     src = cfg.get("data_source", "mt5")
-    bars_per_year = {"M30": 12400, "H1": 6200, "H4": 1560, "D1": 310}.get(cfg.get("timeframe", "H1"), 6200)
+    bars_per_year = {"M30": 12400, "H1": 6200, "H4": 1560, "D1": 310}.get(
+        cfg.get("timeframe", "H1"), 6200
+    )
     n_bars = int(cfg.get("backtest_years", 4) * bars_per_year) + cfg["ema_trend"]
 
     if src == "csv" and cfg.get("csv_path"):
@@ -87,8 +89,7 @@ def load_data(cfg: dict) -> pd.DataFrame:
         rates = mt5.copy_rates_from_pos(cfg["symbol"], tf, 0, n_bars)
         mt5.shutdown()
         if rates is None or len(rates) < 500:
-            msg = "MT5 returned insufficient data — is the terminal open?"
-            raise RuntimeError(msg)
+            raise RuntimeError("MT5 returned insufficient data — is the terminal open?")
         df = pd.DataFrame(rates)
         df["time"] = pd.to_datetime(df["time"], unit="s")
         df = df.set_index("time")
@@ -131,7 +132,11 @@ def run_backtest(cfg: dict, df: pd.DataFrame) -> dict:
         nonlocal equity, peak, pos
         # exit costs: half-spread + slippage against us
         px = price - (half_spread + slip) if pos["dir"] == "LONG" else price + (half_spread + slip)
-        pnl = (px - pos["entry"]) * pos["units"] if pos["dir"] == "LONG" else (pos["entry"] - px) * pos["units"]
+        pnl = (
+            (px - pos["entry"]) * pos["units"]
+            if pos["dir"] == "LONG"
+            else (pos["entry"] - px) * pos["units"]
+        )
         equity += pnl
         peak = max(peak, equity)
         day_pnl[ts.date()] = day_pnl.get(ts.date(), 0.0) + pnl
@@ -179,13 +184,16 @@ def run_backtest(cfg: dict, df: pd.DataFrame) -> dict:
                     close_pos(nts, pos["sl"], "stop-loss")
                 elif cfg["exit_mode"] == "fixed" and hi >= pos["tp"]:
                     close_pos(nts, pos["tp"], "take-profit")
-            elif hi >= pos["sl"]:
-                close_pos(nts, pos["sl"], "stop-loss")
-            elif cfg["exit_mode"] == "fixed" and lo <= pos["tp"]:
-                close_pos(nts, pos["tp"], "take-profit")
+            else:
+                if hi >= pos["sl"]:
+                    close_pos(nts, pos["sl"], "stop-loss")
+                elif cfg["exit_mode"] == "fixed" and lo <= pos["tp"]:
+                    close_pos(nts, pos["tp"], "take-profit")
             # EMA cross-back exit at next bar close
             if pos is not None and cfg.get("exit_on_cross_back", True):
-                if (pos["dir"] == "LONG" and nxt["cross_dn"]) or (pos["dir"] == "SHORT" and nxt["cross_up"]):
+                if (pos["dir"] == "LONG" and nxt["cross_dn"]) or (
+                    pos["dir"] == "SHORT" and nxt["cross_up"]
+                ):
                     close_pos(nts, float(nxt["close"]), "ema-cross-back")
 
         eq_points.append((ts, equity))
@@ -213,7 +221,9 @@ def run_backtest(cfg: dict, df: pd.DataFrame) -> dict:
         if atr_val <= 0 or np.isnan(atr_val):
             continue
         raw_open = float(nxt["open"])
-        entry = raw_open + (half_spread + slip) if sig == "LONG" else raw_open - (half_spread + slip)
+        entry = (
+            raw_open + (half_spread + slip) if sig == "LONG" else raw_open - (half_spread + slip)
+        )
         sl_price, tp_price = initial_stops(sig, entry, atr_val, cfg)
         sl_dist = abs(entry - sl_price)
         units = position_size(equity, cfg["risk_pct"], sl_dist)
@@ -286,15 +296,16 @@ def _report(cfg, trades, eq_points, halted) -> dict:
         json.dump(summary, f, indent=2, default=str)
 
     try:
-        import matplotlib as mpl
+        import matplotlib
 
-        mpl.use("Agg")
+        matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
         fig, ax = plt.subplots(figsize=(11, 5))
         eq.plot(ax=ax, color="tab:blue", lw=1)
         ax.set_title(
-            f"EMA trend strategy on {cfg['symbol']} {cfg['timeframe']} — equity curve ({cfg['exit_mode']} exits)"
+            f"EMA trend strategy on {cfg['symbol']} {cfg['timeframe']} — equity curve "
+            f"({cfg['exit_mode']} exits)"
         )
         ax.set_ylabel("Equity (USD)")
         ax.grid(alpha=0.3)
@@ -324,7 +335,10 @@ if __name__ == "__main__":
     if args.exit_mode:
         cfg["exit_mode"] = args.exit_mode
 
-    print(f"Loading {cfg['backtest_years']}y of {cfg['symbol']} {cfg['timeframe']} from {cfg['data_source']}...")
+    print(
+        f"Loading {cfg['backtest_years']}y of {cfg['symbol']} {cfg['timeframe']} "
+        f"from {cfg['data_source']}..."
+    )
     data = load_data(cfg)
     print(f"{len(data)} bars: {data.index[0]} -> {data.index[-1]}")
     run_backtest(cfg, data)

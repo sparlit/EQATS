@@ -67,8 +67,12 @@ def _resample_4h(df_1h: pd.DataFrame) -> pd.DataFrame:
 
 def get_gold_data() -> dict:
     """Download and return 4H / 1H / 15min DataFrames for Gold."""
-    df_1h = _clean(yf.download(SYMBOL, period="30d", interval="1h", progress=False, auto_adjust=True))
-    df_15m = _clean(yf.download(SYMBOL, period="7d", interval="15m", progress=False, auto_adjust=True))
+    df_1h = _clean(
+        yf.download(SYMBOL, period="30d", interval="1h", progress=False, auto_adjust=True)
+    )
+    df_15m = _clean(
+        yf.download(SYMBOL, period="7d", interval="15m", progress=False, auto_adjust=True)
+    )
     df_4h = _resample_4h(df_1h)
 
     price = float(df_15m["close"].iloc[-1]) if not df_15m.empty else None
@@ -83,7 +87,9 @@ def get_gold_data() -> dict:
 def get_prev_day_high_low() -> tuple:
     """Previous-day high / low for PDH/PDL reference."""
     try:
-        df = _clean(yf.download(SYMBOL, period="5d", interval="1d", progress=False, auto_adjust=True))
+        df = _clean(
+            yf.download(SYMBOL, period="5d", interval="1d", progress=False, auto_adjust=True)
+        )
         if len(df) < 2:
             return None, None
         prev = df.iloc[-2]
@@ -118,7 +124,10 @@ def get_daily_data() -> pd.DataFrame:
     Returns DataFrame indexed in IST with lowercase columns.
     """
     try:
-        return _clean(yf.download(SYMBOL, period="270d", interval="1d", progress=False, auto_adjust=True))
+        df = _clean(
+            yf.download(SYMBOL, period="270d", interval="1d", progress=False, auto_adjust=True)
+        )
+        return df
     except Exception as e:
         print(f"[GOLD FEED] get_daily_data error: {e}")
         return pd.DataFrame()
@@ -131,7 +140,10 @@ def get_m5_data() -> pd.DataFrame:
     Returns DataFrame indexed in IST with lowercase columns.
     """
     try:
-        return _clean(yf.download(SYMBOL, period="2d", interval="5m", progress=False, auto_adjust=True))
+        df = _clean(
+            yf.download(SYMBOL, period="2d", interval="5m", progress=False, auto_adjust=True)
+        )
+        return df
     except Exception as e:
         print(f"[GOLD FEED] get_m5_data error: {e}")
         return pd.DataFrame()
