@@ -255,13 +255,18 @@ def extract_key_details(text):
 
 
 def clean_company_name_for_search(name):
-    cleaned = re.sub(r"\b(ltd\.?|limited|pvt\.?|private|inc\.?|corp\.?|corporation)\b", "", name, flags=re.IGNORECASE)
-    return re.sub(r"\s+", " ", cleaned).strip()
+    cleaned = re.sub(
+        r"\b(ltd\.?|limited|pvt\.?|private|inc\.?|corp\.?|corporation)\b",
+        "",
+        name,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
 
 
 def search_order_value_from_news(company_name):
     try:
-        import time
         import xml.etree.ElementTree as ET
         from urllib.parse import quote
 
@@ -340,7 +345,9 @@ def classify_announcement(headline, detailed_text, category_name, subcategory_na
             term_idx = term_idx + 1
         if found_in_category:
             exclusion_terms = EXCLUSIONS.get(category, [])
-            excluded = any(re.search(r"\b" + re.escape(e) + r"\b", combined_text) for e in exclusion_terms)
+            excluded = any(
+                re.search(r"\b" + re.escape(e) + r"\b", combined_text) for e in exclusion_terms
+            )
             if not excluded:
                 matched_categories.append(category)
     return matched_categories
@@ -447,7 +454,9 @@ def process_announcement_list(announcements, source_name, seen_ids):
             ann_idx = ann_idx + 1
             continue
         extra_text = newssub if source_name == "BSE" else ""
-        categories = classify_announcement(headline + " " + extra_text, display_text, category_name, subcategory_name)
+        categories = classify_announcement(
+            headline + " " + extra_text, display_text, category_name, subcategory_name
+        )
         is_relevant = len(categories) > 0
         if is_relevant:
             categories_str = ", ".join(categories)
@@ -460,7 +469,9 @@ def process_announcement_list(announcements, source_name, seen_ids):
                 if news_value:
                     enriched_value = news_value + " (via news)"
                     details["order_value"] = enriched_value
-            message = format_telegram_message_with_details(company, display_text, categories_str, source_name, details)
+            message = format_telegram_message_with_details(
+                company, display_text, categories_str, source_name, details
+            )
             send_result = send_telegram_message(message)
             send_succeeded = send_result.get("ok", False)
             if send_succeeded:
@@ -540,9 +551,15 @@ def generate_dashboard(alerts):
 </tr>"""
 
     order_count = len([a for a in alerts if "Order" in a["categories"]])
-    drug_count = len([a for a in alerts if "Drug" in a["categories"] or "Regulatory" in a["categories"]])
+    drug_count = len(
+        [a for a in alerts if "Drug" in a["categories"] or "Regulatory" in a["categories"]]
+    )
     ma_count = len([a for a in alerts if "M&A" in a["categories"]])
-    tbody = rows if alerts else '<tr><td colspan="5" class="empty">No alerts in the last 7 days</td></tr>'
+    tbody = (
+        rows
+        if alerts
+        else '<tr><td colspan="5" class="empty">No alerts in the last 7 days</td></tr>'
+    )
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
