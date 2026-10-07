@@ -40,7 +40,7 @@ Three kinds of lines are exempt from the layer rule:
 * lines carrying `// facade-compat: <layer>`: compatibility re-exports that
   keep a 0.21 path alive from a lower module and become the facade crate's
   own module files at extraction time;
-* files listed in `SYNTHETIC_FILES`: the market-to-simulation edge that the
+* files listed in `SYNTHETIC_FILES` (empty since #524, market is a crate): the market-to-simulation edge that the
   `synthetic` feature gates (ADR-0003);
 * edges listed in `DEFERRED`, scoped to the files that carry them: known
   violations whose removal is a breaking change batched behind the 0.22.0
@@ -51,6 +51,41 @@ Three kinds of lines are exempt from the layer rule:
 
 The run also prints the number of `// facade-compat` lines per layer, so
 marker creep is visible in the CI log.
+
+Once a layer has its own workspace crate (roadmap M2 onwards), two more
+checks apply, both read from `cargo metadata`:
+
+* the crate graph: every `optionstratlib-*` package may depend only on the
+  packages of the layers below it (`CRATE_LAYER`, `ALLOWED`), in any
+  dependency kind, and never on the `optionstratlib` facade. Cargo then
+  rejects at compile time any core type, error payload or public signature
+  that names a higher layer, which is what the source scan can only
+  approximate;
+* the single definition: no file under the facade's `src/` may belong to a
+  layer that a workspace crate now owns, so a moved module cannot grow a
+  second copy in the facade.
+
+* the foundational crates (`positive`, `expiration_date`, `financial_types`,
+  `option_type`): every workspace package that names one asks for the same
+  version requirement, the resolved graph holds a single version of each,
+  and no component other than core (and, until its modules are extracted,
+  the facade) depends on one directly, so every crate agrees on what
+  `Positive` or `Side` is (ADR-0001 D8, #515).
+
+* the forbidden packages: each extracted component's resolved normal tree,
+  with default features and with all of them, holds none of the packages the
+  ADR-0002 fixture table lists as absent (`FORBIDDEN_PACKAGES`, #517).
+
+* the Plotly gate: only `optionstratlib-visualization` among the workspace
+  packages (examples and tests included) declares `plotly` or `plotly_static`, and declares them optional,
+  without default features and without `static_export_default`; no lower-layer
+  crate has a `plotly` or `static_export` feature or a feature that names the
+  visualization crate; the facade forwards to it only through `visualization`,
+  `plotly` and `static_export`, and its default features name neither
+  `plotly` nor `static_export` (`plotly_gate_violations`, #544).
+
+These read `cargo metadata` and `cargo tree`, so `make check-graph` needs a
+Rust toolchain on the PATH; a failing cargo command fails the check.
 
 Exit status is 1 on any other cross-layer edge, 0 otherwise. Run
 `make check-graph`; an optional first argument names the crate root to scan
@@ -164,7 +199,9 @@ ALLOWED = {
         "backtest",
         "visualization",
     },
-    "facade": set(LAYER_OF.values()) | set(ERROR_FILE_LAYER.values()) | set(UTILS_FILE_LAYER.values()),
+    "facade": set(LAYER_OF.values())
+    | set(ERROR_FILE_LAYER.values())
+    | set(UTILS_FILE_LAYER.values()),
 }
 
 # A bare `crate::error::Name` import cannot be attributed to an error file
@@ -175,60 +212,50 @@ ALLOWED = {
 # file by `error_types` / `resolve_error_refs` below (#590).
 ALWAYS_ALLOWED_TARGETS = {"error"}
 
-# Files whose simulation edge is the `synthetic`-gated market capability
-# (ADR-0003, roadmap M1-15). File-level on purpose: the generator modules are
-# declared `#[cfg(feature = "synthetic")]` and compile only under it, and in
-# `error/chains.rs` the gate sits on the `Simulation` variant and its `From`
-# impl. `synthetic_gate_violations` proves each of these references really is
-# behind the feature, so listing a file here cannot launder an ungated edge.
-SYNTHETIC_FILES = {
-    "chains/generators.rs",
-    "series/generators.rs",
-    # `ChainError::Simulation` and `From<SimulationError> for ChainError`.
-    "error/chains.rs",
-}
+# Facade files whose market-to-simulation edge is the `synthetic`-gated
+# capability (ADR-0003, roadmap M1-15). Empty since #524: market is its own
+# crate, and since #537 the generators live in it behind its own `synthetic`
+# feature, so the crate graph accepts the edge only as that optional
+# dependency and `synthetic_gate_violations` proves every simulation
+# reference in the market crate sits behind the feature. A path listed here
+# that no longer exists is reported as stale.
+SYNTHETIC_FILES: set[str] = set()
 
 # `#[cfg(feature = "synthetic")]`, however the attribute is spaced.
 SYNTHETIC_CFG_RE = re.compile(r'#\[cfg\(feature\s*=\s*"synthetic"\)\]')
 
-# Modules whose minimal (non-`synthetic`) surface must name no simulation type.
+# Modules whose minimal (non-`synthetic`) surface must name no simulation
+# type, when market files sit in a scanned `src/` (the self-test fixtures).
+# The market crate itself is held to it by the crate graph and the
+# forbidden-package check (#524).
 MINIMAL_MARKET_MODULES = ("chains", "series")
 
 # (source module, target module) -> (files that may carry the edge, the issue
 # that removes it). Scoped to files on purpose: a new file introducing the
 # same module pair is a fresh violation, not tolerated debt. Every listed
-# line is annotated `// deferred edge` in the source.
-DEFERRED: dict[tuple[str, str], tuple[frozenset[str], str]] = {
-    # Inherent pricing wrappers on `Options` forward to `pricing::OptionPricing`.
-    ("model", "pricing"): (frozenset({"model/option.rs"}), "0.22.0 batch (#499, API-BASELINE 3.3)"),
-    # `impl LegAble for Leg` computes Greeks in its `Option` arms.
-    ("model", "greeks"): (frozenset({"model/leg/leg_enum.rs"}), "0.22.0 batch (#498, ADR-0001 D6)"),
-    # `Trade::pnl() -> PnL` is public inherent API returning an analytics type.
-    ("model", "pnl"): (frozenset({"model/trade.rs"}), "0.22.0 batch (#498)"),
-    # `Simulate::simulate` returns `SimulationStatsResult`; `SimulationStats`
-    # `impl BasicAble for Simulator/RandomWalk` lives in strategies.
-    ("strategies", "simulation"): (frozenset({"strategies/simulation_impls.rs"}), "0.22.0 batch (#505)"),
-    # `Strategable: ... + Graph` supertrait bound.
-    ("strategies", "visualization"): (frozenset({"strategies/base.rs"}), "0.22.0 batch (#505)"),
-    # --- Surfaced by the error-type resolver (#590). Each entry names the
-    # issue that owns its resolution; none is new debt, all were invisible
-    # because the reference is spelled `crate::error::Name`.
-    # The Greek methods of `LegAble` report `GreeksError`; they move to the
-    # pricing-owned extension trait with the methods themselves.
-    ("model", "error/greeks"): (
-        frozenset(
-            {
-                "model/leg/traits.rs",
-                "model/leg/leg_enum.rs",
-                "model/leg/spot.rs",
-                "model/leg/future.rs",
-                "model/leg/perpetual.rs",
-            }
-        ),
-        "0.22.0 batch (#498, ADR-0001 D6)",
-    ),
-    # `Options::calculate_implied_volatility` wrapper signature.
-    ("model", "error/volatility"): (frozenset({"model/option.rs"}), "0.22.0 batch (#499)"),
+# line is annotated `// deferred edge` in the source. Empty since #658, which
+# removed the last two (strategies -> simulation, strategies -> visualization);
+# the self-test proves the mechanism on a fixture table.
+DeferredTable = dict[tuple[str, str], tuple[frozenset[str], str]]
+DEFERRED: DeferredTable = {}
+
+# Workspace package -> layer (ADR-0001 D1). Every published package carries
+# the `optionstratlib` prefix; one missing from this table fails the check.
+# Packages without the prefix (`osl-example-*`, `osl-fixture-*`, the example
+# crates, and `osl-workspace-tests`, the cross-component integration tests
+# under tests/workspace, #534) are consumers, not components, and are not
+# checked: they sit above every layer and may name any component.
+CRATE_LAYER = {
+    "optionstratlib-core": "core",
+    "optionstratlib-math": "math",
+    "optionstratlib-pricing": "pricing",
+    "optionstratlib-simulation": "simulation",
+    "optionstratlib-market": "market",
+    "optionstratlib-analytics": "analytics",
+    "optionstratlib-strategies": "strategies",
+    "optionstratlib-backtest": "backtest",
+    "optionstratlib-visualization": "visualization",
+    "optionstratlib": "facade",
 }
 
 MARKER = "// facade-compat:"
@@ -244,7 +271,7 @@ def strip_comments(text: str, *, exempt_marked: bool = True) -> str:
     must follow them, because a marked line keeps a type reachable under
     another path and its consumers are not exempt (#590).
     """
-    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
     out = []
     for line in text.splitlines():
         code = line.split("//")[0]
@@ -304,10 +331,14 @@ def module_path_of(rel: str) -> tuple[str, ...]:
     return tuple(parts)
 
 
-TYPE_DEF_RE = re.compile(r"^\s*pub(?:\([^)]*\))?\s+(?:enum|struct|type)\s+([A-Z][A-Za-z0-9_]*)", re.MULTILINE)
+TYPE_DEF_RE = re.compile(
+    r"^\s*pub(?:\([^)]*\))?\s+(?:enum|struct|type)\s+([A-Z][A-Za-z0-9_]*)", re.M
+)
 LOCAL_DEF_RE = re.compile(r"\b(?:enum|struct|type|trait|union)\s+([A-Z][A-Za-z0-9_]*)")
-ALIAS_DEF_RE = re.compile(r"^\s*pub(?:\([^)]*\))?\s+type\s+([A-Z][A-Za-z0-9_]*)[^=;]*=\s*([^;]+);", re.MULTILINE)
-USE_RE = re.compile(r"\buse\s+([^;]+);", re.DOTALL)
+ALIAS_DEF_RE = re.compile(
+    r"^\s*pub(?:\([^)]*\))?\s+type\s+([A-Z][A-Za-z0-9_]*)[^=;]*=\s*([^;]+);", re.M
+)
+USE_RE = re.compile(r"\buse\s+([^;]+);", re.S)
 IDENT_RE = re.compile(r"\b([A-Z][A-Za-z0-9_]*)\b")
 # `crate::error::Name`, `crate::error::<file>::Name`, or `crate::<mods>::Name`
 # in any position (a `use` or an expression path).
@@ -322,17 +353,24 @@ def error_types(src: Path = SRC) -> tuple[dict[str, str], set[str]]:
     is taken (the conservative direction: a real inversion is never silent).
     """
     candidates: dict[str, set[str]] = {}
-    for path in sorted((src / "error").glob("*.rs")) if (src / "error").is_dir() else []:
+    # The facade's own error files, plus those of the extracted component
+    # crates: the facade re-exports their types through `crate::error`, and
+    # their file stems keep the layer `ERROR_FILE_LAYER` gives them (#524).
+    error_files = sorted((src / "error").glob("*.rs")) if (src / "error").is_dir() else []
+    error_files += sorted(src.parent.glob("crates/*/src/error/*.rs"))
+    for path in error_files:
         stem = path.stem
         if stem == "mod":
             continue
         text = "\n".join(production_lines(strip_comments(path.read_text(), exempt_marked=False)))
         for name in TYPE_DEF_RE.findall(text):
             candidates.setdefault(name, set()).add(stem)
-    names = {name: min(stems) for name, stems in candidates.items()}
+    names = {name: sorted(stems)[0] for name, stems in candidates.items()}
     ambiguous = {name for name, stems in candidates.items() if len(stems) > 1}
     AMBIGUOUS_STEMS.clear()
-    AMBIGUOUS_STEMS.update({name: sorted(stems) for name, stems in candidates.items() if len(stems) > 1})
+    AMBIGUOUS_STEMS.update(
+        {name: sorted(stems) for name, stems in candidates.items() if len(stems) > 1}
+    )
     return names, ambiguous
 
 
@@ -362,7 +400,7 @@ def use_entries(text: str) -> list[tuple[list[str], str | None]]:
             last = segments[-1]
             if " as " in last:
                 last, alias = (part.strip() for part in last.split(" as ", 1))
-                segments = [*segments[:-1], last]
+                segments = segments[:-1] + [last]
             entries.append((segments, alias))
     return entries
 
@@ -389,7 +427,7 @@ def absolute(
             base = base[:-1]
             rest = rest[1:]
         return base[:-1] + rest
-    if modules is not None and ((*tuple(module), head)) in modules:
+    if modules is not None and (tuple(module) + (head,)) in modules:
         return list(module) + segments
     return None
 
@@ -415,8 +453,8 @@ def resolution_tables(
     for path in sorted(src.rglob("*.rs")):
         rel = path.relative_to(src).as_posix()
         text = "\n".join(production_lines(strip_comments(path.read_text(), exempt_marked=False)))
-        pubs = [m.group(0) for m in re.finditer(r"\bpub(?:\([^)]*\))?\s+use\s+[^;]+;", text, re.DOTALL)]
-        alls = [m.group(0) for m in re.finditer(r"\buse\s+[^;]+;", text, re.DOTALL)]
+        pubs = [m.group(0) for m in re.finditer(r"\bpub(?:\([^)]*\))?\s+use\s+[^;]+;", text, re.S)]
+        alls = [m.group(0) for m in re.finditer(r"\buse\s+[^;]+;", text, re.S)]
         files.append((module_path_of(rel), pubs, alls))
         aliases.append((module_path_of(rel), text))
     # One fixed point over both passes: a `pub use` can make an alias
@@ -558,7 +596,9 @@ def resolve_error_refs(
         shadowed.add(local)
         record(abs_path[-1], tuple(abs_path[:-1]))
     for alias_name, mods in module_aliases.items():
-        for match in re.finditer(rf"\b{re.escape(alias_name)}::((?:[a-z_][a-z0-9_]*::)*)([A-Z][A-Za-z0-9_]*)\b", text):
+        for match in re.finditer(
+            rf"\b{re.escape(alias_name)}::((?:[a-z_][a-z0-9_]*::)*)([A-Z][A-Za-z0-9_]*)\b", text
+        ):
             tail = tuple(seg for seg in match.group(1).split("::") if seg)
             record(match.group(2), mods + tail)
     for match in QUALIFIED_RE.finditer(text):
@@ -630,18 +670,25 @@ def scan(src: Path = SRC) -> tuple[dict[tuple[str, str], list[str]], set[tuple[s
             source_layer = LAYER_OF.get(top)
         if source_layer is None:
             print(
-                f"unknown module {source!r} in {rel}; add it to LAYER_OF, ERROR_FILE_LAYER or UTILS_FILE_LAYER",
+                f"unknown module {source!r} in {rel}; add it to LAYER_OF, "
+                "ERROR_FILE_LAYER or UTILS_FILE_LAYER",
                 file=sys.stderr,
             )
             sys.exit(2)
         text = "\n".join(production_lines(strip_comments(path.read_text())))
         targets: list[str] = list(module_targets(text))
         # Error types, by the file that defines them (#590).
-        for stem in resolve_error_refs(text, module_path_of(rel), types, ambiguous, public, private, modules):
+        for stem in resolve_error_refs(
+            text, module_path_of(rel), types, ambiguous, public, private, modules
+        ):
             if stem in ERROR_FILE_LAYER:
                 targets.append(f"error/{stem}")
         for target in targets:
-            if target not in LAYER_OF and not target.startswith("error/") and not target.startswith("utils/"):
+            if (
+                target not in LAYER_OF
+                and not target.startswith("error/")
+                and not target.startswith("utils/")
+            ):
                 continue
             if target == source:
                 continue
@@ -828,7 +875,13 @@ def gated_module_files(src: Path = SRC) -> set[str]:
     return gated
 
 
-def synthetic_gate_violations(src: Path = SRC) -> list[str]:
+# The market crate's sources, scanned by `synthetic_gate_violations` with
+# `market_crate=True` (#537). `main` fails if it is missing, so a moved crate
+# cannot make the gate pass by scanning nothing.
+MARKET_SRC = SRC.parent / "crates" / "optionstratlib-market" / "src"
+
+
+def synthetic_gate_violations(src: Path = SRC, *, market_crate: bool = False) -> list[str]:
     """Prove the market-to-simulation edge really is behind `synthetic`.
 
     `SYNTHETIC_FILES` says an edge is the optional market capability; this
@@ -839,6 +892,11 @@ def synthetic_gate_violations(src: Path = SRC) -> list[str]:
     brings the whole file in. Anything else is in the minimal market surface
     and is reported, so "minimal market names no simulation type" is checked
     rather than asserted (roadmap M1-15).
+
+    With `market_crate`, `src` is the `optionstratlib-market` crate's own
+    source tree (#537): every file in it is market code, and a simulation
+    reference is a path through `optionstratlib_simulation` or a
+    `SimulationError`.
     """
     gated_modules = gated_module_files(src)
 
@@ -846,7 +904,7 @@ def synthetic_gate_violations(src: Path = SRC) -> list[str]:
     for path in sorted(src.rglob("*.rs")):
         rel = path.relative_to(src).as_posix()
         top = rel.split("/")[0]
-        if top not in MINIMAL_MARKET_MODULES and rel != "error/chains.rs":
+        if not market_crate and top not in MINIMAL_MARKET_MODULES and rel != "error/chains.rs":
             continue
         if rel in gated_modules:
             continue
@@ -858,7 +916,10 @@ def synthetic_gate_violations(src: Path = SRC) -> list[str]:
             # The same extraction the layer scan uses, so a grouped
             # `use crate::{simulation::X}` counts exactly as a plain
             # `use crate::simulation::X` does.
-            names_simulation = "simulation" in module_targets(text)
+            if market_crate:
+                names_simulation = "optionstratlib_simulation" in text
+            else:
+                names_simulation = "simulation" in module_targets(text)
             if not names_simulation and "SimulationError" not in text:
                 continue
             for offset, line in enumerate(span):
@@ -890,7 +951,11 @@ def _ungated_spans(lines: list[str], gated: set[int]) -> list[tuple[int, int]]:
     return spans
 
 
-def violations_of(edges: dict[tuple[str, str], list[str]]) -> list[str]:
+def violations_of(
+    edges: dict[tuple[str, str], list[str]], deferred_table: DeferredTable | None = None
+) -> list[str]:
+    """Forbidden edges; `deferred_table` defaults to `DEFERRED` (the self-test passes a fixture)."""
+    table = DEFERRED if deferred_table is None else deferred_table
     violations: list[str] = []
     for (src, dst), files in sorted(edges.items()):
         if dst in ALWAYS_ALLOWED_TARGETS:
@@ -898,9 +963,13 @@ def violations_of(edges: dict[tuple[str, str], list[str]]) -> list[str]:
         src_layer, dst_layer = layer_of(src), layer_of(dst)
         if dst_layer in ALLOWED[src_layer]:
             continue
-        if dst_layer == "simulation" and src_layer == "market" and all(f in SYNTHETIC_FILES for f in files):
+        if (
+            dst_layer == "simulation"
+            and src_layer == "market"
+            and all(f in SYNTHETIC_FILES for f in files)
+        ):
             continue
-        deferred = DEFERRED.get((src, dst))
+        deferred = table.get((src, dst))
         if deferred is not None and set(files) <= deferred[0]:
             continue
         where = ", ".join(sorted(set(files)))
@@ -911,6 +980,26 @@ def violations_of(edges: dict[tuple[str, str], list[str]]) -> list[str]:
     return violations
 
 
+def stale_deferred(
+    present: set[tuple[str, str]], deferred_table: DeferredTable | None = None
+) -> list[str]:
+    """Deferred entries whose edge no longer exists, so the table gets pruned."""
+    table = DEFERRED if deferred_table is None else deferred_table
+    return [
+        f"{s} -> {d} ({meta[1]})" for (s, d), meta in sorted(table.items()) if (s, d) not in present
+    ]
+
+
+def unowned_deferred(deferred_table: DeferredTable | None = None) -> list[str]:
+    """Deferred entries that name no owning issue (roadmap M1-10)."""
+    table = DEFERRED if deferred_table is None else deferred_table
+    return [
+        f"{s} -> {d}"
+        for (s, d), (_, owner) in sorted(table.items())
+        if not re.search(r"#\d+", owner)
+    ]
+
+
 def marked_lines(src: Path = SRC) -> dict[str, int]:
     """Count `// facade-compat` lines per source layer so marker creep shows in the log."""
     counts: dict[str, int] = {}
@@ -919,15 +1008,634 @@ def marked_lines(src: Path = SRC) -> dict[str, int]:
         parts = rel.split("/")
         top = parts[0].removesuffix(".rs")
         if top == "error":
-            layer = ERROR_FILE_LAYER.get(parts[1].removesuffix(".rs") if len(parts) > 1 else "mod", "facade")
+            layer = ERROR_FILE_LAYER.get(
+                parts[1].removesuffix(".rs") if len(parts) > 1 else "mod", "facade"
+            )
         elif top == "utils":
-            layer = UTILS_FILE_LAYER.get(parts[1].removesuffix(".rs") if len(parts) > 1 else "mod", "core")
+            layer = UTILS_FILE_LAYER.get(
+                parts[1].removesuffix(".rs") if len(parts) > 1 else "mod", "core"
+            )
         else:
             layer = LAYER_OF.get(top, "facade")
         n = sum(1 for line in path.read_text().splitlines() if MARKER in line)
         if n:
             counts[layer] = counts.get(layer, 0) + n
     return counts
+
+
+def cargo_metadata(root: Path) -> dict:
+    """The resolved `cargo metadata` of the workspace (members and every dependency)."""
+    import json
+    import subprocess
+
+    out = subprocess.run(
+        [
+            "cargo",
+            "metadata",
+            "--format-version",
+            "1",
+            "--manifest-path",
+            str(root / "Cargo.toml"),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(out.stdout)
+
+
+def workspace_packages(metadata: dict) -> list[dict]:
+    """Workspace members with their declared dependencies."""
+    members = set(metadata["workspace_members"])
+    return [p for p in metadata["packages"] if p["id"] in members]
+
+
+# The standalone crates that define the shared newtypes and enums (ADR-0001
+# D8). Every workspace package that names one must ask for the same version
+# requirement, and the resolved graph must hold a single version of each, or
+# two OptionStratLib crates could disagree on what `Positive` is (#515).
+FOUNDATIONAL = ("positive", "expiration_date", "financial_types", "option_type")
+
+# Components allowed a normal dependency on a foundational crate. ADR-0001 D8
+# names core alone; every other component imports through
+# `optionstratlib_core`. The facade keeps its direct dependencies while its
+# own modules still write `use positive::...`: ADR-0001 D8 rewrites those
+# imports as each module is extracted, and the entry goes with the last one.
+FOUNDATIONAL_DEPENDENTS = {"optionstratlib-core", "optionstratlib"}
+
+
+# External packages that must not appear in a component's resolved normal
+# dependency tree (`cargo tree -p <crate> -e normal`). Core's list is the
+# "must be absent" column of the ADR-0002 `osl-fixture-core-only` row; ADR-0002
+# has no math row, so math's list is the `osl-fixture-pricing-only` row plus
+# ADR-0002 §3 ("no visualization, no I/O") plus `plotters`. Other
+# `optionstratlib-*` crates are excluded by `crate_graph_violations`, not
+# here. Checked with default features
+# and with `--all-features`, so neither an optional dependency nor a feature
+# can bring one in (#517). `utoipa` is missing from both lists only because
+# `expiration_date` 0.4.0 forces `positive/utoipa` on every build (#628); it
+# goes back in once that is fixed upstream.
+FORBIDDEN_PACKAGES: dict[str, frozenset[str]] = {
+    "optionstratlib-core": frozenset(
+        {
+            "statrs",
+            "rayon",
+            "csv",
+            "zip",
+            "tokio",
+            "reqwest",
+            "plotly",
+            "plotly_static",
+            "tracing-subscriber",
+            "indicatif",
+            "prettytable-rs",
+        }
+    ),
+    "optionstratlib-math": frozenset(
+        {
+            "csv",
+            "zip",
+            "tokio",
+            "reqwest",
+            "plotly",
+            "plotly_static",
+            "plotters",
+            "fantoccini",
+            "webdriver",
+            "tracing-subscriber",
+            "indicatif",
+            "prettytable-rs",
+        }
+    ),
+    # The "must be absent" column of ADR-0002's `osl-fixture-pricing-only`
+    # row, plus the presentation crates math also excludes.
+    "optionstratlib-pricing": frozenset(
+        {
+            "csv",
+            "zip",
+            "tokio",
+            "reqwest",
+            "plotly",
+            "plotly_static",
+            "plotters",
+            "fantoccini",
+            "webdriver",
+            "tracing-subscriber",
+            "indicatif",
+            "prettytable-rs",
+        }
+    ),
+    # The "must be absent" column of ADR-0002's
+    # `osl-fixture-simulation-only` row, plus the presentation crates pricing
+    # also excludes. `prettytable-rs` is in it: the simulation statistics
+    # report that rendered a terminal table left for backtesting before the
+    # extraction, so the M6-05 exception market still carries does not apply
+    # here (#536).
+    "optionstratlib-simulation": frozenset(
+        {
+            "csv",
+            "zip",
+            "tokio",
+            "reqwest",
+            "futures",
+            "plotly",
+            "plotly_static",
+            "plotters",
+            "fantoccini",
+            "webdriver",
+            "tracing-subscriber",
+            "indicatif",
+            "prettytable-rs",
+        }
+    ),
+    # ADR-0002 `osl-fixture-market-minimal` row (ADR-0003 section 2). The
+    # simulation crate is on it too: only `synthetic` may bring it (#537).
+    "optionstratlib-market": frozenset(
+        {
+            "csv",
+            "zip",
+            "tokio",
+            "reqwest",
+            "futures",
+            "plotly",
+            "plotly_static",
+            "plotters",
+            "fantoccini",
+            "webdriver",
+            "tracing-subscriber",
+            "indicatif",
+            "optionstratlib-simulation",
+        }
+    ),
+    # ADR-0002 §3 backtest row: the plotting, I/O and async crates stay out,
+    # and so does `indicatif` (its progress bar became `tracing` events,
+    # #538). `prettytable-rs` is not listed: the report table of
+    # `SimulationStatsResult::print_summary` keeps it until M6-05, as market
+    # does.
+    "optionstratlib-backtest": frozenset(
+        {
+            "csv",
+            "zip",
+            "tokio",
+            "reqwest",
+            "futures",
+            "plotly",
+            "plotly_static",
+            "plotters",
+            "fantoccini",
+            "webdriver",
+            "tracing-subscriber",
+            "indicatif",
+        }
+    ),
+    # ADR-0002 §3 visualization row: with no feature the leaf crate builds
+    # chart data only, so no Plotly, image-export, WebDriver, async, I/O or
+    # progress-bar package. `plotly` and `static_export` add theirs through
+    # FEATURE_SETS (#542). `prettytable-rs` is not listed: market and
+    # strategies still carry it until M6-05.
+    "optionstratlib-visualization": frozenset(
+        {
+            "csv",
+            "zip",
+            "tokio",
+            "reqwest",
+            "futures",
+            "async-trait",
+            "plotly",
+            "plotly_static",
+            "plotters",
+            "fantoccini",
+            "webdriver",
+            "tracing-subscriber",
+            "indicatif",
+        }
+    ),
+    # The facade (#544): by default, and with `visualization` or `plotly`, it
+    # resolves no image-export, WebDriver, runtime or HTTP package. It may
+    # name `csv`, `zip` and `prettytable-rs` by default (`io`, market's
+    # report table until M6-05); `async` and `static_export` bring the rest
+    # through FEATURE_SETS. This is the "must be absent" column of ADR-0002's
+    # `osl-fixture-headless-full` row, minus `tracing-subscriber` and
+    # `indicatif` which no component resolves any more.
+    "optionstratlib": frozenset(
+        {
+            "tokio",
+            "reqwest",
+            "futures",
+            "async-trait",
+            "plotly",
+            "plotly_static",
+            "fantoccini",
+            "webdriver",
+            "tracing-subscriber",
+            "indicatif",
+        }
+    ),
+    # ADR-0002 §3 analytics row ("no strategies"): the minimal market set,
+    # since analytics needs no market I/O and has no feature of its own that
+    # adds a package beyond `utoipa` (#529).
+    "optionstratlib-analytics": frozenset(
+        {
+            "csv",
+            "zip",
+            "tokio",
+            "reqwest",
+            "futures",
+            "plotly",
+            "plotly_static",
+            "plotters",
+            "fantoccini",
+            "webdriver",
+            "tracing-subscriber",
+            "indicatif",
+        }
+    ),
+    # ADR-0002 §3 strategies row: the analytics set. Strategies need no market
+    # I/O, no simulation, no plotting and no progress bars (`indicatif` left
+    # the strategy loops before the extraction), and no feature of their own
+    # adds a package beyond `utoipa` (#531).
+    "optionstratlib-strategies": frozenset(
+        {
+            "csv",
+            "zip",
+            "tokio",
+            "reqwest",
+            "futures",
+            "plotly",
+            "plotly_static",
+            "plotters",
+            "fantoccini",
+            "webdriver",
+            "tracing-subscriber",
+            "indicatif",
+        }
+    ),
+}
+
+# Named feature sets checked on their own, besides default and all
+# features: label -> (`--features` value, packages that set may add). The
+# all-features tree may add the union of its crate's sets (ADR-0003 section
+# 2, #525).
+FEATURE_SETS: dict[str, dict[str, tuple[str, frozenset[str]]]] = {
+    "optionstratlib-market": {
+        "io": ("io", frozenset({"csv", "zip"})),
+        "async": ("async", frozenset({"csv", "zip", "tokio"})),
+        # `synthetic` adds the simulation crate, whose own graph is already in
+        # the minimal row (ADR-0003 section 2, #537).
+        "synthetic": ("synthetic", frozenset({"optionstratlib-simulation"})),
+    },
+    # The facade routes `plotly` and `static_export` to the visualization
+    # crate's features, so each set adds what that crate's set adds, plus the
+    # async stack `static_export` implies (ADR-0002 section 2, #544).
+    "optionstratlib": {
+        "visualization": ("visualization", frozenset()),
+        "plotly": ("plotly", frozenset({"plotly"})),
+        "async": ("async", frozenset({"tokio", "reqwest", "futures", "async-trait"})),
+        "static_export": (
+            "static_export",
+            frozenset(
+                {
+                    "plotly",
+                    "plotly_static",
+                    "fantoccini",
+                    "webdriver",
+                    "tokio",
+                    "reqwest",
+                    "futures",
+                    "async-trait",
+                }
+            ),
+        ),
+    },
+    # ADR-0002 §3 visualization row (#542): `plotly` brings Plotly itself and
+    # nothing for image export, which only `static_export` adds: the
+    # `plotly_static` exporter, its WebDriver client and the async runtime it
+    # runs on.
+    "optionstratlib-visualization": {
+        "plotly": ("plotly", frozenset({"plotly"})),
+        "static_export": (
+            "static_export",
+            frozenset(
+                {
+                    "plotly",
+                    "plotly_static",
+                    "fantoccini",
+                    "webdriver",
+                    "tokio",
+                    "reqwest",
+                    "async-trait",
+                }
+            ),
+        ),
+    },
+}
+
+
+def resolved_tree(root: Path, crate: str, features: str) -> set[str]:
+    """Package names in `crate`'s normal dependency tree for one feature set.
+
+    `features` is `"default"`, `"all features"` or a `--features` value.
+    """
+    import subprocess
+
+    command = [
+        "cargo",
+        "tree",
+        "-p",
+        crate,
+        "-e",
+        "normal",
+        "--prefix",
+        "none",
+        "--format",
+        "{p}",
+        "--manifest-path",
+        str(root / "Cargo.toml"),
+    ]
+    if features == "all features":
+        command.append("--all-features")
+    elif features != "default":
+        command += ["--no-default-features", "--features", features]
+    out = subprocess.run(command, check=True, capture_output=True, text=True)
+    return {line.split()[0] for line in out.stdout.splitlines() if line.strip()}
+
+
+def forbidden_package_violations(trees: dict[tuple[str, str], set[str]]) -> list[str]:
+    """`(crate, feature set) -> resolved packages`, checked against FORBIDDEN_PACKAGES."""
+    found = []
+    for (crate, features), packages in sorted(trees.items()):
+        forbidden = FORBIDDEN_PACKAGES.get(crate, frozenset())
+        sets = FEATURE_SETS.get(crate, {})
+        if features == "all features":
+            for _, allowed in sets.values():
+                forbidden = forbidden - allowed
+        elif features in sets:
+            forbidden = forbidden - sets[features][1]
+        for name in sorted(packages & forbidden):
+            found.append(f"{crate} ({features}) resolves {name}")
+    return found
+
+
+# Allowed internal module edges inside an extracted crate, per top-level
+# module (the file stem directly under `src/`). A module may always reference
+# itself. Production code only: `#[cfg(test)]` items are skipped, as in the
+# facade scan. In `optionstratlib-pricing`, `kernels` holds the formulas the
+# pricing models and the Greeks share, so neither imports the other's
+# helpers; the numerical Greeks re-price through `pricing`, never the
+# reverse (#523). Like the facade scan, this reads `crate::` paths only: a
+# relative `super::super::greeks::d1` import is not seen, so internal
+# imports in these crates use `crate::` paths.
+INTRA_CRATE_RULES: dict[str, dict[str, frozenset[str]]] = {
+    "optionstratlib-pricing": {
+        "error": frozenset({"error"}),
+        "kernels": frozenset({"error"}),
+        "pricing": frozenset({"kernels", "error"}),
+        "greeks": frozenset({"kernels", "pricing", "error"}),
+        "volatility": frozenset({"kernels", "pricing", "greeks", "error"}),
+    },
+}
+
+
+def intra_crate_violations(crate: str, src: Path, rules: dict[str, frozenset[str]]) -> list[str]:
+    """Internal edges of one crate that its INTRA_CRATE_RULES entry forbids."""
+    found = []
+    for path in sorted(src.rglob("*.rs")):
+        rel = path.relative_to(src).as_posix()
+        top = rel.split("/")[0].removesuffix(".rs")
+        if top == "lib":
+            continue
+        allowed = rules.get(top)
+        if allowed is None:
+            found.append(f"{crate}: module {top!r} ({rel}) has no INTRA_CRATE_RULES entry")
+            continue
+        text = "\n".join(production_lines(strip_comments(path.read_text(), exempt_marked=False)))
+        for target in sorted(set(module_targets(text))):
+            module = target.split("/")[0]
+            if module not in rules or module == top or module in allowed:
+                continue
+            found.append(f"{crate}: {rel} ({top}) -> {module}")
+    return found
+
+
+def foundational_violations(metadata: dict) -> list[str]:
+    """Misaligned requirements or duplicate resolved versions of a foundational crate."""
+    found: list[str] = []
+    for crate in FOUNDATIONAL:
+        requirements: dict[str, list[str]] = {}
+        for package in workspace_packages(metadata):
+            for dep in package.get("dependencies", []):
+                if dep["name"] == crate:
+                    requirements.setdefault(dep["req"], []).append(package["name"])
+        if len(requirements) > 1:
+            listed = "; ".join(
+                f"{req} in {', '.join(sorted(set(names)))}"
+                for req, names in sorted(requirements.items())
+            )
+            found.append(f"{crate}: workspace packages ask for different versions ({listed})")
+        versions = sorted({p["version"] for p in metadata["packages"] if p["name"] == crate})
+        if len(versions) > 1:
+            found.append(f"{crate}: resolved more than once ({', '.join(versions)})")
+    for package in workspace_packages(metadata):
+        name = package["name"]
+        if not is_component(name) or name in FOUNDATIONAL_DEPENDENTS:
+            continue
+        for dep in package.get("dependencies", []):
+            if dep["name"] in FOUNDATIONAL and (dep.get("kind") or "normal") == "normal":
+                found.append(
+                    f"{name} -> {dep['name']}: import it through optionstratlib_core instead"
+                )
+    return found
+
+
+def is_component(name: str) -> bool:
+    return name == "optionstratlib" or name.startswith("optionstratlib-")
+
+
+def crate_graph_violations(packages: list[dict]) -> list[str]:
+    """Reverse or unknown dependencies between OptionStratLib workspace crates.
+
+    Every dependency kind counts: a dev-dependency on a higher layer would let
+    a lower crate's own tests reach upward. The one optional edge is
+    `market -> simulation`, accepted only as an optional dependency that the
+    `synthetic` feature enables (ADR-0003).
+    """
+    found: list[str] = []
+    for package in packages:
+        name = package["name"]
+        if not is_component(name):
+            continue
+        layer = CRATE_LAYER.get(name)
+        if layer is None:
+            found.append(f"{name}: workspace crate with no layer, add it to CRATE_LAYER")
+            continue
+        synthetic = package.get("features", {}).get("synthetic", [])
+        for dep in package.get("dependencies", []):
+            target = dep["name"]
+            if not is_component(target):
+                continue
+            target_layer = CRATE_LAYER.get(target)
+            kind = dep.get("kind") or "normal"
+            if target_layer is None:
+                found.append(f"{name} -> {target} ({kind}): unknown workspace crate")
+                continue
+            if target_layer == "facade" and layer != "facade":
+                found.append(
+                    f"{name} -> {target} ({kind}): a component never depends on the facade"
+                )
+                continue
+            if target_layer in ALLOWED[layer]:
+                continue
+            if (
+                (layer, target_layer) == ("market", "simulation")
+                and dep.get("optional")
+                and f"dep:{target}" in synthetic
+            ):
+                continue
+            found.append(f"{name} ({layer}) -> {target} ({target_layer}, {kind})")
+    return found
+
+
+# The packages that bring Plotly and its static image export. Only the
+# visualization crate may declare them (ADR-0002 section 3). The consumers
+# under examples/ and tests/ go through the facade features, as a downstream
+# crate does.
+PLOTLY_BACKENDS = frozenset({"plotly", "plotly_static"})
+PLOTLY_OWNER = "optionstratlib-visualization"
+# The visualization crate's backend features, exactly: `plotly` enables the
+# optional dependency and nothing else, and `static_export` adds only the
+# export feature of that dependency, which is what pulls `plotly_static`,
+# WebDriver and the async runtime.
+PLOTLY_OWNER_FEATURES = {
+    "plotly": frozenset({"dep:plotly"}),
+    "static_export": frozenset({"plotly", "plotly/static_export_default"}),
+}
+# Facade features that may name the visualization crate, with the one value
+# each may use.
+FACADE_VISUALIZATION_FEATURES = {
+    "visualization": "dep:optionstratlib-visualization",
+    "plotly": "optionstratlib-visualization/plotly",
+    "static_export": "optionstratlib-visualization/static_export",
+}
+
+
+def plotly_gate_violations(packages: list[dict]) -> list[str]:
+    """Ways a library package could resolve Plotly or static export outside its gate.
+
+    `crate_graph_violations` already forbids a lower layer depending on the
+    visualization crate; this adds the part it cannot see: a package that
+    declares the Plotly packages itself, and a feature that forwards to them
+    or to the visualization crate from a layer that must stay headless.
+    """
+    found: list[str] = []
+    for package in packages:
+        name = package["name"]
+        features = package.get("features", {})
+        deps = package.get("dependencies", [])
+        if not is_component(name):
+            # Examples and tests reach Plotly through the facade features
+            # like any downstream crate; a direct dependency would resolve
+            # `plotly_static` behind the gate's back (#544).
+            for dep in deps:
+                if dep["name"] in PLOTLY_BACKENDS:
+                    kind = dep.get("kind") or "normal"
+                    found.append(
+                        f"{name} -> {dep['name']} ({kind}): enable the facade `plotly` or `static_export` feature instead"
+                    )
+            continue
+        if name == PLOTLY_OWNER:
+            plotly = [d for d in deps if d["name"] == "plotly"]
+            if not plotly:
+                found.append(f"{name}: no `plotly` dependency, the gate has nothing to guard")
+            for dep in plotly:
+                kind = dep.get("kind") or "normal"
+                if kind == "normal" and not dep.get("optional"):
+                    found.append(f"{name}: `plotly` must be an optional dependency")
+                if dep.get("uses_default_features", False):
+                    found.append(
+                        f"{name}: `plotly` ({kind}) must be declared with default-features = false"
+                    )
+                if "static_export_default" in dep.get("features", []):
+                    found.append(
+                        f"{name}: `plotly` ({kind}) must not enable static_export_default; only the "
+                        "`static_export` feature does"
+                    )
+            for feature, expected in PLOTLY_OWNER_FEATURES.items():
+                got = frozenset(features.get(feature, []))
+                if got != expected:
+                    found.append(
+                        f"{name}: feature `{feature}` is {sorted(got)}, expected {sorted(expected)}"
+                    )
+            if "default" in features and features["default"]:
+                found.append(f"{name}: default features must stay empty, got {features['default']}")
+            continue
+        for dep in deps:
+            if dep["name"] in PLOTLY_BACKENDS:
+                kind = dep.get("kind") or "normal"
+                found.append(
+                    f"{name} -> {dep['name']} ({kind}): only {PLOTLY_OWNER} may declare it"
+                )
+        layer = CRATE_LAYER.get(name)
+        for feature, values in sorted(features.items()):
+            named = [
+                v
+                for v in values
+                if v.removeprefix("dep:").split("/")[0].rstrip("?") == PLOTLY_OWNER
+            ]
+            if layer == "facade":
+                # Direct names only: an indirect enable (a default feature that
+                # implies `plotly`) is caught by the facade's default tree in
+                # FORBIDDEN_PACKAGES and by the `headless-full` fixture.
+                if feature == "default":
+                    for value in values:
+                        if value in ("plotly", "static_export"):
+                            found.append(f"{name}: default features must not enable `{value}`")
+                allowed = FACADE_VISUALIZATION_FEATURES.get(feature)
+                for value in named:
+                    if value != allowed:
+                        found.append(
+                            f"{name}: feature `{feature}` names `{value}`; only visualization, plotly and "
+                            "static_export may reach the visualization crate, each through its own entry"
+                        )
+                continue
+            if feature in ("plotly", "static_export"):
+                found.append(
+                    f"{name} ({layer}): feature `{feature}`; only the facade and {PLOTLY_OWNER} have it"
+                )
+            for value in named:
+                found.append(
+                    f"{name} ({layer}): feature `{feature}` names `{value}`, a headless layer cannot reach {PLOTLY_OWNER}"
+                )
+    return found
+
+
+def file_layer(rel: str) -> str | None:
+    """Target layer of a facade source file, as `scan` assigns it."""
+    parts = rel.split("/")
+    top = parts[0].removesuffix(".rs")
+    if top in ("lib", "prelude"):
+        return "facade"
+    stem = parts[1].removesuffix(".rs") if len(parts) > 1 else "mod"
+    if top == "error":
+        return ERROR_FILE_LAYER.get(stem)
+    if top == "utils":
+        return UTILS_FILE_LAYER.get(stem)
+    return LAYER_OF.get(top)
+
+
+def facade_redefinitions(src: Path, packages: list[dict]) -> list[str]:
+    """Facade files that belong to a layer a workspace crate already owns."""
+    owners = {
+        CRATE_LAYER[p["name"]]: p["name"]
+        for p in packages
+        if CRATE_LAYER.get(p["name"]) not in (None, "facade")
+    }
+    found = []
+    for path in sorted(src.rglob("*.rs")):
+        rel = path.relative_to(src).as_posix()
+        layer = file_layer(rel)
+        if layer in owners:
+            found.append(f"src/{rel} belongs to layer {layer}, which {owners[layer]} owns")
+    return found
 
 
 def self_test() -> int:
@@ -942,11 +1650,20 @@ def self_test() -> int:
     # `(files, expected violations[, substring the violation text must contain])`:
     # the substring pins WHICH file carries the edge, so a case cannot pass on
     # a violation raised somewhere else in the fixture.
-    cases: dict[str, tuple] = {
+    cases: dict[
+        str,
+        tuple,
+    ] = {
         "forbidden edge": ([("model/x.rs", "use crate::pricing::black_scholes;\n")], 1),
         "allowed edge": ([("pricing/x.rs", "use crate::model::Options;\n")], 0),
-        "comment only": ([("model/x.rs", "// use crate::pricing::black_scholes;\n/* crate::chains::X */\n")], 0),
-        "test module only": ([("model/x.rs", "#[cfg(test)]\nmod t {\n    use crate::pricing::black_scholes;\n}\n")], 0),
+        "comment only": (
+            [("model/x.rs", "// use crate::pricing::black_scholes;\n/* crate::chains::X */\n")],
+            0,
+        ),
+        "test module only": (
+            [("model/x.rs", "#[cfg(test)]\nmod t {\n    use crate::pricing::black_scholes;\n}\n")],
+            0,
+        ),
         "marked compat re-export": (
             [("model/x.rs", "pub use crate::pricing::black_scholes; // facade-compat: pricing\n")],
             0,
@@ -955,13 +1672,28 @@ def self_test() -> int:
             [("model/x.rs", "use crate::pricing::black_scholes; // facade-compat: pricing\n")],
             1,
         ),
-        "multiline import": ([("model/x.rs", "use crate::{\n    Options,\n    pricing::black_scholes,\n};\n")], 1),
-        "nested brace import": (
-            [err, ("model/x.rs", "use crate::{error::{strategies::StrategyError, DecimalError}, model::Options};\n")],
+        "multiline import": (
+            [("model/x.rs", "use crate::{\n    Options,\n    pricing::black_scholes,\n};\n")],
             1,
         ),
-        "qualified error path": ([err, ("model/x.rs", "use crate::error::strategies::StrategyError;\n")], 1),
-        "qualified group": ([err, ("model/x.rs", "use crate::error::{strategies::StrategyError};\n")], 1),
+        "nested brace import": (
+            [
+                err,
+                (
+                    "model/x.rs",
+                    "use crate::{error::{strategies::StrategyError, DecimalError}, model::Options};\n",
+                ),
+            ],
+            1,
+        ),
+        "qualified error path": (
+            [err, ("model/x.rs", "use crate::error::strategies::StrategyError;\n")],
+            1,
+        ),
+        "qualified group": (
+            [err, ("model/x.rs", "use crate::error::{strategies::StrategyError};\n")],
+            1,
+        ),
         "multiline qualified group": (
             [err, ("model/x.rs", "use crate::error::{\n    strategies::StrategyError,\n};\n")],
             1,
@@ -974,27 +1706,36 @@ def self_test() -> int:
             [("model/x.rs", "#[cfg(test)]\nmod tests;\nuse crate::strategies::Strategy;\n")],
             1,
         ),
-        "synthetic file": ([("chains/generators.rs", "use crate::simulation::WalkParams;\n")], 0),
         # --- per-file ownership of `src/utils` (M1-09)
         "utils file is scanned as its own owner": (
             [("utils/rng.rs", "use crate::strategies::Strategy;\n")],
             1,
             "utils/rng -> strategies",
         ),
-        "utils file keeps its allowed edges": ([("utils/numeric.rs", "use crate::model::Options;\n")], 0),
+        "utils file keeps its allowed edges": (
+            [("utils/numeric.rs", "use crate::model::Options;\n")],
+            0,
+        ),
         "a utils target resolves to the owning file": (
             [("model/x.rs", "use crate::utils::rng::deterministic_rng;\n")],
             0,
         ),
-        "deferred pair in its file": ([("model/trade.rs", "use crate::pnl::PnL;\n")], 0),
-        "deferred pair in another file": ([("model/other.rs", "use crate::pnl::PnL;\n")], 1),
         # --- error-type resolution (#590)
         "bare error import": ([err, ("model/x.rs", "use crate::error::StrategyError;\n")], 1),
         "error import with alias": (
-            [err, ("model/x.rs", "use crate::error::StrategyError as SE;\nfn f() -> SE { todo!() }\n")],
+            [
+                err,
+                (
+                    "model/x.rs",
+                    "use crate::error::StrategyError as SE;\nfn f() -> SE { todo!() }\n",
+                ),
+            ],
             1,
         ),
-        "error import in a group": ([err, ("model/x.rs", "use crate::error::{DecimalError, StrategyError};\n")], 1),
+        "error import in a group": (
+            [err, ("model/x.rs", "use crate::error::{DecimalError, StrategyError};\n")],
+            1,
+        ),
         "error path in expression position": (
             [err, ("model/x.rs", "fn f() { let _ = crate::error::StrategyError::A; }\n")],
             1,
@@ -1007,7 +1748,10 @@ def self_test() -> int:
         "error re-exported from another module": (
             [
                 err,
-                ("curves/mod.rs", "pub use crate::error::StrategyError; // facade-compat: strategies\n"),
+                (
+                    "curves/mod.rs",
+                    "pub use crate::error::StrategyError; // facade-compat: strategies\n",
+                ),
                 ("pricing/x.rs", "use crate::curves::StrategyError;\n"),
             ],
             1,
@@ -1015,8 +1759,14 @@ def self_test() -> int:
         "re-export of a re-export": (
             [
                 err,
-                ("curves/mod.rs", "pub use crate::error::StrategyError; // facade-compat: strategies\n"),
-                ("surfaces/mod.rs", "pub use crate::curves::StrategyError; // facade-compat: strategies\n"),
+                (
+                    "curves/mod.rs",
+                    "pub use crate::error::StrategyError; // facade-compat: strategies\n",
+                ),
+                (
+                    "surfaces/mod.rs",
+                    "pub use crate::curves::StrategyError; // facade-compat: strategies\n",
+                ),
                 ("pricing/x.rs", "use crate::surfaces::StrategyError;\n"),
             ],
             1,
@@ -1033,7 +1783,10 @@ def self_test() -> int:
             [err, ("model/x.rs", "use crate::error::*;\nfn f() -> StrategyError { todo!() }\n")],
             1,
         ),
-        "glob import without using the name": ([err, ("model/x.rs", "use crate::error::*;\nfn f() -> u8 { 0 }\n")], 0),
+        "glob import without using the name": (
+            [err, ("model/x.rs", "use crate::error::*;\nfn f() -> u8 { 0 }\n")],
+            0,
+        ),
         "foreign Error of the same name": (
             [
                 ("error/unified.rs", "pub enum Error { A }\n"),
@@ -1041,10 +1794,19 @@ def self_test() -> int:
             ],
             0,
         ),
-        "allowed error direction": ([err, ("strategies/x.rs", "use crate::error::StrategyError;\n")], 0),
+        "allowed error direction": (
+            [err, ("strategies/x.rs", "use crate::error::StrategyError;\n")],
+            0,
+        ),
         "error module itself": ([err, ("model/x.rs", "use crate::error::{self};\n")], 0),
         "module alias": (
-            [err, ("model/x.rs", "use crate::error as errors;\nfn f() -> errors::StrategyError { todo!() }\n")],
+            [
+                err,
+                (
+                    "model/x.rs",
+                    "use crate::error as errors;\nfn f() -> errors::StrategyError { todo!() }\n",
+                ),
+            ],
             1,
             "model/x.rs",
         ),
@@ -1073,7 +1835,10 @@ def self_test() -> int:
             [
                 err,
                 ("model/position/mod.rs", "use crate::error::StrategyError;\npub mod child;\n"),
-                ("model/position/child.rs", "use super::StrategyError;\nfn f() -> StrategyError { todo!() }\n"),
+                (
+                    "model/position/child.rs",
+                    "use super::StrategyError;\nfn f() -> StrategyError { todo!() }\n",
+                ),
             ],
             1,
             "model/position/child.rs",
@@ -1102,9 +1867,18 @@ def self_test() -> int:
         "re-export of an alias resolves": (
             [
                 err,
-                ("strategies/mod.rs", "pub type StratResult<T> = Result<T, crate::error::StrategyError>;\n"),
-                ("curves/mod.rs", "pub use crate::strategies::StratResult; // facade-compat: strategies\n"),
-                ("pricing/x.rs", "use crate::curves::StratResult;\nfn f() -> StratResult<u8> { todo!() }\n"),
+                (
+                    "strategies/mod.rs",
+                    "pub type StratResult<T> = Result<T, crate::error::StrategyError>;\n",
+                ),
+                (
+                    "curves/mod.rs",
+                    "pub use crate::strategies::StratResult; // facade-compat: strategies\n",
+                ),
+                (
+                    "pricing/x.rs",
+                    "use crate::curves::StratResult;\nfn f() -> StratResult<u8> { todo!() }\n",
+                ),
             ],
             1,
             "pricing/x.rs",
@@ -1112,16 +1886,28 @@ def self_test() -> int:
         "alias over a foreign error of the same name": (
             [
                 ("error/unified.rs", "pub enum Error { A }\n"),
-                ("curves/alias.rs", "use std::io::Error;\npub type IoResult<T> = Result<T, Error>;\n"),
-                ("pricing/x.rs", "use crate::curves::alias::IoResult;\nfn f() -> IoResult<u8> { todo!() }\n"),
+                (
+                    "curves/alias.rs",
+                    "use std::io::Error;\npub type IoResult<T> = Result<T, Error>;\n",
+                ),
+                (
+                    "pricing/x.rs",
+                    "use crate::curves::alias::IoResult;\nfn f() -> IoResult<u8> { todo!() }\n",
+                ),
             ],
             0,
         ),
         "alias over a qualified crate error": (
             [
                 err,
-                ("curves/alias.rs", "pub type StratResult<T> = Result<T, crate::error::strategies::StrategyError>;\n"),
-                ("pricing/x.rs", "use crate::curves::alias::StratResult;\nfn f() -> StratResult<u8> { todo!() }\n"),
+                (
+                    "curves/alias.rs",
+                    "pub type StratResult<T> = Result<T, crate::error::strategies::StrategyError>;\n",
+                ),
+                (
+                    "pricing/x.rs",
+                    "use crate::curves::alias::StratResult;\nfn f() -> StratResult<u8> { todo!() }\n",
+                ),
             ],
             2,
             "pricing/x.rs",
@@ -1129,8 +1915,14 @@ def self_test() -> int:
         "type alias over an error reaches its consumer": (
             [
                 err,
-                ("curves/alias.rs", "pub type StratResult<T> = Result<T, crate::error::StrategyError>;\n"),
-                ("pricing/x.rs", "use crate::curves::alias::StratResult;\nfn f() -> StratResult<u8> { todo!() }\n"),
+                (
+                    "curves/alias.rs",
+                    "pub type StratResult<T> = Result<T, crate::error::StrategyError>;\n",
+                ),
+                (
+                    "pricing/x.rs",
+                    "use crate::curves::alias::StratResult;\nfn f() -> StratResult<u8> { todo!() }\n",
+                ),
             ],
             2,
             "pricing/x.rs",
@@ -1145,7 +1937,13 @@ def self_test() -> int:
             "model -> error/strategies",
         ),
         "alias defined in an allowed layer": (
-            [err, ("strategies/alias.rs", "pub type StratResult<T> = Result<T, crate::error::StrategyError>;\n")],
+            [
+                err,
+                (
+                    "strategies/alias.rs",
+                    "pub type StratResult<T> = Result<T, crate::error::StrategyError>;\n",
+                ),
+            ],
             0,
         ),
     }
@@ -1166,25 +1964,50 @@ def self_test() -> int:
             if not ok:
                 failures += 1
             detail = f" [{needle}]" if needle else ""
-            print(f"self-test {'ok' if ok else 'FAIL'}: {name}{detail} (expected {expected}, got {got})")
-    # A deferred entry whose edge is gone must be reported as stale.
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp) / "src"
-        (root / "model").mkdir(parents=True)
-        (root / "model" / "x.rs").write_text("pub fn nothing() {}\n")
-        _, present = scan(root)
-        stale = [key for key in DEFERRED if key not in present]
-        ok = len(stale) == len(DEFERRED)
-        print(
-            f"self-test {'ok' if ok else 'FAIL'}: stale deferred entries are detected ({len(stale)} of {len(DEFERRED)})"
-        )
-        if not ok:
-            failures += 1
+            print(
+                f"self-test {'ok' if ok else 'FAIL'}: {name}{detail} (expected {expected}, got {got})"
+            )
+    # The DEFERRED mechanism, proven on a fixture table so the self-test does
+    # not lean on the real one (empty since #658): an entry tolerates its pair
+    # only in the files it lists, and an entry whose edge is gone is stale.
+    fixture_deferred: DeferredTable = {
+        ("strategies", "visualization"): (frozenset({"strategies/base.rs"}), "fixture (#658)"),
+        ("strategies", "simulation"): (frozenset({"strategies/sim.rs"}), "fixture (#658)"),
+    }
+    deferred_cases = {
+        "deferred pair in its file": (
+            "strategies/base.rs",
+            0,
+            ["strategies -> simulation (fixture (#658))"],
+        ),
+        "deferred pair in another file": (
+            "strategies/other.rs",
+            1,
+            ["strategies -> simulation (fixture (#658))"],
+        ),
+    }
+    for name, (rel, expected, expected_stale) in deferred_cases.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "src"
+            (root / rel).parent.mkdir(parents=True)
+            (root / rel).write_text("use crate::visualization::Graph;\n")
+            edges, present = scan(root)
+            found = violations_of(edges, fixture_deferred)
+            stale = stale_deferred(present, fixture_deferred)
+            ok = len(found) == expected and stale == expected_stale
+            if not ok:
+                failures += 1
+            print(
+                f"self-test {'ok' if ok else 'FAIL'}: {name} (expected {expected} violations and "
+                f"{len(expected_stale)} stale, got {len(found)} and {len(stale)})"
+            )
     # The synthetic gate: a simulation reference in market code counts only
     # when the feature attribute really carries it (M1-15).
     gate_cases = {
         "ungated variant in market error": (
-            {"error/chains.rs": "pub enum ChainError {\n    Simulation(Box<crate::error::SimulationError>),\n}\n"},
+            {
+                "error/chains.rs": "pub enum ChainError {\n    Simulation(Box<crate::error::SimulationError>),\n}\n"
+            },
             1,
         ),
         "variant gated on the item": (
@@ -1306,16 +2129,999 @@ def self_test() -> int:
             ok = got == expected
             if not ok:
                 failures += 1
-            print(f"self-test {'ok' if ok else 'FAIL'}: synthetic gate, {name} (expected {expected}, got {got})")
+            print(
+                f"self-test {'ok' if ok else 'FAIL'}: synthetic gate, {name} (expected {expected}, got {got})"
+            )
+    # The same gate over the market crate's own sources (#537), where the
+    # engine is reached through `optionstratlib_simulation`.
+    crate_gate_cases = {
+        "generators gated at their mod declaration": (
+            {
+                "chains/mod.rs": '#[cfg(feature = "synthetic")]\nmod generators;\n',
+                "chains/generators.rs": "use optionstratlib_simulation::simulation::WalkParams;\n",
+            },
+            0,
+        ),
+        "generators declared without the gate": (
+            {
+                "chains/mod.rs": "mod generators;\n",
+                "chains/generators.rs": "use optionstratlib_simulation::simulation::WalkParams;\n",
+            },
+            1,
+        ),
+        "From impl gated on the item": (
+            {
+                "error/chains.rs": (
+                    '#[cfg(feature = "synthetic")]\n'
+                    "impl From<optionstratlib_simulation::error::SimulationError> for ChainError {}\n"
+                ),
+            },
+            0,
+        ),
+        "From impl without the gate": (
+            {
+                "error/chains.rs": "impl From<optionstratlib_simulation::error::SimulationError> for ChainError {}\n"
+            },
+            1,
+        ),
+        "a file outside chains and series is checked too": (
+            {"lib.rs": "pub use optionstratlib_simulation::simulation::Step;\n"},
+            1,
+        ),
+        "an ungated crate alias is caught": (
+            {"chains/x.rs": "use optionstratlib_simulation as sim;\n"},
+            1,
+        ),
+        "an ungated grouped path is caught": (
+            {"chains/x.rs": "use {optionstratlib_simulation::simulation::Step, std::fmt};\n"},
+            1,
+        ),
+    }
+    for name, (files, expected) in crate_gate_cases.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "src"
+            for rel, content in files.items():
+                target = root / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(content)
+            got = len(synthetic_gate_violations(root, market_crate=True))
+            ok = got == expected
+            if not ok:
+                failures += 1
+            print(
+                f"self-test {'ok' if ok else 'FAIL'}: market crate synthetic gate, {name} (expected {expected}, got {got})"
+            )
+
+    # --- workspace crate graph (M2-01, carrying #507 forward)
+    def pkg(name: str, *deps: tuple, features: dict | None = None) -> dict:
+        return {
+            "name": name,
+            "features": features or {},
+            "dependencies": [
+                {
+                    "name": d[0],
+                    "kind": d[1] if len(d) > 1 else None,
+                    "optional": d[2] if len(d) > 2 else False,
+                }
+                for d in deps
+            ],
+        }
+
+    crate_cases = {
+        "core depends on nothing of ours": ([pkg("optionstratlib-core", ("serde",))], 0),
+        "core depends on the facade": ([pkg("optionstratlib-core", ("optionstratlib",))], 1),
+        "core dev-depends on the facade": (
+            [pkg("optionstratlib-core", ("optionstratlib", "dev"))],
+            1,
+        ),
+        "core depends on math": ([pkg("optionstratlib-core", ("optionstratlib-math",))], 1),
+        "math depends on pricing": ([pkg("optionstratlib-math", ("optionstratlib-pricing",))], 1),
+        "math depends on visualization": (
+            [pkg("optionstratlib-math", ("optionstratlib-visualization",))],
+            1,
+        ),
+        "math depends on core": ([pkg("optionstratlib-math", ("optionstratlib-core",))], 0),
+        "facade depends on core": ([pkg("optionstratlib", ("optionstratlib-core",))], 0),
+        "unknown component": ([pkg("optionstratlib-extra")], 1),
+        "unknown dependency": ([pkg("optionstratlib-core", ("optionstratlib-extra",))], 1),
+        "example consumer is not checked": ([pkg("examples_chain", ("optionstratlib",))], 0),
+        "workspace integration tests are not checked": (
+            [
+                pkg(
+                    "osl-workspace-tests",
+                    ("optionstratlib-core", "dev"),
+                    ("optionstratlib-pricing", "dev"),
+                    ("optionstratlib-strategies", "dev"),
+                )
+            ],
+            0,
+        ),
+        "synthetic optional edge": (
+            [
+                pkg(
+                    "optionstratlib-market",
+                    ("optionstratlib-simulation", None, True),
+                    features={"synthetic": ["dep:optionstratlib-simulation"]},
+                )
+            ],
+            0,
+        ),
+        "mandatory market -> simulation": (
+            [pkg("optionstratlib-market", ("optionstratlib-simulation",))],
+            1,
+        ),
+        # #530: analytics stays strategy-free. The upper crates do not exist
+        # yet; their `CRATE_LAYER` entries already report an edge to them as
+        # a layer violation, whatever the dependency kind.
+        "analytics depends on market": (
+            [pkg("optionstratlib-analytics", ("optionstratlib-market",))],
+            0,
+        ),
+        "analytics depends on strategies": (
+            [pkg("optionstratlib-analytics", ("optionstratlib-strategies",))],
+            1,
+        ),
+        "analytics dev-depends on strategies": (
+            [pkg("optionstratlib-analytics", ("optionstratlib-strategies", "dev"))],
+            1,
+        ),
+        "analytics build-depends on strategies": (
+            [pkg("optionstratlib-analytics", ("optionstratlib-strategies", "build"))],
+            1,
+        ),
+        "analytics optionally depends on strategies": (
+            [pkg("optionstratlib-analytics", ("optionstratlib-strategies", None, True))],
+            1,
+        ),
+        "analytics depends on backtest": (
+            [pkg("optionstratlib-analytics", ("optionstratlib-backtest",))],
+            1,
+        ),
+        "analytics depends on visualization": (
+            [pkg("optionstratlib-analytics", ("optionstratlib-visualization",))],
+            1,
+        ),
+        "analytics depends on simulation": (
+            [pkg("optionstratlib-analytics", ("optionstratlib-simulation",))],
+            1,
+        ),
+        # #531: strategies sit on analytics, market, pricing and core, with
+        # no math edge (ADR-0001 D9) and nothing from the layers above.
+        "strategies depends on analytics": (
+            [
+                pkg(
+                    "optionstratlib-strategies",
+                    ("optionstratlib-analytics",),
+                    ("optionstratlib-market",),
+                    ("optionstratlib-pricing",),
+                    ("optionstratlib-core",),
+                )
+            ],
+            0,
+        ),
+        "strategies depends on math": (
+            [pkg("optionstratlib-strategies", ("optionstratlib-math",))],
+            1,
+        ),
+        "strategies depends on simulation": (
+            [pkg("optionstratlib-strategies", ("optionstratlib-simulation",))],
+            1,
+        ),
+        "strategies dev-depends on simulation": (
+            [pkg("optionstratlib-strategies", ("optionstratlib-simulation", "dev"))],
+            1,
+        ),
+        "strategies depends on backtest": (
+            [pkg("optionstratlib-strategies", ("optionstratlib-backtest",))],
+            1,
+        ),
+        "strategies optionally depends on visualization": (
+            [pkg("optionstratlib-strategies", ("optionstratlib-visualization", None, True))],
+            1,
+        ),
+        "strategies depends on the facade": (
+            [pkg("optionstratlib-strategies", ("optionstratlib", "dev"))],
+            1,
+        ),
+        # #536: simulation sits on pricing and core (math is allowed, ADR-0001
+        # D9) and names no market, strategy, backtest or plotting crate.
+        "simulation depends on pricing": (
+            [
+                pkg(
+                    "optionstratlib-simulation",
+                    ("optionstratlib-pricing",),
+                    ("optionstratlib-core",),
+                )
+            ],
+            0,
+        ),
+        "simulation depends on math": (
+            [pkg("optionstratlib-simulation", ("optionstratlib-math",))],
+            0,
+        ),
+        "simulation depends on market": (
+            [pkg("optionstratlib-simulation", ("optionstratlib-market",))],
+            1,
+        ),
+        "simulation dev-depends on market": (
+            [pkg("optionstratlib-simulation", ("optionstratlib-market", "dev"))],
+            1,
+        ),
+        "simulation depends on analytics": (
+            [pkg("optionstratlib-simulation", ("optionstratlib-analytics",))],
+            1,
+        ),
+        "simulation depends on strategies": (
+            [pkg("optionstratlib-simulation", ("optionstratlib-strategies",))],
+            1,
+        ),
+        "simulation depends on backtest": (
+            [pkg("optionstratlib-simulation", ("optionstratlib-backtest",))],
+            1,
+        ),
+        # #538: backtest composes strategies and simulation, skips math
+        # (ADR-0001 D9) and names no visualization crate.
+        "backtest depends on strategies and simulation": (
+            [
+                pkg(
+                    "optionstratlib-backtest",
+                    ("optionstratlib-strategies",),
+                    ("optionstratlib-simulation",),
+                )
+            ],
+            0,
+        ),
+        "backtest depends on math": ([pkg("optionstratlib-backtest", ("optionstratlib-math",))], 1),
+        "backtest dev-depends on the facade": (
+            [pkg("optionstratlib-backtest", ("optionstratlib", "dev"))],
+            1,
+        ),
+        "backtest depends on visualization": (
+            [pkg("optionstratlib-backtest", ("optionstratlib-visualization",))],
+            1,
+        ),
+        "strategies depends on backtest (reverse)": (
+            [pkg("optionstratlib-strategies", ("optionstratlib-backtest", "dev"))],
+            1,
+        ),
+        # #542: visualization is the leaf. It may name every component below
+        # it, math included (ADR-0001 D9), and nothing may name it.
+        "visualization depends on strategies, simulation and math": (
+            [
+                pkg(
+                    "optionstratlib-visualization",
+                    ("optionstratlib-strategies",),
+                    ("optionstratlib-simulation",),
+                    ("optionstratlib-math",),
+                )
+            ],
+            0,
+        ),
+        "visualization dev-depends on the facade": (
+            [pkg("optionstratlib-visualization", ("optionstratlib", "dev"))],
+            1,
+        ),
+        "backtest dev-depends on visualization": (
+            [pkg("optionstratlib-backtest", ("optionstratlib-visualization", "dev"))],
+            1,
+        ),
+        "facade optionally depends on visualization": (
+            [pkg("optionstratlib", ("optionstratlib-visualization", None, True))],
+            0,
+        ),
+        "simulation optionally depends on visualization": (
+            [pkg("optionstratlib-simulation", ("optionstratlib-visualization", None, True))],
+            1,
+        ),
+        "simulation depends on the facade": (
+            [pkg("optionstratlib-simulation", ("optionstratlib", "dev"))],
+            1,
+        ),
+    }
+    for name, (packages, expected) in crate_cases.items():
+        got = len(crate_graph_violations(packages))
+        ok = got == expected
+        if not ok:
+            failures += 1
+        print(
+            f"self-test {'ok' if ok else 'FAIL'}: crate graph, {name} (expected {expected}, got {got})"
+        )
+
+    # --- the Plotly gate (#544)
+    def gated(name: str, *deps: dict, features: dict | None = None) -> dict:
+        return {"name": name, "features": features or {}, "dependencies": list(deps)}
+
+    def dep(
+        name: str,
+        *,
+        kind: str | None = None,
+        optional: bool = False,
+        defaults: bool = False,
+        features: tuple[str, ...] = (),
+    ) -> dict:
+        return {
+            "name": name,
+            "kind": kind,
+            "optional": optional,
+            "uses_default_features": defaults,
+            "features": list(features),
+        }
+
+    visualization_ok = gated(
+        "optionstratlib-visualization",
+        dep("plotly", optional=True),
+        dep("optionstratlib-core"),
+        features={
+            "default": [],
+            "plotly": ["dep:plotly"],
+            "static_export": ["plotly", "plotly/static_export_default"],
+        },
+    )
+    facade_ok = gated(
+        "optionstratlib",
+        dep("optionstratlib-visualization", optional=True),
+        features={
+            "default": ["visualization"],
+            "visualization": ["dep:optionstratlib-visualization", "backtest"],
+            "plotly": ["visualization", "optionstratlib-visualization/plotly"],
+            "static_export": ["plotly", "async", "optionstratlib-visualization/static_export"],
+        },
+    )
+
+    def replaced(package: dict, **changes: object) -> dict:
+        return {**package, **changes}
+
+    plotly_cases = {
+        "the real shape": (
+            [visualization_ok, facade_ok, gated("optionstratlib-core", dep("serde"))],
+            0,
+        ),
+        "an example names plotly itself": (
+            [
+                visualization_ok,
+                gated("examples_metrics", dep("plotly", features=("static_export_default",))),
+            ],
+            1,
+        ),
+        "an example names plotly_static": (
+            [visualization_ok, gated("examples_metrics", dep("plotly_static", kind="dev"))],
+            1,
+        ),
+        "an example enables the facade features": (
+            [visualization_ok, gated("examples_metrics", dep("optionstratlib"), dep("positive"))],
+            0,
+        ),
+        "the facade declares plotly": (
+            [visualization_ok, replaced(facade_ok, dependencies=[dep("plotly", optional=True)])],
+            1,
+        ),
+        "the facade declares plotly_static": (
+            [
+                visualization_ok,
+                replaced(facade_ok, dependencies=[dep("plotly_static", optional=True)]),
+            ],
+            1,
+        ),
+        "market declares plotly": (
+            [visualization_ok, gated("optionstratlib-market", dep("plotly", optional=True))],
+            1,
+        ),
+        "strategies dev-depends on plotly": (
+            [visualization_ok, gated("optionstratlib-strategies", dep("plotly", kind="dev"))],
+            1,
+        ),
+        "analytics has a plotly feature": (
+            [visualization_ok, gated("optionstratlib-analytics", features={"plotly": []})],
+            1,
+        ),
+        "backtest has a static_export feature": (
+            [visualization_ok, gated("optionstratlib-backtest", features={"static_export": []})],
+            1,
+        ),
+        "pricing forwards a feature to the visualization crate": (
+            [
+                visualization_ok,
+                gated(
+                    "optionstratlib-pricing",
+                    features={"charts": ["optionstratlib-visualization/plotly"]},
+                ),
+            ],
+            1,
+        ),
+        "market optionally enables the visualization crate": (
+            [
+                visualization_ok,
+                gated(
+                    "optionstratlib-market",
+                    features={"charts": ["dep:optionstratlib-visualization"]},
+                ),
+            ],
+            1,
+        ),
+        "schema forwarding is not a visualization edge": (
+            [
+                visualization_ok,
+                gated("optionstratlib-market", features={"schema": ["optionstratlib-core/schema"]}),
+            ],
+            0,
+        ),
+        "the facade enables plotly by default": (
+            [
+                visualization_ok,
+                replaced(
+                    facade_ok,
+                    features={**facade_ok["features"], "default": ["visualization", "plotly"]},
+                ),
+            ],
+            1,
+        ),
+        "the facade enables static_export by default": (
+            [
+                visualization_ok,
+                replaced(
+                    facade_ok, features={**facade_ok["features"], "default": ["static_export"]}
+                ),
+            ],
+            1,
+        ),
+        "a facade feature reaches the backend of the visualization crate": (
+            [
+                visualization_ok,
+                replaced(
+                    facade_ok,
+                    features={
+                        **facade_ok["features"],
+                        "async": ["optionstratlib-visualization/static_export"],
+                    },
+                ),
+            ],
+            1,
+        ),
+        "the facade plotly feature forwards the export feature": (
+            [
+                visualization_ok,
+                replaced(
+                    facade_ok,
+                    features={
+                        **facade_ok["features"],
+                        "plotly": ["visualization", "optionstratlib-visualization/static_export"],
+                    },
+                ),
+            ],
+            1,
+        ),
+        "visualization declares plotly non-optionally": (
+            [replaced(visualization_ok, dependencies=[dep("plotly")])],
+            1,
+        ),
+        "visualization keeps plotly default features": (
+            [
+                replaced(
+                    visualization_ok, dependencies=[dep("plotly", optional=True, defaults=True)]
+                )
+            ],
+            1,
+        ),
+        "visualization enables static_export_default on plotly": (
+            [
+                replaced(
+                    visualization_ok,
+                    dependencies=[
+                        dep("plotly", optional=True, features=("static_export_default",))
+                    ],
+                )
+            ],
+            1,
+        ),
+        "visualization plotly feature enables export": (
+            [
+                replaced(
+                    visualization_ok,
+                    features={
+                        **visualization_ok["features"],
+                        "plotly": ["dep:plotly", "plotly/static_export_default"],
+                    },
+                )
+            ],
+            1,
+        ),
+        "visualization static_export drops plotly": (
+            [
+                replaced(
+                    visualization_ok,
+                    features={
+                        **visualization_ok["features"],
+                        "static_export": ["plotly/static_export_default"],
+                    },
+                )
+            ],
+            1,
+        ),
+        "visualization enables plotly by default": (
+            [
+                replaced(
+                    visualization_ok,
+                    features={**visualization_ok["features"], "default": ["plotly"]},
+                )
+            ],
+            1,
+        ),
+        "visualization lost its plotly dependency": (
+            [replaced(visualization_ok, dependencies=[])],
+            1,
+        ),
+    }
+    for name, (packages_case, expected) in plotly_cases.items():
+        got = len(plotly_gate_violations(packages_case))
+        ok = got == expected
+        if not ok:
+            failures += 1
+        print(
+            f"self-test {'ok' if ok else 'FAIL'}: plotly gate, {name} (expected {expected}, got {got})"
+        )
+
+    def meta(members: list[dict], resolved: list[tuple[str, str]]) -> dict:
+        for index, member in enumerate(members):
+            member["id"] = f"member-{index}"
+        return {
+            "workspace_members": [m["id"] for m in members],
+            "packages": members
+            + [{"id": f"dep-{n}-{v}", "name": n, "version": v} for n, v in resolved],
+        }
+
+    def declares(name: str, *deps: tuple[str, str]) -> dict:
+        return {"name": name, "dependencies": [{"name": d, "req": r} for d, r in deps]}
+
+    foundational_cases = {
+        "one requirement, one version": (
+            meta(
+                [
+                    declares("optionstratlib-core", ("positive", "^0.7")),
+                    declares("optionstratlib", ("positive", "^0.7")),
+                ],
+                [("positive", "0.7.1")],
+            ),
+            0,
+        ),
+        "two requirements": (
+            meta(
+                [
+                    declares("optionstratlib-core", ("positive", "^0.7")),
+                    declares("examples_chain", ("positive", "^0.6")),
+                ],
+                [("positive", "0.7.1")],
+            ),
+            1,
+        ),
+        "two resolved versions": (
+            meta(
+                [declares("optionstratlib-core", ("positive", "^0.7"))],
+                [("positive", "0.7.1"), ("positive", "0.6.3")],
+            ),
+            1,
+        ),
+        "math depends on positive directly": (
+            meta(
+                [
+                    declares("optionstratlib-core", ("positive", "^0.7")),
+                    declares("optionstratlib-math", ("positive", "^0.7")),
+                ],
+                [("positive", "0.7.1")],
+            ),
+            1,
+        ),
+        "example consumer may depend on positive": (
+            meta(
+                [
+                    declares("optionstratlib-core", ("positive", "^0.7")),
+                    declares("examples_chain", ("positive", "^0.7")),
+                ],
+                [("positive", "0.7.1")],
+            ),
+            0,
+        ),
+        "unrelated duplicate is not ours to check": (
+            meta(
+                [declares("optionstratlib-core", ("rand", "^0.10"))],
+                [("rand", "0.10.3"), ("rand", "0.9.2")],
+            ),
+            0,
+        ),
+    }
+    for name, (metadata, expected) in foundational_cases.items():
+        got = len(foundational_violations(metadata))
+        ok = got == expected
+        if not ok:
+            failures += 1
+        print(
+            f"self-test {'ok' if ok else 'FAIL'}: foundational crates, {name} (expected {expected}, got {got})"
+        )
+
+    forbidden_cases = {
+        "clean math tree": (
+            {("optionstratlib-math", "default"): {"rayon", "statrs", "optionstratlib-core"}},
+            0,
+        ),
+        "math pulls plotly": ({("optionstratlib-math", "all features"): {"rayon", "plotly"}}, 1),
+        "core pulls rayon": ({("optionstratlib-core", "default"): {"rayon"}}, 1),
+        "math may use rayon": ({("optionstratlib-math", "default"): {"rayon"}}, 0),
+        "math pulls csv through a feature": ({("optionstratlib-math", "all features"): {"csv"}}, 1),
+        "unlisted crate is not checked": ({("examples_chain", "default"): {"plotly"}}, 0),
+        "market tokio only with features": (
+            {("optionstratlib-market", "all features"): {"tokio"}},
+            0,
+        ),
+        "market tokio by default": ({("optionstratlib-market", "default"): {"tokio"}}, 1),
+        "market csv by default": ({("optionstratlib-market", "default"): {"csv"}}, 1),
+        "market csv under io": ({("optionstratlib-market", "io"): {"csv", "zip"}}, 0),
+        "market tokio under io only": ({("optionstratlib-market", "io"): {"tokio"}}, 1),
+        "market tokio under async": ({("optionstratlib-market", "async"): {"tokio", "csv"}}, 0),
+        "market simulation by default": (
+            {("optionstratlib-market", "default"): {"optionstratlib-simulation"}},
+            1,
+        ),
+        "market simulation under io": (
+            {("optionstratlib-market", "io"): {"optionstratlib-simulation", "csv"}},
+            1,
+        ),
+        "market simulation under synthetic": (
+            {("optionstratlib-market", "synthetic"): {"optionstratlib-simulation"}},
+            0,
+        ),
+        "market simulation under all features": (
+            {("optionstratlib-market", "all features"): {"optionstratlib-simulation"}},
+            0,
+        ),
+        "clean analytics tree": (
+            {("optionstratlib-analytics", "default"): {"lazy_static", "serde_json"}},
+            0,
+        ),
+        "analytics pulls market io": ({("optionstratlib-analytics", "default"): {"csv", "zip"}}, 2),
+        "analytics tokio under all features": (
+            {("optionstratlib-analytics", "all features"): {"tokio"}},
+            1,
+        ),
+        "clean strategies tree": (
+            {("optionstratlib-strategies", "default"): {"rayon", "itertools", "serde_json"}},
+            0,
+        ),
+        "strategies pulls market io": (
+            {("optionstratlib-strategies", "default"): {"csv", "zip"}},
+            2,
+        ),
+        "strategies pulls indicatif": (
+            {("optionstratlib-strategies", "all features"): {"indicatif"}},
+            1,
+        ),
+        "clean simulation tree": (
+            {("optionstratlib-simulation", "default"): {"rayon", "rand", "statrs"}},
+            0,
+        ),
+        "clean backtest tree": (
+            {("optionstratlib-backtest", "default"): {"uuid", "prettytable-rs"}},
+            0,
+        ),
+        "backtest pulls indicatif": ({("optionstratlib-backtest", "default"): {"indicatif"}}, 1),
+        "backtest pulls plotly": ({("optionstratlib-backtest", "all features"): {"plotly"}}, 1),
+        "clean visualization tree": (
+            {("optionstratlib-visualization", "default"): {"num-traits", "prettytable-rs"}},
+            0,
+        ),
+        "visualization pulls plotly by default": (
+            {("optionstratlib-visualization", "default"): {"plotly"}},
+            1,
+        ),
+        "visualization plotly under plotly": (
+            {("optionstratlib-visualization", "plotly"): {"plotly"}},
+            0,
+        ),
+        "visualization plotly pulls static export": (
+            {("optionstratlib-visualization", "plotly"): {"plotly", "plotly_static", "tokio"}},
+            2,
+        ),
+        "visualization static export": (
+            {
+                ("optionstratlib-visualization", "static_export"): {
+                    "plotly",
+                    "plotly_static",
+                    "webdriver",
+                    "tokio",
+                }
+            },
+            0,
+        ),
+        "visualization csv under all features": (
+            {("optionstratlib-visualization", "all features"): {"plotly", "csv"}},
+            1,
+        ),
+        "clean facade tree": (
+            {
+                ("optionstratlib", "default"): {
+                    "optionstratlib-core",
+                    "csv",
+                    "zip",
+                    "prettytable-rs",
+                }
+            },
+            0,
+        ),
+        "facade pulls plotly by default": ({("optionstratlib", "default"): {"plotly"}}, 1),
+        "facade pulls tokio by default": ({("optionstratlib", "default"): {"tokio"}}, 1),
+        "facade visualization pulls plotly": ({("optionstratlib", "visualization"): {"plotly"}}, 1),
+        "facade plotly alone": ({("optionstratlib", "plotly"): {"plotly"}}, 0),
+        "facade plotly pulls the export stack": (
+            {
+                ("optionstratlib", "plotly"): {
+                    "plotly",
+                    "plotly_static",
+                    "fantoccini",
+                    "webdriver",
+                    "tokio",
+                    "reqwest",
+                }
+            },
+            5,
+        ),
+        "facade static_export": (
+            {
+                ("optionstratlib", "static_export"): {
+                    "plotly",
+                    "plotly_static",
+                    "fantoccini",
+                    "webdriver",
+                    "tokio",
+                    "reqwest",
+                    "futures",
+                }
+            },
+            0,
+        ),
+        "facade async pulls plotly": ({("optionstratlib", "async"): {"tokio", "plotly"}}, 1),
+        "facade all features": (
+            {
+                ("optionstratlib", "all features"): {
+                    "plotly",
+                    "plotly_static",
+                    "fantoccini",
+                    "webdriver",
+                    "tokio",
+                    "reqwest",
+                }
+            },
+            0,
+        ),
+        "facade all features pulls tracing-subscriber": (
+            {("optionstratlib", "all features"): {"tracing-subscriber"}},
+            1,
+        ),
+        "simulation pulls prettytable": (
+            {("optionstratlib-simulation", "default"): {"prettytable-rs"}},
+            1,
+        ),
+        "simulation pulls market io": (
+            {("optionstratlib-simulation", "all features"): {"csv", "zip"}},
+            2,
+        ),
+    }
+    for name, (trees_case, expected) in forbidden_cases.items():
+        got = len(forbidden_package_violations(trees_case))
+        ok = got == expected
+        if not ok:
+            failures += 1
+        print(
+            f"self-test {'ok' if ok else 'FAIL'}: forbidden packages, {name} (expected {expected}, got {got})"
+        )
+
+    # Error types defined in a component crate keep their file's layer (#524).
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "src"
+        files = {
+            "src/error/simulation.rs": "pub enum SimulationError { A }\nimpl From<SimulationError> for crate::error::ChainError {}\n",
+            "src/error/mod.rs": "pub use optionstratlib_market::error::ChainError;\n",
+            "crates/optionstratlib-market/src/error/chains.rs": "pub enum ChainError { A }\n",
+        }
+        for rel, content in files.items():
+            target = Path(tmp) / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content)
+        edges, _ = scan(root)
+        got = len(violations_of(edges))
+        ok = got == 1
+        if not ok:
+            failures += 1
+        print(
+            f"self-test {'ok' if ok else 'FAIL'}: a component crate's error type keeps its layer (expected 1, got {got})"
+        )
+
+    # An analytics-owned error moved into its crate keeps the analytics layer:
+    # a strategies file converting into it is a downward edge, a market-layer
+    # facade file naming it is an upward one (#529).
+    for name, (rel, source, expected) in {
+        "strategies converts into an analytics error": (
+            "src/error/strategies.rs",
+            "impl From<StrategyError> for crate::error::ProbabilityError {}\n",
+            0,
+        ),
+        "a market-layer file names an analytics error": (
+            "src/chains/x.rs",
+            "use crate::error::ProbabilityError;\n",
+            1,
+        ),
+    }.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "src"
+            files = {
+                rel: source,
+                "src/error/mod.rs": "pub use optionstratlib_analytics::error::ProbabilityError;\n",
+                "crates/optionstratlib-analytics/src/error/probability.rs": "pub enum ProbabilityError { A }\n",
+            }
+            for path, content in files.items():
+                target = Path(tmp) / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(content)
+            edges, _ = scan(root)
+            got = len(violations_of(edges))
+            ok = got == expected
+            if not ok:
+                failures += 1
+            print(f"self-test {'ok' if ok else 'FAIL'}: {name} (expected {expected}, got {got})")
+
+    # A strategies-owned error moved into its crate keeps the strategies
+    # layer: a backtesting facade file wrapping it is a downward edge, an
+    # analytics-layer facade file naming it is an upward one (#531).
+    for name, (rel, source, expected) in {
+        "backtesting wraps a strategies error": (
+            "src/error/backtesting.rs",
+            "pub enum BacktestError { Strategy(Box<crate::error::StrategyError>) }\n",
+            0,
+        ),
+        "an analytics-layer file names a strategies error": (
+            "src/pnl/x.rs",
+            "use crate::error::StrategyError;\n",
+            1,
+        ),
+    }.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "src"
+            files = {
+                rel: source,
+                "src/error/mod.rs": "pub use optionstratlib_strategies::error::StrategyError;\n",
+                "crates/optionstratlib-strategies/src/error/strategies.rs": "pub enum StrategyError { A }\n",
+            }
+            for path, content in files.items():
+                target = Path(tmp) / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(content)
+            edges, _ = scan(root)
+            got = len(violations_of(edges))
+            ok = got == expected
+            if not ok:
+                failures += 1
+            print(f"self-test {'ok' if ok else 'FAIL'}: {name} (expected {expected}, got {got})")
+
+    # A simulation-owned error moved into its crate keeps the simulation
+    # layer: a backtesting facade file wrapping it is a downward edge, a
+    # pricing-layer facade file naming it is an upward one (#536).
+    for name, (rel, source, expected) in {
+        "backtesting wraps a simulation error": (
+            "src/error/backtesting.rs",
+            "pub enum BacktestError { Simulation(crate::error::SimulationError) }\n",
+            0,
+        ),
+        "a pricing-layer file names a simulation error": (
+            "src/volatility/x.rs",
+            "use crate::error::SimulationError;\n",
+            1,
+        ),
+    }.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "src"
+            files = {
+                rel: source,
+                "src/error/mod.rs": "pub use optionstratlib_simulation::error::SimulationError;\n",
+                "crates/optionstratlib-simulation/src/error/simulation.rs": "pub enum SimulationError { A }\n",
+            }
+            for path, content in files.items():
+                target = Path(tmp) / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(content)
+            edges, _ = scan(root)
+            got = len(violations_of(edges))
+            ok = got == expected
+            if not ok:
+                failures += 1
+            print(f"self-test {'ok' if ok else 'FAIL'}: {name} (expected {expected}, got {got})")
+
+    pricing_rules = INTRA_CRATE_RULES["optionstratlib-pricing"]
+    intra_cases = {
+        "pricing uses kernels": ({"pricing/a.rs": "use crate::kernels::big_n;\n"}, 0),
+        "pricing uses greeks": ({"pricing/a.rs": "use crate::greeks::big_n;\n"}, 1),
+        "grouped pricing -> greeks": (
+            {"pricing/a.rs": "use crate::{error::PricingError, greeks::d1};\n"},
+            1,
+        ),
+        "greeks re-prices through pricing": (
+            {"greeks/numerical.rs": "use crate::pricing::price_option_with;\n"},
+            0,
+        ),
+        "kernels uses pricing": ({"kernels.rs": "use crate::pricing::black_scholes;\n"}, 1),
+        "test-only edge": (
+            {"pricing/a.rs": "#[cfg(test)]\nmod t {\n    use crate::greeks::delta;\n}\n"},
+            0,
+        ),
+        "unknown module": ({"extra.rs": "fn f() {}\n"}, 1),
+    }
+    for name, (files, expected) in intra_cases.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "src"
+            for rel, content in files.items():
+                target = root / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(content)
+            got = len(intra_crate_violations("optionstratlib-pricing", root, pricing_rules))
+            ok = got == expected
+            if not ok:
+                failures += 1
+            print(
+                f"self-test {'ok' if ok else 'FAIL'}: internal edges, {name} (expected {expected}, got {got})"
+            )
+
+    redefinition_cases = {
+        "facade model file once core is a crate": (["model/x.rs"], [pkg("optionstratlib-core")], 1),
+        "facade core error file once core is a crate": (
+            ["error/decimal.rs"],
+            [pkg("optionstratlib-core")],
+            1,
+        ),
+        "facade model file before extraction": (["model/x.rs"], [], 0),
+        "facade pricing file while only core is a crate": (
+            ["pricing/x.rs"],
+            [pkg("optionstratlib-core")],
+            0,
+        ),
+    }
+    for name, (files, packages, expected) in redefinition_cases.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "src"
+            for rel in files:
+                target = root / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("")
+            got = len(facade_redefinitions(root, packages))
+            ok = got == expected
+            if not ok:
+                failures += 1
+            print(
+                f"self-test {'ok' if ok else 'FAIL'}: single definition, {name} (expected {expected}, got {got})"
+            )
+
     # Every tolerated edge must name the issue that removes it, so M1 cannot
-    # close with an undocumented production edge (roadmap M1-10).
-    unowned = [f"{s} -> {d}" for (s, d), (_, owner) in DEFERRED.items() if not re.search(r"#\d+", owner)]
+    # close with an undocumented production edge (roadmap M1-10). The rule
+    # is proven on a fixture, then applied to the real table.
+    unowned_fixture = unowned_deferred(
+        {
+            ("strategies", "visualization"): (
+                frozenset({"strategies/base.rs"}),
+                "0.22.0 batch (#505)",
+            ),
+            ("strategies", "simulation"): (frozenset({"strategies/sim.rs"}), "0.22.0 batch"),
+        }
+    )
+    ok = unowned_fixture == ["strategies -> simulation"]
+    if not ok:
+        failures += 1
+    print(
+        f"self-test {'ok' if ok else 'FAIL'}: a deferred edge without an owning issue is refused (expected 1, got {len(unowned_fixture)})"
+    )
+    unowned = unowned_deferred()
     ok = not unowned
     if not ok:
         failures += 1
         for item in unowned:
             print(f"  deferred edge without an owning issue: {item}")
-    print(f"self-test {'ok' if ok else 'FAIL'}: every deferred edge names an owning issue ({len(DEFERRED)} entries)")
+    print(
+        f"self-test {'ok' if ok else 'FAIL'}: every deferred edge names an owning issue ({len(DEFERRED)} entries)"
+    )
     return 1 if failures else 0
 
 
@@ -1335,7 +3141,9 @@ def inventory(src: Path = SRC) -> int:
         parts = rel.split("/")
         top = parts[0].removesuffix(".rs")
         if top == "error":
-            source_layer = ERROR_FILE_LAYER.get(parts[1].removesuffix(".rs") if len(parts) > 1 else "mod", "facade")
+            source_layer = ERROR_FILE_LAYER.get(
+                parts[1].removesuffix(".rs") if len(parts) > 1 else "mod", "facade"
+            )
         else:
             source_layer = LAYER_OF.get(top, "facade")
         for number, line in enumerate(path.read_text().splitlines(), 1):
@@ -1357,26 +3165,109 @@ def main() -> int:
         return inventory()
     edges, present = scan()
     violations = violations_of(edges)
-    stale = [f"{s} -> {d} ({meta[1]})" for (s, d), meta in DEFERRED.items() if (s, d) not in present]
+    stale = stale_deferred(present)
     if stale:
         print("deferred edges no longer present, prune them from DEFERRED:")
         for item in stale:
             print(f"  {item}")
+    stale_synthetic = sorted(f for f in SYNTHETIC_FILES if not (SRC / f).exists())
+    if stale_synthetic:
+        print("SYNTHETIC_FILES entries no longer present, prune them:")
+        for item in stale_synthetic:
+            print(f"  {item}")
+        return 1
     if violations:
         print("forbidden module edges (see doc/DEPENDENCY-MATRIX.md, ADR-0001 D9):")
         for item in violations:
             print(f"  {item}")
         return 1
-    ungated = synthetic_gate_violations()
+    if not MARKET_SRC.is_dir():
+        print(f"market crate sources not found at {MARKET_SRC}; update MARKET_SRC")
+        return 1
+    # The facade-mode pass scans nothing today (market left the facade with
+    # #524); it stays as a guard should market code reappear under `src/`.
+    ungated = synthetic_gate_violations() + [
+        f"crates/optionstratlib-market/src/{item}"
+        for item in synthetic_gate_violations(MARKET_SRC, market_crate=True)
+    ]
     if ungated:
-        print('market code names a simulation type outside `#[cfg(feature = "synthetic")]` (ADR-0003, M1-15):')
+        print(
+            'market code names a simulation type outside `#[cfg(feature = "synthetic")]` (ADR-0003, M1-15):'
+        )
         for item in ungated:
             print(f"  {item}")
         return 1
+    metadata = cargo_metadata(SRC.parent)
+    packages = workspace_packages(metadata)
+    # Report every crate-level rule in one run, then fail once.
+    crate_rules = [
+        (
+            "foundational type crates must resolve once, at one requirement, and only core may "
+            "depend on them (ADR-0001 D8, #515):",
+            foundational_violations(metadata),
+        ),
+        (
+            "forbidden workspace crate dependencies (ADR-0001 D1/D9):",
+            crate_graph_violations(packages),
+        ),
+        (
+            "Plotly and static export reachable outside the visualization gate (ADR-0002 section 3, #544):",
+            plotly_gate_violations(packages),
+        ),
+        (
+            "facade files in a layer that a workspace crate owns (one canonical definition):",
+            facade_redefinitions(SRC, packages),
+        ),
+    ]
+    for crate, rules in sorted(INTRA_CRATE_RULES.items()):
+        package = next((p for p in packages if p["name"] == crate), None)
+        crate_rules.append(
+            (
+                f"forbidden internal module edges in {crate} (#523):",
+                intra_crate_violations(crate, Path(package["manifest_path"]).parent / "src", rules)
+                if package is not None
+                else [f"{crate}: listed in INTRA_CRATE_RULES but not a workspace member"],
+            )
+        )
+    trees = {
+        (crate, label): resolved_tree(SRC.parent, crate, label)
+        for crate in sorted(FORBIDDEN_PACKAGES)
+        if any(p["name"] == crate for p in packages)
+        for label in ("default", "all features", *FEATURE_SETS.get(crate, {}))
+    }
+    crate_rules.append(
+        (
+            "component crates resolve a forbidden package (ADR-0002 fixture table, #517):",
+            forbidden_package_violations(trees),
+        )
+    )
+    failed = False
+    for heading, items in crate_rules:
+        if items:
+            failed = True
+            print(heading)
+            for item in items:
+                print(f"  {item}")
+    if failed:
+        return 1
+    crates = sorted(
+        p["name"] for p in packages if CRATE_LAYER.get(p["name"]) not in (None, "facade")
+    )
     deferred_count = sum(1 for key in DEFERRED if key in present)
     marks = ", ".join(f"{layer}={n}" for layer, n in sorted(marked_lines().items())) or "none"
     print(
         f"OK: no forbidden module edge ({deferred_count} deferred edges tolerated; facade-compat lines per layer: {marks})"
+    )
+    print(
+        f"OK: workspace crate graph acyclic and layered (components: {', '.join(crates) or 'none'})"
+    )
+    print(
+        f"OK: only {PLOTLY_OWNER} declares Plotly, behind `plotly` and `static_export`, and no lower layer reaches it"
+    )
+    print(f"OK: foundational crates resolve once ({', '.join(FOUNDATIONAL)})")
+    print(f"OK: internal module edges acyclic in {', '.join(sorted(INTRA_CRATE_RULES))}")
+    print(
+        f"OK: no forbidden package in {', '.join(sorted({c for c, _ in trees})) or 'any component'} (default, all features and each named feature set)"
     )
     return 0
 

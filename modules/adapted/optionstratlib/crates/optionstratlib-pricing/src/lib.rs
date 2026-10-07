@@ -1,0 +1,82 @@
+#![deny(missing_docs, rustdoc::broken_intra_doc_links)]
+// Per rules/global_rules.md §Error Handling, unchecked `[]` / slicing is
+// banned in production code.
+#![deny(clippy::indexing_slicing)]
+// Unit tests routinely index into `Vec`s they just pushed into, so the lint
+// is silenced in `#[cfg(test)]` only.
+#![cfg_attr(test, allow(clippy::indexing_slicing))]
+
+//! # optionstratlib-pricing
+//!
+//! Option pricing models, Greeks and volatility of OptionStratLib, on the
+//! core domain types. It depends only on `optionstratlib-core`,
+//! `optionstratlib-math` and general numeric crates: no option chain,
+//! simulation engine, strategy, plotting, I/O or async runtime.
+//!
+//! - [`pricing`]: Black-Scholes, Black-76, Garman-Kohlhagen, binomial,
+//!   Monte Carlo over supplied paths, telegraph, American and exotic
+//!   kernels, the [`pricing::OptionPricing`] extension trait for
+//!   `Options`, the unified [`pricing::price_option_with`] entry point, profit
+//!   contracts and solver defaults.
+//! - [`greeks`]: first and higher-order Greeks, the [`greeks::Greeks`]
+//!   trait, model-specific Greeks and the Greeks of the leg types.
+//! - [`volatility`]: implied-volatility solvers and volatility models and
+//!   traits.
+//! - [`error`]: [`error::PricingError`], [`error::GreeksError`] and
+//!   [`error::VolatilityError`].
+//!
+//! ## Numerical boundary
+//!
+//! Prices, premia, strikes, rates and Greeks cross the public boundary as
+//! `rust_decimal::Decimal` or `Positive`. `f64` stays inside the numerical
+//! kernels (the normal distribution, lattice and finite-difference steps).
+//! The only public `f64`s are error diagnostics, which `make
+//! check-float-boundary` enforces (#522). Most kernels bring floats back
+//! through `optionstratlib_core::model::decimal::finite_decimal`, so a
+//! non-finite intermediate becomes a typed `NonFinite` error; several exotic
+//! pricers still substitute zero for a failed step instead, which #639
+//! tracks. The kernels perform no filesystem, network or stdout I/O and
+//! install no logging subscriber.
+//!
+//! For fixed inputs, closed-form and lattice pricers are deterministic; an
+//! `ExpirationDate::DateTime` expiry is measured from the current clock, so
+//! use `ExpirationDate::Days` for reproducible results. Monte Carlo pricing
+//! (`pricing::monte_carlo_option_pricing`), the telegraph pricer
+//! (`pricing::telegraph`, `OptionPricing::calculate_price_telegraph`),
+//! `pricing::TelegraphProcess`, `pricing::simulate_returns` and
+//! `volatility::simulate_heston_volatility` sample the thread-local RNG and
+//! are not reproducible yet (#638).
+//!
+//! ## Imports
+//!
+//! There is no prelude, for the same reason as in core and math (#518): the
+//! module roots re-export each capability, and the `optionstratlib` facade
+//! prelude serves broad imports.
+//!
+//! ## Features
+//!
+//! - `schema` (off by default): derives `utoipa::ToSchema` on the pricing
+//!   types and enables `optionstratlib-core/schema` and
+//!   `optionstratlib-math/schema`.
+
+/// Pricing models, the `OptionPricing` trait, profit contracts and solver
+/// defaults.
+pub mod pricing;
+
+/// Greeks: equations, the `Greeks` trait, model-specific and numerical
+/// Greeks, and the Greeks of the leg types.
+pub mod greeks;
+
+/// Implied-volatility solvers, volatility models and volatility traits.
+pub mod volatility;
+
+/// Errors raised by the pricing layer.
+pub mod error;
+
+// Formulas shared by `pricing` and `greeks` (normal distribution, d1/d2,
+// discounting). Private: it is the neutral bottom of the crate's internal
+// graph and depends on neither module (#523).
+mod kernels;
+
+/// Version of the `optionstratlib-pricing` crate.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
