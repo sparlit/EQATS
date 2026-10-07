@@ -1,5 +1,5 @@
 {
-  "current_index": 171,
+  "current_index": 172,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1373,9 +1373,9 @@
       "name": "rust_bt",
       "target": "jensnesten/rust_bt",
       "url": "https://github.com/jensnesten/rust_bt",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3113",
+      "merged": true
     },
     {
       "name": "midas",
