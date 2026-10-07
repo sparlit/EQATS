@@ -25,8 +25,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """Point-in-time 20-session replay using the existing shared EOD database."""
 
-
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pandas as pd
 
@@ -35,11 +34,10 @@ from old_nse_hull.discovery import discover
 from .comparison import summarize
 from .engine import run_shadow
 
-if TYPE_CHECKING:
-    from pathlib import Path
 
-
-def run(prices: pd.DataFrame, db_path: str | Path, state_path: str | Path, sessions: int = 20) -> dict:
+def run(
+    prices: pd.DataFrame, db_path: str | Path, state_path: str | Path, sessions: int = 20
+) -> dict:
     """Replay prior completed sessions without fetching or mutating market data."""
     dates = sorted(pd.to_datetime(prices["trade_date"]).dropna().unique())[-sessions:]
     completed: list[str] = []

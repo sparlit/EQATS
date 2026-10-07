@@ -27,7 +27,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 from dataclasses import asdict, dataclass
 from datetime import date
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pandas as pd
 
@@ -36,9 +36,6 @@ from .horizon_promotion import PromotionDecision, apply_monthly_promotions
 from .portfolio_performance import PortfolioSnapshot, build_portfolio_snapshot
 from .portfolio_risk import PortfolioConfig
 from .portfolio_store import PortfolioStore
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 HORIZON_LABELS = {
     "SWING_1_3M": "Swing (1-3M)",
@@ -111,18 +108,25 @@ def render_monthly_portfolio_message(
 
 
 def run_monthly_portfolio_review(
-    db_path: str | Path, as_of: date | str | None = None, portfolio_config: PortfolioConfig = PortfolioConfig()
+    db_path: str | Path,
+    as_of: date | str | None = None,
+    portfolio_config: PortfolioConfig = PortfolioConfig(),
 ) -> MonthlyPortfolioReview:
-    prices = V2Database(db_path).load_prices(end_date=str(as_of) if as_of else None, min_sessions=56)
+    prices = V2Database(db_path).load_prices(
+        end_date=str(as_of) if as_of else None, min_sessions=56
+    )
     if prices.empty:
-        msg = "No usable price history for monthly V2 review"
-        raise RuntimeError(msg)
-    review_date = pd.Timestamp(as_of).date() if as_of else pd.Timestamp(prices["trade_date"].max()).date()
+        raise RuntimeError("No usable price history for monthly V2 review")
+    review_date = (
+        pd.Timestamp(as_of).date() if as_of else pd.Timestamp(prices["trade_date"].max()).date()
+    )
     prices = prices[prices["trade_date"] <= pd.Timestamp(review_date)]
     store = PortfolioStore(db_path)
     store.initialize()
     decisions = apply_monthly_promotions(store, prices, review_date.isoformat())
-    snapshot = build_portfolio_snapshot(store.all_positions(), review_date.isoformat(), portfolio_config.capital_base)
+    snapshot = build_portfolio_snapshot(
+        store.all_positions(), review_date.isoformat(), portfolio_config.capital_base
+    )
     store.save_portfolio_snapshot(snapshot)
     return MonthlyPortfolioReview(
         review_date.isoformat(),

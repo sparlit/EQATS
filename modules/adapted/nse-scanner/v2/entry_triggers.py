@@ -30,16 +30,13 @@ now.  It does not determine stock quality; horizon scoring remains authoritative
 """
 
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from .horizon_scoring import HorizonScore
 from .indicators import atr, fixed_hybrid_hull_signals, hma
+from .pullback import PullbackResult
 from .setups import breakout_signal, compression_signal
-
-if TYPE_CHECKING:
-    from .horizon_scoring import HorizonScore
-    from .pullback import PullbackResult
 
 
 @dataclass(frozen=True)
@@ -67,7 +64,9 @@ _PRIORITY = {
 
 
 def _qualified_horizons(scores: dict[str, HorizonScore]) -> tuple[str, ...]:
-    return tuple(h for h in ("1M", "3M", "6M", "12M") if h in scores and scores[h].state == "QUALIFIED")
+    return tuple(
+        h for h in ("1M", "3M", "6M", "12M") if h in scores and scores[h].state == "QUALIFIED"
+    )
 
 
 def _watch_horizons(scores: dict[str, HorizonScore]) -> tuple[str, ...]:
@@ -128,12 +127,16 @@ def evaluate_entry_triggers(
         and not hybrid["chop"]
     )
 
-    volume_avg = float(data["volume"].shift(1).rolling(20).mean().iloc[-1]) if "volume" in data else 0.0
+    volume_avg = (
+        float(data["volume"].shift(1).rolling(20).mean().iloc[-1]) if "volume" in data else 0.0
+    )
     volume_multiple = float(last.get("volume", 0.0) / volume_avg) if volume_avg > 0 else 0.0
     range20_high = float(data["high"].shift(1).rolling(20).max().iloc[-1])
     range20_low = float(data["low"].shift(1).rolling(20).min().iloc[-1])
     range_width_atr = (range20_high - range20_low) / current_atr if current_atr > 0 else 999.0
-    compression_release = bool(compression.passed and float(last["close"]) > range20_high and volume_multiple >= 1.2)
+    compression_release = bool(
+        compression.passed and float(last["close"]) > range20_high and volume_multiple >= 1.2
+    )
 
     reaccumulation = bool(
         any(h in qualified for h in ("6M", "12M"))
@@ -170,7 +173,10 @@ def evaluate_entry_triggers(
         ),
         EntryTrigger(
             "BREAKOUT",
-            quality_available and breakout.passed and not hybrid["stretched"] and not hybrid["chop"],
+            quality_available
+            and breakout.passed
+            and not hybrid["stretched"]
+            and not hybrid["chop"],
             float(breakout.score),
             tuple(breakout.reasons),
             {**common_metrics, **breakout.metrics},
@@ -192,7 +198,9 @@ def evaluate_entry_triggers(
             "HULL_CROSSOVER",
             quality_available and hull_cross and not hybrid["stretched"] and not hybrid["chop"],
             80.0 if hull_cross else 0.0,
-            ("hma21_crossed_above_hma51", "hybrid_hull_confirmed") if hull_cross else ("no_fresh_hull_crossover",),
+            ("hma21_crossed_above_hma51", "hybrid_hull_confirmed")
+            if hull_cross
+            else ("no_fresh_hull_crossover",),
             common_metrics,
         ),
         EntryTrigger(
@@ -226,20 +234,29 @@ def evaluate_entry_triggers(
 
     actionable = [trigger for trigger in candidates if trigger.actionable]
     if not actionable:
-        return (
-            *candidates,
-            EntryTrigger(
-                "NO_TRIGGER",
-                False,
-                0.0,
-                ("technically_qualified_but_no_actionable_entry",)
-                if quality_available
-                else ("no_qualified_or_watch_horizon",),
-                common_metrics,
-            ),
+        return tuple(
+            candidates
+            + [
+                EntryTrigger(
+                    "NO_TRIGGER",
+                    False,
+                    0.0,
+                    ("technically_qualified_but_no_actionable_entry",)
+                    if quality_available
+                    else ("no_qualified_or_watch_horizon",),
+                    common_metrics,
+                )
+            ]
         )
     return tuple(
-        sorted(candidates, key=lambda trigger: (-int(trigger.actionable), -_PRIORITY[trigger.name], -trigger.score))
+        sorted(
+            candidates,
+            key=lambda trigger: (
+                -int(trigger.actionable),
+                -_PRIORITY[trigger.name],
+                -trigger.score,
+            ),
+        )
     )
 
 

@@ -43,9 +43,7 @@ import requests
 from nse_historical_downloader import HEADERS
 from v2.database import V2Database
 
-LISTING_URL = (
-    "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date={from_date}&to_date={to_date}"
-)
+LISTING_URL = "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date={from_date}&to_date={to_date}"
 NORMALIZED_PATH = Path("corporate_data/normalized/corporate_actions.csv")
 MATERIAL_ACTION_WORDS = (
     "BONUS",
@@ -82,17 +80,20 @@ def _value(row: dict, *keys: str) -> object:
     return ""
 
 
-def fetch_listing(start_date: date, end_date: date, session: requests.Session | None = None) -> list[dict]:
+def fetch_listing(
+    start_date: date, end_date: date, session: requests.Session | None = None
+) -> list[dict]:
     client = session or requests.Session()
     client.headers.update(HEADERS)
     client.get("https://www.nseindia.com", timeout=20)
-    url = LISTING_URL.format(from_date=start_date.strftime("%d-%m-%Y"), to_date=end_date.strftime("%d-%m-%Y"))
+    url = LISTING_URL.format(
+        from_date=start_date.strftime("%d-%m-%Y"), to_date=end_date.strftime("%d-%m-%Y")
+    )
     response = client.get(url, timeout=30)
     response.raise_for_status()
     payload = response.json()
     if not isinstance(payload, list):
-        msg = "NSE corporate-action listing was not a list"
-        raise ValueError(msg)
+        raise ValueError("NSE corporate-action listing was not a list")
     return payload
 
 
@@ -101,15 +102,19 @@ def normalize_listing(rows: list[dict], source_url: str) -> list[dict]:
     for row in rows:
         symbol = str(_value(row, "symbol", "symbolName")).strip().upper()
         ex_date = _date(_value(row, "exDate", "ex_date", "recordDate", "record_date"))
-        action_type = str(_value(row, "subject", "purpose", "series", "actionType", "action_type")).strip()
-        available_date = _date(_value(row, "caBroadcastDate", "broadcastDate", "announcementDate", "announcement_date"))
+        action_type = str(
+            _value(row, "subject", "purpose", "series", "actionType", "action_type")
+        ).strip()
+        available_date = _date(
+            _value(row, "caBroadcastDate", "broadcastDate", "announcementDate", "announcement_date")
+        )
         if not symbol or not ex_date or not action_type:
             continue
         available_date = available_date or ex_date
         description = json.dumps(row, sort_keys=True, separators=(",", ":"))
-        filing_id = hashlib.sha256(f"{source_url}|{symbol}|{ex_date}|{action_type}|{description}".encode()).hexdigest()[
-            :32
-        ]
+        filing_id = hashlib.sha256(
+            f"{source_url}|{symbol}|{ex_date}|{action_type}|{description}".encode()
+        ).hexdigest()[:32]
         normalized.append(
             {
                 "symbol": symbol,
@@ -139,10 +144,16 @@ def _write_normalized(rows: list[dict]) -> None:
 
 
 def collect(
-    db_path: str | Path, as_of: date, days: int = 7, forward_days: int = 14, session: requests.Session | None = None
+    db_path: str | Path,
+    as_of: date,
+    days: int = 7,
+    forward_days: int = 14,
+    session: requests.Session | None = None,
 ) -> CorporateActionHealth:
     start, end = as_of - timedelta(days=days), as_of + timedelta(days=forward_days)
-    source_url = LISTING_URL.format(from_date=start.strftime("%d-%m-%Y"), to_date=end.strftime("%d-%m-%Y"))
+    source_url = LISTING_URL.format(
+        from_date=start.strftime("%d-%m-%Y"), to_date=end.strftime("%d-%m-%Y")
+    )
     try:
         listed = fetch_listing(start, end, session)
         rows = normalize_listing(listed, source_url)

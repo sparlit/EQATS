@@ -128,7 +128,7 @@ def _code(v):
 
 
 def _fmt_price(p):
-    return f"₹{round(float(p)):,}"
+    return f"₹{int(round(float(p))):,}"
 
 
 def _fmt_return(pct):
@@ -214,7 +214,9 @@ def format_bucketed_message(classified, scan_date=None):
         msg += f"   {_i(bm.get('desc', ''))}\n"
 
         # Compact list — symbol + score
-        symbols_str = ", ".join(f"{_code(s['symbol'])} {round(float(s.get('score', 0)))}/10" for s in stocks[:6])
+        symbols_str = ", ".join(
+            f"{_code(s['symbol'])} {int(round(float(s.get('score', 0))))}/10" for s in stocks[:6]
+        )
         msg += f"   {symbols_str}"
         if len(stocks) > 6:
             msg += f" +{len(stocks) - 6} more"
@@ -249,7 +251,8 @@ def format_bucket_detail(situation, classified, scan_date=None):
 
     if not stocks:
         return (
-            f"{bm.get('icon', '')} {_b(bm.get('label', situation.title()))}\n\n{_i('No stocks in this bucket today.')}"
+            f"{bm.get('icon', '')} {_b(bm.get('label', situation.title()))}\n\n"
+            f"{_i('No stocks in this bucket today.')}"
         )
 
     msg = f"{bm.get('icon', '')} {_b(bm.get('label', situation.title()) + ' — ' + ds)}\n"
@@ -258,7 +261,7 @@ def format_bucket_detail(situation, classified, scan_date=None):
     msg += "─" * 34 + "\n\n"
 
     for i, s in enumerate(stocks, 1):
-        sc = round(float(s.get("score", 0)))
+        sc = int(round(float(s.get("score", 0))))
         e = float(s.get("close", 0))
         sl = float(s.get("sl", e * 0.93))
         t1 = float(s.get("target1", e + (e - sl)))

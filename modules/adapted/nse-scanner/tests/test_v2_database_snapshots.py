@@ -24,15 +24,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import sqlite3
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from v2.database import V2Database
 from v2.snapshots import build_market_snapshot, compute_breadth, persist_market_snapshot
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 def seed_db(path: Path) -> None:
@@ -45,7 +42,9 @@ def seed_db(path: Path) -> None:
     for symbol, drift in [("AAA", 0.4), ("BBB", -0.05)]:
         for i, day in enumerate(dates):
             close = 100 + drift * i
-            rows.append((symbol, day.date().isoformat(), close - 1, close + 1, close - 2, close, 100000 + i))
+            rows.append(
+                (symbol, day.date().isoformat(), close - 1, close + 1, close - 2, close, 100000 + i)
+            )
     conn.executemany("INSERT INTO daily_prices VALUES (?,?,?,?,?,?,?)", rows)
     conn.commit()
     conn.close()

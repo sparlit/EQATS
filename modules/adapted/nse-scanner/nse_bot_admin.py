@@ -65,7 +65,9 @@ try:
 except Exception:
     pass
 
-ADMIN_CHAT_ID = int(os.environ.get("ADMIN_CHAT_ID", 0)) or (next(iter(ADMIN_IDS)) if ADMIN_IDS else 0)
+ADMIN_CHAT_ID = int(os.environ.get("ADMIN_CHAT_ID", 0)) or (
+    next(iter(ADMIN_IDS)) if ADMIN_IDS else 0
+)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -98,9 +100,15 @@ def track_user(user):
             return
 
         today = date.today().isoformat()
-        uname = getattr(user, "username", "") or (user.get("username", "") if isinstance(user, dict) else "")
-        fname = getattr(user, "first_name", "") or (user.get("first_name", "") if isinstance(user, dict) else "")
-        lname = getattr(user, "last_name", "") or (user.get("last_name", "") if isinstance(user, dict) else "")
+        uname = getattr(user, "username", "") or (
+            user.get("username", "") if isinstance(user, dict) else ""
+        )
+        fname = getattr(user, "first_name", "") or (
+            user.get("first_name", "") if isinstance(user, dict) else ""
+        )
+        lname = getattr(user, "last_name", "") or (
+            user.get("last_name", "") if isinstance(user, dict) else ""
+        )
         full = (fname + " " + lname).strip() or uname or uid
 
         if uid not in users:
@@ -197,7 +205,7 @@ def get_activity_stats(days=1):
             "top_users": [],
         }
     except Exception as e:
-        log.exception(f"get_activity_stats error: {e}")
+        log.error(f"get_activity_stats error: {e}")
         return {"total_actions": 0, "unique_users": 0, "top_actions": []}
 
 
@@ -219,7 +227,7 @@ def cleanup_old_activity(keep_days=30):
         with open(ACTIVITY_FILE, "w", encoding="utf-8") as f:
             f.writelines(lines)
     except Exception as e:
-        log.exception(f"cleanup_old_activity error: {e}")
+        log.error(f"cleanup_old_activity error: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -267,7 +275,7 @@ def generate_health_report():
                 except Exception:
                     report["scan_status"] = "unknown"
     except Exception as e:
-        log.exception(f"Health scan check: {e}")
+        log.error(f"Health scan check: {e}")
 
     # Database
     try:
@@ -494,7 +502,7 @@ def send_health_check():
         )
         return r2.status_code == 200
     except Exception as e:
-        log.exception(f"Health check send error: {e}")
+        log.error(f"Health check send error: {e}")
         return False
 
 
@@ -594,7 +602,7 @@ def format_guide_message():
 # ═══════════════════════════════════════════════════════════════
 
 
-def broadcast_to_all_users(token: str | None = None, skip_chat_id: int | None = None) -> dict:
+def broadcast_to_all_users(token: str = None, skip_chat_id: int = None) -> dict:
     """
     Broadcast today's Option C scan message to all registered users.
 
@@ -634,7 +642,7 @@ def broadcast_to_all_users(token: str | None = None, skip_chat_id: int | None = 
         if len(message) > 4096:
             message = message[:4050] + "\n\n<i>... truncated. Open Scanner App for full list.</i>"
     except Exception as e:
-        log.exception(f"[BROADCAST] Failed to build message: {e}")
+        log.error(f"[BROADCAST] Failed to build message: {e}")
         return {"sent": 0, "failed": 0, "blocked": 0, "skipped": 0, "error": str(e)}
 
     # Load all users
@@ -705,7 +713,7 @@ def broadcast_to_all_users(token: str | None = None, skip_chat_id: int | None = 
 
         except Exception as e:
             failed += 1
-            log.exception(f"[BROADCAST] {uid} error: {e}")
+            log.error(f"[BROADCAST] {uid} error: {e}")
 
         # Rate limit: max 20 messages/sec (Telegram allows 30)
         time.sleep(0.05)
@@ -753,7 +761,7 @@ def format_broadcast_summary(result: dict) -> str:
 
 
 def send_pipeline_confirmation(
-    scan_date: str | None = None, stock_count: int = 0, prime_count: int = 0, run_time: str | None = None
+    scan_date: str = None, stock_count: int = 0, prime_count: int = 0, run_time: str = None
 ) -> bool:
     """
     Send one-line pipeline confirmation to admin at 6:05 AM.
@@ -765,7 +773,9 @@ def send_pipeline_confirmation(
         prime_count: number of Prime Entry stocks
         run_time:    time pipeline completed e.g. '6:02 AM IST'
     """
-    token = (getattr(config, "TELEGRAM_TOKEN", None) if config else None) or os.environ.get("TELEGRAM_TOKEN", "")
+    token = (getattr(config, "TELEGRAM_TOKEN", None) if config else None) or os.environ.get(
+        "TELEGRAM_TOKEN", ""
+    )
     chat_id = ADMIN_CHAT_ID
     if not token or not chat_id:
         return False
@@ -780,16 +790,23 @@ def send_pipeline_confirmation(
             f"⏱ {rt}\n"
             f"<i>Send /broadcast to push to all users</i>"
         )
-        kb = {"inline_keyboard": [[{"text": "📢 Broadcast to Users", "callback_data": "/broadcast"}]]}
+        kb = {
+            "inline_keyboard": [[{"text": "📢 Broadcast to Users", "callback_data": "/broadcast"}]]
+        }
         url = f"https://api.telegram.org/bot{token}/sendMessage"
         r = requests.post(
             url,
-            data={"chat_id": chat_id, "text": msg, "parse_mode": "HTML", "reply_markup": json.dumps(kb)},
+            data={
+                "chat_id": chat_id,
+                "text": msg,
+                "parse_mode": "HTML",
+                "reply_markup": json.dumps(kb),
+            },
             timeout=10,
         )
         return r.status_code == 200
     except Exception as e:
-        log.exception(f"[PIPELINE CONFIRM] {e}")
+        log.error(f"[PIPELINE CONFIRM] {e}")
         return False
 
 
@@ -805,7 +822,9 @@ if __name__ == "__main__":
     parser.add_argument("--users", action="store_true", help="Show user list")
     parser.add_argument("--send", action="store_true", help="Send health check to Telegram")
     parser.add_argument("--stats", action="store_true", help="Show activity stats")
-    parser.add_argument("--broadcast", action="store_true", help="Broadcast today's scan to all users")
+    parser.add_argument(
+        "--broadcast", action="store_true", help="Broadcast today's scan to all users"
+    )
     args = parser.parse_args()
 
     if args.health:

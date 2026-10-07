@@ -128,16 +128,21 @@ def fetch_file_from_github(filename: str) -> bool:
 
             # Print summary based on file type
             if filename == "telegram_last_scan.json":
-                print(f"[GITHUB] ✅ {filename}: {parsed.get('total_stocks')} stocks (date: {parsed.get('scan_date')})")
+                print(
+                    f"[GITHUB] ✅ {filename}: "
+                    f"{parsed.get('total_stocks')} stocks "
+                    f"(date: {parsed.get('scan_date')})"
+                )
             elif filename == "scan_history.json":
                 print(f"[GITHUB] ✅ {filename}: {parsed.get('days_stored', 0)} days stored")
             return True
 
-        if r.status_code == 404:
+        elif r.status_code == 404:
             print(f"[GITHUB] {filename} not on GitHub yet")
             return False
-        print(f"[GITHUB] ❌ {r.status_code}: {r.text[:100]}")
-        return False
+        else:
+            print(f"[GITHUB] ❌ {r.status_code}: {r.text[:100]}")
+            return False
 
     except Exception as e:
         print(f"[GITHUB] Error fetching {filename}: {e}")

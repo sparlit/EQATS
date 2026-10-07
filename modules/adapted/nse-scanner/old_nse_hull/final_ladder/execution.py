@@ -31,15 +31,27 @@ VARIANTS = ("FIXED_TP2", "TRAIL_STRUCT", "TRAIL_ATR3", "PARTIAL50_STRUCT", "PART
 
 
 def apply_exit(
-    state: dict, day: str, bars: dict, candidates: list[dict], config: LedgerConfig, variant="FIXED_TP2"
+    state: dict,
+    day: str,
+    bars: dict,
+    candidates: list[dict],
+    config: LedgerConfig,
+    variant="FIXED_TP2",
 ) -> dict:
     if variant not in VARIANTS:
-        msg = "Unknown local exit policy"
-        raise ValueError(msg)
+        raise ValueError("Unknown local exit policy")
     events = []
 
     def event(kind, trade, **extra):
-        events.append({"date": day, "event": kind, "trade_id": trade["trade_id"], "symbol": trade["symbol"], **extra})
+        events.append(
+            {
+                "date": day,
+                "event": kind,
+                "trade_id": trade["trade_id"],
+                "symbol": trade["symbol"],
+                **extra,
+            }
+        )
 
     def manage(p, bar, *, entry_day=False):
         p.update(last_price=bar["close"], mark_date=day)
@@ -101,7 +113,10 @@ def apply_exit(
     survivors = []
     for pending in state["pending"]:
         pending["sessions_waited"] += 1
-        if state["scanner"] == "Penny" and pending["sessions_waited"] > config.penny_expiry_sessions:
+        if (
+            state["scanner"] == "Penny"
+            and pending["sessions_waited"] > config.penny_expiry_sessions
+        ):
             event("EXPIRED", pending)
             continue
         bar = _bar(bars.get(pending["symbol"]), day)
@@ -125,7 +140,9 @@ def apply_exit(
             survivors.append(pending)
             continue
         snapshot = _summary(state, day)
-        open_risk = sum(p["remaining_quantity"] * max(p["entry"] - p["stop"], 0) for p in state["positions"])
+        open_risk = sum(
+            p["remaining_quantity"] * max(p["entry"] - p["stop"], 0) for p in state["positions"]
+        )
         quantity = max(
             0,
             min(
@@ -164,13 +181,15 @@ def apply_exit(
             continue
         if len(active) >= config.max_open:
             break
-        values = {k: number(c[k]) for k in ("entry", "entry_high", "stop", "target1", "target2", "max_stop_pct")}
+        values = {
+            k: number(c[k])
+            for k in ("entry", "entry_high", "stop", "target1", "target2", "max_stop_pct")
+        }
         if (
             not 0 < values["stop"] < values["entry"] < values["target1"] <= values["target2"]
             or values["entry_high"] < values["entry"]
         ):
-            msg = "Invalid candidate geometry"
-            raise ValueError(msg)
+            raise ValueError("Invalid candidate geometry")
         identity = f"{state['scanner']}:{c['symbol']}:{day}"
         p = {
             **c,
@@ -189,7 +208,12 @@ def apply_exit(
     if variant != "FIXED_TP2":
         for p in state["positions"]:
             bar = bars.get(p["symbol"])
-            if not p["remaining_quantity"] or p["status"] == "REVIEW" or not bar or bar.get("date") != day:
+            if (
+                not p["remaining_quantity"]
+                or p["status"] == "REVIEW"
+                or not bar
+                or bar.get("date") != day
+            ):
                 continue
             high = max(p["entry"], bar["close"]) if p["entry_date"] == day else bar["high"]
             p["highest_since_entry"] = max(p.get("highest_since_entry", p["entry"]), high)
@@ -203,7 +227,11 @@ def apply_exit(
                 p["stop"] = max(previous_stop, proposed)
                 if p["stop"] > previous_stop:
                     event(
-                        "TRAIL_FOR_NEXT_SESSION", p, previous_stop=previous_stop, new_stop=p["stop"], context_date=day
+                        "TRAIL_FOR_NEXT_SESSION",
+                        p,
+                        previous_stop=previous_stop,
+                        new_stop=p["stop"],
+                        context_date=day,
                     )
     state["events"].extend(events)
     state["last_date"] = day
@@ -213,7 +241,6 @@ def apply_exit(
             "Security master unavailable; using the existing scanner gateway fallback for this session."
         )
     if result["available_cash"] < -0.01:
-        msg = "New paper ledger cannot borrow cash"
-        raise ValueError(msg)
+        raise ValueError("New paper ledger cannot borrow cash")
     result["events_today"] = events
     return result

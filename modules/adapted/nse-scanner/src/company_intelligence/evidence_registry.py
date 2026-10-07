@@ -28,14 +28,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import hashlib
 import json
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from datetime import date
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from collections.abc import Iterable
-
-    from .models import EvidenceItem
+from .models import EvidenceItem
 
 _ALLOWED_CATEGORIES = {
     "TECHNICAL",
@@ -83,22 +80,18 @@ class EvidenceRegistry:
     def _normalize_symbol(symbol: str) -> str:
         normalized = symbol.strip().upper()
         if not normalized:
-            msg = "symbol is required"
-            raise ValueError(msg)
+            raise ValueError("symbol is required")
         return normalized
 
     @staticmethod
     def _validate(item: EvidenceItem, *, today: date | None = None) -> None:
         if item.category not in _ALLOWED_CATEGORIES:
-            msg = f"Unsupported evidence category: {item.category}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported evidence category: {item.category}")
         if item.status == "VERIFIED" and not item.source_reference.strip():
-            msg = "Verified evidence requires source_reference"
-            raise ValueError(msg)
+            raise ValueError("Verified evidence requires source_reference")
         observed = date.fromisoformat(item.as_of_date)
         if observed > (today or date.today()):
-            msg = "Evidence as_of_date cannot be in the future"
-            raise ValueError(msg)
+            raise ValueError("Evidence as_of_date cannot be in the future")
 
     @staticmethod
     def _fingerprint(symbol: str, item: EvidenceItem) -> str:
@@ -121,8 +114,7 @@ class EvidenceRegistry:
         self._validate(item, today=today)
         evidence_id = self._fingerprint(normalized, item)
         if evidence_id in self._records:
-            msg = f"Duplicate evidence: {evidence_id}"
-            raise ValueError(msg)
+            raise ValueError(f"Duplicate evidence: {evidence_id}")
         record = RegisteredEvidence(normalized, evidence_id, item)
         self._records[evidence_id] = record
         return record
@@ -143,10 +135,11 @@ class EvidenceRegistry:
             return None
         return max(records, key=lambda record: (record.item.as_of_date, record.evidence_id))
 
-    def stale(self, *, max_age_days: int, today: date | None = None) -> tuple[RegisteredEvidence, ...]:
+    def stale(
+        self, *, max_age_days: int, today: date | None = None
+    ) -> tuple[RegisteredEvidence, ...]:
         if max_age_days < 0:
-            msg = "max_age_days cannot be negative"
-            raise ValueError(msg)
+            raise ValueError("max_age_days cannot be negative")
         reference_date = today or date.today()
         return tuple(
             record

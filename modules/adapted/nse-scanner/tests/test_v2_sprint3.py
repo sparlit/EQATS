@@ -99,7 +99,11 @@ def test_preview_can_show_configured_allocation():
         {candidate.horizon: [candidate]},
         "BULL",
         candidate.trade_date,
-        allocations={(candidate.symbol, candidate.horizon): Allocation(100, 10_000, 500, "risk_budget_per_trade")},
+        allocations={
+            (candidate.symbol, candidate.horizon): Allocation(
+                100, 10_000, 500, "risk_budget_per_trade"
+            )
+        },
     )
     assert "Proposed Quantity: 100" in text
     assert "Initial Risk: ₹500.00" in text

@@ -60,50 +60,37 @@ class AutonomousDecisionCycle:
 
     def __post_init__(self) -> None:
         if not self.cycle_id.strip():
-            msg = "cycle_id is required"
-            raise ValueError(msg)
+            raise ValueError("cycle_id is required")
         if not self.decision_id.strip():
-            msg = "decision_id is required"
-            raise ValueError(msg)
+            raise ValueError("decision_id is required")
         if self.scope not in _ALLOWED_SCOPES:
-            msg = f"Unsupported autonomous scope: {self.scope}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported autonomous scope: {self.scope}")
         date.fromisoformat(self.as_of_date)
         if self.action not in _ALLOWED_ACTIONS:
-            msg = f"Unsupported autonomous action: {self.action}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported autonomous action: {self.action}")
         if self.status not in _ALLOWED_CYCLE_STATUSES:
-            msg = f"Unsupported cycle status: {self.status}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported cycle status: {self.status}")
         if self.deterministic_score is not None and not 0 <= self.deterministic_score <= 100:
-            msg = "deterministic_score must be between 0 and 100"
-            raise ValueError(msg)
+            raise ValueError("deterministic_score must be between 0 and 100")
         if len(set(self.evidence_references)) != len(self.evidence_references):
-            msg = "evidence_references must be unique"
-            raise ValueError(msg)
+            raise ValueError("evidence_references must be unique")
         if self.expires_on is not None:
             expiry = date.fromisoformat(self.expires_on)
             if expiry < date.fromisoformat(self.as_of_date):
-                msg = "expires_on cannot precede as_of_date"
-                raise ValueError(msg)
+                raise ValueError("expires_on cannot precede as_of_date")
         if self.status in {"READY_FOR_REVIEW", "AWAITING_APPROVAL", "APPROVED"}:
             if not self.evidence_references:
-                msg = "Actionable cycles require evidence references"
-                raise ValueError(msg)
+                raise ValueError("Actionable cycles require evidence references")
             if self.deterministic_score is None:
-                msg = "Actionable cycles require a deterministic score"
-                raise ValueError(msg)
+                raise ValueError("Actionable cycles require a deterministic score")
         if self.status in {"INSUFFICIENT_DATA", "CONFLICTING_EVIDENCE"}:
             if self.action not in {"WATCH", "NO_ACTION"}:
-                msg = "Unresolved cycles cannot propose portfolio-changing actions"
-                raise ValueError(msg)
+                raise ValueError("Unresolved cycles cannot propose portfolio-changing actions")
             if not self.limitations:
-                msg = "Unresolved cycles require limitations"
-                raise ValueError(msg)
+                raise ValueError("Unresolved cycles require limitations")
         if self.action in _PORTFOLIO_CHANGING_ACTIONS and self.status == "APPROVED":
             if not self.constraints:
-                msg = "Approved portfolio-changing actions require constraints"
-                raise ValueError(msg)
+                raise ValueError("Approved portfolio-changing actions require constraints")
 
 
 @dataclass(frozen=True)
@@ -117,21 +104,16 @@ class HumanApproval:
 
     def __post_init__(self) -> None:
         if not self.cycle_id.strip():
-            msg = "cycle_id is required"
-            raise ValueError(msg)
+            raise ValueError("cycle_id is required")
         if not self.reviewer.strip():
-            msg = "reviewer is required"
-            raise ValueError(msg)
+            raise ValueError("reviewer is required")
         date.fromisoformat(self.reviewed_date)
         if self.decision not in _ALLOWED_APPROVAL_DECISIONS:
-            msg = f"Unsupported approval decision: {self.decision}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported approval decision: {self.decision}")
         if not self.reason.strip():
-            msg = "approval reason is required"
-            raise ValueError(msg)
+            raise ValueError("approval reason is required")
         if self.decision == "APPROVE" and not (self.approval_reference or "").strip():
-            msg = "Approved decisions require an approval_reference"
-            raise ValueError(msg)
+            raise ValueError("Approved decisions require an approval_reference")
 
 
 @dataclass(frozen=True)
@@ -146,28 +128,20 @@ class AutonomousDecisionOutcome:
 
     def __post_init__(self) -> None:
         if not self.cycle_id.strip():
-            msg = "cycle_id is required"
-            raise ValueError(msg)
+            raise ValueError("cycle_id is required")
         date.fromisoformat(self.recorded_date)
         if self.outcome not in _ALLOWED_OUTCOMES:
-            msg = f"Unsupported outcome: {self.outcome}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported outcome: {self.outcome}")
         if self.executed_action not in _ALLOWED_ACTIONS:
-            msg = f"Unsupported executed action: {self.executed_action}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported executed action: {self.executed_action}")
         if len(set(self.audit_references)) != len(self.audit_references):
-            msg = "audit_references must be unique"
-            raise ValueError(msg)
+            raise ValueError("audit_references must be unique")
         if self.outcome == "EXECUTED":
             if self.executed_action not in _PORTFOLIO_CHANGING_ACTIONS:
-                msg = "EXECUTED outcomes require a portfolio-changing action"
-                raise ValueError(msg)
+                raise ValueError("EXECUTED outcomes require a portfolio-changing action")
             if not (self.approval_reference or "").strip():
-                msg = "EXECUTED outcomes require an approval_reference"
-                raise ValueError(msg)
+                raise ValueError("EXECUTED outcomes require an approval_reference")
             if not self.audit_references:
-                msg = "EXECUTED outcomes require audit references"
-                raise ValueError(msg)
+                raise ValueError("EXECUTED outcomes require audit references")
         elif self.executed_action != "NO_ACTION":
-            msg = "Non-executed outcomes must use NO_ACTION"
-            raise ValueError(msg)
+            raise ValueError("Non-executed outcomes must use NO_ACTION")

@@ -41,7 +41,9 @@ def audit_hull(state: dict, prices: dict[str, pd.DataFrame]) -> dict:
             continue
         risk = (p["entry"] - p["initial_stop"]) * p["quantity"]
         p["net_r"] = p["realised_pnl"] / risk if risk > 0 else None
-        p["holding_calendar_days"] = (pd.Timestamp(p["exit_date"]) - pd.Timestamp(p["entry_date"])).days
+        p["holding_calendar_days"] = (
+            pd.Timestamp(p["exit_date"]) - pd.Timestamp(p["entry_date"])
+        ).days
         data = prices.get(p["symbol"])
         if data is not None:
             dates = data.trade_date
@@ -53,7 +55,9 @@ def audit_hull(state: dict, prices: dict[str, pd.DataFrame]) -> dict:
                 p["mfe_r"] = max(0, (observed.high.max() - p["entry"]) / unit_risk)
                 p["mae_r"] = min(0, (observed.low.min() - p["entry"]) / unit_risk)
                 p["giveback_r"] = max(0, p["mfe_r"] - p["net_r"])
-            p["holding_sessions"] = int((dates.gt(p["entry_date"]) & dates.le(p["exit_date"])).sum())
+            p["holding_sessions"] = int(
+                (dates.gt(p["entry_date"]) & dates.le(p["exit_date"])).sum()
+            )
             if not dates.eq(p["entry_date"]).any() or not dates.eq(p["exit_date"]).any():
                 p["holding_sessions"] = None
                 problems.append(f"{p['trade_id']}: incomplete price coverage")
@@ -61,7 +65,10 @@ def audit_hull(state: dict, prices: dict[str, pd.DataFrame]) -> dict:
             if not entry_row.empty:
                 p["same_close_entry"] = abs(entry_row.iloc[0].close - p["entry"]) < 0.011
             exit_row = data.loc[dates.eq(p["exit_date"])]
-            if not exit_row.empty and not exit_row.iloc[0].low <= p["exit_price"] <= exit_row.iloc[0].high:
+            if (
+                not exit_row.empty
+                and not exit_row.iloc[0].low <= p["exit_price"] <= exit_row.iloc[0].high
+            ):
                 problems.append(f"{p['trade_id']}: recorded exit outside daily range")
         closed.append(p)
     capital = state["capital_base"]
@@ -69,13 +76,21 @@ def audit_hull(state: dict, prices: dict[str, pd.DataFrame]) -> dict:
     nav, peak, max_dd, incomplete_days = [], capital, 0.0, []
     first = min((p["entry_date"] for p in state.get("positions", [])), default=None)
     calendar = sorted(
-        {str(day) for d in prices.values() for day in d.trade_date if first and first <= str(day) <= state["last_run"]}
+        {
+            str(day)
+            for d in prices.values()
+            for day in d.trade_date
+            if first and first <= str(day) <= state["last_run"]
+        }
     )
     lookups = {s: dict(zip(d.trade_date, d.close, strict=False)) for s, d in prices.items()}
     for day in calendar:
         equity, complete = capital, True
         for p in state.get("positions", []):
-            if p.get("state") not in {"OPEN", "TRAILING", "CLOSED", "CORPORATE_ACTION_REVIEW"} or p["entry_date"] > day:
+            if (
+                p.get("state") not in {"OPEN", "TRAILING", "CLOSED", "CORPORATE_ACTION_REVIEW"}
+                or p["entry_date"] > day
+            ):
                 continue
             if p.get("exit_date") and p["exit_date"] <= day:
                 equity += p["realised_pnl"]

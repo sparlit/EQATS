@@ -66,14 +66,12 @@ def market_bars(database, day: str) -> dict:
             params=sessions,
         )
     if prices.empty:
-        msg = "No market data for portfolio accounting"
-        raise ValueError(msg)
+        raise ValueError("No market data for portfolio accounting")
     prices = prices.copy()
     prices["trade_date"] = pd.to_datetime(prices["trade_date"])
     latest = prices["trade_date"].max().date().isoformat()
     if latest != day:
-        msg = f"Portfolio date {day} has no completed market session (latest {latest})"
-        raise ValueError(msg)
+        raise ValueError(f"Portfolio date {day} has no completed market session (latest {latest})")
     master = database.load_symbol_master(day)
     metadata = {str(r["symbol"]): r.to_dict() for _, r in master.iterrows()}
     restricted = database.load_restricted_symbols(day)
@@ -113,7 +111,8 @@ def market_bars(database, day: str) -> dict:
             "entry_blocked": bool(one_price or (close == float(row["high"]) and gap >= 9.5)),
             "exit_blocked": bool(one_price or (close == float(row["low"]) and gap <= -9.5)),
             "review_required": bool(
-                gate.stage == "CORPORATE_LIFECYCLE" or gate.detail == "MATERIAL_CORPORATE_ACTION_REVIEW"
+                gate.stage == "CORPORATE_LIFECYCLE"
+                or gate.detail == "MATERIAL_CORPORATE_ACTION_REVIEW"
             ),
             "metadata_available": bool(metadata),
         }
@@ -132,17 +131,16 @@ def update_portfolio(
 ) -> dict:
     day = report.get("as_of_date")
     if not day:
-        msg = "Signal report has no date"
-        raise ValueError(msg)
+        raise ValueError("Signal report has no date")
     candidates = penny_candidates(report) if scanner == "Penny" else ladder_candidates(report)
     # Refuse to skip an exchange session and miss a stop/target on a held trade.
     uri = Path(database.path).resolve().as_uri() + "?mode=ro"
     with sqlite3.connect(uri, uri=True) as conn:
         table = database.price_table(conn)
         date_col = "trade_date" if table == "daily_prices_v2" else "date"
-        previous_session = conn.execute(f"SELECT MAX({date_col}) FROM {table} WHERE {date_col} < ?", (day,)).fetchone()[
-            0
-        ]
+        previous_session = conn.execute(
+            f"SELECT MAX({date_col}) FROM {table} WHERE {date_col} < ?", (day,)
+        ).fetchone()[0]
     return advance(
         path,
         scanner,

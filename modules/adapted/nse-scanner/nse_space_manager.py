@@ -28,9 +28,8 @@ nse_space_manager.py — Intelligent Space Manager
 
 import argparse
 import contextlib
-import os
 import sys
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 try:
@@ -98,11 +97,15 @@ def show_status():
             print(f"  Oldest CSV  : {oldest.name}  ({_age_days(oldest)}d old)")
             old_count = sum(1 for f in csvs if _age_days(f) > KEEP_CSV_DAYS)
             if old_count:
-                old_mb = sum(f.stat().st_size for f in csvs if _age_days(f) > KEEP_CSV_DAYS) / 1_048_576
+                old_mb = (
+                    sum(f.stat().st_size for f in csvs if _age_days(f) > KEEP_CSV_DAYS) / 1_048_576
+                )
                 print(f"\n  ⚠️  {old_count} CSVs older than {KEEP_CSV_DAYS} days ({old_mb:.1f}MB)")
 
     if OUTPUT_DIR.exists():
-        xlsx = sorted(OUTPUT_DIR.glob("NSE_Scanner_*.xlsx"), key=lambda f: f.stat().st_mtime, reverse=True)
+        xlsx = sorted(
+            OUTPUT_DIR.glob("NSE_Scanner_*.xlsx"), key=lambda f: f.stat().st_mtime, reverse=True
+        )
         if xlsx:
             print(f"\n  Excel files : {len(xlsx)} file(s)")
             for xf in xlsx:
@@ -187,7 +190,9 @@ def clean_old_logs(dry_run=True):
 def clean_old_excel(dry_run=True):
     if not OUTPUT_DIR.exists():
         return 0, 0.0
-    files = sorted(OUTPUT_DIR.glob("NSE_Scanner_*.xlsx"), key=lambda f: f.stat().st_mtime, reverse=True)
+    files = sorted(
+        OUTPUT_DIR.glob("NSE_Scanner_*.xlsx"), key=lambda f: f.stat().st_mtime, reverse=True
+    )
     to_del = files[KEEP_EXCEL:]
     deleted = freed = 0
     for f in to_del:
@@ -267,7 +272,7 @@ def main():
     show_status()
     if args.status:
         return
-    if args.clean:
+    elif args.clean:
         run_cleanup(dry_run=False)
     else:
         run_cleanup(dry_run=True)

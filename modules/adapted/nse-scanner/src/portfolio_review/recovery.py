@@ -26,7 +26,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """Durable run-state manifest used for partial failure recovery."""
 
 import json
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -49,5 +49,7 @@ def write_recovery_manifest(
         "retry_required": bool(failed),
         "results": results,
     }
-    destination.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    destination.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     return destination

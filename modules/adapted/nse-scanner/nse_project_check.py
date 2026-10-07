@@ -44,10 +44,8 @@ Checks:
 """
 
 import importlib
-import json
 import os
-import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import Path
 
 _HERE = Path(__file__).parent
@@ -144,7 +142,13 @@ try:
     ]:
         val = getattr(config, attr, None)
         passed = bool(val)
-        _check("Config", attr, passed, detail=f"{desc} = {val or 'NOT SET'}", fix=f"Add {attr} = 'value' to config.py")
+        _check(
+            "Config",
+            attr,
+            passed,
+            detail=f"{desc} = {val or 'NOT SET'}",
+            fix=f"Add {attr} = 'value' to config.py",
+        )
 
     # Optional
     for attr in ["DHAN_CLIENT_ID", "DHAN_TOKEN"]:
@@ -204,7 +208,9 @@ for module, label in IMPORTS:
             label,
             False,
             detail=str(e)[:80],
-            fix=f"pip install {module}" if module in _THIRD_PARTY else "Restore the file from Claude or GitHub",
+            fix=f"pip install {module}"
+            if module in _THIRD_PARTY
+            else "Restore the file from Claude or GitHub",
         )
 
 
@@ -223,7 +229,10 @@ try:
     if db_path.exists():
         con = sqlite3.connect(str(db_path))
         cur = con.cursor()
-        tables = [t[0] for t in cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+        tables = [
+            t[0]
+            for t in cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        ]
 
         # Row count from main price table
         row_info = ""
@@ -294,23 +303,30 @@ try:
             oldest = min(csv_files, key=lambda f: f.stat().st_mtime)
             age_days = (datetime.now() - datetime.fromtimestamp(latest.stat().st_mtime)).days
             span = (
-                datetime.fromtimestamp(latest.stat().st_mtime) - datetime.fromtimestamp(oldest.stat().st_mtime)
+                datetime.fromtimestamp(latest.stat().st_mtime)
+                - datetime.fromtimestamp(oldest.stat().st_mtime)
             ).days
 
             _check(
                 "Data",
                 "Latest CSV file recent (≤5 days)",
                 age_days <= 5,
-                detail=f"Latest: {latest.name}  ({age_days}d old)  |  Oldest: {oldest.name}  |  Span: {span} days",
+                detail=f"Latest: {latest.name}  ({age_days}d old)  |  "
+                f"Oldest: {oldest.name}  |  Span: {span} days",
                 fix="Run: python nse_daily_runner.py",
             )
 
             # Warn if too many raw CSVs (already in SQLite — wasting space)
             if len(csv_files) > 30:
-                print(f"  ⚠️   {len(csv_files)} raw CSVs on disk ({size_mb:.0f}MB) — data is already in SQLite.")
+                print(
+                    f"  ⚠️   {len(csv_files)} raw CSVs on disk ({size_mb:.0f}MB) — "
+                    f"data is already in SQLite."
+                )
                 print("       Run: python nse_space_manager.py --clean  to free space")
         else:
-            _check("Data", "CSV files present", False, fix="Run: python nse_historical_downloader.py")
+            _check(
+                "Data", "CSV files present", False, fix="Run: python nse_historical_downloader.py"
+            )
     else:
         _check(
             "Data",
@@ -353,7 +369,9 @@ try:
         )
 
     # Webhook
-    wh_url = requests.get(f"{base}/getWebhookInfo", timeout=5).json().get("result", {}).get("url", "")
+    wh_url = (
+        requests.get(f"{base}/getWebhookInfo", timeout=5).json().get("result", {}).get("url", "")
+    )
     if wh_url:
         _check(
             "Telegram",
@@ -374,7 +392,13 @@ try:
     )
 
 except Exception as e:
-    _check("Telegram", "Telegram reachable", False, detail=str(e), fix="Check internet + TELEGRAM_TOKEN in .env")
+    _check(
+        "Telegram",
+        "Telegram reachable",
+        False,
+        detail=str(e),
+        fix="Check internet + TELEGRAM_TOKEN in .env",
+    )
 
 
 # ══════════════════════════════════════════════════════════════
@@ -438,7 +462,13 @@ try:
         else:
             _check("JSON", "File readable", False, fix="Run: python nse_output.py --test")
     else:
-        _check("JSON", "File found", False, detail=f"Expected: {RESULTS_FILE}", fix="Run: python nse_output.py --test")
+        _check(
+            "JSON",
+            "File found",
+            False,
+            detail=f"Expected: {RESULTS_FILE}",
+            fix="Run: python nse_output.py --test",
+        )
 
 except Exception as e:
     _check("JSON", "JSON check", False, detail=str(e))
@@ -462,18 +492,27 @@ try:
             _check("Folders", f"{desc} writable: {folder.name}/", True)
         except Exception as e:
             _check(
-                "Folders", f"{desc} writable: {folder.name}/", False, detail=str(e), fix=f"Check permissions: {folder}"
+                "Folders",
+                f"{desc} writable: {folder.name}/",
+                False,
+                detail=str(e),
+                fix=f"Check permissions: {folder}",
             )
 
     # Latest Excel
     out_dir = _HERE / getattr(_cfg, "OUTPUT_DIR", "output")
-    xlsx_files = sorted(out_dir.glob("NSE_Scanner_*.xlsx"), key=lambda f: f.stat().st_mtime, reverse=True)
+    xlsx_files = sorted(
+        out_dir.glob("NSE_Scanner_*.xlsx"), key=lambda f: f.stat().st_mtime, reverse=True
+    )
     if xlsx_files:
         latest = xlsx_files[0]
         size = latest.stat().st_size / 1_048_576
         _check("Folders", "Excel report exists", True, detail=f"{latest.name}  ({size:.1f}MB)")
         if len(xlsx_files) > 1:
-            print(f"  ⚠️   {len(xlsx_files)} Excel files found — run nse_space_manager.py --clean to keep only latest")
+            print(
+                f"  ⚠️   {len(xlsx_files)} Excel files found — "
+                f"run nse_space_manager.py --clean to keep only latest"
+            )
     else:
         print("  ⚠️   No Excel yet — will be created on next scan run")
 
@@ -499,7 +538,8 @@ try:
             "Format",
             "format_stock_list() runs without error",
             len(msg) > 50,
-            detail=f"{len(msg)} chars  |  Page 1 stocks: {', '.join(s['symbol'] for s in stocks[:5])}",
+            detail=f"{len(msg)} chars  |  "
+            f"Page 1 stocks: {', '.join(s['symbol'] for s in stocks[:5])}",
         )
         _check("Format", "format_help() runs without error", len(format_help()) > 20)
 
@@ -536,7 +576,10 @@ try:
 
         changed = [l for l in r.stdout.strip().splitlines() if not l.strip().startswith("??")]
         if changed:
-            print(f"  ⚠️   {len(changed)} uncommitted file(s) — run: git add . && git commit -m 'update'")
+            print(
+                f"  ⚠️   {len(changed)} uncommitted file(s) — "
+                f"run: git add . && git commit -m 'update'"
+            )
         else:
             print("  ✅  Working tree clean — nothing to commit")
 

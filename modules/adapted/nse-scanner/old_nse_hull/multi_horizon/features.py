@@ -128,7 +128,9 @@ def latest_features(prices: pd.DataFrame) -> pd.DataFrame:
             "previous_252d_low": prior_252_low.iloc[-1],
             "delivery_pct": delivery.iloc[-1],
             "delivery_median60": delivery.rolling(60, min_periods=20).median().iloc[-1],
-            "turnover_lacs": frame.get("turnover_lacs", pd.Series(np.nan, index=frame.index)).iloc[-1],
+            "turnover_lacs": frame.get("turnover_lacs", pd.Series(np.nan, index=frame.index)).iloc[
+                -1
+            ],
         }
         rows.append(data)
     return pd.DataFrame(rows)

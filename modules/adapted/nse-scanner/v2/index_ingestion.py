@@ -101,13 +101,14 @@ def parse_index_snapshot(content: bytes, expected_date: date | str | None = None
     change_col = _column(raw, "PERCENT_CHANGE", "CHANGE_%", "Change(%)")
 
     if not name_col or not date_col or not close_col:
-        msg = "NSE index snapshot missing required name/date/close columns"
-        raise ValueError(msg)
+        raise ValueError("NSE index snapshot missing required name/date/close columns")
 
     frame = pd.DataFrame(
         {
             "index_name": raw[name_col].astype(str).str.strip(),
-            "date": pd.to_datetime(raw[date_col], dayfirst=True, errors="coerce").dt.date.astype("string"),
+            "date": pd.to_datetime(raw[date_col], dayfirst=True, errors="coerce").dt.date.astype(
+                "string"
+            ),
             "open": pd.to_numeric(raw[open_col], errors="coerce") if open_col else pd.NA,
             "high": pd.to_numeric(raw[high_col], errors="coerce") if high_col else pd.NA,
             "low": pd.to_numeric(raw[low_col], errors="coerce") if low_col else pd.NA,
@@ -122,11 +123,9 @@ def parse_index_snapshot(content: bytes, expected_date: date | str | None = None
         expected = pd.Timestamp(expected_date).date().isoformat()
         actual = set(frame["date"].astype(str))
         if actual != {expected}:
-            msg = f"snapshot date mismatch: expected {expected}, found {sorted(actual)}"
-            raise ValueError(msg)
+            raise ValueError(f"snapshot date mismatch: expected {expected}, found {sorted(actual)}")
     if frame.empty:
-        msg = "NSE index snapshot contained no valid rows"
-        raise ValueError(msg)
+        raise ValueError("NSE index snapshot contained no valid rows")
     return frame.reset_index(drop=True)
 
 
@@ -153,15 +152,15 @@ def download_snapshot(
             response = client.get(url, headers=headers, timeout=timeout_seconds)
             response.raise_for_status()
             if not response.content or b"," not in response.content[:500]:
-                msg = "downloaded NSE snapshot is not a CSV payload"
-                raise ValueError(msg)
+                raise ValueError("downloaded NSE snapshot is not a CSV payload")
             return response.content, attempt
         except (requests.RequestException, ValueError) as exc:
             last_error = exc
             if attempt < attempts:
                 time.sleep(backoff_seconds * attempt)
-    msg = f"NSE index snapshot download failed after {attempts} attempts: {last_error}"
-    raise RuntimeError(msg)
+    raise RuntimeError(
+        f"NSE index snapshot download failed after {attempts} attempts: {last_error}"
+    )
 
 
 def upsert_index_perf(db_path: str | Path, frame: pd.DataFrame, source_file: str) -> int:

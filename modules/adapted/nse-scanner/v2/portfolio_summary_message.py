@@ -25,13 +25,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """Telegram Message 3: consolidated portfolio P&L and risk."""
 
-from typing import TYPE_CHECKING
-
 from .lifecycle import Position, TradeState
+from .portfolio_performance import PortfolioSnapshot
 from .v3_telegram import currency, percent, text, ticker
-
-if TYPE_CHECKING:
-    from .portfolio_performance import PortfolioSnapshot
 
 
 def render_portfolio_summary(
@@ -39,11 +35,19 @@ def render_portfolio_summary(
     previous_total_pnl: float | None = None,
     positions: list[Position] | None = None,
 ) -> str:
-    daily_change = snapshot.total_pnl - previous_total_pnl if previous_total_pnl is not None else None
+    daily_change = (
+        snapshot.total_pnl - previous_total_pnl if previous_total_pnl is not None else None
+    )
     rows = positions or []
-    live = [row for row in rows if row.state in {TradeState.OPEN, TradeState.PARTIAL, TradeState.TRAILING}]
+    live = [
+        row
+        for row in rows
+        if row.state in {TradeState.OPEN, TradeState.PARTIAL, TradeState.TRAILING}
+    ]
     returns = {
-        row.symbol: ((row.last_price or row.entry) - row.entry) / row.entry * 100.0 for row in live if row.entry > 0
+        row.symbol: ((row.last_price or row.entry) - row.entry) / row.entry * 100.0
+        for row in live
+        if row.entry > 0
     }
     r_values = [
         ((row.last_price or row.entry) - row.entry) / (row.entry - row.initial_stop)
@@ -57,7 +61,9 @@ def render_portfolio_summary(
     worst = min(returns.items(), key=lambda item: item[1]) if returns else None
     horizon_pnl: dict[str, float] = {}
     for row in rows:
-        pnl = row.realised_pnl + row.remaining_quantity * ((row.last_price or row.entry) - row.entry)
+        pnl = row.realised_pnl + row.remaining_quantity * (
+            (row.last_price or row.entry) - row.entry
+        )
         horizon_pnl[row.progression_stage] = horizon_pnl.get(row.progression_stage, 0.0) + pnl
     lines = [
         "💼 <b>NSE V3 — DAILY PORTFOLIO SUMMARY</b>",

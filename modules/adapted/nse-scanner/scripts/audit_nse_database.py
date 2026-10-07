@@ -57,8 +57,7 @@ def scalar(conn: sqlite3.Connection, sql: str, params: tuple[Any, ...] = ()) -> 
 
 def audit_database(db_path: Path) -> dict[str, Any]:
     if not db_path.exists():
-        msg = f"Database not found: {db_path}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Database not found: {db_path}")
 
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
@@ -77,7 +76,9 @@ def audit_database(db_path: Path) -> dict[str, Any]:
         if integrity != "ok":
             report["errors"].append(f"SQLite integrity check failed: {integrity}")
 
-        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        tables = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
         report["metrics"]["tables"] = sorted(tables)
         if "daily_prices" not in tables:
             report["errors"].append("Required table daily_prices is missing")
@@ -110,9 +111,15 @@ def audit_database(db_path: Path) -> dict[str, Any]:
                   OR high < low OR high < open OR high < close
                   OR low > open OR low > close OR close <= 0""",
         )
-        metrics["negative_volume_rows"] = scalar(conn, "SELECT COUNT(*) FROM daily_prices WHERE volume < 0")
-        metrics["missing_turnover_rows"] = scalar(conn, "SELECT COUNT(*) FROM daily_prices WHERE turnover_lacs IS NULL")
-        metrics["missing_delivery_rows"] = scalar(conn, "SELECT COUNT(*) FROM daily_prices WHERE delivery_pct IS NULL")
+        metrics["negative_volume_rows"] = scalar(
+            conn, "SELECT COUNT(*) FROM daily_prices WHERE volume < 0"
+        )
+        metrics["missing_turnover_rows"] = scalar(
+            conn, "SELECT COUNT(*) FROM daily_prices WHERE turnover_lacs IS NULL"
+        )
+        metrics["missing_delivery_rows"] = scalar(
+            conn, "SELECT COUNT(*) FROM daily_prices WHERE delivery_pct IS NULL"
+        )
         metrics["invalid_delivery_rows"] = scalar(
             conn,
             "SELECT COUNT(*) FROM daily_prices WHERE delivery_pct < 0 OR delivery_pct > 100",
@@ -133,7 +140,9 @@ def audit_database(db_path: Path) -> dict[str, Any]:
         )
 
         if metrics["session_count"] < 400:
-            report["errors"].append(f"Only {metrics['session_count']} distinct sessions; V2 requires at least 400")
+            report["errors"].append(
+                f"Only {metrics['session_count']} distinct sessions; V2 requires at least 400"
+            )
         if metrics["duplicate_symbol_dates"]:
             report["errors"].append("Duplicate symbol/date rows detected")
         if metrics["invalid_ohlc_rows"]:

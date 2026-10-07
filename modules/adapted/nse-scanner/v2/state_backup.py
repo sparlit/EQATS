@@ -30,7 +30,7 @@ import json
 import shutil
 import sqlite3
 from dataclasses import dataclass
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 STATE_TABLES = ("v2_positions", "v2_position_events", "v2_watchlist_memory")
@@ -56,9 +56,15 @@ def _sha256(path: Path) -> str:
 def _counts(path: Path) -> dict[str, int]:
     counts: dict[str, int] = {}
     with sqlite3.connect(str(path)) as conn:
-        names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        names = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
         for table in STATE_TABLES:
-            counts[table] = int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]) if table in names else 0
+            counts[table] = (
+                int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+                if table in names
+                else 0
+            )
     return counts
 
 
@@ -76,8 +82,7 @@ def create_state_backup(db_path: str | Path, backup_dir: str | Path = "backups/v
         result = conn.execute("PRAGMA integrity_check").fetchone()[0]
         if result != "ok":
             backup.unlink(missing_ok=True)
-            msg = f"backup integrity check failed: {result}"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"backup integrity check failed: {result}")
     checksum = _sha256(backup)
     counts = _counts(backup)
     manifest = backup.with_suffix(".json")
@@ -110,13 +115,11 @@ def restore_state_backup(
         raise FileNotFoundError(backup)
     actual = _sha256(backup)
     if expected_sha256 and actual != expected_sha256:
-        msg = "backup checksum mismatch"
-        raise ValueError(msg)
+        raise ValueError("backup checksum mismatch")
     with sqlite3.connect(str(backup)) as conn:
         result = conn.execute("PRAGMA integrity_check").fetchone()[0]
         if result != "ok":
-            msg = f"backup integrity check failed: {result}"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"backup integrity check failed: {result}")
     destination.parent.mkdir(parents=True, exist_ok=True)
     if destination.exists() and keep_existing_copy:
         safety = destination.with_suffix(destination.suffix + ".pre_restore")
@@ -128,6 +131,5 @@ def restore_state_backup(
     with sqlite3.connect(str(destination)) as conn:
         result = conn.execute("PRAGMA integrity_check").fetchone()[0]
         if result != "ok":
-            msg = f"restored database integrity check failed: {result}"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"restored database integrity check failed: {result}")
     return destination

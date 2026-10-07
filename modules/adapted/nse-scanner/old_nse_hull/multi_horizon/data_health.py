@@ -26,12 +26,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """Read-only data-health gate for the isolated shadow engine."""
 
 import sqlite3
-from typing import TYPE_CHECKING
+from pathlib import Path
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    import pandas as pd
+import pandas as pd
 
 
 def evaluate(db_path: str | Path, features: pd.DataFrame) -> dict:
@@ -46,9 +43,13 @@ def evaluate(db_path: str | Path, features: pd.DataFrame) -> dict:
         reasons.append("invalid_close")
     try:
         with sqlite3.connect(str(db_path)) as conn:
-            table = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='blacklist'").fetchone()
+            table = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='blacklist'"
+            ).fetchone()
             if table:
-                rows = conn.execute("SELECT DISTINCT symbol FROM blacklist WHERE date <= ?", (as_of,)).fetchall()
+                rows = conn.execute(
+                    "SELECT DISTINCT symbol FROM blacklist WHERE date <= ?", (as_of,)
+                ).fetchall()
                 blocked = sorted(str(row[0]) for row in rows)
     except sqlite3.Error:
         reasons.append("blacklist_unavailable")

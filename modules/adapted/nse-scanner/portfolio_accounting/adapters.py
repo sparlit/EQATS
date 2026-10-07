@@ -36,8 +36,7 @@ from .snapshot import build_snapshot, number
 def hull_snapshot(state: dict, as_of: str | None = None) -> dict:
     day = as_of or state.get("last_run")
     if not day:
-        msg = "Hull state has no accounting date"
-        raise ValueError(msg)
+        raise ValueError("Hull state has no accounting date")
     positions, pending, legacy = [], [], []
     for raw in state.get("positions", []):
         status = raw.get("state")
@@ -46,7 +45,9 @@ def hull_snapshot(state: dict, as_of: str | None = None) -> dict:
             continue
         if status == "CANCELLED":
             continue
-        if status not in {"OPEN", "TRAILING", "CLOSED", "CORPORATE_ACTION_REVIEW"} or not raw.get("quantity"):
+        if status not in {"OPEN", "TRAILING", "CLOSED", "CORPORATE_ACTION_REVIEW"} or not raw.get(
+            "quantity"
+        ):
             legacy.append(raw)
             continue
         row = dict(raw)
@@ -86,11 +87,19 @@ def v3_snapshot(rows: list, day: str, capital: float, entry_dates: dict | None =
             legacy.append(row)
             continue
         row.update(
-            status=status, mark_date=row.get("updated_date"), entry_date=(entry_dates or {}).get(row["trade_id"])
+            status=status,
+            mark_date=row.get("updated_date"),
+            entry_date=(entry_dates or {}).get(row["trade_id"]),
         )
         positions.append(row)
     return build_snapshot(
-        "V3", day, capital, positions, pending, legacy=legacy, execution_model="LEGACY_V3_RECORDED_FILLS"
+        "V3",
+        day,
+        capital,
+        positions,
+        pending,
+        legacy=legacy,
+        execution_model="LEGACY_V3_RECORDED_FILLS",
     )
 
 
@@ -103,13 +112,11 @@ def read_v3(path: str | Path, day: str | None = None, capital: float | None = No
         conn.row_factory = sqlite3.Row
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         if "v2_positions" not in tables:
-            msg = "V3 positions table is unavailable"
-            raise ValueError(msg)
+            raise ValueError("V3 positions table is unavailable")
         rows = [dict(r) for r in conn.execute("SELECT * FROM v2_positions ORDER BY trade_id")]
         newest = max((r["updated_date"] for r in rows), default=None)
         if day and newest and newest > day:
-            msg = "V3 state contains later positions; use a dated database snapshot"
-            raise ValueError(msg)
+            raise ValueError("V3 state contains later positions; use a dated database snapshot")
         stored = (
             conn.execute(
                 "SELECT portfolio_date,capital_base FROM v2_portfolio_snapshots ORDER BY portfolio_date DESC LIMIT 1"
@@ -119,8 +126,7 @@ def read_v3(path: str | Path, day: str | None = None, capital: float | None = No
         )
         if capital is None:
             if stored is None:
-                msg = "V3 starting capital unavailable; specify the recorded capital"
-                raise ValueError(msg)
+                raise ValueError("V3 starting capital unavailable; specify the recorded capital")
             capital = stored["capital_base"]
         dates = {}
         if "v2_position_events" in tables:
@@ -130,8 +136,7 @@ def read_v3(path: str | Path, day: str | None = None, capital: float | None = No
                 dates[r["trade_id"]] = r["day"]
     resolved_day = day or (stored["portfolio_date"] if stored else newest)
     if not resolved_day:
-        msg = "V3 accounting date unavailable"
-        raise ValueError(msg)
+        raise ValueError("V3 accounting date unavailable")
     return v3_snapshot(rows, resolved_day, capital, dates)
 
 
@@ -156,8 +161,7 @@ def ladder_candidates(report: dict) -> list[dict]:
     # Candidate selection and levels remain those of the existing shadow engine.
     shadow = report.get("multi_horizon_shadow", report)
     if "candidates" not in shadow:
-        msg = "Ladder report must include multi_horizon_shadow candidates"
-        raise ValueError(msg)
+        raise ValueError("Ladder report must include multi_horizon_shadow candidates")
     result = []
     for row in shadow.get("candidates", []):
         levels = row.get("trade_levels", {})

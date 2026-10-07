@@ -107,7 +107,8 @@ def focus_horizons(scores: dict[str, HorizonScore]) -> tuple[str, ...]:
     return tuple(
         horizon
         for horizon in ("1M", "3M", "6M", "12M")
-        if scores[horizon].score >= FOCUS_SCORE_BY_HORIZON[horizon] and not scores[horizon].hard_blocks
+        if scores[horizon].score >= FOCUS_SCORE_BY_HORIZON[horizon]
+        and not scores[horizon].hard_blocks
     )
 
 
@@ -130,7 +131,12 @@ def _classification(
 
 
 def _can_surface_early(
-    primary: HorizonScore, metrics: dict[str, float | bool | str], htf_state: str, *, stale_data: bool, regime: str
+    primary: HorizonScore,
+    metrics: dict[str, float | bool | str],
+    htf_state: str,
+    *,
+    stale_data: bool,
+    regime: str,
 ) -> bool:
     """Allow a developing HTF transition into WATCH, never directly into ACTION."""
     blocks = set(primary.hard_blocks)
@@ -156,7 +162,9 @@ def evaluate_candidate(
     action_permitted: bool = True,
 ) -> Candidate:
     data = frame.sort_values("trade_date").copy()
-    trade_date = pd.Timestamp(data.iloc[-1]["trade_date"]).date().isoformat() if not data.empty else ""
+    trade_date = (
+        pd.Timestamp(data.iloc[-1]["trade_date"]).date().isoformat() if not data.empty else ""
+    )
     horizons = score_horizons(data, regime, benchmark_close=benchmark_close)
     primary_horizon = _choose_primary_horizon(horizons)
     pullback: PullbackResult = evaluate_pullback(data, horizons)
@@ -184,7 +192,9 @@ def evaluate_candidate(
     eligible = tuple(h for h in ("1M", "3M", "6M", "12M") if horizons[h].state == "QUALIFIED")
     watched = tuple(h for h in ("1M", "3M", "6M", "12M") if horizons[h].state == "WATCH")
     focused = focus_horizons(horizons)
-    research = tuple(h for h in ("1M", "3M", "6M", "12M") if horizons[h].state in {"QUALIFIED", "WATCH"})
+    research = tuple(
+        h for h in ("1M", "3M", "6M", "12M") if horizons[h].state in {"QUALIFIED", "WATCH"}
+    )
     primary_score = float(horizons[primary_horizon].score)
     if primary_score < minimum_score:
         classification = "REJECT"
@@ -200,7 +210,9 @@ def evaluate_candidate(
     reasons_for: list[str] = list(horizons[primary_horizon].reasons_for)
     if primary_trigger.actionable:
         reasons_for.extend(primary_trigger.reasons)
-    reasons_for.extend(reason for reason in plan.reasons if reason.endswith("_ok") or reason == "resistance_clear")
+    reasons_for.extend(
+        reason for reason in plan.reasons if reason.endswith("_ok") or reason == "resistance_clear"
+    )
     if classification == "WATCH" and htf_state == "IMPROVING":
         reasons_for.append("higher_timeframe_improving")
 
@@ -285,9 +297,13 @@ def evaluate_candidate(
     )
 
 
-def rank_candidates(candidates: list[Candidate], top_n: int | None = 10) -> dict[str, list[Candidate]]:
+def rank_candidates(
+    candidates: list[Candidate], top_n: int | None = 10
+) -> dict[str, list[Candidate]]:
     selected = [candidate for candidate in candidates if candidate.classification == "ACTION"]
-    selected.sort(key=lambda candidate: (-candidate.score, -candidate.trade_plan_score, candidate.symbol))
+    selected.sort(
+        key=lambda candidate: (-candidate.score, -candidate.trade_plan_score, candidate.symbol)
+    )
     grouped: dict[str, list[Candidate]] = {}
     for candidate in selected:
         grouped.setdefault(candidate.horizon, []).append(candidate)

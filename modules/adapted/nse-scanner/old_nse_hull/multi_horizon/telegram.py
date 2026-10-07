@@ -80,7 +80,11 @@ def render_messages(report: dict) -> list[str]:
     summary = shadow.get("comparison_summary", {})
     observed, target = summary.get("sessions_observed", 0), summary.get("target_sessions", 20)
     remaining = max(0, target - observed)
-    status = "Ready for manual review" if summary.get("validation_ready") else "Still collecting evidence"
+    status = (
+        "Ready for manual review"
+        if summary.get("validation_ready")
+        else "Still collecting evidence"
+    )
     return [
         "\n".join(
             [

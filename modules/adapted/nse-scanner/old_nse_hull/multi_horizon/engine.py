@@ -25,8 +25,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """Opt-in orchestrator for comparison-only multi-horizon scanning."""
 
-
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pandas as pd
 
@@ -38,9 +37,6 @@ from .market_context import load_context
 from .paper_lifecycle import update as update_paper_lifecycle
 from .scoring import score
 from .trade_levels import build_levels
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 def run_shadow(
@@ -81,7 +77,9 @@ def run_shadow(
     # Lifecycle storage serializes confirmation lists for SQLite; join feature
     # values back only by the stable session/symbol identity.
     feature_columns = [
-        column for column in scored.columns if column not in observed.columns or column.startswith("score_")
+        column
+        for column in scored.columns
+        if column not in observed.columns or column.startswith("score_")
     ]
     enriched = observed.merge(
         scored[["as_of_date", "symbol", *feature_columns]],
@@ -102,7 +100,7 @@ def run_shadow(
         "qualified": int(scored["qualified"].sum()),
         "candidates": candidates.to_dict(orient="records"),
         "comparison": {
-            "observed_symbols": len(scored),
+            "observed_symbols": int(len(scored)),
             "principal_buckets": scored["principal_bucket"].value_counts().to_dict(),
         },
         "market_context": context,
@@ -110,10 +108,16 @@ def run_shadow(
     }
     if comparison_state_path:
         payload["comparison_summary"] = update_summary(
-            comparison_state_path, payload["as_of_date"], baseline_symbols or [], payload["candidates"]
+            comparison_state_path,
+            payload["as_of_date"],
+            baseline_symbols or [],
+            payload["candidates"],
         )
     if paper_state_path:
         payload["paper_lifecycle"] = update_paper_lifecycle(
-            paper_state_path, payload["as_of_date"], payload["candidates"], enriched.to_dict(orient="records")
+            paper_state_path,
+            payload["as_of_date"],
+            payload["candidates"],
+            enriched.to_dict(orient="records"),
         )
     return payload

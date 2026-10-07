@@ -26,12 +26,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """Independent Nifty 500 context for Old NSE + Hull shadow research."""
 
 import sqlite3
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pandas as pd
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 LOOKBACKS = {"1M": 22, "3M": 63, "6M": 126, "12M": 252}
 
@@ -47,7 +44,8 @@ def load_context(db_path: str | Path, features: pd.DataFrame) -> dict:
     try:
         with sqlite3.connect(str(db_path)) as conn:
             index = pd.read_sql_query(
-                "SELECT date, close FROM index_perf WHERE lower(index_name) = lower('Nifty 500') ORDER BY date", conn
+                "SELECT date, close FROM index_perf WHERE lower(index_name) = lower('Nifty 500') ORDER BY date",
+                conn,
             )
     except (sqlite3.Error, pd.errors.DatabaseError):
         index = pd.DataFrame()
@@ -59,9 +57,16 @@ def load_context(db_path: str | Path, features: pd.DataFrame) -> dict:
     as_of = pd.Timestamp(features["as_of_date"].iloc[0])
     index = index[index["date"] <= as_of]
     if len(index) < max(LOOKBACKS.values()) + 1 or index["date"].iloc[-1].date() != as_of.date():
-        return {"status": "STALE_OR_INSUFFICIENT_BENCHMARK", "regime": "AWAITING_DATA", "benchmark_returns": {}}
+        return {
+            "status": "STALE_OR_INSUFFICIENT_BENCHMARK",
+            "regime": "AWAITING_DATA",
+            "benchmark_returns": {},
+        }
     close = index["close"].reset_index(drop=True)
-    returns = {horizon: float(close.iloc[-1] / close.iloc[-1 - days] - 1) for horizon, days in LOOKBACKS.items()}
+    returns = {
+        horizon: float(close.iloc[-1] / close.iloc[-1 - days] - 1)
+        for horizon, days in LOOKBACKS.items()
+    }
     sma50, sma200 = close.rolling(50).mean().iloc[-1], close.rolling(200).mean().iloc[-1]
     breadth50 = float((features["close"] > features["sma50"]).mean() * 100)
     breadth200 = float((features["close"] > features["sma200"]).mean() * 100)

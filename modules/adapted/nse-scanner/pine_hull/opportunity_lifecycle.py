@@ -40,7 +40,7 @@ def weekly_transition(weekly21: pd.Series, weekly51: pd.Series) -> tuple[str, di
     slow_slope = float(weekly51.iloc[-1] - weekly51.iloc[-2])
     if gap > 0 and fast_slope >= 0:
         state = "BULLISH"
-    elif (gap < 0 and gap > prior_gap and fast_slope > 0) or (gap >= 0 and fast_slope > 0):
+    elif gap < 0 and gap > prior_gap and fast_slope > 0 or gap >= 0 and fast_slope > 0:
         state = "IMPROVING"
     elif fast_slope < 0 and slow_slope < 0 and gap <= prior_gap:
         state = "BEARISH"
@@ -76,7 +76,9 @@ def timing_state(
         return "EXTENDED"
     if chop or rotational or not structure_holding:
         return "WEAK"
-    daily_ready = structure_holding and hma_aligned and trend_commitment and adx_confirmed and score >= 75
+    daily_ready = (
+        structure_holding and hma_aligned and trend_commitment and adx_confirmed and score >= 75
+    )
     if daily_ready and htf_state == "BULLISH":
         return "READY"
     if daily_ready and htf_state in {"IMPROVING", "NEUTRAL"}:

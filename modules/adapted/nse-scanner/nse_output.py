@@ -99,7 +99,10 @@ os.makedirs(config.OUTPUT_DIR, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)s  %(message)s",
-    handlers=[logging.FileHandler(os.path.join(config.LOG_DIR, "output.log")), logging.StreamHandler()],
+    handlers=[
+        logging.FileHandler(os.path.join(config.LOG_DIR, "output.log")),
+        logging.StreamHandler(),
+    ],
 )
 log = logging.getLogger(__name__)
 
@@ -125,7 +128,7 @@ def _code(v):
 
 def _fmt_price(value):
     try:
-        return f"₹{round(float(value)):,}"
+        return f"₹{int(round(float(value))):,}"
     except (TypeError, ValueError):
         return "₹0"
 
@@ -156,7 +159,7 @@ def _send(text, keyboard=None, chat_id=None):
             data2["reply_markup"] = json.dumps(keyboard)
         return requests.post(url, data=data2, timeout=10).status_code == 200
     except Exception as e:
-        log.exception(f"Telegram send failed: {e}")
+        log.error(f"Telegram send failed: {e}")
         return False
 
 
@@ -244,7 +247,15 @@ def format_option_c_messages(stocks_list, scan_date_str, greeting=""):
 
     groups = {
         key: []
-        for key in ("BUY_TRIGGER", "WAIT_PULLBACK", "HOLD_TRAIL", "PARTIAL_PROFIT", "EXIT_ALERT", "WATCH", "AVOID")
+        for key in (
+            "BUY_TRIGGER",
+            "WAIT_PULLBACK",
+            "HOLD_TRAIL",
+            "PARTIAL_PROFIT",
+            "EXIT_ALERT",
+            "WATCH",
+            "AVOID",
+        )
     }
     for stock in stocks_list:
         groups.setdefault(stock.get("action", "WATCH"), []).append(stock)
@@ -256,8 +267,16 @@ def format_option_c_messages(stocks_list, scan_date_str, greeting=""):
     avoid = groups["AVOID"]
 
     def hull_badges(s):
-        daily = "🟢 Daily Hull up" if s.get("daily_hull_status") == "BULLISH" else "🟡 Daily Hull not ready"
-        weekly = "🟢 Weekly trend up" if s.get("weekly_hull_status") == "BULLISH" else "🟡 Weekly trend pending"
+        daily = (
+            "🟢 Daily Hull up"
+            if s.get("daily_hull_status") == "BULLISH"
+            else "🟡 Daily Hull not ready"
+        )
+        weekly = (
+            "🟢 Weekly trend up"
+            if s.get("weekly_hull_status") == "BULLISH"
+            else "🟡 Weekly trend pending"
+        )
         return f"{daily} | {weekly}"
 
     def horizon_label(s):
@@ -291,8 +310,13 @@ def format_option_c_messages(stocks_list, scan_date_str, greeting=""):
         if s.get("hull_compression"):
             return "Price is tightening into a possible breakout; wait for a close above the trigger with volume."
         if s.get("weekly_hull_status") != "BULLISH":
-            return "Daily momentum is improving, but the weekly HMA21/51 trend is not fully confirmed."
-        return str(s.get("action_reason") or "The trend is developing; wait for a complete EOD entry setup.")
+            return (
+                "Daily momentum is improving, but the weekly HMA21/51 trend is not fully confirmed."
+            )
+        return str(
+            s.get("action_reason")
+            or "The trend is developing; wait for a complete EOD entry setup."
+        )
 
     def buy_card(s, rank):
         close = float(s.get("close", 0))
@@ -355,9 +379,7 @@ def format_option_c_messages(stocks_list, scan_date_str, greeting=""):
         return current
 
     header = greeting + f"📌 {_b('NSE TRADE PLAN — ' + ds)}\n"
-    header += (
-        f"{_i('Based on the previous market close. Fixed Hybrid Hull: 55 / HMA21 / HMA51 / ATR14 × 3.5 / KAMA30.')}\n\n"
-    )
+    header += f"{_i('Based on the previous market close. Fixed Hybrid Hull: 55 / HMA21 / HMA51 / ATR14 × 3.5 / KAMA30.')}\n\n"
     header += f"{_b('MARKET POSTURE')}  {market_posture()}\n{SEP2}\n"
     header += (
         f"🎯 Act now: {_b(str(len(buy)))} | 👀 Wait: {_b(str(len(wait_only)))}\n"
@@ -366,7 +388,9 @@ def format_option_c_messages(stocks_list, scan_date_str, greeting=""):
     )
     messages = []
     first = header + _b("✅ ACT TODAY — only after the trigger is crossed") + "\n"
-    first += _i("Choose at most one or two. Do not buy before the stated price.") + "\n" + SEP2 + "\n\n"
+    first += (
+        _i("Choose at most one or two. Do not buy before the stated price.") + "\n" + SEP2 + "\n\n"
+    )
     first = append_blocks(
         messages,
         first,
@@ -377,7 +401,10 @@ def format_option_c_messages(stocks_list, scan_date_str, greeting=""):
 
     second = _b("👀 GOOD STOCKS — WAIT, DO NOT CHASE") + "\n"
     second += (
-        _i("These remain researched opportunities, but one clear condition is missing today.") + "\n" + SEP2 + "\n\n"
+        _i("These remain researched opportunities, but one clear condition is missing today.")
+        + "\n"
+        + SEP2
+        + "\n\n"
     )
     second = append_blocks(
         messages,
@@ -423,7 +450,9 @@ def format_option_c_messages(stocks_list, scan_date_str, greeting=""):
     for sit in SITUATION_ORDER:
         if sit in sit_counts:
             sm = SITUATION_META.get(sit, {})
-            parts.append(f"{sm.get('icon', '·')} {sit_counts[sit]} {sm.get('label', sit).split()[0].lower()}")
+            parts.append(
+                f"{sm.get('icon', '·')} {sit_counts[sit]} {sm.get('label', sit).split()[0].lower()}"
+            )
     header += " | ".join(parts) + "\n"
 
     messages = [header]
@@ -437,9 +466,7 @@ def format_option_c_messages(stocks_list, scan_date_str, greeting=""):
 
         sm = SITUATION_META.get(sit, {})
         msg = f"\n{SEP2}\n"
-        msg += (
-            f"{sm.get('icon', '')} {_b(sm.get('label', sit) + ' (' + str(len(group)) + ')')} — {sm.get('action', '')}\n"
-        )
+        msg += f"{sm.get('icon', '')} {_b(sm.get('label', sit) + ' (' + str(len(group)) + ')')} — {sm.get('action', '')}\n"
         msg += f"{SEP2}\n\n"
 
         for s in group:
@@ -447,7 +474,7 @@ def format_option_c_messages(stocks_list, scan_date_str, greeting=""):
             sl = float(s.get("sl", e * 0.93))
             t1 = float(s.get("target1", e + (e - sl)))
             t2 = float(s.get("target2", e + 2 * (e - sl)))
-            sc = round(float(s.get("score", 0)))
+            sc = int(round(float(s.get("score", 0))))
             r3 = float(s.get("return_3m_pct", 0))
             r1 = float(s.get("return_1m_pct", 0))
             st = int(s.get("streak", 0))
@@ -491,7 +518,9 @@ def format_option_c_messages(stocks_list, scan_date_str, greeting=""):
 
 
 def format_welcome_scan(user_name=""):
-    greeting = f"👋 {_b('Hello ' + _h(user_name) + '!')}\n\n" if user_name else f"👋 {_b('Hello!')}\n\n"
+    greeting = (
+        f"👋 {_b('Hello ' + _h(user_name) + '!')}\n\n" if user_name else f"👋 {_b('Hello!')}\n\n"
+    )
 
     if RESULTS_FILE and os.path.exists(RESULTS_FILE):
         try:
@@ -523,7 +552,13 @@ def _save_pagination_json(results_df, report_date):
         log.error("[BOT] Cannot save pagination JSON — handler not loaded")
         return
     df = results_df.copy()
-    sit_pri = {SITUATION_PRIME: 0, SITUATION_HOLD: 1, SITUATION_WATCH: 2, SITUATION_BOOK: 3, SITUATION_AVOID: 4}
+    sit_pri = {
+        SITUATION_PRIME: 0,
+        SITUATION_HOLD: 1,
+        SITUATION_WATCH: 2,
+        SITUATION_BOOK: 3,
+        SITUATION_AVOID: 4,
+    }
     if "situation" in df.columns:
         df["_sp"] = df["situation"].map(lambda s: sit_pri.get(s, 2))
         df = df.sort_values(["_sp", "score"], ascending=[True, False]).drop(columns=["_sp"])
@@ -596,7 +631,7 @@ def send_telegram(results_df, report_date):
             total_sent += 1
             log.info(f"Morning scan sent to {chat_id}")
         except Exception as e:
-            log.exception(f"Failed to send to {chat_id}: {e}")
+            log.error(f"Failed to send to {chat_id}: {e}")
 
     log.info(f"Broadcast: {total_sent} sent, {len(messages)} msgs, {len(stocks_list)} stocks")
 
@@ -689,7 +724,13 @@ def save_excel(results_df, report_date):
             os.remove(f)
 
     df = results_df.copy()
-    sit_pri = {SITUATION_PRIME: 0, SITUATION_HOLD: 1, SITUATION_WATCH: 2, SITUATION_BOOK: 3, SITUATION_AVOID: 4}
+    sit_pri = {
+        SITUATION_PRIME: 0,
+        SITUATION_HOLD: 1,
+        SITUATION_WATCH: 2,
+        SITUATION_BOOK: 3,
+        SITUATION_AVOID: 4,
+    }
     if "situation" in df.columns:
         df["_sp"] = df["situation"].map(lambda s: sit_pri.get(s, 2))
         df = df.sort_values(["_sp", "score"], ascending=[True, False]).drop(columns=["_sp"])
@@ -774,7 +815,7 @@ def save_excel(results_df, report_date):
         log.info(f"Excel saved: {fpath}")
         return fpath
     except Exception as e:
-        log.exception(f"Excel save failed: {e}")
+        log.error(f"Excel save failed: {e}")
         return None
 
 
@@ -801,7 +842,11 @@ def generate_report(results_df, report_date=None):
 
     ok = send_telegram(results_df, report_date)
     results["telegram_sent"] = ok
-    prime = (results_df["situation"] == SITUATION_PRIME).sum() if "situation" in results_df.columns else 0
+    prime = (
+        (results_df["situation"] == SITUATION_PRIME).sum()
+        if "situation" in results_df.columns
+        else 0
+    )
     print(f"Telegram: {'sent' if ok else 'failed'}")
     print(f"Stocks: {len(results_df)} | Prime: {prime}")
 
@@ -871,7 +916,9 @@ def main():
                 "obv_dir": ["rising", "rising", "flat", "rising", "falling", "falling"],
                 "sector_bias": [1, 0, 1, 1, 1, 0],
                 "weekly_tier": [1, 1, 2, 2, 1, 3],
-                "weekly_label": ["Weekly Bullish"] * 2 + ["Weekly Pullback"] * 2 + ["Weekly Bullish", "Weekly Bearish"],
+                "weekly_label": ["Weekly Bullish"] * 2
+                + ["Weekly Pullback"] * 2
+                + ["Weekly Bullish", "Weekly Bearish"],
                 "category": ["uptrend", "uptrend", "rising", "safer", "peak", "recovering"],
                 "streak": [3, 1, 6, 2, 8, 1],
                 "momentum_score": [0.18, 0.16, 0.10, 0.09, 0.12, 0.08],

@@ -52,7 +52,11 @@ def _candidate(symbol: str, classification: str = "ACTION") -> Candidate:
         watch_horizons=(),
         horizon_scores={
             "1M": {"score": 75.0, "state": "WATCH", "component_scores": {}},
-            "3M": {"score": 88.0, "state": "QUALIFIED", "component_scores": {"daily_trend": 18.0, "rs63": 17.0}},
+            "3M": {
+                "score": 88.0,
+                "state": "QUALIFIED",
+                "component_scores": {"daily_trend": 18.0, "rs63": 17.0},
+            },
             "6M": {"score": 72.0, "state": "WATCH", "component_scores": {}},
             "12M": {"score": 61.0, "state": "DEVELOPING", "component_scores": {}},
         },
@@ -121,8 +125,7 @@ def test_watchlist_is_compact_separate_and_has_preferred_entry() -> None:
     )
     assert "Fresh Actionable: 0" in messages[0]
     watch_message = next(message for message in messages if "WATCH1" in message)
-    assert "WATCH1" in watch_message
-    assert "WATCH2" in watch_message
+    assert "WATCH1" in watch_message and "WATCH2" in watch_message
     assert "Planned entry: ₹" in watch_message
     assert "Trade plan wait" in watch_message
 

@@ -27,7 +27,9 @@ from v2.portfolio_performance import PortfolioSnapshot
 
 
 def test_monthly_message_labels_model_pnl_and_promotion():
-    snapshot = PortfolioSnapshot("2026-08-31", 300000, 60000, 64000, 2500, 1500, 4000, 1.3333, 3000, 800, 1, 0)
+    snapshot = PortfolioSnapshot(
+        "2026-08-31", 300000, 60000, 64000, 2500, 1500, 4000, 1.3333, 3000, 800, 1, 0
+    )
     decision = PromotionDecision(
         "id",
         "ABC",
@@ -45,6 +47,5 @@ def test_monthly_message_labels_model_pnl_and_promotion():
     )
     message = render_monthly_portfolio_message("2026-08-31", snapshot, [decision])
     assert "Model portfolio - not broker-account P&L" in message
-    assert "ABC" in message
-    assert "PROMOTE -> Positional (3-6M)" in message
+    assert "ABC" in message and "PROMOTE -> Positional (3-6M)" in message
     assert "never widens a stop" in message

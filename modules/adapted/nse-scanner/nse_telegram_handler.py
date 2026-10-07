@@ -73,7 +73,9 @@ try:
     import config
 
     SITUATION_META = getattr(config, "SITUATION_META", {})
-    SITUATION_ORDER = getattr(config, "SITUATION_ORDER", ["prime", "hold", "watch", "book", "avoid"])
+    SITUATION_ORDER = getattr(
+        config, "SITUATION_ORDER", ["prime", "hold", "watch", "book", "avoid"]
+    )
     SITUATION_PRIME = getattr(config, "SITUATION_PRIME", "prime")
     SITUATION_WATCH = getattr(config, "SITUATION_WATCH", "watch")
     SITUATION_HOLD = getattr(config, "SITUATION_HOLD", "hold")
@@ -82,9 +84,21 @@ try:
 except ImportError:
     config = None
     SITUATION_META = {
-        "prime": {"icon": "🎯", "label": "Prime Entry", "action": "Enter today — confirm on TradingView"},
-        "watch": {"icon": "👀", "label": "Watch Closely", "action": "Good setup. One condition missing."},
-        "hold": {"icon": "💰", "label": "Hold & Trail", "action": "Already in move — trail your stop loss."},
+        "prime": {
+            "icon": "🎯",
+            "label": "Prime Entry",
+            "action": "Enter today — confirm on TradingView",
+        },
+        "watch": {
+            "icon": "👀",
+            "label": "Watch Closely",
+            "action": "Good setup. One condition missing.",
+        },
+        "hold": {
+            "icon": "💰",
+            "label": "Hold & Trail",
+            "action": "Already in move — trail your stop loss.",
+        },
         "book": {"icon": "⚠️", "label": "Book Profits", "action": "Move maturing — protect gains."},
         "avoid": {"icon": "🚫", "label": "Avoid Now", "action": "Weak setup — skip today."},
     }
@@ -123,10 +137,26 @@ except ImportError:
 
 # ── Category metadata (kept for backwards compatibility) ──────
 CATEGORY_META = {
-    "rising": {"icon": "📈", "label": "Consistently Rising", "desc": "Steady momentum, early in the move"},
-    "uptrend": {"icon": "🚀", "label": "Clear Uptrend Confirmed", "desc": "Fresh cross, room to run, volume confirmed"},
-    "peak": {"icon": "🔝", "label": "Close to Their Peak", "desc": "Near 52-week highs — strong institutional demand"},
-    "recovering": {"icon": "📉", "label": "Recovering from a Fall", "desc": "Bouncing back — early recovery signal"},
+    "rising": {
+        "icon": "📈",
+        "label": "Consistently Rising",
+        "desc": "Steady momentum, early in the move",
+    },
+    "uptrend": {
+        "icon": "🚀",
+        "label": "Clear Uptrend Confirmed",
+        "desc": "Fresh cross, room to run, volume confirmed",
+    },
+    "peak": {
+        "icon": "🔝",
+        "label": "Close to Their Peak",
+        "desc": "Near 52-week highs — strong institutional demand",
+    },
+    "recovering": {
+        "icon": "📉",
+        "label": "Recovering from a Fall",
+        "desc": "Bouncing back — early recovery signal",
+    },
     "safer": {
         "icon": "🛡️",
         "label": "Safer Bets with Good Reward",
@@ -161,7 +191,7 @@ def _code(v):
 
 
 def _fmt_price(p):
-    return f"₹{round(float(p)):,}"
+    return f"₹{int(round(float(p))):,}"
 
 
 def _fmt_return(pct):
@@ -178,7 +208,7 @@ def _fmt_pl(entry, current):
     diff = current - entry
     pct = diff / entry * 100
     sign = "+" if diff >= 0 else ""
-    return f"{sign}{round(diff):,} ({sign}{pct:.1f}%)"
+    return f"{sign}{int(round(diff)):,} ({sign}{pct:.1f}%)"
 
 
 def _date_str(scan_date):
@@ -488,8 +518,16 @@ def save_scan_results(results_df, scan_date):
             }
         )
 
-    sit_priority = {SITUATION_PRIME: 0, SITUATION_HOLD: 1, SITUATION_WATCH: 2, SITUATION_BOOK: 3, SITUATION_AVOID: 4}
-    stocks_list.sort(key=lambda x: (sit_priority.get(x.get("situation", "watch"), 2), -float(x.get("score", 0))))
+    sit_priority = {
+        SITUATION_PRIME: 0,
+        SITUATION_HOLD: 1,
+        SITUATION_WATCH: 2,
+        SITUATION_BOOK: 3,
+        SITUATION_AVOID: 4,
+    }
+    stocks_list.sort(
+        key=lambda x: (sit_priority.get(x.get("situation", "watch"), 2), -float(x.get("score", 0)))
+    )
     for i, s in enumerate(stocks_list):
         s["rank"] = i + 1
 
@@ -610,7 +648,13 @@ def get_caution_stocks(stocks):
         dist_pct = float(s.get("dist_pct", 0))
         situation = s.get("situation", "watch")
 
-        if score <= 5 or delivery < 40 or r3m > 40 or dist_pct > 15 or situation in (SITUATION_AVOID, SITUATION_BOOK):
+        if (
+            score <= 5
+            or delivery < 40
+            or r3m > 40
+            or dist_pct > 15
+            or situation in (SITUATION_AVOID, SITUATION_BOOK)
+        ):
             caution.append(s)
     return caution
 
@@ -641,13 +685,17 @@ def sort_stocks(stocks, mode="score"):
 
     if mode == "score":
         return sorted(
-            stocks, key=lambda x: (sit_priority.get(x.get("situation", "watch"), 2), -float(x.get("score", 0)))
+            stocks,
+            key=lambda x: (
+                sit_priority.get(x.get("situation", "watch"), 2),
+                -float(x.get("score", 0)),
+            ),
         )
-    if mode == "3m":
+    elif mode == "3m":
         return sorted(stocks, key=lambda x: float(x.get("return_3m_pct", 0)), reverse=True)
-    if mode == "top10":
+    elif mode == "top10":
         return sorted(stocks, key=lambda x: float(x.get("score", 0)), reverse=True)[:10]
-    if mode == "prime":
+    elif mode == "prime":
         return [s for s in stocks if s.get("situation") == SITUATION_PRIME]
     return sorted(stocks, key=lambda x: float(x.get("score", 0)), reverse=True)
 
@@ -671,7 +719,9 @@ def fetch_news_for_symbol(symbol, max_items=3):
                     data = collected[symbol]
                     combined = []
                     for ann in data.get("announcements", []):
-                        combined.append({"title": ann.get("subject", ""), "date": ann.get("date", "")[:10]})
+                        combined.append(
+                            {"title": ann.get("subject", ""), "date": ann.get("date", "")[:10]}
+                        )
                     for hl in data.get("headlines", []):
                         combined.append({"title": hl.get("title", ""), "date": hl.get("date", "")})
                     if combined:
@@ -723,7 +773,7 @@ def _stock_card(stock, rank=0, show_prob=True, show_frozen=False, show_signal=Tr
     t1 = float(stock.get("target1", e + (e - sl)))
     t2 = float(stock.get("target2", e + 2 * (e - sl)))
     r3 = float(stock.get("return_3m_pct", 0))
-    sc = round(float(stock.get("score", 0)))
+    sc = int(round(float(stock.get("score", 0))))
     st = int(stock.get("streak", 0))
     sit = stock.get("situation", SITUATION_WATCH)
     horizon = stock.get("horizon", "WATCH")
@@ -756,7 +806,9 @@ def _stock_card(stock, rank=0, show_prob=True, show_frozen=False, show_signal=Tr
         msg += f"\n   Buy only above {_fmt_price(trigger)} (valid {stock.get('entry_valid_until', '')})"
     checks = stock.get("hybrid_hull_checks", [])
     if checks:
-        msg += f"\n   {_b('Hybrid Hull:')} {_i(stock.get('tv_status', 'NO_ENTRY').replace('_', ' '))}"
+        msg += (
+            f"\n   {_b('Hybrid Hull:')} {_i(stock.get('tv_status', 'NO_ENTRY').replace('_', ' '))}"
+        )
         for check in checks[:3]:
             msg += f"\n   • {_i(check)}"
 
@@ -866,7 +918,10 @@ def _compact_action_line(stock):
     close = _fmt_price(stock.get("close", 0))
     action = stock.get("action", "WATCH")
     if action in ("HOLD_TRAIL", "PARTIAL_PROFIT", "EXIT_ALERT"):
-        return f"   {symbol}: {_plain_action(stock)} | protect below {_b(_fmt_price(stock.get('sl', 0)))}\n"
+        return (
+            f"   {symbol}: {_plain_action(stock)} | protect below "
+            f"{_b(_fmt_price(stock.get('sl', 0)))}\n"
+        )
     return f"   {symbol}: {_plain_action(stock)} | last close {close}\n"
 
 
@@ -928,7 +983,15 @@ def format_today_scan(stocks, scan_date=None):
 
     groups = {
         key: []
-        for key in ("BUY_TRIGGER", "WAIT_PULLBACK", "HOLD_TRAIL", "PARTIAL_PROFIT", "EXIT_ALERT", "WATCH", "AVOID")
+        for key in (
+            "BUY_TRIGGER",
+            "WAIT_PULLBACK",
+            "HOLD_TRAIL",
+            "PARTIAL_PROFIT",
+            "EXIT_ALERT",
+            "WATCH",
+            "AVOID",
+        )
     }
     for stock in stocks:
         groups.setdefault(stock.get("action", "WATCH"), []).append(stock)
@@ -986,7 +1049,10 @@ def format_today_scan(stocks, scan_date=None):
     for sit in SITUATION_ORDER:
         if sit in sit_groups:
             sm = SITUATION_META.get(sit, {})
-            parts.append(f"{sm.get('icon', '·')} {len(sit_groups[sit])} {sm.get('label', '').split()[0].lower()}")
+            parts.append(
+                f"{sm.get('icon', '·')} {len(sit_groups[sit])} "
+                f"{sm.get('label', '').split()[0].lower()}"
+            )
 
     msg = f"📊 {_b('NSE Daily Scan — ' + ds)}\n"
     msg += f"{_i('Ranked by forward probability score')}\n\n"
@@ -1004,16 +1070,28 @@ def format_today_scan(stocks, scan_date=None):
 
         if sit in (SITUATION_PRIME, SITUATION_HOLD):
             for s in group:
-                msg += _stock_card(s, rank=rank, show_prob=True, show_frozen=(sit == SITUATION_HOLD), show_signal=True)
+                msg += _stock_card(
+                    s,
+                    rank=rank,
+                    show_prob=True,
+                    show_frozen=(sit == SITUATION_HOLD),
+                    show_signal=True,
+                )
                 msg += "\n"
                 rank += 1
         else:
             for s in group:
-                sc = round(float(s.get("score", 0)))
+                sc = int(round(float(s.get("score", 0))))
                 e = float(s.get("close", 0))
                 float(s.get("return_3m_pct", 0))
                 cross = int(s.get("cross_age", 999))
-                cross_str = f"cross {cross}d" if 0 < cross < 999 else "no cross" if cross == 999 else "bearish"
+                cross_str = (
+                    f"cross {cross}d"
+                    if 0 < cross < 999
+                    else "no cross"
+                    if cross == 999
+                    else "bearish"
+                )
                 msg += (
                     f"{_b(str(rank) + '.')} {_code(s['symbol'])}  {sc}/10"
                     f"  {_fmt_price(e)}  {_i(cross_str)}\n"
@@ -1162,10 +1240,13 @@ def format_new_stocks(new_stocks, scan_date=None):
         t1 = float(s.get("target1", e + (e - sl)))
         t2 = float(s.get("target2", e + 2 * (e - sl)))
         r3 = float(s.get("return_3m_pct", 0))
-        sc = round(float(s.get("score", 0)))
+        sc = int(round(float(s.get("score", 0))))
         p = _get_prob(s)
 
-        msg += f"{_b(str(i) + '.')} {_code(s['symbol'])}  {sc}/10  🆕  {sm.get('icon', '')} {_i(sm.get('label', ''))}\n"
+        msg += (
+            f"{_b(str(i) + '.')} {_code(s['symbol'])}  {sc}/10  "
+            f"🆕  {sm.get('icon', '')} {_i(sm.get('label', ''))}\n"
+        )
         msg += f"   Entry {_fmt_price(e)} | SL {_fmt_price(sl)}\n"
         msg += f"   T1 {_fmt_price(t1)} | T2 {_fmt_price(t2)} | 3M {_fmt_return(r3)}\n"
         if p["t1"] > 0:
@@ -1200,7 +1281,7 @@ def format_exit_stocks(exit_stocks, scan_date=None):
     msg += SEP_THIN + "\n\n"
 
     for i, s in enumerate(exit_stocks, 1):
-        sc = round(float(s.get("score", 0)))
+        sc = int(round(float(s.get("score", 0))))
         e = float(s.get("close", 0))
         r3 = float(s.get("return_3m_pct", 0))
 
@@ -1245,14 +1326,17 @@ def format_caution_stocks(stocks, scan_date=None):
     caution = get_caution_stocks(stocks)
 
     if not caution:
-        return f"⚠️ {_b('Caution flags — ' + ds)}\n\n{_i('No caution flags — all stocks looking solid!')}"
+        return (
+            f"⚠️ {_b('Caution flags — ' + ds)}\n\n"
+            f"{_i('No caution flags — all stocks looking solid!')}"
+        )
 
     msg = f"⚠️ {_b('Caution & Avoid — ' + ds)}\n"
     msg += f"{_i('These need extra care or should be skipped')}\n"
     msg += SEP_THIN + "\n\n"
 
     for i, s in enumerate(caution, 1):
-        sc = round(float(s.get("score", 0)))
+        sc = int(round(float(s.get("score", 0))))
         dl = float(s.get("delivery_pct", 0))
         e = float(s.get("close", 0))
         r3 = float(s.get("return_3m_pct", 0))
@@ -1278,7 +1362,9 @@ def format_caution_stocks(stocks, scan_date=None):
             reasons.append(f"Cross {cross_age}d ago — mature")
 
         sit_icon = SITUATION_META.get(sit, {}).get("icon", "⚠️")
-        state_tag = "Avoid" if sit == SITUATION_AVOID else ("Book" if sit == SITUATION_BOOK else "Risk")
+        state_tag = (
+            "Avoid" if sit == SITUATION_AVOID else ("Book" if sit == SITUATION_BOOK else "Risk")
+        )
 
         msg += f"{_b(str(i) + '.')} {_code(s['symbol'])}  {sc}/10  [{state_tag}] {sit_icon}\n"
         msg += f"   Price {_fmt_price(e)} | 3M {_fmt_return(r3)}\n"
@@ -1327,7 +1413,7 @@ def format_strong_stocks(strong_stocks, scan_date=None):
         t1 = float(s.get("target1", e + (e - sl)))
         t2 = float(s.get("target2", e + 2 * (e - sl)))
         float(s.get("return_3m_pct", 0))
-        sc = round(float(s.get("score", 0)))
+        sc = int(round(float(s.get("score", 0))))
         dy = s.get("consecutive_days", 0)
         sit = s.get("situation", SITUATION_HOLD)
         sm = SITUATION_META.get(sit, SITUATION_META.get("hold", {}))
@@ -1388,7 +1474,9 @@ def format_summary(stocks, scan_date=None, history=None):
     for sit in SITUATION_ORDER:
         if sit in sit_counts:
             sm = SITUATION_META.get(sit, {})
-            msg += f"{sm.get('icon', '')} {sm.get('label', sit.title())}: {sit_counts[sit]} stocks\n"
+            msg += (
+                f"{sm.get('icon', '')} {sm.get('label', sit.title())}: {sit_counts[sit]} stocks\n"
+            )
 
     prime_count = sit_counts.get(SITUATION_PRIME, 0)
     if prime_count > 0:
@@ -1399,7 +1487,7 @@ def format_summary(stocks, scan_date=None, history=None):
     msg += f"{_b('Top 5 by forward score')}\n"
     top5 = sorted(stocks, key=lambda x: float(x.get("score", 0)), reverse=True)[:5]
     for j, s in enumerate(top5, 1):
-        sc = round(float(s.get("score", 0)))
+        sc = int(round(float(s.get("score", 0))))
         sit = s.get("situation", "")
         sm = SITUATION_META.get(sit, {})
         msg += f"{j}. {_code(s['symbol'])} {sc}/10 {sm.get('icon', '')}\n"

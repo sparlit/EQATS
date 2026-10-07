@@ -36,7 +36,9 @@ def render_messages(snapshot: dict, limit: int = 3400) -> list[str]:
         return f"₹{value:,.2f}"
 
     s = snapshot
-    header = f"<b>{escape(s['scanner'])} — PAPER PORTFOLIO</b>\nData: {escape(s['as_of_date'])} EOD\n"
+    header = (
+        f"<b>{escape(s['scanner'])} — PAPER PORTFOLIO</b>\nData: {escape(s['as_of_date'])} EOD\n"
+    )
     blocks = [
         "\n".join(
             [
@@ -96,12 +98,13 @@ def render_messages(snapshot: dict, limit: int = 3400) -> list[str]:
         )
     if s.get("strategy_profile") == "LADDER_DAILY_20260922":
         blocks = [b.replace(" | T2:", " | TP2 reference:") for b in blocks]
-        blocks.append("After TP1, follow the stored structural trailing stop. TP2 is a reference, not a forced exit.")
+        blocks.append(
+            "After TP1, follow the stored structural trailing stop. TP2 is a reference, not a forced exit."
+        )
     pages, page = [], header
     for block in blocks:
         if len(header + block) > limit:
-            msg = "Portfolio block exceeds message limit"
-            raise ValueError(msg)
+            raise ValueError("Portfolio block exceeds message limit")
         if len(page + "\n\n" + block) > limit:
             pages.append(page)
             page = header

@@ -33,8 +33,7 @@ def number(value: object, *, default: float | None = None) -> float:
         return default
     parsed = float(value)
     if not isfinite(parsed):
-        msg = "Non-finite portfolio amount"
-        raise ValueError(msg)
+        raise ValueError("Non-finite portfolio amount")
     return parsed
 
 
@@ -57,15 +56,13 @@ def build_snapshot(
     """
     capital = number(capital)
     if capital <= 0:
-        msg = "Starting capital must be positive"
-        raise ValueError(msg)
+        raise ValueError("Starting capital must be positive")
     rows, seen = [], set()
     for original in positions:
         row = dict(original)
         identity = str(row["trade_id"])
         if identity in seen:
-            msg = f"Duplicate trade: {identity}"
-            raise ValueError(msg)
+            raise ValueError(f"Duplicate trade: {identity}")
         seen.add(identity)
         quantity, remaining = number(row["quantity"]), number(row["remaining_quantity"])
         entry = number(row["entry"])
@@ -73,14 +70,11 @@ def build_snapshot(
         realised = number(row.get("realised_pnl"), default=0)
         fees = number(row.get("fees"), default=0)
         if quantity <= 0 or not 0 <= remaining <= quantity or entry <= 0 or mark <= 0 or fees < 0:
-            msg = f"Invalid position amounts: {identity}"
-            raise ValueError(msg)
+            raise ValueError(f"Invalid position amounts: {identity}")
         if row.get("status") == "CLOSED" and remaining:
-            msg = f"Closed trade retains quantity: {identity}"
-            raise ValueError(msg)
+            raise ValueError(f"Closed trade retains quantity: {identity}")
         if row.get("status") in {"PENDING", "WATCH", "READY", "CANCELLED"}:
-            msg = "Unfilled setup cannot be a position"
-            raise ValueError(msg)
+            raise ValueError("Unfilled setup cannot be a position")
         unrealised = remaining * (mark - entry)
         row.update(
             quantity=quantity,
@@ -113,13 +107,16 @@ def build_snapshot(
     if stale:
         warnings.append("Some holdings use an older or undated mark; valuation is provisional.")
     if legacy:
-        warnings.append("Legacy records without sufficient accounting evidence are excluded from totals.")
+        warnings.append(
+            "Legacy records without sufficient accounting evidence are excluded from totals."
+        )
     if any(r.get("status") == "REVIEW" for r in rows):
-        warnings.append("Review holdings remain invested; no unverified corporate-action conversion is assumed.")
+        warnings.append(
+            "Review holdings remain invested; no unverified corporate-action conversion is assumed."
+        )
     residual = equity - (capital + total)
     if abs(residual) > 0.01:
-        msg = "Portfolio reconciliation failed"
-        raise ValueError(msg)
+        raise ValueError("Portfolio reconciliation failed")
     return {
         "schema_version": 1,
         "scanner": scanner,

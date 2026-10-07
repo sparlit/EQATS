@@ -45,7 +45,9 @@ DB_PATH = "nse_scanner.db"
 
 def _wma(series, period):
     weights = np.arange(1, period + 1)
-    return series.rolling(period).apply(lambda values: np.dot(values, weights) / weights.sum(), raw=True)
+    return series.rolling(period).apply(
+        lambda values: np.dot(values, weights) / weights.sum(), raw=True
+    )
 
 
 def _hma(series, period=55):
@@ -59,8 +61,9 @@ def ensure_database():
 
     init_database(DB_PATH)
     if not restore_prices(DB_PATH, min_days=1):
-        msg = "No database or market_data snapshots found. Run the pipeline backfill first."
-        raise RuntimeError(msg)
+        raise RuntimeError(
+            "No database or market_data snapshots found. Run the pipeline backfill first."
+        )
 
 
 def load_prices(start, end):
@@ -188,7 +191,7 @@ def run_backtest(args):
     wins = trades_df[trades_df["return_pct"] > 0]
     losses = trades_df[trades_df["return_pct"] <= 0]
     summary = {
-        "trades": len(trades_df),
+        "trades": int(len(trades_df)),
         "win_rate_pct": round(len(wins) / len(trades_df) * 100, 2),
         "average_return_pct": round(float(trades_df["return_pct"].mean()), 2),
         "median_return_pct": round(float(trades_df["return_pct"].median()), 2),

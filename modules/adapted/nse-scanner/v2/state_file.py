@@ -26,24 +26,36 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """Git-persisted V2 portfolio state for disposable GitHub Actions runners."""
 
 import json
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .portfolio_store import PortfolioStore
 
-STATE_TABLES = ("v2_positions", "v2_position_events", "v2_watchlist_memory", "v2_portfolio_snapshots")
+STATE_TABLES = (
+    "v2_positions",
+    "v2_position_events",
+    "v2_watchlist_memory",
+    "v2_portfolio_snapshots",
+)
 
 
 def export_state_file(db_path: str | Path, output_path: str | Path) -> Path:
     """Write only V2 state tables, not the large reusable market-history database."""
     store = PortfolioStore(db_path)
     store.initialize()
-    payload: dict[str, object] = {"schema_version": 1, "exported_at": datetime.now(UTC).isoformat(), "tables": {}}
+    payload: dict[str, object] = {
+        "schema_version": 1,
+        "exported_at": datetime.now(UTC).isoformat(),
+        "tables": {},
+    }
     with store.connect() as conn:
         tables = payload["tables"]
         assert isinstance(tables, dict)
         for table in STATE_TABLES:
-            tables[table] = [dict(row) for row in conn.execute(f"SELECT * FROM {table} ORDER BY rowid").fetchall()]
+            tables[table] = [
+                dict(row)
+                for row in conn.execute(f"SELECT * FROM {table} ORDER BY rowid").fetchall()
+            ]
     destination = Path(output_path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_suffix(destination.suffix + ".tmp")
@@ -59,8 +71,7 @@ def restore_state_file(db_path: str | Path, input_path: str | Path) -> bool:
         return False
     payload = json.loads(source.read_text(encoding="utf-8"))
     if payload.get("schema_version") != 1 or not isinstance(payload.get("tables"), dict):
-        msg = "unsupported V2 state file"
-        raise ValueError(msg)
+        raise ValueError("unsupported V2 state file")
     store = PortfolioStore(db_path)
     store.initialize()
     with store.connect() as conn:

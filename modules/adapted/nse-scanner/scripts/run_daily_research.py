@@ -67,9 +67,15 @@ def main():
     p.add_argument("--snapshots", type=Path, default=Path("market_data/daily"))
     p.add_argument("--hull-state", type=Path, default=Path("pine_hull_state.json"))
     p.add_argument("--output", type=Path, default=Path("output/daily_research"))
-    p.add_argument("--symbols", nargs="+", help="Optional explicit smoke-test subset; not representative performance")
+    p.add_argument(
+        "--symbols",
+        nargs="+",
+        help="Optional explicit smoke-test subset; not representative performance",
+    )
     p.add_argument("--start", default="2026-01-01")
-    p.add_argument("--split", default="2026-06-01", help="Fixed chronological research/holdout boundary")
+    p.add_argument(
+        "--split", default="2026-06-01", help="Fixed chronological research/holdout boundary"
+    )
     p.add_argument("--end", default=None)
     p.add_argument("--fee-bps", type=float, default=10)
     p.add_argument("--slippage-bps", type=float, default=5)
@@ -89,7 +95,9 @@ def main():
     if not args.start < args.split:
         p.error("--split must follow --start")
     cfg = ResearchConfig()
-    execution = ExecutionConfig(fee_bps=args.fee_bps, slippage_bps=args.slippage_bps, trail=args.revised_exits)
+    execution = ExecutionConfig(
+        fee_bps=args.fee_bps, slippage_bps=args.slippage_bps, trail=args.revised_exits
+    )
     execution.validate()
     frames, benchmark, coverage = load_sources(args.db, args.snapshots, args.symbols)
     end = args.end or coverage["combined_price_end"]
@@ -140,14 +148,20 @@ def main():
                 )
                 for variant, mask in masks.items():
                     key = f"{scanner}/{variant}"
-                    results[key]["signals"] += int((mask & d.trade_date.ge(args.start) & d.trade_date.le(end)).sum())
+                    results[key]["signals"] += int(
+                        (mask & d.trade_date.ge(args.start) & d.trade_date.le(end)).sum()
+                    )
                     if not mask.any():
                         continue
                     replay_frame = d.assign(enforce_room=variant == "daily_location")
                     # Run independent periods: training trades cannot cross into
                     # holdout, nor can future holdout outcomes tune training.
                     for label, start_day, end_day in (
-                        ("research", args.start, (pd.Timestamp(args.split) - pd.Timedelta(days=1)).date().isoformat()),
+                        (
+                            "research",
+                            args.start,
+                            (pd.Timestamp(args.split) - pd.Timedelta(days=1)).date().isoformat(),
+                        ),
                         ("holdout", args.split, end),
                     ):
                         cache_key = (mask.to_numpy().tobytes(), variant == "daily_location", label)
@@ -163,7 +177,9 @@ def main():
                             )
                         r = replay_cache[cache_key]
                         for field in ("trades", "open", "pending", "events"):
-                            results[key][field].extend({**item, "symbol": symbol, "period": label} for item in r[field])
+                            results[key][field].extend(
+                                {**item, "symbol": symbol, "period": label} for item in r[field]
+                            )
         except (ValueError, KeyError) as exc:
             errors.append({"symbol": symbol, "error": str(exc)})
         if (i + 1) % 100 == 0:
@@ -193,12 +209,16 @@ def main():
         ],
         "errors": errors,
     }
-    manifest["configuration_hash"] = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode()).hexdigest()
+    manifest["configuration_hash"] = hashlib.sha256(
+        json.dumps(manifest, sort_keys=True).encode()
+    ).hexdigest()
     manifest["engine_fingerprint"] = hashlib.sha256(
         b"".join(path.read_bytes() for path in sorted(Path("daily_research").glob("*.py")))
     ).hexdigest()
     manifest["hull_state_fingerprint"] = (
-        hashlib.sha256(args.hull_state.read_bytes()).hexdigest() if args.hull_state.exists() else None
+        hashlib.sha256(args.hull_state.read_bytes()).hexdigest()
+        if args.hull_state.exists()
+        else None
     )
     write_json(out / "manifest.json", manifest)
     write_json(out / "latest_candidates.json", latest)
@@ -213,7 +233,8 @@ def main():
             trades = [t for t in result["trades"] if t["period"] == label]
             summary[key][label] = metrics(trades)
             summary[key][label]["by_setup"] = {
-                s: metrics([t for t in trades if t["setup"] == s]) for s in sorted({t["setup"] for t in trades})
+                s: metrics([t for t in trades if t["setup"] == s])
+                for s in sorted({t["setup"] for t in trades})
             }
             summary[key][label]["by_weekly_permission"] = {
                 s: metrics([t for t in trades if t["weekly_permission"] == s])

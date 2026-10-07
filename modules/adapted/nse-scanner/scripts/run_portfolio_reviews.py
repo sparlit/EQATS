@@ -59,33 +59,37 @@ def main() -> int:
     args = parse_args()
     queue_path = Path(args.queue)
     if not queue_path.exists():
-        msg = f"Review queue not found: {queue_path}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Review queue not found: {queue_path}")
 
     queue = json.loads(queue_path.read_text(encoding="utf-8"))
     period = str(queue.get("review_period", ""))
     items = queue.get("items", queue.get("symbols", []))
     if not isinstance(items, list):
-        msg = "Review queue items must be a list"
-        raise ValueError(msg)
+        raise ValueError("Review queue items must be a list")
 
     env_policy = ReviewPolicy.from_env()
     policy = ReviewPolicy(
         max_age_days=args.max_age_days or env_policy.max_age_days,
-        max_symbols_per_run=(args.max_symbols if args.max_symbols is not None else env_policy.max_symbols_per_run),
+        max_symbols_per_run=(
+            args.max_symbols if args.max_symbols is not None else env_policy.max_symbols_per_run
+        ),
         max_provider_calls_per_run=env_policy.max_provider_calls_per_run,
         force_refresh=args.force_refresh or env_policy.force_refresh,
     )
 
     normalized_items: list[dict] = []
     for item in items[: policy.max_symbols_per_run]:
-        normalized_items.append(item if isinstance(item, dict) else {"symbol": str(item), "position": {}})
+        normalized_items.append(
+            item if isinstance(item, dict) else {"symbol": str(item), "position": {}}
+        )
 
     results: list[ReviewRunResult] = []
     estimated_calls = 0
     for item in normalized_items:
         symbol = str(item.get("symbol", "")).strip().upper()
-        should_run, reason = should_review_symbol(symbol, reports_root=args.reports_root, policy=policy)
+        should_run, reason = should_review_symbol(
+            symbol, reports_root=args.reports_root, policy=policy
+        )
         if not should_run:
             results.append(ReviewRunResult(symbol=symbol, status="SKIPPED", error=reason))
             continue

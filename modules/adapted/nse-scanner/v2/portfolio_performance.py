@@ -25,13 +25,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """Auditable V2 portfolio P&L and risk snapshots."""
 
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING
 
 from .lifecycle import Position, TradeState
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
 
 
 @dataclass(frozen=True)
@@ -65,12 +62,19 @@ def build_portfolio_snapshot(
     committed = [position for position in rows if position.state in committed_states]
     realised = sum(position.realised_pnl for position in rows)
     unrealised = sum(
-        position.remaining_quantity * ((position.last_price or position.entry) - position.entry) for position in live
+        position.remaining_quantity * ((position.last_price or position.entry) - position.entry)
+        for position in live
     )
     committed_capital = sum(position.quantity * position.entry for position in committed)
-    market_value = sum(position.remaining_quantity * (position.last_price or position.entry) for position in live)
-    initial_risk = sum(position.quantity * (position.entry - position.initial_stop) for position in committed)
-    open_risk = sum(position.remaining_quantity * max(position.entry - position.stop, 0.0) for position in live)
+    market_value = sum(
+        position.remaining_quantity * (position.last_price or position.entry) for position in live
+    )
+    initial_risk = sum(
+        position.quantity * (position.entry - position.initial_stop) for position in committed
+    )
+    open_risk = sum(
+        position.remaining_quantity * max(position.entry - position.stop, 0.0) for position in live
+    )
     total = realised + unrealised
     return PortfolioSnapshot(
         portfolio_date=portfolio_date,

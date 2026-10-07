@@ -45,7 +45,9 @@ from .multi_horizon.engine import run_shadow
 
 def _wma(series: pd.Series, length: int) -> pd.Series:
     weights = list(range(1, length + 1))
-    return series.rolling(length).apply(lambda values: float((values * weights).sum() / sum(weights)), raw=True)
+    return series.rolling(length).apply(
+        lambda values: float((values * weights).sum() / sum(weights)), raw=True
+    )
 
 
 def _hma(series: pd.Series, length: int) -> pd.Series:
@@ -63,10 +65,16 @@ def _tradeable_prices(prices: pd.DataFrame, db_path: str | Path) -> tuple[pd.Dat
     trade_date = pd.Timestamp(prices["trade_date"].max()).date().isoformat()
     database = V2Database(db_path)
     master = database.load_symbol_master(trade_date)
-    metadata = {str(row["symbol"]): row.to_dict() for _, row in master.iterrows()} if not master.empty else {}
+    metadata = (
+        {str(row["symbol"]): row.to_dict() for _, row in master.iterrows()}
+        if not master.empty
+        else {}
+    )
     restricted = database.load_restricted_symbols(trade_date)
     lifecycle_registry = database.load_lifecycle_registry()
-    session_calendar = tuple(sorted(pd.to_datetime(prices["trade_date"]).dt.date.astype(str).unique()))
+    session_calendar = tuple(
+        sorted(pd.to_datetime(prices["trade_date"]).dt.date.astype(str).unique())
+    )
     gateway = {
         str(symbol): evaluate_tradeability(
             str(symbol),
@@ -80,8 +88,12 @@ def _tradeable_prices(prices: pd.DataFrame, db_path: str | Path) -> tuple[pd.Dat
         )
         for symbol, frame in prices.groupby("symbol", sort=True)
     }
-    allowed = {symbol for symbol, result in gateway.items() if result.eligible and not result.entry_blocked}
-    return prices[prices["symbol"].astype(str).isin(allowed)].copy(), summarize_tradeability(gateway)
+    allowed = {
+        symbol for symbol, result in gateway.items() if result.eligible and not result.entry_blocked
+    }
+    return prices[prices["symbol"].astype(str).isin(allowed)].copy(), summarize_tradeability(
+        gateway
+    )
 
 
 def alignment(frame: pd.DataFrame) -> dict:
@@ -163,7 +175,11 @@ def run_local(
         # The report artifact is the comparison surface during the 20-session
         # evaluation. It never changes the baseline shortlist or Telegram UX.
         report["multi_horizon_shadow"] = run_shadow(
-            prices, db_path, [row["symbol"] for row in rows], comparison_state_path, paper_state_path
+            prices,
+            db_path,
+            [row["symbol"] for row in rows],
+            comparison_state_path,
+            paper_state_path,
         )
     return report
 
@@ -181,8 +197,14 @@ def render_radar(report: dict) -> str:
     if report["shortlist"]:
         lines.extend(["", "<b>Today’s watchlist</b>"])
         for row in report["shortlist"][:10]:
-            label = "Watch for entry" if row.get("hull_state") == "READY" else "Watchlist—wait for confirmation"
-            signals = ", ".join(str(item).replace("_", " ") for item in row.get("early_signals", ())[:2])
+            label = (
+                "Watch for entry"
+                if row.get("hull_state") == "READY"
+                else "Watchlist—wait for confirmation"
+            )
+            signals = ", ".join(
+                str(item).replace("_", " ") for item in row.get("early_signals", ())[:2]
+            )
             reason = (
                 signals.replace("price accelerating", "price is improving").replace(
                     "relative strength accelerating", "strength versus peers is improving"
@@ -247,7 +269,11 @@ def render_validation_report(summary: dict | None) -> str:
     summary = summary or {}
     observed, target = summary.get("sessions_observed", 0), summary.get("target_sessions", 20)
     remaining = max(0, target - observed)
-    status = "Ready for manual review" if summary.get("validation_ready") else "Still collecting evidence"
+    status = (
+        "Ready for manual review"
+        if summary.get("validation_ready")
+        else "Still collecting evidence"
+    )
     return "\n".join(
         [
             "⚙️ <b>OLD NSE + HULL — SYSTEM VALIDATION</b>",

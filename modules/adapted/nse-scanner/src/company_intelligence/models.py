@@ -45,14 +45,11 @@ class EvidenceItem:
 
     def __post_init__(self) -> None:
         if not self.source_id.strip():
-            msg = "source_id is required"
-            raise ValueError(msg)
+            raise ValueError("source_id is required")
         if not self.category.strip():
-            msg = "category is required"
-            raise ValueError(msg)
+            raise ValueError("category is required")
         if self.status not in _ALLOWED_EVIDENCE_STATUS:
-            msg = f"Unsupported evidence status: {self.status}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported evidence status: {self.status}")
         date.fromisoformat(self.as_of_date)
 
 
@@ -68,15 +65,11 @@ class CompanyDossier:
 
     def __post_init__(self) -> None:
         if not self.symbol.strip():
-            msg = "symbol is required"
-            raise ValueError(msg)
+            raise ValueError("symbol is required")
         date.fromisoformat(self.generated_date)
         if self.status not in _ALLOWED_DOSSIER_STATUS:
-            msg = f"Unsupported dossier status: {self.status}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported dossier status: {self.status}")
         if self.evidence_count < 0 or self.verified_evidence_count < 0:
-            msg = "Evidence counts cannot be negative"
-            raise ValueError(msg)
+            raise ValueError("Evidence counts cannot be negative")
         if self.verified_evidence_count > self.evidence_count:
-            msg = "verified_evidence_count cannot exceed evidence_count"
-            raise ValueError(msg)
+            raise ValueError("verified_evidence_count cannot exceed evidence_count")

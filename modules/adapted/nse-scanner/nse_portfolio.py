@@ -119,7 +119,7 @@ def _load_portfolio() -> dict:
         with open(PORTFOLIO_FILE, encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
-        log.exception(f"Failed to load portfolio.json: {e}")
+        log.error(f"Failed to load portfolio.json: {e}")
         return {"positions": {}, "closed": [], "last_run": ""}
 
 
@@ -148,7 +148,7 @@ def _assign_tier(streak: int, score: float) -> str:
 # ═══════════════════════════════════════════════════════════════
 
 
-def calc_risk_score(position: dict, scanner_stock: dict, news: dict | None = None) -> dict:
+def calc_risk_score(position: dict, scanner_stock: dict, news: dict = None) -> dict:
     """
     Calculate 8-dimension risk score for one open position.
 
@@ -332,7 +332,8 @@ def calc_risk_score(position: dict, scanner_stock: dict, news: dict | None = Non
         elif any("DEAL:INSTITUTION_BUY" in f for f in news_flags):
             d8 = 0  # institutional buy = confirmation
         elif ann_count > 0 and any(
-            "RESULTS" in f or "MEETING" in f for f in [n.get("type", "") for n in news.get("announcements", [])]
+            "RESULTS" in f or "MEETING" in f
+            for f in [n.get("type", "") for n in news.get("announcements", [])]
         ):
             d8 = 5
             flags.append("Board meeting / results upcoming — gap risk")
@@ -370,7 +371,7 @@ def calc_risk_score(position: dict, scanner_stock: dict, news: dict | None = Non
 # ═══════════════════════════════════════════════════════════════
 
 
-def auto_add(portfolio: dict, scanner_stocks: list, scan_date: str, news_data: dict | None = None) -> list:
+def auto_add(portfolio: dict, scanner_stocks: list, scan_date: str, news_data: dict = None) -> list:
     """
     Check scanner stocks against entry criteria. Add qualifying stocks.
 
@@ -396,7 +397,9 @@ def auto_add(portfolio: dict, scanner_stocks: list, scan_date: str, news_data: d
         hull_chop = bool(stock.get("hull_chop", False))
         news = (news_data or {}).get(sym, {})
         flags = news.get("flags", []) if isinstance(news, dict) else []
-        negative_news = str(news.get("news_tone", "NEUTRAL")) == "NEGATIVE" if isinstance(news, dict) else False
+        negative_news = (
+            str(news.get("news_tone", "NEUTRAL")) == "NEGATIVE" if isinstance(news, dict) else False
+        )
         material_news_risk = negative_news or any(
             "RISK:REGULATORY" in str(flag) or "DEAL:PROMOTER_SELL" in str(flag) for flag in flags
         )
@@ -452,12 +455,17 @@ def auto_add(portfolio: dict, scanner_stocks: list, scan_date: str, news_data: d
                     "event": "added",
                     "date": scan_date,
                     "price": close,
-                    "reason": (f"BUY_TRIGGER | Hull aligned | streak={streak} score={score} dist={dist_pct:.1f}%"),
+                    "reason": (
+                        f"BUY_TRIGGER | Hull aligned | streak={streak} "
+                        f"score={score} dist={dist_pct:.1f}%"
+                    ),
                 }
             ],
         }
         added.append(sym)
-        log.info(f"AUTO-ADD: {sym} | streak={streak} score={score:.1f} dist={dist_pct:.1f}% | tier={tier}")
+        log.info(
+            f"AUTO-ADD: {sym} | streak={streak} score={score:.1f} dist={dist_pct:.1f}% | tier={tier}"
+        )
 
     portfolio["positions"] = positions
     return added
@@ -567,7 +575,11 @@ def check_exits(portfolio: dict, scanner_stocks: list, scan_date: str) -> list:
         pos = positions[sym]
         stock = stock_map.get(sym)
 
-        current_price = float(stock.get("close", pos.get("current_price", 0)) if stock else pos.get("current_price", 0))
+        current_price = float(
+            stock.get("close", pos.get("current_price", 0))
+            if stock
+            else pos.get("current_price", 0)
+        )
         current_sl = float(pos.get("current_sl", 0))
 
         if current_sl > 0 and current_price <= current_sl:
@@ -667,7 +679,9 @@ def build_portfolio_message(
     # ── Header ────────────────────────────────────────────────
     total_open = len(positions)
     healthy = sum(1 for r in risk_scores.values() if r["level"] == "HEALTHY")
-    caution = sum(1 for r in risk_scores.values() if r["level"] in ("CAUTION", "DANGER", "EXIT NOW"))
+    caution = sum(
+        1 for r in risk_scores.values() if r["level"] in ("CAUTION", "DANGER", "EXIT NOW")
+    )
 
     header = f"💼 {_b('Portfolio — ' + ds)}\n"
     header += f"{_i(str(total_open) + ' open · ' + str(healthy) + ' healthy · ' + str(caution) + ' need attention')}\n"
@@ -687,7 +701,10 @@ def build_portfolio_message(
         header += f"\n✅ {_b('New Additions (' + str(len(added)) + ')')}\n"
         for sym in added:
             pos = positions.get(sym, {})
-            header += f"  {_code(sym)} ₹{int(pos.get('entry_price', 0)):,} tier={pos.get('tier', 'Building')}\n"
+            header += (
+                f"  {_code(sym)} ₹{int(pos.get('entry_price', 0)):,} "
+                f"tier={pos.get('tier', 'Building')}\n"
+            )
 
     if sl_updated:
         header += f"\n🔼 {_b('SL Trailed')}: "
@@ -697,7 +714,9 @@ def build_portfolio_message(
 
     # ── Open Positions ────────────────────────────────────────
     if not positions:
-        messages.append(_i("No open positions.\nStocks will auto-add when streak≥5, score≥6, dist<5%."))
+        messages.append(
+            _i("No open positions.\nStocks will auto-add when streak≥5, score≥6, dist<5%.")
+        )
         return messages
 
     # Sort: EXIT NOW → DANGER → CAUTION → ELEVATED → HEALTHY
@@ -747,7 +766,9 @@ def build_portfolio_message(
         card = f"\n{risk['icon']} {_b(sym)} [{tier}]{t1_tag}{t2_tag}\n"
         card += f"   Entry ₹{int(entry):,} → Now ₹{int(current):,} ({pl_sign}{pl_pct:.1f}%)\n"
         card += f"   SL ₹{int(sl_cur):,} ({sl_label}) | T1 ₹{int(t1):,} | T2 ₹{int(t2):,}\n"
-        card += f"   Score {score:.0f}/10 | Streak {streak}d | Risk {risk['total']} {risk['level']}\n"
+        card += (
+            f"   Score {score:.0f}/10 | Streak {streak}d | Risk {risk['total']} {risk['level']}\n"
+        )
 
         # Show top 2 risk flags if caution or worse
         if risk["flags"] and risk["level"] not in ("HEALTHY", "ELEVATED"):
@@ -789,8 +810,16 @@ def build_portfolio_message(
     if recent_closed:
         won = sum(1 for c in recent_closed if float(c.get("final_pl_pct", 0)) > 0)
         win_rate = round(won / len(recent_closed) * 100)
-        avg_win = sum(float(c.get("final_pl_pct", 0)) for c in recent_closed if float(c.get("final_pl_pct", 0)) > 0)
-        avg_loss = sum(float(c.get("final_pl_pct", 0)) for c in recent_closed if float(c.get("final_pl_pct", 0)) <= 0)
+        avg_win = sum(
+            float(c.get("final_pl_pct", 0))
+            for c in recent_closed
+            if float(c.get("final_pl_pct", 0)) > 0
+        )
+        avg_loss = sum(
+            float(c.get("final_pl_pct", 0))
+            for c in recent_closed
+            if float(c.get("final_pl_pct", 0)) <= 0
+        )
         n_win = sum(1 for c in recent_closed if float(c.get("final_pl_pct", 0)) > 0)
         n_loss = len(recent_closed) - n_win
         avg_w = avg_win / n_win if n_win > 0 else 0
@@ -812,7 +841,7 @@ def build_portfolio_message(
 # ═══════════════════════════════════════════════════════════════
 
 
-def send_portfolio_message(messages: list, chat_id: str | None = None):
+def send_portfolio_message(messages: list, chat_id: str = None):
     """Send portfolio message(s) to Telegram."""
     token = getattr(config, "TELEGRAM_TOKEN", None)
     target = chat_id or getattr(config, "TELEGRAM_CHATID", None)
@@ -839,7 +868,7 @@ def send_portfolio_message(messages: list, chat_id: str | None = None):
                 log.error(f"Portfolio msg {i + 1} failed: {r.status_code} {r.text[:200]}")
                 success = False
         except Exception as e:
-            log.exception(f"Portfolio send error: {e}")
+            log.error(f"Portfolio send error: {e}")
             success = False
 
     if success:
@@ -853,7 +882,7 @@ def send_portfolio_message(messages: list, chat_id: str | None = None):
 
 
 def run_portfolio_step(
-    scanner_stocks: list, scan_date: str | None = None, news_data: dict | None = None, chat_id: str | None = None
+    scanner_stocks: list, scan_date: str = None, news_data: dict = None, chat_id: str = None
 ):
     """
     Full portfolio step. Call this from main_pipeline.py after nse_output.
@@ -1015,7 +1044,11 @@ def format_exits_for_bot(last_n: int = 10) -> str:
         pl_sign = "+" if pl_pct >= 0 else ""
         icon = "✅" if pl_pct > 0 else "❌"
 
-        msg += f"{icon} {_code(sym)}{t1_tag} ₹{int(entry):,}→₹{int(exit_p):,} {pl_sign}{pl_pct:.1f}% ({days}d)\n"
+        msg += (
+            f"{icon} {_code(sym)}{t1_tag} "
+            f"₹{int(entry):,}→₹{int(exit_p):,} "
+            f"{pl_sign}{pl_pct:.1f}% ({days}d)\n"
+        )
 
     return msg
 
@@ -1033,7 +1066,9 @@ if __name__ == "__main__":
     parser.add_argument("--status", action="store_true", help="Show open positions")
     parser.add_argument("--exits", action="store_true", help="Show recent exits")
     parser.add_argument("--summary", action="store_true", help="Portfolio summary stats")
-    parser.add_argument("--run", action="store_true", help="Run full portfolio step from last_scan.json")
+    parser.add_argument(
+        "--run", action="store_true", help="Run full portfolio step from last_scan.json"
+    )
     args = parser.parse_args()
 
     if args.status:
