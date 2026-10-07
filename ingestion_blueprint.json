@@ -1302,8 +1302,8 @@
       "target": "imanojkumar/nse-india-all-stocks-tickers-data",
       "url": "https://github.com/imanojkumar/nse-india-all-stocks-tickers-data",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3104",
+      "merged": true
     },
     {
       "name": "nse",
