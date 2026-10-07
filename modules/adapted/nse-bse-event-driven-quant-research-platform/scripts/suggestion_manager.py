@@ -59,14 +59,34 @@ from indian_quant.features.delivery import (
     signal_mask,
 )
 from indian_quant.portfolio.kelly import dynamic_kelly_params, kelly_fraction, kelly_position
-from indian_quant.storage import MetadataStore
 from indian_quant.storage.pg_metadata import PgMetadataStore
 from indian_quant.web.prod_config import get_pg_engine
 
 HORIZONS = [
-    {"days": 1, "label": "1d", "stop_pct": 0.03, "target_pct": 0.02, "capital_pct": 0.25, "predicted_bps": 30.0},
-    {"days": 5, "label": "5d", "stop_pct": 0.05, "target_pct": 0.05, "capital_pct": 0.35, "predicted_bps": 60.0},
-    {"days": 10, "label": "10d", "stop_pct": 0.07, "target_pct": 0.08, "capital_pct": 0.40, "predicted_bps": 80.0},
+    {
+        "days": 1,
+        "label": "1d",
+        "stop_pct": 0.03,
+        "target_pct": 0.02,
+        "capital_pct": 0.25,
+        "predicted_bps": 30.0,
+    },
+    {
+        "days": 5,
+        "label": "5d",
+        "stop_pct": 0.05,
+        "target_pct": 0.05,
+        "capital_pct": 0.35,
+        "predicted_bps": 60.0,
+    },
+    {
+        "days": 10,
+        "label": "10d",
+        "stop_pct": 0.07,
+        "target_pct": 0.08,
+        "capital_pct": 0.40,
+        "predicted_bps": 80.0,
+    },
 ]
 
 # --- Backtest-aligned filters ---
@@ -137,14 +157,22 @@ def _scan_today(settings) -> pd.DataFrame:
                 "volume": volume,
                 "deliv_pct": float(last["deliv_pct"]) if not pd.isna(last["deliv_pct"]) else None,
                 "deliv_z": float(last["deliv_z"]) if not pd.isna(last["deliv_z"]) else None,
-                "vol_z": float(last.get("vol_z", 0)) if not pd.isna(last.get("vol_z", np.nan)) else None,
+                "vol_z": float(last.get("vol_z", 0))
+                if not pd.isna(last.get("vol_z", np.nan))
+                else None,
                 "ret_1d": float(last["ret_1d"]),
                 "rsi": float(last.get("rsi", 50)) if not pd.isna(last.get("rsi", np.nan)) else 50.0,
-                "macd_hist": float(last.get("macd_hist", 0)) if not pd.isna(last.get("macd_hist", np.nan)) else 0.0,
-                "sma_20": float(last["sma_20"]) if not pd.isna(last.get("sma_20", np.nan)) else None,
+                "macd_hist": float(last.get("macd_hist", 0))
+                if not pd.isna(last.get("macd_hist", np.nan))
+                else 0.0,
+                "sma_20": float(last["sma_20"])
+                if not pd.isna(last.get("sma_20", np.nan))
+                else None,
                 "turnover": turnover,
                 "date": last["date"].date().isoformat(),
-                "_atr": float(last.get("atr_14", 0)) if not pd.isna(last.get("atr_14", np.nan)) else 0,
+                "_atr": float(last.get("atr_14", 0))
+                if not pd.isna(last.get("atr_14", np.nan))
+                else 0,
             }
         )
     return pd.DataFrame(rows)
@@ -161,7 +189,9 @@ def cmd_record(settings, *, capital: float, risk_pct: float) -> int:
         )
     df = _scan_today(settings)
     if df.empty:
-        print("no qualifying candidates (filters: price 100-500, cluster entry, RSI/MACD/SMA, turnover >= 1Cr)")
+        print(
+            "no qualifying candidates (filters: price 100-500, cluster entry, RSI/MACD/SMA, turnover >= 1Cr)"
+        )
         return 0
 
     latest = df["date"].max()
@@ -192,7 +222,8 @@ def cmd_record(settings, *, capital: float, risk_pct: float) -> int:
             win_rate, avg_win, avg_loss = dynamic_kelly_params(get_pg_engine())
             kf = kelly_fraction(win_rate, avg_win, avg_loss)
             qty = kelly_position(hz_capital, risk_pct, r["close"], hz["stop_pct"], kf)
-            qty = max(qty, 1)
+            if qty < 1:
+                qty = 1
 
             atr = r.get("_atr", r["close"] * 0.03)
             entry_low = round(r["close"] - atr * 0.5, 2)
@@ -260,7 +291,9 @@ def cmd_settle(settings) -> int:
             skipped += 1
             continue
 
-        exit_row = after.iloc[s["horizon_days"] - 1] if len(after) >= s["horizon_days"] else after.iloc[-1]
+        exit_row = (
+            after.iloc[s["horizon_days"] - 1] if len(after) >= s["horizon_days"] else after.iloc[-1]
+        )
         exit_date = str(pd.to_datetime(exit_row["date"]).date())
         exit_close = float(exit_row["close"])
 
@@ -285,7 +318,12 @@ def cmd_settle(settings) -> int:
     metadata.close()
     print(
         json.dumps(
-            {"settled_now": settled_count, "skipped_insufficient_data": skipped, **summary, "by_horizon": by_hz},
+            {
+                "settled_now": settled_count,
+                "skipped_insufficient_data": skipped,
+                **summary,
+                "by_horizon": by_hz,
+            },
             indent=1,
         )
     )
@@ -304,7 +342,10 @@ def cmd_report(settings) -> int:
     verdict = (
         "PASS — ready for live consideration"
         if gate_pass
-        else (f"PENDING — need >= 20 realized with avg_net >= +25bps (currently {s['realized']} realized)")
+        else (
+            f"PENDING — need >= 20 realized with avg_net >= +25bps "
+            f"(currently {s['realized']} realized)"
+        )
     )
 
     con_str = settings.storage.metadata_dsn.removeprefix("sqlite:///")
@@ -360,9 +401,9 @@ def main() -> int:
 
     if args.command == "record":
         return cmd_record(settings, capital=args.capital, risk_pct=args.risk_pct)
-    if args.command == "settle":
+    elif args.command == "settle":
         return cmd_settle(settings)
-    if args.command == "report":
+    elif args.command == "report":
         return cmd_report(settings)
     return 1
 

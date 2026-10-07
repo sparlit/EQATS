@@ -78,7 +78,9 @@ class TestUpstoxExecutionGuardrails:
         with pytest.raises(RuntimeError, match="sandbox app"):
             asyncio.run(
                 client.submit_order(
-                    SandboxOrderRequest(instrument_key="NSE_EQ|INE002A01018", quantity=1, side=OrderSide.BUY)
+                    SandboxOrderRequest(
+                        instrument_key="NSE_EQ|INE002A01018", quantity=1, side=OrderSide.BUY
+                    )
                 )
             )
 

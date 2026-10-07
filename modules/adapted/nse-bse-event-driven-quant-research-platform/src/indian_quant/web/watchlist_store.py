@@ -27,10 +27,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import sqlite3
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from pathlib import Path
+from pathlib import Path
+from typing import Any
 
 
 class WatchlistStore:
@@ -48,7 +46,8 @@ class WatchlistStore:
 
     def create_user(self, username: str, email: str, password_hash: str) -> int:
         cur = self._con.execute(
-            "INSERT INTO users (username, email, password_hash, created_at) VALUES (?, ?, ?, datetime('now'))",
+            "INSERT INTO users (username, email, password_hash, created_at) "
+            "VALUES (?, ?, ?, datetime('now'))",
             (username, email, password_hash),
         )
         self._con.commit()
@@ -63,7 +62,9 @@ class WatchlistStore:
         return dict(row) if row else None
 
     def update_last_login(self, user_id: int) -> None:
-        self._con.execute("UPDATE users SET last_login = datetime('now') WHERE user_id = ?", (user_id,))
+        self._con.execute(
+            "UPDATE users SET last_login = datetime('now') WHERE user_id = ?", (user_id,)
+        )
         self._con.commit()
 
     def username_exists(self, username: str) -> bool:
@@ -119,7 +120,9 @@ class WatchlistStore:
 
     # ── Watchlist Signals ──────────────────────────────────────────────
 
-    def save_signal(self, watchlist_id: int, user_id: int, symbol: str, data: dict[str, Any]) -> None:
+    def save_signal(
+        self, watchlist_id: int, user_id: int, symbol: str, data: dict[str, Any]
+    ) -> None:
         self._con.execute(
             """INSERT INTO watchlist_signals
                (watchlist_id, user_id, symbol, signal_date, signal_type,
@@ -176,5 +179,7 @@ class WatchlistStore:
         return dict(row) if row else None
 
     def symbol_count(self, user_id: int) -> int:
-        row = self._con.execute("SELECT COUNT(*) FROM watchlists WHERE user_id = ?", (user_id,)).fetchone()
+        row = self._con.execute(
+            "SELECT COUNT(*) FROM watchlists WHERE user_id = ?", (user_id,)
+        ).fetchone()
         return int(row[0])

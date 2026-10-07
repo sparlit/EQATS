@@ -122,7 +122,9 @@ def load_delivery_closes(settings, symbol: str) -> pd.Series:
     store = RawStore(settings.data_root / "raw")
     ingester = BhavcopyIngester(store)
     closes: dict[date, float] = {}
-    for meta_file in sorted((settings.data_root / "raw" / "nse" / "bhavcopy_delivery_sec").rglob("*.meta.json")):
+    for meta_file in sorted(
+        (settings.data_root / "raw" / "nse" / "bhavcopy_delivery_sec").rglob("*.meta.json")
+    ):
         payload_path = meta_file.with_suffix("").with_suffix(".csv")
         if not payload_path.exists():
             continue
@@ -164,7 +166,9 @@ def main() -> int:
     parser.add_argument("--symbol", required=True)
     parser.add_argument("--warn-pct", type=float, default=0.1)
     parser.add_argument("--error-pct", type=float, default=0.5)
-    parser.add_argument("--pair", choices=["auto", "nse_cm_vs_nse_delivery", "nse_cm_vs_bse_cm"], default="auto")
+    parser.add_argument(
+        "--pair", choices=["auto", "nse_cm_vs_nse_delivery", "nse_cm_vs_bse_cm"], default="auto"
+    )
     parser.add_argument("--config", default=None)
     args = parser.parse_args()
 
@@ -180,7 +184,8 @@ def main() -> int:
         df = store.read_bars(layer="normalized", exchange="NSE", symbol=symbol)
 
     cm_closes = pd.Series(
-        df["close"].values, index=pd.DatetimeIndex(pd.to_datetime(df["timestamp"], utc=True)).normalize()
+        df["close"].values,
+        index=pd.DatetimeIndex(pd.to_datetime(df["timestamp"], utc=True)).normalize(),
     ).sort_index()
     trading_dates = [ts.date() for ts in cm_closes.index]
 
@@ -191,7 +196,9 @@ def main() -> int:
         fetch_missing_delivery_days(settings, symbol, trading_dates)
         delivery = load_delivery_closes(settings, symbol)
         if not delivery.empty:
-            delivery.index = pd.DatetimeIndex(pd.to_datetime(pd.Series(delivery.index), utc=True)).normalize()
+            delivery.index = pd.DatetimeIndex(
+                pd.to_datetime(pd.Series(delivery.index), utc=True)
+            ).normalize()
             reports.append(
                 compare_series(
                     cm_closes,
@@ -245,11 +252,15 @@ def main() -> int:
                     payload_u,
                     instrument_id=f"NSE_EQ|{symbol}",
                     exchange="NSE",
-                    timeframe=__import__("indian_quant.schemas", fromlist=["Timeframe"]).Timeframe.DAY,
+                    timeframe=__import__(
+                        "indian_quant.schemas", fromlist=["Timeframe"]
+                    ).Timeframe.DAY,
                 )
                 u_closes = {b.timestamp.date(): b.close for b in ubars}
                 ux = pd.Series(u_closes).sort_index()
-                ux.index = pd.DatetimeIndex(pd.to_datetime(pd.Series(ux.index), utc=True)).normalize()
+                ux.index = pd.DatetimeIndex(
+                    pd.to_datetime(pd.Series(ux.index), utc=True)
+                ).normalize()
                 reports.append(
                     compare_series(
                         cm_closes,

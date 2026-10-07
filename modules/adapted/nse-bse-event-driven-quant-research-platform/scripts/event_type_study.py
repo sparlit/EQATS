@@ -122,7 +122,7 @@ def main() -> int:
         rows.append(
             {
                 "event_type": event_type,
-                "n_events": len(merged),
+                "n_events": int(len(merged)),
                 "mean_car_bps": round(mean_bps, 1),
                 "hit_rate": round(float((merged > 0).mean()), 3),
                 "t_stat_pooled": round(t, 2),

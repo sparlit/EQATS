@@ -40,7 +40,6 @@ Usage:
 
 import argparse
 import logging
-import re
 import sys
 from datetime import date, datetime
 from pathlib import Path
@@ -117,7 +116,9 @@ def cap_hypothesis(
             # Only settle the specific paper signal id, not by symbol.
             price = _get_price(symbol)
             if price is None:
-                log.warning(f"  {symbol} (ps id {ps_id}): no price, closing at entry {entry_price:.2f}")
+                log.warning(
+                    f"  {symbol} (ps id {ps_id}): no price, closing at entry {entry_price:.2f}"
+                )
                 price = entry_price
 
             if dry_run:
@@ -136,7 +137,10 @@ def cap_hypothesis(
                 exit_reason="CAP_REACHED",
                 notes=f"Position cap {top_n}/hypothesis exceeded; settled at market.",
             )
-            log.info(f"  SETTLED {symbol} (ps id {ps_id}) at {price:.2f} net_bps={result.get('net_bps', 0):.1f}")
+            log.info(
+                f"  SETTLED {symbol} (ps id {ps_id}) at {price:.2f} "
+                f"net_bps={result.get('net_bps', 0):.1f}"
+            )
 
             # Settle matching hypothesis_trades rows (audit trail) directly,
             # replicating registry._close_hypothesis_trade to avoid id collisions.
@@ -253,7 +257,10 @@ def settle_orphan_ht_trades(engine: sa.Engine, dry_run: bool = False) -> int:
         log.info("No orphan/duplicate hypothesis_trades rows to settle")
         return 0
 
-    log.info(f"{len(rows)} stale hypothesis_trades rows to settle ({len(orphans)} orphan, {len(dups)} duplicate)")
+    log.info(
+        f"{len(rows)} stale hypothesis_trades rows to settle "
+        f"({len(orphans)} orphan, {len(dups)} duplicate)"
+    )
     for row in rows:
         ht = dict(row)
         if dry_run:
@@ -282,7 +289,10 @@ def settle_orphan_ht_trades(engine: sa.Engine, dry_run: bool = False) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Cap open paper positions per hypothesis")
     parser.add_argument(
-        "--top", type=int, default=DEFAULT_TOP_N, help=f"Max open positions per hypothesis (default: {DEFAULT_TOP_N})"
+        "--top",
+        type=int,
+        default=DEFAULT_TOP_N,
+        help=f"Max open positions per hypothesis (default: {DEFAULT_TOP_N})",
     )
     parser.add_argument("--dry-run", action="store_true", help="Preview only, no DB writes")
     args = parser.parse_args()

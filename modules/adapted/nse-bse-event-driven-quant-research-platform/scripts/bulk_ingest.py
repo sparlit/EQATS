@@ -109,10 +109,17 @@ def census_check(
 ) -> list[dict]:
     report = QualityReport(dataset=label)
     detect_census_drift(
-        raw_census, lake_census, report, label=label, bucket_map=bucket_map, ignore_buckets=ignore_buckets
+        raw_census,
+        lake_census,
+        report,
+        label=label,
+        bucket_map=bucket_map,
+        ignore_buckets=ignore_buckets,
     )
     return [
-        i.to_dict() if hasattr(i, "to_dict") else {"severity": i.severity, "code": i.code, "detail": i.detail}
+        i.to_dict()
+        if hasattr(i, "to_dict")
+        else {"severity": i.severity, "code": i.code, "detail": i.detail}
         for i in report.issues
     ]
 
@@ -130,12 +137,17 @@ def main() -> int:
     parser.add_argument("--from", dest="from_date", required=True)
     parser.add_argument("--to", dest="to_date", required=True)
     parser.add_argument(
-        "--exchange", default="NSE", choices=["NSE", "BSE", "both"], help="Exchange to ingest (default: NSE)"
+        "--exchange",
+        default="NSE",
+        choices=["NSE", "BSE", "both"],
+        help="Exchange to ingest (default: NSE)",
     )
     parser.add_argument("--delivery-only", action="store_true")
     parser.add_argument("--bars-only", action="store_true")
     parser.add_argument("--sleep", type=float, default=0.3)
-    parser.add_argument("--flush-every", type=int, default=60, help="persist buffers every N parsed days")
+    parser.add_argument(
+        "--flush-every", type=int, default=60, help="persist buffers every N parsed days"
+    )
     parser.add_argument("--config", default=None)
     args = parser.parse_args()
 
@@ -172,7 +184,11 @@ def main() -> int:
                 old = pd.read_parquet(existing)
                 frame = pd.concat([old, frame], ignore_index=True)
             frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True)
-            frame = frame.sort_values("timestamp").drop_duplicates(subset=["timestamp"]).reset_index(drop=True)
+            frame = (
+                frame.sort_values("timestamp")
+                .drop_duplicates(subset=["timestamp"])
+                .reset_index(drop=True)
+            )
             existing.parent.mkdir(parents=True, exist_ok=True)
             import pyarrow.parquet as pq
 
@@ -195,7 +211,9 @@ def main() -> int:
             if target.exists():
                 old = pd.read_parquet(target)
                 frame = pd.concat([old, frame], ignore_index=True)
-            frame = frame.drop_duplicates(subset=["date"]).sort_values("date").reset_index(drop=True)
+            frame = (
+                frame.drop_duplicates(subset=["date"]).sort_values("date").reset_index(drop=True)
+            )
             frame.to_parquet(target, index=False)
             written += 1
         delivery_buffer.clear()
@@ -212,10 +230,14 @@ def main() -> int:
         do_delivery_nse = not args.bars_only
 
         pending_cm = [
-            d for d in trading_days if do_bars_nse and d.isoformat() not in manifest.get("bars_1d_nse", set())
+            d
+            for d in trading_days
+            if do_bars_nse and d.isoformat() not in manifest.get("bars_1d_nse", set())
         ]
         pending_dl = [
-            d for d in trading_days if do_delivery_nse and d.isoformat() not in manifest.get("delivery_nse", set())
+            d
+            for d in trading_days
+            if do_delivery_nse and d.isoformat() not in manifest.get("delivery_nse", set())
         ]
         print(
             f"NSE window {from_d}..{to_d}: {len(trading_days)} trading days | "
@@ -242,7 +264,9 @@ def main() -> int:
 
                         with _zipfile.ZipFile(_io.BytesIO(payload)) as zf:
                             cname = next(n for n in zf.namelist() if n.lower().endswith(".csv"))
-                            for row in _csv.DictReader(_io.StringIO(zf.read(cname).decode("utf-8-sig"))):
+                            for row in _csv.DictReader(
+                                _io.StringIO(zf.read(cname).decode("utf-8-sig"))
+                            ):
                                 scry = (row.get("SctySrs") or "").strip()
                                 raw_series_census[scry] = raw_series_census.get(scry, 0) + 1
 
@@ -304,7 +328,11 @@ def main() -> int:
                                 "segment": segment,
                                 "series": series,
                                 "close": float(rec["close"]),
-                                "deliv_pct": (float(rec["deliv_pct"]) if rec.get("deliv_pct") is not None else None),
+                                "deliv_pct": (
+                                    float(rec["deliv_pct"])
+                                    if rec.get("deliv_pct") is not None
+                                    else None
+                                ),
                                 "volume": float(rec.get("volume") or 0),
                             }
                         )
@@ -339,7 +367,10 @@ def main() -> int:
         n_bars_files = flush_bars("NSE") if do_bars_nse else 0
         n_deliv_files = flush_delivery("NSE") if do_delivery_nse else 0
         save_manifest(settings, manifest)
-        print(f"NSE DONE in {time.time() - t0:.0f}s: wrote {n_bars_files} bar files, {n_deliv_files} delivery files")
+        print(
+            f"NSE DONE in {time.time() - t0:.0f}s: wrote {n_bars_files} bar files, "
+            f"{n_deliv_files} delivery files"
+        )
 
     # ── BSE INGESTION ──
     if do_bse:
@@ -352,7 +383,9 @@ def main() -> int:
         do_bars_bse = not args.delivery_only
         do_delivery_bse = not args.bars_only
 
-        pending_bse = [d for d in trading_days if d.isoformat() not in manifest.get("bse_bars", set())]
+        pending_bse = [
+            d for d in trading_days if d.isoformat() not in manifest.get("bse_bars", set())
+        ]
         print(f"BSE window {from_d}..{to_d}: {len(pending_bse)} days to parse")
 
         bse_bars_buffer: dict[str, list[dict]] = {}
@@ -373,7 +406,11 @@ def main() -> int:
                     old = pd.read_parquet(target)
                     frame = pd.concat([old, frame], ignore_index=True)
                 frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True)
-                frame = frame.sort_values("timestamp").drop_duplicates(subset=["timestamp"]).reset_index(drop=True)
+                frame = (
+                    frame.sort_values("timestamp")
+                    .drop_duplicates(subset=["timestamp"])
+                    .reset_index(drop=True)
+                )
                 import pyarrow.parquet as pq
 
                 pq.write_table(
@@ -395,7 +432,11 @@ def main() -> int:
                 if target.exists():
                     old = pd.read_parquet(target)
                     frame = pd.concat([old, frame], ignore_index=True)
-                frame = frame.drop_duplicates(subset=["date"]).sort_values("date").reset_index(drop=True)
+                frame = (
+                    frame.drop_duplicates(subset=["date"])
+                    .sort_values("date")
+                    .reset_index(drop=True)
+                )
                 frame.to_parquet(target, index=False)
                 written += 1
             bse_delivery_buffer.clear()
@@ -459,7 +500,10 @@ def main() -> int:
         n_bars_bse = flush_bse_bars() if do_bars_bse else 0
         n_deliv_bse = flush_bse_delivery() if do_delivery_bse else 0
         save_manifest(settings, manifest)
-        print(f"BSE DONE in {time.time() - t0_bse:.0f}s: wrote {n_bars_bse} bar files, {n_deliv_bse} delivery files")
+        print(
+            f"BSE DONE in {time.time() - t0_bse:.0f}s: wrote {n_bars_bse} bar files, "
+            f"{n_deliv_bse} delivery files"
+        )
 
     # ── METADATA ──
     sources = []

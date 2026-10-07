@@ -162,7 +162,11 @@ def run_all() -> None:
 
         if render_url:
             ur_email, ur_pass, ur_ok = setup_uptimerobot(render_url)
-            results["uptimerobot"] = {"email": ur_email, "password": ur_pass, "monitor_active": ur_ok}
+            results["uptimerobot"] = {
+                "email": ur_email,
+                "password": ur_pass,
+                "monitor_active": ur_ok,
+            }
         else:
             print("  [!] Skipping: no Render URL")
             results["uptimerobot"] = {"skipped": True}

@@ -44,7 +44,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import pandas as pd
 from indian_quant.config import load_settings
 from indian_quant.features.delivery import add_features, prepare_frame
-from indian_quant.features.market_cap import classify_by_value, get_market_cap, load_mcap_cache, save_mcap_cache
+from indian_quant.features.market_cap import (
+    get_market_cap,
+    load_mcap_cache,
+    save_mcap_cache,
+)
 
 
 def scan_symbol(path: Path) -> dict | None:
@@ -82,7 +86,9 @@ def scan_symbol(path: Path) -> dict | None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Daily delivery-signal report")
     parser.add_argument("--capital", type=float, default=25_000.0)
-    parser.add_argument("--risk-pct", type=float, default=1.0, help="max account risk per position, percent")
+    parser.add_argument(
+        "--risk-pct", type=float, default=1.0, help="max account risk per position, percent"
+    )
     parser.add_argument("--top", type=int, default=10)
     args = parser.parse_args()
 
@@ -102,9 +108,13 @@ def main() -> int:
     df = df[df["_date"] == latest_date]
 
     # NO price/turnover filters — scan ALL stocks
-    buys = df[(df["deliv_z"] >= 2) & (df["ret_1d_pct"] >= 0.5)].sort_values("deliv_z", ascending=False)
+    buys = df[(df["deliv_z"] >= 2) & (df["ret_1d_pct"] >= 0.5)].sort_values(
+        "deliv_z", ascending=False
+    )
 
-    avoid = df[(df["deliv_z"] >= 2) & (df["ret_1d_pct"] <= -0.5)].sort_values("deliv_z", ascending=False)
+    avoid = df[(df["deliv_z"] >= 2) & (df["ret_1d_pct"] <= -0.5)].sort_values(
+        "deliv_z", ascending=False
+    )
 
     # Classify by market cap
     from indian_quant.ingestion.router import SourceRouter
@@ -120,7 +130,9 @@ def main() -> int:
     for df_part in [buys, avoid]:
         if df_part.empty:
             continue
-        df_part["market_cap_cr"] = df_part["symbol"].map(lambda s: mcap_data.get(s, {}).get("market_cap_cr", 0))
+        df_part["market_cap_cr"] = df_part["symbol"].map(
+            lambda s: mcap_data.get(s, {}).get("market_cap_cr", 0)
+        )
         df_part["market_cap_class"] = df_part["symbol"].map(
             lambda s: mcap_data.get(s, {}).get("market_cap_class", "Other")
         )

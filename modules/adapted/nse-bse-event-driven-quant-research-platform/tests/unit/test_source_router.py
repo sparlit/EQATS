@@ -78,7 +78,9 @@ class TestSourceRouterFaultInjection:
                 return_value=pd.DataFrame({"close": [100]}),
             ) as mock_yf,
         ):
-            result = router.get_bars_bse("TEST", from_date=date(2025, 1, 1), to_date=date(2025, 1, 2))
+            result = router.get_bars_bse(
+                "TEST", from_date=date(2025, 1, 1), to_date=date(2025, 1, 2)
+            )
             assert result is not None
             mock_yf.assert_called_once()
 
@@ -93,9 +95,13 @@ class TestSourceRouterFaultInjection:
                 return_value=pd.DataFrame({"close": [100]}),
             ) as mock_yf,
         ):
-            result = router.get_bars_nse("TEST", from_date=date(2025, 1, 1), to_date=date(2025, 1, 2))
+            result = router.get_bars_nse(
+                "TEST", from_date=date(2025, 1, 1), to_date=date(2025, 1, 2)
+            )
             assert result is not None
-            mock_yf.assert_called_once_with("TEST", date(2025, 1, 1), date(2025, 1, 2), suffix=".NS")
+            mock_yf.assert_called_once_with(
+                "TEST", date(2025, 1, 1), date(2025, 1, 2), suffix=".NS"
+            )
 
     def test_returns_none_when_all_sources_exhausted(self):
         router = SourceRouter()
@@ -104,7 +110,9 @@ class TestSourceRouterFaultInjection:
             patch.object(router, "_bseindia_bars", return_value=None),
             patch.object(router, "_yfinance_bars", return_value=None),
         ):
-            result = router.get_bars_bse("TEST", from_date=date(2025, 1, 1), to_date=date(2025, 1, 2))
+            result = router.get_bars_bse(
+                "TEST", from_date=date(2025, 1, 1), to_date=date(2025, 1, 2)
+            )
             assert result is None
 
     def test_circuit_breaker_skips_source_when_open(self):
@@ -116,9 +124,13 @@ class TestSourceRouterFaultInjection:
         # get_bars_nse should cascade past Upstox to bhavcopy and yfinance.
         with (
             patch.object(router, "_nse_bhavcopy", return_value=None),
-            patch.object(router, "_yfinance_bars", return_value=pd.DataFrame({"c": [1]})) as mock_yf,
+            patch.object(
+                router, "_yfinance_bars", return_value=pd.DataFrame({"c": [1]})
+            ) as mock_yf,
         ):
-            result = router.get_bars_nse("TEST", from_date=date(2025, 1, 1), to_date=date(2025, 1, 2))
+            result = router.get_bars_nse(
+                "TEST", from_date=date(2025, 1, 1), to_date=date(2025, 1, 2)
+            )
             assert result is not None
             mock_yf.assert_called_once()
 

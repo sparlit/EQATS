@@ -35,9 +35,8 @@ Usage:
 
 import base64
 import json
-import sys
 import time
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -97,7 +96,9 @@ def main() -> int:
             remaining_d = (exp - now) / 86400
 
             print("Extended Token:")
-            print(f"  Expires:   {datetime.fromtimestamp(exp, tz=UTC).strftime('%Y-%m-%d %H:%M UTC')}")
+            print(
+                f"  Expires:   {datetime.fromtimestamp(exp, tz=UTC).strftime('%Y-%m-%d %H:%M UTC')}"
+            )
             print(f"  Remaining: {remaining_d:.0f} days")
             if remaining_d > 30:
                 print("  Status:    OK")

@@ -46,7 +46,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Register a symbol event")
     parser.add_argument("--isin", required=True)
     parser.add_argument("--exchange", required=True)
-    parser.add_argument("--event", required=True, choices=["RENAME", "SUSPENSION", "DELISTING", "SEGMENT_MIGRATION"])
+    parser.add_argument(
+        "--event", required=True, choices=["RENAME", "SUSPENSION", "DELISTING", "SEGMENT_MIGRATION"]
+    )
     parser.add_argument("--effective", required=True, help="YYYY-MM-DD")
     parser.add_argument("--from", dest="from_symbol", default=None)
     parser.add_argument("--to", dest="to_symbol", default=None)

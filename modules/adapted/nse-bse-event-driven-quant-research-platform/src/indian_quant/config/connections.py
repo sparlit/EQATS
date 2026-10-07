@@ -63,7 +63,9 @@ def get_engine(dsn: str | None = None) -> sa.Engine:
     connect_args = {}
     if dsn.startswith("postgresql"):
         connect_args["connect_timeout"] = 5
-    return sa.create_engine(dsn, pool_size=2, max_overflow=5, pool_pre_ping=True, connect_args=connect_args)
+    return sa.create_engine(
+        dsn, pool_size=2, max_overflow=5, pool_pre_ping=True, connect_args=connect_args
+    )
 
 
 @lru_cache

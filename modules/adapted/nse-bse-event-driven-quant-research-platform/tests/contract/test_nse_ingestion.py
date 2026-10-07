@@ -105,7 +105,8 @@ def make_service(tmp_path, payloads: dict[str, object]):
         return httpx.Response(200, json={"jsonrpc": "2.0", "id": body.get("id"), "result": {}})
 
     client = NseBseMcpClient(
-        "http://localhost:3000/mcp", http_client=httpx.Client(transport=httpx.MockTransport(handler))
+        "http://localhost:3000/mcp",
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
     return NseIngestionService(
         client,

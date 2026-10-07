@@ -82,8 +82,7 @@ def load_run(settings, run_id: str | None):
     if run_id is None:
         candidates = sorted(base.glob("*"), key=lambda p: p.stat().st_mtime)
         if not candidates:
-            msg = "no persisted backtest runs found"
-            raise FileNotFoundError(msg)
+            raise FileNotFoundError("no persisted backtest runs found")
         run_dir = candidates[-1]
     else:
         run_dir = base / run_id
@@ -156,9 +155,15 @@ def main() -> int:
 
     settings = load_settings(args.config)
     run_id, fills, positions = load_run(settings, args.run_id)
-    instrument = str(fills["instrument_id"].iloc[0]) if "instrument_id" in fills.columns and len(fills) else "n/a"
+    instrument = (
+        str(fills["instrument_id"].iloc[0])
+        if "instrument_id" in fills.columns and len(fills)
+        else "n/a"
+    )
     bt_cfg = settings.backtest
-    metrics = compute_friction_metrics(fills, positions, starting_balance=bt_cfg.starting_balance_inr)
+    metrics = compute_friction_metrics(
+        fills, positions, starting_balance=bt_cfg.starting_balance_inr
+    )
     print(json.dumps(metrics, indent=2))
 
     out_dir = Path("dashboards")

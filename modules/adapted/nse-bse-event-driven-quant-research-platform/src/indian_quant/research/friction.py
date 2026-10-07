@@ -92,14 +92,21 @@ def compute_friction_metrics(
         alpha_leakage_pct = None
 
     cost_drag_per_holding_day: float | None = None
-    if median_holding_days and median_holding_days > 0 and starting_balance and starting_balance > 0:
+    if (
+        median_holding_days
+        and median_holding_days > 0
+        and starting_balance
+        and starting_balance > 0
+    ):
         n_positions = len(positions) if positions is not None else 0
         if n_positions:
             per_position_cost = commissions_total / n_positions
-            cost_drag_per_holding_day = per_position_cost / median_holding_days / starting_balance * 10_000
+            cost_drag_per_holding_day = (
+                per_position_cost / median_holding_days / starting_balance * 10_000
+            )
 
     return {
-        "n_fills": len(fills),
+        "n_fills": int(len(fills)),
         "turnover_notional": round(turnover, 2),
         "total_commissions": round(commissions_total, 2),
         "commissions_buy": round(commissions_buy, 2),
@@ -108,5 +115,7 @@ def compute_friction_metrics(
         "gross_pnl": round(gross_pnl, 2) if gross_pnl is not None else None,
         "alpha_leakage_pct": round(alpha_leakage_pct, 1) if alpha_leakage_pct is not None else None,
         "median_holding_days": round(median_holding_days, 2) if median_holding_days else None,
-        "cost_drag_per_holding_day_bps": (round(cost_drag_per_holding_day, 3) if cost_drag_per_holding_day else None),
+        "cost_drag_per_holding_day_bps": (
+            round(cost_drag_per_holding_day, 3) if cost_drag_per_holding_day else None
+        ),
     }

@@ -51,8 +51,7 @@ def register_hypothesis(cls: type[BaseHypothesis]) -> type[BaseHypothesis]:
 def get_hypothesis(name: str) -> BaseHypothesis:
     """Instantiate a registered hypothesis by name."""
     if name not in _REGISTRY:
-        msg = f"Unknown hypothesis: {name!r}. Available: {list(_REGISTRY)}"
-        raise KeyError(msg)
+        raise KeyError(f"Unknown hypothesis: {name!r}. Available: {list(_REGISTRY)}")
     return _REGISTRY[name]()
 
 
@@ -68,7 +67,13 @@ class HypothesisRegistry:
 
     # ── CRUD ──
 
-    def create(self, name: str, description: str = "", signal_logic: dict | None = None, max_positions: int = 7) -> int:
+    def create(
+        self,
+        name: str,
+        description: str = "",
+        signal_logic: dict | None = None,
+        max_positions: int = 7,
+    ) -> int:
         values = {
             "name": name,
             "description": description,
@@ -99,13 +104,17 @@ class HypothesisRegistry:
     def get_by_id(self, hypo_id: int) -> dict | None:
         with self._engine.connect() as conn:
             row = (
-                conn.execute(sa.text("SELECT * FROM hypotheses WHERE id = :id"), {"id": hypo_id}).mappings().fetchone()
+                conn.execute(sa.text("SELECT * FROM hypotheses WHERE id = :id"), {"id": hypo_id})
+                .mappings()
+                .fetchone()
             )
             return dict(row) if row else None
 
     def list_all(self) -> list[dict]:
         with self._engine.connect() as conn:
-            rows = conn.execute(sa.text("SELECT * FROM hypotheses ORDER BY id")).mappings().fetchall()
+            rows = (
+                conn.execute(sa.text("SELECT * FROM hypotheses ORDER BY id")).mappings().fetchall()
+            )
             return [dict(r) for r in rows]
 
     def deactivate(self, name: str) -> None:
@@ -117,7 +126,9 @@ class HypothesisRegistry:
 
     # ── Stocks ──
 
-    def add_stock(self, hypothesis_id: int, symbol: str, exchange: str = "NSE", added_by: str = "system") -> int:
+    def add_stock(
+        self, hypothesis_id: int, symbol: str, exchange: str = "NSE", added_by: str = "system"
+    ) -> int:
         values = {
             "hypothesis_id": hypothesis_id,
             "symbol": symbol.upper(),
@@ -135,7 +146,11 @@ class HypothesisRegistry:
             return result.scalar() or 0
 
     def add_stocks(
-        self, hypothesis_id: int, symbols: list[str], exchange: str = "NSE", added_by: str = "system"
+        self,
+        hypothesis_id: int,
+        symbols: list[str],
+        exchange: str = "NSE",
+        added_by: str = "system",
     ) -> int:
         count = 0
         for sym in symbols:
@@ -219,7 +234,9 @@ class HypothesisRegistry:
         with self._engine.begin() as conn:
             return conn.execute(sql, values).scalar()
 
-    def get_signals(self, hypothesis_id: int, signal_date: str | None = None, limit: int = 100) -> list[dict]:
+    def get_signals(
+        self, hypothesis_id: int, signal_date: str | None = None, limit: int = 100
+    ) -> list[dict]:
         cond = "WHERE hypothesis_id = :hid"
         params: dict = {"hid": hypothesis_id, "lim": limit}
         if signal_date:
@@ -243,7 +260,9 @@ class HypothesisRegistry:
         with self._engine.connect() as conn:
             return [
                 dict(r)
-                for r in conn.execute(sql, {"hid": hypothesis_id, "hid2": hypothesis_id, "lim": limit})
+                for r in conn.execute(
+                    sql, {"hid": hypothesis_id, "hid2": hypothesis_id, "lim": limit}
+                )
                 .mappings()
                 .fetchall()
             ]
@@ -289,27 +308,39 @@ class HypothesisRegistry:
             return conn.execute(sql, values).scalar()
 
     def close_trade(
-        self, trade_id: int, exit_date: str, exit_price: float, exit_reason: str = "HORIZON", notes: str = ""
+        self,
+        trade_id: int,
+        exit_date: str,
+        exit_price: float,
+        exit_reason: str = "HORIZON",
+        notes: str = "",
     ) -> dict:
         with self._engine.connect() as conn:
             # Try paper_signals first (primary source of truth)
             trade = (
-                conn.execute(sa.text("SELECT * FROM paper_signals WHERE id = :id"), {"id": trade_id})
+                conn.execute(
+                    sa.text("SELECT * FROM paper_signals WHERE id = :id"), {"id": trade_id}
+                )
                 .mappings()
                 .fetchone()
             )
             if trade:
-                return self._close_paper_signal(conn, trade, exit_date, exit_price, exit_reason, notes)
+                return self._close_paper_signal(
+                    conn, trade, exit_date, exit_price, exit_reason, notes
+                )
             # Fall back to hypothesis_trades (audit trail)
             trade = (
-                conn.execute(sa.text("SELECT * FROM hypothesis_trades WHERE id = :id"), {"id": trade_id})
+                conn.execute(
+                    sa.text("SELECT * FROM hypothesis_trades WHERE id = :id"), {"id": trade_id}
+                )
                 .mappings()
                 .fetchone()
             )
             if trade:
-                return self._close_hypothesis_trade(conn, trade, exit_date, exit_price, exit_reason, notes)
-        msg = f"Trade {trade_id} not found"
-        raise ValueError(msg)
+                return self._close_hypothesis_trade(
+                    conn, trade, exit_date, exit_price, exit_reason, notes
+                )
+        raise ValueError(f"Trade {trade_id} not found")
 
     def _close_paper_signal(self, conn, trade, exit_date, exit_price, exit_reason, notes) -> dict:
         t = dict(trade)
@@ -370,7 +401,9 @@ class HypothesisRegistry:
                 log.warning(f"journal exit sync failed for paper id {t['id']}: {e}")
         return closed
 
-    def _close_hypothesis_trade(self, conn, trade, exit_date, exit_price, exit_reason, notes) -> dict:
+    def _close_hypothesis_trade(
+        self, conn, trade, exit_date, exit_price, exit_reason, notes
+    ) -> dict:
         t = dict(trade)
         gross_bps = ((exit_price / t["entry_price"]) - 1) * 10_000
         total_cost = 107.0

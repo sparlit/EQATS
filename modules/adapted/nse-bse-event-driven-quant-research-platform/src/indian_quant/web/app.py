@@ -51,7 +51,9 @@ from indian_quant.web.watchlist_store import WatchlistStore
 from starlette.middleware.sessions import SessionMiddleware
 
 app = FastAPI(title="NSE-BSE Quant Platform", docs_url=None, redoc_url=None)
-app.add_middleware(SessionMiddleware, secret_key="nse-bse-quant-9f8e7d6c5b4a3210-prod", max_age=86400 * 7)
+app.add_middleware(
+    SessionMiddleware, secret_key="nse-bse-quant-9f8e7d6c5b4a3210-prod", max_age=86400 * 7
+)
 
 # hypothesis name -> id (matches hypotheses table seed; used by positions filter)
 _HYPOTHESES_BY_NAME = {
@@ -121,7 +123,6 @@ async def dashboard(request: Request):
         ws.close()
     # Per-horizon breakdown
     load_settings()
-    import os
     import subprocess
 
     import sqlalchemy as sa
@@ -135,8 +136,13 @@ async def dashboard(request: Request):
     with engine.connect() as conn:
         # System health
         web_ok = True
-        mcp_ok = bool(subprocess.run(["pgrep", "-f", "nse-bse-mcp"], capture_output=True).returncode == 0)
-        scheduler_ok = bool(subprocess.run(["pgrep", "-f", "platform_scheduler"], capture_output=True).returncode == 0)
+        mcp_ok = bool(
+            subprocess.run(["pgrep", "-f", "nse-bse-mcp"], capture_output=True).returncode == 0
+        )
+        scheduler_ok = bool(
+            subprocess.run(["pgrep", "-f", "platform_scheduler"], capture_output=True).returncode
+            == 0
+        )
         dashboard_extra["system"] = {"web": web_ok, "mcp": mcp_ok, "scheduler": scheduler_ok}
         # Surveillance summary
         surv = conn.execute(
@@ -146,7 +152,9 @@ async def dashboard(request: Request):
         ).fetchall()
         surv_signals = conn.execute(sa.text("SELECT COUNT(*) FROM surveillance_signals")).scalar()
         surv_positions = conn.execute(
-            sa.text("SELECT COUNT(*) FROM paper_signals WHERE status='OPEN' AND note LIKE '%surveillance%'")
+            sa.text(
+                "SELECT COUNT(*) FROM paper_signals WHERE status='OPEN' AND note LIKE '%surveillance%'"
+            )
         ).scalar()
         dashboard_extra["surveillance"] = {
             "by_framework": dict(surv),
@@ -209,8 +217,12 @@ async def dashboard(request: Request):
         except Exception:
             dashboard_extra["risk"] = None
         # Data freshness
-        last_signal = conn.execute(sa.text("SELECT MAX(signal_date) FROM surveillance_signals")).scalar()
-        last_sugg = conn.execute(sa.text("SELECT MAX(suggestion_date) FROM daily_suggestions")).scalar()
+        last_signal = conn.execute(
+            sa.text("SELECT MAX(signal_date) FROM surveillance_signals")
+        ).scalar()
+        last_sugg = conn.execute(
+            sa.text("SELECT MAX(suggestion_date) FROM daily_suggestions")
+        ).scalar()
         dashboard_extra["freshness"] = {
             "surveillance": str(last_signal)[:10] if last_signal else "—",
             "suggestions": str(last_sugg)[:10] if last_sugg else "—",
@@ -292,8 +304,8 @@ async def api_portfolio(
     pf = md.portfolio_summary()
     by_hz = md.paper_trades_by_horizon()
     trades = md.trade_log(
-        horizon=horizon or None,
-        status=status or None,
+        horizon=horizon if horizon else None,
+        status=status if status else None,
         limit=limit,
     )
     md.close()
@@ -450,7 +462,11 @@ async def positions_page(request: Request):
         }
         # --- live sync audit (guarantees /positions ↔ /journal stay reconciled) ---
         with engine.connect() as _c:
-            _paper = dict(_c.execute(sa.text("SELECT status, COUNT(*) FROM paper_signals GROUP BY 1")).fetchall())
+            _paper = dict(
+                _c.execute(
+                    sa.text("SELECT status, COUNT(*) FROM paper_signals GROUP BY 1")
+                ).fetchall()
+            )
             _journal = dict(
                 _c.execute(
                     sa.text(
@@ -548,7 +564,9 @@ async def positions_manual_exit(request: Request, trade_id: int):
     with engine.connect() as conn:
         trade = (
             conn.execute(
-                sa.text("SELECT id, symbol, status, close_at_signal FROM paper_signals WHERE id = :i"),
+                sa.text(
+                    "SELECT id, symbol, status, close_at_signal FROM paper_signals WHERE id = :i"
+                ),
                 {"i": trade_id},
             )
             .mappings()
@@ -557,7 +575,9 @@ async def positions_manual_exit(request: Request, trade_id: int):
     if not trade:
         return JSONResponse({"error": f"trade {trade_id} not found"}, status_code=404)
     if trade["status"] != "OPEN":
-        return JSONResponse({"error": f"trade {trade_id} is already {trade['status']}"}, status_code=400)
+        return JSONResponse(
+            {"error": f"trade {trade_id} is already {trade['status']}"}, status_code=400
+        )
     # Exit at live price
     exit_price = None
     try:
@@ -568,7 +588,9 @@ async def positions_manual_exit(request: Request, trade_id: int):
     except Exception:
         exit_price = None
     if not exit_price:
-        return JSONResponse({"error": f"no live price for {trade['symbol']} — cannot exit now"}, status_code=503)
+        return JSONResponse(
+            {"error": f"no live price for {trade['symbol']} — cannot exit now"}, status_code=503
+        )
     registry = HypothesisRegistry(engine)
     closed = registry.close_trade(
         trade_id=trade_id,
@@ -634,7 +656,9 @@ async def suggestions_page(request: Request):
         recent = [
             dict(r)
             for r in conn.execute(
-                sa.text("SELECT * FROM daily_suggestions ORDER BY suggestion_date DESC, symbol LIMIT 100")
+                sa.text(
+                    "SELECT * FROM daily_suggestions ORDER BY suggestion_date DESC, symbol LIMIT 100"
+                )
             )
             .mappings()
             .fetchall()
@@ -717,7 +741,11 @@ async def journal_export_csv():
 
     engine = get_engine()
     with engine.connect() as conn:
-        rows = conn.execute(sa.text("SELECT * FROM v_all_trades ORDER BY entry_date DESC")).mappings().fetchall()
+        rows = (
+            conn.execute(sa.text("SELECT * FROM v_all_trades ORDER BY entry_date DESC"))
+            .mappings()
+            .fetchall()
+        )
     if not rows:
         return JSONResponse({"error": "no data"}, status_code=404)
     output = io.StringIO()
@@ -738,7 +766,11 @@ async def journal_export_json():
 
     engine = get_engine()
     with engine.connect() as conn:
-        rows = conn.execute(sa.text("SELECT * FROM v_all_trades ORDER BY entry_date DESC")).mappings().fetchall()
+        rows = (
+            conn.execute(sa.text("SELECT * FROM v_all_trades ORDER BY entry_date DESC"))
+            .mappings()
+            .fetchall()
+        )
     return JSONResponse([dict(r) for r in rows])
 
 
@@ -1164,7 +1196,9 @@ async def api_search_stocks(q: str = "", limit: int = 20):
         for p in sorted(nse_dl_dir.glob("*.parquet")):
             sym = p.stem
             if q in sym and sym not in seen:
-                matches.append({"symbol": sym, "exchange": "NSE", "segment": "EQ", "has_data": True})
+                matches.append(
+                    {"symbol": sym, "exchange": "NSE", "segment": "EQ", "has_data": True}
+                )
                 seen.add(sym)
             if len(matches) >= limit:
                 break
@@ -1174,7 +1208,9 @@ async def api_search_stocks(q: str = "", limit: int = 20):
         for p in sorted(bse_dl_dir.glob("*.parquet")):
             sym = p.stem
             if q in sym and sym not in seen:
-                matches.append({"symbol": sym, "exchange": "BSE", "segment": "EQ", "has_data": True})
+                matches.append(
+                    {"symbol": sym, "exchange": "BSE", "segment": "EQ", "has_data": True}
+                )
                 seen.add(sym)
             if len(matches) >= limit:
                 break
@@ -1262,7 +1298,11 @@ async def api_fundamentals(symbol: str):
 
     with engine.connect() as conn:
         # Key ratios
-        kr = conn.execute(sa.text("SELECT * FROM key_ratios WHERE symbol = :s"), {"s": symbol}).mappings().fetchone()
+        kr = (
+            conn.execute(sa.text("SELECT * FROM key_ratios WHERE symbol = :s"), {"s": symbol})
+            .mappings()
+            .fetchone()
+        )
 
         # Company profile
         cp = (
@@ -1274,7 +1314,9 @@ async def api_fundamentals(symbol: str):
         # Quarterly financials
         qf = (
             conn.execute(
-                sa.text("SELECT * FROM quarterly_financials WHERE symbol = :s ORDER BY period DESC LIMIT 8"),
+                sa.text(
+                    "SELECT * FROM quarterly_financials WHERE symbol = :s ORDER BY period DESC LIMIT 8"
+                ),
                 {"s": symbol},
             )
             .mappings()
@@ -1303,7 +1345,9 @@ async def api_institutional(symbol: str):
         # Shareholding history
         sh = (
             conn.execute(
-                sa.text("SELECT * FROM shareholding_history WHERE symbol = :s ORDER BY quarter DESC LIMIT 4"),
+                sa.text(
+                    "SELECT * FROM shareholding_history WHERE symbol = :s ORDER BY quarter DESC LIMIT 4"
+                ),
                 {"s": symbol},
             )
             .mappings()
@@ -1313,7 +1357,9 @@ async def api_institutional(symbol: str):
         # Insider trades
         it = (
             conn.execute(
-                sa.text("SELECT * FROM insider_trades WHERE symbol = :s ORDER BY trade_date DESC LIMIT 20"),
+                sa.text(
+                    "SELECT * FROM insider_trades WHERE symbol = :s ORDER BY trade_date DESC LIMIT 20"
+                ),
                 {"s": symbol},
             )
             .mappings()
@@ -1330,7 +1376,10 @@ async def api_institutional(symbol: str):
         # Bulk deals
         bd = (
             conn.execute(
-                sa.text("SELECT * FROM bulk_deals WHERE symbol = :s ORDER BY deal_date DESC LIMIT 10"), {"s": symbol}
+                sa.text(
+                    "SELECT * FROM bulk_deals WHERE symbol = :s ORDER BY deal_date DESC LIMIT 10"
+                ),
+                {"s": symbol},
             )
             .mappings()
             .fetchall()
@@ -1356,7 +1405,9 @@ async def api_fii_dii():
 
     with engine.connect() as conn:
         rows = (
-            conn.execute(sa.text("SELECT * FROM fii_dii_daily ORDER BY trade_date DESC LIMIT 30")).mappings().fetchall()
+            conn.execute(sa.text("SELECT * FROM fii_dii_daily ORDER BY trade_date DESC LIMIT 30"))
+            .mappings()
+            .fetchall()
         )
 
     return JSONResponse(_clean_nan({"data": [dict(r) for r in rows]}))
@@ -1424,7 +1475,9 @@ async def api_portfolio_risk():
 
     with engine.connect() as conn:
         risk = (
-            conn.execute(sa.text("SELECT * FROM portfolio_risk ORDER BY snapshot_date DESC LIMIT 1"))
+            conn.execute(
+                sa.text("SELECT * FROM portfolio_risk ORDER BY snapshot_date DESC LIMIT 1")
+            )
             .mappings()
             .fetchone()
         )
@@ -1442,7 +1495,11 @@ async def api_stock_risk(symbol: str):
     symbol = symbol.upper()
 
     with engine.connect() as conn:
-        risk = conn.execute(sa.text("SELECT * FROM stock_risk WHERE symbol = :s"), {"s": symbol}).mappings().fetchone()
+        risk = (
+            conn.execute(sa.text("SELECT * FROM stock_risk WHERE symbol = :s"), {"s": symbol})
+            .mappings()
+            .fetchone()
+        )
 
     return JSONResponse(_clean_nan({"symbol": symbol, "risk": dict(risk) if risk else None}))
 
@@ -1609,10 +1666,14 @@ async def hypothesis_detail(request: Request, hypo_id: int):
         _eng = _get_engine()
         with _eng.connect() as conn:
             # Circuit limits stats
-            circuit_count = conn.execute(sa.text("SELECT COUNT(*) FROM stock_circuit_limits")).scalar()
+            circuit_count = conn.execute(
+                sa.text("SELECT COUNT(*) FROM stock_circuit_limits")
+            ).scalar()
             extra["circuit_count"] = circuit_count
 
-            circuit_symbols = conn.execute(sa.text("SELECT COUNT(DISTINCT symbol) FROM stock_circuit_limits")).scalar()
+            circuit_symbols = conn.execute(
+                sa.text("SELECT COUNT(DISTINCT symbol) FROM stock_circuit_limits")
+            ).scalar()
             extra["circuit_symbols"] = circuit_symbols
 
             # Upper/lower hit counts (last 30 days)
@@ -1720,9 +1781,10 @@ async def api_hypothesis_trades(hypo_id: int, status: str = ""):
     reg = _hreg()
     if status == "OPEN":
         return reg.open_trades(hypo_id)
-    if status == "SETTLED":
+    elif status == "SETTLED":
         return reg.settled_trades(hypo_id)
-    return {"open": reg.open_trades(hypo_id), "settled": reg.settled_trades(hypo_id)}
+    else:
+        return {"open": reg.open_trades(hypo_id), "settled": reg.settled_trades(hypo_id)}
 
 
 @app.get("/api/hypothesis/{hypo_id}/summary")
@@ -1732,14 +1794,18 @@ async def api_hypothesis_summary(hypo_id: int):
 
 
 @app.post("/api/hypothesis/{hypo_id}/add-stock")
-async def api_hypothesis_add_stock(hypo_id: int, symbol: str = Form(...), exchange: str = Form("NSE")):
+async def api_hypothesis_add_stock(
+    hypo_id: int, symbol: str = Form(...), exchange: str = Form("NSE")
+):
     reg = _hreg()
     rid = reg.add_stock(hypo_id, symbol, exchange, added_by="manual")
     return {"status": "ok", "added": bool(rid), "symbol": symbol.upper()}
 
 
 @app.post("/api/hypothesis/{hypo_id}/remove-stock")
-async def api_hypothesis_remove_stock(hypo_id: int, symbol: str = Form(...), reason: str = Form("manual")):
+async def api_hypothesis_remove_stock(
+    hypo_id: int, symbol: str = Form(...), reason: str = Form("manual")
+):
     reg = _hreg()
     ok = reg.remove_stock(hypo_id, symbol, reason)
     return {"status": "ok", "removed": ok, "symbol": symbol.upper()}

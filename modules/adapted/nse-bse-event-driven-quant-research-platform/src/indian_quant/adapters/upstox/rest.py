@@ -36,14 +36,12 @@ with the same EXCHANGE_SEGMENT|LOCAL_ID shape.
 
 
 from datetime import UTC, date, datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import httpx
 
 from indian_quant.schemas import AdjustmentStatus, MarketBar, Timeframe
-
-if TYPE_CHECKING:
-    from indian_quant.storage.raw_store import RawStore
+from indian_quant.storage.raw_store import RawStore
 
 BASE_URL = "https://api.upstox.com/v3"
 
@@ -134,7 +132,11 @@ class UpstoxRestClient:
             ts_raw, o, h, low, c, v = row[0], row[1], row[2], row[3], row[4], row[5]
             oi = row[6] if len(row) > 6 else None
             ist_ts = datetime.fromisoformat(str(ts_raw))
-            if normalize_daily_to_utc and timeframe in (Timeframe.DAY, Timeframe.WEEK, Timeframe.MONTH):
+            if normalize_daily_to_utc and timeframe in (
+                Timeframe.DAY,
+                Timeframe.WEEK,
+                Timeframe.MONTH,
+            ):
                 day = ist_ts.date()
                 ts = datetime(day.year, day.month, day.day, tzinfo=UTC)
             else:
@@ -171,7 +173,9 @@ class UpstoxRestClient:
     ) -> list[MarketBar]:
         unit, interval = UNIT_FOR_TIMEFRAME[timeframe]
         payload = self.historical_candles(instrument_key, unit, interval, to_date, from_date)
-        return self.candles_to_bars(payload, instrument_id=instrument_id, exchange=exchange, timeframe=timeframe)
+        return self.candles_to_bars(
+            payload, instrument_id=instrument_id, exchange=exchange, timeframe=timeframe
+        )
 
     def get_quotes(self, instrument_keys: list[str]) -> dict[str, dict[str, Any]]:
         """GET /v2/market-quote/quotes — full market quotes.

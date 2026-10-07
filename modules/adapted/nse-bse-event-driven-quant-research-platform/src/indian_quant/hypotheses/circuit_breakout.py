@@ -65,7 +65,10 @@ def _load_pattern_stats() -> dict:
 @register_hypothesis
 class CircuitBreakout(BaseHypothesis):
     name = "circuit_breakout"
-    description = "Upper circuit hit + volume surge + continuation. Uses real circuit limits from NSE/Upstox data."
+    description = (
+        "Upper circuit hit + volume surge + continuation. "
+        "Uses real circuit limits from NSE/Upstox data."
+    )
     max_positions = 7
     default_stop_pct = 0.05
     default_horizon_days = 5
@@ -135,7 +138,7 @@ class CircuitBreakout(BaseHypothesis):
             frame["upper_circuit"] = frame["upper_circuit"].ffill()
             frame["lower_circuit"] = frame["lower_circuit"].ffill()
             frame["filter_pct"] = frame["filter_pct"].ffill()
-            frame = frame.drop(columns=["next_date", "date_only"], errors="ignore")
+            frame.drop(columns=["next_date", "date_only"], errors="ignore", inplace=True)
             has_real_limits = frame["upper_circuit"].notna().any()
         else:
             has_real_limits = False
@@ -186,7 +189,9 @@ class CircuitBreakout(BaseHypothesis):
                 count = 0
 
         # Continuation: next day opens near circuit close and holds
-        frame["next_open"] = frame["open"].shift(-1) if "open" in frame.columns else frame["close"].shift(-1)
+        frame["next_open"] = (
+            frame["open"].shift(-1) if "open" in frame.columns else frame["close"].shift(-1)
+        )
         frame["next_close"] = frame["close"].shift(-1)
         frame["continuation"] = (frame["next_open"] >= frame["close"] * 0.98) & (
             frame["next_close"] >= frame["close"] * 0.97
@@ -211,7 +216,9 @@ class CircuitBreakout(BaseHypothesis):
             signals.append(
                 Signal(
                     symbol=symbol,
-                    signal_date=str(row["date"].date()) if hasattr(row["date"], "date") else str(row["date"])[:10],
+                    signal_date=str(row["date"].date())
+                    if hasattr(row["date"], "date")
+                    else str(row["date"])[:10],
                     signal_type="circuit_upper_breakout",
                     strength=round(strength, 2),
                     entry_price=round(row["close"], 2),
@@ -239,7 +246,9 @@ class CircuitBreakout(BaseHypothesis):
             signals.append(
                 Signal(
                     symbol=symbol,
-                    signal_date=str(row["date"].date()) if hasattr(row["date"], "date") else str(row["date"])[:10],
+                    signal_date=str(row["date"].date())
+                    if hasattr(row["date"], "date")
+                    else str(row["date"])[:10],
                     signal_type="circuit_multi_streak",
                     strength=round(strength, 2),
                     entry_price=round(row["close"], 2),
@@ -264,7 +273,9 @@ class CircuitBreakout(BaseHypothesis):
             signals.append(
                 Signal(
                     symbol=symbol,
-                    signal_date=str(row["date"].date()) if hasattr(row["date"], "date") else str(row["date"])[:10],
+                    signal_date=str(row["date"].date())
+                    if hasattr(row["date"], "date")
+                    else str(row["date"])[:10],
                     signal_type="circuit_lower_reversal",
                     strength=round(strength, 2),
                     entry_price=round(row["close"], 2),

@@ -125,7 +125,7 @@ def snapshot_circuit_limits(
         try:
             quotes = client.get_quotes(batch)
         except Exception as e:
-            log.exception(f"  Batch failed: {e}")
+            log.error(f"  Batch failed: {e}")
             continue
 
         for key, data in quotes.items():

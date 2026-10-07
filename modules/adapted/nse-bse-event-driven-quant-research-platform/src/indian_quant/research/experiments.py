@@ -29,10 +29,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import hashlib
 import json
 import uuid
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from indian_quant.storage.metadata import MetadataStore
+from indian_quant.storage.metadata import MetadataStore
 
 
 def config_hash(config: dict[str, Any]) -> str:

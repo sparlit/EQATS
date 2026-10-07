@@ -130,7 +130,7 @@ def parse_timestamp(value: Any) -> datetime | None:
         except ValueError:
             continue
     try:
-        return datetime.fromisoformat(text)
+        return datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
         return None
 

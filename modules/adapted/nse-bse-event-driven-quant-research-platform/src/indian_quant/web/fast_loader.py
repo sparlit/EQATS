@@ -106,14 +106,18 @@ def get_latest_signals_cached() -> dict[str, Any]:
             _redis_set("signals:all", json.dumps(_sanitize_nan(signals), default=str))
             latest_date = df["signal_date"].max()
             today = df[df["signal_date"] == latest_date]
-            buys = _sanitize_nan(today[today["signal_type"] == "dz_hi_up"].to_dict(orient="records"))
-            avoids = _sanitize_nan(today[today["signal_type"] == "dz_hi_dn"].to_dict(orient="records"))
+            buys = _sanitize_nan(
+                today[today["signal_type"] == "dz_hi_up"].to_dict(orient="records")
+            )
+            avoids = _sanitize_nan(
+                today[today["signal_type"] == "dz_hi_dn"].to_dict(orient="records")
+            )
             return {
                 "date": str(latest_date),
                 "buys": buys,
                 "avoids": avoids,
                 "all": signals,
-                "total_scanned": len(today),
+                "total_scanned": int(len(today)),
             }
     except Exception:
         pass
@@ -320,7 +324,7 @@ def _ensure_scores(signals: list[dict]) -> None:
             tech += 0.2
         if macd_h > 0:
             tech += 0.3
-        if close > sma20 > 0:
+        if close > sma20 and sma20 > 0:
             tech += 0.3
         tech *= 0.10
         s["conviction_score"] = round(dz_n + mom + vol + tech, 4)
@@ -387,7 +391,7 @@ def get_cached_signals_summary() -> dict[str, Any]:
             today = df[df["signal_date"] == latest]
             return {
                 "date": str(latest),
-                "total": len(today),
+                "total": int(len(today)),
                 "buys": int((today["signal_type"] == "dz_hi_up").sum()),
                 "avoids": int((today["signal_type"] == "dz_hi_dn").sum()),
             }

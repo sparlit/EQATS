@@ -204,7 +204,8 @@ def _extract_verification_link(body: str) -> str | None:
         if match:
             link = match.group(1)
             # Clean trailing punctuation
-            return link.rstrip(".,;:!?)")
+            link = link.rstrip(".,;:!?)")
+            return link
     return None
 
 

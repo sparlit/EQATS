@@ -27,14 +27,11 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from indian_quant.adapters.announcements.filter import AnnouncementFilter
-
-if TYPE_CHECKING:
-    from indian_quant.adapters.announcements.models import Signal
+from indian_quant.adapters.announcements.models import Signal
 
 
 @dataclass
@@ -71,7 +68,9 @@ class AnnouncementScanner:
         rel = ann_file.relative_to(self._data_dir)
         matches = sorted(self._data_dir.glob(str(rel)))
         if not matches:
-            return ScanResult(date_str=date_str, total_announcements=0, filtered_announcements=0, signals=[])
+            return ScanResult(
+                date_str=date_str, total_announcements=0, filtered_announcements=0, signals=[]
+            )
 
         all_ann: list[dict] = []
         for fpath in matches:
@@ -117,13 +116,16 @@ class AnnouncementScanner:
         name_to_sym = {}
         for _, row in master.iterrows():
             ts = str(row.get("tradingsymbol", "")).strip().upper()
-            name = str(row.get("name", "")).strip().upper().rstrip(".").replace(" LTD", " LTD").strip()
+            name = (
+                str(row.get("name", "")).strip().upper().rstrip(".").replace(" LTD", " LTD").strip()
+            )
             if ts and ts not in name_to_sym:
                 name_to_sym[name] = ts
         # Normalize company names for matching
         df["_norm"] = df["Company"].str.strip().str.upper().str.rstrip(".")
         df["tradingsymbol"] = df["_norm"].map(name_to_sym).fillna("")
-        return df.drop(columns=["_norm"])
+        df = df.drop(columns=["_norm"])
+        return df
 
     def find_instrument(self, symbol: str, exchange: str) -> dict | None:
         master = self._load_instruments()
@@ -132,9 +134,8 @@ class AnnouncementScanner:
             if (
                 str(row.get("tradingsymbol", "")).strip().upper() == sym_upper
                 or str(row.get("name", "")).strip().upper() == sym_upper
-            ):
-                if exchange == str(row.get("exchange", "")).strip():
-                    return row.to_dict()
+            ) and exchange == str(row.get("exchange", "")).strip():
+                return row.to_dict()
         return None
 
     def _load_instruments(self) -> pd.DataFrame:

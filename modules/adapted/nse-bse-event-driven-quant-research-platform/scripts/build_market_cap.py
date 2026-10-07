@@ -88,7 +88,9 @@ def fetch_index_symbols() -> dict[str, set[str]]:
             resp = client.get(url, headers=HEADERS)
             resp.raise_for_status()
             reader = csv.DictReader(io.StringIO(resp.text))
-            symbols = {row.get("Symbol", "").strip() for row in reader if row.get("Symbol", "").strip()}
+            symbols = {
+                row.get("Symbol", "").strip() for row in reader if row.get("Symbol", "").strip()
+            }
             index_symbols[index_name] = symbols
             logger.info(f"  {index_name}: {len(symbols)} symbols")
         except Exception as e:
@@ -245,7 +247,9 @@ def fetch_nse_api_fallback(
                 failed += 1
 
             if (i + 1) % 200 == 0:
-                logger.info(f"  NSE API: {i + 1}/{len(symbols)} done, {len(results)} hits, {failed} failed")
+                logger.info(
+                    f"  NSE API: {i + 1}/{len(symbols)} done, {len(results)} hits, {failed} failed"
+                )
             if save_fn and (i + 1) % 500 == 0:
                 save_fn(results)
             time.sleep(0.35)
@@ -407,7 +411,7 @@ def main() -> int:
     # Phase 2: BSE bulk (3 API calls)
     logger.info("\n=== Phase 2: BSE listSecurities (bulk) ===")
     bse_start = time.time()
-    _bse_bulk_by_sym, bse_bulk_by_isin = fetch_bse_bulk()
+    bse_bulk_by_sym, bse_bulk_by_isin = fetch_bse_bulk()
     bse_time = time.time() - bse_start
     logger.info(f"  BSE bulk done in {bse_time:.0f}s")
 
@@ -422,7 +426,9 @@ def main() -> int:
     logger.info(f"  NSE bhavcopy done in {nse_time:.0f}s")
 
     # Save intermediate after NSE bhavcopy
-    save_intermediate(symbols_data, nifty50, midcap150, smallcap250, nse_bhav, {}, bse_bulk_by_isin, {})
+    save_intermediate(
+        symbols_data, nifty50, midcap150, smallcap250, nse_bhav, {}, bse_bulk_by_isin, {}
+    )
 
     # Phase 4: NSE API fallback for remaining misses
     classified_nse = set(classified_by_index) | set(nse_bhav.keys())
@@ -440,13 +446,22 @@ def main() -> int:
 
         # Save intermediate after NSE API fallback
         save_intermediate(
-            symbols_data, nifty50, midcap150, smallcap250, nse_bhav, nse_mcap_fallback, bse_bulk_by_isin, {}
+            symbols_data,
+            nifty50,
+            midcap150,
+            smallcap250,
+            nse_bhav,
+            nse_mcap_fallback,
+            bse_bulk_by_isin,
+            {},
         )
 
     # Phase 5: yfinance for final misses
     all_classified = classified_nse | set(nse_mcap_fallback.keys())
     bse_classified = set(bse_bulk_by_isin.keys())
-    remaining_yf = [s for s in nse_symbols + bse_symbols if s not in all_classified and s not in bse_classified]
+    remaining_yf = [
+        s for s in nse_symbols + bse_symbols if s not in all_classified and s not in bse_classified
+    ]
 
     yf_mcap = {}
     if remaining_yf:

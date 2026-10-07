@@ -117,7 +117,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Export journal data")
     parser.add_argument("--format", choices=["csv", "json", "both"], default="both")
     parser.add_argument("--output", default="journal_export")
-    parser.add_argument("--table", choices=["journal", "paper", "unified", "hypothesis", "all"], default="all")
+    parser.add_argument(
+        "--table", choices=["journal", "paper", "unified", "hypothesis", "all"], default="all"
+    )
     args = parser.parse_args()
 
     engine = get_engine()

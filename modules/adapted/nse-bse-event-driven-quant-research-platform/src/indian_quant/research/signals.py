@@ -51,7 +51,7 @@ def forward_returns(closes: pd.Series, horizon: int) -> pd.Series:
 def summarize(events: np.ndarray) -> dict:
     """Distribution stats for one signal x horizon bucket."""
     events = events[~np.isnan(events)]
-    n = len(events)
+    n = int(len(events))
     if n == 0:
         return {"n": 0}
     mean = float(np.mean(events))
@@ -81,7 +81,9 @@ def apply_conditions(frame: pd.DataFrame, conditions: dict) -> pd.Series:
     if "price_min" in conditions:
         out &= frame["close"] >= float(conditions["price_min"])
     if "volz_min" in conditions:
-        out &= frame.get("vol_z", pd.Series(np.nan, index=frame.index)) >= float(conditions["volz_min"])
+        out &= frame.get("vol_z", pd.Series(np.nan, index=frame.index)) >= float(
+            conditions["volz_min"]
+        )
     if "segment" in conditions:
         out &= frame["segment"] == str(conditions["segment"])
     return out
@@ -105,8 +107,7 @@ def evaluate_bucket(
     run of the (conditioned) mask - the cost-amortisation view.
     """
     if signal_name not in SIGNAL_NAMES:
-        msg = f"unknown signal: {signal_name}"
-        raise KeyError(msg)
+        raise KeyError(f"unknown signal: {signal_name}")
     conditions = conditions or {}
 
     buckets: dict[int, list[np.ndarray]] = {h: [] for h in horizons}

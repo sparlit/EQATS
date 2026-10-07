@@ -125,7 +125,9 @@ class ConcallScraper:
         cache_file = self.cache_dir / f"{key}.json"
         cache_file.write_text(json.dumps(data, indent=2, default=str))
 
-    async def get_earnings_calendar(self, page: int = 0, size: int = 50, sector: str = "All") -> list[dict]:
+    async def get_earnings_calendar(
+        self, page: int = 0, size: int = 50, sector: str = "All"
+    ) -> list[dict]:
         """Get earnings call calendar.
 
         Returns list of company events with:

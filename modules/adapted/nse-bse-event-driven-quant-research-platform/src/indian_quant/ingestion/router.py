@@ -40,14 +40,12 @@ import logging
 import os
 import time
 from datetime import date
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import pandas as pd
 
 from indian_quant.schemas import MarketBar, Timeframe
-
-if TYPE_CHECKING:
-    from indian_quant.storage.raw_store import RawStore
+from indian_quant.storage.raw_store import RawStore
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +184,9 @@ class SourceRouter:
 
     # ── yfinance ───────────────────────────────────────────────
 
-    def _yfinance_bars(self, symbol: str, from_date: date, to_date: date, suffix: str = ".BO") -> pd.DataFrame | None:
+    def _yfinance_bars(
+        self, symbol: str, from_date: date, to_date: date, suffix: str = ".BO"
+    ) -> pd.DataFrame | None:
         """Fetch bars using yfinance with exchange suffix (.BO for BSE, .NS for NSE)."""
         try:
             import yfinance as yf

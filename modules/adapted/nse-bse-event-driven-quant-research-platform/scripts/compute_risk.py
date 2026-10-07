@@ -80,7 +80,10 @@ def load_price_history(symbol: str, days: int = 252) -> pd.Series | None:
 def load_nifty_history(days: int = 252) -> pd.Series | None:
     """Load Nifty 50 index history for beta/correlation."""
     # Try multiple sources
-    for path in ["data/normalized/bars_1d/NSE/NIFTY_50.parquet", "data/normalized/bars_1d/NSE/NIFTY50.parquet"]:
+    for path in [
+        "data/normalized/bars_1d/NSE/NIFTY_50.parquet",
+        "data/normalized/bars_1d/NSE/NIFTY50.parquet",
+    ]:
         p = Path(path)
         if p.exists():
             try:
@@ -185,7 +188,10 @@ def upsert_stock_risk(engine, data: dict) -> None:
     cols = ", ".join(data.keys())
     phs = ", ".join(f":{k}" for k in data)
     updates = ", ".join(f"{k} = EXCLUDED.{k}" for k in data if k != "symbol")
-    sql = sa.text(f"INSERT INTO stock_risk ({cols}) VALUES ({phs}) ON CONFLICT (symbol) DO UPDATE SET {updates}")
+    sql = sa.text(
+        f"INSERT INTO stock_risk ({cols}) VALUES ({phs}) "
+        f"ON CONFLICT (symbol) DO UPDATE SET {updates}"
+    )
     with engine.begin() as conn:
         conn.execute(sql, data)
 
@@ -309,7 +315,8 @@ def upsert_portfolio_risk(engine, data: dict) -> None:
     phs = ", ".join(f":{k}" for k in data)
     updates = ", ".join(f"{k} = EXCLUDED.{k}" for k in data if k != "snapshot_date")
     sql = sa.text(
-        f"INSERT INTO portfolio_risk ({cols}) VALUES ({phs}) ON CONFLICT (snapshot_date) DO UPDATE SET {updates}"
+        f"INSERT INTO portfolio_risk ({cols}) VALUES ({phs}) "
+        f"ON CONFLICT (snapshot_date) DO UPDATE SET {updates}"
     )
     with engine.begin() as conn:
         conn.execute(sql, data)
@@ -352,7 +359,9 @@ def main():
         symbols = [args.symbol.upper()]
     else:
         with engine.connect() as conn:
-            result = conn.execute(sa.text("SELECT DISTINCT symbol FROM cached_signals WHERE exchange = 'NSE'"))
+            result = conn.execute(
+                sa.text("SELECT DISTINCT symbol FROM cached_signals WHERE exchange = 'NSE'")
+            )
             symbols = [r[0] for r in result.fetchall()]
 
     log.info(f"Computing stock risk for {len(symbols)} symbols...")

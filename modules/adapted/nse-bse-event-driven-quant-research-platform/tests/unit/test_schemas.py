@@ -119,7 +119,9 @@ class TestOptionInstrument:
         )
         assert opt.instrument_id == "NSE_FO|BANKNIFTY-2026-09-24-CE-52000"
         assert opt.option_type == OptionType.CE
-        assert make_option_local_id("banknifty", date(2026, 9, 24), "pe", 52000) == ("BANKNIFTY-2026-09-24-PE-52000")
+        assert make_option_local_id("banknifty", date(2026, 9, 24), "pe", 52000) == (
+            "BANKNIFTY-2026-09-24-PE-52000"
+        )
 
 
 class TestMarketBar:

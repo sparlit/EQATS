@@ -52,8 +52,7 @@ class IndianMarketClient:
 
     def call_tool(self, name: str, arguments: dict[str, Any] | None = None) -> Any:
         if name not in self._tools:
-            msg = f"unknown tool: {name}"
-            raise IndianMarketError(msg)
+            raise IndianMarketError(f"unknown tool: {name}")
         try:
             result = self._tools[name].fn(**(arguments or {}))
             if asyncio.iscoroutine(result):
@@ -65,8 +64,7 @@ class IndianMarketClient:
                     return result
             return result
         except Exception as exc:
-            msg = f"tool {name} failed: {exc}"
-            raise IndianMarketError(msg) from exc
+            raise IndianMarketError(f"tool {name} failed: {exc}") from exc
 
     def close(self) -> None:
         pass

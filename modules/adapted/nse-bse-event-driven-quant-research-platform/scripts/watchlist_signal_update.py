@@ -94,7 +94,11 @@ def main() -> int:
                         signal_type = "dz_lo_up"
 
                 close = float(last["close"])
-                atr = float(last.get("atr_14", close * 0.03)) if pd.notna(last.get("atr_14")) else close * 0.03
+                atr = (
+                    float(last.get("atr_14", close * 0.03))
+                    if pd.notna(last.get("atr_14"))
+                    else close * 0.03
+                )
 
                 wl_id = ws.get_watchlist_id(user_id, symbol)
                 if wl_id is None:
@@ -108,13 +112,19 @@ def main() -> int:
                         "signal_date": str(pd.to_datetime(last["date"]).date()),
                         "signal_type": signal_type,
                         "close": close,
-                        "deliv_pct": float(last["deliv_pct"]) if pd.notna(last.get("deliv_pct")) else None,
-                        "deliv_z": float(last["deliv_z"]) if pd.notna(last.get("deliv_z")) else None,
+                        "deliv_pct": float(last["deliv_pct"])
+                        if pd.notna(last.get("deliv_pct"))
+                        else None,
+                        "deliv_z": float(last["deliv_z"])
+                        if pd.notna(last.get("deliv_z"))
+                        else None,
                         "vol_z": float(last["vol_z"]) if pd.notna(last.get("vol_z")) else None,
                         "ret_1d": float(last["ret_1d"]) if pd.notna(last.get("ret_1d")) else None,
                         "rsi": float(last["rsi"]) if pd.notna(last.get("rsi")) else None,
                         "macd": float(last["macd"]) if pd.notna(last.get("macd")) else None,
-                        "macd_signal": float(last["macd_signal"]) if pd.notna(last.get("macd_signal")) else None,
+                        "macd_signal": float(last["macd_signal"])
+                        if pd.notna(last.get("macd_signal"))
+                        else None,
                         "sma_20": float(last["sma_20"]) if pd.notna(last.get("sma_20")) else None,
                         "sma_50": float(last["sma_50"]) if pd.notna(last.get("sma_50")) else None,
                         "atr_14": atr,

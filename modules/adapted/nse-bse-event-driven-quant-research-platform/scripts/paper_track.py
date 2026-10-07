@@ -160,7 +160,9 @@ def _scan_today(settings) -> pd.DataFrame:
 def cmd_snapshot(settings, *, capital: float, risk_pct: float) -> int:
     df = _scan_today(settings)
     if df.empty:
-        print("no qualifying candidates (filters: price 100-500, cluster entry, RSI/MACD/SMA, turnover >= 1Cr)")
+        print(
+            "no qualifying candidates (filters: price 100-500, cluster entry, RSI/MACD/SMA, turnover >= 1Cr)"
+        )
         return 0
 
     from indian_quant.features.market_cap import get_market_cap, load_mcap_cache, save_mcap_cache
@@ -194,10 +196,12 @@ def cmd_snapshot(settings, *, capital: float, risk_pct: float) -> int:
             win_rate, avg_win, avg_loss = dynamic_kelly_params(get_pg_engine())
             kf = kelly_fraction(win_rate, avg_win, avg_loss)
             qty = kelly_position(hz_capital, risk_pct, r["close"], hz["stop_pct"], kf)
-            qty = max(qty, 1)
+            if qty < 1:
+                qty = 1
             # House rule: ₹1L notional per trade
             lakh_qty = max(1, int(100_000 / r["close"]))
-            qty = max(qty, lakh_qty)
+            if qty < lakh_qty:
+                qty = lakh_qty
 
             position_value = qty * r["close"]
             stop_dist = r["close"] * hz["stop_pct"]
@@ -228,7 +232,9 @@ def cmd_snapshot(settings, *, capital: float, risk_pct: float) -> int:
             # Auto-journal: record entry context
             with metadata._engine.connect() as _jc:
                 paper_id = _jc.execute(
-                    sa.text("SELECT id FROM paper_signals WHERE symbol=:s AND status='OPEN' ORDER BY id DESC LIMIT 1"),
+                    sa.text(
+                        "SELECT id FROM paper_signals WHERE symbol=:s AND status='OPEN' ORDER BY id DESC LIMIT 1"
+                    ),
                     {"s": r["symbol"]},
                 ).scalar()
             if paper_id:
@@ -353,7 +359,12 @@ def cmd_settle(settings) -> int:
     summary = metadata.papers_summary()
     by_hz = metadata.paper_trades_by_horizon()
     metadata.close()
-    print(json.dumps({"settled_now": settled, "skipped_still_open": skipped, **summary, "by_horizon": by_hz}, indent=1))
+    print(
+        json.dumps(
+            {"settled_now": settled, "skipped_still_open": skipped, **summary, "by_horizon": by_hz},
+            indent=1,
+        )
+    )
     return 0
 
 
@@ -363,7 +374,9 @@ def cmd_report(settings, *, min_settled: int, floor_bps: float) -> int:
     pf = metadata.portfolio_summary()
     by_hz = metadata.paper_trades_by_horizon()
     metadata.close()
-    passed = (s["settled"] or 0) >= min_settled and (s["avg_net_bps"] is not None and s["avg_net_bps"] >= floor_bps)
+    passed = (s["settled"] or 0) >= min_settled and (
+        s["avg_net_bps"] is not None and s["avg_net_bps"] >= floor_bps
+    )
     verdict = (
         "PASS — GO-LIVE CHECKLIST may be generated"
         if passed
@@ -460,7 +473,9 @@ def cmd_journal_review(settings, paper_trade_id: int) -> int:
     print(f"  Signal: {entry.get('entry_signal', '?')}")
     print(f"  Setup: {entry.get('setup_type', '?')}")
     print(f"  Stop: {entry.get('stop_loss', 0):.2f}  Target: {entry.get('target_price', 0):.2f}")
-    print(f"  Size: {entry.get('position_size', 0)} shares  Risk: Rs{entry.get('risk_amount', 0):.0f}")
+    print(
+        f"  Size: {entry.get('position_size', 0)} shares  Risk: Rs{entry.get('risk_amount', 0):.0f}"
+    )
     print(f"  Conviction: {entry.get('conviction', 0):.3f}")
     if entry.get("nifty_level"):
         print(f"  Nifty: {entry['nifty_level']:.0f}  Breadth: {entry.get('market_breadth', 0):.0%}")
@@ -479,7 +494,9 @@ def cmd_journal_review(settings, paper_trade_id: int) -> int:
         if entry.get("lessons_learned"):
             print(f"    Lessons: {entry['lessons_learned']}")
         print(f"    Would repeat: {'Yes' if entry.get('would_repeat') else 'No'}")
-        print(f"    Setup grade: {entry.get('setup_quality', '?')}  Execution: {entry.get('execution_grade', '?')}")
+        print(
+            f"    Setup grade: {entry.get('setup_quality', '?')}  Execution: {entry.get('execution_grade', '?')}"
+        )
     else:
         print(f"\n  No review yet. Use: paper_track.py journal-review {paper_trade_id}")
     metadata.close()
@@ -619,7 +636,9 @@ def main() -> int:
     if args.command == "log":
         return cmd_log(settings, horizon=args.horizon, status=args.status, limit=args.limit)
     if args.command == "journal-list":
-        return cmd_journal_list(settings, setup=args.setup, reviewed=args.reviewed, limit=args.limit)
+        return cmd_journal_list(
+            settings, setup=args.setup, reviewed=args.reviewed, limit=args.limit
+        )
     if args.command == "journal-review":
         return cmd_journal_review(settings, args.paper_trade_id)
     if args.command == "journal-add-review":

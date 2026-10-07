@@ -122,7 +122,11 @@ def compute_signal_from_bars(
         prev = df.iloc[-2] if len(df) > 1 else df.iloc[-1]
         close = float(last["close"])
         prev_close = float(prev["close"]) if pd.notna(prev.get("close")) else close
-        atr = float(last.get("atr_14", close * 0.03)) if pd.notna(last.get("atr_14")) else close * 0.03
+        atr = (
+            float(last.get("atr_14", close * 0.03))
+            if pd.notna(last.get("atr_14"))
+            else close * 0.03
+        )
 
         signal_type = None
         rsi_val = last.get("rsi")
@@ -152,7 +156,9 @@ def compute_signal_from_bars(
         return {
             "symbol": symbol,
             "exchange": exchange,
-            "signal_date": str(last["date"].date()) if hasattr(last["date"], "date") else str(last["date"])[:10],
+            "signal_date": str(last["date"].date())
+            if hasattr(last["date"], "date")
+            else str(last["date"])[:10],
             "segment": str(last.get("segment", "EQ")),
             "close": round(close, 2),
             "prev_close": round(prev_close, 2),
@@ -246,7 +252,11 @@ def compute_signal_for_stock(
         close = float(last["close"])
         prev_close = float(prev["close"]) if pd.notna(prev.get("close")) else close
         ret_1d_pct = round((close / prev_close - 1) * 100, 2) if prev_close > 0 else 0
-        atr = float(last.get("atr_14", close * 0.03)) if pd.notna(last.get("atr_14")) else close * 0.03
+        atr = (
+            float(last.get("atr_14", close * 0.03))
+            if pd.notna(last.get("atr_14"))
+            else close * 0.03
+        )
 
         # Momentum and volatility features
         momentum_20d = None
@@ -272,12 +282,16 @@ def compute_signal_for_stock(
             "close": round(close, 2),
             "prev_close": round(prev_close, 2),
             "ret_1d_pct": ret_1d_pct,
-            "deliv_pct": round(float(last["deliv_pct"]), 1) if pd.notna(last.get("deliv_pct")) else None,
+            "deliv_pct": round(float(last["deliv_pct"]), 1)
+            if pd.notna(last.get("deliv_pct"))
+            else None,
             "deliv_z": round(float(last["deliv_z"]), 2) if pd.notna(last.get("deliv_z")) else None,
             "vol_z": round(float(last["vol_z"]), 2) if pd.notna(last.get("vol_z")) else None,
             "rsi": round(float(last["rsi"]), 1) if pd.notna(last.get("rsi")) else None,
             "macd": round(float(last["macd"]), 2) if pd.notna(last.get("macd")) else None,
-            "macd_signal": round(float(last["macd_signal"]), 2) if pd.notna(last.get("macd_signal")) else None,
+            "macd_signal": round(float(last["macd_signal"]), 2)
+            if pd.notna(last.get("macd_signal"))
+            else None,
             "sma_20": round(float(last["sma_20"]), 2) if pd.notna(last.get("sma_20")) else None,
             "sma_50": round(float(last["sma_50"]), 2) if pd.notna(last.get("sma_50")) else None,
             "atr_14": round(atr, 2),
@@ -412,7 +426,9 @@ def enrich_with_fundamentals(signals: list[dict]) -> list[dict]:
         kr_dict = {}
 
     try:
-        cp_df = pd.read_sql("SELECT symbol, sector, industry, company_name FROM company_profile", engine)
+        cp_df = pd.read_sql(
+            "SELECT symbol, sector, industry, company_name FROM company_profile", engine
+        )
         cp_dict = cp_df.set_index("symbol").to_dict(orient="index")
     except Exception:
         cp_dict = {}
@@ -586,13 +602,19 @@ def compute_professional_score(signals: list[dict]) -> list[dict]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Cache delivery signals")
-    parser.add_argument("--warm-redis", action="store_true", help="Only refresh Redis from PostgreSQL (fast)")
+    parser.add_argument(
+        "--warm-redis", action="store_true", help="Only refresh Redis from PostgreSQL (fast)"
+    )
     parser.parse_args()
 
     if "--warm-redis" in sys.argv:
         t0 = time.time()
         count = warm_redis_from_pg()
-        print(json.dumps({"action": "warm_redis", "symbols": count, "time": f"{time.time() - t0:.1f}s"}))
+        print(
+            json.dumps(
+                {"action": "warm_redis", "symbols": count, "time": f"{time.time() - t0:.1f}s"}
+            )
+        )
         return 0
 
     settings = load_settings()

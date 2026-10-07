@@ -23,15 +23,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
+from collections.abc import Iterable
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from indian_quant.adapters.announcements.models import Announcement, Signal
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
+from indian_quant.adapters.announcements.models import Signal
 
 DEFAULT_INCLUDE_CATEGORIES = [
     "Award of Order / Receipt of Order",
@@ -109,7 +106,8 @@ class AnnouncementFilter:
             return df
         df = df.copy()
         df = df[~df["Category"].isin(self.exclude_categories)]
-        return df[df["Category"].isin(self.include_categories)]
+        df = df[df["Category"].isin(self.include_categories)]
+        return df
 
     def filter_by_watchlist(self, df: pd.DataFrame, watchlist_symbols: set[str]) -> pd.DataFrame:
         if df.empty or not watchlist_symbols:
@@ -117,7 +115,8 @@ class AnnouncementFilter:
         df = df.copy()
         df["_sym"] = df["tradingsymbol"].str.strip().str.upper()
         df = df[df["_sym"].isin(watchlist_symbols)]
-        return df.drop(columns=["_sym"])
+        df = df.drop(columns=["_sym"])
+        return df
 
     def filter_recent(
         self,
@@ -128,7 +127,9 @@ class AnnouncementFilter:
             now_ist = datetime.now()
         today_str = now_ist.strftime("%Y-%m-%d")
         df = df.copy()
-        df["TimeDT"] = pd.to_datetime(today_str + " " + df["Time"], format="%Y-%m-%d %H:%M", errors="coerce")
+        df["TimeDT"] = pd.to_datetime(
+            today_str + " " + df["Time"], format="%Y-%m-%d %H:%M", errors="coerce"
+        )
         cutoff = now_ist - timedelta(minutes=self.lookback_minutes)
         recent = df[df["TimeDT"] >= cutoff]
         return recent.sort_values("TimeDT", ascending=False), df

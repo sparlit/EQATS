@@ -121,7 +121,9 @@ def load_backtest(settings):
     pos_p = run_dir / "positions.parquet"
     fills = pd.read_parquet(fills_p) if fills_p.exists() else pd.DataFrame()
     positions = pd.read_parquet(pos_p) if pos_p.exists() else None
-    metrics = compute_friction_metrics(fills, positions, starting_balance=settings.backtest.starting_balance_inr)
+    metrics = compute_friction_metrics(
+        fills, positions, starting_balance=settings.backtest.starting_balance_inr
+    )
     curve = []
     if positions is not None and not positions.empty:
         ts_col = "ts_last" if "ts_last" in positions.columns else None
@@ -163,7 +165,8 @@ def _money(cell: object) -> float:
 def pnl_svg(curve: list[float]) -> tuple[str, str]:
     if len(curve) < 2:
         return (
-            ('<text x="450" y="75" text-anchor="middle" font-size="11">not enough closed positions for a curve</text>'),
+            '<text x="450" y="75" text-anchor="middle" font-size="11">'
+            "not enough closed positions for a curve</text>",
             "",
         )
     lo, hi = min(curve), max(curve)
@@ -189,8 +192,12 @@ def main() -> int:
     con = sqlite3.connect(str(db))
     jobs_total, jobs_failed = _rows(con, "SELECT COUNT(*), SUM(status='FAILED') FROM jobs")[0]
     runs_total = _rows(con, "SELECT COUNT(*) FROM runs")[0][0]
-    qr_total, qerr_total = _rows(con, "SELECT COUNT(*), COALESCE(SUM(n_errors),0) FROM quality_reports")[0]
-    recent_runs = _rows(con, "SELECT run_id, kind, started_at FROM runs ORDER BY started_at DESC LIMIT 8")
+    qr_total, qerr_total = _rows(
+        con, "SELECT COUNT(*), COALESCE(SUM(n_errors),0) FROM quality_reports"
+    )[0]
+    recent_runs = _rows(
+        con, "SELECT run_id, kind, started_at FROM runs ORDER BY started_at DESC LIMIT 8"
+    )
     qual = _rows(
         con,
         """SELECT n_rows, n_errors, n_warnings FROM quality_reports
@@ -200,7 +207,11 @@ def main() -> int:
     con.close()
 
     bt = load_backtest(settings)
-    qual_text = f"{qual[0][0]} rows · {qual[0][1]} errors · {qual[0][2]} warnings" if qual else "no report yet"
+    qual_text = (
+        f"{qual[0][0]} rows · {qual[0][1]} errors · {qual[0][2]} warnings"
+        if qual
+        else "no report yet"
+    )
     qual_cls = "good" if qual and qual[0][1] == 0 else "warn"
 
     runs_rows = (
@@ -210,7 +221,9 @@ def main() -> int:
 
     m = bt["metrics"] if bt else {}
     path_el, label_el = (
-        pnl_svg(bt["curve"]) if bt else ("<text x='450' y='75' text-anchor='middle'>no backtest run yet</text>", "")
+        pnl_svg(bt["curve"])
+        if bt
+        else ("<text x='450' y='75' text-anchor='middle'>no backtest run yet</text>", "")
     )
 
     html = TEMPLATE.format(
@@ -230,7 +243,9 @@ def main() -> int:
         gross_pnl=m.get("gross_pnl", "—"),
         commissions=m.get("total_commissions", "—"),
         net_pnl=m.get("net_pnl", "—"),
-        gross_cls="bad" if isinstance(m.get("gross_pnl"), (int, float)) and m["gross_pnl"] < 0 else "good",
+        gross_cls="bad"
+        if isinstance(m.get("gross_pnl"), (int, float)) and m["gross_pnl"] < 0
+        else "good",
         pnl_path=path_el,
         pnl_label=label_el,
         pnl_points=len(bt["curve"]) if bt else 0,

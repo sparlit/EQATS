@@ -67,7 +67,9 @@ def main() -> int:
     fills_out = result.fills.reset_index(drop=True) if not result.fills.empty else result.fills
     fills_out.to_parquet(run_dir / "fills.parquet", index=False)
     if not result.positions.empty:
-        result.positions.reset_index(drop=True).to_parquet(run_dir / "positions.parquet", index=False)
+        result.positions.reset_index(drop=True).to_parquet(
+            run_dir / "positions.parquet", index=False
+        )
 
     metadata = MetadataStore(settings.storage.metadata_dsn)
     tracker = ExperimentTracker(metadata)
@@ -78,7 +80,12 @@ def main() -> int:
     import subprocess
 
     subprocess.run(
-        [sys.executable, str(Path(__file__).parent / "friction_report.py"), "--run-id", result.run_id],
+        [
+            sys.executable,
+            str(Path(__file__).parent / "friction_report.py"),
+            "--run-id",
+            result.run_id,
+        ],
         check=False,
     )
     return 0

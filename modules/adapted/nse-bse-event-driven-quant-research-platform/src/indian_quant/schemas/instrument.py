@@ -38,14 +38,11 @@ contract or a BSE scrip, regardless of what any upstream source calls it.
 
 
 from datetime import date, datetime
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from indian_quant.schemas.enums import Exchange, OptionType, SecurityType, Segment
-
-if TYPE_CHECKING:
-    from indian_quant.schemas.lineage import Lineage
+from indian_quant.schemas.lineage import Lineage
 
 ID_SEPARATOR = "|"
 
@@ -61,8 +58,10 @@ def make_instrument_id(
 def parse_instrument_id(instrument_id: str) -> tuple[str, str, str]:
     head, _, local = instrument_id.partition(ID_SEPARATOR)
     if not head or not local or "_" not in head:
-        msg = f"invalid canonical instrument_id: {instrument_id!r} (expected EXCHANGE_SEGMENT|LOCAL_ID)"
-        raise ValueError(msg)
+        raise ValueError(
+            f"invalid canonical instrument_id: {instrument_id!r} "
+            f"(expected EXCHANGE_SEGMENT|LOCAL_ID)"
+        )
     exchange, _, segment = head.partition("_")
     return exchange, segment, local
 
@@ -75,8 +74,7 @@ def make_option_local_id(
 ) -> str:
     ot = str(option_type).upper()
     if ot not in ("CE", "PE"):
-        msg = f"option_type must be CE or PE, got {option_type!r}"
-        raise ValueError(msg)
+        raise ValueError(f"option_type must be CE or PE, got {option_type!r}")
     return f"{underlying.upper()}-{expiry.isoformat()}-{ot}-{strike:g}"
 
 
@@ -108,20 +106,21 @@ class InstrumentIdentity(BaseModel):
             return None
         iso = v.upper().strip()
         if len(iso) != 12 or not iso[:2].isalpha():
-            msg = f"invalid ISIN: {v!r}"
-            raise ValueError(msg)
+            raise ValueError(f"invalid ISIN: {v!r}")
         return iso
 
     @model_validator(mode="after")
     def _validate_option_fields(self) -> InstrumentIdentity:
         if self.security_type == SecurityType.OPTION:
-            missing = [f for f in ("expiry", "strike", "option_type", "underlying") if getattr(self, f) is None]
+            missing = [
+                f
+                for f in ("expiry", "strike", "option_type", "underlying")
+                if getattr(self, f) is None
+            ]
             if missing:
-                msg = f"option instrument requires {missing}"
-                raise ValueError(msg)
+                raise ValueError(f"option instrument requires {missing}")
         if self.segment == Segment.FO and self.security_type == SecurityType.EQUITY:
-            msg = "FO segment requires a derivative security_type"
-            raise ValueError(msg)
+            raise ValueError("FO segment requires a derivative security_type")
         return self
 
     @property
@@ -136,7 +135,8 @@ class InstrumentIdentity(BaseModel):
             suffix = "FO"
         elif self.segment == Segment.IDX:
             suffix = "IDX"
-        return self.exchange.value + suffix
+        venue = self.exchange.value + suffix
+        return venue
 
     @property
     def nautilus_instrument_id(self) -> str:
@@ -192,7 +192,7 @@ __all__ = [
     "InstrumentIdentity",
     "OptionInstrument",
     "make_instrument_id",
-    "make_option_local_id",
     "parse_instrument_id",
+    "make_option_local_id",
     "to_nautilus_timestamp",
 ]

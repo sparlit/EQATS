@@ -49,7 +49,9 @@ import pandas as pd
 from indian_quant.config import load_settings
 
 
-def find_support_levels(highs: pd.Series, lows: pd.Series, closes: pd.Series, lookback: int = 60) -> list[float]:
+def find_support_levels(
+    highs: pd.Series, lows: pd.Series, closes: pd.Series, lookback: int = 60
+) -> list[float]:
     """Find support levels using recent swing lows and round numbers."""
     recent_lows = lows.tail(lookback).tolist()
     closes.tail(lookback).tolist()
@@ -156,7 +158,8 @@ def analyze_entry(symbol: str, bars_dir: Path) -> dict | None:
 
     # Determine recommended entry zone
     all_levels = sorted(
-        [s for s in supports if s < latest_close] + [v for v in atr_zones.values() if v < latest_close],
+        [s for s in supports if s < latest_close]
+        + [v for v in atr_zones.values() if v < latest_close],
         reverse=True,
     )
 
@@ -193,7 +196,9 @@ def analyze_entry(symbol: str, bars_dir: Path) -> dict | None:
         "recommended_entry": recommended_entry,
         "stop_loss": stop_loss,
         "target": target,
-        "risk_reward_ratio": round((latest_close - recommended_entry) / max(recommended_entry - stop_loss, 0.01), 2)
+        "risk_reward_ratio": round(
+            (latest_close - recommended_entry) / max(recommended_entry - stop_loss, 0.01), 2
+        )
         if recommended_entry and stop_loss
         else None,
         "confluence_count": confluence_count,

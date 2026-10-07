@@ -27,12 +27,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+
+import pandas as pd
 
 from indian_quant.schemas import AdjustmentStatus, CorporateAction, MarketBar, Timeframe
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 
 def to_utc(ts: datetime) -> datetime:
@@ -114,8 +112,7 @@ def apply_corporate_action_adjustment(
 def resample_bars(df: pd.DataFrame, target: Timeframe) -> pd.DataFrame:
     """Resample a daily/minute OHLCV frame to a coarser canonical timeframe."""
     if "timestamp" not in df.columns:
-        msg = "frame must have a timestamp column"
-        raise ValueError(msg)
+        raise ValueError("frame must have a timestamp column")
     out = df.set_index("timestamp").sort_index()
     agg = {
         "open": "first",

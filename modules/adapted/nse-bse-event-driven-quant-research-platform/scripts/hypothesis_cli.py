@@ -96,7 +96,14 @@ def main() -> int:
         stop = float(args[5]) if len(args) > 5 else 0.07
         horizon = int(args[6]) if len(args) > 6 else 10
         tid = reg.open_trade(
-            hid, sym, str(date.today()), price, qty, stop_pct=stop, horizon_days=horizon, notes="cli entry"
+            hid,
+            sym,
+            str(date.today()),
+            price,
+            qty,
+            stop_pct=stop,
+            horizon_days=horizon,
+            notes="cli entry",
         )
         print(f"Opened trade #{tid}: {sym} qty={qty} @ ₹{price}")
 

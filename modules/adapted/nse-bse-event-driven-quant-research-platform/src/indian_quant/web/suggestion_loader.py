@@ -39,7 +39,8 @@ def get_suggestion_summary() -> dict[str, Any]:
 
     pg = PgMetadataStore(get_pg_engine())
     try:
-        return pg.suggestions_summary()
+        s = pg.suggestions_summary()
+        return s
     finally:
         pg.close()
 

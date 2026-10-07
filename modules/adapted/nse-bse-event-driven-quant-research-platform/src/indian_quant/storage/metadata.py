@@ -46,8 +46,9 @@ def _now() -> str:
 class MetadataStore:
     def __init__(self, dsn: str) -> None:
         if not dsn.startswith("sqlite:///"):
-            msg = "only sqlite DSNs are wired; postgres uses the same schema via a driver swap"
-            raise NotImplementedError(msg)
+            raise NotImplementedError(
+                "only sqlite DSNs are wired; postgres uses the same schema via a driver swap"
+            )
         path = dsn.removeprefix("sqlite:///")
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._con = sqlite3.connect(path)
@@ -284,7 +285,9 @@ class MetadataStore:
         self._con.commit()
 
     def get_instrument(self, instrument_id: str) -> dict[str, Any] | None:
-        row = self._con.execute("SELECT * FROM instruments WHERE instrument_id = ?", (instrument_id,)).fetchone()
+        row = self._con.execute(
+            "SELECT * FROM instruments WHERE instrument_id = ?", (instrument_id,)
+        ).fetchone()
         return dict(row) if row else None
 
     def start_job(self, job_id: str, *, tool: str, source: str, params: dict | None) -> None:
@@ -392,16 +395,23 @@ class MetadataStore:
         return int(cur.lastrowid or 0)
 
     def open_papers(self) -> list[dict]:
-        rows = self._con.execute("SELECT * FROM paper_signals WHERE status='OPEN' ORDER BY created_at").fetchall()
+        rows = self._con.execute(
+            "SELECT * FROM paper_signals WHERE status='OPEN' ORDER BY created_at"
+        ).fetchall()
         return [dict(r) for r in rows]
 
     def settle_paper_signal(
-        self, paper_id: int, *, exit_date: str, exit_close: float, cost_bps: float = 107.0, exit_reason: str = "HORIZON"
+        self,
+        paper_id: int,
+        *,
+        exit_date: str,
+        exit_close: float,
+        cost_bps: float = 107.0,
+        exit_reason: str = "HORIZON",
     ) -> dict:
         row = self._con.execute("SELECT * FROM paper_signals WHERE id=?", (paper_id,)).fetchone()
         if not row:
-            msg = f"paper signal {paper_id} not found"
-            raise ValueError(msg)
+            raise ValueError(f"paper signal {paper_id} not found")
         p = dict(row)
         sign = 1.0 if p["side"] == "BUY" else -1.0
         gross_bps = (exit_close / p["close_at_signal"] - 1.0) * 10_000 * sign
@@ -444,7 +454,9 @@ class MetadataStore:
                SUM(realized_net_bps > 0)*1.0/COUNT(*) hit
                FROM paper_signals WHERE status='SETTLED'"""
         ).fetchone()
-        open_n = self._con.execute("SELECT COUNT(*) FROM paper_signals WHERE status='OPEN'").fetchone()[0]
+        open_n = self._con.execute(
+            "SELECT COUNT(*) FROM paper_signals WHERE status='OPEN'"
+        ).fetchone()[0]
         by_horizon = self._con.execute(
             """SELECT horizon_label, COUNT(*) n,
                AVG(realized_net_bps) avg_net,
@@ -528,15 +540,22 @@ class MetadataStore:
         rows = self._con.execute(
             "SELECT * FROM daily_suggestions WHERE status='PENDING' ORDER BY suggestion_date DESC"
         ).fetchall()
-        cols = [d[0] for d in self._con.execute("SELECT * FROM daily_suggestions LIMIT 0").description]
+        cols = [
+            d[0] for d in self._con.execute("SELECT * FROM daily_suggestions LIMIT 0").description
+        ]
         return [dict(zip(cols, r, strict=False)) for r in rows]
 
-    def settle_daily_suggestion(self, suggestion_id: int, *, exit_date: str, exit_close: float) -> dict:
-        row = self._con.execute("SELECT * FROM daily_suggestions WHERE id=?", (suggestion_id,)).fetchone()
+    def settle_daily_suggestion(
+        self, suggestion_id: int, *, exit_date: str, exit_close: float
+    ) -> dict:
+        row = self._con.execute(
+            "SELECT * FROM daily_suggestions WHERE id=?", (suggestion_id,)
+        ).fetchone()
         if not row:
-            msg = f"suggestion {suggestion_id} not found"
-            raise ValueError(msg)
-        col_names = [d[0] for d in self._con.execute("SELECT * FROM daily_suggestions LIMIT 0").description]
+            raise ValueError(f"suggestion {suggestion_id} not found")
+        col_names = [
+            d[0] for d in self._con.execute("SELECT * FROM daily_suggestions LIMIT 0").description
+        ]
         s = dict(zip(col_names, row, strict=False))
         gross_bps = (exit_close / s["close_at_signal"] - 1.0) * 10_000
         net_bps = gross_bps - 107.0
@@ -578,7 +597,9 @@ class MetadataStore:
 
     def suggestions_summary(self) -> dict:
         total = self._con.execute("SELECT COUNT(*) FROM daily_suggestions").fetchone()[0]
-        pending = self._con.execute("SELECT COUNT(*) FROM daily_suggestions WHERE status='PENDING'").fetchone()[0]
+        pending = self._con.execute(
+            "SELECT COUNT(*) FROM daily_suggestions WHERE status='PENDING'"
+        ).fetchone()[0]
         realized = self._con.execute(
             """SELECT COUNT(*), AVG(actual_return_bps),
                SUM(hit)*1.0/COUNT(*), SUM(CASE WHEN actual_return_bps > 0 THEN 1 ELSE 0 END)*1.0/COUNT(*)
@@ -594,8 +615,13 @@ class MetadataStore:
         }
 
     def suggestions_by_date(self, d: str) -> list[dict]:
-        rows = self._con.execute("SELECT * FROM daily_suggestions WHERE suggestion_date=?", (d,)).fetchall()
-        cols = [desc[0] for desc in self._con.execute("SELECT * FROM daily_suggestions LIMIT 0").description]
+        rows = self._con.execute(
+            "SELECT * FROM daily_suggestions WHERE suggestion_date=?", (d,)
+        ).fetchall()
+        cols = [
+            desc[0]
+            for desc in self._con.execute("SELECT * FROM daily_suggestions LIMIT 0").description
+        ]
         return [dict(zip(cols, r, strict=False)) for r in rows]
 
     def record_symbol_event(
@@ -611,14 +637,23 @@ class MetadataStore:
         source: str = "MANUAL",
     ) -> int:
         if event_type not in ("RENAME", "SUSPENSION", "DELISTING", "SEGMENT_MIGRATION"):
-            msg = f"unknown symbol event type: {event_type}"
-            raise ValueError(msg)
+            raise ValueError(f"unknown symbol event type: {event_type}")
         cur = self._con.execute(
             """INSERT INTO symbol_events
                (isin, exchange, event_type, from_symbol, to_symbol, effective_date,
                 note, source, recorded_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (isin.upper(), exchange.upper(), event_type, from_symbol, to_symbol, effective_date, note, source, _now()),
+            (
+                isin.upper(),
+                exchange.upper(),
+                event_type,
+                from_symbol,
+                to_symbol,
+                effective_date,
+                note,
+                source,
+                _now(),
+            ),
         )
         self._con.commit()
         return int(cur.lastrowid or 0)
@@ -651,7 +686,9 @@ class MetadataStore:
                 symbol = event["from_symbol"]
         return symbol
 
-    def trade_log(self, *, horizon: str | None = None, status: str | None = None, limit: int = 200) -> list[dict]:
+    def trade_log(
+        self, *, horizon: str | None = None, status: str | None = None, limit: int = 200
+    ) -> list[dict]:
         """Full trade log from paper_signals with all portfolio fields."""
         q = "SELECT * FROM paper_signals WHERE 1=1"
         params: list = []
@@ -677,12 +714,20 @@ class MetadataStore:
                MIN(realized_net_bps) worst_bps, MAX(realized_net_bps) best_bps
                FROM paper_signals WHERE status='SETTLED'"""
         ).fetchone()
-        open_pos = self._con.execute("SELECT COUNT(*) FROM paper_signals WHERE status='OPEN'").fetchone()[0]
+        open_pos = self._con.execute(
+            "SELECT COUNT(*) FROM paper_signals WHERE status='OPEN'"
+        ).fetchone()[0]
         total_value = (
-            self._con.execute("SELECT SUM(position_value) FROM paper_signals WHERE status='OPEN'").fetchone()[0] or 0
+            self._con.execute(
+                "SELECT SUM(position_value) FROM paper_signals WHERE status='OPEN'"
+            ).fetchone()[0]
+            or 0
         )
         total_risk = (
-            self._con.execute("SELECT SUM(risk_amount) FROM paper_signals WHERE status='OPEN'").fetchone()[0] or 0
+            self._con.execute(
+                "SELECT SUM(risk_amount) FROM paper_signals WHERE status='OPEN'"
+            ).fetchone()[0]
+            or 0
         )
         return {
             "total_trades": total["n"] or 0,

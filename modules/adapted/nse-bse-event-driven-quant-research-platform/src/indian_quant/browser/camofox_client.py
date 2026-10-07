@@ -33,7 +33,6 @@ Requires: camofox-browser npm package (Node.js).
 
 import asyncio
 import contextlib
-import json
 import logging
 import subprocess
 from typing import Any
@@ -93,8 +92,7 @@ class CamofoxBrowserClient(BaseBrowserClient):
                         return
             except Exception:
                 continue
-        msg = "Failed to start Camofox server"
-        raise RuntimeError(msg)
+        raise RuntimeError("Failed to start Camofox server")
 
     async def stop(self) -> None:
         if self._tab_id:
@@ -117,8 +115,7 @@ class CamofoxBrowserClient(BaseBrowserClient):
             elif method == "DELETE":
                 resp = await client.delete(url, timeout=30)
             else:
-                msg = f"Unknown method: {method}"
-                raise ValueError(msg)
+                raise ValueError(f"Unknown method: {method}")
             return resp.json()
 
     async def navigate(self, url: str, wait_until: str = "networkidle") -> None:
@@ -134,7 +131,8 @@ class CamofoxBrowserClient(BaseBrowserClient):
 
     async def get_text(self, selector: str | None = None) -> str:
         if selector:
-            return await self.evaluate(f'document.querySelector("{selector}")?.innerText || ""')
+            result = await self.evaluate(f'document.querySelector("{selector}")?.innerText || ""')
+            return result
         snapshot = await self._request("GET", f"/tabs/{self._tab_id}/snapshot")
         return snapshot.get("text", "")
 

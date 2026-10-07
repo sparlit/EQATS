@@ -112,7 +112,9 @@ def _create_redis_db(email: str, password: str, db_name: str) -> str:
             sb.sleep(2)
 
             with suppress(Exception):
-                name_input = sb.find_element('input[name="name"], input[placeholder*="name"]', timeout=5)
+                name_input = sb.find_element(
+                    'input[name="name"], input[placeholder*="name"]', timeout=5
+                )
                 name_input.clear()
                 sb.type('input[name="name"], input[placeholder*="name"]', db_name)
 
@@ -141,7 +143,12 @@ def _extract_redis_url(sb: SB) -> str:
         with suppress(Exception):
             elements = sb.find_elements(sel)
             for el in elements:
-                txt = el.get_attribute("data-clipboard-text") or el.text or el.get_attribute("value") or ""
+                txt = (
+                    el.get_attribute("data-clipboard-text")
+                    or el.text
+                    or el.get_attribute("value")
+                    or ""
+                )
                 if "rediss://" in txt or "redis://" in txt:
                     return txt.strip()
 
