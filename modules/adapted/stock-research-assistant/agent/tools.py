@@ -52,7 +52,9 @@ def _get_sql_connection():
     if client_id and client_secret:
         # Running as a Databricks App's dedicated service principal (M2M OAuth).
         print("[_get_sql_connection] using service-principal M2M auth", flush=True)
-        sp_config = Config(host=client.config.host, client_id=client_id, client_secret=client_secret)
+        sp_config = Config(
+            host=client.config.host, client_id=client_id, client_secret=client_secret
+        )
         return dbsql.connect(
             server_hostname=client.config.host,
             http_path=http_path,
@@ -112,7 +114,7 @@ def search_context(query: str, num_results: int = 5):
         return _rows_as_dicts(cur)
 
 
-def manage_watchlist(action: str, ticker: str | None = None, watchlist_id: int = 1):
+def manage_watchlist(action: str, ticker: str = None, watchlist_id: int = 1):
     """Add, remove, or list tickers in a watchlist. action is 'add', 'remove', or 'list'."""
     with get_lakebase_connection() as conn, conn.cursor() as cur:
         if action == "add":
@@ -139,8 +141,7 @@ def manage_watchlist(action: str, ticker: str | None = None, watchlist_id: int =
                 (watchlist_id,),
             )
             return [row[0] for row in cur.fetchall()]
-        msg = f"Unknown action: {action}"
-        raise ValueError(msg)
+        raise ValueError(f"Unknown action: {action}")
 
 
 def save_note(ticker: str, note_text: str, user_id: int = 1):
