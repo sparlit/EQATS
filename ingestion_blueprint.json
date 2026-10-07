@@ -1,5 +1,5 @@
 {
-  "current_index": 191,
+  "current_index": 192,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1533,9 +1533,9 @@
       "name": "kraken-cli",
       "target": "krakenfx/kraken-cli",
       "url": "https://github.com/krakenfx/kraken-cli",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3134",
+      "merged": true
     },
     {
       "name": "algo-trader",
