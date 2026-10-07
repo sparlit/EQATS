@@ -29,8 +29,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn as nn
+import torch.optim as optim
 from sklearn.preprocessing import MinMaxScaler
-from torch import nn, optim
 from tqdm import tqdm
 
 # jugaad_trader is an optional broker dependency (Zerodha-only).
@@ -92,8 +93,10 @@ class DataLoader:
         try:
             from jugaad_trader import Zerodha
         except ImportError as exc:
-            msg = "jugaad-trader is required for Zerodha authentication. Install it with: pip install jugaad-trader"
-            raise ImportError(msg) from exc
+            raise ImportError(
+                "jugaad-trader is required for Zerodha authentication. "
+                "Install it with: pip install jugaad-trader"
+            ) from exc
 
         if not all([user_id, password, twofa]):
             user_id = input("Zerodha User ID: ")
@@ -113,18 +116,20 @@ class DataLoader:
         else:
             instruments = self.instruments_cache[cache_key]
 
-        instrument = next((item for item in instruments if item["tradingsymbol"].upper() == symbol.upper()), None)
+        instrument = next(
+            (item for item in instruments if item["tradingsymbol"].upper() == symbol.upper()), None
+        )
         if not instrument:
-            msg = f"Instrument '{symbol}' not found in exchange '{exchange}' and type '{instrument_type}'."
-            raise ValueError(msg)
+            raise ValueError(
+                f"Instrument '{symbol}' not found in exchange '{exchange}' and type '{instrument_type}'."
+            )
 
         return instrument["instrument_token"]
 
     def get_stock_data(self, symbol, from_date, to_date, interval="minute"):
         """Fetch stock data for a given symbol."""
         if not self.kite:
-            msg = "Please authenticate first using the 'authenticate' method."
-            raise ValueError(msg)
+            raise ValueError("Please authenticate first using the 'authenticate' method.")
 
         tkn = self.get_instrument_token(symbol)
         data = self.kite.historical_data(tkn, from_date, to_date, interval)
@@ -139,7 +144,11 @@ class DataLoader:
         df = data.copy()
 
         # Standardize column names to lowercase for the library
-        column_map = {c: c.lower() for c in df.columns if c.lower() in ["open", "high", "low", "close", "volume"]}
+        column_map = {
+            c: c.lower()
+            for c in df.columns
+            if c.lower() in ["open", "high", "low", "close", "volume"]
+        }
         df = df.rename(columns=column_map)
 
         if "close" not in df.columns:
@@ -147,8 +156,9 @@ class DataLoader:
             if "Close" in df.columns:
                 df = df.rename(columns={"Close": "close"})
             else:
-                msg = f"Missing required 'close' column in data. Found: {df.columns.tolist()}"
-                raise ValueError(msg)
+                raise ValueError(
+                    f"Missing required 'close' column in data. Found: {df.columns.tolist()}"
+                )
 
         # RSI (14-period)
         delta = df["close"].diff()
@@ -169,7 +179,8 @@ class DataLoader:
         df["macd"] = ema_12 - ema_26
         df["signal"] = df["macd"].ewm(span=9, adjust=False).mean()
 
-        return df.dropna()
+        df.dropna(inplace=True)
+        return df
 
     def preprocess_data(self, data, column="close", columns=None, train=True):
         """Preprocess the data for model input.
@@ -193,19 +204,24 @@ class DataLoader:
                     scaled = self.scalers[col].fit_transform(values)
                 else:
                     if col not in self.scalers:
-                        msg = f"Scaler for column '{col}' not fitted. Call with train=True first."
-                        raise ValueError(msg)
+                        raise ValueError(
+                            f"Scaler for column '{col}' not fitted. Call with train=True first."
+                        )
                     scaled = self.scalers[col].transform(values)
                 result.append(scaled.reshape(-1))
             # Also keep the single-column scaler in sync with 'close'
             if "close" in columns:
                 self.scaler = self.scalers["close"]
             return np.column_stack(result)
-        # Single-feature mode (backward compatible)
-        col = columns[0] if columns else column
-        amplitude = data[col].to_numpy().reshape(-1, 1)
-        amplitude_scaled = self.scaler.fit_transform(amplitude) if train else self.scaler.transform(amplitude)
-        return amplitude_scaled.reshape(-1)
+        else:
+            # Single-feature mode (backward compatible)
+            col = columns[0] if columns else column
+            amplitude = data[col].to_numpy().reshape(-1, 1)
+            if train:
+                amplitude_scaled = self.scaler.fit_transform(amplitude)
+            else:
+                amplitude_scaled = self.scaler.transform(amplitude)
+            return amplitude_scaled.reshape(-1)
 
     def save_scaler(self, filename="scaler.joblib"):
         """Save the fitted scaler to a file."""
@@ -228,11 +244,15 @@ class DataLoader:
             else:
                 padding = np.zeros((output_window, data.shape[1]))
                 train_seq = np.vstack([data[i : i + input_window], padding])
-                train_label = data[i : i + input_window + output_window, 0]  # Assume target is first column
+                train_label = data[
+                    i : i + input_window + output_window, 0
+                ]  # Assume target is first column
             sequences.append((train_seq, train_label))
         return sequences
 
-    def load_or_download_data(self, symbol, from_date, to_date, force_download=False, source="zerodha"):
+    def load_or_download_data(
+        self, symbol, from_date, to_date, force_download=False, source="zerodha"
+    ):
         """Load data from file or download if not available.
 
         Args:
@@ -259,13 +279,21 @@ class DataLoader:
                 # Cleanup yfinance data
                 data.index.name = "date"
                 data = data.rename(
-                    columns={"Open": "open", "High": "high", "Low": "low", "Close": "close", "Volume": "volume"}
+                    columns={
+                        "Open": "open",
+                        "High": "high",
+                        "Low": "low",
+                        "Close": "close",
+                        "Volume": "volume",
+                    }
                 )
 
             joblib.dump(data, filename)
         return data
 
-    def prepare_data(self, symbol, from_date, to_date, input_window, output_window, train_test_split=0.8):
+    def prepare_data(
+        self, symbol, from_date, to_date, input_window, output_window, train_test_split=0.8
+    ):
         """Prepare data for training and testing."""
         data = self.load_or_download_data(symbol, from_date, to_date)
 
@@ -313,7 +341,9 @@ class TransAm(nn.Module):
         super().__init__()
         self.input_proj = nn.Linear(input_size, d_model)
         self.pos_encoder = PositionalEncoding(d_model)
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, dropout=dropout)
+        self.encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model, nhead=nhead, dropout=dropout
+        )
         self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
         self.decoder = nn.Linear(d_model, 1)
         self.init_weights()
@@ -346,7 +376,8 @@ class TransAm(nn.Module):
                 output = self.transformer_encoder(src)
 
         output = self.decoder(output)
-        return output.transpose(0, 1)
+        output = output.transpose(0, 1)
+        return output
 
     @staticmethod
     def load_model(path, device=torch.device("cpu")):
@@ -355,8 +386,7 @@ class TransAm(nn.Module):
         Sets up __main__ attributes and monkeypatches for older torch/model versions.
         """
         if not os.path.exists(path):
-            msg = f"Model file not found: {path}"
-            raise FileNotFoundError(msg)
+            raise FileNotFoundError(f"Model file not found: {path}")
 
         # Ensure TransAm and PositionalEncoding are in __main__ for torch.load
         import __main__
@@ -404,7 +434,8 @@ class TransAm(nn.Module):
 
     def _generate_square_subsequent_mask(self, sz):
         mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
-        return mask.float().masked_fill(mask == 0, float("-inf")).masked_fill(mask == 1, 0.0)
+        mask = mask.float().masked_fill(mask == 0, float("-inf")).masked_fill(mask == 1, 0.0)
+        return mask
 
 
 # ---------------------- Trainer ----------------------
@@ -430,7 +461,9 @@ class Trainer:
             self.model.train()
             total_loss = 0
 
-            for i in tqdm(range(0, len(train_data), batch_size), desc=f"Epoch {epoch + 1}/{epochs}"):
+            for i in tqdm(
+                range(0, len(train_data), batch_size), desc=f"Epoch {epoch + 1}/{epochs}"
+            ):
                 batch = train_data[i : i + batch_size]
                 input_sequences = np.array([item[0] for item in batch])
                 target_sequences = np.array([item[1] for item in batch])
@@ -457,7 +490,9 @@ class Trainer:
             val_loss = self.validate(val_data, batch_size)
             val_losses.append(val_loss)
 
-            print(f"Epoch {epoch + 1}/{epochs}, Train Loss: {avg_train_loss:.6f}, Val Loss: {val_loss:.6f}")
+            print(
+                f"Epoch {epoch + 1}/{epochs}, Train Loss: {avg_train_loss:.6f}, Val Loss: {val_loss:.6f}"
+            )
 
             self.scheduler.step()
 
@@ -496,7 +531,8 @@ class Trainer:
                 loss = self.criterion(outputs, targets)
                 total_loss += loss.item()
 
-        return total_loss / (len(val_data) // batch_size + 1)
+        avg_loss = total_loss / (len(val_data) // batch_size + 1)
+        return avg_loss
 
     def save_model(self, path):
         torch.save(self.model.state_dict(), path)
@@ -535,12 +571,17 @@ class Inferencer:
         Perform future price prediction.
         If num_samples > 1, performs stochastic sampling (Multiverse Mode).
         """
-        stock_data = data if data is not None else self.data_loader.load_or_download_data(symbol, from_date, to_date)
+        if data is not None:
+            stock_data = data
+        else:
+            stock_data = self.data_loader.load_or_download_data(symbol, from_date, to_date)
 
         is_multi = columns is not None and len(columns) > 1
 
         if is_multi:
-            processed_data = self.data_loader.preprocess_data(stock_data, columns=columns, train=False)
+            processed_data = self.data_loader.preprocess_data(
+                stock_data, columns=columns, train=False
+            )
             real_seq = processed_data[-input_window:]
             zero_pad = np.zeros((future_steps, len(columns)))
             input_seq = np.vstack([real_seq, zero_pad])
@@ -553,10 +594,13 @@ class Inferencer:
             input_tensor = torch.FloatTensor(input_seq).unsqueeze(0).unsqueeze(-1).to(self.device)
 
         # Use the close scaler for inverse transform
-        close_scaler = self.data_loader.scalers.get("close", getattr(self.data_loader, "scaler", None))
+        close_scaler = self.data_loader.scalers.get(
+            "close", getattr(self.data_loader, "scaler", None)
+        )
         if close_scaler is None:
-            msg = "Scaler not found. Ensure train=True was called or Data loader initialized properly."
-            raise ValueError(msg)
+            raise ValueError(
+                "Scaler not found. Ensure train=True was called or Data loader initialized properly."
+            )
 
         if num_samples > 1:
             # --- Multiverse Mode (Stochastic) ---
@@ -584,7 +628,9 @@ class Inferencer:
             self.model.eval()  # Reset to full eval
 
             last_date = pd.to_datetime(stock_data.index[-1])
-            future_dates = pd.bdate_range(start=last_date + pd.Timedelta(days=1), periods=future_steps)
+            future_dates = pd.bdate_range(
+                start=last_date + pd.Timedelta(days=1), periods=future_steps
+            )
 
             mean_df = pd.DataFrame({"Date": future_dates, "Predicted_Close": mean_pred})
             upper_df = pd.DataFrame({"Date": future_dates, "Predicted_Close": upper_pred})
@@ -594,30 +640,37 @@ class Inferencer:
                 return mean_df, upper_df, lower_df, all_preds
             return mean_df, upper_df, lower_df
 
-        # --- Standard Deterministic Mode ---
-        self.model.eval()
-        with torch.no_grad():
-            output = self.model(input_tensor)
-            predictions = output[0, -future_steps:, 0].cpu().numpy().reshape(-1, 1)
+        else:
+            # --- Standard Deterministic Mode ---
+            self.model.eval()
+            with torch.no_grad():
+                output = self.model(input_tensor)
+                predictions = output[0, -future_steps:, 0].cpu().numpy().reshape(-1, 1)
 
-        predictions_rescaled = close_scaler.inverse_transform(predictions)
-        last_date = pd.to_datetime(stock_data.index[-1])
-        future_dates = pd.bdate_range(start=last_date + pd.Timedelta(days=1), periods=future_steps)
-        predictions_df = pd.DataFrame({"Date": future_dates, "Predicted_Close": predictions_rescaled.flatten()})
+            predictions_rescaled = close_scaler.inverse_transform(predictions)
+            last_date = pd.to_datetime(stock_data.index[-1])
+            future_dates = pd.bdate_range(
+                start=last_date + pd.Timedelta(days=1), periods=future_steps
+            )
+            predictions_df = pd.DataFrame(
+                {"Date": future_dates, "Predicted_Close": predictions_rescaled.flatten()}
+            )
 
-        if return_confidence:
-            pred_flat = predictions_rescaled.flatten()
-            if len(pred_flat) > 1:
-                daily_returns = np.diff(pred_flat) / (np.abs(pred_flat[:-1]) + 1e-9)
-                cv = np.std(daily_returns) / (np.mean(np.abs(daily_returns)) + 1e-9)
-                confidence_score = float(np.clip(100 * (1 / (1 + cv)), 0, 100))
-            else:
-                confidence_score = 50.0
-            return predictions_df, round(confidence_score, 1)
+            if return_confidence:
+                pred_flat = predictions_rescaled.flatten()
+                if len(pred_flat) > 1:
+                    daily_returns = np.diff(pred_flat) / (np.abs(pred_flat[:-1]) + 1e-9)
+                    cv = np.std(daily_returns) / (np.mean(np.abs(daily_returns)) + 1e-9)
+                    confidence_score = float(np.clip(100 * (1 / (1 + cv)), 0, 100))
+                else:
+                    confidence_score = 50.0
+                return predictions_df, round(confidence_score, 1)
 
-        return predictions_df
+            return predictions_df
 
-    def stochastic_backtest(self, symbol, start_date, end_date, window=30, horizon=10, num_samples=64, columns=None):
+    def stochastic_backtest(
+        self, symbol, start_date, end_date, window=30, horizon=10, num_samples=64, columns=None
+    ):
         """
         Runs MC Dropout simulations across a historical window to analyze
         how the model's uncertainty evolved over time.
@@ -686,7 +739,7 @@ class Inferencer:
         kelly = (p * b - (1 - p)) / b if b > 0 else 0
 
         # Probability of Profit (above target or current)
-        threshold = target_price or current_price
+        threshold = target_price if target_price else current_price
         pop = (final_prices > threshold).sum() / len(final_prices)
 
         return {
@@ -733,13 +786,13 @@ class Inferencer:
 
 __all__ = [
     "DataLoader",
-    "Inferencer",
     "PositionalEncoding",
-    "Trainer",
     "TransAm",
-    "plot_predictions",
-    "plot_results",
+    "Trainer",
+    "Inferencer",
     "set_seed",
+    "plot_results",
+    "plot_predictions",
 ]
 
 __version__ = "0.2.3"
