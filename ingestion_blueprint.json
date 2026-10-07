@@ -1,5 +1,5 @@
 {
-  "current_index": 173,
+  "current_index": 174,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1389,9 +1389,9 @@
       "name": "nsedownload",
       "target": "jinit24/nsedownload",
       "url": "https://github.com/jinit24/nsedownload",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3115",
+      "merged": true
     },
     {
       "name": "optionstratlib",
