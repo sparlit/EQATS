@@ -139,7 +139,7 @@ Total Repositories: 424 | Current Index: 137
 | 134 | gadiyar/nsebhavcopy | Processed | https://github.com/sparlit/EQATS/pull/3075 |
 | 135 | ganeshbiyer/nse_historical_data | Processed | https://github.com/sparlit/EQATS/pull/3076 |
 | 136 | georgiag7652/kronos-india | Processed | https://github.com/sparlit/EQATS/pull/3077 |
-| 137 | get10101/10101 | Processed | None |
+| 137 | get10101/10101 | Processed | https://github.com/sparlit/EQATS/pull/3078 |
 | 138 | ghostjat/shoonya-php | pending | None |
 | 139 | girishg4t/bhavcopy-downloader | pending | None |
 | 140 | girishg4t/nse-bse-bhavcopy | pending | None |
