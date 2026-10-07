@@ -1,5 +1,5 @@
 {
-  "current_index": 141,
+  "current_index": 142,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1133,7 +1133,7 @@
       "name": "nsebank_hft",
       "target": "gomitechnology-source/nsebank_hft",
       "url": "https://github.com/gomitechnology-source/nsebank_hft",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },

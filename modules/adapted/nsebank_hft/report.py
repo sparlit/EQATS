@@ -45,16 +45,11 @@ Report sections
 
 
 import base64
-import json
 import logging
-import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional
 
+import pandas as pd
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +113,7 @@ def generate_report(
             charts_b64[chart_names[i]] = ""
 
     # ── Prepare template context ─────────────────────────────────────────────
-    primary_model = next(iter(all_metrics.keys()))
+    primary_model = list(all_metrics.keys())[0]
     primary = all_metrics[primary_model]
 
     def fmt_pct(v: float, decimals: int = 2) -> str:

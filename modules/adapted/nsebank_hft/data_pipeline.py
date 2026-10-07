@@ -40,9 +40,7 @@ Pipeline steps
 
 
 import logging
-import os
 from pathlib import Path
-from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -137,8 +135,7 @@ def _fetch_data(ticker: str, period: str, local_csv: str) -> pd.DataFrame:
     try:
         df = yf.download(ticker, period=period, auto_adjust=True, progress=False)
         if df is None or df.empty:
-            msg = "yfinance returned empty DataFrame"
-            raise ValueError(msg)
+            raise ValueError("yfinance returned empty DataFrame")
         # Flatten MultiIndex columns if present
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
@@ -155,8 +152,7 @@ def _fetch_data(ticker: str, period: str, local_csv: str) -> pd.DataFrame:
                 "Only %d rows fetched — falling back to local CSV for supplemental data.",
                 len(df),
             )
-            msg = "Insufficient history from API"
-            raise ValueError(msg)
+            raise ValueError("Insufficient history from API")
         return df[["Open", "High", "Low", "Close", "Volume"]].copy()
 
     except Exception as exc:
@@ -185,8 +181,7 @@ def _load_local_csv(path: str) -> pd.DataFrame:
     """
     csv_path = Path(path)
     if not csv_path.exists():
-        msg = f"Local CSV not found: {csv_path}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Local CSV not found: {csv_path}")
 
     df = pd.read_csv(csv_path, thousands=",")
     df.columns = df.columns.str.strip()
@@ -226,7 +221,9 @@ def _load_local_csv(path: str) -> pd.DataFrame:
 
     needed = [c for c in ["Open", "High", "Low", "Close", "Volume"] if c in df.columns]
     df = df[needed].copy()
-    logger.info("Local CSV loaded: %d rows  (%s → %s)", len(df), df.index[0].date(), df.index[-1].date())
+    logger.info(
+        "Local CSV loaded: %d rows  (%s → %s)", len(df), df.index[0].date(), df.index[-1].date()
+    )
     return df
 
 
@@ -365,7 +362,8 @@ def _compute_features(df: pd.DataFrame) -> pd.DataFrame:
     out["rolling_vol_60"] = out["log_return"].rolling(60).std() * np.sqrt(TRADING_DAYS_PER_YEAR)
     out["rolling_vol_90"] = out["log_return"].rolling(90).std() * np.sqrt(TRADING_DAYS_PER_YEAR)
     out["cum_return"] = (1 + out["log_return"]).cumprod() - 1
-    return out.dropna(subset=["log_return"])
+    out = out.dropna(subset=["log_return"])
+    return out
 
 
 def _extract_gbm_params(df: pd.DataFrame, cfg: dict) -> dict[str, float]:
@@ -427,11 +425,20 @@ def _log_gbm_params(params: dict[str, float]) -> None:
     logger.info("  S0 (latest close)  : %.2f", params["S0"])
     logger.info("  Mean daily return  : %.6f", params["mean_daily_return"])
     logger.info("  Daily volatility σ : %.6f", params["sigma_daily"])
-    logger.info("  Annual drift  μ    : %.4f  (%.2f%%/yr)", params["mu_annual"], params["mu_annual"] * 100)
-    logger.info("  Annual vol    σ    : %.4f  (%.2f%%/yr)", params["sigma_annual"], params["sigma_annual"] * 100)
+    logger.info(
+        "  Annual drift  μ    : %.4f  (%.2f%%/yr)", params["mu_annual"], params["mu_annual"] * 100
+    )
+    logger.info(
+        "  Annual vol    σ    : %.4f  (%.2f%%/yr)",
+        params["sigma_annual"],
+        params["sigma_annual"] * 100,
+    )
     logger.info("  Time step Δt       : %.6f  (1/252 trading year)", params["dt"])
     logger.info(
-        "  Horizons (days)    : 1m=%d  3m=%d  1y=%d", params["n_steps_1m"], params["n_steps_3m"], params["n_steps_1y"]
+        "  Horizons (days)    : 1m=%d  3m=%d  1y=%d",
+        params["n_steps_1m"],
+        params["n_steps_3m"],
+        params["n_steps_1y"],
     )
     logger.info("  Simulated paths N  : %d", params["n_paths"])
     logger.info("  Historical skewness: %.4f", params["skewness"])
