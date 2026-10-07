@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 424 | Current Index: 183
+Total Repositories: 424 | Current Index: 184
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -186,7 +186,7 @@ Total Repositories: 424 | Current Index: 183
 | 181 | kalyanm45/marketinsight | Completed | https://github.com/sparlit/EQATS/pull/3122 |
 | 182 | kalyanroyinfo/stock-research-assistant | Completed | https://github.com/sparlit/EQATS/pull/3123 |
 | 183 | karthik002002/stoklore | Completed | https://github.com/sparlit/EQATS/pull/3124 |
-| 184 | kbizme/nsemine | pending | None |
+| 184 | kbizme/nsemine | Completed | None |
 | 185 | kenmwaura1/nse-stock-scraper | pending | None |
 | 186 | khakhasshi/optionworkstation | pending | None |
 | 187 | kishanlalchoudhary/nse-option-chain | pending | None |

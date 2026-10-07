@@ -32,7 +32,7 @@ from nsemine.utilities import urls
 
 
 def get_daily_bhavcopy_and_deliverables_data(
-    series: str | None = None, trade_date: date | None = None, raw: bool = False
+    series: str = None, trade_date: date = None, raw: bool = False
 ) -> pd.DataFrame | None:
     """
     Fetches the daily Capital Market (CM) Bhavcopy data from the NSE, including price, volume, and delivery statistics.
@@ -76,7 +76,7 @@ def get_daily_bhavcopy_and_deliverables_data(
         # otherwise
 
         df.columns = df.columns.str.strip()
-        df = df.rename(
+        df.rename(
             columns={
                 "DATE1": "date",
                 "SYMBOL": "symbol",
@@ -91,7 +91,8 @@ def get_daily_bhavcopy_and_deliverables_data(
                 "TURNOVER_LACS": "turnover",
                 "DELIV_QTY": "delivery_volume",
                 "DELIV_PER": "delivery_pct",
-            }
+            },
+            inplace=True,
         )
         df = df[
             [
@@ -113,7 +114,9 @@ def get_daily_bhavcopy_and_deliverables_data(
         if series:
             df = df[df["series"].str.strip() == series].reset_index(drop=True)
         # datatype conversion
-        df[["delivery_volume", "delivery_pct"]] = df[["delivery_volume", "delivery_pct"]].astype(float, errors="ignore")
+        df[["delivery_volume", "delivery_pct"]] = df[["delivery_volume", "delivery_pct"]].astype(
+            float, errors="ignore"
+        )
         df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date
         df["turnover"] = df["turnover"] * 100000  # converting back into absolute value
         return df

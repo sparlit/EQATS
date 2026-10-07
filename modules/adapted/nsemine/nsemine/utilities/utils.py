@@ -23,7 +23,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import traceback
 from datetime import datetime, timedelta
-from datetime import time as time_obj
 
 import numpy as np
 import pandas as pd
@@ -61,8 +60,12 @@ def process_stock_quote_data(quote_data: dict) -> dict:
         _sec_info = quote_data.get("secInfo")
         if _sec_info:
             try:
-                date_of_listing = datetime.strptime(_sec_info.get("listingDate"), "%d-%b-%Y %H:%M:%S").date()
-                last_updated = datetime.strptime(quote_data.get("lastUpdateTime"), "%d-%b-%Y %H:%M:%S") or None
+                date_of_listing = datetime.strptime(
+                    _sec_info.get("listingDate"), "%d-%b-%Y %H:%M:%S"
+                ).date()
+                last_updated = (
+                    datetime.strptime(quote_data.get("lastUpdateTime"), "%d-%b-%Y %H:%M:%S") or None
+                )
                 sector = _sec_info.get("sector")
                 industry = _sec_info.get("industryInfo")
                 processed_data["date_of_listing"] = date_of_listing
@@ -90,6 +93,12 @@ def process_stock_quote_data(quote_data: dict) -> dict:
             volume = _trade_info.get("totalTradedVolume") or _trade_info.get("quantitytraded")
             processed_data["volume"] = volume
 
+        # close price fallback during market hours
+        if not processed_data.get("close"):
+            processed_data["close"] = processed_data.get("previous_close", 0) + processed_data.get(
+                "change", 0
+            )
+
         return processed_data
     except Exception:
         return quote_data
@@ -101,8 +110,7 @@ def convert_ticks_to_ohlc(data: pd.DataFrame, interval: int, require_validation:
             try:
                 df = pd.DataFrame(data)
             except Exception:
-                msg = "Invalid Input Data"
-                raise ValueError(msg)
+                raise ValueError("Invalid Input Data")
         if not isinstance(interval, int):
             try:
                 interval = int(interval)
@@ -126,7 +134,8 @@ def convert_ticks_to_ohlc(data: pd.DataFrame, interval: int, require_validation:
             .agg(["first", "max", "min", "last"])
             .rename(columns={"first": "open", "max": "high", "min": "low", "last": "close"})
         )
-        return df.reset_index()
+        df.reset_index(inplace=True)
+        return df
     except Exception as e:
         print(f"ERROR! - {e}\n")
         traceback.print_exc()
@@ -148,8 +157,9 @@ def process_aud(df: pd.DataFrame) -> pd.DataFrame:
                 "totalMarketCap",
             ]
         ].copy()
-        df = df.rename(
+        df.rename(
             axis=1,
+            inplace=True,
             mapper={
                 "lastPrice": "close",
                 "previousClose": "previous_close",
@@ -169,7 +179,9 @@ def process_aud(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
 
-def remove_pre_and_post_market_prices_from_df(df: pd.DataFrame, unit: str = "ms", interval: int = 3) -> pd.DataFrame:
+def remove_pre_and_post_market_prices_from_df(
+    df: pd.DataFrame, unit: str = "ms", interval: int = 3
+) -> pd.DataFrame:
     try:
         if not isinstance(df, pd.DataFrame):
             return df
@@ -184,7 +196,7 @@ def remove_pre_and_post_market_prices_from_df(df: pd.DataFrame, unit: str = "ms"
         return filtered_df.drop(columns=["time", "temp_datetime"], axis=0)
     except Exception as e:
         print(f"Error occurred while removing pre and post market prices: {e}")
-        raise
+        raise e
 
 
 def process_historical_chart_response(
@@ -193,7 +205,7 @@ def process_historical_chart_response(
     try:
         df = df[["time", "open", "high", "low", "close", "volume"]].copy()
 
-        df = df.rename(columns={"time": "datetime"})
+        df.rename(columns={"time": "datetime"}, inplace=True)
 
         if interval in ("D", "W", "M"):
             df["datetime"] = pd.to_datetime(df["datetime"], unit="ms")
@@ -241,7 +253,7 @@ def process_movers_data(data):
                 "turnover",
             ]
         ]
-        df = df.rename(
+        df.rename(
             columns={
                 "open_price": "open",
                 "high_price": "high",
@@ -250,9 +262,135 @@ def process_movers_data(data):
                 "prev_price": "previous_close",
                 "perChange": "changepct",
                 "trade_quantity": "volume",
-            }
+            },
+            inplace=True,
         )
         df["turnover"] = round(df["turnover"] * 1_00_000, 2)
         return df
     except:
         return data
+
+
+def process_option_chain_response(raw_data: dict) -> pd.DataFrame:
+    """
+    Parses and flattens NSE option chain v3 raw response into a proper Pandas DataFrame.
+    """
+    if not raw_data or "records" not in raw_data or "data" not in raw_data["records"]:
+        return pd.DataFrame()
+
+    records_data = raw_data["records"].get("data", [])
+    rows = []
+
+    for item in records_data:
+        strike_price = item.get("strikePrice")
+        expiry_date = item.get("expiryDates")
+
+        ce_data = item.get("CE") or {}
+        pe_data = item.get("PE") or {}
+
+        spot_price = float(ce_data.get("underlyingValue") or pe_data.get("underlyingValue") or 0.0)
+
+        def extract_option_data(opt_dict: dict, prefix: str) -> dict:
+            return {
+                f"{prefix}_oi": int(opt_dict.get("openInterest") or 0),
+                f"{prefix}_oi_change": int(opt_dict.get("changeinOpenInterest") or 0),
+                f"{prefix}_oi_changepct": float(opt_dict.get("pchangeinOpenInterest") or 0.0),
+                f"{prefix}_volume": int(opt_dict.get("totalTradedVolume") or 0),
+                f"{prefix}_iv": float(opt_dict.get("impliedVolatility") or 0.0),
+                f"{prefix}_ltp": float(opt_dict.get("lastPrice") or 0.0),
+                f"{prefix}_change": float(opt_dict.get("change") or 0.0),
+                f"{prefix}_changepct": float(opt_dict.get("pChange") or 0.0),
+                f"{prefix}_top_bid_price": float(opt_dict.get("buyPrice1") or 0.0),
+                f"{prefix}_top_bid_qty": int(opt_dict.get("buyQuantity1") or 0),
+                f"{prefix}_top_ask_price": float(opt_dict.get("sellPrice1") or 0.0),
+                f"{prefix}_top_ask_qty": int(opt_dict.get("sellQuantity1") or 0),
+                f"{prefix}_total_bid_qty": int(opt_dict.get("totalBuyQuantity") or 0),
+                f"{prefix}_total_ask_qty": int(opt_dict.get("totalSellQuantity") or 0),
+                f"{prefix}_symbol": opt_dict.get("identifier"),
+            }
+
+        row = {
+            "expiry_date": expiry_date,
+            "spot_price": spot_price,
+            "strike_price": strike_price,
+        }
+        row.update(extract_option_data(ce_data, "ce"))
+        row.update(extract_option_data(pe_data, "pe"))
+
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+
+    if df.empty:
+        return df
+
+    int_cols = [
+        col for col in df.columns if any(keyword in col for keyword in ["_oi", "_volume", "_qty"])
+    ]
+    df[int_cols] = df[int_cols].astype("int64")
+
+    # vectorized rounding of all float columns to 2 decimal places
+    float_cols = df.select_dtypes(include=["float64", "float32"]).columns
+    df[float_cols] = df[float_cols].round(2)
+
+    return df
+
+
+def process_index_constituents_data(data: dict, stats: bool = False) -> pd.DataFrame:
+    """
+    Processes NSE index constituents API response dictionary into a cleaned pandas DataFrame.
+    """
+    if not isinstance(data, dict):
+        raise TypeError(f"Expected input type 'dict', got '{type(data).__name__}' instead.")
+
+    payload = data.get("data")
+    if not isinstance(payload, dict):
+        raise ValueError(
+            "Invalid payload structure: Root key 'data' is missing or not a dictionary."
+        )
+
+    records = payload.get("data")
+    if not isinstance(records, list) or not records:
+        raise ValueError("No valid constituents list found under 'data.data'.")
+
+    df = pd.DataFrame(records)
+    if "priority" not in df.columns:
+        raise KeyError("Required filtering column 'priority' is missing from data records.")
+
+    df = df[df["priority"] == 0].copy()
+    if df.empty:
+        raise ValueError("No records remaining after filtering for priority == 0.")
+
+    # column mapping
+    mapping = {
+        "lastUpdateTime": "datetime",
+        "symbol": "symbol",
+        "companyName": "name",
+        "open": "open",
+        "dayHigh": "high",
+        "dayLow": "low",
+        "lastPrice": "close",
+        "previousClose": "previous_close",
+        "change": "change",
+        "pChange": "changepct",
+        "totalTradedVolume": "volume",
+        "totalTradedValue": "turnover",
+        "yearHigh": "year_high",
+        "yearLow": "year_low",
+        "perChange365d": "changepct_year",
+        "perChange30d": "changepct_month",
+    }
+
+    missing_cols = [col for col in mapping if col not in df.columns]
+    if missing_cols:
+        raise KeyError(f"Missing expected columns in API response: {missing_cols}")
+
+    df = df[list(mapping.keys())].rename(columns=mapping)
+
+    df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
+    df["name"] = df["name"].astype(str).str.title()
+
+    if stats:
+        return df, payload.get("aduCount", {})
+
+    return df

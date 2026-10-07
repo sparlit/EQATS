@@ -22,92 +22,166 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import json
-import os
+import logging
 import sqlite3
-from datetime import datetime, timedelta
+import threading
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+LOGGER = logging.getLogger(__name__)
+DB_PATH = Path(__file__).resolve().parent / "nsedb.db"
+SESSION_ID = "almighty"
+DEFAULT_MAX_AGE_MINUTES = 60
+_DB_LOCK = threading.Lock()
 
-def initialize_database():
+
+def _secure_db_file() -> None:
+    """Best-effort restriction of the local session database to the owner."""
     try:
-        db_path = Path(__file__).resolve().parent
-        conn = sqlite3.connect(database=os.path.join(db_path, "nsedb.db"))
-        cur = conn.cursor()
-        cur.execute("""
-                    CREATE TABLE IF NOT EXISTS credentials (
-                        id TEXT,
-                        session_token TEXT,
-                        updated_on TEXT
-                        );
-                    """)
-        conn.commit()
-        conn.close()
-    except (sqlite3.OperationalError, Exception):
-        conn.close()
-    finally:
-        if conn:
-            conn.close()
+        if DB_PATH.exists():
+            DB_PATH.chmod(0o600)
+    except OSError:
+        # chmod is not portable to every environment; database functionality
+        # should not fail solely because the platform does not support it.
+        pass
 
 
 def get_db_connection():
     try:
-        db_path = Path(__file__).resolve().parent
-        conn = sqlite3.connect(os.path.join(db_path, "nsedb.db"))
-        return conn, conn.cursor()
-    except Exception:
-        conn.close()
-        return None
-
-
-def set_session_token(session_token):
-    if not isinstance(session_token, dict):
-        return
-    nsit = session_token.get("nsit")
-    nseappid = session_token.get("nseappid")
-    if not nsit and not nseappid:
-        return
-    data = json.dumps({"nsit": nsit, "nseappid": nseappid})
-    try:
-        conn, cursor = get_db_connection()
-        cursor.execute("SELECT * FROM credentials WHERE id=?", ("almighty",))
-        existing_row = cursor.fetchone()
-        if existing_row:
-            cursor.execute(
-                "UPDATE credentials SET session_token=?, updated_on=? WHERE id=?",
-                (data, str(datetime.now()), "almighty"),
-            )
-        else:
-            cursor.execute(
-                "INSERT INTO credentials (id, session_token, updated_on) VALUES (?, ?, ?)",
-                ("almighty", data, str(datetime.now())),
-            )
-        conn.commit()
+        conn = sqlite3.connect(DB_PATH, timeout=10.0)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        conn.execute("PRAGMA busy_timeout=10000;")
+        _secure_db_file()
+        return conn
     except Exception as e:
-        print(e)
-        conn.close()
-    finally:
-        if conn:
-            conn.close()
+        LOGGER.warning("NSE session database connection failure: %s", e)
+        return None
 
 
-def get_session_token():
+def initialize_database():
+    conn = get_db_connection()
+    if not conn:
+        return
+
     try:
-        conn, cursor = get_db_connection()
-        cursor.execute("SELECT * FROM credentials WHERE id=?", ("almighty",))
-        data = cursor.fetchone()
-        if data:
-            offset = datetime.now() - datetime.strptime(data[2], "%Y-%m-%d %H:%M:%S.%f")
-            if offset < timedelta(hours=1, minutes=30):
-                conn.close()
-                return json.loads(data[1])
-        if conn:
-            conn.close()
-        return None
-    except Exception:
-        if conn:
-            conn.close()
-        return None
+        with conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS credentials (
+                    id TEXT PRIMARY KEY,
+                    session_token TEXT NOT NULL,
+                    updated_on TEXT NOT NULL
+                );
+                """
+            )
+    except Exception as e:
+        LOGGER.warning("NSE session database initialization failure: %s", e)
+    finally:
+        conn.close()
+        _secure_db_file()
 
 
-# database initialization
+def set_session_token(session_token: dict):
+    """Persist the current cookie values used to bootstrap a fresh session."""
+    if not isinstance(session_token, dict) or not session_token:
+        return
+
+    try:
+        data = json.dumps(session_token, separators=(",", ":"), sort_keys=True)
+    except (TypeError, ValueError) as e:
+        LOGGER.warning("Could not serialize NSE session state: %s", e)
+        return
+
+    now_str = datetime.now(UTC).isoformat()
+    conn = get_db_connection()
+    if not conn:
+        return
+
+    with _DB_LOCK:
+        try:
+            with conn:
+                conn.execute(
+                    """
+                    INSERT INTO credentials (id, session_token, updated_on)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        session_token = excluded.session_token,
+                        updated_on = excluded.updated_on;
+                    """,
+                    (SESSION_ID, data, now_str),
+                )
+        except Exception as e:
+            LOGGER.warning("NSE session database write failure: %s", e)
+        finally:
+            conn.close()
+
+
+def clear_session_token() -> None:
+    """Delete the cached session so the next request must bootstrap a new one."""
+    conn = get_db_connection()
+    if not conn:
+        return
+
+    with _DB_LOCK:
+        try:
+            with conn:
+                conn.execute("DELETE FROM credentials WHERE id = ?", (SESSION_ID,))
+        except Exception as e:
+            LOGGER.warning("NSE session database cleanup failure: %s", e)
+        finally:
+            conn.close()
+
+
+def _is_fresh(updated_str: str, max_age: timedelta) -> bool:
+    try:
+        updated_time = datetime.fromisoformat(updated_str)
+    except (TypeError, ValueError):
+        return False
+
+    # Older nsemine versions wrote naive local timestamps. Preserve compatibility
+    # with those rows while using UTC-aware timestamps for new rows.
+    if updated_time.tzinfo is None:
+        return datetime.now() - updated_time < max_age
+
+    now_utc = datetime.now(UTC)
+    return now_utc - updated_time.astimezone(UTC) < max_age
+
+
+def get_session_token(max_age_minutes: int = DEFAULT_MAX_AGE_MINUTES) -> dict | None:
+    """Return cached session cookies when they are still reasonably fresh."""
+    if max_age_minutes <= 0:
+        return None
+
+    conn = get_db_connection()
+    if not conn:
+        return None
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT session_token, updated_on FROM credentials WHERE id = ?",
+            (SESSION_ID,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+
+        session_json, updated_str = row
+        if not _is_fresh(updated_str, timedelta(minutes=max_age_minutes)):
+            return None
+
+        payload = json.loads(session_json)
+        return payload if isinstance(payload, dict) and payload else None
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        LOGGER.warning("Invalid cached NSE session state: %s", e)
+        return None
+    except Exception as e:
+        LOGGER.warning("NSE session database read failure: %s", e)
+        return None
+    finally:
+        conn.close()
+
+
 initialize_database()
+_secure_db_file()
