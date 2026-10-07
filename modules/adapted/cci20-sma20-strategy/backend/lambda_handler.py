@@ -26,7 +26,7 @@ AWS Lambda entry point — FastAPI via Mangum.
 
 API Gateway HTTP API → Lambda → Mangum → FastAPI → PostgreSQL (Neon).
 """
-from api import app
+from api import app  # noqa: F401
 from mangum import Mangum
 
 handler = Mangum(app, lifespan="off", api_gateway_base_path=None)
