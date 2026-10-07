@@ -77,11 +77,10 @@ def fetch_series(symbol, attempts=3):
             name = result["meta"].get("longName") or result["meta"].get("shortName")
             currency = result["meta"].get("currency")
             return series, name, currency
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - network flakiness of every kind
             last_err = exc
             time.sleep(1.5 * (i + 1))
-    msg = f"{symbol}: {last_err}"
-    raise RuntimeError(msg)
+    raise RuntimeError(f"{symbol}: {last_err}")
 
 
 def resolve(root):
@@ -137,7 +136,7 @@ def returns_for(series):
     days_in_week = [d for d, _ in series if week_key(d) == cur_key]
 
     closes = [c for _, c in series]
-    return {
+    out = {
         "last": cur_close,
         "week": pct(cur_close, prev_close),
         "week_start": days_in_week[0].isoformat(),
@@ -150,6 +149,7 @@ def returns_for(series):
         "high_52w": max(closes),
         "from_high": pct(cur_close, max(closes)),
     }
+    return out
 
 
 def build():
@@ -182,8 +182,7 @@ def build():
         metrics[root] = m
 
     if not metrics:
-        msg = "no usable price data - aborting, keeping previous data.json"
-        raise SystemExit(msg)
+        raise SystemExit("no usable price data - aborting, keeping previous data.json")
 
     # The screener's week is the one most stocks share.
     spans = {}
@@ -212,8 +211,12 @@ def build():
                 "sector": sector,
                 "week": statistics.median(wk),
                 "mean": statistics.fmean(wk),
-                "month": statistics.median([r["month"] for r in rows if r["month"] is not None] or [0]),
-                "quarter": statistics.median([r["quarter"] for r in rows if r["quarter"] is not None] or [0]),
+                "month": statistics.median(
+                    [r["month"] for r in rows if r["month"] is not None] or [0]
+                ),
+                "quarter": statistics.median(
+                    [r["quarter"] for r in rows if r["quarter"] is not None] or [0]
+                ),
                 "count": len(rows),
                 "advancers": up,
                 "decliners": len(rows) - up,
@@ -269,11 +272,17 @@ def build():
         "benchmarks": benchmarks,
         "sectors": sectors,
         "gainers": [
-            {k: m[k] for k in ("root", "name", "symbol", "exchange", "last", "week", "month", "quarter")}
+            {
+                k: m[k]
+                for k in ("root", "name", "symbol", "exchange", "last", "week", "month", "quarter")
+            }
             for m in universe[:15]
         ],
         "losers": [
-            {k: m[k] for k in ("root", "name", "symbol", "exchange", "last", "week", "month", "quarter")}
+            {
+                k: m[k]
+                for k in ("root", "name", "symbol", "exchange", "last", "week", "month", "quarter")
+            }
             for m in universe[-15:][::-1]
         ],
         "sector_of": {r["root"]: s["sector"] for s in sectors for r in s["stocks"]},
@@ -283,7 +292,10 @@ def build():
     # Windows (cp1252), which cannot represent the rupee sign or the arrows.
     with open(OUT, "w", encoding="utf-8") as fh:
         json.dump(data, fh, indent=1)
-    print(f"wrote {OUT}: week {week_start} -> {week_end}, {len(sectors)} sectors, {len(metrics)} stocks")
+    print(
+        f"wrote {OUT}: week {week_start} -> {week_end}, "
+        f"{len(sectors)} sectors, {len(metrics)} stocks"
+    )
     return data
 
 
