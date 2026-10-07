@@ -1638,8 +1638,8 @@
       "target": "maanavshah/stock-market-india",
       "url": "https://github.com/maanavshah/stock-market-india",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3147",
+      "merged": true
     },
     {
       "name": "financial-data",
