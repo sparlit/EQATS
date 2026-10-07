@@ -1550,8 +1550,8 @@
       "target": "kwoshvick/nse-stock-price-crawler",
       "url": "https://github.com/kwoshvick/nse-stock-price-crawler",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3136",
+      "merged": true
     },
     {
       "name": "nse-stock-price-prediction",
