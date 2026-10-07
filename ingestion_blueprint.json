@@ -1,5 +1,5 @@
 {
-  "current_index": 172,
+  "current_index": 173,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1381,9 +1381,9 @@
       "name": "midas",
       "target": "jerryshell/midas",
       "url": "https://github.com/jerryshell/midas",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3114",
+      "merged": true
     },
     {
       "name": "nsedownload",
