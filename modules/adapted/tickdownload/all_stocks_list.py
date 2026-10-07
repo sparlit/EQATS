@@ -49,7 +49,11 @@ from datetime import datetime as dt
 
 from tickerplot.bse.bse_utils import bse_get_all_stocks_list
 from tickerplot.nse.nse_utils import nse_get_all_stocks_list
-from tickerplot.sql.sqlalchemy_wrapper import create_or_get_all_scrips_table, execute_many_insert, get_metadata
+from tickerplot.sql.sqlalchemy_wrapper import (
+    create_or_get_all_scrips_table,
+    execute_many_insert,
+    get_metadata,
+)
 from tickerplot.utils.logger import get_logger
 
 module_logger = get_logger(os.path.basename(__file__))

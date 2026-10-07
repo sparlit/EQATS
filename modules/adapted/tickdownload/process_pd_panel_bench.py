@@ -41,7 +41,8 @@ from tickerplot.sql.sqlalchemy_wrapper import get_metadata
 
 
 def panel_bench_lc(panel):
-    return [panel[x]["close"][-1] > panel[x]["close"][-2] for x in panel]
+    sels = [panel[x]["close"][-1] > panel[x]["close"][-2] for x in panel]
+    return sels
 
 
 def panel_bench_vector(panel):
@@ -62,9 +63,8 @@ class ProcessPandasPanelBench:
         self.metadata = get_metadata(self.db_path)
 
     def set_method(self, method_name="cProfile"):
-        if method_name != "cprofile":
-            msg = "Method name should be 'cProfile'"
-            raise ValueError(msg)
+        if method_name not in ("cprofile",):
+            raise ValueError("Method name should be 'cProfile'")
         self.method_name = method_name
 
     def run_bench_cprofile(self, panel):
@@ -110,7 +110,9 @@ class ProcessPandasPanelBench:
     def run_bench(self):
 
         # setup - common
-        scripdata_dict = get_hist_data_as_dataframes_dict(metadata=self.metadata, limit=self.limit_rows)
+        scripdata_dict = get_hist_data_as_dataframes_dict(
+            metadata=self.metadata, limit=self.limit_rows
+        )
         panel = pd.Panel(scripdata_dict)
 
         print(panel)
@@ -124,6 +126,8 @@ if __name__ == "__main__":
     print("*" * 80)
     limit = 20
     while limit <= 4000:
-        bench2 = ProcessPandasPanelBench(db_path="sqlite:///nse_hist_data.sqlite3", limit_rows=limit)
+        bench2 = ProcessPandasPanelBench(
+            db_path="sqlite:///nse_hist_data.sqlite3", limit_rows=limit
+        )
         bench2.run_bench()
         limit *= 2

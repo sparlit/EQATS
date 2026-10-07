@@ -50,7 +50,9 @@ def get_data_for_security(script_code, sdate, edate=None):
 def _do_get_data_for_security(script_code, sdate, edate):
     sdate = dt.strftime(sdate, DATE_FORMAT)
     edate = dt.strftime(edate, DATE_FORMAT)
-    url = "http://www.bseindia.com/markets/equity/EQReports/StockPrcHistori.aspx?expandable=7&flag=0"
+    url = (
+        "http://www.bseindia.com/markets/equity/EQReports/StockPrcHistori.aspx?expandable=7&flag=0"
+    )
 
     module_logger.info("GET: %s", url)
     x = requests.get(url)
