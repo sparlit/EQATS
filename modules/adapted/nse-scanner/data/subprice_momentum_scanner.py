@@ -37,9 +37,8 @@ PORTFOLIO_FILE/LOG_FILE so the two don't overwrite each other.
 """
 
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
-import numpy as np
 import pandas as pd
 import requests
 
@@ -216,8 +215,9 @@ def fetch_yahoo_data(symbol, range_period="3mo", interval="1d"):
                 "volume": q["volume"],
             }
         )
-        df = df.dropna()
-        return df.set_index("date")
+        df.dropna(inplace=True)
+        df.set_index("date", inplace=True)
+        return df
     except Exception:
         return None
 
@@ -273,7 +273,9 @@ def load_portfolio():
     try:
         return pd.read_csv(PORTFOLIO_FILE)
     except FileNotFoundError:
-        return pd.DataFrame(columns=["symbol", "entry_date", "entry_price", "score_at_entry", "status"])
+        return pd.DataFrame(
+            columns=["symbol", "entry_date", "entry_price", "score_at_entry", "status"]
+        )
 
 
 def save_portfolio(df):
@@ -404,7 +406,10 @@ def run_scanner():
 
         print(f"\nNew portfolio ({len(new_rows)} stocks):")
         for _, row in new_portfolio.iterrows():
-            print(f"  BUY  {row['symbol']:15s} @ Rs{row['entry_price']:.2f} (score: {row['score_at_entry']:.1f})")
+            print(
+                f"  BUY  {row['symbol']:15s} @ Rs{row['entry_price']:.2f} "
+                f"(score: {row['score_at_entry']:.1f})"
+            )
     else:
         print(f"\nNo rebalance yet - {REBALANCE_DAYS - days_elapsed} days remaining.")
         active = portfolio_df[portfolio_df["status"] == "HOLD"]
@@ -419,7 +424,10 @@ def run_scanner():
                 )
                 if current_price is not None:
                     chg = (current_price - row["entry_price"]) / row["entry_price"] * 100
-                    print(f"  {sym:15s} Entry:{row['entry_price']:>7.2f} Now:{current_price:>7.2f} PnL:{chg:>+6.2f}%")
+                    print(
+                        f"  {sym:15s} Entry:{row['entry_price']:>7.2f} "
+                        f"Now:{current_price:>7.2f} PnL:{chg:>+6.2f}%"
+                    )
 
         # Log daily snapshot regardless of rebalance
         log_daily_snapshot(portfolio_df, universe_data)
