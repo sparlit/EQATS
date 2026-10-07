@@ -89,7 +89,9 @@ def calculate_market_breadth(backfill_days=1):
 
         all_dates = sorted(df["date"].unique())
         target_dates = set(all_dates[-backfill_days:])
-        print(f"Computing breadth for {len(target_dates)} date(s): {min(target_dates)} -> {max(target_dates)}")
+        print(
+            f"Computing breadth for {len(target_dates)} date(s): {min(target_dates)} -> {max(target_dates)}"
+        )
 
         per_stock_frames = []
         for _stock_id, g in df.groupby("stock_id"):
@@ -207,7 +209,10 @@ def calculate_market_breadth(backfill_days=1):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--backfill-days", type=int, default=1, help="Number of most recent trading dates to (re)compute"
+        "--backfill-days",
+        type=int,
+        default=1,
+        help="Number of most recent trading dates to (re)compute",
     )
     args = parser.parse_args()
     calculate_market_breadth(backfill_days=args.backfill_days)

@@ -52,7 +52,9 @@ HISTORY_START = "2018-01-01"
 
 
 def upsert_index(session, symbol, name) -> int:
-    row = session.execute(text("SELECT id FROM indices WHERE symbol = :s"), {"s": symbol}).fetchone()
+    row = session.execute(
+        text("SELECT id FROM indices WHERE symbol = :s"), {"s": symbol}
+    ).fetchone()
     if row:
         return row[0]
     row = session.execute(
@@ -196,7 +198,9 @@ def main():
             print(f"  Upserted {n} daily price rows")
             compute_performance(session, index_id)
             row = session.execute(
-                text("SELECT change_1w, change_1m, change_1y FROM index_performance WHERE index_id = :id"),
+                text(
+                    "SELECT change_1w, change_1m, change_1y FROM index_performance WHERE index_id = :id"
+                ),
                 {"id": index_id},
             ).fetchone()
             if row:

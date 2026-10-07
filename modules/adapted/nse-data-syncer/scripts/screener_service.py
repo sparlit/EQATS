@@ -27,17 +27,15 @@ Screener.in Data Collection Service
 Comprehensive web scraping service for Indian stock market data
 """
 
-import json
 import logging
 import re
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
 import requests
-from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -90,7 +88,9 @@ class ScreenerService:
             self.driver.get(self.login_url)
 
             # Wait for login form to load
-            WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.NAME, "username")))
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.NAME, "username"))
+            )
 
             # Fill login form
             username_field = self.driver.find_element(By.NAME, "username")
@@ -111,11 +111,12 @@ class ScreenerService:
                 self.is_logged_in = True
                 logger.info("✅ Successfully logged into Screener.in")
                 return True
-            logger.error("❌ Login failed - still on login page")
-            return False
+            else:
+                logger.error("❌ Login failed - still on login page")
+                return False
 
         except Exception as e:
-            logger.exception(f"❌ Login error: {e!s}")
+            logger.error(f"❌ Login error: {str(e)}")
             return False
 
     def get_stock_data(self, symbol: str) -> dict[str, Any]:
@@ -158,7 +159,7 @@ class ScreenerService:
             return stock_data
 
         except Exception as e:
-            logger.exception(f"❌ Error collecting data for {symbol}: {e!s}")
+            logger.error(f"❌ Error collecting data for {symbol}: {str(e)}")
             return {}
 
     def _extract_company_name(self) -> str:
@@ -191,7 +192,9 @@ class ScreenerService:
             info = {}
 
             # Market cap, current price, etc.
-            info_elements = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'company-info')]//div")
+            info_elements = self.driver.find_elements(
+                By.XPATH, "//div[contains(@class, 'company-info')]//div"
+            )
 
             for element in info_elements:
                 text = element.text.strip()
@@ -219,7 +222,7 @@ class ScreenerService:
             return info
 
         except Exception as e:
-            logger.exception(f"Error extracting basic info: {e!s}")
+            logger.error(f"Error extracting basic info: {str(e)}")
             return {}
 
     def _extract_quarterly_results(self) -> pd.DataFrame:
@@ -230,21 +233,27 @@ class ScreenerService:
 
             for table in tables:
                 table_text = table.text
-                if "Sales" in table_text and "Expenses" in table_text and "Operating Profit" in table_text:
+                if (
+                    "Sales" in table_text
+                    and "Expenses" in table_text
+                    and "Operating Profit" in table_text
+                ):
                     # Found quarterly results table
                     try:
                         df = pd.read_html(table.get_attribute("outerHTML"))[0]
-                        logger.debug(f"Found quarterly results table with {len(df)} rows and {len(df.columns)} columns")
+                        logger.debug(
+                            f"Found quarterly results table with {len(df)} rows and {len(df.columns)} columns"
+                        )
                         return df
                     except Exception as e:
-                        logger.debug(f"Error parsing quarterly results table: {e!s}")
+                        logger.debug(f"Error parsing quarterly results table: {str(e)}")
                         continue
 
             logger.debug("No quarterly results table found")
             return pd.DataFrame()
 
         except Exception as e:
-            logger.exception(f"Error extracting quarterly results: {e!s}")
+            logger.error(f"Error extracting quarterly results: {str(e)}")
             return pd.DataFrame()
 
     def _extract_profit_loss(self) -> pd.DataFrame:
@@ -278,14 +287,17 @@ class ScreenerService:
             return pd.DataFrame()
 
         except Exception as e:
-            logger.exception(f"Error extracting P&L: {e!s}")
+            logger.error(f"Error extracting P&L: {str(e)}")
             return pd.DataFrame()
 
     def _extract_balance_sheet(self) -> pd.DataFrame:
         """Extract balance sheet"""
         try:
             # Try to navigate to Balance Sheet section
-            bs_selectors = ["//a[contains(text(), 'Balance Sheet')]", "//a[contains(text(), 'Balance')]"]
+            bs_selectors = [
+                "//a[contains(text(), 'Balance Sheet')]",
+                "//a[contains(text(), 'Balance')]",
+            ]
 
             for selector in bs_selectors:
                 try:
@@ -308,7 +320,7 @@ class ScreenerService:
             return pd.DataFrame()
 
         except Exception as e:
-            logger.exception(f"Error extracting balance sheet: {e!s}")
+            logger.error(f"Error extracting balance sheet: {str(e)}")
             return pd.DataFrame()
 
     def _extract_cash_flow(self) -> pd.DataFrame:
@@ -328,7 +340,7 @@ class ScreenerService:
             return pd.DataFrame()
 
         except Exception as e:
-            logger.exception(f"Error extracting cash flow: {e!s}")
+            logger.error(f"Error extracting cash flow: {str(e)}")
             return pd.DataFrame()
 
     def _extract_ratios(self) -> dict[str, float]:
@@ -337,7 +349,9 @@ class ScreenerService:
             ratios = {}
 
             # Look for ratios section
-            ratio_elements = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'ratios')]//div")
+            ratio_elements = self.driver.find_elements(
+                By.XPATH, "//div[contains(@class, 'ratios')]//div"
+            )
 
             for element in ratio_elements:
                 text = element.text.strip()
@@ -351,7 +365,7 @@ class ScreenerService:
             return ratios
 
         except Exception as e:
-            logger.exception(f"Error extracting ratios: {e!s}")
+            logger.error(f"Error extracting ratios: {str(e)}")
             return {}
 
     def _extract_shareholding_pattern(self) -> pd.DataFrame:
@@ -372,7 +386,10 @@ class ScreenerService:
             for table in tables:
                 table_text = table.text
                 # Look for key shareholding pattern indicators
-                if any(keyword in table_text for keyword in ["Promoters", "FIIs", "DIIs", "Public", "Government"]):
+                if any(
+                    keyword in table_text
+                    for keyword in ["Promoters", "FIIs", "DIIs", "Public", "Government"]
+                ):
                     try:
                         df = pd.read_html(table.get_attribute("outerHTML"))[0]
                         logger.debug(
@@ -380,20 +397,25 @@ class ScreenerService:
                         )
 
                         # Validate that this looks like a shareholding pattern table
-                        if len(df.columns) >= 3 and any("Promoters" in str(col) for col in df.columns):
+                        if len(df.columns) >= 3 and any(
+                            "Promoters" in str(col) for col in df.columns
+                        ):
                             logger.info(
                                 f"✅ Found shareholding pattern table: {len(df)} rows, {len(df.columns)} columns"
                             )
                             return df
-                        logger.debug("Table found but doesn't look like shareholding pattern")
-                        continue
+                        else:
+                            logger.debug("Table found but doesn't look like shareholding pattern")
+                            continue
 
                     except Exception as e:
-                        logger.debug(f"Error parsing shareholding pattern table: {e!s}")
+                        logger.debug(f"Error parsing shareholding pattern table: {str(e)}")
                         continue
 
             # If no table found with anchor navigation, try scrolling to find shareholding section
-            logger.debug("No shareholding table found with anchor navigation, trying to scroll and find...")
+            logger.debug(
+                "No shareholding table found with anchor navigation, trying to scroll and find..."
+            )
             try:
                 # Scroll down to find shareholding section
                 self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
@@ -401,13 +423,16 @@ class ScreenerService:
 
                 # Look for shareholding section by text
                 shareholding_elements = self.driver.find_elements(
-                    By.XPATH, "//*[contains(text(), 'Shareholding Pattern') or contains(text(), 'Shareholding')]"
+                    By.XPATH,
+                    "//*[contains(text(), 'Shareholding Pattern') or contains(text(), 'Shareholding')]",
                 )
 
                 if shareholding_elements:
                     logger.debug(f"Found {len(shareholding_elements)} shareholding elements")
                     # Scroll to the first shareholding element
-                    self.driver.execute_script("arguments[0].scrollIntoView(true);", shareholding_elements[0])
+                    self.driver.execute_script(
+                        "arguments[0].scrollIntoView(true);", shareholding_elements[0]
+                    )
                     time.sleep(2)
 
                     # Now look for tables near this section
@@ -415,7 +440,8 @@ class ScreenerService:
                     for table in tables:
                         table_text = table.text
                         if any(
-                            keyword in table_text for keyword in ["Promoters", "FIIs", "DIIs", "Public", "Government"]
+                            keyword in table_text
+                            for keyword in ["Promoters", "FIIs", "DIIs", "Public", "Government"]
                         ):
                             try:
                                 df = pd.read_html(table.get_attribute("outerHTML"))[0]
@@ -424,11 +450,13 @@ class ScreenerService:
                                 )
                                 return df
                             except Exception as e:
-                                logger.debug(f"Error parsing shareholding table after scrolling: {e!s}")
+                                logger.debug(
+                                    f"Error parsing shareholding table after scrolling: {str(e)}"
+                                )
                                 continue
 
             except Exception as e:
-                logger.debug(f"Error scrolling to find shareholding section: {e!s}")
+                logger.debug(f"Error scrolling to find shareholding section: {str(e)}")
 
             # If still no table found, try clicking on shareholding links
             logger.debug("No shareholding table found with scrolling, trying link clicks...")
@@ -451,7 +479,8 @@ class ScreenerService:
                     for table in tables:
                         table_text = table.text
                         if any(
-                            keyword in table_text for keyword in ["Promoters", "FIIs", "DIIs", "Public", "Government"]
+                            keyword in table_text
+                            for keyword in ["Promoters", "FIIs", "DIIs", "Public", "Government"]
                         ):
                             try:
                                 df = pd.read_html(table.get_attribute("outerHTML"))[0]
@@ -460,14 +489,18 @@ class ScreenerService:
                                 )
                                 return df
                             except Exception as e:
-                                logger.debug(f"Error parsing shareholding table after navigation: {e!s}")
+                                logger.debug(
+                                    f"Error parsing shareholding table after navigation: {str(e)}"
+                                )
                                 continue
 
-                    logger.debug(f"Navigation successful with {selector} but no shareholding table found")
+                    logger.debug(
+                        f"Navigation successful with {selector} but no shareholding table found"
+                    )
                     break
 
                 except Exception as e:
-                    logger.debug(f"Selector {selector} failed: {e!s}")
+                    logger.debug(f"Selector {selector} failed: {str(e)}")
                     continue
 
             # If still no table found, try to extract from page content
@@ -475,7 +508,7 @@ class ScreenerService:
             return self._extract_shareholding_from_content()
 
         except Exception as e:
-            logger.exception(f"Error extracting shareholding pattern: {e!s}")
+            logger.error(f"Error extracting shareholding pattern: {str(e)}")
             return pd.DataFrame()
 
     def _extract_shareholding_from_content(self) -> pd.DataFrame:
@@ -548,19 +581,22 @@ class ScreenerService:
                                 continue
 
             except Exception as e:
-                logger.debug(f"Error searching divs for shareholding data: {e!s}")
+                logger.debug(f"Error searching divs for shareholding data: {str(e)}")
 
             if shareholding_data:
                 # Create a simple DataFrame from extracted data
                 df = pd.DataFrame([shareholding_data])
-                logger.info(f"✅ Extracted shareholding data from page content: {shareholding_data}")
+                logger.info(
+                    f"✅ Extracted shareholding data from page content: {shareholding_data}"
+                )
                 return df
-            logger.debug("No shareholding data found in page content")
+            else:
+                logger.debug("No shareholding data found in page content")
 
             return pd.DataFrame()
 
         except Exception as e:
-            logger.debug(f"Error extracting shareholding from content: {e!s}")
+            logger.debug(f"Error extracting shareholding from content: {str(e)}")
             return pd.DataFrame()
 
     def _extract_announcements(self) -> list[dict[str, str]]:
@@ -574,13 +610,21 @@ class ScreenerService:
             time.sleep(2)
 
             # Extract announcements
-            ann_elements = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'announcement')]")
+            ann_elements = self.driver.find_elements(
+                By.XPATH, "//div[contains(@class, 'announcement')]"
+            )
 
             for element in ann_elements:
                 try:
-                    title = element.find_element(By.XPATH, ".//div[contains(@class, 'title')]").text.strip()
-                    date = element.find_element(By.XPATH, ".//div[contains(@class, 'date')]").text.strip()
-                    description = element.find_element(By.XPATH, ".//div[contains(@class, 'description')]").text.strip()
+                    title = element.find_element(
+                        By.XPATH, ".//div[contains(@class, 'title')]"
+                    ).text.strip()
+                    date = element.find_element(
+                        By.XPATH, ".//div[contains(@class, 'date')]"
+                    ).text.strip()
+                    description = element.find_element(
+                        By.XPATH, ".//div[contains(@class, 'description')]"
+                    ).text.strip()
 
                     announcements.append({"title": title, "date": date, "description": description})
                 except:
@@ -589,7 +633,7 @@ class ScreenerService:
             return announcements
 
         except Exception as e:
-            logger.exception(f"Error extracting announcements: {e!s}")
+            logger.error(f"Error extracting announcements: {str(e)}")
             return []
 
     def _extract_credit_ratings(self) -> list[dict[str, str]]:
@@ -603,13 +647,21 @@ class ScreenerService:
             time.sleep(2)
 
             # Extract ratings
-            rating_elements = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'rating')]")
+            rating_elements = self.driver.find_elements(
+                By.XPATH, "//div[contains(@class, 'rating')]"
+            )
 
             for element in rating_elements:
                 try:
-                    agency = element.find_element(By.XPATH, ".//div[contains(@class, 'agency')]").text.strip()
-                    rating = element.find_element(By.XPATH, ".//div[contains(@class, 'rating')]").text.strip()
-                    date = element.find_element(By.XPATH, ".//div[contains(@class, 'date')]").text.strip()
+                    agency = element.find_element(
+                        By.XPATH, ".//div[contains(@class, 'agency')]"
+                    ).text.strip()
+                    rating = element.find_element(
+                        By.XPATH, ".//div[contains(@class, 'rating')]"
+                    ).text.strip()
+                    date = element.find_element(
+                        By.XPATH, ".//div[contains(@class, 'date')]"
+                    ).text.strip()
 
                     ratings.append({"agency": agency, "rating": rating, "date": date})
                 except:
@@ -618,7 +670,7 @@ class ScreenerService:
             return ratings
 
         except Exception as e:
-            logger.exception(f"Error extracting credit ratings: {e!s}")
+            logger.error(f"Error extracting credit ratings: {str(e)}")
             return []
 
     def _extract_concall_transcripts(self) -> list[dict[str, str]]:
@@ -636,8 +688,12 @@ class ScreenerService:
 
             for element in cc_elements:
                 try:
-                    quarter = element.find_element(By.XPATH, ".//div[contains(@class, 'quarter')]").text.strip()
-                    date = element.find_element(By.XPATH, ".//div[contains(@class, 'date')]").text.strip()
+                    quarter = element.find_element(
+                        By.XPATH, ".//div[contains(@class, 'quarter')]"
+                    ).text.strip()
+                    date = element.find_element(
+                        By.XPATH, ".//div[contains(@class, 'date')]"
+                    ).text.strip()
 
                     transcripts.append({"quarter": quarter, "date": date})
                 except:
@@ -646,7 +702,7 @@ class ScreenerService:
             return transcripts
 
         except Exception as e:
-            logger.exception(f"Error extracting concall transcripts: {e!s}")
+            logger.error(f"Error extracting concall transcripts: {str(e)}")
             return []
 
     # Screener's own classification-level names, in order, mapped to our
@@ -684,7 +740,7 @@ class ScreenerService:
             return sector_info
 
         except Exception as e:
-            logger.exception(f"Error extracting sector info: {e!s}")
+            logger.error(f"Error extracting sector info: {str(e)}")
             return sector_info
 
     def _extract_number(self, text: str) -> float | None:
@@ -702,7 +758,7 @@ class ScreenerService:
 
     def get_nifty50_symbols(self) -> list[str]:
         """Get list of Nifty 50 symbols"""
-        return [
+        nifty50_symbols = [
             "ABB.NS",
             "ACC.NS",
             "ADANIGREEN.NS",
@@ -789,3 +845,4 @@ class ScreenerService:
             "WIPRO.NS",
             "ZEEL.NS",
         ]
+        return nifty50_symbols

@@ -49,7 +49,9 @@ def calculate_momentum():
 
         # 3. Ensure StockPerformance records exist for all active stocks
         # Efficient checking: Get existing stock_ids from stock_performance
-        existing_perfs = session.execute(text("SELECT stock_id, id FROM stock_performance")).fetchall()
+        existing_perfs = session.execute(
+            text("SELECT stock_id, id FROM stock_performance")
+        ).fetchall()
         existing_map = {p[0]: p[1] for p in existing_perfs}
 
         missing_ids = [sid for sid in active_stock_ids if sid not in existing_map]
@@ -61,7 +63,9 @@ def calculate_momentum():
             session.commit()
 
             # Refresh map
-            existing_perfs = session.execute(text("SELECT stock_id, id FROM stock_performance")).fetchall()
+            existing_perfs = session.execute(
+                text("SELECT stock_id, id FROM stock_performance")
+            ).fetchall()
             existing_map = {p[0]: p[1] for p in existing_perfs}
 
         # 4. Fetch Price History for ALL stocks (last ~400 days)
@@ -206,7 +210,10 @@ def calculate_momentum():
 
             if len(simple_z_list) == 2:
                 weighted_simple = sum(simple_z_list) / 2
-                simple_score = 1 + weighted_simple if weighted_simple >= 0 else 1 / (1 - weighted_simple)
+                if weighted_simple >= 0:
+                    simple_score = 1 + weighted_simple
+                else:
+                    simple_score = 1 / (1 - weighted_simple)
                 up["simple_momentum_score"] = float(simple_score)
             else:
                 up["simple_momentum_score"] = None
@@ -267,7 +274,10 @@ def calculate_momentum():
 
                 stmt = stmt.on_conflict_do_update(
                     index_elements=["stock_id", "date"],
-                    set_={"momentum_score": stmt.excluded.momentum_score, "rank": stmt.excluded.rank},
+                    set_={
+                        "momentum_score": stmt.excluded.momentum_score,
+                        "rank": stmt.excluded.rank,
+                    },
                 )
 
                 session.execute(stmt)

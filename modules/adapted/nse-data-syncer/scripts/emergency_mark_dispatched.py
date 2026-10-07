@@ -37,7 +37,9 @@ conn = psycopg2.connect(url)
 conn.autocommit = True
 cur = conn.cursor()
 
-cur.execute("SELECT COUNT(*) FROM nse_documents WHERE doc_type = 'presentation' AND kw_dispatched_at IS NULL")
+cur.execute(
+    "SELECT COUNT(*) FROM nse_documents WHERE doc_type = 'presentation' AND kw_dispatched_at IS NULL"
+)
 (pending,) = cur.fetchone()
 print(f"Presentations with kw_dispatched_at IS NULL: {pending}")
 

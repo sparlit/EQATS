@@ -108,7 +108,7 @@ def calculate_vcp_candidates():
             if len(df) < 252:
                 continue
 
-            df = df.set_index("date")
+            df.set_index("date", inplace=True)
             df = df.sort_index()
 
             # --- Step 1: Calculate Base Metrics ---
@@ -138,10 +138,12 @@ def calculate_vcp_candidates():
             # --- Step 2: Stage 2 Uptrend (Minervini Trend Template) ---
 
             # 1. Current Price > 50, 150, 200 SMA
-            cond1 = (current_close > sma_50) and (current_close > sma_150) and (current_close > sma_200)
+            cond1 = (
+                (current_close > sma_50) and (current_close > sma_150) and (current_close > sma_200)
+            )
 
             # 2. 50 SMA > 150 SMA > 200 SMA
-            cond2 = sma_50 > sma_150 > sma_200
+            cond2 = (sma_50 > sma_150) and (sma_150 > sma_200)
 
             # 3. 200 SMA trending up
             cond3 = sma_200 > sma_200_20days_ago

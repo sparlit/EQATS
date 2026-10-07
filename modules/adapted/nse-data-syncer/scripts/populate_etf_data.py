@@ -28,7 +28,6 @@ from datetime import datetime
 import pandas as pd
 import yfinance as yf
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
 
 # Load environment variables from web/.env
 load_dotenv("web/.env")
@@ -36,13 +35,12 @@ load_dotenv("web/.env")
 # Ensure we can import from app
 sys.path.append(os.getcwd())
 
-from app.database import ETF, Base, DatabaseManager, ETFDailyPrice
+from app.database import Base, DatabaseManager
 
 # Database URL - using PostgreSQL from environment
 DB_URL = os.getenv("DATABASE_URL")
 if not DB_URL:
-    msg = "DATABASE_URL environment variable is not set."
-    raise ValueError(msg)
+    raise ValueError("DATABASE_URL environment variable is not set.")
 
 START_DATE = "2020-01-01"  # Get 5+ years of data
 CSV_PATH = "data/MW-ETF-22-Apr-2026.csv"
@@ -135,7 +133,12 @@ def populate_etf_data():
 
         try:
             data = yf.download(
-                yf_symbols, start=START_DATE, group_by="ticker", threads=True, progress=False, auto_adjust=False
+                yf_symbols,
+                start=START_DATE,
+                group_by="ticker",
+                threads=True,
+                progress=False,
+                auto_adjust=False,
             )
 
             if data.empty:
@@ -160,7 +163,7 @@ def populate_etf_data():
                         etf_df = data[yf_sym].copy()
 
                     # Drop rows with no close price
-                    etf_df = etf_df.dropna(subset=["Close"])
+                    etf_df.dropna(subset=["Close"], inplace=True)
 
                     if etf_df.empty:
                         print(f"  ⚠️  {symbol}: No valid data")

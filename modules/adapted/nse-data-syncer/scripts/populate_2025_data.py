@@ -23,18 +23,15 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import os
 import sys
-from datetime import date
 
 import pandas as pd
 import yfinance as yf
-from dotenv import load_dotenv
-from sqlalchemy import create_engine
 
 # Ensure we can import from app
 sys.path.append(os.getcwd())
 
 from app.constants import CSV_FILENAME
-from app.database import DailyPrice, DatabaseManager, Stock
+from app.database import DatabaseManager, Stock
 from app.helpers import get_data_path
 
 DB_URL = "sqlite:///data/stocks.db"
@@ -70,7 +67,12 @@ def populate_2025():
         symbol = row["Symbol"]
         if symbol not in symbol_map:
             new_stocks.append(
-                Stock(nse_symbol=symbol, name=row["Company Name"], isin=row.get("ISIN Code"), is_active=True)
+                Stock(
+                    nse_symbol=symbol,
+                    name=row["Company Name"],
+                    isin=row.get("ISIN Code"),
+                    is_active=True,
+                )
             )
 
     if new_stocks:
@@ -99,7 +101,12 @@ def populate_2025():
 
         try:
             data = yf.download(
-                yf_symbols, start=START_DATE, group_by="ticker", threads=True, progress=False, auto_adjust=False
+                yf_symbols,
+                start=START_DATE,
+                group_by="ticker",
+                threads=True,
+                progress=False,
+                auto_adjust=False,
             )
 
             if data.empty:
@@ -140,7 +147,15 @@ def populate_2025():
                     )
 
                     stock_df = stock_df[
-                        ["stock_id", "date", "open_price", "high_price", "low_price", "close_price", "volume"]
+                        [
+                            "stock_id",
+                            "date",
+                            "open_price",
+                            "high_price",
+                            "low_price",
+                            "close_price",
+                            "volume",
+                        ]
                     ]
                     dfs_to_insert.append(stock_df)
             else:
@@ -150,7 +165,7 @@ def populate_2025():
                         continue
 
                     stock_df = data[yf_sym].copy()
-                    stock_df = stock_df.dropna(subset=["Close"])
+                    stock_df.dropna(subset=["Close"], inplace=True)
 
                     if stock_df.empty:
                         continue
@@ -170,7 +185,15 @@ def populate_2025():
                     )
 
                     # Select cols
-                    cols = ["stock_id", "date", "open_price", "high_price", "low_price", "close_price", "volume"]
+                    cols = [
+                        "stock_id",
+                        "date",
+                        "open_price",
+                        "high_price",
+                        "low_price",
+                        "close_price",
+                        "volume",
+                    ]
                     # Verify cols exist
                     if all(c in stock_df.columns for c in cols):
                         dfs_to_insert.append(stock_df[cols])
@@ -182,7 +205,12 @@ def populate_2025():
 
                 # Insert
                 final_df.to_sql(
-                    "daily_prices", db.engine, if_exists="append", index=False, method="multi", chunksize=1000
+                    "daily_prices",
+                    db.engine,
+                    if_exists="append",
+                    index=False,
+                    method="multi",
+                    chunksize=1000,
                 )
                 print(f"  Inserted {len(final_df)} rows.")
 

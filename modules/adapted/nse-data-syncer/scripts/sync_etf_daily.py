@@ -89,8 +89,7 @@ def generate_access_token() -> str:
     resp.raise_for_status()
     data = resp.json()
     if "accessToken" not in data:
-        msg = f"Dhan token generation failed: {data.get('message', data)}"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"Dhan token generation failed: {data.get('message', data)}")
     return data["accessToken"]
 
 
@@ -167,11 +166,10 @@ def fetch_dhan_history(
         if resp.status_code != 200:
             print(f"    HTTP {resp.status_code}: {resp.text[:300]}")
             if _is_invalid_token(resp):
-                msg = (
+                raise RuntimeError(
                     "Dhan access token invalid/expired mid-run (DH-906) - aborting "
                     "instead of silently failing every remaining request."
                 )
-                raise RuntimeError(msg)
             return pd.DataFrame()
         data = resp.json()
         if not data.get("timestamp"):
@@ -179,7 +177,9 @@ def fetch_dhan_history(
 
         df = pd.DataFrame(
             {
-                "date": pd.to_datetime(data["timestamp"], unit="s", utc=True).tz_convert("Asia/Kolkata").date,
+                "date": pd.to_datetime(data["timestamp"], unit="s", utc=True)
+                .tz_convert("Asia/Kolkata")
+                .date,
                 "open": data.get("open"),
                 "high": data.get("high"),
                 "low": data.get("low"),
@@ -188,7 +188,8 @@ def fetch_dhan_history(
             }
         )
         df["date"] = pd.to_datetime(df["date"])
-        return df.drop_duplicates(subset="date", keep="last").reset_index(drop=True)
+        df = df.drop_duplicates(subset="date", keep="last").reset_index(drop=True)
+        return df
 
     print("    Giving up after repeated rate-limit errors")
     return pd.DataFrame()
@@ -303,7 +304,9 @@ def main():
         total_rows = 0
         symbols_with_data = 0
         for i, row in enumerate(universe.itertuples(index=False), start=1):
-            etf_id = upsert_etf(session, row.symbol, row.name, row.isin, int(row.security_id), row.series)
+            etf_id = upsert_etf(
+                session, row.symbol, row.name, row.isin, int(row.security_id), row.series
+            )
             n = sync_prices(session, etf_id, int(row.security_id), access_token)
             total_rows += n
             if n:

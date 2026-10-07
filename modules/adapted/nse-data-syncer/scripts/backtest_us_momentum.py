@@ -77,7 +77,9 @@ def score_stocks(target_date, df_window):
         r3m, r6m, r1y = ret(63), ret(126), ret(252)
         if None in (r3m, r6m, r1y):
             continue
-        scores.append({"stock_id": stock_id, "mr_3m": r3m / vol, "mr_6m": r6m / vol, "mr_1y": r1y / vol})
+        scores.append(
+            {"stock_id": stock_id, "mr_3m": r3m / vol, "mr_6m": r6m / vol, "mr_1y": r1y / vol}
+        )
     if not scores:
         return pd.DataFrame()
     df = pd.DataFrame(scores)
@@ -89,7 +91,15 @@ def score_stocks(target_date, df_window):
     return df.sort_values("weighted_z", ascending=False)
 
 
-def process_period(rebalance_date, next_date, master_df, stock_map, benchmark_df, label=None, use_close_to_close=False):
+def process_period(
+    rebalance_date,
+    next_date,
+    master_df,
+    stock_map,
+    benchmark_df,
+    label=None,
+    use_close_to_close=False,
+):
     start_w = rebalance_date - timedelta(days=400)
     slice_w = master_df.loc[start_w:rebalance_date] if not master_df.empty else pd.DataFrame()
     if slice_w.empty:
@@ -111,10 +121,18 @@ def process_period(rebalance_date, next_date, master_df, stock_map, benchmark_df
 
     rets, holdings = [], []
     for sid in ids:
-        rows = df_next[df_next["stock_id"] == sid].sort_values("date") if not df_next.empty else pd.DataFrame()
+        rows = (
+            df_next[df_next["stock_id"] == sid].sort_values("date")
+            if not df_next.empty
+            else pd.DataFrame()
+        )
         if rows.empty:
             holdings.append(
-                {"symbol": stock_map.get(sid, "?"), "return": 0.0, "score": round(score_map.get(sid, 0), 2)}
+                {
+                    "symbol": stock_map.get(sid, "?"),
+                    "return": 0.0,
+                    "score": round(score_map.get(sid, 0), 2),
+                }
             )
             continue
         if use_close_to_close:
@@ -125,10 +143,17 @@ def process_period(rebalance_date, next_date, master_df, stock_map, benchmark_df
         else:
             start_p = rows.iloc[0]["open_price"] or rows.iloc[0]["close_price"]
         end_p = rows.iloc[-1]["close_price"]
-        r = 0.0 if not start_p or pd.isna(start_p) or pd.isna(end_p) else (end_p - start_p) / start_p
+        if not start_p or pd.isna(start_p) or pd.isna(end_p):
+            r = 0.0
+        else:
+            r = (end_p - start_p) / start_p
         rets.append(r)
         holdings.append(
-            {"symbol": stock_map.get(sid, "?"), "return": round(r * 100, 2), "score": round(score_map.get(sid, 0), 2)}
+            {
+                "symbol": stock_map.get(sid, "?"),
+                "return": round(r * 100, 2),
+                "score": round(score_map.get(sid, 0), 2),
+            }
         )
 
     port_ret = float(np.mean(rets)) if rets else 0.0
@@ -137,7 +162,9 @@ def process_period(rebalance_date, next_date, master_df, stock_map, benchmark_df
     bn = benchmark_df[benchmark_df["date"] <= rebalance_date]
     bc = benchmark_df[benchmark_df["date"] <= next_date]
     bench_ret = (
-        (bc.iloc[-1]["close"] - bn.iloc[-1]["close"]) / bn.iloc[-1]["close"] if (not bn.empty and not bc.empty) else 0.0
+        (bc.iloc[-1]["close"] - bn.iloc[-1]["close"]) / bn.iloc[-1]["close"]
+        if (not bn.empty and not bc.empty)
+        else 0.0
     )
 
     return {
@@ -176,7 +203,11 @@ def calc_metrics(results):
     ann_ret = ((1 + cum[-1] - 1) ** (1 / yrs) - 1) if yrs > 0 else 0
     calmar = ann_ret / abs(max_dd / 100) if max_dd != 0 else 0
     down = rets[rets < 0]
-    sortino = (np.mean(rets) * 12) / (np.std(down) * np.sqrt(12)) if len(down) > 0 and np.std(down) > 0 else 0
+    sortino = (
+        (np.mean(rets) * 12) / (np.std(down) * np.sqrt(12))
+        if len(down) > 0 and np.std(down) > 0
+        else 0
+    )
     wins = rets[rets > 0]
     losses = rets[rets < 0]
     omega = np.sum(wins) / abs(np.sum(losses)) if len(losses) > 0 and np.sum(losses) != 0 else 0
@@ -255,19 +286,27 @@ def run_backtest():
             bm_raw = bm_raw.rename(columns={"adj close": "close"})
         benchmark_df = bm_raw[["date", "close"]].dropna()
         bm_dates = pd.to_datetime(benchmark_df["date"])
-        benchmark_df["date"] = bm_dates.dt.tz_convert(None) if bm_dates.dt.tz is not None else bm_dates
+        benchmark_df["date"] = (
+            bm_dates.dt.tz_convert(None) if bm_dates.dt.tz is not None else bm_dates
+        )
 
         # Load all prices
         print("Loading US price data...")
         rows = session.execute(
-            text("SELECT us_stock_id AS stock_id, date, close_price, open_price FROM us_daily_prices ORDER BY date ASC")
+            text(
+                "SELECT us_stock_id AS stock_id, date, close_price, open_price "
+                "FROM us_daily_prices ORDER BY date ASC"
+            )
         ).fetchall()
         master_df = pd.DataFrame(rows, columns=["stock_id", "date", "close_price", "open_price"])
         master_df["date"] = pd.to_datetime(master_df["date"])
-        master_df = master_df.set_index("date")
+        master_df.set_index("date", inplace=True)
         print(f"Loaded {len(master_df):,} price records.")
 
-        stock_map = {r.id: r.ticker for r in session.execute(text("SELECT id, ticker FROM us_stocks")).fetchall()}
+        stock_map = {
+            r.id: r.ticker
+            for r in session.execute(text("SELECT id, ticker FROM us_stocks")).fetchall()
+        }
 
         # Load cache
         existing = {}
@@ -300,7 +339,13 @@ def run_backtest():
             cur_label = today.strftime("%Y-%m")
             all_results = [r for r in all_results if r["month"] != cur_label]
             res = process_period(
-                last_rd, today, master_df, stock_map, benchmark_df, label=cur_label, use_close_to_close=True
+                last_rd,
+                today,
+                master_df,
+                stock_map,
+                benchmark_df,
+                label=cur_label,
+                use_close_to_close=True,
             )
             if res:
                 all_results.append(res)
@@ -317,7 +362,9 @@ def run_backtest():
         }
 
         def _sanitize(obj):
-            if isinstance(obj, float) and (obj != obj or obj == float("inf") or obj == float("-inf")):
+            if isinstance(obj, float) and (
+                obj != obj or obj == float("inf") or obj == float("-inf")
+            ):
                 return None
             if isinstance(obj, dict):
                 return {k: _sanitize(v) for k, v in obj.items()}

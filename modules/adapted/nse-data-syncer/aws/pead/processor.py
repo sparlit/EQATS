@@ -41,7 +41,10 @@ import psycopg2
 import requests
 from bs4 import BeautifulSoup
 
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+)
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
@@ -195,7 +198,9 @@ def fmt_cr(val: float | None) -> str:
     return f"₹{val:,.0f} Cr"
 
 
-def build_claude_prompt(symbol: str, meta: dict, current: dict, qoq: dict | None, yoy: dict | None) -> str:
+def build_claude_prompt(
+    symbol: str, meta: dict, current: dict, qoq: dict | None, yoy: dict | None
+) -> str:
     sector = meta.get("sector") or meta.get("industry") or "Unknown"
     company = meta.get("name", symbol)
 
@@ -241,19 +246,33 @@ def call_claude(prompt: str) -> dict:
 def send_telegram(token: str, chat_id: str, text: str) -> None:
     requests.post(
         f"https://api.telegram.org/bot{token}/sendMessage",
-        json={"chat_id": chat_id, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True},
+        json={
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True,
+        },
         timeout=10,
     )
 
 
 def phase2_message(
-    symbol: str, meta: dict, current: dict, qoq: dict | None, yoy: dict | None, signal: dict, announced_at: str
+    symbol: str,
+    meta: dict,
+    current: dict,
+    qoq: dict | None,
+    yoy: dict | None,
+    signal: dict,
+    announced_at: str,
 ) -> str:
     company = meta.get("name", symbol)
     quarter = current.get("quarter_label", "Latest")
 
     def row(label, val, q, y):
-        return f"<b>{label}:</b> {fmt_cr(val)}  <i>({pct_change(val, q)} QoQ | {pct_change(val, y)} YoY)</i>"
+        return (
+            f"<b>{label}:</b> {fmt_cr(val)}"
+            f"  <i>({pct_change(val, q)} QoQ | {pct_change(val, y)} YoY)</i>"
+        )
 
     sig_emoji = "🟢" if signal.get("signal") == "LONG" else "🔴"
     conf = signal.get("confidence", "")
@@ -263,7 +282,10 @@ def phase2_message(
         f"📊 <b>{symbol} — {quarter} Results</b>",
         f"<i>{company}</i>\n",
         row(
-            "Revenue", current.get("revenue"), qoq.get("revenue") if qoq else None, yoy.get("revenue") if yoy else None
+            "Revenue",
+            current.get("revenue"),
+            qoq.get("revenue") if qoq else None,
+            yoy.get("revenue") if yoy else None,
         ),
         row(
             "Op. Profit",
@@ -345,7 +367,12 @@ def lambda_handler(event, context):
             signal = call_claude(prompt)
         except Exception as e:
             print(f"Claude error: {e}")
-            signal = {"signal": "N/A", "confidence": "N/A", "reasoning": f"Analysis failed: {e}", "holding_period": "—"}
+            signal = {
+                "signal": "N/A",
+                "confidence": "N/A",
+                "reasoning": f"Analysis failed: {e}",
+                "holding_period": "—",
+            }
 
         # Send Phase 2 Telegram
         msg = phase2_message(symbol, meta, current, qoq, yoy, signal, announced_at)

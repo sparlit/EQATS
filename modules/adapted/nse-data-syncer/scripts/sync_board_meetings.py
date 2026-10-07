@@ -59,7 +59,11 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 log = logging.getLogger(__name__)
 
 NSE_API = "https://www.nseindia.com/api/corporate-board-meetings"
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/122.0.0.0 Safari/537.36"
+)
 RESULT_KEYWORDS = [
     "result",
     "quarterly",
@@ -215,7 +219,7 @@ def main():
             if index == "equities":
                 equities_ok = True
         except Exception as e:
-            log.exception(f"NSE API ({index}) failed after all retries: {e}")
+            log.error(f"NSE API ({index}) failed after all retries: {e}")
 
     if not equities_ok:
         log.error("Could not fetch equities board meetings — DB not updated")

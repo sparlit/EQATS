@@ -41,11 +41,10 @@ from .constants import (
     CSV_FILENAME,
     EQUITY_LIST_FILENAME,
     FULL_EQUITY_LIST_FILENAME,
-    RATE_LIMIT_DELAY_SECONDS,
     VALIDATION_RECORDS_COUNT,
 )
 from .database import DatabaseManager
-from .fetcher import fetch_batch_data, fetch_stock_data
+from .fetcher import fetch_batch_data
 from .helpers import get_data_path, validate_data_mismatch
 from .utils import get_nse_symbols, get_remaining_symbols, load_equity_list, load_full_equity_list
 
@@ -53,15 +52,27 @@ from .utils import get_nse_symbols, get_remaining_symbols, load_equity_list, loa
 def main():
     parser = argparse.ArgumentParser(description="NSE Stock Data Syncer (Optimized)")
     parser.add_argument("--limit", type=int, help="Limit the number of symbols to process")
-    parser.add_argument("--dry-run", action="store_true", help="Perform a dry run without writing to DB")
-    parser.add_argument("--symbols", type=str, help="Comma-separated list of symbols to process (overrides CSV)")
     parser.add_argument(
-        "--source", type=str, choices=["default", "remaining"], default="default", help="Source of symbols to sync"
+        "--dry-run", action="store_true", help="Perform a dry run without writing to DB"
     )
-    parser.add_argument("--shard-index", type=int, default=0, help="Index of current shard (0-based)")
+    parser.add_argument(
+        "--symbols", type=str, help="Comma-separated list of symbols to process (overrides CSV)"
+    )
+    parser.add_argument(
+        "--source",
+        type=str,
+        choices=["default", "remaining"],
+        default="default",
+        help="Source of symbols to sync",
+    )
+    parser.add_argument(
+        "--shard-index", type=int, default=0, help="Index of current shard (0-based)"
+    )
     parser.add_argument("--total-shards", type=int, default=1, help="Total number of shards")
     parser.add_argument("--skip-momentum", action="store_true", help="Skip momentum calculation")
-    parser.add_argument("--only-momentum", action="store_true", help="Run ONLY momentum calculation")
+    parser.add_argument(
+        "--only-momentum", action="store_true", help="Run ONLY momentum calculation"
+    )
     args = parser.parse_args()
 
     print("Starting NSE Stock Data Syncer (Optimized)...")
@@ -169,7 +180,7 @@ def main():
     # 4. Process Batches
     # Sort batches by date (None/oldest first) to prioritize catching up
     # We convert None to date.min for sorting
-    sorted_dates = sorted(batches.keys(), key=lambda d: d or date.min)
+    sorted_dates = sorted(batches.keys(), key=lambda d: d if d else date.min)
 
     BATCH_SIZE = 100  # yfinance is efficient with ~100
 
@@ -195,7 +206,9 @@ def main():
             # Note: We must filter out the overlapping records later to avoid duplicates/PK errors
             # unless a mismatch triggers a full resync.
 
-        print(f"Group {last_date or 'New'}: Processing {len(symbols)} stocks (Start: {start_date or 'Max'})...")
+        print(
+            f"Group {last_date or 'New'}: Processing {len(symbols)} stocks (Start: {start_date or 'Max'})..."
+        )
 
         # Split into smaller chunks
         chunks = [symbols[i : i + BATCH_SIZE] for i in range(0, len(symbols), BATCH_SIZE)]
@@ -209,7 +222,9 @@ def main():
             for sym in chunk:
                 sid = symbol_map.get(sym)
                 if sid:
-                    validation_data[sym] = db_manager.get_last_n_records(sid, n=VALIDATION_RECORDS_COUNT)
+                    validation_data[sym] = db_manager.get_last_n_records(
+                        sid, n=VALIDATION_RECORDS_COUNT
+                    )
 
             data_dict = fetch_batch_data(chunk, start_date=start_date)
 
@@ -243,7 +258,10 @@ def main():
 
                     if sid_check:
                         raw_date = last_synced_dates.get(sid_check)
-                        last_known_date = raw_date.date() if isinstance(raw_date, datetime) else raw_date
+                        if isinstance(raw_date, datetime):
+                            last_known_date = raw_date.date()
+                        else:
+                            last_known_date = raw_date
 
                     if last_known_date:
                         input_df = input_df[input_df.index > last_known_date]
@@ -289,7 +307,9 @@ def main():
     active_map = {}
     try:
         with db_manager.Session() as session:
-            active_stocks = session.execute(text("SELECT nse_symbol, id FROM stocks WHERE is_active = true")).fetchall()
+            active_stocks = session.execute(
+                text("SELECT nse_symbol, id FROM stocks WHERE is_active = true")
+            ).fetchall()
             active_map = {row[0]: row[1] for row in active_stocks}
     except Exception as e:
         print(f"Error fetching active stocks for market cap update: {e}")
@@ -314,7 +334,9 @@ def main():
     from .fetcher import fetch_current_market_caps
 
     updated_mcap_count = 0
-    m_chunks = [all_symbols[i : i + BATCH_SIZE_MCAP] for i in range(0, len(all_symbols), BATCH_SIZE_MCAP)]
+    m_chunks = [
+        all_symbols[i : i + BATCH_SIZE_MCAP] for i in range(0, len(all_symbols), BATCH_SIZE_MCAP)
+    ]
 
     for i, chunk in enumerate(m_chunks):
         print(f"  Market Cap Batch {i + 1}/{len(m_chunks)} ({len(chunk)} symbols)...")
