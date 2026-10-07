@@ -1,5 +1,5 @@
 {
-  "current_index": 163,
+  "current_index": 164,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1309,7 +1309,7 @@
       "name": "nse",
       "target": "indianfoods-automation/nse",
       "url": "https://github.com/indianfoods-automation/nse",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
