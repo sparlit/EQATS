@@ -87,6 +87,32 @@ pub(super) mod decimal_normalized {
     }
 }
 
+/// [`decimal_normalized`] for an optional decimal. `None` serializes as `null`.
+pub(super) mod decimal_normalized_option {
+    use rust_decimal::Decimal;
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(value: &Option<Decimal>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match value {
+            Some(value) => super::decimal_normalized::serialize(value, serializer),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Decimal>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Normalized(#[serde(with = "super::decimal_normalized")] Decimal);
+
+        Ok(Option::<Normalized>::deserialize(deserializer)?.map(|Normalized(d)| d))
+    }
+}
+
 /// Serde module for `OidOrCloid` that ensures the `Right(Cloid)` variant is always
 /// serialized as a hex string (consistent across both JSON and MessagePack formats).
 ///
@@ -188,6 +214,52 @@ where
     S: Serializer,
 {
     serializer.serialize_str(&format!("{:#x}", value))
+}
+
+/// Serializes an optional address as a lowercase hex string, or `null` when absent.
+pub(super) fn serialize_option_address_as_hex<S>(
+    value: &Option<Address>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match value {
+        Some(address) => serialize_address_as_hex(address, serializer),
+        None => serializer.serialize_none(),
+    }
+}
+
+/// Serializes `(address, value)` pairs with each address as a lowercase hex string.
+pub(super) fn serialize_address_pairs_as_hex<S, T>(
+    pairs: &[(Address, T)],
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+    T: Serialize,
+{
+    serializer.collect_seq(
+        pairs
+            .iter()
+            .map(|(address, value)| (format!("{address:#x}"), value)),
+    )
+}
+
+/// [`serialize_address_pairs_as_hex`] for an optional list. Pair it with
+/// `skip_serializing_if = "Option::is_none"`.
+pub(super) fn serialize_option_address_pairs_as_hex<S, T>(
+    pairs: &Option<Vec<(Address, T)>>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+    T: Serialize,
+{
+    match pairs {
+        Some(pairs) => serialize_address_pairs_as_hex(pairs, serializer),
+        None => serializer.serialize_none(),
+    }
 }
 
 /// Deserializes an address from a hex string.
