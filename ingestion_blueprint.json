@@ -1,5 +1,5 @@
 {
-  "current_index": 179,
+  "current_index": 180,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1437,7 +1437,7 @@
       "name": "trusted",
       "target": "junbeoml22/trusted",
       "url": "https://github.com/junbeoml22/trusted",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
