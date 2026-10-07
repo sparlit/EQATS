@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import datetime
 import math
 
-import pandas as pd
 import plotly.graph_objects as go
 import pyotp
 import streamlit as st
@@ -66,7 +65,7 @@ with st.sidebar:
                     )
                     st.success("Successfully Authenticated!")
                 except Exception as e:
-                    st.error(f"Login Failed: {e!s}")
+                    st.error(f"Login Failed: {str(e)}")
     else:
         st.success("Logged in to Zerodha!")
 
@@ -126,7 +125,11 @@ with tab1:
                         model = TransAm(num_layers=2, dropout=0.2).to(device)
                         trainer = Trainer(model, device, learning_rate=0.001)
                         train_losses, val_losses = trainer.train(
-                            train_data, test_data, epochs=epochs, batch_size=batch_size, patience=patience
+                            train_data,
+                            test_data,
+                            epochs=epochs,
+                            batch_size=batch_size,
+                            patience=patience,
                         )
 
                         st.session_state.model = model
@@ -136,13 +139,19 @@ with tab1:
                         # Plot losses using Plotly
                         fig = go.Figure()
                         fig.add_trace(go.Scatter(y=train_losses, mode="lines", name="Train Loss"))
-                        fig.add_trace(go.Scatter(y=val_losses, mode="lines", name="Validation Loss"))
-                        fig.update_layout(title="Training vs Validation Loss", xaxis_title="Epochs", yaxis_title="Loss")
+                        fig.add_trace(
+                            go.Scatter(y=val_losses, mode="lines", name="Validation Loss")
+                        )
+                        fig.update_layout(
+                            title="Training vs Validation Loss",
+                            xaxis_title="Epochs",
+                            yaxis_title="Loss",
+                        )
                         st.plotly_chart(fig, use_container_width=True)
 
                         st.success("Training Complete!")
                     except Exception as e:
-                        st.error(f"Error during training: {e!s}")
+                        st.error(f"Error during training: {str(e)}")
 
     with col2:
         if st.session_state.model is not None:
@@ -151,7 +160,9 @@ with tab1:
             if st.button("Evaluate on Test Data (RMSE/MAE)", use_container_width=True):
                 with st.spinner("Evaluating..."):
                     inferencer = Inferencer(
-                        st.session_state.model, st.session_state.device, st.session_state.data_loader
+                        st.session_state.model,
+                        st.session_state.device,
+                        st.session_state.data_loader,
                     )
 
                     # We compute metrics directly here to show in streamlit instead of just printing to console
@@ -169,8 +180,16 @@ with tab1:
                             input_sequences = np.array([item[0] for item in batch])
                             target_sequences = np.array([item[1] for item in batch])
 
-                            inputs = torch.FloatTensor(input_sequences).unsqueeze(-1).to(st.session_state.device)
-                            targets = torch.FloatTensor(target_sequences).unsqueeze(-1).to(st.session_state.device)
+                            inputs = (
+                                torch.FloatTensor(input_sequences)
+                                .unsqueeze(-1)
+                                .to(st.session_state.device)
+                            )
+                            targets = (
+                                torch.FloatTensor(target_sequences)
+                                .unsqueeze(-1)
+                                .to(st.session_state.device)
+                            )
 
                             outputs = inferencer.model(inputs)
                             loss = criterion(outputs, targets)
@@ -202,7 +221,9 @@ with tab2:
             with st.spinner("Generating predictions..."):
                 try:
                     inferencer = Inferencer(
-                        st.session_state.model, st.session_state.device, st.session_state.data_loader
+                        st.session_state.model,
+                        st.session_state.device,
+                        st.session_state.data_loader,
                     )
                     predictions_df = inferencer.predict(
                         symbol=symbol,
@@ -243,13 +264,15 @@ with tab2:
                             line={"color": "red", "width": 3},
                         )
                     )
-                    fig2.update_layout(title=f"Prediction for {symbol}", xaxis_title="Date", yaxis_title="Price")
+                    fig2.update_layout(
+                        title=f"Prediction for {symbol}", xaxis_title="Date", yaxis_title="Price"
+                    )
 
                     st.plotly_chart(fig2, use_container_width=True)
                     st.dataframe(predictions_df, use_container_width=True)
 
                 except Exception as e:
-                    st.error(f"Error during prediction: {e!s}")
+                    st.error(f"Error during prediction: {str(e)}")
 
 with tab3:
     st.markdown("""

@@ -27,29 +27,27 @@ import os
 import re
 import time
 from contextlib import asynccontextmanager, suppress
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn as nn
 import yfinance as yf
 from api.database import crud, models, schemas
 from api.database.database import engine, get_db
-from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 
 # Database Integration
 from sqlalchemy.orm import Session
-from torch import nn
 
 # Create DB Tables
 models.Base.metadata.create_all(bind=engine)
 
 # Import from our library
 from api.simulator import HeadlineSimulator
-from trendmaster.trendmaster import DataLoader, Inferencer, PositionalEncoding, TransAm
+from trendmaster.trendmaster import DataLoader, Inferencer
 
 # --- Global State ---
 simulator = HeadlineSimulator()
@@ -87,7 +85,9 @@ def save_cache():
         print(f"Failed to save cache: {e}")
 
 
-prediction_cache: dict[str, dict] = load_cache()  # {"SYMBOL_period": {"data": ..., "timestamp": ...}}
+prediction_cache: dict[str, dict] = (
+    load_cache()
+)  # {"SYMBOL_period": {"data": ..., "timestamp": ...}}
 
 # --- Model Management ---
 models: dict[str, nn.Module] = {}
@@ -206,7 +206,9 @@ app.add_middleware(
 
 
 # --- Prediction Logic ---
-def get_real_prediction(symbol, input_window=30, future_steps=10, period="1y", shock_pct=0.0, vix=15.0):
+def get_real_prediction(
+    symbol, input_window=30, future_steps=10, period="1y", shock_pct=0.0, vix=15.0
+):
     print(f"--- Starting prediction for {symbol} (period={period}, shock={shock_pct}%) ---")
     yf_symbol = f"{symbol}.NS"
     ticker = yf.Ticker(yf_symbol)
@@ -215,11 +217,15 @@ def get_real_prediction(symbol, input_window=30, future_steps=10, period="1y", s
         df = ticker.history(period=period)
     except Exception as e:
         print(f"yfinance error for {symbol}: {e}")
-        raise HTTPException(status_code=404, detail=f"Failed to fetch data for {symbol} from Yahoo Finance.")
+        raise HTTPException(
+            status_code=404, detail=f"Failed to fetch data for {symbol} from Yahoo Finance."
+        )
 
     if df.empty or len(df) < 5:
         print(f"No data found for {symbol}")
-        raise HTTPException(status_code=404, detail=f"No data found for {symbol}. It might be delisted or invalid.")
+        raise HTTPException(
+            status_code=404, detail=f"No data found for {symbol}. It might be delisted or invalid."
+        )
 
     print(f"Data fetched: {len(df)} rows")
 
@@ -251,8 +257,12 @@ def get_real_prediction(symbol, input_window=30, future_steps=10, period="1y", s
                     std = df_for_indicators[col].iloc[-1] * 0.01
 
                 # Apply noise to the tail
-                noise = np.random.normal(0, std * chaos_factor, min(len(df_for_indicators), input_window))
-                df_for_indicators.iloc[-len(noise) :, df_for_indicators.columns.get_loc(col)] += noise
+                noise = np.random.normal(
+                    0, std * chaos_factor, min(len(df_for_indicators), input_window)
+                )
+                df_for_indicators.iloc[-len(noise) :, df_for_indicators.columns.get_loc(col)] += (
+                    noise
+                )
 
         print(f"Injected chaos factor: {chaos_factor:.3f} (VIX: {vix})")
 
@@ -297,7 +307,13 @@ def get_real_prediction(symbol, input_window=30, future_steps=10, period="1y", s
         print("Running inferencer...")
         inferencer = Inferencer(model, device, data_loader)
         predictions_df = inferencer.predict(
-            symbol, df.index[0], df.index[-1], input_window, future_steps, columns=features, data=df_with_indicators
+            symbol,
+            df.index[0],
+            df.index[-1],
+            input_window,
+            future_steps,
+            columns=features,
+            data=df_with_indicators,
         )
 
         print("Prediction successful")
@@ -390,7 +406,12 @@ async def live_market_data_loop():
             ticker = yf.Ticker(f"{symbol}.NS")
             price = ticker.fast_info["last_price"]
             await manager.broadcast(
-                symbol, {"symbol": symbol, "price": round(float(price), 2), "timestamp": pd.Timestamp.now().isoformat()}
+                symbol,
+                {
+                    "symbol": symbol,
+                    "price": round(float(price), 2),
+                    "timestamp": pd.Timestamp.now().isoformat(),
+                },
             )
         except Exception:
             pass
@@ -416,13 +437,16 @@ def search_companies(query: str = Query(..., min_length=1)):
 
 @app.get("/api/predict")
 def predict_stock(
-    stock_symbol: str, period: str = Query("1y", regex="^(1mo|3mo|6mo|1y|2y|5y|max)$"), no_cache: bool = Query(False)
+    stock_symbol: str,
+    period: str = Query("1y", regex="^(1mo|3mo|6mo|1y|2y|5y|max)$"),
+    no_cache: bool = Query(False),
 ):
     # Input validation
     symbol_upper = stock_symbol.strip().upper()
     if not re.match(r"^[A-Z0-9&_.-]{1,20}$", symbol_upper):
         raise HTTPException(
-            status_code=400, detail="Invalid stock symbol. Use alphanumeric characters only, max 20 chars."
+            status_code=400,
+            detail="Invalid stock symbol. Use alphanumeric characters only, max 20 chars.",
         )
 
     # Check cache
@@ -498,11 +522,13 @@ async def simulate_headline(request: dict):
             "headline": headline,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Simulation error: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Simulation error: {str(e)}")
 
 
 @app.get("/api/multiverse")
-def get_multiverse_prediction(stock_symbol: str, period: str = Query("1y", regex="^(1mo|3mo|6mo|1y|2y|5y|max)$")):
+def get_multiverse_prediction(
+    stock_symbol: str, period: str = Query("1y", regex="^(1mo|3mo|6mo|1y|2y|5y|max)$")
+):
     symbol_upper = stock_symbol.strip().upper()
     yf_symbol = f"{symbol_upper}.NS"
     ticker = yf.Ticker(yf_symbol)
@@ -605,7 +631,8 @@ def get_multiverse_prediction(stock_symbol: str, period: str = Query("1y", regex
         return {
             "symbol": symbol_upper,
             "dates": hist_dates + future_dates,
-            "prices": [float(p) for p in close_prices] + [float(p) for p in mean_df["Predicted_Close"]],
+            "prices": [float(p) for p in close_prices]
+            + [float(p) for p in mean_df["Predicted_Close"]],
             "cloud_upper": [float(p) for p in upper_df["Predicted_Close"].tolist()],
             "cloud_lower": [float(p) for p in lower_df["Predicted_Close"].tolist()],
             "prediction_start_index": len(close_prices),
@@ -631,17 +658,21 @@ def historical_stochastic_scan(stock_symbol: str, period: str = Query("1y")):
         ticker = yf.Ticker(f"{symbol_upper}.NS")
         df = ticker.history(period=period)
         if df.empty:
-            msg = "No data"
-            raise Exception(msg)
+            raise Exception("No data")
 
         # Prepare inferencer
         model = get_model(symbol_upper)
         if not model:
-            msg = "No model found"
-            raise Exception(msg)
+            raise Exception("No model found")
 
         df_clean = df.rename(
-            columns={"Open": "open", "High": "high", "Low": "low", "Close": "close", "Volume": "volume"}
+            columns={
+                "Open": "open",
+                "High": "high",
+                "Low": "low",
+                "Close": "close",
+                "Volume": "volume",
+            }
         )
         data_loader.preprocess_data(df_clean, train=True)
         inferencer = Inferencer(model, device, data_loader)
@@ -668,10 +699,20 @@ def market_overview():
                 prev = hist["Close"].iloc[-2]
                 change_pct = ((current - prev) / prev) * 100
                 result.append(
-                    {"name": name, "price": round(float(current), 2), "change_pct": round(float(change_pct), 2)}
+                    {
+                        "name": name,
+                        "price": round(float(current), 2),
+                        "change_pct": round(float(change_pct), 2),
+                    }
                 )
             elif len(hist) == 1:
-                result.append({"name": name, "price": round(float(hist["Close"].iloc[-1]), 2), "change_pct": 0.0})
+                result.append(
+                    {
+                        "name": name,
+                        "price": round(float(hist["Close"].iloc[-1]), 2),
+                        "change_pct": 0.0,
+                    }
+                )
         except Exception as e:
             print(f"Error fetching {name}: {e}")
             result.append({"name": name, "price": 0, "change_pct": 0.0})
@@ -705,7 +746,9 @@ def backtest_stock(
 
     model = get_model(symbol_upper)
     if not model:
-        raise HTTPException(status_code=404, detail=f"No predictive model found for {symbol_upper} to run backtest.")
+        raise HTTPException(
+            status_code=404, detail=f"No predictive model found for {symbol_upper} to run backtest."
+        )
 
     # Get input size from model
     input_size = 1
@@ -743,7 +786,13 @@ def backtest_stock(
 
         try:
             preds_df = inferencer.predict(
-                symbol_upper, current_df.index[0], current_df.index[-1], 30, 10, columns=features, data=current_df
+                symbol_upper,
+                current_df.index[0],
+                current_df.index[-1],
+                30,
+                10,
+                columns=features,
+                data=current_df,
             )
 
             p_vals = preds_df["Predicted_Close"].tolist()
@@ -774,7 +823,11 @@ def backtest_stock(
         "symbol": symbol_upper,
         "actual": {"dates": actual_dates, "prices": actual_series},
         "bursts": bursts,
-        "metrics": {"mae": round(float(mae), 2), "rmse": round(float(rmse), 2), "win_rate": round(float(win_rate), 1)},
+        "metrics": {
+            "mae": round(float(mae), 2),
+            "rmse": round(float(rmse), 2),
+            "win_rate": round(float(win_rate), 1),
+        },
     }
 
 
@@ -901,11 +954,18 @@ def get_sector_heatmap():
                     change = 0.0
 
             heatmap_data.append(
-                {"name": info["name"], "ticker": ticker, "change": round(change, 2), "weight": info["weight"]}
+                {
+                    "name": info["name"],
+                    "ticker": ticker,
+                    "change": round(change, 2),
+                    "weight": info["weight"],
+                }
             )
         except Exception as e:
             print(f"Error fetching sector {ticker}: {e}")
-            heatmap_data.append({"name": info["name"], "ticker": ticker, "change": 0.0, "weight": info["weight"]})
+            heatmap_data.append(
+                {"name": info["name"], "ticker": ticker, "change": 0.0, "weight": info["weight"]}
+            )
 
     # Sort by weight (largest blocks first)
     heatmap_data.sort(key=lambda x: x["weight"], reverse=True)
@@ -913,10 +973,27 @@ def get_sector_heatmap():
 
 
 SECTOR_UNIVERSE = {
-    "Banking": ["HDFCBANK", "ICICIBANK", "SBIN", "AXISBANK", "KOTAKBANK", "PNB", "IDFCFIRSTB", "FEDERALBNK"],
+    "Banking": [
+        "HDFCBANK",
+        "ICICIBANK",
+        "SBIN",
+        "AXISBANK",
+        "KOTAKBANK",
+        "PNB",
+        "IDFCFIRSTB",
+        "FEDERALBNK",
+    ],
     "IT": ["TCS", "INFY", "WIPRO", "HCLTECH", "TECHM", "LTIM", "COFORGE", "PERSISTENT"],
     "Auto": ["TATAMOTORS", "MARUTI", "M&M", "EICHERMOT", "BAJAJ-AUTO", "HEROMOTOCO", "TVSMOTOR"],
-    "Pharma": ["SUNPHARMA", "DRREDDY", "CIPLA", "APOLLOHOSP", "DIVISLAB", "ZYDUSLIFE", "AUROPHARMA"],
+    "Pharma": [
+        "SUNPHARMA",
+        "DRREDDY",
+        "CIPLA",
+        "APOLLOHOSP",
+        "DIVISLAB",
+        "ZYDUSLIFE",
+        "AUROPHARMA",
+    ],
     "Energy": ["RELIANCE", "ONGC", "BPCL", "POWERGRID", "NTPC", "GAIL", "ADANIGREEN", "TATAPOWER"],
     "FMCG": ["ITC", "HINDUNILVR", "BRITANNIA", "NESTLEIND", "VBL", "TATACONSUM", "GODREJCP"],
     "Metal": ["TATASTEEL", "JSWSTEEL", "HINDALCO", "COALINDIA", "VEDL", "NMDC", "SAIL"],
@@ -1048,7 +1125,9 @@ async def wealth_advisor(
     if not top_3:
         # Hardest Fallback: If AI fails for all, just return the top 3 by market price alone
         # to avoid the 'No Suitable Stocks Found' loop.
-        fallback_candidates = sorted(matched_syms, key=lambda s: current_prices[s], reverse=True)[:3]
+        fallback_candidates = sorted(matched_syms, key=lambda s: current_prices[s], reverse=True)[
+            :3
+        ]
         for sym in fallback_candidates:
             top_3.append(
                 {
@@ -1147,7 +1226,9 @@ def get_live_quote(symbol: str):
 
 def get_current_user_id(x_user_id: str = Header(None)):
     if not x_user_id:
-        raise HTTPException(status_code=401, detail="Authentication credentials (X-User-Id) were not provided.")
+        raise HTTPException(
+            status_code=401, detail="Authentication credentials (X-User-Id) were not provided."
+        )
     try:
         return int(x_user_id)
     except ValueError:
@@ -1187,7 +1268,9 @@ def fetch_portfolio(user_id: int = Depends(get_current_user_id), db: Session = D
 
 
 @app.post("/api/portfolio/trade", response_model=schemas.User)
-def execute_trade_endpoint(trade: dict, user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
+def execute_trade_endpoint(
+    trade: dict, user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)
+):
     user = crud.get_user(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -1200,7 +1283,7 @@ def execute_trade_endpoint(trade: dict, user_id: int = Depends(get_current_user_
     if not all([symbol, price, quantity, trade_type]):
         raise HTTPException(status_code=400, detail="Missing trade parameters")
 
-    return crud.execute_trade(
+    updated_user = crud.execute_trade(
         db,
         user.id,
         symbol,
@@ -1210,10 +1293,13 @@ def execute_trade_endpoint(trade: dict, user_id: int = Depends(get_current_user_
         take_profit=trade.get("take_profit"),
         stop_loss=trade.get("stop_loss"),
     )
+    return updated_user
 
 
 @app.post("/api/portfolio/limits")
-def update_position_limits(limits: dict, user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
+def update_position_limits(
+    limits: dict, user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)
+):
     user = crud.get_user(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

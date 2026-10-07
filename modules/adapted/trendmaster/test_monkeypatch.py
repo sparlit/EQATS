@@ -34,7 +34,6 @@ import __main__
 __main__.TransAm = TransAm
 __main__.PositionalEncoding = PositionalEncoding
 
-import sys
 
 paths = [
     "c:/Users/nitya/Desktop/18/Training/best_model_multi10.pt",
