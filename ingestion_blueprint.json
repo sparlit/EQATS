@@ -1,5 +1,5 @@
 {
-  "current_index": 178,
+  "current_index": 179,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1429,9 +1429,9 @@
       "name": "cli-candlestick-chart",
       "target": "julien-r44/cli-candlestick-chart",
       "url": "https://github.com/julien-r44/cli-candlestick-chart",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3120",
+      "merged": true
     },
     {
       "name": "trusted",
