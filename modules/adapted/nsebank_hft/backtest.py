@@ -43,16 +43,12 @@ Methodology
 
 
 import logging
-from typing import TYPE_CHECKING, Dict, List
+from collections.abc import Callable
 
 import numpy as np
+import pandas as pd
 
-from .data_pipeline import _compute_features, _extract_gbm_params
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    import pandas as pd
+from .data_pipeline import _extract_gbm_params
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +105,9 @@ def run_walkforward(
         train_end_idx = test_start_idx - 1
 
         if train_end_idx < min_train:
-            logger.warning("Window %d: not enough training data (%d days). Skipping.", i, train_end_idx)
+            logger.warning(
+                "Window %d: not enough training data (%d days). Skipping.", i, train_end_idx
+            )
             continue
 
         train_df = df.iloc[: train_end_idx + 1]
@@ -171,7 +169,11 @@ def run_walkforward(
         return {"coverage_90": np.nan, "windows": [], "summary": "Insufficient data."}
 
     coverage = float(np.mean([w["actual_in_90pct_band"] for w in window_results]))
-    summary = f"{model_name}: {len(window_results)} windows, 90%-band coverage = {coverage:.1%} (target ≈ 90%)"
+    summary = (
+        f"{model_name}: {len(window_results)} windows, "
+        f"90%-band coverage = {coverage:.1%} "
+        f"(target ≈ 90%)"
+    )
     logger.info("[%s] Walk-forward result: %s", model_name, summary)
 
     return {
