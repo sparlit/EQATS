@@ -26,12 +26,11 @@ import calendar
 import datetime
 import math
 import random
-import sys
 from io import BytesIO
 from time import sleep
 from zipfile import ZipFile
 
-import matplotlib as mpl
+import matplotlib
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import requests
@@ -109,7 +108,8 @@ def bhavcopy():
             bull_bear_ratio = round(
                 number_of_stocks_advancing_percentage / number_of_stocks_declining_percentage
                 if number_of_stocks_advancing_percentage > number_of_stocks_declining_percentage
-                else -1 * (number_of_stocks_declining_percentage / number_of_stocks_advancing_percentage),
+                else -1
+                * (number_of_stocks_declining_percentage / number_of_stocks_advancing_percentage),
                 2,
             )
             print("Bull/Bear ratio                                           : ", bull_bear_ratio)
@@ -119,7 +119,10 @@ def bhavcopy():
                 else -1 * (number_of_negative_stocks / number_of_positive_stocks),
                 2,
             )
-            print("Advance/Decline ratio                                     : ", advance_decline_ratio)
+            print(
+                "Advance/Decline ratio                                     : ",
+                advance_decline_ratio,
+            )
 
             list_number_of_stocks_advancing_percentage.append(number_of_stocks_advancing_percentage)
             list_number_of_stocks_declining_percentage.append(number_of_stocks_declining_percentage)
@@ -147,9 +150,11 @@ def visualize():
         list_number_of_stocks_declining_percentage,
     )
     print("Bull/Bear ratio                                           : ", list_bull_bear_ratio)
-    print("Advance/Decline ratio                                     : ", list_advance_decline_ratio)
+    print(
+        "Advance/Decline ratio                                     : ", list_advance_decline_ratio
+    )
 
-    dates = mpl.dates.date2num(list_dates)
+    dates = matplotlib.dates.date2num(list_dates)
     print(dates)
 
     plt.xlabel("Dates")
