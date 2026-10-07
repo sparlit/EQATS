@@ -115,10 +115,8 @@ def sector_chart(sectors):
         return zero + (v / hi) * (plot_w / 2)
 
     out = [
-        (
-            f'<svg class="chart" viewBox="0 0 {w} {h}" role="img" '
-            f'aria-label="Weekly return by sector, sorted best to worst">'
-        )
+        f'<svg class="chart" viewBox="0 0 {w} {h}" role="img" '
+        f'aria-label="Weekly return by sector, sorted best to worst">'
     ]
 
     # gridlines + ticks
@@ -126,8 +124,12 @@ def sector_chart(sectors):
     while t <= hi + 1e-9:
         gx = x(t)
         cls = "axis-zero" if abs(t) < 1e-9 else "gridline"
-        out.append(f'<line class="{cls}" x1="{gx:.1f}" y1="{m_t}" x2="{gx:.1f}" y2="{m_t + plot_h}"/>')
-        out.append(f'<text class="tick" x="{gx:.1f}" y="{m_t + plot_h + 18}" text-anchor="middle">{t:g}</text>')
+        out.append(
+            f'<line class="{cls}" x1="{gx:.1f}" y1="{m_t}" x2="{gx:.1f}" y2="{m_t + plot_h}"/>'
+        )
+        out.append(
+            f'<text class="tick" x="{gx:.1f}" y="{m_t + plot_h + 18}" text-anchor="middle">{t:g}</text>'
+        )
         t += step
     out.append(
         f'<text class="axis-title" x="{zero:.1f}" y="{h - 6}" text-anchor="middle">'
@@ -148,7 +150,10 @@ def sector_chart(sectors):
             bx, r = x0, "4 0 0 4"
         fill = "var(--gain)" if pos else "var(--loss)"
         label = f"{v:+.2f}%"
-        tip = f"{s['sector']}: {label} this week · {s['advancers']}/{s['count']} advancing · 1M {fmt(s['month'])}"
+        tip = (
+            f"{s['sector']}: {label} this week · {s['advancers']}/{s['count']} advancing "
+            f"· 1M {fmt(s['month'])}"
+        )
         out.append(
             f'<g class="bar-g"><title>{esc(tip)}</title>'
             f'<rect class="bar" x="{bx:.1f}" y="{y:.1f}" width="{max(bw - 1, 1):.1f}" height="{bh}" '
@@ -175,7 +180,9 @@ def sector_chart(sectors):
             lx = (x1 + 7) if pos else (x0 - 7)
             anchor = "start" if pos else "end"
             cls = "val"
-        out.append(f'<text class="{cls}" x="{lx:.1f}" y="{ty:.1f}" text-anchor="{anchor}">{label}</text>')
+        out.append(
+            f'<text class="{cls}" x="{lx:.1f}" y="{ty:.1f}" text-anchor="{anchor}">{label}</text>'
+        )
 
     out.append("</svg>")
     return "\n".join(out)
@@ -204,8 +211,8 @@ def leaders_chart(sectors, per=5, groups=3):
 
     vals = [b[2]["week"] for b in bars]
     # Round tick step, with headroom above the tallest bar for its label.
-    raw_hi = max([*vals, 0]) * 1.08
-    raw_lo = min([*vals, 0])
+    raw_hi = max(vals + [0]) * 1.08
+    raw_lo = min(vals + [0])
     step = 1.0
     for cand in (0.5, 1, 2, 2.5, 5, 10, 20):
         if (raw_hi - min(raw_lo, 0)) / cand <= 6:
@@ -214,23 +221,25 @@ def leaders_chart(sectors, per=5, groups=3):
     hi = math.ceil(raw_hi / step) * step
     lo = math.floor(min(raw_lo, 0) / step) * step
     rng = (hi - lo) or 1
-    ticks = round(rng / step)
+    ticks = int(round(rng / step))
 
     def y(v):
         return m_t + plot_h - ((v - lo) / rng) * plot_h
 
     out = [
-        (
-            f'<svg class="chart" viewBox="0 0 {w} {h}" role="img" '
-            f'aria-label="Best performing stocks in the top three sectors this week">'
-        )
+        f'<svg class="chart" viewBox="0 0 {w} {h}" role="img" '
+        f'aria-label="Best performing stocks in the top three sectors this week">'
     ]
     for i in range(ticks + 1):
         v = lo + rng * i / ticks
         gy = y(v)
         cls = "axis-zero" if abs(v) < 1e-9 else "gridline"
-        out.append(f'<line class="{cls}" x1="{m_l}" y1="{gy:.1f}" x2="{m_l + plot_w}" y2="{gy:.1f}"/>')
-        out.append(f'<text class="tick" x="{m_l - 9}" y="{gy + 4:.1f}" text-anchor="end">{v:.1f}</text>')
+        out.append(
+            f'<line class="{cls}" x1="{m_l}" y1="{gy:.1f}" x2="{m_l + plot_w}" y2="{gy:.1f}"/>'
+        )
+        out.append(
+            f'<text class="tick" x="{m_l - 9}" y="{gy + 4:.1f}" text-anchor="end">{v:.1f}</text>'
+        )
     out.append(
         f'<text class="axis-title" transform="rotate(-90 16 {m_t + plot_h / 2:.1f})" '
         f'x="16" y="{m_t + plot_h / 2:.1f}" text-anchor="middle">Weekly return (%)</text>'
@@ -253,7 +262,9 @@ def leaders_chart(sectors, per=5, groups=3):
             f'<rect class="hit" x="{cx - bar_gap / 2:.1f}" y="{m_t}" width="{bar_w + bar_gap}" height="{plot_h}"/>'
             f"</g>"
         )
-        out.append(f'<text class="val" x="{cx + bar_w / 2:.1f}" y="{y0 - 7:.1f}" text-anchor="middle">{v:+.1f}%</text>')
+        out.append(
+            f'<text class="val" x="{cx + bar_w / 2:.1f}" y="{y0 - 7:.1f}" text-anchor="middle">{v:+.1f}%</text>'
+        )
         out.append(
             f'<text class="cat" x="{cx + bar_w / 2:.1f}" y="{m_t + plot_h + 16:.1f}" '
             f'text-anchor="end" transform="rotate(-45 {cx + bar_w / 2:.1f} {m_t + plot_h + 16:.1f})">'
@@ -266,7 +277,8 @@ def leaders_chart(sectors, per=5, groups=3):
     legend = (
         '<div class="legend">'
         + "".join(
-            f'<span class="lg"><i style="background:{SERIES[i]}"></i>{esc(s["sector"])} <b>{fmt(s["week"])}</b></span>'
+            f'<span class="lg"><i style="background:{SERIES[i]}"></i>{esc(s["sector"])} '
+            f"<b>{fmt(s['week'])}</b></span>"
             for i, s in enumerate(lead)
         )
         + "</div>"
@@ -301,7 +313,11 @@ def build_html(d):
     next_run = d_fmt((gen + dt.timedelta(days=7)).date(), "wd_day_mon")
     base = dt.date.fromisoformat(d["baseline"])
     base_label = d_fmt(base, "wd_day_mon")
-    status = "completed trading week" if d.get("week_complete", True) else "week so far — still in progress"
+    status = (
+        "completed trading week"
+        if d.get("week_complete", True)
+        else "week so far — still in progress"
+    )
 
     # Index daily bars are published later than stock bars, so a benchmark can
     # still be a session behind the universe. Say so on the tile rather than
@@ -349,8 +365,12 @@ def build_html(d):
         for i, s in enumerate(sectors)
     )
 
-    gain_rows = "".join(stock_row(g, d["sector_of"].get(g["root"], "–"), quarter=False) for g in d["gainers"])
-    lose_rows = "".join(stock_row(g, d["sector_of"].get(g["root"], "–"), quarter=False) for g in d["losers"])
+    gain_rows = "".join(
+        stock_row(g, d["sector_of"].get(g["root"], "–"), quarter=False) for g in d["gainers"]
+    )
+    lose_rows = "".join(
+        stock_row(g, d["sector_of"].get(g["root"], "–"), quarter=False) for g in d["losers"]
+    )
 
     top3 = ", ".join(s["sector"] for s in sectors[:3])
     lead = sectors[0]
