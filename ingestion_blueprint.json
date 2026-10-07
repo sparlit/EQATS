@@ -1606,8 +1606,8 @@
       "target": "lebedov/nseindia_reformat",
       "url": "https://github.com/lebedov/nseindia_reformat",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3143",
+      "merged": true
     },
     {
       "name": "matching-core",
