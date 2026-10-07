@@ -2,9 +2,9 @@
 Tests for YATA High-Performance Technical Analysis Engine Integration Module
 """
 
-import pytest
 from unittest.mock import patch
 
+import pytest
 from institutional_integrations.yata_engine import (
     YATATechnicalEngine,
     YATABrokerAdapter,
@@ -17,7 +17,9 @@ from institutional_integrations.sebi_broker_adapter import (
 )
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_yata_indicators_and_signals():
+    assert round_tick_005(100.02) == 100.00
     engine = YATATechnicalEngine(period_hma=9)
     assert engine.magic_number == MAGIC_NUMBER_YATA
 
