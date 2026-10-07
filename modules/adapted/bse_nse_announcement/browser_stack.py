@@ -25,28 +25,19 @@ import datetime
 
 # import pync
 # Debugging
-import logging
 import os
 import time
 import traceback
-import webbrowser
-from datetime import date, datetime
+from datetime import datetime
 from threading import Thread
 
 import pandas as pd
-from dateutil.parser import parse
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
-from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 # Chrome
 # from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.keys import Keys
-
 # Firefox
-from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
@@ -115,7 +106,9 @@ def bse_data(from_date, to_date, segment, desired_cap):
         # Start Scraping Data
         driver.get("https://www.bseindia.com/corporates/ann.html")
         time.sleep(0.8)
-        no_of_announcements = driver.find_element_by_xpath("/html/body/div[1]/div[4]/div[2]/div[2]/div[1]/div[2]")
+        no_of_announcements = driver.find_element_by_xpath(
+            "/html/body/div[1]/div[4]/div[2]/div[2]/div[1]/div[2]"
+        )
         print(no_of_announcements.text)
 
         # elem = WebDriverWait(driver, delay).until(EC.presence_of_element_located((By.ID, 'ddlAnnType')))
@@ -137,7 +130,9 @@ def bse_data(from_date, to_date, segment, desired_cap):
         # baseTable = driver.find_element_by_id("lblann")
         # Check if any Announcements are available
         try:
-            data = driver.find_element_by_xpath("/html/body/div[1]/div[4]/div[2]/div[2]/div[2]").text
+            data = driver.find_element_by_xpath(
+                "/html/body/div[1]/div[4]/div[2]/div[2]/div[2]"
+            ).text
             if data == "No Records Found":
                 print("No Records Found")
         except:
@@ -146,7 +141,11 @@ def bse_data(from_date, to_date, segment, desired_cap):
         # Next Button/Page
         n = 2
         try:
-            p = len(driver.find_elements_by_xpath("/html/body/div[1]/div[4]/div[2]/div[2]/div[1]/div[1]/ul/li"))
+            p = len(
+                driver.find_elements_by_xpath(
+                    "/html/body/div[1]/div[4]/div[2]/div[2]/div[1]/div[1]/ul/li"
+                )
+            )
             print("Next Pages:", p)
         except Exception as e:
             print(e)
@@ -171,7 +170,7 @@ def bse_data(from_date, to_date, segment, desired_cap):
                 column_info = []
                 pdf_links = []
                 my_links = driver.find_elements_by_xpath(
-                    f"/html/body/div[1]/div[4]/div[2]/div[2]/div[3]/div/div/table/tbody/tr/td[2]/table/tbody/tr[2]/td/table/tbody/tr[4]/td/table[{r!s}]/tbody/tr[1]/td[1]"
+                    f"/html/body/div[1]/div[4]/div[2]/div[2]/div[3]/div/div/table/tbody/tr/td[2]/table/tbody/tr[2]/td/table/tbody/tr[4]/td/table[{str(r)}]/tbody/tr[1]/td[1]"
                 )
                 # Get Announcements Information from BSE
                 for link in my_links:
@@ -194,6 +193,7 @@ def bse_data(from_date, to_date, segment, desired_cap):
                         more_info = driver.find_element_by_xpath(
                             "/html/body/div[5]/div/div/div[1]/div/table/tbody/tr[6]/td"
                         ).text
+                        pass
                     # Get PDF Link from BSE
                     try:
                         pdf = driver.find_element_by_xpath(
@@ -202,13 +202,16 @@ def bse_data(from_date, to_date, segment, desired_cap):
                     except Exception as e:
                         print(e)
                         pdf = "No PDF"
+                        pass
 
                     column_info.extend([symbol, subject, date, more_info])
                     pdf_links.append(pdf)
                     print(pdf_links)
 
                     try:
-                        driver.find_element_by_xpath("/html/body/div[5]/div/div/div[2]/button").click()
+                        driver.find_element_by_xpath(
+                            "/html/body/div[5]/div/div/div[2]/button"
+                        ).click()
                         # element = driver.find_element_by_xpath('/html/body/div[5]/div/div/div[2]/button')
                         # ActionChains(driver).move_to_element(element).click()
                     except:
@@ -217,18 +220,19 @@ def bse_data(from_date, to_date, segment, desired_cap):
                 # Scrolling of website
                 try:
                     columns = driver.find_element_by_xpath(
-                        f"/html/body/div[1]/div[4]/div[2]/div[2]/div[3]/div/div/table/tbody/tr/td[2]/table/tbody/tr[2]/td/table/tbody/tr[4]/td/table[{r!s}]/tbody/tr[1]/td[2]"
+                        f"/html/body/div[1]/div[4]/div[2]/div[2]/div[3]/div/div/table/tbody/tr/td[2]/table/tbody/tr[2]/td/table/tbody/tr[4]/td/table[{str(r)}]/tbody/tr[1]/td[2]"
                     ).text
                     WebDriverWait(driver, 2).until(
                         EC.element_to_be_clickable(
                             (
                                 By.XPATH,
-                                f"/html/body/div[1]/div[4]/div[2]/div[2]/div[3]/div/div/table/tbody/tr/td[2]/table/tbody/tr[2]/td/table/tbody/tr[4]/td/table[{r!s}]/tbody/tr[1]/td[2]",
+                                f"/html/body/div[1]/div[4]/div[2]/div[2]/div[3]/div/div/table/tbody/tr/td[2]/table/tbody/tr[2]/td/table/tbody/tr[4]/td/table[{str(r)}]/tbody/tr[1]/td[2]",
                             )
                         )
                     )
                 except:
                     print("Website Not Scrolled")
+                    pass
                 column_info.append(columns)
                 print(column_info)
 
@@ -241,7 +245,7 @@ def bse_data(from_date, to_date, segment, desired_cap):
             try:
                 if n < p:
                     elem = driver.find_element_by_xpath(
-                        f"/html/body/div[1]/div[4]/div[2]/div[2]/div[1]/div[1]/ul/li[{n!s}]/a"
+                        f"/html/body/div[1]/div[4]/div[2]/div[2]/div[1]/div[1]/ul/li[{str(n)}]/a"
                     )
                     elem.click()
                     print("Next Page")
@@ -249,6 +253,7 @@ def bse_data(from_date, to_date, segment, desired_cap):
                     break
             except Exception as e:
                 print(e)
+                pass
         df2 = pd.merge(df, df1, left_index=True, right_index=True)
         df2.to_html(path, escape=False, render_links=True)
     except Exception as e:
@@ -266,6 +271,14 @@ if __name__ == "__main__":
     now = datetime.date.today().strftime("%d/%m/%Y")
     segment = "MF/ETFs"
     for cap in caps:
-        Thread(target=bse_data, args=(now, now, segment, cap)).start()
+        Thread(
+            target=bse_data,
+            args=(
+                now,
+                now,
+                segment,
+                cap,
+            ),
+        ).start()
     # df, path = bse_data(now, now, segment)
     # webbrowser.open(path)
