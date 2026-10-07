@@ -1446,8 +1446,8 @@
       "target": "kalyanm45/marketinsight",
       "url": "https://github.com/kalyanm45/marketinsight",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3122",
+      "merged": true
     },
     {
       "name": "stock-research-assistant",
