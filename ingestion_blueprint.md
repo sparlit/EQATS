@@ -153,7 +153,7 @@ Total Repositories: 424 | Current Index: 151
 | 148 | hawkeyecoding/nse-oi-analysis | Processed | https://github.com/sparlit/EQATS/pull/3089 |
 | 149 | hemangjoshi37a/trendmaster | Completed | https://github.com/sparlit/EQATS/pull/3090 |
 | 150 | hemenkapadia/getbhavcopy | Processed | https://github.com/sparlit/EQATS/pull/3091 |
-| 151 | henry-richard7/nse-tool-stocks-aerial-view | Processed | None |
+| 151 | henry-richard7/nse-tool-stocks-aerial-view | Processed | https://github.com/sparlit/EQATS/pull/3092 |
 | 152 | hermanodecastro/arbitrage-trading | pending | None |
 | 153 | hgsujay/nsedata | pending | None |
 | 154 | hi-imcodeman/stock-nse-india | pending | None |
