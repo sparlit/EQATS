@@ -50,18 +50,16 @@ class Calender:
         for date in self.calendar.itermonthdates(year, month):
             newDate = datetime.datetime.strptime(str(date), "%Y-%m-%d").strftime("%Y%m%d")
             weekday = self.isWeekday(newDate)
-            if weekday:
-                if int(newDate[4:6]) == month:
-                    weekdays.append(newDate)
-                    self._strMonth = newDate[4:6]
-        return self.holiday(weekdays)
+            if weekday and int(newDate[4:6]) == month:
+                weekdays.append(newDate)
+                self._strMonth = newDate[4:6]
+        tradingDays = self.holiday(weekdays)
+        return tradingDays
 
     # removes the weekends from the days of the month
     def isWeekday(self, date):
         day = calendar.weekday(int(date[0:4]), int(date[4:6]), int(date[6:8]))
-        if day < 5:
-            return True
-        return False
+        return day < 5
 
     # removes a monday from the list if the holiday is on a Sunday
     def isHolidayOnSunday(self, day):
@@ -71,8 +69,12 @@ class Calender:
         if whichDay == 6:  # if Sunday
             newdate = datetime.datetime.strptime(date, "%Y-%m-%d").date()
             newHoliday = newdate + self._1daymore
-            return datetime.datetime.strptime(str(newHoliday), "%Y-%m-%d").strftime("%Y%m%d")
-        return day
+            newHolidayDate = datetime.datetime.strptime(str(newHoliday), "%Y-%m-%d").strftime(
+                "%Y%m%d"
+            )
+            return newHolidayDate
+        else:
+            return day
 
     # removes the holidays from the days of the month
     def holiday(self, monthDays):
@@ -90,8 +92,12 @@ class Calender:
         _2daysLess = datetime.timedelta(days=-2)
         goodFriday = easterSunday + _2daysLess
         easterMonday = easterSunday + self._1daymore
-        easterDays.append(datetime.datetime.strptime(str(goodFriday), "%Y-%m-%d").strftime("%Y%m%d"))
-        easterDays.append(datetime.datetime.strptime(str(easterMonday), "%Y-%m-%d").strftime("%Y%m%d"))
+        easterDays.append(
+            datetime.datetime.strptime(str(goodFriday), "%Y-%m-%d").strftime("%Y%m%d")
+        )
+        easterDays.append(
+            datetime.datetime.strptime(str(easterMonday), "%Y-%m-%d").strftime("%Y%m%d")
+        )
         for easterDay in easterDays:
             if easterDay in monthDays:
                 monthDays.remove(easterDay)

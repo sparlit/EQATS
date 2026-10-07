@@ -38,7 +38,8 @@ class FormatData:
         dataFolder = []
         for data in os.listdir(path):
             dataFolder.append(data)
-        return sorted(dataFolder)
+        sortedDataFolder = sorted(dataFolder)
+        return sortedDataFolder
 
     # extract from daily csv
     def getMonthlyData(self, inputPath, outputPath):
@@ -56,7 +57,9 @@ class FormatData:
                 days = self.getDataInFolder(monthlyPath)
                 for day in days:
                     dailyCsvPath = monthlyPath + str(day)
-                    self.monthlyCSV(dailyCsvPath, day, outputPath + str(year) + "/" + str(month) + "/")
+                    self.monthlyCSV(
+                        dailyCsvPath, day, outputPath + str(year) + "/" + str(month) + "/"
+                    )
 
     # saves the data in the monthly csv file
     def monthlyCSV(self, dailyPath, fileName, finalPath):
