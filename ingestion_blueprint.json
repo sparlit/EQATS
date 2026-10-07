@@ -1,5 +1,5 @@
 {
-  "current_index": 197,
+  "current_index": 198,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1581,9 +1581,9 @@
       "name": "laminar-chain",
       "target": "laminar-protocol/laminar-chain",
       "url": "https://github.com/laminar-protocol/laminar-chain",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3140",
+      "merged": true
     },
     {
       "name": "nse-intraday-bot",
