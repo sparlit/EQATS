@@ -35,7 +35,7 @@ def continuation_handler(original_fn):
 
             while True:
                 flg = input("\n\rDo you want to know about more stock derivatives?(Y/N) : ").upper()
-                if flg in {"Y", "N"}:
+                if flg == "Y" or flg == "N":
                     break
                 print("Answer should be either Y(Yes) or N(No)")
 
@@ -54,11 +54,13 @@ def get_index():
     index_type_list = list(index_lists_json.keys())
     index_type_list_len = len(index_type_list)
     while True:
-        for i in range(index_type_list_len):
+        for i in range(0, index_type_list_len):
             print(f"{i + 1} : {index_type_list[i]}")
 
         try:
-            index_type = int(input(f"Please enter Index Type (Input Range 1 - {index_type_list_len}): "))
+            index_type = int(
+                input(f"Please enter Index Type (Input Range 1 - {index_type_list_len}): ")
+            )
             if not 1 <= index_type <= index_type_list_len:
                 raise ValueError
         except ValueError:
@@ -67,7 +69,7 @@ def get_index():
         while True:
             indices = index_lists_json[index_type_list[index_type - 1]]
             indices_len = len(indices)
-            for i in range(indices_len):
+            for i in range(0, indices_len):
                 print(f"{i + 1} : {indices[i]}")
 
             try:
@@ -87,7 +89,10 @@ def get_index_stock_data_json(index):
 
 
 def get_raw_json_data(stock_code):
-    deriv_type = "indices" if stock_code in {"NIFTY", "NIFTYIT", "BANKNIFTY"} else "equities"
+    if stock_code == "NIFTY" or stock_code == "NIFTYIT" or stock_code == "BANKNIFTY":
+        deriv_type = "indices"
+    else:
+        deriv_type = "equities"
 
     url = "https://www.nseindia.com/api/option-chain-" + deriv_type + "?symbol=" + stock_code
     return requests.get(url, headers=headers).json()
@@ -116,12 +121,14 @@ def get_expiry_date(all_exp_dates):
     if len(curr_month_exp_dates) == 1:
         return curr_month_exp_dates[0]
 
-    for i in range(len(curr_month_exp_dates)):
+    for i in range(0, len(curr_month_exp_dates)):
         print(f"{i + 1} : {curr_month_exp_dates[i]}")
 
     while True:
         try:
-            opt_id = int(input(f"Please select expiry date (Input Range 1 - {len(curr_month_exp_dates)}) : "))
+            opt_id = int(
+                input(f"Please select expiry date (Input Range 1 - {len(curr_month_exp_dates)}) : ")
+            )
             if not 1 <= opt_id <= len(curr_month_exp_dates):
                 raise ValueError
             break

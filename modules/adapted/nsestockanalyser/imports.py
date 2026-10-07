@@ -21,22 +21,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import calendar as cl
 import datetime
-import json
-import urllib.parse
 import warnings
-from datetime import date, datetime, timedelta
+from datetime import datetime
 
-import matplotlib as mpl
-import matplotlib.dates as mdates
-import matplotlib.pyplot as plt
 import pandas as pd
-import pandasgui
-import requests
-from dateutil.relativedelta import TH, relativedelta
-from nsepy import get_history
-from nsetools import Nse
 
 headers = {"User-Agent": "Chrome/81.0.4044.138"}
 
