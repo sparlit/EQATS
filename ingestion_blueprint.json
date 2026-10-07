@@ -1622,8 +1622,8 @@
       "target": "longbridge/longbridge-terminal",
       "url": "https://github.com/longbridge/longbridge-terminal",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3145",
+      "merged": true
     },
     {
       "name": "extrema_infra",
