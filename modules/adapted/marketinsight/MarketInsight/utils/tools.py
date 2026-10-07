@@ -34,7 +34,10 @@ logger = get_logger("Tools")
 # --------------------------------------------------------------------------------
 # Tool 1: Retrieve Company Stock Price
 # --------------------------------------------------------------------------------
-@tool("get_stock_price", description="A function that returns the current stock price of a given ticker")
+@tool(
+    "get_stock_price",
+    description="A function that returns the current stock price of a given ticker",
+)
 def get_stock_price(ticker: str):
     logger.info(f"Retrieving Stock Price of {ticker}")
 
@@ -55,7 +58,7 @@ def get_stock_price(ticker: str):
         return stock_price
 
     except Exception as e:
-        logger.exception(f"Failed to retrieve stock price of {ticker}: {e!s}")
+        logger.error(f"Failed to retrieve stock price of {ticker}: {str(e)}")
         return "Error: Failed to retrieve stock price. Please try again later."
 
 
@@ -85,7 +88,7 @@ def get_historical_data(ticker: str, start_date: str, end_date: str):
         return historical_data
 
     except Exception as e:
-        logger.exception(f"Failed to retrieve historical data of {ticker}: {e!s}")
+        logger.error(f"Failed to retrieve historical data of {ticker}: {str(e)}")
         return "Error: Failed to retrieve historical data. Please try again later."
 
 
@@ -112,14 +115,16 @@ def get_stock_news(ticker: str):
         return news
 
     except Exception as e:
-        logger.exception(f"Failed to retrieve news of {ticker}: {e!s}")
+        logger.error(f"Failed to retrieve news of {ticker}: {str(e)}")
         return "Error: Failed to retrieve news. Please try again later."
 
 
 # --------------------------------------------------------------------------------
 # Tool 4: Retrieve Company's Balance Sheet
 # --------------------------------------------------------------------------------
-@tool("get_balance_sheet", description="A function that returns the balance sheet of a given ticker")
+@tool(
+    "get_balance_sheet", description="A function that returns the balance sheet of a given ticker"
+)
 def get_balance_sheet(ticker: str):
     logger.info(f"Retrieving Balance Sheet of {ticker}")
 
@@ -139,14 +144,17 @@ def get_balance_sheet(ticker: str):
         return balance_sheet
 
     except Exception as e:
-        logger.exception(f"Failed to retrieve balance sheet of {ticker}: {e!s}")
+        logger.error(f"Failed to retrieve balance sheet of {ticker}: {str(e)}")
         return "Error: Failed to retrieve balance sheet. Please try again later."
 
 
 # --------------------------------------------------------------------------------
 # Tool 5: Retrieve Company's Income Statement
 # --------------------------------------------------------------------------------
-@tool("get_income_statement", description="A function that returns the income statement of a given ticker")
+@tool(
+    "get_income_statement",
+    description="A function that returns the income statement of a given ticker",
+)
 def get_income_statement(ticker: str):
     logger.info(f"Retrieving Income Statement of {ticker}")
 
@@ -162,18 +170,22 @@ def get_income_statement(ticker: str):
             return "No income statement available for {ticker}"
 
         end_time = time.time()
-        logger.info(f"Retrieved Income Statement of {ticker} in {end_time - start_time:.3f} seconds")
+        logger.info(
+            f"Retrieved Income Statement of {ticker} in {end_time - start_time:.3f} seconds"
+        )
         return income_statement
 
     except Exception as e:
-        logger.exception(f"Failed to retrieve income statement of {ticker}: {e!s}")
+        logger.error(f"Failed to retrieve income statement of {ticker}: {str(e)}")
         return "Error: Failed to retrieve income statement. Please try again later."
 
 
 # --------------------------------------------------------------------------------
 # Tool 6: Retrieve Company's Cash Flow Statement
 # --------------------------------------------------------------------------------
-@tool("get_cash_flow", description="A function that returns the cash flow statement of a given ticker")
+@tool(
+    "get_cash_flow", description="A function that returns the cash flow statement of a given ticker"
+)
 def get_cash_flow(ticker: str):
     logger.info(f"Retrieving Cash Flow of {ticker}")
 
@@ -193,14 +205,17 @@ def get_cash_flow(ticker: str):
         return cash_flow
 
     except Exception as e:
-        logger.exception(f"Failed to retrieve cash flow of {ticker}: {e!s}")
+        logger.error(f"Failed to retrieve cash flow of {ticker}: {str(e)}")
         return "Error: Failed to retrieve cash flow. Please try again later."
 
 
 # --------------------------------------------------------------------------------
 # Tool 7: Retrieve Company Info & Ratios
 # --------------------------------------------------------------------------------
-@tool("get_company_info", description="A function that returns company profile and key financial ratios")
+@tool(
+    "get_company_info",
+    description="A function that returns company profile and key financial ratios",
+)
 def get_company_info(ticker: str):
     logger.info(f"Retrieving Company Info of {ticker}")
 
@@ -220,14 +235,17 @@ def get_company_info(ticker: str):
         return info
 
     except Exception as e:
-        logger.exception(f"Failed to retrieve company info of {ticker}: {e!s}")
+        logger.error(f"Failed to retrieve company info of {ticker}: {str(e)}")
         return "Error: Failed to retrieve company info. Please try again later."
 
 
 # --------------------------------------------------------------------------------
 # Tool 8: Retrieve Dividend History
 # --------------------------------------------------------------------------------
-@tool("get_dividends", description="A function that returns the dividend payment history of a given ticker")
+@tool(
+    "get_dividends",
+    description="A function that returns the dividend payment history of a given ticker",
+)
 def get_dividends(ticker: str):
     logger.info(f"Retrieving Dividends of {ticker}")
 
@@ -247,7 +265,7 @@ def get_dividends(ticker: str):
         return dividends
 
     except Exception as e:
-        logger.exception(f"Failed to retrieve dividends of {ticker}: {e!s}")
+        logger.error(f"Failed to retrieve dividends of {ticker}: {str(e)}")
         return "Error: Failed to retrieve dividends. Please try again later."
 
 
@@ -274,7 +292,7 @@ def get_splits(ticker: str):
         return splits
 
     except Exception as e:
-        logger.exception(f"Failed to retrieve stock splits of {ticker}: {e!s}")
+        logger.error(f"Failed to retrieve stock splits of {ticker}: {str(e)}")
         return "Error: Failed to retrieve stock splits. Please try again later."
 
 
@@ -300,18 +318,23 @@ def get_institutional_holders(ticker: str):
             return "No institutional holders available for {ticker}"
 
         end_time = time.time()
-        logger.info(f"Retrieved Institutional Holders of {ticker} in {end_time - start_time:.3f} seconds")
+        logger.info(
+            f"Retrieved Institutional Holders of {ticker} in {end_time - start_time:.3f} seconds"
+        )
         return holders
 
     except Exception as e:
-        logger.exception(f"Failed to retrieve institutional holders of {ticker}: {e!s}")
+        logger.error(f"Failed to retrieve institutional holders of {ticker}: {str(e)}")
         return "Error: Failed to retrieve institutional holders. Please try again later."
 
 
 # --------------------------------------------------------------------------------
 # Tool 11: Retrieve Major Share Holders
 # --------------------------------------------------------------------------------
-@tool("get_major_shareholders", description="A function that returns the major share holder data of a given ticker")
+@tool(
+    "get_major_shareholders",
+    description="A function that returns the major share holder data of a given ticker",
+)
 def get_major_shareholders(ticker: str):
     logger.info(f"Retrieving Major Share Holders of {ticker}")
 
@@ -327,18 +350,23 @@ def get_major_shareholders(ticker: str):
             return "No major share holders available for {ticker}"
 
         end_time = time.time()
-        logger.info(f"Retrieved Major Share Holders of {ticker} in {end_time - start_time:.3f} seconds")
+        logger.info(
+            f"Retrieved Major Share Holders of {ticker} in {end_time - start_time:.3f} seconds"
+        )
         return holders
 
     except Exception as e:
-        logger.exception(f"Failed to retrieve major share holders of {ticker}: {e!s}")
+        logger.error(f"Failed to retrieve major share holders of {ticker}: {str(e)}")
         return "Error: Failed to retrieve major share holders. Please try again later."
 
 
 # --------------------------------------------------------------------------------
 # Tool 12: Retrieve Mutual Fund Holders
 # --------------------------------------------------------------------------------
-@tool("get_mutual_fund_holders", description="A function that returns the mutual fund ownership data of a given ticker")
+@tool(
+    "get_mutual_fund_holders",
+    description="A function that returns the mutual fund ownership data of a given ticker",
+)
 def get_mutual_fund_holders(ticker: str):
     logger.info(f"Retrieving Mutual Fund Holders of {ticker}")
 
@@ -354,11 +382,13 @@ def get_mutual_fund_holders(ticker: str):
             return "No mutual fund holders available for {ticker}"
 
         end_time = time.time()
-        logger.info(f"Retrieved Mutual Fund Holders of {ticker} in {end_time - start_time:.3f} seconds")
+        logger.info(
+            f"Retrieved Mutual Fund Holders of {ticker} in {end_time - start_time:.3f} seconds"
+        )
         return holders
 
     except Exception as e:
-        logger.exception(f"Failed to retrieve mutual fund holders of {ticker}: {e!s}")
+        logger.error(f"Failed to retrieve mutual fund holders of {ticker}: {str(e)}")
         return "Error: Failed to retrieve mutual fund holders. Please try again later."
 
 
@@ -384,11 +414,13 @@ def get_insider_transactions(ticker: str):
             return "No insider transactions available for {ticker}"
 
         end_time = time.time()
-        logger.info(f"Retrieved Insider Transactions of {ticker} in {end_time - start_time:.3f} seconds")
+        logger.info(
+            f"Retrieved Insider Transactions of {ticker} in {end_time - start_time:.3f} seconds"
+        )
         return insider_txn
 
     except Exception as e:
-        logger.exception(f"Failed to retrieve insider transactions of {ticker}: {e!s}")
+        logger.error(f"Failed to retrieve insider transactions of {ticker}: {str(e)}")
         return "Error: Failed to retrieve insider transactions. Please try again later."
 
 
@@ -396,7 +428,8 @@ def get_insider_transactions(ticker: str):
 # Tool 14: Retrieve Analyst Recommendations
 # --------------------------------------------------------------------------------
 @tool(
-    "get_analyst_recommendations", description="A function that returns the analyst recommendations of a given ticker"
+    "get_analyst_recommendations",
+    description="A function that returns the analyst recommendations of a given ticker",
 )
 def get_analyst_recommendations(ticker: str):
     logger.info(f"Retrieving Analyst Recommendations of {ticker}")
@@ -413,11 +446,13 @@ def get_analyst_recommendations(ticker: str):
             return "No analyst recommendations available for {ticker}"
 
         end_time = time.time()
-        logger.info(f"Retrieved Analyst Recommendations of {ticker} in {end_time - start_time:.3f} seconds")
+        logger.info(
+            f"Retrieved Analyst Recommendations of {ticker} in {end_time - start_time:.3f} seconds"
+        )
         return recommendations
 
     except Exception as e:
-        logger.exception(f"Failed to retrieve analyst recommendations of {ticker}: {e!s}")
+        logger.error(f"Failed to retrieve analyst recommendations of {ticker}: {str(e)}")
         return "Error: Failed to retrieve analyst recommendations. Please try again later."
 
 
@@ -443,11 +478,13 @@ def get_analyst_recommendations_summary(ticker: str):
             return "No analyst recommendations summary available for {ticker}"
 
         end_time = time.time()
-        logger.info(f"Retrieved Analyst Recommendations Summary of {ticker} in {end_time - start_time:.3f} seconds")
+        logger.info(
+            f"Retrieved Analyst Recommendations Summary of {ticker} in {end_time - start_time:.3f} seconds"
+        )
         return recommendations
 
     except Exception as e:
-        logger.exception(f"Failed to retrieve analyst recommendations summary of {ticker}: {e!s}")
+        logger.error(f"Failed to retrieve analyst recommendations summary of {ticker}: {str(e)}")
         return "Error: Failed to retrieve analyst recommendations summary. Please try again later."
 
 
@@ -470,10 +507,13 @@ def get_ticker(company_name: str):
             data = response.json()
             ticker = data["quotes"][0]["symbol"]
             end_time = time.time()
-            logger.info(f"Retrieved Ticker of {company_name} in {end_time - start_time:.3f} seconds")
+            logger.info(
+                f"Retrieved Ticker of {company_name} in {end_time - start_time:.3f} seconds"
+            )
             return ticker
-        return "Error: Failed to retrieve ticker. Please try again later."
+        else:
+            return "Error: Failed to retrieve ticker. Please try again later."
 
     except Exception as e:
-        logger.exception(f"Failed to retrieve ticker of {company_name}: {e!s}")
+        logger.error(f"Failed to retrieve ticker of {company_name}: {str(e)}")
         return "Error: Failed to retrieve ticker. Please try again later."

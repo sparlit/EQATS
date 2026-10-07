@@ -24,6 +24,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 
 import uvicorn
+from config.config import RequestObject
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -31,8 +32,6 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langfuse import Langfuse
 from MarketInsight.components.agent import agent
 from MarketInsight.utils.logger import get_logger
-
-from config.config import RequestObject
 
 logger = get_logger(__name__)
 app = FastAPI()
@@ -73,7 +72,10 @@ async def chat(request: RequestObject):
 
                 # Create a nested generation for the LLM/agent call
                 with langfuse.start_as_current_observation(
-                    as_type="generation", name="agent-stream", model="agentic-workflow", input=request.prompt.content
+                    as_type="generation",
+                    name="agent-stream",
+                    model="agentic-workflow",
+                    input=request.prompt.content,
                 ) as generation:
                     full_response = ""
                     for token, _ in agent.stream(
@@ -98,7 +100,7 @@ async def chat(request: RequestObject):
                 span.update(output="Request completed successfully")
 
         except Exception as e:
-            logger.exception(f"Error in chat: {e}")
+            logger.error(f"Error in chat: {e}")
             raise
 
     return StreamingResponse(
