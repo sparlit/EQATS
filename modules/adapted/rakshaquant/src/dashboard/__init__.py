@@ -21,12 +21,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-"""
-Dashboard Module
+"""The terminal dashboard (``--mode cli``): the engine's state in ``rich``, from the projections."""
 
-CLI-based trading dashboard for real-time monitoring.
-"""
+from src.dashboard.cli import TerminalView
 
-from .cli import TradingDashboard, TradingStats
-
-__all__ = ["TradingDashboard", "TradingStats"]
+__all__ = ["TerminalView"]

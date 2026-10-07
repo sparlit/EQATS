@@ -24,13 +24,14 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from pydantic import SecretStr
 from src.notifications.telegram import TelegramNotifier, get_notifier
 
 
 @pytest.fixture
 def mock_settings():
     with patch("src.notifications.telegram.get_settings") as mock:
-        mock.return_value.telegram_bot_token = "fake_token"
+        mock.return_value.telegram_bot_token = SecretStr("fake_token")
         mock.return_value.telegram_chat_id = "fake_chat_id"
         yield mock
 
