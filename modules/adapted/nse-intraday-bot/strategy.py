@@ -156,7 +156,7 @@ def _get_opening_range(df5: pd.DataFrame) -> dict:
 
 
 def _get_gap(
-    df5: pd.DataFrame, pdh: float | None = None, pdl: float | None = None, prev_close: float | None = None
+    df5: pd.DataFrame, pdh: float = None, pdl: float = None, prev_close: float = None
 ) -> dict:
     """
     Gap = (today's first bar open − prev_close) / prev_close × 100.
@@ -315,7 +315,7 @@ def _detect_vwap_pullback(df5: pd.DataFrame) -> dict:
 
 
 def _detect_breakout_retest(
-    df5: pd.DataFrame, opening_range: dict, pdh: float | None = None, pdl: float | None = None
+    df5: pd.DataFrame, opening_range: dict, pdh: float = None, pdl: float = None
 ) -> dict:
     """
     LONG : a prior bar closed above OR High / PDH (the breakout),
@@ -402,8 +402,8 @@ def _build_trade_params(
     direction: str,
     setup: dict,
     opening_range: dict,
-    pdh: float | None = None,
-    pdl: float | None = None,
+    pdh: float = None,
+    pdl: float = None,
     capital: float = 100_000,
     risk_pct: float = 0.01,
 ) -> dict | None:
@@ -490,9 +490,9 @@ def score_stock(
     symbol: str,
     pdh=None,
     pdl=None,
-    ist_time: datetime | None = None,
+    ist_time: datetime = None,
     capital: float = 100_000,
-    prev_close: float | None = None,
+    prev_close: float = None,
 ) -> dict:
     """
     NSE Intraday strategy — ORB + VWAP Pullback + Breakout+Retest.
@@ -599,10 +599,12 @@ def score_stock(
         reasons.append(f"Volume elevated {vol_ratio:.1f}x average")
 
     # 2d. Gap direction aligns with trade (+5)
-    if gap["valid"]:
-        if (direction == "LONG" and gap["direction"] == "UP") or (direction == "SHORT" and gap["direction"] == "DOWN"):
-            phase2 += 5
-            reasons.append(f"Opening gap {gap['pct']}% supports {direction}")
+    if gap["valid"] and (
+        (direction == "LONG" and gap["direction"] == "UP")
+        or (direction == "SHORT" and gap["direction"] == "DOWN")
+    ):
+        phase2 += 5
+        reasons.append(f"Opening gap {gap['pct']}% supports {direction}")
 
     # ════════════════════════════════════════════
     # PHASE 3  —  Entry Quality  (max 30 pts)

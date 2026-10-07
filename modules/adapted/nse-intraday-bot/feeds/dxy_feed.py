@@ -47,7 +47,9 @@ def get_dxy_data() -> dict:
     Gold LONG requires DXY bearish; Gold SHORT requires DXY bullish.
     """
     try:
-        df = _clean(yf.download(SYMBOL, period="10d", interval="1h", progress=False, auto_adjust=True))
+        df = _clean(
+            yf.download(SYMBOL, period="10d", interval="1h", progress=False, auto_adjust=True)
+        )
         if df.empty or len(df) < 22:
             return _neutral()
 
@@ -72,4 +74,11 @@ def get_dxy_data() -> dict:
 
 
 def _neutral() -> dict:
-    return {"close": None, "ema9": None, "ema21": None, "bullish": False, "bearish": False, "error": None}
+    return {
+        "close": None,
+        "ema9": None,
+        "ema21": None,
+        "bullish": False,
+        "bearish": False,
+        "error": None,
+    }

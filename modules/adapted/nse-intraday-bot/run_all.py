@@ -32,7 +32,6 @@ Usage:
 Dashboard: http://localhost:5000
 """
 import os
-import sys
 import threading
 import time
 

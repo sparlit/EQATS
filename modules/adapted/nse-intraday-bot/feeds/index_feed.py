@@ -25,7 +25,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 Index data feed — Nifty 50, Bank Nifty, Sensex, India VIX
 All data via yfinance (free, no API key needed).
 """
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import pandas as pd
 import yfinance as yf

@@ -75,7 +75,6 @@ from shared.smc_engine import (
     detect_rejection_candle,
     detect_volume_signature,
     detect_vwap_reclaim,
-    find_swings,
     get_kill_zone,
     signal_strength_label,
 )
@@ -97,7 +96,9 @@ def _index_target_sl(index: str, direction: str, entry: float, ob: dict) -> dict
     step = STRIKE_STEP.get(index, 50)
 
     if direction == "LONG":  # CALL option
-        sl = round(max(ob.get("low", entry * 0.995), entry * (0.995 if index == "NIFTY" else 0.993)), 1)
+        sl = round(
+            max(ob.get("low", entry * 0.995), entry * (0.995 if index == "NIFTY" else 0.993)), 1
+        )
         t1 = round(entry + (entry - sl) * 1.5, 1)
         t2 = round(entry + (entry - sl) * 3.0, 1)
         # snap targets to nearest strike level for clarity
@@ -106,7 +107,9 @@ def _index_target_sl(index: str, direction: str, entry: float, ob: dict) -> dict
         sl_s = round(sl / step) * step
         sl_pct = round((entry - sl) / entry * 100, 2)
     else:  # PUT option
-        sl = round(min(ob.get("high", entry * 1.005), entry * (1.005 if index == "NIFTY" else 1.007)), 1)
+        sl = round(
+            min(ob.get("high", entry * 1.005), entry * (1.005 if index == "NIFTY" else 1.007)), 1
+        )
         t1 = round(entry - (sl - entry) * 1.5, 1)
         t2 = round(entry - (sl - entry) * 3.0, 1)
         t1_s = round(t1 / step) * step
@@ -131,9 +134,9 @@ def score_options(
     df_15m: pd.DataFrame,
     df_5m: pd.DataFrame,
     vix: float,
-    pdh: float | None = None,
-    pdl: float | None = None,
-    ist_time: datetime | None = None,
+    pdh: float = None,
+    pdl: float = None,
+    ist_time: datetime = None,
 ) -> dict:
     """
     Score an index for a CALL or PUT options trade.

@@ -177,7 +177,8 @@ def connect() -> bool:
         if not mt5.initialize(**kwargs):
             print(f"[MT5] Initialize failed: {mt5.last_error()}")
             print(
-                "[MT5] TIP: open MetaTrader 5, log in to your XM demo account, enable Algo Trading, and keep it open."
+                "[MT5] TIP: open MetaTrader 5, log in to your XM demo "
+                "account, enable Algo Trading, and keep it open."
             )
             return False
 
@@ -188,7 +189,9 @@ def connect() -> bool:
         return False
 
     print(
-        f"[MT5] Connected — Account #{info.login}  Balance: {info.balance:.2f} {info.currency}  Server: {info.server}"
+        f"[MT5] Connected — Account #{info.login}  "
+        f"Balance: {info.balance:.2f} {info.currency}  "
+        f"Server: {info.server}"
     )
     tg(
         f"🤖 MT5 Auto-Trader STARTED\n"
@@ -243,7 +246,10 @@ def calc_lot(symbol: str, entry: float, sl: float) -> float:
     lot = max(sym_info.volume_min, min(lot, sym_info.volume_max))
     lot = round(lot, 2)
 
-    print(f"[LOT] {symbol}  balance={balance:.2f}  risk={risk_amount:.2f}  sl_dist={sl_distance:.4f}  lot={lot}")
+    print(
+        f"[LOT] {symbol}  balance={balance:.2f}  risk={risk_amount:.2f}  "
+        f"sl_dist={sl_distance:.4f}  lot={lot}"
+    )
     return lot
 
 
@@ -346,10 +352,11 @@ def place_order(signal: dict) -> bool:
         print(f"[ORDER] ✅ {symbol} {direction}  lot={lot}  order=#{result.order}")
         tg(msg)
         return True
-    err = f"❌ TRADE FAILED — {symbol}\nError: {result.retcode} — {result.comment}"
-    print(f"[ORDER] ❌ Failed retcode={result.retcode}  comment={result.comment}")
-    tg(err)
-    return False
+    else:
+        err = f"❌ TRADE FAILED — {symbol}\nError: {result.retcode} — {result.comment}"
+        print(f"[ORDER] ❌ Failed retcode={result.retcode}  comment={result.comment}")
+        tg(err)
+        return False
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -482,7 +489,10 @@ def _asset_cfg(asset: str) -> dict:
     }
     a = CFG.get("asset_config", {}).get(asset, {})
     d = defaults.get(asset, {"timeframe": "M15", "trend_tf": "H4"})
-    return {"timeframe": a.get("timeframe", d["timeframe"]), "trend_tf": a.get("trend_tf", d["trend_tf"])}
+    return {
+        "timeframe": a.get("timeframe", d["timeframe"]),
+        "trend_tf": a.get("trend_tf", d["trend_tf"]),
+    }
 
 
 def _htf_trend_up(symbol: str, tf_name: str):
@@ -509,7 +519,12 @@ def generate_local_signal(symbol: str, asset: str) -> dict | None:
     """
     if not _SMC_OK:
         return None
-    tf_map = {"M5": mt5.TIMEFRAME_M5, "M15": mt5.TIMEFRAME_M15, "M30": mt5.TIMEFRAME_M30, "H1": mt5.TIMEFRAME_H1}
+    tf_map = {
+        "M5": mt5.TIMEFRAME_M5,
+        "M15": mt5.TIMEFRAME_M15,
+        "M30": mt5.TIMEFRAME_M30,
+        "H1": mt5.TIMEFRAME_H1,
+    }
     acfg = _asset_cfg(asset)
     tf = tf_map.get(acfg["timeframe"], mt5.TIMEFRAME_M15)
     cap = _SL_CAP.get(asset, 0.02)
@@ -519,7 +534,10 @@ def generate_local_signal(symbol: str, asset: str) -> dict | None:
 
     df = _mt5_df(symbol, tf, 160)
     if df is None:
-        print(f"[{asset}] SKIP: no candles from MT5 ({symbol} {acfg['timeframe']}) — check symbol name & Market Watch")
+        print(
+            f"[{asset}] SKIP: no candles from MT5 ({symbol} {acfg['timeframe']}) — "
+            f"check symbol name & Market Watch"
+        )
         return None
 
     st = detect_bos_choch(df, left=2, right=2)
@@ -530,13 +548,12 @@ def generate_local_signal(symbol: str, asset: str) -> dict | None:
 
     # ── Higher-timeframe TREND FILTER (only trade with the bigger trend) ──
     up = _htf_trend_up(symbol, acfg["trend_tf"])
-    if up is not None:
-        if (direction == "LONG" and not up) or (direction == "SHORT" and up):
-            print(
-                f"[{asset}] SKIP: {direction} blocked by {acfg['trend_tf']} trend "
-                f"(EMA50 trend={'UP' if up else 'DOWN'})"
-            )
-            return None
+    if up is not None and ((direction == "LONG" and not up) or (direction == "SHORT" and up)):
+        print(
+            f"[{asset}] SKIP: {direction} blocked by {acfg['trend_tf']} trend "
+            f"(EMA50 trend={'UP' if up else 'DOWN'})"
+        )
+        return None
 
     ob = detect_order_block(df, direction)
     if not ob["valid"]:
@@ -694,7 +711,9 @@ def main():
 
     print(f"\n[BOT] Watching assets: {assets}")
     print(f"[BOT] Strategy mode: {mode}  |  Max hold: {max_hold}h")
-    print(f"[BOT] Risk per trade: {CFG.get('risk_pct', 1.0)}%  |  TP: {CFG.get('tp_r_multiple', 2.0)}R")
+    print(
+        f"[BOT] Risk per trade: {CFG.get('risk_pct', 1.0)}%  |  TP: {CFG.get('tp_r_multiple', 2.0)}R"
+    )
     print(f"[BOT] Max positions per asset: {max_pos}  |  Polling every {POLL_SEC}s\n")
 
     while True:
@@ -736,7 +755,9 @@ def main():
                 else:
                     signals = fetch_signals(asset)
                     new_signals = [
-                        s for s in (signals or []) if s.get("status") == "OPEN" and s.get("id") not in traded_ids
+                        s
+                        for s in (signals or [])
+                        if s.get("status") == "OPEN" and s.get("id") not in traded_ids
                     ]
                     if not new_signals:
                         print(f"[{asset}] no new signals")
@@ -755,7 +776,9 @@ def main():
                         continue
                     traded_ids.add(sig.get("id"))
 
-                print(f"[{asset}] SETUP {sig['direction']}  entry={sig.get('entry')}  sl={sig.get('sl')}")
+                print(
+                    f"[{asset}] SETUP {sig['direction']}  entry={sig.get('entry')}  sl={sig.get('sl')}"
+                )
                 if place_order(sig):
                     print(f"[{asset}] trade placed")
                 else:

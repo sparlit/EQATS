@@ -172,9 +172,9 @@ def _layer3_liq_obv(df: pd.DataFrame) -> tuple:
 def score_swing(
     symbol: str,
     df: pd.DataFrame,
-    sector_result: dict | None = None,
-    bulk_result: dict | None = None,
-    options_result: dict | None = None,
+    sector_result: dict = None,
+    bulk_result: dict = None,
+    options_result: dict = None,
 ) -> dict | None:
     """
     Score one stock across all 5 SMC layers.

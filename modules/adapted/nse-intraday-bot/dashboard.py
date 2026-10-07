@@ -85,9 +85,9 @@ def index():
     btc_signals = list(reversed(_get_asset_signals(BTC_LOG_FILE)))
 
     # Recent combined feed (last 20 across all assets, newest first)
-    all_signals = sorted(nse_signals + gold_signals + btc_signals, key=lambda r: r.get("datetime", ""), reverse=True)[
-        :20
-    ]
+    all_signals = sorted(
+        nse_signals + gold_signals + btc_signals, key=lambda r: r.get("datetime", ""), reverse=True
+    )[:20]
 
     nse_summary = get_summary(nse_signals)
     gold_summary = get_summary(gold_signals)
@@ -104,7 +104,15 @@ def index():
         swing_data = {
             "week_picks": [],
             "all_picks": [],
-            "summary": {"total": 0, "wins": 0, "losses": 0, "open": 0, "win_rate": 0, "avg_score": 0, "week": ""},
+            "summary": {
+                "total": 0,
+                "wins": 0,
+                "losses": 0,
+                "open": 0,
+                "win_rate": 0,
+                "avg_score": 0,
+                "week": "",
+            },
         }
 
     try:
@@ -172,9 +180,18 @@ def api_asset_status():
 
     return jsonify(
         {
-            "NSE": {"paused": bot_state.get("NSE", {}).get("paused", False), "open": _open_count(nse)},
-            "GOLD": {"paused": bot_state.get("GOLD", {}).get("paused", False), "open": _open_count(gold)},
-            "BTC": {"paused": bot_state.get("BTC", {}).get("paused", False), "open": _open_count(btc)},
+            "NSE": {
+                "paused": bot_state.get("NSE", {}).get("paused", False),
+                "open": _open_count(nse),
+            },
+            "GOLD": {
+                "paused": bot_state.get("GOLD", {}).get("paused", False),
+                "open": _open_count(gold),
+            },
+            "BTC": {
+                "paused": bot_state.get("BTC", {}).get("paused", False),
+                "open": _open_count(btc),
+            },
         }
     )
 
@@ -222,7 +239,9 @@ def api_run_backtest():
 
     t = threading.Thread(target=_run, daemon=True)
     t.start()
-    return jsonify({"status": "running", "days": days, "message": "Backtest started — refresh in ~2 minutes"})
+    return jsonify(
+        {"status": "running", "days": days, "message": "Backtest started — refresh in ~2 minutes"}
+    )
 
 
 if __name__ == "__main__":

@@ -38,7 +38,7 @@ import json
 import os
 import sys
 import time
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 import pandas as pd
 
@@ -69,7 +69,19 @@ except Exception:
 _DIR = os.path.dirname(os.path.abspath(__file__))
 PAPER_LOG = os.path.join(_DIR, "paper_trades.csv")
 STATE_F = os.path.join(_DIR, "trader_state.json")
-LOG_COLS = ["time", "mode", "event", "direction", "price", "sl", "tp", "units_or_lots", "pnl", "equity", "reason"]
+LOG_COLS = [
+    "time",
+    "mode",
+    "event",
+    "direction",
+    "price",
+    "sl",
+    "tp",
+    "units_or_lots",
+    "pnl",
+    "equity",
+    "reason",
+]
 
 
 def _log_row(**kw):
@@ -227,7 +239,9 @@ def main():
                 # cross-back exit
                 pos = st.get("position")
                 if pos and cfg.get("exit_on_cross_back", True):
-                    if (pos["dir"] == "LONG" and row["cross_dn"]) or (pos["dir"] == "SHORT" and row["cross_up"]):
+                    if (pos["dir"] == "LONG" and row["cross_dn"]) or (
+                        pos["dir"] == "SHORT" and row["cross_up"]
+                    ):
                         px = float(row["close"])
                         pnl = (
                             (px - pos["entry"]) * pos["units"]
@@ -248,7 +262,10 @@ def main():
                             equity=round(st["equity"], 2),
                             reason="ema-cross-back",
                         )
-                        telegram_send(f"📐 PAPER exit {pos['dir']} GOLD @ {px:.2f} (cross-back)  P&L {pnl:+.2f}")
+                        telegram_send(
+                            f"📐 PAPER exit {pos['dir']} GOLD @ {px:.2f} "
+                            f"(cross-back)  P&L {pnl:+.2f}"
+                        )
 
                 # risk halts
                 if st["halted"]:
@@ -267,11 +284,17 @@ def main():
                         entry = t.ask if sig == "LONG" else t.bid
                         sl, tp = initial_stops(sig, entry, atr_v, cfg)
                         units = position_size(st["equity"], cfg["risk_pct"], abs(entry - sl))
-                        reason = f"EMA cross {'up' if sig == 'LONG' else 'down'} + ADX {row['adx']:.0f} + trend filter"
+                        reason = (
+                            f"EMA cross {'up' if sig == 'LONG' else 'down'} + "
+                            f"ADX {row['adx']:.0f} + trend filter"
+                        )
                         if live:
                             si = mt5.symbol_info(cfg["symbol"])
                             tickval = si.trade_tick_value / si.trade_tick_size
-                            lots = max(cfg["lot_min"], min(cfg["lot_max"], round(units / tickval / 100, 2) * 100))
+                            lots = max(
+                                cfg["lot_min"],
+                                min(cfg["lot_max"], round(units / tickval / 100, 2) * 100),
+                            )
                             ok, fill = _live_order(cfg, sig, sl, tp, lots)
                             _log_row(
                                 time=now,
@@ -285,7 +308,10 @@ def main():
                                 equity="live",
                                 reason=reason,
                             )
-                            telegram_send(f"📐 LIVE {sig} GOLD @ {fill:.2f} SL {sl:.2f} TP {tp:.2f} ({reason})")
+                            telegram_send(
+                                f"📐 LIVE {sig} GOLD @ {fill:.2f} "
+                                f"SL {sl:.2f} TP {tp:.2f} ({reason})"
+                            )
                         else:
                             st["position"] = {
                                 "dir": sig,
@@ -307,7 +333,10 @@ def main():
                                 equity=round(st["equity"], 2),
                                 reason=reason,
                             )
-                            telegram_send(f"📐 PAPER {sig} GOLD @ {entry:.2f}\nSL {sl:.2f}  TP {tp:.2f}\n{reason}")
+                            telegram_send(
+                                f"📐 PAPER {sig} GOLD @ {entry:.2f}\n"
+                                f"SL {sl:.2f}  TP {tp:.2f}\n{reason}"
+                            )
                 print(
                     f"[{now:%H:%M}] closed bar {closed}  "
                     f"pos={'yes' if st.get('position') else 'no'}  "

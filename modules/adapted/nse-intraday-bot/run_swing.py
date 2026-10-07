@@ -39,14 +39,12 @@ Usage:
 import os
 import sys
 import time
-import traceback
 
 # Force UTF-8 stdout on Windows so ₹ and other Unicode chars print without crashing
 if sys.stdout.encoding and sys.stdout.encoding.upper() not in ("UTF-8", "UTF8"):
     sys.stdout = open(sys.stdout.fileno(), mode="w", encoding="utf-8", buffering=1)
 from datetime import date, datetime, timedelta, timezone
 
-import numpy as np
 import pandas as pd
 import yfinance as yf
 from feeds.nse_bulk_deals import get_bulk_block_buys, has_institutional_buy
@@ -269,7 +267,7 @@ def _today_str() -> str:
     return _now_ist().strftime("%Y-%m-%d")
 
 
-def _week_key(dt: datetime | None = None) -> str:
+def _week_key(dt: datetime = None) -> str:
     d = (dt or _now_ist()).date()
     y, w, _ = d.isocalendar()
     return f"{y}-W{w:02d}"
@@ -597,7 +595,8 @@ def send_eod_update():
             bar = "█" * max(0, int(prog / 10)) + "░" * max(0, 10 - int(prog / 10))
             arrow = "▲" if pnl >= 0 else "▼"
             lines.append(
-                f"{arrow} {r['symbol']:<14}  ₹{r.get('current_price', '?')}  P&L {pnl:+.2f}%  [{bar}] {prog:.0f}% → T2"
+                f"{arrow} {r['symbol']:<14}  ₹{r.get('current_price', '?')}"
+                f"  P&L {pnl:+.2f}%  [{bar}] {prog:.0f}% → T2"
             )
 
     if not hits.empty:
@@ -798,8 +797,12 @@ def _format_signal_alert(picks: list, today: str) -> str:
             f"  Entry ₹{p['entry']}  |  SL ₹{p['sl']} (-{p['sl_pct']}%)",
             f"  T1  ₹{p['t1']} (+{round(p['t1'] / p['entry'] * 100 - 100, 1)}%)  R:R 1:{p['rr_t1']}",
             f"  T2  ₹{p['t2']} (+{round(p['t2'] / p['entry'] * 100 - 100, 1)}%)  R:R 1:{p['rr_t2']}",
-            (f"  L1 Structure {bar(p['layer1'])}  L2 FVG+OB {bar(p['layer2'])}  L3 LiqGrab {bar(p['layer3'])}"),
-            (f"  L4 Sector {bar(p['layer4'])}  L5 Inst+OI {bar(p['layer5'])}  ({p['layers_passed']}/5 layers)"),
+            f"  L1 Structure {bar(p['layer1'])}  "
+            f"L2 FVG+OB {bar(p['layer2'])}  "
+            f"L3 LiqGrab {bar(p['layer3'])}",
+            f"  L4 Sector {bar(p['layer4'])}  "
+            f"L5 Inst+OI {bar(p['layer5'])}  "
+            f"({p['layers_passed']}/5 layers)",
         ]
         if p.get("bulk_buyers"):
             lines.append(f"  Buyers: {p['bulk_buyers']}")
@@ -929,7 +932,10 @@ def _git_push_csv():
         if push.returncode == 0:
             print("[SWING] ✓ swing_trades.csv pushed — dashboard will update shortly.")
         else:
-            print(f"[SWING] git push failed (dashboard not updated): {push.stderr.strip() or push.stdout.strip()}")
+            print(
+                f"[SWING] git push failed (dashboard not updated): "
+                f"{push.stderr.strip() or push.stdout.strip()}"
+            )
     except Exception as e:
         print(f"[SWING] git sync skipped: {e}")
 
@@ -981,7 +987,10 @@ def main():
 
     print(f"\n── Today's picks ({today}) ──")
     for p in picks:
-        print(f"  {p['symbol']:<14} score={p['score']}/10  entry=₹{p['entry']}  T2=₹{p['t2']}  SL=₹{p['sl']}")
+        print(
+            f"  {p['symbol']:<14} score={p['score']}/10  "
+            f"entry=₹{p['entry']}  T2=₹{p['t2']}  SL=₹{p['sl']}"
+        )
 
 
 if __name__ == "__main__":

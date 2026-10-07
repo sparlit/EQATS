@@ -43,7 +43,6 @@ Usage:
 """
 
 import argparse
-import sys
 import warnings
 from datetime import datetime, timedelta, timezone
 
@@ -69,7 +68,13 @@ def fetch(ticker: str, interval: str, days: int) -> pd.DataFrame:
     start = end - timedelta(days=days + extra)
     try:
         df = yf.download(
-            ticker, start=start, end=end, interval=interval, auto_adjust=True, progress=False, threads=False
+            ticker,
+            start=start,
+            end=end,
+            interval=interval,
+            auto_adjust=True,
+            progress=False,
+            threads=False,
         )
     except Exception as e:
         print(f"  [!] Download error {ticker} {interval}: {e}")
@@ -89,7 +94,7 @@ def fetch(ticker: str, interval: str, days: int) -> pd.DataFrame:
 
 def resample_4h(df_1h: pd.DataFrame) -> pd.DataFrame:
     """Resample 1H data → 4H OHLCV."""
-    return (
+    r = (
         df_1h.resample("4h")
         .agg(
             {
@@ -102,11 +107,12 @@ def resample_4h(df_1h: pd.DataFrame) -> pd.DataFrame:
         )
         .dropna(subset=["close"])
     )
+    return r
 
 
 def resample_weekly(df_1h: pd.DataFrame) -> pd.DataFrame:
     """Resample 1H data → Weekly OHLCV."""
-    return (
+    r = (
         df_1h.resample("W")
         .agg(
             {
@@ -119,6 +125,7 @@ def resample_weekly(df_1h: pd.DataFrame) -> pd.DataFrame:
         )
         .dropna(subset=["close"])
     )
+    return r
 
 
 def slice_to(df: pd.DataFrame, ts) -> pd.DataFrame:
@@ -186,7 +193,9 @@ def backtest_gold(days: int) -> list:
         return []
 
     df_4h = resample_4h(df_1h)
-    print(f"  Daily: {len(df_daily)} | 4H: {len(df_4h)} | 1H: {len(df_1h)} | 15m: {len(df_15m)} bars")
+    print(
+        f"  Daily: {len(df_daily)} | 4H: {len(df_4h)} | 1H: {len(df_1h)} | 15m: {len(df_15m)} bars"
+    )
 
     from gold_strategy import score_gold
 
@@ -310,7 +319,10 @@ def backtest_btc(days: int) -> list:
 
     df_4h = resample_4h(df_1h)
     df_weekly = resample_weekly(df_1h)
-    print(f"  Weekly: {len(df_weekly)}  |  4H: {len(df_4h)}  |  1H: {len(df_1h)}  |  15m: {len(df_15m)}")
+    print(
+        f"  Weekly: {len(df_weekly)}  |  4H: {len(df_4h)}  |  "
+        f"1H: {len(df_1h)}  |  15m: {len(df_15m)}"
+    )
 
     from btc_strategy import score_btc
 
@@ -471,7 +483,7 @@ def print_report(results: list, asset: str) -> dict | None:
             f"1:{r['rr']:>3.1f}  {t1_res:<10} {t2_res}"
         )
 
-    return {
+    summary = {
         "asset": asset,
         "total": len(results),
         "closed": n_closed,
@@ -484,6 +496,7 @@ def print_report(results: list, asset: str) -> dict | None:
         "max_streak": max_streak,
         "trades": results,
     }
+    return summary
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -576,8 +589,15 @@ def load_backtest_results() -> dict:
 
 def main():
     ap = argparse.ArgumentParser(description="SMC/ICT Strategy Backtester")
-    ap.add_argument("--asset", choices=["GOLD", "BTC", "ALL"], default="ALL", help="Asset to backtest (default: ALL)")
-    ap.add_argument("--days", type=int, default=50, help="Days of history to use (max 58 for 15m resolution)")
+    ap.add_argument(
+        "--asset",
+        choices=["GOLD", "BTC", "ALL"],
+        default="ALL",
+        help="Asset to backtest (default: ALL)",
+    )
+    ap.add_argument(
+        "--days", type=int, default=50, help="Days of history to use (max 58 for 15m resolution)"
+    )
     args = ap.parse_args()
 
     print(f"\n[BACKTEST] SMC / ICT Backtester   Asset: {args.asset}   Period: {args.days} days")

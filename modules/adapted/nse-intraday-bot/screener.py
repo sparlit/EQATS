@@ -67,7 +67,10 @@ def scan_market() -> list:
     strong = []
 
     kz_name, _ = _get_kill_zone(ist_time.hour, ist_time.minute)
-    print(f"\n[SCAN] {len(stocks)} stocks | {SCAN_WORKERS} workers | threshold={STRONG_SCORE}/150 | KZ={kz_name}")
+    print(
+        f"\n[SCAN] {len(stocks)} stocks | {SCAN_WORKERS} workers | "
+        f"threshold={STRONG_SCORE}/150 | KZ={kz_name}"
+    )
     start = time.time()
 
     with ThreadPoolExecutor(max_workers=SCAN_WORKERS) as pool:

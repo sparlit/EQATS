@@ -65,9 +65,15 @@ def _resample_4h(df_1h: pd.DataFrame) -> pd.DataFrame:
 
 def get_btc_data() -> dict:
     """Download Weekly / 4H / 1H / 15min DataFrames for BTC."""
-    df_1h = _clean(yf.download(SYMBOL, period="30d", interval="1h", progress=False, auto_adjust=True))
-    df_15m = _clean(yf.download(SYMBOL, period="7d", interval="15m", progress=False, auto_adjust=True))
-    df_weekly = _clean(yf.download(SYMBOL, period="1y", interval="1wk", progress=False, auto_adjust=True))
+    df_1h = _clean(
+        yf.download(SYMBOL, period="30d", interval="1h", progress=False, auto_adjust=True)
+    )
+    df_15m = _clean(
+        yf.download(SYMBOL, period="7d", interval="15m", progress=False, auto_adjust=True)
+    )
+    df_weekly = _clean(
+        yf.download(SYMBOL, period="1y", interval="1wk", progress=False, auto_adjust=True)
+    )
     df_4h = _resample_4h(df_1h)
 
     price = float(df_15m["close"].iloc[-1]) if not df_15m.empty else None
@@ -82,7 +88,9 @@ def get_btc_data() -> dict:
 
 def get_prev_day_high_low() -> tuple:
     try:
-        df = _clean(yf.download(SYMBOL, period="5d", interval="1d", progress=False, auto_adjust=True))
+        df = _clean(
+            yf.download(SYMBOL, period="5d", interval="1d", progress=False, auto_adjust=True)
+        )
         if len(df) < 2:
             return None, None
         prev = df.iloc[-2]
@@ -98,7 +106,9 @@ def get_cme_gap() -> dict:
     CME gaps fill ~95% of the time — an unfilled gap below is a price magnet.
     """
     try:
-        df = _clean(yf.download(SYMBOL, period="30d", interval="1d", progress=False, auto_adjust=True))
+        df = _clean(
+            yf.download(SYMBOL, period="30d", interval="1d", progress=False, auto_adjust=True)
+        )
         if df.empty or len(df) < 4:
             return {"nearest_gap_below": None, "nearest_gap_above": None}
 
