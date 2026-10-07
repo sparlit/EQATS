@@ -111,8 +111,8 @@ def read_oi(spot_price, ce_values, pe_values, symbol):
         "impliedVolatility",
         "totalTradedVolume",
     ]
-    ce_dt = ce_dt.drop(drop_col, axis=1)
-    pe_dt = pe_dt.drop(drop_col, axis=1)
+    ce_dt.drop(drop_col, inplace=True, axis=1)
+    pe_dt.drop(drop_col, inplace=True, axis=1)
 
     ce_dt = ce_dt.loc[ce_dt["strikePrice"].isin(strike_oi_ce_pe[0])]
     pe_dt = pe_dt.loc[pe_dt["strikePrice"].isin(strike_oi_ce_pe[1])]
@@ -124,7 +124,10 @@ def read_oi(spot_price, ce_values, pe_values, symbol):
     print(pe_dt.head(1))
 
     gs.insert_record(
-        sheet_name, spot_price, (ce_dt["changeinOpenInterest"].sum() * 75), (pe_dt["changeinOpenInterest"].sum() * 75)
+        sheet_name,
+        spot_price,
+        (ce_dt["changeinOpenInterest"].sum() * 75),
+        (pe_dt["changeinOpenInterest"].sum() * 75),
     )
 
     # Read sheet and store and image to be sent to telegram
@@ -132,7 +135,15 @@ def read_oi(spot_price, ce_values, pe_values, symbol):
     dfi.export(dataframe, "/tmp/df_styled.png")
     open("/tmp/df_styled.png", "rb")
 
-    print(str([spot_price, (ce_dt["changeinOpenInterest"].sum() * 75), (pe_dt["changeinOpenInterest"].sum() * 75)]))
+    print(
+        str(
+            [
+                spot_price,
+                (ce_dt["changeinOpenInterest"].sum() * 75),
+                (pe_dt["changeinOpenInterest"].sum() * 75),
+            ]
+        )
+    )
 
 
 def main():
@@ -142,7 +153,8 @@ def main():
 
     for symbol in symbols:
         headers = {
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, "
+            "like Gecko) "
             "Chrome/80.0.3987.149 Safari/537.36",
             "accept-language": "en,gu;q=0.9,hi;q=0.8",
             "accept-encoding": "gzip, deflate, br",
@@ -156,8 +168,16 @@ def main():
         expiry = next_thu_expiry_date()
 
         spot_price = dajs["records"]["underlyingValue"]
-        ce_values = [data["CE"] for data in dajs["records"]["data"] if "CE" in data and data["expiryDate"] == expiry]
-        pe_values = [data["PE"] for data in dajs["records"]["data"] if "PE" in data and data["expiryDate"] == expiry]
+        ce_values = [
+            data["CE"]
+            for data in dajs["records"]["data"]
+            if "CE" in data and data["expiryDate"] == expiry
+        ]
+        pe_values = [
+            data["PE"]
+            for data in dajs["records"]["data"]
+            if "PE" in data and data["expiryDate"] == expiry
+        ]
 
         read_oi(spot_price, ce_values, pe_values, symbol)
 

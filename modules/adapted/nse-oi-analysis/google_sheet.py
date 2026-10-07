@@ -42,7 +42,8 @@ def next_available_row(worksheet):
 
 def get_sheet():
     gc = gspread.service_account(filename="/googleshet_token.json")
-    return gc.open_by_key("<SHEET_IT>")
+    sheet = gc.open_by_key("<SHEET_IT>")
+    return sheet
 
 
 title_row = ["Date Time", "Spot", "Spot_Diff", "Call OI - C", "Put OI - C", "Difference"]
@@ -95,7 +96,7 @@ def read_row_values(sheet_name, column_name, symbol, row_data):
             ]
             ws.update_cells(cells)
             return -1
-        if symbol == "BANKNIFTY" and len(row_values) < 5:
+        elif symbol == "BANKNIFTY" and len(row_values) < 5:
             cells = [
                 Cell(row=row_index, col=5, value=row_data[1]),
                 Cell(row=row_index, col=6, value=row_data[2]),
@@ -104,12 +105,13 @@ def read_row_values(sheet_name, column_name, symbol, row_data):
             ws.update_cells(cells)
             return -1
         return row_values
-    if symbol == "BANKNIFTY":
-        row_data.insert(1, "")
-        row_data.insert(2, "")
-        row_data.insert(3, "")
-    ws.append_row(row_data)
-    return -1
+    else:
+        if symbol == "BANKNIFTY":
+            row_data.insert(1, "")
+            row_data.insert(2, "")
+            row_data.insert(3, "")
+        ws.append_row(row_data)
+        return -1
 
 
 def create_new_worksheet(sheet_name):
@@ -121,4 +123,5 @@ def create_new_worksheet(sheet_name):
 def read_sheet_into_df(sheet_name):
     ws = get_sheet().worksheet(sheet_name)
     # Read excel worksheet and put into dataframe.
-    return pd.DataFrame(ws.get_all_records())
+    dataframe = pd.DataFrame(ws.get_all_records())
+    return dataframe
