@@ -48,7 +48,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "backend"))
 import requests
 from backtest import run
 from bs4 import BeautifulSoup
-from risk import RiskConfig
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -109,7 +108,7 @@ def fetch_symbols(url: str, n: int) -> list[str]:
 
 def to_yf_ticker(symbol: str) -> str:
     """Convert a bare NSE symbol to the yfinance format (add .NS)."""
-    if symbol.endswith((".NS", ".BO")):
+    if symbol.endswith(".NS") or symbol.endswith(".BO"):
         return symbol
     return f"{symbol}.NS"
 
@@ -126,7 +125,9 @@ def backtest_stock(symbol: str, ticker: str) -> dict:
         regime_mix = {k: v["days"] for k, v in rs.items() if v["days"] > 0}
 
         # Per-regime win rates
-        regime_wr = {k: round(v["wins"] / v["trades"] * 100, 1) if v["trades"] else 0 for k, v in rs.items()}
+        regime_wr = {
+            k: round(v["wins"] / v["trades"] * 100, 1) if v["trades"] else 0 for k, v in rs.items()
+        }
 
         return {
             "symbol": symbol,
@@ -191,7 +192,8 @@ def main():
         elapsed = time.time() - t0
         if row["ok"]:
             print(
-                f"  {row['trades']:>3} trades  WR={row['wr']:>5.1f}%  PnL={_pnl_str(row['pnl']):>14}  ({elapsed:.1f}s)"
+                f"  {row['trades']:>3} trades  WR={row['wr']:>5.1f}%  "
+                f"PnL={_pnl_str(row['pnl']):>14}  ({elapsed:.1f}s)"
             )
         else:
             print(f"  FAILED: {row.get('error', '?')}")
@@ -203,7 +205,10 @@ def main():
     # Step 3: Print summary table
     print("\n[3/3] Results\n")
     _W = 62
-    print(f"  {'Symbol':<12}  {'Trades':>6}  {'WR%':>6}  {'PnL':>12}  {'Expect':>8}  {'PF':>5}  Regime (days)")
+    print(
+        f"  {'Symbol':<12}  {'Trades':>6}  {'WR%':>6}  {'PnL':>12}  "
+        f"{'Expect':>8}  {'PF':>5}  Regime (days)"
+    )
     print("  " + "-" * (_W - 2))
 
     for r in sorted(results, key=lambda x: -x.get("wr", -999)):

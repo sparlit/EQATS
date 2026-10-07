@@ -33,7 +33,6 @@ Call classify(df_window) with the first 30-min slice of enriched bars.
 Returns probabilities so callers can see how confident the classification is.
 """
 
-import numpy as np
 import pandas as pd
 
 # Thresholds — tuned for NSE 5m bars

@@ -40,7 +40,7 @@ from universe import SCAN_UNIVERSE
 from upstox_data import fetch_upstox
 
 
-def prefetch(start: str, end: str, symbols: list[str] | None = None) -> None:
+def prefetch(start: str, end: str, symbols: list[str] = None) -> None:
     init_db()
     symbols = symbols or SCAN_UNIVERSE
     ok, failed = 0, []
@@ -54,7 +54,9 @@ def prefetch(start: str, end: str, symbols: list[str] | None = None) -> None:
                 continue
             save_candles(f"{sym}.NS", "5m", df)
             ok += 1
-            print(f"[{i}/{len(symbols)}] {sym}: {len(df)} bars in {time.time() - t0:.1f}s", flush=True)
+            print(
+                f"[{i}/{len(symbols)}] {sym}: {len(df)} bars in {time.time() - t0:.1f}s", flush=True
+            )
         except Exception as e:
             failed.append(sym)
             print(f"[{i}/{len(symbols)}] {sym}: FAILED {e}", flush=True)
@@ -63,5 +65,9 @@ def prefetch(start: str, end: str, symbols: list[str] | None = None) -> None:
 
 if __name__ == "__main__":
     start = sys.argv[1] if len(sys.argv) > 1 else "2025-06-01"
-    end = sys.argv[2] if len(sys.argv) > 2 else (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    end = (
+        sys.argv[2]
+        if len(sys.argv) > 2
+        else (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    )
     prefetch(start, end)

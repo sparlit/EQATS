@@ -21,9 +21,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import List, Optional
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -46,7 +45,7 @@ def _to_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def fetch(
-    ticker: str, days: int | None = None, start: str | None = None, end: str | None = None, interval: str | None = None
+    ticker: str, days: int = None, start: str = None, end: str = None, interval: str = None
 ) -> tuple:
     """
     Fetch OHLCV data. Auto-selects interval based on range:
@@ -60,7 +59,9 @@ def fetch(
 
     if start and end:
         end_buf = (datetime.strptime(end, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
-        delta_days = (datetime.strptime(end, "%Y-%m-%d") - datetime.strptime(start, "%Y-%m-%d")).days
+        delta_days = (
+            datetime.strptime(end, "%Y-%m-%d") - datetime.strptime(start, "%Y-%m-%d")
+        ).days
     else:
         end_dt = datetime.today() + timedelta(days=1)
         start_dt = end_dt - timedelta(days=int(days or 730) + 1)
@@ -83,8 +84,7 @@ def fetch(
 
     df = t.history(start=start, end=end_buf, interval=interval, auto_adjust=True)
     if df.empty:
-        msg = f"No data found for {ticker!r}. Check the ticker symbol."
-        raise ValueError(msg)
+        raise ValueError(f"No data found for {ticker!r}. Check the ticker symbol.")
 
     df = _to_ohlcv(df)
 
@@ -102,8 +102,7 @@ def fetch_intraday(ticker: str, interval: str = "1m") -> pd.DataFrame:
     """Fetch the most recent trading day's intraday data, converted to IST."""
     df = yf.Ticker(ticker).history(period="2d", interval=interval, auto_adjust=True)
     if df.empty:
-        msg = f"No intraday data for {ticker!r}."
-        raise ValueError(msg)
+        raise ValueError(f"No intraday data for {ticker!r}.")
     df = _to_ohlcv(df)
     # Convert index to IST
     if df.index.tzinfo is not None:
@@ -250,12 +249,18 @@ def apply_supertrend(df: pd.DataFrame, period=10, multiplier=3.0) -> pd.DataFram
     for i in range(1, len(df)):
         upper.iloc[i] = (
             upper_basic.iloc[i]
-            if (upper_basic.iloc[i] < upper.iloc[i - 1] or df["close"].iloc[i - 1] > upper.iloc[i - 1])
+            if (
+                upper_basic.iloc[i] < upper.iloc[i - 1]
+                or df["close"].iloc[i - 1] > upper.iloc[i - 1]
+            )
             else upper.iloc[i - 1]
         )
         lower.iloc[i] = (
             lower_basic.iloc[i]
-            if (lower_basic.iloc[i] > lower.iloc[i - 1] or df["close"].iloc[i - 1] < lower.iloc[i - 1])
+            if (
+                lower_basic.iloc[i] > lower.iloc[i - 1]
+                or df["close"].iloc[i - 1] < lower.iloc[i - 1]
+            )
             else lower.iloc[i - 1]
         )
 
@@ -301,7 +306,9 @@ def _fmt_dt(dt) -> str:
     return str(dt)
 
 
-def run_backtest(df: pd.DataFrame, capital: float, stop_loss_pct: float = 0.0, take_profit_pct: float = 0.0) -> dict:
+def run_backtest(
+    df: pd.DataFrame, capital: float, stop_loss_pct: float = 0.0, take_profit_pct: float = 0.0
+) -> dict:
     cash = capital
     position = 0
     entry_price = 0.0
@@ -407,7 +414,9 @@ def print_report(result: dict, ticker: str, strategy: str) -> None:
     print(f"  Ending Money    : ₹{r['final']:>12,.2f}")
     print(f"  Profit / Loss   : ₹{sign}{r['pnl']:>11,.2f}  ({sign}{r['return_pct']:.2f}%)")
     print(f"{'=' * 54}")
-    print(f"  Trades {r['total_trades']}  |  Win Rate {r['win_rate']:.1f}%  |  Sharpe {r['sharpe']:.2f}")
+    print(
+        f"  Trades {r['total_trades']}  |  Win Rate {r['win_rate']:.1f}%  |  Sharpe {r['sharpe']:.2f}"
+    )
     print(f"  Max Drawdown    : {r['max_drawdown']:.2f}%")
     print()
 
@@ -424,7 +433,9 @@ def build_chart(df: pd.DataFrame, result: dict, ticker: str, strategy: str):
     ax.plot(df.index, df["close"], color="#222", linewidth=1, label="Price")
     for col in df.columns:
         if col.startswith("ema"):
-            lbl = "EMA (fast)" if col == "ema_fast" else "EMA (slow)" if col == "ema_slow" else "EMA"
+            lbl = (
+                "EMA (fast)" if col == "ema_fast" else "EMA (slow)" if col == "ema_slow" else "EMA"
+            )
             ax.plot(df.index, df[col], linewidth=1, linestyle="--", label=lbl)
     ax.scatter(
         df[df["signal"] == 1].index,
