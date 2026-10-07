@@ -99,7 +99,10 @@ class Deep_Evolution_Strategy:
             for index, w in enumerate(self.weights):
                 A = np.array([p[index] for p in population])
                 self.weights[index] = (
-                    w + self.learning_rate / (self.population_size * self.sigma) * np.dot(A.T, rewards).T
+                    w
+                    + self.learning_rate
+                    / (self.population_size * self.sigma)
+                    * np.dot(A.T, rewards).T
                 )
             if (i + 1) % print_every == 0:
                 print("iter %d. reward: %f" % (i + 1, self.reward_function(self.weights)))
@@ -117,7 +120,8 @@ class Model:
 
     def predict(self, inputs):
         feed = np.dot(inputs, self.weights[0]) + self.weights[-2]
-        return np.dot(feed, self.weights[1]) + self.weights[-1]
+        decision = np.dot(feed, self.weights[1]) + self.weights[-1]
+        return decision
 
     def get_weights(self):
         return self.weights
@@ -199,7 +203,7 @@ class Agent:
                 "balance": self._capital,
                 "timestamp": str(datetime.now()),
             }
-        if action == 2 and len(self._inventory):
+        elif action == 2 and len(self._inventory):
             bought_price = self._inventory.pop(0)
             self._scaled_capital += close
             self._capital += real_close
@@ -216,12 +220,13 @@ class Agent:
                 "action": "sell",
                 "timestamp": str(datetime.now()),
             }
-        return {
-            "status": "do nothing",
-            "action": "nothing",
-            "balance": self._capital,
-            "timestamp": str(datetime.now()),
-        }
+        else:
+            return {
+                "status": "do nothing",
+                "action": "nothing",
+                "balance": self._capital,
+                "timestamp": str(datetime.now()),
+            }
 
     def change_data(self, timeseries, skip, initial_money, real_trend, minmax):
         self.timeseries = timeseries
@@ -247,7 +252,10 @@ class Agent:
         mean_inventory = np.mean(inventory) if len_inventory else 0
         z_inventory = (mean_inventory - self._mean) / self._std
         z_capital = (capital - self._mean) / self._std
-        return np.concatenate([state, [[len_inventory, z_inventory, z_capital]]], axis=1)
+        concat_parameters = np.concatenate(
+            [state, [[len_inventory, z_inventory, z_capital]]], axis=1
+        )
+        return concat_parameters
 
     def get_reward(self, weights):
         initial_money = self._scaled_capital
@@ -263,7 +271,7 @@ class Agent:
                 inventory.append(self.trend[t])
                 starting_money -= self.trend[t]
 
-            elif action == 2 and inventory:
+            elif action == 2 and len(inventory):
                 bought_price = inventory.pop(0)
                 starting_money += self.trend[t]
                 invest = ((self.trend[t] - bought_price) / bought_price) * 100
@@ -295,15 +303,22 @@ class Agent:
             action, prob = self.act_softmax(state)
             print(t, prob)
 
-            if action == 1 and starting_money >= self.trend[t] and t < (len(self.trend) - 1 - window_size):
+            if (
+                action == 1
+                and starting_money >= self.trend[t]
+                and t < (len(self.trend) - 1 - window_size)
+            ):
                 inventory.append(self.trend[t])
                 real_inventory.append(self.real_trend[t])
                 real_starting_money -= self.real_trend[t]
                 starting_money -= self.trend[t]
                 states_buy.append(t)
-                print("day %d: buy 1 unit at price %f, total balance %f" % (t, self.real_trend[t], real_starting_money))
+                print(
+                    "day %d: buy 1 unit at price %f, total balance %f"
+                    % (t, self.real_trend[t], real_starting_money)
+                )
 
-            elif action == 2 and inventory:
+            elif action == 2 and len(inventory):
                 inventory.pop(0)
                 real_bought_price = real_inventory.pop(0)
                 starting_money += self.trend[t]

@@ -43,9 +43,10 @@ import collections
 import addressing
 import sonnet as snt
 import tensorflow as tf
-import util
 
-AccessState = collections.namedtuple("AccessState", ("memory", "read_weights", "write_weights", "linkage", "usage"))
+AccessState = collections.namedtuple(
+    "AccessState", ("memory", "read_weights", "write_weights", "linkage", "usage")
+)
 
 
 def _erase_and_write(memory, address, reset_weights, values):
@@ -100,7 +101,9 @@ class MemoryAccess(snt.RNNCore):
     and following the link graph in the forward or backwards read direction.
     """
 
-    def __init__(self, memory_size=128, word_size=20, num_reads=1, num_writes=1, name="memory_access"):
+    def __init__(
+        self, memory_size=128, word_size=20, num_reads=1, num_writes=1, name="memory_access"
+    ):
         """Creates a MemoryAccess module.
 
         Args:
@@ -116,8 +119,12 @@ class MemoryAccess(snt.RNNCore):
         self._num_reads = num_reads
         self._num_writes = num_writes
 
-        self._write_content_weights_mod = addressing.CosineWeights(num_writes, word_size, name="write_content_weights")
-        self._read_content_weights_mod = addressing.CosineWeights(num_reads, word_size, name="read_content_weights")
+        self._write_content_weights_mod = addressing.CosineWeights(
+            num_writes, word_size, name="write_content_weights"
+        )
+        self._read_content_weights_mod = addressing.CosineWeights(
+            num_reads, word_size, name="read_content_weights"
+        )
 
         self._linkage = addressing.TemporalLinkage(memory_size, num_writes)
         self._freeness = addressing.Freeness(memory_size)
@@ -158,7 +165,10 @@ class MemoryAccess(snt.RNNCore):
 
         # Read from memory.
         read_weights = self._read_weights(
-            inputs, memory=memory, prev_read_weights=prev_state.read_weights, link=linkage_state.link
+            inputs,
+            memory=memory,
+            prev_read_weights=prev_state.read_weights,
+            link=linkage_state.link,
         )
         read_words = tf.matmul(read_weights, memory)
 
@@ -204,7 +214,9 @@ class MemoryAccess(snt.RNNCore):
         # \pi_t^j - Mixing between "backwards" and "forwards" positions (for
         # each write head), and content-based lookup, for each read head.
         num_read_modes = 1 + 2 * self._num_writes
-        read_mode = snt.BatchApply(tf.nn.softmax)(_linear(self._num_reads, num_read_modes, name="read_mode"))
+        read_mode = snt.BatchApply(tf.nn.softmax)(
+            _linear(self._num_reads, num_read_modes, name="read_mode")
+        )
 
         # Parameters for the (read / write) "weights by content matching" modules.
         write_keys = _linear(self._num_writes, self._word_size, "write_keys")
@@ -213,7 +225,7 @@ class MemoryAccess(snt.RNNCore):
         read_keys = _linear(self._num_reads, self._word_size, "read_keys")
         read_strengths = snt.Linear(self._num_reads, name="read_strengths")(inputs)
 
-        return {
+        result = {
             "read_content_keys": read_keys,
             "read_content_strengths": read_strengths,
             "write_content_keys": write_keys,
@@ -225,6 +237,7 @@ class MemoryAccess(snt.RNNCore):
             "write_gate": write_gate,
             "read_mode": read_mode,
         }
+        return result
 
     def _write_weights(self, inputs, memory, usage):
         """Calculates the memory locations to write to.
@@ -253,7 +266,9 @@ class MemoryAccess(snt.RNNCore):
 
             # a_t^i - The allocation weights for each write head.
             write_allocation_weights = self._freeness.write_allocation_weights(
-                usage=usage, write_gates=(inputs["allocation_gate"] * inputs["write_gate"]), num_writes=self._num_writes
+                usage=usage,
+                write_gates=(inputs["allocation_gate"] * inputs["write_gate"]),
+                num_writes=self._num_writes,
             )
 
             # Expands gates over memory locations.
@@ -262,7 +277,8 @@ class MemoryAccess(snt.RNNCore):
 
             # w_t^{w, i} - The write weightings for each write head.
             return write_gate * (
-                allocation_gate * write_allocation_weights + (1 - allocation_gate) * write_content_weights
+                allocation_gate * write_allocation_weights
+                + (1 - allocation_gate) * write_content_weights
             )
 
     def _read_weights(self, inputs, memory, prev_read_weights, link):
@@ -294,18 +310,24 @@ class MemoryAccess(snt.RNNCore):
             )
 
             # Calculates f_t^i and b_t^i.
-            forward_weights = self._linkage.directional_read_weights(link, prev_read_weights, forward=True)
-            backward_weights = self._linkage.directional_read_weights(link, prev_read_weights, forward=False)
+            forward_weights = self._linkage.directional_read_weights(
+                link, prev_read_weights, forward=True
+            )
+            backward_weights = self._linkage.directional_read_weights(
+                link, prev_read_weights, forward=False
+            )
 
             backward_mode = inputs["read_mode"][:, :, : self._num_writes]
             forward_mode = inputs["read_mode"][:, :, self._num_writes : 2 * self._num_writes]
             content_mode = inputs["read_mode"][:, :, 2 * self._num_writes]
 
-            return (
+            read_weights = (
                 tf.expand_dims(content_mode, 2) * content_weights
                 + tf.reduce_sum(tf.expand_dims(forward_mode, 3) * forward_weights, 2)
                 + tf.reduce_sum(tf.expand_dims(backward_mode, 3) * backward_weights, 2)
             )
+
+            return read_weights
 
     @property
     def state_size(self):
