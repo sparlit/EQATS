@@ -163,7 +163,7 @@ Total Repositories: 424 | Current Index: 161
 | 158 | hopit-ai/india-trade-cli | Completed | https://github.com/sparlit/EQATS/pull/3099 |
 | 159 | hotessy/nse-historical-data | Processed | https://github.com/sparlit/EQATS/pull/3100 |
 | 160 | huseinzol05/stock-prediction-models | Processed | https://github.com/sparlit/EQATS/pull/3101 |
-| 161 | hyphenos/tickdownload | Processed | None |
+| 161 | hyphenos/tickdownload | Processed | https://github.com/sparlit/EQATS/pull/3102 |
 | 162 | ibm/nse-observer | pending | None |
 | 163 | imanojkumar/nse-india-all-stocks-tickers-data | pending | None |
 | 164 | indianfoods-automation/nse | pending | None |
