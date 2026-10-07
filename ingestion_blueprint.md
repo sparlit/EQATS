@@ -191,7 +191,7 @@ Total Repositories: 424 | Current Index: 189
 | 186 | khakhasshi/optionworkstation | Completed | https://github.com/sparlit/EQATS/pull/3128 |
 | 187 | kishanlalchoudhary/nse-option-chain | Processed | https://github.com/sparlit/EQATS/pull/3129 |
 | 188 | kislayykumar/dailyvaultrates | Processed | https://github.com/sparlit/EQATS/pull/3130 |
-| 189 | kkirankumar1511/nse-momentum-dashboard | Completed | None |
+| 189 | kkirankumar1511/nse-momentum-dashboard | Completed | https://github.com/sparlit/EQATS/pull/3131 |
 | 190 | kondaiahpola1-wq/nse-bse-event-driven-quant-research-platform | pending | None |
 | 191 | kostorub/backtest | pending | None |
 | 192 | krakenfx/kraken-cli | pending | None |

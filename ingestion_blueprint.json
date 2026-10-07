@@ -1510,8 +1510,8 @@
       "target": "kkirankumar1511/nse-momentum-dashboard",
       "url": "https://github.com/kkirankumar1511/nse-momentum-dashboard",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3131",
+      "merged": true
     },
     {
       "name": "nse-bse-event-driven-quant-research-platform",
