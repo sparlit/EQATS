@@ -202,7 +202,7 @@ Total Repositories: 424 | Current Index: 200
 | 197 | lakshaysinghal/bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/3139 |
 | 198 | laminar-protocol/laminar-chain | Processed | https://github.com/sparlit/EQATS/pull/3140 |
 | 199 | lavakus/nse-intraday-bot | Completed | https://github.com/sparlit/EQATS/pull/3141 |
-| 200 | lebedov/nseindia_lob | Processed | None |
+| 200 | lebedov/nseindia_lob | Processed | https://github.com/sparlit/EQATS/pull/3142 |
 | 201 | lebedov/nseindia_reformat | pending | None |
 | 202 | llc-993/matching-core | pending | None |
 | 203 | longbridge/longbridge-terminal | pending | None |
