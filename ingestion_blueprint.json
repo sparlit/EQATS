@@ -1,5 +1,5 @@
 {
-  "current_index": 196,
+  "current_index": 197,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1573,9 +1573,9 @@
       "name": "bhavcopy",
       "target": "lakshaysinghal/bhavcopy",
       "url": "https://github.com/lakshaysinghal/bhavcopy",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3139",
+      "merged": true
     },
     {
       "name": "laminar-chain",
