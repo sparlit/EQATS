@@ -1,5 +1,5 @@
 {
-  "current_index": 199,
+  "current_index": 200,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1597,9 +1597,9 @@
       "name": "nseindia_lob",
       "target": "lebedov/nseindia_lob",
       "url": "https://github.com/lebedov/nseindia_lob",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3142",
+      "merged": true
     },
     {
       "name": "nseindia_reformat",
