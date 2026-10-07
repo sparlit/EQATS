@@ -1518,8 +1518,8 @@
       "target": "kondaiahpola1-wq/nse-bse-event-driven-quant-research-platform",
       "url": "https://github.com/kondaiahpola1-wq/nse-bse-event-driven-quant-research-platform",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3132",
+      "merged": true
     },
     {
       "name": "backtest",
