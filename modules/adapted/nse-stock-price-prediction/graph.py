@@ -22,7 +22,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import matplotlib.pyplot as plt
-import numpy as np
 
 ann = [
     48.9878508,
@@ -196,7 +195,38 @@ actual_values = [
 ]
 
 
-days = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+days = [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+]
 
 plt.plot(days, ann)
 # plt.plot(days, svm)
