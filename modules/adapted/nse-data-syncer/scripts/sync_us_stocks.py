@@ -53,12 +53,12 @@ DATA_DIR = os.path.join(base_dir, "data")
 def get_russell1000_tickers() -> tuple[list[str], dict, dict]:
     """Read the latest Russell-1000-*.csv from the data/ directory."""
     csvs = sorted(
-        [f for f in os.listdir(DATA_DIR) if f.startswith("Russell-1000-") and f.endswith(".csv")], reverse=True
+        [f for f in os.listdir(DATA_DIR) if f.startswith("Russell-1000-") and f.endswith(".csv")],
+        reverse=True,
     )
 
     if not csvs:
-        msg = f"No Russell-1000-*.csv found in {DATA_DIR}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"No Russell-1000-*.csv found in {DATA_DIR}")
 
     path = os.path.join(DATA_DIR, csvs[0])
     print(f"Using ticker list: {csvs[0]}")
@@ -70,10 +70,23 @@ def get_russell1000_tickers() -> tuple[list[str], dict, dict]:
 
     # Some ETF/index CSVs use non-standard ticker formats that yfinance doesn't recognise
     TICKER_REMAP = {"BRKB": "BRK-B", "BFA": "BF-A", "BFB": "BF-B", "LENB": "LEN-B", "UHALB": "UHAL"}
-    tickers = [TICKER_REMAP.get(t, t) for t in df["Ticker"].str.strip().str.replace(".", "-", regex=False).tolist()]
-    names = dict(zip(tickers, df["Name"].str.strip() if "Name" in df.columns else [""] * len(tickers), strict=False))
+    tickers = [
+        TICKER_REMAP.get(t, t)
+        for t in df["Ticker"].str.strip().str.replace(".", "-", regex=False).tolist()
+    ]
+    names = dict(
+        zip(
+            tickers,
+            df["Name"].str.strip() if "Name" in df.columns else [""] * len(tickers),
+            strict=False,
+        )
+    )
     sectors = dict(
-        zip(tickers, df["Sector"].str.strip() if "Sector" in df.columns else [""] * len(tickers), strict=False)
+        zip(
+            tickers,
+            df["Sector"].str.strip() if "Sector" in df.columns else [""] * len(tickers),
+            strict=False,
+        )
     )
 
     print(f"Loaded {len(tickers)} Russell 1000 tickers.")
@@ -218,7 +231,9 @@ def download_and_insert(session, batch_tickers: list[str], ticker_id_map: dict, 
             return []
         out = df[["Open", "High", "Low", "Close", "Volume"]].copy()
         out.index = (
-            pd.to_datetime(out.index).tz_convert(None) if out.index.tz is not None else pd.to_datetime(out.index)
+            pd.to_datetime(out.index).tz_convert(None)
+            if out.index.tz is not None
+            else pd.to_datetime(out.index)
         )
         if per_start:
             out = out[out.index >= pd.Timestamp(per_start + timedelta(days=1))]
@@ -232,9 +247,17 @@ def download_and_insert(session, batch_tickers: list[str], ticker_id_map: dict, 
         out["close_price"] = pd.to_numeric(out["Close"], errors="coerce")
         out["volume"] = pd.to_numeric(out["Volume"], errors="coerce").astype("Int64")
         out = out.dropna(subset=["close_price"])
-        result = out[["us_stock_id", "date", "open_price", "high_price", "low_price", "close_price", "volume"]].to_dict(
-            "records"
-        )
+        result = out[
+            [
+                "us_stock_id",
+                "date",
+                "open_price",
+                "high_price",
+                "low_price",
+                "close_price",
+                "volume",
+            ]
+        ].to_dict("records")
         for r in result:
             for k in ("open_price", "high_price", "low_price", "close_price"):
                 if pd.isna(r[k]):
@@ -270,7 +293,15 @@ def download_and_insert(session, batch_tickers: list[str], ticker_id_map: dict, 
         return
 
     values = [
-        (r["us_stock_id"], r["date"], r["open_price"], r["high_price"], r["low_price"], r["close_price"], r["volume"])
+        (
+            r["us_stock_id"],
+            r["date"],
+            r["open_price"],
+            r["high_price"],
+            r["low_price"],
+            r["close_price"],
+            r["volume"],
+        )
         for r in records
     ]
     raw_conn = session.bind.raw_connection()

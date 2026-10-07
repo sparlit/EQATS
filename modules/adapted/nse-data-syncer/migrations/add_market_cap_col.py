@@ -38,7 +38,9 @@ def run_migration():
     db = DatabaseManager()
     with db.engine.connect() as conn:
         try:
-            conn.execute(text("ALTER TABLE stocks ADD COLUMN IF NOT EXISTS market_cap DOUBLE PRECISION"))
+            conn.execute(
+                text("ALTER TABLE stocks ADD COLUMN IF NOT EXISTS market_cap DOUBLE PRECISION")
+            )
             conn.commit()
             print("Migration successful: Added market_cap column.")
         except Exception as e:

@@ -37,8 +37,6 @@ import io
 import sys
 import time
 
-import psycopg2
-
 sys.path.insert(0, "/Users/gurudayal/Desktop/data-syncer/scripts")
 import pdfplumber
 from keyword_analysis import (
@@ -79,18 +77,18 @@ def main():
 
     print(f"Companies to rescore: {len(rows)}\n")
 
-    update_cols = [
-        "presentation_url",
-        "pdf_pages",
-        "pdf_chars",
-        *THEME_COLUMNS,
-        "word_count",
-        "positive_hits",
-        "negative_hits",
-        "positive_density",
-        "negative_density",
-        "sentiment_score",
-    ]
+    update_cols = (
+        ["presentation_url", "pdf_pages", "pdf_chars"]
+        + THEME_COLUMNS
+        + [
+            "word_count",
+            "positive_hits",
+            "negative_hits",
+            "positive_density",
+            "negative_density",
+            "sentiment_score",
+        ]
+    )
     update_sql = f"""
         UPDATE presentation_keyword_analysis SET
             {", ".join(f"{c} = %s" for c in update_cols)},
@@ -116,7 +114,9 @@ def main():
         except Exception:
             n_pages = 0
 
-        kw_display = ", ".join(f"{k}={v}" for k, v in theme_counts.items() if v > 0) or "no theme matches"
+        kw_display = (
+            ", ".join(f"{k}={v}" for k, v in theme_counts.items() if v > 0) or "no theme matches"
+        )
         print(f"{n_pages}pp → {kw_display}")
 
         values = [pres_url, n_pages, len(text)]

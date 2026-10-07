@@ -152,7 +152,8 @@ def main():
 
     month_start = today.replace(day=1)
     entry_date = session.execute(
-        text("SELECT MIN(date) FROM daily_prices WHERE date >= :ms"), {"ms": month_start.isoformat()}
+        text("SELECT MIN(date) FROM daily_prices WHERE date >= :ms"),
+        {"ms": month_start.isoformat()},
     ).scalar()
 
     if not entry_date:
@@ -171,7 +172,9 @@ def main():
             continue
 
         id_rows = session.execute(
-            text("SELECT id, nse_symbol FROM stocks WHERE nse_symbol IN :syms AND is_active = true"),
+            text(
+                "SELECT id, nse_symbol FROM stocks WHERE nse_symbol IN :syms AND is_active = true"
+            ),
             {"syms": tuple(symbols)},
         ).fetchall()
         sym_to_id = {r[1]: r[0] for r in id_rows}
@@ -181,7 +184,9 @@ def main():
 
         # Entry prices = open on first trading day of month
         entry_rows = session.execute(
-            text("SELECT stock_id, open_price FROM daily_prices WHERE stock_id IN :ids AND date = :dt"),
+            text(
+                "SELECT stock_id, open_price FROM daily_prices WHERE stock_id IN :ids AND date = :dt"
+            ),
             {"ids": tuple(ids), "dt": entry_date},
         ).fetchall()
         entry_map = {r[0]: float(r[1]) for r in entry_rows}

@@ -46,8 +46,7 @@ from sqlalchemy import create_engine, text
 
 DB_URL = os.getenv("DATABASE_URL")
 if not DB_URL:
-    msg = "DATABASE_URL environment variable is not set."
-    raise ValueError(msg)
+    raise ValueError("DATABASE_URL environment variable is not set.")
 
 engine = create_engine(DB_URL)
 

@@ -52,7 +52,7 @@ import os
 import re
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -64,8 +64,7 @@ logging.getLogger("pdfminer").setLevel(logging.ERROR)
 try:
     import pdfplumber
 except ImportError:
-    msg = "Install pdfplumber: pip3 install pdfplumber"
-    raise SystemExit(msg)
+    raise SystemExit("Install pdfplumber: pip3 install pdfplumber")
 
 DB_URL = os.environ.get(
     "DATABASE_URL",
@@ -73,7 +72,10 @@ DB_URL = os.environ.get(
 )
 
 NSE_API = "https://www.nseindia.com/api/corporate-announcements"
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+)
 NSE_HEADERS = {
     "User-Agent": UA,
     "Accept": "application/json",
@@ -145,7 +147,13 @@ THEME_KEYWORDS = {
         r"traction\s+transformer",
         r"\bauto[\s-]?transformer\b",
     ],
-    "switchgear": [r"switchgear", r"circuit\s+breaker", r"\bgis\b", r"\bais\b", r"gas[\s-]insulated\s+switchgear"],
+    "switchgear": [
+        r"switchgear",
+        r"circuit\s+breaker",
+        r"\bgis\b",
+        r"\bais\b",
+        r"gas[\s-]insulated\s+switchgear",
+    ],
     "renewable": [r"renewable", r"solar", r"wind\s+energy"],
     "nuclear": [r"nuclear", r"\bsmr\b", r"small\s+modular\s+reactor", r"nuclear\s+power"],
     # ── Semiconductor / electronics ──────────────────────────────────────────
@@ -165,7 +173,13 @@ THEME_KEYWORDS = {
         r"wide[\s-]?bandgap",
         r"compound\s+semiconductor",
     ],
-    "pcb": [r"\bpcb\b", r"printed\s+circuit\s+board", r"\bhdi\b", r"hdi\s+pcb", r"high[\s-]density\s+interconnect"],
+    "pcb": [
+        r"\bpcb\b",
+        r"printed\s+circuit\s+board",
+        r"\bhdi\b",
+        r"hdi\s+pcb",
+        r"high[\s-]density\s+interconnect",
+    ],
     "optical_fibre": [
         r"optical\s+fib(?:re|er)",
         r"fib(?:re|er)\s+optic",
@@ -182,7 +196,10 @@ THEME_KEYWORDS = {
         r"electronics\s+design\s+(?:and\s+)?manufacturing\s+services?",
     ],
     "odm": [r"\bodm\b", r"original\s+design\s+manufactur(?:er|ing)?"],
-    "cdmo": [r"\bcdmo\b", r"contract\s+(?:development\s+(?:and\s+)?)?manufacturing\s+organi[sz]ation"],
+    "cdmo": [
+        r"\bcdmo\b",
+        r"contract\s+(?:development\s+(?:and\s+)?)?manufacturing\s+organi[sz]ation",
+    ],
     # ── Defence / aerospace ───────────────────────────────────────────────────
     "aerospace": [r"aerospace"],
     "defence": [
@@ -219,7 +236,12 @@ THEME_KEYWORDS = {
         r"launch\s+vehicle",
         r"satellite\s+launch",
     ],
-    "kavach": [r"\bkavach\b", r"train\s+collision\s+avoidance", r"\btcas\b", r"automatic\s+train\s+protection"],
+    "kavach": [
+        r"\bkavach\b",
+        r"train\s+collision\s+avoidance",
+        r"\btcas\b",
+        r"automatic\s+train\s+protection",
+    ],
     # ── Robotics / automation ────────────────────────────────────────────────
     "robotics": [
         r"robotic(?:s|ally)?",
@@ -519,7 +541,9 @@ def fetch_nse_day(date_str: str) -> list[dict]:
         return []
 
 
-def find_investor_presentations(symbol: str, result_date: date, season_end: date | None = None) -> list[str]:
+def find_investor_presentations(
+    symbol: str, result_date: date, season_end: date | None = None
+) -> list[str]:
     """
     Collect ALL investor-presentation NSE filings within 60 days of result_date.
     Returns every candidate URL so the caller can score each and pick the best.
@@ -544,7 +568,9 @@ def find_investor_presentations(symbol: str, result_date: date, season_end: date
                 # Normalize underscores in filename so "Lodha_Investor_Presentation"
                 # matches 'investor presentation' the same as plain text does.
                 url_text = url.replace("_", " ").replace("-", " ")
-                combined = (ann.get("desc", "") + " " + ann.get("attchmntText", "") + " " + url_text).lower()
+                combined = (
+                    ann.get("desc", "") + " " + ann.get("attchmntText", "") + " " + url_text
+                ).lower()
                 # NSE filings use varied labels: "Investor Presentation",
                 # "Investor Update", "Investor/Analyst Meet", "Institutional
                 # Investor Meet" (Analysts/Institutional Investor Meet/Con. Call
@@ -607,7 +633,9 @@ def tokenize(text: str) -> list[str]:
     return re.findall(r"[a-z0-9]+", text.lower())
 
 
-def count_phrases(words: list[str], phrases: list[tuple[str, ...]], check_negation: bool = True) -> int:
+def count_phrases(
+    words: list[str], phrases: list[tuple[str, ...]], check_negation: bool = True
+) -> int:
     """
     Count occurrences of any phrase (1-3 token tuples) in `words`.
     If check_negation, a match preceded within NEGATION_WINDOW tokens by a
@@ -722,7 +750,8 @@ _NEW_INT_COLS = (
     "rare_earth",
 )
 ALTER_TABLE_SQL = [
-    f"ALTER TABLE presentation_keyword_analysis ADD COLUMN IF NOT EXISTS {c} INT DEFAULT 0" for c in _NEW_INT_COLS
+    f"ALTER TABLE presentation_keyword_analysis ADD COLUMN IF NOT EXISTS {c} INT DEFAULT 0"
+    for c in _NEW_INT_COLS
 ] + [
     "ALTER TABLE presentation_keyword_analysis ADD COLUMN IF NOT EXISTS positive_density NUMERIC(8,2) DEFAULT 0",
     "ALTER TABLE presentation_keyword_analysis ADD COLUMN IF NOT EXISTS negative_density NUMERIC(8,2) DEFAULT 0",
@@ -761,7 +790,7 @@ def process_one(symbol, company_name, result_date, insert_sql, insert_cols, forc
                 (symbol, result_date, result_date),
             )
             db_urls = [r[0] for r in db.fetchall()]
-            pres_urls = db_urls or find_investor_presentations(symbol, result_date)
+            pres_urls = db_urls if db_urls else find_investor_presentations(symbol, result_date)
 
         if not pres_urls:
             db.execute(
@@ -873,12 +902,17 @@ def main():
     parser.add_argument("--out", default="results/keyword_analysis.csv")
     parser.add_argument("--symbol", help="Run for a single symbol only (for testing)")
     parser.add_argument(
-        "--pdf-url", dest="pdf_url", default=None, help="Direct presentation PDF URL — skips DB/NSE search entirely"
+        "--pdf-url",
+        dest="pdf_url",
+        default=None,
+        help="Direct presentation PDF URL — skips DB/NSE search entirely",
     )
     parser.add_argument("--force", action="store_true", help="Re-process even if already analysed")
     parser.add_argument("--resume-after", help="Skip companies alphabetically <= this symbol")
     parser.add_argument(
-        "--missing-only", action="store_true", help="Only process companies without a found presentation"
+        "--missing-only",
+        action="store_true",
+        help="Only process companies without a found presentation",
     )
     parser.add_argument("--workers", type=int, default=4, help="Parallel threads (default 4)")
     args = parser.parse_args()
@@ -939,7 +973,9 @@ def main():
         # Check by (symbol, result_date) so Q1 FY27 rows are included even when
         # a company already has a Q4 FY26 presentation recorded.
         db2 = DB(clean_db_url(DB_URL))
-        db2.execute("SELECT symbol, result_date FROM presentation_keyword_analysis WHERE has_presentation = TRUE")
+        db2.execute(
+            "SELECT symbol, result_date FROM presentation_keyword_analysis WHERE has_presentation = TRUE"
+        )
         have = {(r[0].upper(), str(r[1])) for r in db2.fetchall()}
         db2.close()
         companies = [(s, n, d) for s, n, d in companies if (s.upper(), str(d)) not in have]
@@ -949,21 +985,18 @@ def main():
     print(f"Companies to analyse: {total}  (workers={args.workers})")
     print(f"Output CSV: {out_path}\n")
 
-    insert_cols = [
-        "symbol",
-        "company_name",
-        "result_date",
-        "presentation_url",
-        "pdf_pages",
-        "pdf_chars",
-        *THEME_COLUMNS,
-        "word_count",
-        "positive_hits",
-        "negative_hits",
-        "positive_density",
-        "negative_density",
-        "sentiment_score",
-    ]
+    insert_cols = (
+        ["symbol", "company_name", "result_date", "presentation_url", "pdf_pages", "pdf_chars"]
+        + THEME_COLUMNS
+        + [
+            "word_count",
+            "positive_hits",
+            "negative_hits",
+            "positive_density",
+            "negative_density",
+            "sentiment_score",
+        ]
+    )
     update_cols = [c for c in insert_cols if c not in ("symbol", "result_date")]
     insert_sql = f"""
         INSERT INTO presentation_keyword_analysis
@@ -983,7 +1016,13 @@ def main():
         symbol, company_name, result_date = item
         try:
             status, sym, rd, data = process_one(
-                symbol, company_name, result_date, insert_sql, insert_cols, args.force, getattr(args, "pdf_url", None)
+                symbol,
+                company_name,
+                result_date,
+                insert_sql,
+                insert_cols,
+                args.force,
+                getattr(args, "pdf_url", None),
             )
         except Exception as e:
             status, sym, rd, data = "error", symbol, result_date, str(e)
@@ -1001,10 +1040,16 @@ def main():
             else:
                 r = data
                 kw = (
-                    ", ".join(f"{k}={v}" for k, v in r.items() if k in THEME_COLUMNS and v and v > 0)
+                    ", ".join(
+                        f"{k}={v}" for k, v in r.items() if k in THEME_COLUMNS and v and v > 0
+                    )
                     or "no theme matches"
                 )
-                cands = f"{r['_n_candidates']} candidate PDFs" if r["_n_candidates"] > 1 else "found PDF"
+                cands = (
+                    f"{r['_n_candidates']} candidate PDFs"
+                    if r["_n_candidates"] > 1
+                    else "found PDF"
+                )
                 print(
                     f"[{n}/{total}] {sym} ({rd}) … {cands} … "
                     f"{r['_n_pages']}pp, {r['word_count']}w → "
@@ -1019,22 +1064,26 @@ def main():
 
     # Write CSV
     if rows:
-        fieldnames = [
-            "symbol",
-            "company_name",
-            "result_date",
-            "has_presentation",
-            "presentation_url",
-            "pdf_pages",
-            "pdf_chars",
-            *THEME_COLUMNS,
-            "word_count",
-            "positive_hits",
-            "negative_hits",
-            "positive_density",
-            "negative_density",
-            "sentiment_score",
-        ]
+        fieldnames = (
+            [
+                "symbol",
+                "company_name",
+                "result_date",
+                "has_presentation",
+                "presentation_url",
+                "pdf_pages",
+                "pdf_chars",
+            ]
+            + THEME_COLUMNS
+            + [
+                "word_count",
+                "positive_hits",
+                "negative_hits",
+                "positive_density",
+                "negative_density",
+                "sentiment_score",
+            ]
+        )
         with open(out_path, "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=fieldnames)
             w.writeheader()
@@ -1061,7 +1110,9 @@ def main():
             print(f"  {label:24s}: {val or 0}")
         avg_sent = row[-1]
         if avg_sent is not None:
-            print(f"\nAverage sentiment score (positive - negative density per 1000 words): {avg_sent:.2f}")
+            print(
+                f"\nAverage sentiment score (positive - negative density per 1000 words): {avg_sent:.2f}"
+            )
 
     cur2.close()
     conn2.close()

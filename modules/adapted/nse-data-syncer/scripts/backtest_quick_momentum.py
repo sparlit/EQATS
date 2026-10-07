@@ -38,7 +38,7 @@ load_dotenv(os.path.join(base_dir, "web", ".env"))
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.database import DatabaseManager, MomentumHistory
+from app.database import DatabaseManager
 
 
 def get_month_ends():
@@ -111,7 +111,9 @@ def calculate_quick_momentum_for_date(session, target_date, stocks_df, valid_sto
         std = df_scores[col].std()
         df_scores[f"z_{period}"] = (df_scores[col] - mean) / std if std > 0 else 0
 
-    df_scores["weighted_z"] = (df_scores["z_1m"] + df_scores["z_3m"] + df_scores["z_6m"] + df_scores["z_1y"]) / 4
+    df_scores["weighted_z"] = (
+        df_scores["z_1m"] + df_scores["z_3m"] + df_scores["z_6m"] + df_scores["z_1y"]
+    ) / 4
     return df_scores.sort_values("weighted_z", ascending=False)
 
 
@@ -119,8 +121,18 @@ def calculate_comprehensive_metrics(monthly_results, benchmark_results):
     if not monthly_results:
         return {
             "time_metrics": {"start": "-", "end": "-", "period": "-"},
-            "capital_metrics": {"start_value": 0, "end_value": 0, "total_fees_paid": 0, "open_trade_pnl": 0},
-            "return_metrics": {"total_return": 0, "benchmark_return": 0, "expectancy": 0, "net_return_after_fees": 0},
+            "capital_metrics": {
+                "start_value": 0,
+                "end_value": 0,
+                "total_fees_paid": 0,
+                "open_trade_pnl": 0,
+            },
+            "return_metrics": {
+                "total_return": 0,
+                "benchmark_return": 0,
+                "expectancy": 0,
+                "net_return_after_fees": 0,
+            },
             "risk_metrics": {
                 "max_drawdown": 0,
                 "max_drawdown_duration": 0,
@@ -176,18 +188,24 @@ def calculate_comprehensive_metrics(monthly_results, benchmark_results):
 
     excess_returns = portfolio_returns
     sharpe_ratio = (
-        (np.mean(excess_returns) * 12) / (np.std(excess_returns) * np.sqrt(12)) if np.std(excess_returns) > 0 else 0
+        (np.mean(excess_returns) * 12) / (np.std(excess_returns) * np.sqrt(12))
+        if np.std(excess_returns) > 0
+        else 0
     )
     annualized_return = (1 + total_return) ** (1 / period_years) - 1
     calmar_ratio = annualized_return / abs(max_drawdown) if max_drawdown != 0 else 0
 
     downside_returns = portfolio_returns[portfolio_returns < 0]
     downside_std = np.std(downside_returns) if len(downside_returns) > 0 else 0
-    sortino_ratio = (np.mean(excess_returns) * 12) / (downside_std * np.sqrt(12)) if downside_std > 0 else 0
+    sortino_ratio = (
+        (np.mean(excess_returns) * 12) / (downside_std * np.sqrt(12)) if downside_std > 0 else 0
+    )
 
     gains = portfolio_returns[portfolio_returns > 0]
     losses = portfolio_returns[portfolio_returns < 0]
-    omega_ratio = np.sum(gains) / abs(np.sum(losses)) if len(losses) > 0 and np.sum(losses) != 0 else 0
+    omega_ratio = (
+        np.sum(gains) / abs(np.sum(losses)) if len(losses) > 0 and np.sum(losses) != 0 else 0
+    )
 
     total_trades = period_months
     winning_trades = np.sum(portfolio_returns > 0)
@@ -196,8 +214,12 @@ def calculate_comprehensive_metrics(monthly_results, benchmark_results):
 
     best_trade = np.max(portfolio_returns) * 100
     worst_trade = np.min(portfolio_returns) * 100
-    avg_winning_trade = np.mean(portfolio_returns[portfolio_returns > 0]) * 100 if winning_trades > 0 else 0
-    avg_losing_trade = np.mean(portfolio_returns[portfolio_returns < 0]) * 100 if losing_trades > 0 else 0
+    avg_winning_trade = (
+        np.mean(portfolio_returns[portfolio_returns > 0]) * 100 if winning_trades > 0 else 0
+    )
+    avg_losing_trade = (
+        np.mean(portfolio_returns[portfolio_returns < 0]) * 100 if losing_trades > 0 else 0
+    )
 
     gross_profit = np.sum(portfolio_returns[portfolio_returns > 0])
     gross_loss = abs(np.sum(portfolio_returns[portfolio_returns < 0]))
@@ -210,7 +232,7 @@ def calculate_comprehensive_metrics(monthly_results, benchmark_results):
             "period": f"{period_months} months ({period_years:.1f} years)",
         },
         "capital_metrics": {
-            "start_value": start_value,
+            "start_value": round(start_value, 2),
             "end_value": round(end_value, 2),
             "total_fees_paid": 0,
             "open_trade_pnl": 0,
@@ -260,22 +282,24 @@ def run_backtest():
     print("Fetching Benchmark Data...")
     try:
         nifty = yf.download(
-            "^NSEI", start=(datetime.now() - relativedelta(years=10)).strftime("%Y-%m-%d"), progress=False
+            "^NSEI",
+            start=(datetime.now() - relativedelta(years=10)).strftime("%Y-%m-%d"),
+            progress=False,
         )
         if nifty.empty:
             nifty = pd.DataFrame(columns=["close"])
         else:
             if isinstance(nifty.columns, pd.MultiIndex):
                 nifty.columns = nifty.columns.get_level_values(0)
-            nifty = nifty.reset_index()
+            nifty.reset_index(inplace=True)
             nifty.columns = [c.lower() for c in nifty.columns]
             if "date" not in nifty.columns:
-                nifty = nifty.rename(columns={"index": "date"})
+                nifty.rename(columns={"index": "date"}, inplace=True)
             if "close" in nifty.columns:
                 nifty = nifty[["date", "close"]]
             elif "adj close" in nifty.columns:
                 nifty = nifty[["date", "adj close"]]
-                nifty = nifty.rename(columns={"adj close": "close"})
+                nifty.rename(columns={"adj close": "close"}, inplace=True)
             else:
                 nifty = pd.DataFrame(columns=["close"])
     except Exception as e:
@@ -287,12 +311,17 @@ def run_backtest():
         text("SELECT stock_id, date, close_price, open_price FROM daily_prices ORDER BY date ASC")
     ).fetchall()
 
-    master_df = pd.DataFrame(all_prices_result, columns=["stock_id", "date", "close_price", "open_price"])
+    master_df = pd.DataFrame(
+        all_prices_result, columns=["stock_id", "date", "close_price", "open_price"]
+    )
     master_df["date"] = pd.to_datetime(master_df["date"])
-    master_df = master_df.set_index("date")
+    master_df.set_index("date", inplace=True)
     print(f"Loaded {len(master_df)} price records into memory.")
 
-    stock_map = {s.id: s.nse_symbol for s in session.execute(text("SELECT id, nse_symbol FROM stocks")).fetchall()}
+    stock_map = {
+        s.id: s.nse_symbol
+        for s in session.execute(text("SELECT id, nse_symbol FROM stocks")).fetchall()
+    }
 
     dates = get_month_ends()
     all_results = []
@@ -305,10 +334,16 @@ def run_backtest():
             text(f"SELECT id FROM stocks WHERE is_active = true AND market_cap >= {min_mcap}")
         ).fetchall()
     ]
-    print(f"Applying Market Cap Filter (> {min_mcap_cr} Cr). Eligible Stocks: {len(valid_stock_ids)}")
+    print(
+        f"Applying Market Cap Filter (> {min_mcap_cr} Cr). Eligible Stocks: {len(valid_stock_ids)}"
+    )
 
     def process_period(
-        rebalance_date, next_rebalance_date, label_date=None, valid_stock_ids=None, use_close_to_close=False
+        rebalance_date,
+        next_rebalance_date,
+        label_date=None,
+        valid_stock_ids=None,
+        use_close_to_close=False,
     ):
         print(f"Processing {rebalance_date.date()} -> {next_rebalance_date.date()}")
 
@@ -322,7 +357,7 @@ def run_backtest():
             return None
 
         df_window = df_slice.reset_index()
-        df_window = df_window.set_index(["stock_id", "date"])
+        df_window.set_index(["stock_id", "date"], inplace=True)
 
         top_stocks_df = calculate_quick_momentum_for_date(
             session, rebalance_date, df_window, valid_stock_ids=valid_stock_ids
@@ -339,7 +374,9 @@ def run_backtest():
 
         try:
             df_next_slice = master_df.loc[rebalance_date + timedelta(days=1) : next_rebalance_date]
-            df_next = df_next_slice[df_next_slice["stock_id"].isin(selected_stock_ids)].reset_index()
+            df_next = df_next_slice[
+                df_next_slice["stock_id"].isin(selected_stock_ids)
+            ].reset_index()
         except KeyError:
             df_next = pd.DataFrame()
 
@@ -369,7 +406,10 @@ def run_backtest():
                             continue
                         start_price = stock_data_next.iloc[0]["open_price"]
 
-                    end_price = start_price if stock_data_next.empty else stock_data_next.iloc[-1]["close_price"]
+                    if stock_data_next.empty:
+                        end_price = start_price
+                    else:
+                        end_price = stock_data_next.iloc[-1]["close_price"]
 
                     ret = (end_price - start_price) / start_price
                     portfolio_returns.append(ret)
@@ -409,14 +449,16 @@ def run_backtest():
             n_prev = nifty[nifty["date"] <= rebalance_date]
             n_curr = nifty[nifty["date"] <= next_rebalance_date]
             if not n_prev.empty and not n_curr.empty:
-                bench_ret = (n_curr.iloc[-1]["close"] - n_prev.iloc[-1]["close"]) / n_prev.iloc[-1]["close"]
+                bench_ret = (n_curr.iloc[-1]["close"] - n_prev.iloc[-1]["close"]) / n_prev.iloc[-1][
+                    "close"
+                ]
             else:
                 bench_ret = 0
         else:
             bench_ret = 0
 
         print(f"  Port: {port_ret:.2%}, Bench: {bench_ret:.2%}")
-        month_label = label_date or next_rebalance_date.strftime("%Y-%m")
+        month_label = label_date if label_date else next_rebalance_date.strftime("%Y-%m")
 
         return {
             "month": month_label,
@@ -425,7 +467,9 @@ def run_backtest():
             "holdings": stock_returns_detail,
         }
 
-    output_path = os.path.join(base_dir, "web", "src", "data", "backtest_results_quick_momentum.json")
+    output_path = os.path.join(
+        base_dir, "web", "src", "data", "backtest_results_quick_momentum.json"
+    )
 
     existing_results_map = {}
     if os.path.exists(output_path):
@@ -479,7 +523,7 @@ def run_backtest():
 
     def calculate_stats_for_period(results, start_value=100000, initial_holdings=None):
         total_transactions = 0
-        previous_holdings = initial_holdings or set()
+        previous_holdings = initial_holdings if initial_holdings else set()
         for result in results:
             current_holdings = {h["symbol"] for h in result["holdings"]}
             if previous_holdings:
@@ -512,7 +556,9 @@ def run_backtest():
     backtest_metrics["capital_metrics"]["total_fees_paid"] = round(bt_fees, 2)
     backtest_metrics["return_metrics"]["net_return_after_fees"] = round(bt_net_return, 2)
 
-    last_backtest_holdings = {h["symbol"] for h in backtest_results[-1]["holdings"]} if backtest_results else set()
+    last_backtest_holdings = (
+        {h["symbol"] for h in backtest_results[-1]["holdings"]} if backtest_results else set()
+    )
     cur_transactions, cur_fees, cur_net_return = calculate_stats_for_period(
         current_results, initial_holdings=last_backtest_holdings
     )

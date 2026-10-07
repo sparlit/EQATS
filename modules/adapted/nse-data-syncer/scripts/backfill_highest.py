@@ -39,7 +39,6 @@ import logging
 import re
 import time
 
-import psycopg2
 import requests
 
 logging.getLogger("pdfminer").setLevel(logging.ERROR)
@@ -52,7 +51,9 @@ HIGHEST_RE = re.compile(r"\bhighest\b")
 
 def main():
     db = DB(clean_db_url(DB_URL))
-    db.execute("ALTER TABLE presentation_keyword_analysis ADD COLUMN IF NOT EXISTS highest INT DEFAULT 0")
+    db.execute(
+        "ALTER TABLE presentation_keyword_analysis ADD COLUMN IF NOT EXISTS highest INT DEFAULT 0"
+    )
     db.commit()
 
     db.execute("""

@@ -56,7 +56,10 @@ for _c in ["web/.env", ".env"]:
         load_dotenv(_c)
         break
 
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+)
 
 NSE_API = "https://www.nseindia.com/api/corporate-announcements"
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -287,7 +290,9 @@ def fetch_screener_quarter(session: requests.Session, symbol: str) -> dict | Non
                 now = datetime.now()
                 months_old = (now.year - quarter_date.year) * 12 + (now.month - quarter_date.month)
                 if months_old > 9:  # older than 3 quarters → Screener not updated yet
-                    print(f"    [Screener] latest quarter: {label} ({months_old} months old — stale, skipping)")
+                    print(
+                        f"    [Screener] latest quarter: {label} ({months_old} months old — stale, skipping)"
+                    )
                     return None
                 print(f"    [Screener] latest quarter: {label} ({months_old} months old — fresh ✓)")
         except ValueError:
@@ -359,7 +364,9 @@ def print_metrics(symbol: str, current: dict, qoq: dict | None, yoy: dict | None
         qoq_v = qoq.get(key) if qoq else None
         yoy_v = yoy.get(key) if yoy else None
         cur_s = fmt_cr(cur_v) if key != "eps" else (f"₹{cur_v:.2f}" if cur_v else "N/A")
-        print(f"  {label:<20} {cur_s:>14}  {pct_change(cur_v, qoq_v):>8}  {pct_change(cur_v, yoy_v):>8}")
+        print(
+            f"  {label:<20} {cur_s:>14}  {pct_change(cur_v, qoq_v):>8}  {pct_change(cur_v, yoy_v):>8}"
+        )
 
 
 # ── Step 5: Claude ────────────────────────────────────────────────────────────
@@ -411,7 +418,12 @@ def call_claude(prompt: str) -> dict:
 def send_telegram(token: str, chat_id: str, text: str) -> None:
     r = requests.post(
         f"https://api.telegram.org/bot{token}/sendMessage",
-        json={"chat_id": chat_id, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True},
+        json={
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True,
+        },
         timeout=10,
     )
     print(f"  Telegram HTTP {r.status_code}")
@@ -429,7 +441,9 @@ def phase1_message(ann: dict, announced_at: datetime) -> str:
     )
 
 
-def phase2_message(symbol: str, meta: dict, current: dict, qoq: dict | None, yoy: dict | None, signal: dict) -> str:
+def phase2_message(
+    symbol: str, meta: dict, current: dict, qoq: dict | None, yoy: dict | None, signal: dict
+) -> str:
     company = meta.get("name", symbol)
     quarter = current.get("quarter_label", "Latest")
 
@@ -438,7 +452,10 @@ def phase2_message(symbol: str, meta: dict, current: dict, qoq: dict | None, yoy
         q_v = qoq.get(key) if qoq else None
         y_v = yoy.get(key) if yoy else None
         val_s = fmt_cr(cur_v) if key != "eps" else (f"₹{cur_v:.2f}" if cur_v else "N/A")
-        return f"<b>{label}:</b> {val_s}  <i>({pct_change(cur_v, q_v)} QoQ | {pct_change(cur_v, y_v)} YoY)</i>"
+        return (
+            f"<b>{label}:</b> {val_s}"
+            f"  <i>({pct_change(cur_v, q_v)} QoQ | {pct_change(cur_v, y_v)} YoY)</i>"
+        )
 
     sig_emoji = "🟢" if signal.get("signal") == "LONG" else "🔴"
     conf_emoji = {"HIGH": "🔥", "MEDIUM": "⚡️", "LOW": "❄️"}.get(signal.get("confidence", ""), "")
@@ -465,7 +482,11 @@ def phase2_message(symbol: str, meta: dict, current: dict, qoq: dict | None, yoy
 
 
 def process_one(
-    ann: dict, conn, screener_session: requests.Session | None, send_tg: bool, use_claude: bool = False
+    ann: dict,
+    conn,
+    screener_session: requests.Session | None,
+    send_tg: bool,
+    use_claude: bool = False,
 ) -> None:
     symbol = ann["symbol"]
     seq_id = ann.get("seq_id", "?")
@@ -537,7 +558,9 @@ def process_one(
     # Phase 2 Telegram
     if send_tg and tg_token and tg_chat:
         print("\n  Sending Phase 2 Telegram...")
-        msg = phase2_message(symbol, meta or {"name": ann.get("sm_name", symbol)}, current, qoq, yoy, signal)
+        msg = phase2_message(
+            symbol, meta or {"name": ann.get("sm_name", symbol)}, current, qoq, yoy, signal
+        )
         send_telegram(tg_token, tg_chat, msg)
         print("\n  Phase 2 message:\n")
         clean = re.sub(r"<[^>]+>", "", msg)
@@ -550,11 +573,22 @@ def main():
     parser.add_argument("--date", default="09-05-2026", help="Date in DD-MM-YYYY format")
     parser.add_argument("--symbol", default=None, help="Test a specific symbol only")
     parser.add_argument("--no-telegram", action="store_true", help="Skip sending to Telegram")
-    parser.add_argument("--skip-claude", action="store_true", default=True, help="Skip Claude API call (default: True)")
-    parser.add_argument("--claude", action="store_true", help="Enable Claude API call (overrides --skip-claude)")
-    parser.add_argument("--limit", type=int, default=5, help="Max companies to process (default: 5)")
     parser.add_argument(
-        "--phase1-only", action="store_true", help="Only send Phase 1 alert (skip Screener, DB, Claude)"
+        "--skip-claude",
+        action="store_true",
+        default=True,
+        help="Skip Claude API call (default: True)",
+    )
+    parser.add_argument(
+        "--claude", action="store_true", help="Enable Claude API call (overrides --skip-claude)"
+    )
+    parser.add_argument(
+        "--limit", type=int, default=5, help="Max companies to process (default: 5)"
+    )
+    parser.add_argument(
+        "--phase1-only",
+        action="store_true",
+        help="Only send Phase 1 alert (skip Screener, DB, Claude)",
     )
     args = parser.parse_args()
 
@@ -600,7 +634,9 @@ def main():
 
     before = len(results)
     results = [r for r in results if r["symbol"].upper() in calendar_symbols]
-    print(f"After calendar filter: {len(results)} (dropped {before - len(results)} not in calendar)")
+    print(
+        f"After calendar filter: {len(results)} (dropped {before - len(results)} not in calendar)"
+    )
 
     if not results:
         print("\nNo result announcements match today's earnings calendar.")
@@ -614,7 +650,9 @@ def main():
             ann_dt = parse_nse_dt(ann.get("an_dt", ""))
             print(f"\n{'─' * 60}")
             print(f"Symbol    : {ann['symbol']}  ({ann.get('sm_name', '')})")
-            print(f"Announced : {ann_dt.strftime('%d-%b-%Y %H:%M:%S IST') if ann_dt else 'unknown'}")
+            print(
+                f"Announced : {ann_dt.strftime('%d-%b-%Y %H:%M:%S IST') if ann_dt else 'unknown'}"
+            )
             print(f"Subject   : {ann.get('desc', '')}")
             print(f"PDF       : {ann.get('attchmntFile', '')}")
 

@@ -41,7 +41,6 @@ Usage:
 import csv
 import logging
 import os
-import sys
 from urllib.parse import urlparse
 
 import psycopg2
@@ -65,8 +64,7 @@ CSV_PATH = os.path.join(_script_dir, "..", "data", "Equity_List.csv")
 def connect():
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
-        msg = "DATABASE_URL not set"
-        raise RuntimeError(msg)
+        raise RuntimeError("DATABASE_URL not set")
     p = urlparse(db_url)
     return psycopg2.connect(
         host=p.hostname,
@@ -110,7 +108,9 @@ def main():
     conn = connect()
     cur = conn.cursor()
 
-    cur.execute("SELECT id, isin, bse_symbol FROM stocks WHERE is_active = true OR is_active IS NULL")
+    cur.execute(
+        "SELECT id, isin, bse_symbol FROM stocks WHERE is_active = true OR is_active IS NULL"
+    )
     stocks = cur.fetchall()
     logger.info(f"Found {len(stocks)} stocks in DB")
 

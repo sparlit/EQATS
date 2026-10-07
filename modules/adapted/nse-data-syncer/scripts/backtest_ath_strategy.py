@@ -26,10 +26,9 @@ import os
 import sys
 from datetime import datetime, timedelta
 
-import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 
 # Load env
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -66,9 +65,13 @@ def run_backtest():
     min_mcap_cr = float(os.getenv("MIN_MARKET_CAP_CR", 2000))
     min_mcap = min_mcap_cr * 10000000
 
-    valid_stocks_query = text(f"SELECT id FROM stocks WHERE is_active = true AND market_cap >= {min_mcap}")
+    valid_stocks_query = text(
+        f"SELECT id FROM stocks WHERE is_active = true AND market_cap >= {min_mcap}"
+    )
     valid_stock_ids = [r[0] for r in session.execute(valid_stocks_query).fetchall()]
-    print(f"Loaded {len(valid_stock_ids)} eligible stocks (> {min_mcap_cr} Cr) for Backtest & Live Signals.")
+    print(
+        f"Loaded {len(valid_stock_ids)} eligible stocks (> {min_mcap_cr} Cr) for Backtest & Live Signals."
+    )
 
     # 2. Load Price Data (OPTIMIZED with Chunking)
     print("Loading daily price data for eligible stocks (Chunks of 200)...")
@@ -97,11 +100,13 @@ def run_backtest():
                     ORDER BY stock_id, date
                 """)
                 result = session.execute(query)
-                df_chunk = pd.DataFrame(result.fetchall(), columns=["stock_id", "date", "open", "high", "low", "close"])
+                df_chunk = pd.DataFrame(
+                    result.fetchall(), columns=["stock_id", "date", "open", "high", "low", "close"]
+                )
 
                 if not df_chunk.empty:
                     df_chunk["date"] = pd.to_datetime(df_chunk["date"])
-                    df_chunk = df_chunk.set_index(["stock_id", "date"])
+                    df_chunk.set_index(["stock_id", "date"], inplace=True)
                     df_list.append(df_chunk)
 
                 print(f"  Loaded chunk {i} - {i + len(chunk)}")
@@ -111,10 +116,10 @@ def run_backtest():
 
     if df_list:
         df_all = pd.concat(df_list)
-        df_all = df_all.sort_index()
+        df_all.sort_index(inplace=True)
     else:
         df_all = pd.DataFrame(columns=["stock_id", "date", "open", "high", "low", "close"])
-        df_all = df_all.set_index(["stock_id", "date"])
+        df_all.set_index(["stock_id", "date"], inplace=True)
 
     # optimize lookup
     valid_stock_ids = set(valid_stock_ids)
@@ -144,7 +149,9 @@ def run_backtest():
 
             # Calculate 30-Week SMA
             # Resample to Weekly (Ending Friday)
-            weekly_df = df.resample("W-FRI").agg({"open": "first", "high": "max", "low": "min", "close": "last"})
+            weekly_df = df.resample("W-FRI").agg(
+                {"open": "first", "high": "max", "low": "min", "close": "last"}
+            )
             weekly_df["sma_30_weekly"] = weekly_df["close"].rolling(window=30).mean()
 
             # Resample to Monthly for ATH Detection (as before)
@@ -181,10 +188,11 @@ def run_backtest():
                             is_breakout = True
                         else:
                             pass
-                # Before backtest start, just update ATH
-                elif month["high"] > current_ath:
-                    current_ath = month["high"]
-                    current_ath_date = month_date
+                else:
+                    # Before backtest start, just update ATH
+                    if month["high"] > current_ath:
+                        current_ath = month["high"]
+                        current_ath_date = month_date
 
                 if is_breakout:
                     entry_trigger = month["high"]
@@ -194,7 +202,9 @@ def run_backtest():
                     # Track eligible stocks (recent breakouts waiting for entry)
                     # Only track if breakout happened in last 2 months
                     today = pd.Timestamp(datetime.now())
-                    months_since_breakout = (today.year - month_date.year) * 12 + (today.month - month_date.month)
+                    months_since_breakout = (today.year - month_date.year) * 12 + (
+                        today.month - month_date.month
+                    )
 
                     # We'll check later if this breakout actually resulted in a trade
                     # For now, just mark it as a potential eligible stock
@@ -287,7 +297,9 @@ def run_backtest():
                         trade_weekly = weekly_df[weekly_df.index > entry_date].copy()
 
                         # Check Exit Condition: Close < 30 Week SMA
-                        exit_signals = trade_weekly[trade_weekly["close"] < trade_weekly["sma_30_weekly"]]
+                        exit_signals = trade_weekly[
+                            trade_weekly["close"] < trade_weekly["sma_30_weekly"]
+                        ]
 
                         if not exit_signals.empty:
                             signal_date = exit_signals.index[0]  # This is a Friday
@@ -343,6 +355,7 @@ def run_backtest():
 
                         # Since we consumed this setup, we stop scanning this month (entry_window).
                         # break  <-- REMOVED (Was breaking stock loop)
+                        pass
 
                         # IMPORTANT: Strategy says we buy. Assuming only 1 position per stock at a time?
                         # If we held a position, we wouldn't take another setup until exited?
@@ -361,6 +374,7 @@ def run_backtest():
                         # But the "Prev ATH" must be 2 months OLD.
                         # If we are rallying, the "Prev ATH" is just last month. So Gap condition < 60 days fails.
                         # So NATURALLY, this strategy filters pyramiding during strong trends!
+                        pass
 
                     # If we had a potential eligible stock and it didn't result in a trade, add it to the list
                     if potential_eligible is not None:
@@ -393,7 +407,9 @@ def run_backtest():
 
     try:
         nifty = yf.download(
-            "^NSEI", start=(datetime.now() - relativedelta(years=10)).strftime("%Y-%m-%d"), progress=False
+            "^NSEI",
+            start=(datetime.now() - relativedelta(years=10)).strftime("%Y-%m-%d"),
+            progress=False,
         )
         if nifty.empty:
             print("Warning: Could not fetch Nifty data.")
@@ -401,17 +417,17 @@ def run_backtest():
         else:
             if isinstance(nifty.columns, pd.MultiIndex):
                 nifty.columns = nifty.columns.get_level_values(0)
-            nifty = nifty.reset_index()
+            nifty.reset_index(inplace=True)
             nifty.columns = [c.lower() for c in nifty.columns]
             if "date" not in nifty.columns:
-                nifty = nifty.rename(columns={"index": "date"})
+                nifty.rename(columns={"index": "date"}, inplace=True)
             if "close" in nifty.columns:
                 nifty = nifty[["date", "close"]]
             elif "adj close" in nifty.columns:
                 nifty = nifty[["date", "adj close"]]
-                nifty = nifty.rename(columns={"adj close": "close"})
+                nifty.rename(columns={"adj close": "close"}, inplace=True)
 
-            nifty = nifty.set_index("date")
+            nifty.set_index("date", inplace=True)
     except Exception as e:
         print(f"Error fetching benchmark: {e}")
         nifty = pd.DataFrame(columns=["close"])
@@ -478,14 +494,17 @@ def run_backtest():
                         # Or simpler: Fixed 100k allocation? No, 10% of CURRENT equity.
                         # We need MTM sum.
                         mtm_val = 0
-                        for p in positions.values():
+                        for _s, p in positions.items():
                             # Lookup price
                             sid = p["stock_id"]
                             try:
                                 # idx = (sid, d) -> if missing, use last?
                                 # df_prices is MultiIndex
                                 val = df_prices.loc[(sid, d)]["close"]
-                                price = float(val.iloc[0]) if isinstance(val, pd.Series) else float(val)
+                                if isinstance(val, pd.Series):
+                                    price = float(val.iloc[0])
+                                else:
+                                    price = float(val)
                             except:
                                 price = float(p.get("last_price", 0))  # fallback safety
 
@@ -504,7 +523,11 @@ def run_backtest():
                             executed_trades_count += 1
                             sid = symbol_to_id.get(sym)
                             if sid:
-                                positions[sym] = {"shares": shares, "stock_id": sid, "last_price": price}
+                                positions[sym] = {
+                                    "shares": shares,
+                                    "stock_id": sid,
+                                    "last_price": price,
+                                }
                         else:
                             # Not enough cash for even 1 share
                             pass
@@ -631,7 +654,12 @@ def run_backtest():
 
         print(f"Max Capital Deployed: {peak_invested}")
 
-        return round(ret_pct, 2), round(final_equity_adjusted, 2), adjusted_equity_curve, executed_trades_count
+        return (
+            round(ret_pct, 2),
+            round(final_equity_adjusted, 2),
+            adjusted_equity_curve,
+            executed_trades_count,
+        )
 
     # Execute
     total_ret_pct, final_eq_val, eq_data, executed_trades_count = simulate_portfolio_daily(
@@ -675,15 +703,22 @@ def run_backtest():
         max_dd = 0
         for pt in eq_data:
             val = pt["equity"]
-            peak = max(peak, val)
+            if val > peak:
+                peak = val
             dd = peak - val
-            max_dd = max(max_dd, dd)
+            if dd > max_dd:
+                max_dd = dd
     else:
         max_dd = 0
 
     output["equity_curve"] = eq_data
     output["summary"].update(
-        {"profit_factor": profit_factor, "max_drawdown": round(max_dd, 2), "avg_win": avg_win, "avg_loss": avg_loss}
+        {
+            "profit_factor": profit_factor,
+            "max_drawdown": round(max_dd, 2),
+            "avg_win": avg_win,
+            "avg_loss": avg_loss,
+        }
     )
 
     out_path = os.path.join(base_dir, "web", "src", "data", "backtest_results_ath.json")

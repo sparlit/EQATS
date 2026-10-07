@@ -23,13 +23,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """Helper functions for the stock data syncer"""
 
-import os
 from datetime import date, timedelta
 from pathlib import Path
 
 import pandas as pd
 
-from .constants import DATA_MISMATCH_THRESHOLD, VALIDATION_RECORDS_COUNT
+from .constants import DATA_MISMATCH_THRESHOLD
 
 
 def get_project_root() -> Path:
@@ -42,7 +41,9 @@ def get_data_path(filename: str) -> Path:
     return get_project_root() / "data" / filename
 
 
-def validate_data_mismatch(symbol: str, df_validation: pd.DataFrame, last_records: dict[date, float]) -> bool:
+def validate_data_mismatch(
+    symbol: str, df_validation: pd.DataFrame, last_records: dict[date, float]
+) -> bool:
     """
     Validates fetched data against existing database records.
     Returns True if mismatch is detected (triggering full resync).
@@ -64,9 +65,6 @@ def validate_data_mismatch(symbol: str, df_validation: pd.DataFrame, last_record
                 )
                 return True
     return False
-
-
-from typing import Optional
 
 
 def determine_fetch_strategy(

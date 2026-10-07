@@ -43,7 +43,7 @@ def update_all():
     count = 0
     total = len(symbol_map)
 
-    for stock_id in symbol_map.values():
+    for _symbol, stock_id in symbol_map.items():
         count += 1
         if count % 50 == 0:
             print(f"Processed {count}/{total} stocks...")

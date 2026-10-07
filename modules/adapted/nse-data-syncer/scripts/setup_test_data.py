@@ -51,7 +51,9 @@ def setup_test_data():
         if row:
             stock_id = row[0]
             conn.execute(text("DELETE FROM daily_prices WHERE stock_id = :id"), {"id": stock_id})
-            conn.execute(text("DELETE FROM quarterly_results WHERE stock_id = :id"), {"id": stock_id})
+            conn.execute(
+                text("DELETE FROM quarterly_results WHERE stock_id = :id"), {"id": stock_id}
+            )
             conn.execute(text("DELETE FROM news WHERE stock_id = :id"), {"id": stock_id})
             conn.execute(text("DELETE FROM sync_tracker WHERE stock_id = :id"), {"id": stock_id})
             conn.execute(text("DELETE FROM stocks WHERE id = :id"), {"id": stock_id})
@@ -69,7 +71,9 @@ def setup_test_data():
             stock_id = row[0]
             # Get the latest date
             res = conn.execute(
-                text("SELECT date, close_price FROM daily_prices WHERE stock_id = :id ORDER BY date DESC LIMIT 1"),
+                text(
+                    "SELECT date, close_price FROM daily_prices WHERE stock_id = :id ORDER BY date DESC LIMIT 1"
+                ),
                 {"id": stock_id},
             )
             last_rec = res.fetchone()
@@ -78,7 +82,9 @@ def setup_test_data():
                 new_close = float(close) * 0.5  # Simulate 50% drop (e.g. split)
                 print(f"Modifying RELIANCE data for {date}: {close} -> {new_close}")
                 conn.execute(
-                    text("UPDATE daily_prices SET close_price = :price WHERE stock_id = :id AND date = :date"),
+                    text(
+                        "UPDATE daily_prices SET close_price = :price WHERE stock_id = :id AND date = :date"
+                    ),
                     {"price": new_close, "id": stock_id, "date": date},
                 )
             else:
