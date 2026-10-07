@@ -44,7 +44,12 @@ def upgrade() -> None:
     # ── users ──────────────────────────────────────────────────────────────────
     op.create_table(
         "users",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("cognito_sub", sa.String(128), nullable=False),
         sa.Column("email", sa.String(255), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
@@ -68,7 +73,9 @@ def upgrade() -> None:
         "scan_runs",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
         sa.Column("watchlist_id", sa.Integer(), nullable=False),
-        sa.Column("scanned_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "scanned_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.Column("ticker_count", sa.Integer(), nullable=True),
         sa.ForeignKeyConstraint(["watchlist_id"], ["watchlists.id"], ondelete="CASCADE"),
     )

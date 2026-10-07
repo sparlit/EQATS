@@ -65,7 +65,7 @@ def _make_session() -> Session:
                         if line.startswith("DATABASE_URL_SYNC="):
                             raw = line.split("=", 1)[1].strip('"').strip("'")
                             break
-                        if line.startswith("DATABASE_URL=") and not raw:
+                        elif line.startswith("DATABASE_URL=") and not raw:
                             raw = line.split("=", 1)[1].strip('"').strip("'")
 
     if not raw:
@@ -120,7 +120,9 @@ def _get_or_create_admin_user(session: Session) -> User:
     return user
 
 
-def sync_default_watchlists(watchlists_dir: str, session: Session, admin_user: User) -> dict[str, list[str]]:
+def sync_default_watchlists(
+    watchlists_dir: str, session: Session, admin_user: User
+) -> dict[str, list[str]]:
     """Ensure default system watchlists from CSVs exist in watchlists & watchlist_items tables."""
     default_lists: dict[str, list[str]] = {}
     if not os.path.isdir(watchlists_dir):
@@ -147,10 +149,16 @@ def sync_default_watchlists(watchlists_dir: str, session: Session, admin_user: U
 
             # Ensure all tickers exist in watchlist_items
             existing_items = set(
-                session.scalars(select(WatchlistItem.ticker).where(WatchlistItem.watchlist_id == wl.id)).all()
+                session.scalars(
+                    select(WatchlistItem.ticker).where(WatchlistItem.watchlist_id == wl.id)
+                ).all()
             )
 
-            new_items = [WatchlistItem(watchlist_id=wl.id, ticker=t) for t in tickers if t not in existing_items]
+            new_items = [
+                WatchlistItem(watchlist_id=wl.id, ticker=t)
+                for t in tickers
+                if t not in existing_items
+            ]
             if new_items:
                 session.add_all(new_items)
                 session.flush()
@@ -176,7 +184,14 @@ def scan_single_ticker(ticker_symbol: str):
         end_date = datetime.date.today() + datetime.timedelta(days=1)
         start_date = end_date - datetime.timedelta(days=380)
 
-        df = yf.download(ticker_symbol, start=start_date, end=end_date, interval="1d", progress=False, auto_adjust=True)
+        df = yf.download(
+            ticker_symbol,
+            start=start_date,
+            end=end_date,
+            interval="1d",
+            progress=False,
+            auto_adjust=True,
+        )
 
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.droplevel(1)
@@ -192,7 +207,9 @@ def scan_single_ticker(ticker_symbol: str):
         df["SMA_20"] = df["Close"].rolling(window=20).mean()
         typical_price = (df["High"] + df["Low"] + df["Close"]) / 3
         sma_tp = typical_price.rolling(window=20).mean()
-        mean_dev = typical_price.rolling(window=20).apply(lambda x: np.abs(x - x.mean()).mean(), raw=True)
+        mean_dev = typical_price.rolling(window=20).apply(
+            lambda x: np.abs(x - x.mean()).mean(), raw=True
+        )
         df["CCI_20"] = (typical_price - sma_tp) / (0.015 * mean_dev)
 
         latest_price = float(df["Close"].iloc[-1])
@@ -211,7 +228,9 @@ def scan_single_ticker(ticker_symbol: str):
         pct_monthly = ((latest_price - monthly_low) / monthly_low) * 100
         pct_weekly = ((latest_price - weekly_low) / weekly_low) * 100
 
-        cci_hist = [round(x, 1) if not np.isnan(x) else 0.0 for x in df["CCI_20"].iloc[-20:].tolist()]
+        cci_hist = [
+            round(x, 1) if not np.isnan(x) else 0.0 for x in df["CCI_20"].iloc[-20:].tolist()
+        ]
 
         # Weekly CPR (Central Pivot Range) for swing traders
         # Use previous completed week's High/Low/Close
@@ -279,7 +298,9 @@ def run_scanner(watchlists_dir: str, user_id=None):
         if metrics is False:
             # Ticker returned empty data → delisted/invalid; purge from all watchlists
             try:
-                session.execute(WatchlistItem.__table__.delete().where(WatchlistItem.ticker == ticker))
+                session.execute(
+                    WatchlistItem.__table__.delete().where(WatchlistItem.ticker == ticker)
+                )
                 session.commit()
                 removed_count += 1
                 print(f"  REMOVED {ticker} from all watchlists (delisted)")
@@ -293,7 +314,9 @@ def run_scanner(watchlists_dir: str, user_id=None):
 
         # Check if record for today already exists
         existing = session.execute(
-            select(DailyStockMetric).where(DailyStockMetric.ticker == ticker, DailyStockMetric.scan_date == today)
+            select(DailyStockMetric).where(
+                DailyStockMetric.ticker == ticker, DailyStockMetric.scan_date == today
+            )
         ).scalar_one_or_none()
 
         if existing:
@@ -344,7 +367,9 @@ def run_scanner(watchlists_dir: str, user_id=None):
             session.rollback()
 
     session.close()
-    print(f"\n[OK] Centralized scan complete. Saved: {saved_count} tickers. Removed (delisted): {removed_count}.")
+    print(
+        f"\n[OK] Centralized scan complete. Saved: {saved_count} tickers. Removed (delisted): {removed_count}."
+    )
 
 
 # ── CLI entry point ─────────────────────────────────────────────────────────────

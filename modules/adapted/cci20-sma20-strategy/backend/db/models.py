@@ -79,8 +79,12 @@ class User(Base):
     email = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    owned_watchlists = relationship("Watchlist", back_populates="owner", cascade="all, delete-orphan")
-    subscriptions = relationship("UserSubscription", back_populates="user", cascade="all, delete-orphan")
+    owned_watchlists = relationship(
+        "Watchlist", back_populates="owner", cascade="all, delete-orphan"
+    )
+    subscriptions = relationship(
+        "UserSubscription", back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 # ── Watchlists ─────────────────────────────────────────────────────────────────
@@ -93,19 +97,25 @@ class Watchlist(Base):
     __table_args__ = (UniqueConstraint("user_id", "name", name="uq_watchlist_user_name"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     name = Column(String(100), nullable=False)
     description = Column(String(255), nullable=True)
 
     # Share ID for multi-user sharing & syncing e.g. "sh_a8f9c2"
-    share_id = Column(String(32), unique=True, nullable=False, default=generate_share_id, index=True)
+    share_id = Column(
+        String(32), unique=True, nullable=False, default=generate_share_id, index=True
+    )
     is_public = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     owner = relationship("User", back_populates="owned_watchlists")
     items = relationship("WatchlistItem", back_populates="watchlist", cascade="all, delete-orphan")
-    subscribers = relationship("UserSubscription", back_populates="watchlist", cascade="all, delete-orphan")
+    subscribers = relationship(
+        "UserSubscription", back_populates="watchlist", cascade="all, delete-orphan"
+    )
     scan_runs = relationship("ScanRun", back_populates="watchlist", cascade="all, delete-orphan")
 
     @property
@@ -205,7 +215,10 @@ class ScanRun(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     watchlist_id = Column(
-        UUID(as_uuid=True), ForeignKey("watchlists.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("watchlists.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     scanned_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     ticker_count = Column(Integer, nullable=True)
