@@ -53,7 +53,6 @@ def get_data(url):
         print("get_data successfully")
         return response.text
     print("error in get_data")
-    return None
 
 
 def requiredDataIndex(data, requiredDataIndex, expiryDate):
@@ -68,54 +67,105 @@ def finalRequiredData(requiredDataIndex, requiredData):
     for i in requiredDataIndex:
         finalDataSubArray = []
         if (requiredData[i].get("CE") is not None) and (requiredData[i].get("PE") is not None):
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["openInterest"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["changeinOpenInterest"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["totalTradedVolume"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["impliedVolatility"], 2)))
+            finalDataSubArray.append(
+                "{:.2f}".format(round(requiredData[i]["CE"]["openInterest"], 2))
+            )
+            finalDataSubArray.append(
+                "{:.2f}".format(round(requiredData[i]["CE"]["changeinOpenInterest"], 2))
+            )
+            finalDataSubArray.append(
+                "{:.2f}".format(round(requiredData[i]["CE"]["totalTradedVolume"], 2))
+            )
+            finalDataSubArray.append(
+                "{:.2f}".format(round(requiredData[i]["CE"]["impliedVolatility"], 2))
+            )
             finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["lastPrice"], 2)))
             finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["change"], 2)))
             finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["bidQty"], 2)))
             finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["bidprice"], 2)))
             finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["askPrice"], 2)))
             finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["askQty"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["strikePrice"], 2)))
+            finalDataSubArray.append(
+                "{:.2f}".format(round(requiredData[i]["PE"]["strikePrice"], 2))
+            )
             finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["bidQty"], 2)))
             finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["bidprice"], 2)))
             finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["askPrice"], 2)))
             finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["askQty"], 2)))
             finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["change"], 2)))
             finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["lastPrice"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["impliedVolatility"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["totalTradedVolume"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["changeinOpenInterest"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["openInterest"], 2)))
-        elif requiredData[i].get("CE") is not None:
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["openInterest"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["changeinOpenInterest"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["totalTradedVolume"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["impliedVolatility"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["lastPrice"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["change"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["bidQty"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["bidprice"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["askPrice"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["strikePrice"], 2)))
-            for _j in range(10):
-                finalDataSubArray.append("-")
+            finalDataSubArray.append(
+                "{:.2f}".format(round(requiredData[i]["PE"]["impliedVolatility"], 2))
+            )
+            finalDataSubArray.append(
+                "{:.2f}".format(round(requiredData[i]["PE"]["totalTradedVolume"], 2))
+            )
+            finalDataSubArray.append(
+                "{:.2f}".format(round(requiredData[i]["PE"]["changeinOpenInterest"], 2))
+            )
+            finalDataSubArray.append(
+                "{:.2f}".format(round(requiredData[i]["PE"]["openInterest"], 2))
+            )
         else:
-            for _j in range(9):
-                finalDataSubArray.append("-")
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["strikePrice"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["bidQty"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["bidprice"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["askPrice"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["askQty"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["change"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["lastPrice"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["impliedVolatility"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["totalTradedVolume"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["changeinOpenInterest"], 2)))
-            finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["openInterest"], 2)))
+            if requiredData[i].get("CE") is not None:
+                finalDataSubArray.append(
+                    "{:.2f}".format(round(requiredData[i]["CE"]["openInterest"], 2))
+                )
+                finalDataSubArray.append(
+                    "{:.2f}".format(round(requiredData[i]["CE"]["changeinOpenInterest"], 2))
+                )
+                finalDataSubArray.append(
+                    "{:.2f}".format(round(requiredData[i]["CE"]["totalTradedVolume"], 2))
+                )
+                finalDataSubArray.append(
+                    "{:.2f}".format(round(requiredData[i]["CE"]["impliedVolatility"], 2))
+                )
+                finalDataSubArray.append(
+                    "{:.2f}".format(round(requiredData[i]["CE"]["lastPrice"], 2))
+                )
+                finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["change"], 2)))
+                finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["CE"]["bidQty"], 2)))
+                finalDataSubArray.append(
+                    "{:.2f}".format(round(requiredData[i]["CE"]["bidprice"], 2))
+                )
+                finalDataSubArray.append(
+                    "{:.2f}".format(round(requiredData[i]["CE"]["askPrice"], 2))
+                )
+                finalDataSubArray.append(
+                    "{:.2f}".format(round(requiredData[i]["CE"]["strikePrice"], 2))
+                )
+                for _j in range(10):
+                    finalDataSubArray.append("-")
+            else:
+                for _j in range(9):
+                    finalDataSubArray.append("-")
+                finalDataSubArray.append(
+                    "{:.2f}".format(round(requiredData[i]["PE"]["strikePrice"], 2))
+                )
+                finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["bidQty"], 2)))
+                finalDataSubArray.append(
+                    "{:.2f}".format(round(requiredData[i]["PE"]["bidprice"], 2))
+                )
+                finalDataSubArray.append(
+                    "{:.2f}".format(round(requiredData[i]["PE"]["askPrice"], 2))
+                )
+                finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["askQty"], 2)))
+                finalDataSubArray.append("{:.2f}".format(round(requiredData[i]["PE"]["change"], 2)))
+                finalDataSubArray.append(
+                    "{:.2f}".format(round(requiredData[i]["PE"]["lastPrice"], 2))
+                )
+                finalDataSubArray.append(
+                    "{:.2f}".format(round(requiredData[i]["PE"]["impliedVolatility"], 2))
+                )
+                finalDataSubArray.append(
+                    "{:.2f}".format(round(requiredData[i]["PE"]["totalTradedVolume"], 2))
+                )
+                finalDataSubArray.append(
+                    "{:.2f}".format(round(requiredData[i]["PE"]["changeinOpenInterest"], 2))
+                )
+                finalDataSubArray.append(
+                    "{:.2f}".format(round(requiredData[i]["PE"]["openInterest"], 2))
+                )
         finalDataArray.append(finalDataSubArray)
     return finalDataArray
 

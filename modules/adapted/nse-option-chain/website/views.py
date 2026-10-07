@@ -21,8 +21,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from flask import Blueprint, flash, jsonify, render_template, request
-from flask_login import current_user, login_required, login_user, logout_user
+from flask import Blueprint, render_template
+from flask_login import current_user, login_required
 
 from .api import bnfRequiredData, fnfRequiredData, nfRequiredData
 
@@ -38,16 +38,22 @@ def home():
 @views.route("/nifty")
 @login_required
 def nifty():
-    return render_template("nifty.html", user=current_user, data=nfRequiredData, length=len(nfRequiredData))
+    return render_template(
+        "nifty.html", user=current_user, data=nfRequiredData, length=len(nfRequiredData)
+    )
 
 
 @views.route("/finnifty")
 @login_required
 def finnifty():
-    return render_template("finnifty.html", user=current_user, data=fnfRequiredData, length=len(fnfRequiredData))
+    return render_template(
+        "finnifty.html", user=current_user, data=fnfRequiredData, length=len(fnfRequiredData)
+    )
 
 
 @views.route("/banknifty")
 @login_required
 def banknifty():
-    return render_template("banknifty.html", user=current_user, data=bnfRequiredData, length=len(bnfRequiredData))
+    return render_template(
+        "banknifty.html", user=current_user, data=bnfRequiredData, length=len(bnfRequiredData)
+    )
