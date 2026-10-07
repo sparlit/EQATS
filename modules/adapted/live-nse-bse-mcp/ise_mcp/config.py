@@ -27,7 +27,6 @@ Configuration file for Indian Stock Exchange MCP Server
 
 import os
 from pathlib import Path
-from typing import Optional
 
 # Load environment variables from .env file if it exists
 env_file = Path(".env")
@@ -76,8 +75,7 @@ class Config:
     def validate_config(cls) -> None:
         """Validate that required configuration is present"""
         if not cls.API_KEY:
-            msg = (
+            raise ValueError(
                 "ISE_API_KEY environment variable is required. "
                 "Please set it in your .env file or environment variables."
             )
-            raise ValueError(msg)
