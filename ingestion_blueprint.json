@@ -1,5 +1,5 @@
 {
-  "current_index": 136,
+  "current_index": 137,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1093,7 +1093,7 @@
       "name": "10101",
       "target": "get10101/10101",
       "url": "https://github.com/get10101/10101",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
