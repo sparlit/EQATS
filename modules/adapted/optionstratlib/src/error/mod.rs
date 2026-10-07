@@ -33,6 +33,8 @@
 //! ## Usage Example
 //!
 //! ```rust
+//! # #[cfg(feature = "market")]
+//! # mod example {
 //! use optionstratlib::error::{OptionsError, GreeksError, ChainError};
 //!
 //! // Options error handling
@@ -52,6 +54,7 @@
 //!     // Implementation
 //!     Ok(())
 //! }
+//! # }
 //! ```
 //!
 //! ## Error Design Principles
@@ -98,190 +101,80 @@
 //!
 //! | Target crate | Files |
 //! | --- | --- |
-//! | core | `common.rs`, `decimal.rs`, `options.rs`, `position.rs`, `trade.rs` |
-//! | math | `interpolation.rs`, `curves.rs`, `surfaces.rs`, `metrics.rs` |
-//! | pricing | `greeks.rs`, `volatility.rs`, `pricing.rs` |
-//! | simulation | `simulation.rs` |
-//! | market | `chains.rs`, `csv.rs` (behind `io`) |
-//! | analytics | `transaction.rs`, `probability.rs`, `projections.rs` |
-//! | strategies | `strategies.rs` |
-//! | visualization | `graph.rs` |
+//! | core | `common.rs`, `decimal.rs`, `options.rs`, `position.rs`, `trade.rs`, now in `optionstratlib-core` |
+//! | math | `interpolation.rs`, `curves.rs`, `surfaces.rs`, `metrics.rs`, now in `optionstratlib-math` |
+//! | pricing | `greeks.rs`, `volatility.rs`, `pricing.rs`, now in `optionstratlib-pricing` |
+//! | simulation | `simulation.rs`, now in `optionstratlib-simulation` |
+//! | market | `chains.rs`, `csv.rs` (behind `io`), now in `optionstratlib-market` |
+//! | analytics | `transaction.rs`, `probability.rs`, `projections.rs`, now in `optionstratlib-analytics` |
+//! | strategies | `strategies.rs`, now in `optionstratlib-strategies` |
+//! | backtest | `backtesting.rs`, now in `optionstratlib-backtest` |
+//! | visualization | `graph.rs`, now in `optionstratlib-visualization` |
 //! | facade | `unified.rs`, this file's re-exports |
 //!
-//! Variants that still reference a higher layer (`OptionsError::Greeks`,
-//! `CurveError::{MetricsError, Greeks, Graph}`, `SurfaceError::Greeks` and
-//! its graph variants, `VolatilityError::Chain`,
-//! `SimulationError::{Strategy, Chain, GraphError}`) are removed in the
+//! Variants that still reference a higher layer
+//! (`CurveError::{MetricsError, Greeks, Graph}`, `SurfaceError::Greeks` and
+//! its graph variants, `VolatilityError::Chain`) are removed in the
 //! batch that follows the 0.22.0 version bump; removing a variant is a
 //! breaking change the published-baseline semver gate rejects before then.
-
-/// ### Chain Errors (`ChainError`)
-/// Handles:
-/// * Option data validation
-/// * Chain construction
-/// * File operations (CSV/JSON)
-/// * Strategy validation
-///
-pub mod chains;
-
-/// Provides a common set of error kinds used across various modules:
-/// * Validation failures
-/// * Mathematical errors
-/// * Input/output errors
-/// * Data consistency issues
-mod common;
-
-/// ### Curve Errors (`CurveError`)
-/// Handles:
-/// * Yield curve construction
-/// * Forward rate calculations
-/// * Market data fitting issues
-/// * Term structure consistency
-pub mod curves;
-
-/// ### Decimal Errors (`DecimalError`)
-/// Handles:
-/// * Decimal conversions
-/// * Precision management
-/// * Arithmetic operations
-/// * Boundary validations
-pub mod decimal;
-
-/// ### Greeks Errors (`GreeksError`)
-/// Handles:
-/// * Greeks calculations
-/// * Mathematical validation
-/// * Input parameter validation
-/// * Numerical computations
-pub mod greeks;
-
-/// ### Options Errors (`OptionsError`)
-/// Core module handling:
-/// * Option validation errors
-/// * Pricing model failures
-/// * Parameter boundary violations
-/// * Contract specification issues
-mod options;
-
-/// ### Position Errors (`PositionError`)
-/// Manages:
-/// * Position validation
-/// * Strategy operations
-/// * Position limits
-/// * Option style/side compatibility
-pub mod position;
-
-/// ### Probability Errors (`ProbabilityError`)
-/// Manages:
-/// * Statistical calculations
-/// * Range analysis
-/// * Probability distributions
-/// * Market scenarios
-pub mod probability;
-
-/// ### Strategy Errors (`StrategyError`)
-/// Covers:
-/// * Price calculations
-/// * Break-even analysis
-/// * Profit/Loss calculations
-/// * Operation validation
-pub mod strategies;
-
-/// ### Trade Errors (`TradeError`)
-/// Covers:
-/// * Trade execution issues
-/// * Trade parameter validation
-pub mod trade;
-
-/// ### Interpolation Errors (`InterpolationError`)
-/// Manages:
-/// * Data point validation
-/// * Interpolation method errors
-/// * Boundary conditions
-/// * Mathematical approximation issues
-mod interpolation;
-
-/// ### Metrics Errors (`MetricsError`)
-/// Handles:
-/// * Performance calculation failures
-/// * Risk metric validation
-/// * Statistical measurement errors
-/// * Benchmark comparison issues
-/// Backtest-owned failures (a strategy driven through a simulation).
-mod backtesting;
-
-mod metrics;
-
-/// Analytics-owned projection failures (curves and surfaces from option data).
-mod projections;
-
-/// ### Surface Errors (`SurfaceError`)
-/// Covers:
-/// * Surface construction failures
-/// * Volatility skew/smile errors
-/// * Surface calibration issues
-/// * Dimensional and data completeness errors
-mod surfaces;
-
-mod graph;
-mod transaction;
-
-/// ### Simulation Errors (`SimulationError`)
-/// Handles:
-/// * Random walk generation failures
-/// * Monte Carlo simulation errors
-/// * Stochastic process parameter validation
-/// * Step calculation issues
-pub mod simulation;
-
-/// ### Pricing Errors (`PricingError`)
-/// Handles:
-/// * Pricing method failures (Black-Scholes, Binomial, etc.)
-/// * Monte Carlo simulation errors
-/// * Invalid pricing engine configurations
-/// * Generic pricing-related errors
-pub mod pricing;
-
-/// ### Volatility Errors (`VolatilityError`)
-/// Handles:
-/// * Implied volatility calculation failures
-/// * Historical volatility estimation issues
-/// * Volatility model parameter validation
-/// * Market data consistency checks
-mod volatility;
-
-/// ### CSV/OHLCV Errors (`OhlcvError`)
-/// Handles:
-/// * CSV parsing errors
-/// * ZIP file handling errors
-/// * OHLCV data validation
-/// * Date and decimal parsing issues
-mod csv;
 
 /// ### Unified Error Type
 /// Top-level error type that encompasses all errors in the library.
 /// Provides a single error type for unified error handling across modules.
+/// It wraps `GraphError`, so it needs `visualization`.
+#[cfg(feature = "visualization")]
 pub mod unified;
 
-pub use backtesting::BacktestError;
-pub use chains::ChainError;
-pub use common::OperationErrorKind;
-pub use csv::OhlcvError;
-pub use curves::CurveError;
-pub use decimal::{DecimalError, DecimalResult};
-pub use graph::GraphError;
-pub use greeks::GreeksError;
-pub use interpolation::InterpolationError;
-pub use metrics::MetricsError;
-pub use options::{OptionsError, OptionsResult};
-pub use position::PositionError;
-pub use pricing::{PricingError, PricingResult};
-pub use probability::ProbabilityError;
-pub use projections::ProjectionError;
-pub use simulation::{SimulationError, SimulationResult};
-pub use strategies::StrategyError;
-pub use surfaces::SurfaceError;
-pub use trade::TradeError;
-pub use transaction::TransactionError;
+/// Core errors (`optionstratlib-core`): decimal arithmetic, option
+/// contracts, positions and trades.
+pub use optionstratlib_core::error::{
+    DecimalError, DecimalResult, OperationErrorKind, OptionsError, OptionsResult, PositionError,
+    TradeError, decimal, position, trade,
+};
+
+/// Math errors (`optionstratlib-math`): curves, surfaces, interpolation and
+/// the metrics extracted from them.
+#[cfg(feature = "math")]
+pub use optionstratlib_math::error::{
+    CurveError, CurvesResult, InterpolationError, MetricsError, SurfaceError, curves,
+};
+
+/// Pricing errors (`optionstratlib-pricing`): pricing models, Greeks and
+/// volatility solvers.
+#[cfg(feature = "pricing")]
+pub use optionstratlib_pricing::error::{
+    GreeksError, PricingError, PricingResult, VolatilityError, greeks, pricing,
+};
+
+/// Simulation errors (`optionstratlib-simulation`): random walk generation,
+/// stochastic process parameters and step calculation.
+#[cfg(feature = "simulation")]
+pub use optionstratlib_simulation::error::{SimulationError, SimulationResult, simulation};
+
+/// Market errors (`optionstratlib-market`): option chains, series and
+/// OHLCV readers.
+#[cfg(feature = "market")]
+pub use optionstratlib_market::error::{ChainError, OhlcvError, chains};
+
+/// Analytics errors (`optionstratlib-analytics`): probability kernels,
+/// projections onto curves and surfaces, and transactions.
+#[cfg(feature = "analytics")]
+pub use optionstratlib_analytics::error::{
+    ProbabilityError, ProjectionError, TransactionError, probability,
+};
+
+/// Strategy errors (`optionstratlib-strategies`): building, validating,
+/// optimising and evaluating a strategy.
+#[cfg(feature = "strategies")]
+pub use optionstratlib_strategies::error::{StrategyError, strategies};
+
+/// Backtest errors (`optionstratlib-backtest`): a strategy driven through a
+/// simulation.
+#[cfg(feature = "backtest")]
+pub use optionstratlib_backtest::error::BacktestError;
+/// Visualization errors (`optionstratlib-visualization`): a chart that could
+/// not be built or written.
+#[cfg(feature = "visualization")]
+pub use optionstratlib_visualization::error::GraphError;
+#[cfg(feature = "visualization")]
 pub use unified::Error;
-pub use volatility::VolatilityError;

@@ -1,0 +1,10327 @@
+/******************************************************************************
+   Author: Joaquín Béjar García
+   Email: jb@taunais.com
+   Date: 26/9/24
+******************************************************************************/
+use crate::chains::utils::FindOptimalSide;
+use crate::chains::utils::{
+    OptionChainBuildParams, OptionChainParams, OptionDataPriceParams, RandomPositionsParams,
+    adjust_volatility, default_empty_string, rounder, strike_step,
+};
+use crate::chains::{OptionData, OptionsInStrike};
+use crate::error::chains::{ChainError, OptionDataErrorKind};
+use chrono::Utc;
+use num_traits::{FromPrimitive, ToPrimitive};
+use optionstratlib_core::model::Positive;
+use optionstratlib_core::model::decimal::d_add;
+use optionstratlib_core::model::{
+    ExpirationDate, OptionStyle, OptionType, Options, Position, Side,
+    reject_unrepresentable_expiration,
+};
+#[cfg(test)]
+use optionstratlib_core::pos_or_panic;
+use optionstratlib_core::utils::Len;
+use optionstratlib_core::utils::rng::get_random_element;
+use optionstratlib_math::curves::{Curve, Point2D};
+use optionstratlib_math::geometrics::LinearInterpolation;
+use optionstratlib_pricing::error::VolatilityError;
+use optionstratlib_pricing::greeks::Greeks;
+use optionstratlib_pricing::volatility::{AtmIvProvider, VolatilitySmile};
+use pretty_simple_display::DebugSimple;
+use prettytable::{Attr, Cell, Row, Table, color, format};
+use rust_decimal::{Decimal, RoundingStrategy};
+use rust_decimal_macros::dec;
+use serde::de::{MapAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
+use serde_json::Value;
+use std::cmp::Ordering;
+use std::collections::BTreeSet;
+use std::fmt;
+use tracing::{debug, error, warn};
+#[cfg(feature = "io")]
+use {crate::chains::utils::parse, csv::WriterBuilder, std::fs::File};
+
+/// A constant representing the skew value for the smile curve in financial modeling.
+///
+/// The skew smile curve is often used in options pricing to represent the implied volatility
+/// skew relative to strike prices. It helps adjust for market conditions and asset-specific
+/// behaviors in pricing models.
+pub const SKEW_SMILE_CURVE: Decimal = dec!(0.1);
+
+/// A constant representing the skew slope value used in calculations.
+///
+/// `SKEW_SLOPE` is defined as a `Decimal` with a value of `-0.2`.
+/// It is typically used in scenarios where a slope factor is applied,
+/// such as in financial models or data analysis where skewness impacts outcomes.
+///
+pub const SKEW_SLOPE: Decimal = dec!(-0.2);
+
+/// Represents an option chain for a specific underlying asset and expiration date.
+///
+/// An option chain contains all available option contracts (calls and puts) for a given
+/// underlying asset at a specific expiration date, along with current market data and pricing
+/// parameters necessary for financial analysis and valuation.
+///
+/// This struct provides a complete representation of option market data that can be used for
+/// options strategy analysis, risk assessment, and pricing model calculations.
+///
+/// # Fields
+///
+/// * `symbol` - The ticker symbol for the underlying asset (e.g., "AAPL", "SPY").
+///
+/// * `underlying_price` - The current market price of the underlying asset, stored as a
+///   guaranteed positive value.
+///
+/// * `expiration_date` - The expiration date of the options in the chain, typically
+///   represented in a standard date format.
+///
+/// * `options` - A sorted collection of option contracts at different strike prices, containing
+///   detailed market data like bid/ask prices, implied volatility, and the Greeks.
+///
+/// * `risk_free_rate` - The risk-free interest rate used for option pricing models,
+///   typically derived from treasury yields. May be `None` if not specified.
+///
+/// * `dividend_yield` - The annual dividend yield of the underlying asset, represented
+///   as a positive percentage. May be `None` for non-dividend-paying assets.
+///
+/// # Usage
+///
+/// This struct is typically used as the primary container for options market data analysis,
+/// serving as input to pricing models, strategy backtesting, and risk management tools.
+///
+/// # Serialization
+///
+/// The 0.22 contract (JSON shown; any serde format works) is an object with
+/// `symbol`, `underlying_price`, `expiration_date` (the string as stored,
+/// for example `YYYY-MM-DD`), `options` (the [`OptionData`] rows, ordered by
+/// strike, each with its own contract in [`OptionData`]'s docs), and the
+/// optional `risk_free_rate` and `dividend_yield`, which are omitted when
+/// `None`. Deserialization rejects a missing required field or a duplicate
+/// one. `save_to_json` and `load_from_json` use exactly this form.
+#[derive(DebugSimple, Clone)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+pub struct OptionChain {
+    /// The ticker symbol for the underlying asset (e.g., "AAPL", "SPY").
+    pub symbol: String,
+
+    /// The current market price of the underlying asset.
+    pub underlying_price: Positive,
+
+    /// The expiration date of the options in the chain. Read it through
+    /// [`Self::get_expiration_date`]; [`Self::update_expiration_date`]
+    /// changes it and refreshes the Greeks.
+    pub(crate) expiration_date: String,
+
+    /// A sorted collection of option contracts at different strike prices.
+    pub options: BTreeSet<OptionData>,
+
+    /// The risk-free interest rate used for option pricing models.
+    pub risk_free_rate: Option<Decimal>,
+
+    /// The annual dividend yield of the underlying asset.
+    pub dividend_yield: Option<Positive>,
+}
+
+impl Serialize for OptionChain {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("OptionChain", 6)?;
+
+        state.serialize_field("symbol", &self.symbol)?;
+        state.serialize_field("underlying_price", &self.underlying_price)?;
+        state.serialize_field("expiration_date", &self.expiration_date)?;
+        state.serialize_field("options", &self.options)?;
+
+        if let Some(rate) = &self.risk_free_rate {
+            state.serialize_field("risk_free_rate", rate)?;
+        }
+
+        if let Some(yield_val) = &self.dividend_yield {
+            state.serialize_field("dividend_yield", yield_val)?;
+        }
+
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for OptionChain {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "snake_case")]
+        enum Field {
+            Symbol,
+            #[serde(rename = "underlying_price")]
+            UnderlyingPrice,
+            #[serde(rename = "expiration_date")]
+            ExpirationDate,
+            Options,
+            RiskFreeRate,
+            DividendYield,
+        }
+
+        struct OptionChainVisitor;
+
+        impl<'de> Visitor<'de> for OptionChainVisitor {
+            type Value = OptionChain;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("struct OptionChain")
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<OptionChain, V::Error>
+            where
+                V: MapAccess<'de>,
+            {
+                let mut symbol = None;
+                let mut underlying_price = None;
+                let mut expiration_date = None;
+                let mut options = None;
+                let mut risk_free_rate = None;
+                let mut dividend_yield = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Symbol => {
+                            if symbol.is_some() {
+                                return Err(de::Error::duplicate_field("symbol"));
+                            }
+                            symbol = Some(map.next_value()?);
+                        }
+                        Field::UnderlyingPrice => {
+                            if underlying_price.is_some() {
+                                return Err(de::Error::duplicate_field("underlying"));
+                            }
+                            underlying_price = Some(map.next_value()?);
+                        }
+                        Field::ExpirationDate => {
+                            if expiration_date.is_some() {
+                                return Err(de::Error::duplicate_field("expiration"));
+                            }
+                            expiration_date = Some(map.next_value()?);
+                        }
+                        Field::Options => {
+                            if options.is_some() {
+                                return Err(de::Error::duplicate_field("options"));
+                            }
+                            options = Some(map.next_value()?);
+                        }
+                        Field::RiskFreeRate => {
+                            if risk_free_rate.is_some() {
+                                return Err(de::Error::duplicate_field("risk_free_rate"));
+                            }
+                            risk_free_rate = map.next_value().ok();
+                        }
+                        Field::DividendYield => {
+                            if dividend_yield.is_some() {
+                                return Err(de::Error::duplicate_field("dividend_yield"));
+                            }
+                            dividend_yield = map.next_value().ok();
+                        }
+                    }
+                }
+
+                let symbol = symbol.ok_or_else(|| de::Error::missing_field("symbol"))?;
+                let underlying_price =
+                    underlying_price.ok_or_else(|| de::Error::missing_field("underlying"))?;
+                let expiration_date =
+                    expiration_date.ok_or_else(|| de::Error::missing_field("expiration"))?;
+                let options = options.unwrap_or_default();
+
+                Ok(OptionChain {
+                    symbol,
+                    underlying_price,
+                    expiration_date,
+                    options,
+                    risk_free_rate,
+                    dividend_yield,
+                })
+            }
+        }
+
+        const FIELDS: &[&str] = &[
+            "symbol",
+            "underlying_price",
+            "expiration_date",
+            "options",
+            "risk_free_rate",
+            "dividend_yield",
+        ];
+        deserializer.deserialize_struct("OptionChain", FIELDS, OptionChainVisitor)
+    }
+}
+
+impl OptionChain {
+    /// Creates a new `OptionChain` for a specific underlying instrument and expiration date.
+    ///
+    /// This constructor initializes an `OptionChain` with the fundamental parameters needed for
+    /// option calculations and analysis. It creates an empty collection of options that can be
+    /// populated later through other methods.
+    ///
+    /// # Parameters
+    ///
+    /// * `symbol` - The ticker symbol of the underlying instrument (e.g., "AAPL" for Apple Inc.).
+    ///
+    /// * `underlying_price` - The current market price of the underlying instrument as a
+    ///   `Positive` value, ensuring it's always greater than or equal to zero.
+    ///
+    /// * `expiration_date` - The expiration date for the options in this chain, provided as a
+    ///   string. The expected format depends on the implementation's requirements.
+    ///
+    /// * `risk_free_rate` - The risk-free interest rate used for theoretical pricing models.
+    ///   This is optional and can be provided later if not available at creation time.
+    ///
+    /// * `dividend_yield` - The dividend yield of the underlying instrument as a `Positive` value.
+    ///   This is optional and can be provided later for dividend-paying instruments.
+    ///
+    /// # Returns
+    ///
+    /// A new `OptionChain` instance with the specified parameters and an empty set of options.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use rust_decimal_macros::dec;
+    /// use optionstratlib_market::chains::chain::OptionChain;
+    /// use optionstratlib_core::{pos_or_panic, spos};
+    ///
+    /// let chain = OptionChain::new(
+    ///     "AAPL",
+    ///     pos_or_panic!(172.50),
+    ///     "2023-12-15".to_string(),
+    ///     Some(dec!(0.05)),  // 5% risk-free rate
+    ///     spos!(0.0065) // 0.65% dividend yield
+    /// );
+    /// ```
+    #[must_use]
+    pub fn new(
+        symbol: &str,
+        underlying_price: Positive,
+        expiration_date: String,
+        risk_free_rate: Option<Decimal>,
+        dividend_yield: Option<Positive>,
+    ) -> Self {
+        OptionChain {
+            symbol: symbol.to_string(),
+            underlying_price,
+            expiration_date,
+            options: BTreeSet::new(),
+            risk_free_rate,
+            dividend_yield,
+        }
+    }
+
+    /// Builds a complete option chain based on the provided parameters.
+    ///
+    /// This function creates an option chain with strikes generated around the underlying price,
+    /// calculates prices and Greeks for each option using the Black-Scholes model, and applies
+    /// the specified volatility skew to reflect market conditions.
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - A reference to `OptionChainBuildParams` containing all necessary parameters
+    ///   for building the chain, including price parameters, chain size, and volatility settings.
+    ///
+    /// # Returns
+    ///
+    /// A fully populated `OptionChain` containing option data for all generated strikes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn run() -> Result<(), Box<dyn std::error::Error>> {
+    /// use rust_decimal_macros::dec;
+    /// use optionstratlib_market::chains::utils::{OptionChainBuildParams, OptionDataPriceParams};
+    /// use optionstratlib_core::{pos_or_panic, spos, model::Positive};
+    /// use optionstratlib_core::model::ExpirationDate;
+    /// use optionstratlib_market::chains::chain::OptionChain;
+    /// let price_params = OptionDataPriceParams::new(
+    ///     Some(Box::new(Positive::HUNDRED)),               // underlying price
+    ///     Some(ExpirationDate::Days(pos_or_panic!(30.0))),    // expiration date
+    ///     Some(dec!(0.05)),                          // risk-free rate
+    ///     spos!(0.0),                                // dividend yield
+    ///     Some("SPY".to_string())                    // underlying symbol
+    /// );
+    ///
+    /// let build_params = OptionChainBuildParams::new(
+    ///     "SPY".to_string(),
+    ///     spos!(1000.0),
+    ///     10,
+    ///     spos!(5.0),
+    ///     dec!(-0.2),
+    ///     dec!(0.1),
+    ///     pos_or_panic!(0.02),
+    ///     2,
+    ///     price_params,
+    ///     pos_or_panic!(0.2) // implied volatility
+    /// );
+    ///
+    /// let chain = OptionChain::build_chain(&build_params)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    /// Builds a complete option chain based on the provided parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ChainError` if:
+    /// - `underlying_price` is missing from price params
+    /// - `expiration_date` is missing from price params
+    /// - `expiration_date` is a day count no calendar instant can represent
+    /// - Failed to get days from expiration date
+    /// - Failed to get date string from expiration date
+    #[inline(never)]
+    pub fn build_chain(params: &OptionChainBuildParams) -> Result<Self, ChainError> {
+        let underlying_price = params
+            .price_params
+            .underlying_price
+            .clone()
+            .ok_or_else(|| {
+                ChainError::invalid_parameters(
+                    "underlying_price",
+                    "missing underlying price in price params",
+                )
+            })?;
+        let underlying_price = *underlying_price;
+
+        let expiration_date = params.price_params.expiration_date.ok_or_else(|| {
+            ChainError::invalid_parameters(
+                "expiration_date",
+                "missing expiration date in price params",
+            )
+        })?;
+        reject_unrepresentable_expiration(&expiration_date)?;
+
+        let strike_interval = if let Some(strike_interval) = params.strike_interval {
+            strike_interval
+        } else {
+            let days = expiration_date.get_days().map_err(|e| {
+                ChainError::invalid_parameters(
+                    "expiration_date",
+                    &format!("failed to get days: {e}"),
+                )
+            })?;
+            // `chain_size` is a per-side half-width while `strike_step`
+            // expects the TOTAL number of strikes covering ±kσ, so convert
+            // to the 2n+1 grid the builder below actually generates. The
+            // conversion is checked: a caller-supplied size near usize::MAX
+            // must surface as an error, not a wrap or debug panic.
+            let total_strikes = params
+                .chain_size
+                .checked_mul(2)
+                .and_then(|doubled| doubled.checked_add(1))
+                .ok_or_else(|| {
+                    ChainError::invalid_parameters(
+                        "chain_size",
+                        &format!(
+                            "chain_size {} overflows the 2n+1 strike-grid conversion",
+                            params.chain_size
+                        ),
+                    )
+                })?;
+            strike_step(
+                underlying_price,
+                params.implied_volatility,
+                days,
+                total_strikes,
+                None,
+            )?
+        };
+
+        let date_string = expiration_date.get_date_string().map_err(|e| {
+            ChainError::invalid_parameters(
+                "expiration_date",
+                &format!("failed to get date string: {e}"),
+            )
+        })?;
+
+        let mut option_chain = OptionChain::new(
+            &params.symbol,
+            underlying_price,
+            date_string,
+            params.price_params.risk_free_rate,
+            params.price_params.dividend_yield,
+        );
+
+        fn create_chain_data(
+            strike: &Positive,
+            p: &OptionChainBuildParams,
+            price: Positive,
+        ) -> Result<OptionData, ChainError> {
+            if p.implied_volatility > Positive::ONE {
+                return Err(ChainError::invalid_volatility(
+                    Some(p.implied_volatility.to_f64()),
+                    &format!(
+                        "Implied volatility should be between 0 and 1, got: {}",
+                        p.implied_volatility
+                    ),
+                ));
+            }
+            if strike.is_zero() {
+                return Err(ChainError::invalid_strike(
+                    0.0,
+                    "strike price cannot be zero",
+                ));
+            }
+            if p.implied_volatility.is_zero() {
+                return Err(ChainError::invalid_volatility(
+                    Some(0.0),
+                    "implied volatility cannot be zero",
+                ));
+            }
+
+            let adjusted_volatility = adjust_volatility(
+                &Some(p.implied_volatility),
+                &Some(p.skew_slope),
+                &Some(p.smile_curve),
+                strike,
+                &price,
+            )
+            .ok_or_else(|| ChainError::invalid_volatility(None, "failed to adjust volatility"))?;
+
+            let mut option_data = OptionData::new(
+                *strike,
+                None,
+                None,
+                None,
+                None,
+                adjusted_volatility,
+                None,
+                None,
+                None,
+                p.volume,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            );
+            let price_params = OptionDataPriceParams::new(
+                p.price_params.underlying_price.clone(),
+                p.price_params.expiration_date,
+                p.price_params.risk_free_rate,
+                p.price_params.dividend_yield,
+                p.price_params.underlying_symbol.clone(),
+            );
+            option_data.set_extra_params(price_params);
+
+            // `calculate_prices` is given no spread here: the widening
+            // happens once, below, because only this call site knows the
+            // configured `decimal_places` (and therefore the tick).
+            match option_data.calculate_prices(None) {
+                Ok(()) => {
+                    option_data.apply_spread(p.spread, p.decimal_places);
+                    if p.greek_snapshots {
+                        option_data.calculate_greeks();
+                    } else {
+                        option_data.calculate_delta();
+                        option_data.calculate_gamma();
+                    }
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to calculate prices for strike: {} error: {}",
+                        strike, e
+                    );
+                    // Greeks do not depend on bid/ask prices, so compute them
+                    // even when pricing failed to keep the chain's greek
+                    // coverage identical to a post-build `update_greeks` pass.
+                    if p.greek_snapshots {
+                        option_data.calculate_greeks();
+                    } else {
+                        option_data.calculate_delta();
+                        option_data.calculate_gamma();
+                    }
+                }
+            }
+            Ok(option_data)
+        }
+
+        let atm_strike = rounder(underlying_price, strike_interval);
+        let atm_strike_option_data = create_chain_data(&atm_strike, params, underlying_price)?;
+        option_chain.options.insert(atm_strike_option_data);
+
+        // Generate strikes above and below ATM based on chain_size parameter
+        let mut counter = Positive::ONE;
+        let max_strikes = params.chain_size;
+
+        loop {
+            // Check if we've reached the desired chain size
+            if counter.to_usize_checked().unwrap_or(usize::MAX) > max_strikes {
+                break;
+            }
+
+            // `Positive`'s operators panic on overflow, and both the offset
+            // and the upper strike overflow once the ATM strike sits near the
+            // top of the `Decimal` range. A grid that cannot be represented
+            // is a bad parameter set, not a chain to truncate silently.
+            let offset = strike_interval.checked_mul(&counter).map_err(|e| {
+                ChainError::invalid_parameters(
+                    "strike_interval",
+                    &format!("strike offset overflows at step {counter}: {e}"),
+                )
+            })?;
+            let next_upper_strike = atm_strike.checked_add(&offset).map_err(|e| {
+                ChainError::invalid_parameters(
+                    "underlying_price",
+                    &format!("strike {atm_strike} + {offset} is not representable: {e}"),
+                )
+            })?;
+            let next_upper_option_data =
+                create_chain_data(&next_upper_strike, params, underlying_price)?;
+            option_chain.options.insert(next_upper_option_data.clone());
+
+            let strike_step = offset.to_dec();
+            if strike_step > atm_strike.to_dec() {
+                break;
+            }
+            let next_lower_strike = atm_strike.checked_sub(&offset).map_err(|e| {
+                ChainError::invalid_parameters(
+                    "strike_interval",
+                    &format!("strike {atm_strike} - {offset} is not representable: {e}"),
+                )
+            })?;
+            if next_lower_strike == Positive::ZERO {
+                break;
+            }
+            let next_lower_option_data =
+                create_chain_data(&next_lower_strike, params, underlying_price)?;
+            option_chain.options.insert(next_lower_option_data.clone());
+
+            if next_upper_option_data.some_price_is_none()
+                && next_lower_option_data.some_price_is_none()
+            {
+                break;
+            }
+            counter += Positive::ONE;
+        }
+        debug!("Option chain: {}", option_chain);
+        Ok(option_chain)
+    }
+
+    /// Fits the parametric smile used by `adjust_volatility`
+    /// (`factor = 1 + slope·m + curve·m²`, `m = ln(K/S)`) to the chain's own
+    /// per-strike implied volatilities by least squares.
+    ///
+    /// This is the exact inverse of the model `build_chain` uses to generate
+    /// per-strike IVs, so feeding the fitted parameters back through
+    /// `to_build_params` → `build_chain` preserves the chain's smile shape
+    /// instead of flattening it to the `SKEW_SLOPE` / `SKEW_SMILE_CURVE`
+    /// constants.
+    ///
+    /// Returns `None` when the fit is underdetermined: fewer than three
+    /// strikes with usable IVs, a degenerate ATM IV (zero or above 100%),
+    /// or a numerically singular normal-equation system. The f64 internals
+    /// are confined to this numeric kernel; the outputs are `Decimal`.
+    fn fit_skew_smile(&self) -> Option<(Decimal, Decimal)> {
+        let atm_iv = match self.get_atm_implied_volatility() {
+            Ok(iv) if *iv > Positive::ZERO && *iv <= Positive::ONE => iv.to_f64(),
+            _ => return None,
+        };
+        let spot = self.underlying_price.to_f64();
+        if !spot.is_finite() || spot <= 0.0 {
+            return None;
+        }
+
+        // Normal equations for y = slope·m + curve·m² (no intercept):
+        //   slope·Σm² + curve·Σm³ = Σm·y
+        //   slope·Σm³ + curve·Σm⁴ = Σm²·y
+        let mut s2 = 0.0f64;
+        let mut s3 = 0.0f64;
+        let mut s4 = 0.0f64;
+        let mut sy1 = 0.0f64;
+        let mut sy2 = 0.0f64;
+        let mut count = 0usize;
+        for option in &self.options {
+            let iv = option.implied_volatility.to_f64();
+            if iv <= 0.0 {
+                continue;
+            }
+            let m = (option.strike_price.to_f64() / spot).ln(); // scan-banned: allow -- f64 `ln`: returns -inf/NaN, it does not abort; the `is_finite` guard on the next line drops the point
+            if !m.is_finite() {
+                continue;
+            }
+            let y = iv / atm_iv - 1.0;
+            let m2 = m * m;
+            s2 += m2;
+            s3 += m2 * m;
+            s4 += m2 * m2;
+            sy1 += m * y;
+            sy2 += m2 * y;
+            count += 1;
+        }
+        if count < 3 {
+            return None;
+        }
+        let det = s2 * s4 - s3 * s3;
+        if !det.is_finite() || det.abs() < 1e-12 {
+            return None;
+        }
+        let slope = (sy1 * s4 - sy2 * s3) / det;
+        let curve = (s2 * sy2 - s3 * sy1) / det;
+        if !slope.is_finite() || !curve.is_finite() {
+            return None;
+        }
+        // Controlled f64 -> Decimal boundary: round both fitted
+        // coefficients to 8 decimal places with banker's rounding
+        // (MidpointNearestEven), well beyond the precision the smile model
+        // is sensitive to, so the conversion is explicit and reproducible.
+        let round = |value: f64| -> Option<Decimal> {
+            Some(
+                Decimal::from_f64(value)?
+                    .round_dp_with_strategy(8, RoundingStrategy::MidpointNearestEven),
+            )
+        };
+        Some((round(slope)?, round(curve)?))
+    }
+
+    /// Generates build parameters that would reproduce the current option chain.
+    ///
+    /// This method creates an `OptionChainBuildParams` object with configuration values
+    /// extracted from the current chain. This is useful for:
+    /// - Recreating a similar chain with modified parameters
+    /// - Saving the chain's configuration for later reconstruction
+    /// - Generating additional chains with consistent parameters
+    ///
+    /// # Returns
+    ///
+    /// An `OptionChainBuildParams` structure containing the parameters needed to rebuild
+    /// this option chain. The method calculates appropriate values for chain size, strike interval,
+    /// and estimated spread based on the current data.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ChainError::ChainBuildError`] when the chain is empty,
+    /// when no valid strike interval can be inferred from existing
+    /// strikes, or when the volatility-surface sampler fails to produce a
+    /// skew for the generated parameters.
+    pub fn to_build_params(&self) -> Result<OptionChainBuildParams, ChainError> {
+        // Calculate chain size based on the distance from ATM strike
+        let atm_strike = self.atm_strike()?;
+        let strike_interval = self.get_strike_interval();
+
+        // Calculate the number of strikes above and below the ATM strike
+        let mut chain_size = 0;
+        let strike_prices: Vec<Positive> =
+            self.options.iter().map(|opt| opt.strike_price).collect();
+
+        if let Some((min_strike, max_strike)) =
+            strike_prices.iter().min().zip(strike_prices.iter().max())
+        {
+            let strikes_below = ((atm_strike.to_dec() - min_strike.to_dec())
+                / strike_interval.to_dec())
+            .ceil()
+            .to_u64()
+            .unwrap_or(0) as usize;
+
+            let strikes_above = ((max_strike.to_dec() - atm_strike.to_dec())
+                / strike_interval.to_dec())
+            .ceil()
+            .to_u64()
+            .unwrap_or(0) as usize;
+
+            chain_size = strikes_below.max(strikes_above);
+        }
+
+        // Default to a reasonable chain size if calculation fails.
+        // `chain_size` is the per-side half-width consumed by `build_chain`
+        // (which generates up to `chain_size` strikes above AND below ATM),
+        // so keep the computed max(strikes_below, strikes_above) instead of
+        // the total row count — feeding the total back would roughly double
+        // the strike grid on every to_build_params -> build_chain round-trip.
+        if chain_size == 0 {
+            chain_size = 10;
+        }
+
+        // Estimate the average bid-ask spread from the available options
+        let mut total_spread = Decimal::ZERO;
+        let mut count = 0;
+
+        for option in &self.options {
+            if let (Some(ask), Some(bid)) = (option.call_ask, option.call_bid) {
+                total_spread += (ask.to_dec() - bid.to_dec()).abs();
+                count += 1;
+            }
+
+            if let (Some(ask), Some(bid)) = (option.put_ask, option.put_bid) {
+                total_spread += (ask.to_dec() - bid.to_dec()).abs();
+                count += 1;
+            }
+        }
+
+        // Default spread if we couldn't calculate it. `dec!(0.02)` is a
+        // compile-time literal so the checked constructor never fails; the
+        // `unwrap_or(Positive::ZERO)` fallback is unreachable and exists
+        // only to keep the call site `.unwrap`-free per §Error Handling.
+        let default_spread = Positive::new_decimal(dec!(0.02)).unwrap_or(Positive::ZERO);
+        let spread = if count > 0 {
+            Positive::new_decimal(total_spread / Decimal::from(count)).unwrap_or(default_spread)
+        } else {
+            default_spread
+        };
+
+        // Default ATM implied volatility fallback. See `default_spread`
+        // above for the rationale behind the `unwrap_or` fallback.
+        let default_iv = Positive::new_decimal(dec!(0.2)).unwrap_or(Positive::ZERO);
+        let implied_volatility = match self.get_atm_implied_volatility() {
+            Ok(iv) if *iv <= Positive::ONE => *iv,
+            Ok(iv) => {
+                tracing::warn!(
+                    iv = %*iv,
+                    "ATM implied volatility > 1.0; falling back to default 0.2"
+                );
+                default_iv
+            }
+            _ => default_iv,
+        };
+
+        // Fit the smile from the chain's own per-strike IVs so round-trips
+        // preserve the smile shape; fall back to the canned constants when
+        // the fit is underdetermined.
+        let (skew_slope, smile_curve) = match self.fit_skew_smile() {
+            Some((slope, curve)) => {
+                debug!(
+                    slope = %slope,
+                    curve = %curve,
+                    "to_build_params: fitted smile from per-strike IVs"
+                );
+                (slope, curve)
+            }
+            None => {
+                debug!("to_build_params: smile fit underdetermined; using default constants");
+                (SKEW_SLOPE, SKEW_SMILE_CURVE)
+            }
+        };
+
+        // Create the price parameters
+        let price_params = OptionDataPriceParams::new(
+            Some(Box::new(self.underlying_price)),
+            Some(ExpirationDate::from_string(&self.expiration_date)?),
+            self.risk_free_rate,
+            self.dividend_yield,
+            Some(self.symbol.clone()),
+        );
+
+        // Determine a reasonable number of decimal places based on the underlying price
+        let decimal_places = if self.underlying_price >= Positive::HUNDRED {
+            2
+        } else {
+            3
+        };
+
+        // Volume is typically available in the option data
+        let volume = self.options.iter().filter_map(|opt| opt.volume).next();
+
+        Ok(OptionChainBuildParams::new(
+            self.symbol.clone(),
+            volume,
+            chain_size,
+            Some(strike_interval),
+            skew_slope,
+            smile_curve,
+            spread,
+            decimal_places,
+            price_params,
+            implied_volatility,
+        ))
+    }
+
+    /// Filters option data in the chain based on specified criteria.
+    ///
+    /// This method filters the options in the chain according to the provided side parameter,
+    /// which determines which options to include based on their strike price relative to
+    /// the underlying price.
+    ///
+    /// # Arguments
+    ///
+    /// * `side` - A `FindOptimalSide` enum value that specifies which options to include:
+    ///   - `Upper`: Only options with strikes above the underlying price
+    ///   - `Lower`: Only options with strikes below the underlying price
+    ///   - `All`: All options in the chain
+    ///   - `Range(start, end)`: Only options with strikes within the specified range
+    ///
+    /// # Returns
+    ///
+    /// A vector of references to `OptionData` objects that match the filter criteria.
+    #[must_use]
+    pub fn filter_option_data(&self, side: FindOptimalSide) -> Vec<&OptionData> {
+        self.options
+            .iter()
+            .filter(|option| match side {
+                FindOptimalSide::Upper => option.strike_price > self.underlying_price,
+                FindOptimalSide::Lower => option.strike_price < self.underlying_price,
+                FindOptimalSide::All => true,
+                FindOptimalSide::Range(start, end) => {
+                    option.strike_price >= start && option.strike_price <= end
+                }
+                FindOptimalSide::Deltable(_threshold) => true,
+                FindOptimalSide::Center => {
+                    tracing::warn!(
+                        "FindOptimalSide::Center must be resolved by the concrete strategy; filtering out candidate"
+                    );
+                    false
+                }
+                FindOptimalSide::DeltaRange(min, max) => {
+                    option
+                        .delta_put
+                        .is_some_and(|delta| delta >= min && delta <= max)
+                        || option
+                            .delta_call
+                            .is_some_and(|delta| delta >= min && delta <= max)
+                }
+            })
+            .collect()
+    }
+
+    /// Filters options and converts them to `OptionsInStrike` objects.
+    ///
+    /// Similar to `filter_option_data`, but returns more detailed `OptionsInStrike` objects
+    /// that include specific option contract information for a given side and style.
+    ///
+    /// # Arguments
+    ///
+    /// * `price_params` - Parameters used for option pricing calculations
+    /// * `side` - A `FindOptimalSide` enum value that specifies which options to include
+    ///
+    /// # Returns
+    ///
+    /// A result containing either a vector of `OptionsInStrike` objects or a `ChainError` if
+    /// conversion of any option fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ChainError` if any option data fails to be converted to `OptionsInStrike`.
+    #[allow(dead_code)]
+    pub(crate) fn filter_options_in_strike(
+        &self,
+        side: FindOptimalSide,
+    ) -> Result<Vec<OptionsInStrike>, ChainError> {
+        self.options
+            .iter()
+            .filter(|option| match side {
+                FindOptimalSide::Upper => option.strike_price > self.underlying_price,
+                FindOptimalSide::Lower => option.strike_price < self.underlying_price,
+                FindOptimalSide::All => true,
+                FindOptimalSide::Range(start, end) => {
+                    option.strike_price >= start && option.strike_price <= end
+                }
+                FindOptimalSide::Deltable(_threshold) => true,
+                FindOptimalSide::Center => {
+                    tracing::warn!(
+                        "FindOptimalSide::Center must be resolved by the concrete strategy; filtering out candidate"
+                    );
+                    false
+                }
+                FindOptimalSide::DeltaRange(min, max) => {
+                    option
+                        .delta_put
+                        .is_some_and(|delta| delta >= min && delta <= max)
+                        || option
+                            .delta_call
+                            .is_some_and(|delta| delta >= min && delta <= max)
+                }
+            })
+            .map(|option| option.get_options_in_strike())
+            .collect()
+    }
+
+    /// Adds a new option to the chain with the specified parameters.
+    ///
+    /// This method creates and adds a new option at the given strike price to the chain.
+    /// It calculates mid prices and attempts to create detailed option objects with the
+    /// provided parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * `strike_price` - The strike price for the new option
+    /// * `call_bid` - Optional bid price for the call option
+    /// * `call_ask` - Optional ask price for the call option
+    /// * `put_bid` - Optional bid price for the put option
+    /// * `put_ask` - Optional ask price for the put option
+    /// * `implied_volatility` - Optional implied volatility for the option
+    /// * `delta_call` - Optional delta value for the call option
+    /// * `delta_put` - Optional delta value for the put option
+    /// * `gamma` - Optional gamma value for the option
+    /// * `volume` - Optional trading volume for the option
+    /// * `open_interest` - Optional open interest for the option
+    ///
+    /// # Behavior on invalid expiration
+    ///
+    /// If the chain's `expiration_date` string cannot be parsed, the option
+    /// is **not** inserted and a `tracing::error!` is emitted describing the
+    /// parse failure. Callers that need explicit error handling should
+    /// construct the chain through [`OptionChain::build_chain`] (which
+    /// validates `expiration_date`) or inspect the chain with
+    /// [`OptionChain::len`] after the call.
+    #[allow(clippy::too_many_arguments)]
+    pub fn add_option(
+        &mut self,
+        strike_price: Positive,
+        call_bid: Option<Positive>,
+        call_ask: Option<Positive>,
+        put_bid: Option<Positive>,
+        put_ask: Option<Positive>,
+        implied_volatility: Positive,
+        delta_call: Option<Decimal>,
+        delta_put: Option<Decimal>,
+        gamma: Option<Decimal>,
+        volume: Option<Positive>,
+        open_interest: Option<u64>,
+        extra_fields: Option<Value>,
+    ) {
+        let mut option_data = OptionData {
+            strike_price,
+            call_bid,
+            call_ask,
+            put_bid,
+            put_ask,
+            call_middle: None,
+            put_middle: None,
+            implied_volatility,
+            delta_call,
+            delta_put,
+            gamma,
+            volume,
+            open_interest,
+            extra_fields,
+            ..Default::default()
+        };
+        option_data.set_mid_prices();
+        let expiration_date = match ExpirationDate::from_string(&self.expiration_date) {
+            Ok(date) => date,
+            Err(e) => {
+                tracing::error!(
+                    expiration_date = %self.expiration_date,
+                    error = %e,
+                    "add_option: failed to parse chain expiration_date; option not inserted"
+                );
+                return;
+            }
+        };
+        let params = OptionDataPriceParams::new(
+            Some(Box::new(self.underlying_price)),
+            Some(expiration_date),
+            self.risk_free_rate,
+            self.dividend_yield,
+            Some(self.symbol.clone()),
+        );
+        option_data.set_extra_params(params);
+
+        self.options.insert(option_data);
+    }
+
+    /// Returns the strike price closest to the underlying price (at-the-money).
+    ///
+    /// This method searches through all available options in the chain to find the one
+    /// with a strike price that most closely matches the current underlying price.
+    /// This is useful for finding at-the-money (ATM) options when there isn't an exact
+    /// match for the underlying price.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(&Positive)` - Reference to the strike price closest to the underlying price
+    /// * `Err(ChainError)` - Error if the option chain is empty or if the operation fails
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use tracing::{error, info};
+    /// use optionstratlib_market::chains::chain::OptionChain;
+    /// use optionstratlib_core::pos_or_panic;
+    ///
+    /// let chain = OptionChain::new("SPY", pos_or_panic!(450.75), "2023-12-15".to_string(), None, None);
+    /// // Add options to the chain...
+    ///
+    /// match chain.atm_strike() {
+    ///     Ok(strike) => info!("Closest strike to underlying: {}", strike),
+    ///     Err(e) => error!("Error finding ATM strike: {}", e),
+    /// }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ChainError::EmptyChainAtm`] when the chain contains no
+    /// options, or [`ChainError::AtmNotFound`] when no strike is close
+    /// enough to the underlying to be considered at-the-money.
+    pub fn atm_strike(&self) -> Result<&Positive, ChainError> {
+        let option_data = self.atm_option_data()?;
+        Ok(&option_data.strike_price)
+    }
+
+    /// Retrieves the OptionData for the at-the-money (ATM) option.
+    ///
+    /// This function attempts to find the ATM option within the option chain.
+    /// First, it checks for an option with a strike price that exactly matches the
+    /// underlying asset's price. If an exact match is not found, it searches for the
+    /// option with the strike price closest to the underlying price.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(&OptionData)` - If a suitable ATM option is found, returns a reference to it.
+    /// * `Err(ChainError)` - If the option chain is empty or no ATM option can be found,
+    ///   returns an error describing the failure.
+    ///
+    /// # Errors
+    ///
+    /// This function returns an error in the following cases:
+    ///
+    /// * The option chain (`self.options`) is empty.
+    /// * No option with a strike price close to the underlying price can be found.
+    pub fn atm_option_data(&self) -> Result<&OptionData, ChainError> {
+        // Check for empty option chain
+        if self.options.is_empty() {
+            return Err(ChainError::EmptyChainAtm {
+                symbol: self.symbol.clone(),
+            });
+        }
+
+        // First check for exact match
+        if let Some(exact_match) = self
+            .options
+            .iter()
+            .find(|opt| opt.strike_price == self.underlying_price)
+        {
+            return Ok(exact_match);
+        }
+
+        // Find the option with strike price closest to underlying price
+        let option_data = self.options.iter().min_by(|a, b| {
+            let a_distance = (a.strike_price.to_dec() - self.underlying_price.to_dec()).abs();
+            let b_distance = (b.strike_price.to_dec() - self.underlying_price.to_dec()).abs();
+            a_distance
+                .partial_cmp(&b_distance)
+                .unwrap_or(Ordering::Equal)
+        });
+
+        match option_data {
+            Some(opt) => Ok(opt),
+            None => Err(ChainError::AtmNotFound {
+                symbol: self.symbol.clone(),
+            }),
+        }
+    }
+
+    /// Returns a formatted title string for the option chain.
+    ///
+    /// This method creates a title by combining the option chain's symbol, expiration date,
+    /// and underlying price. Spaces in the symbol and expiration date are replaced with hyphens
+    /// for better compatibility with file systems and data representation.
+    ///
+    /// # Returns
+    ///
+    /// A formatted string in the format "{symbol}-{expiration_date}-{underlying_price}"
+    /// where spaces have been replaced with hyphens in the symbol and expiration date.
+    #[must_use]
+    pub fn get_title(&self) -> String {
+        let symbol_cleaned = self.symbol.replace(" ", "-");
+        let expiration_date_cleaned = self.expiration_date.replace(" ", "-");
+        format!(
+            "{}-{}-{}",
+            symbol_cleaned, expiration_date_cleaned, self.underlying_price
+        )
+    }
+
+    /// Parses a file name to set the option chain's properties.
+    ///
+    /// This method extracts information from a file name that follows the format
+    /// "symbol-day-month-year-price.extension". It sets the symbol, expiration date,
+    /// and underlying price of the option chain based on the parsed values.
+    ///
+    /// # Arguments
+    ///
+    /// * `file` - A string slice representing the file path or name to parse
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - If the file name was successfully parsed and the properties were set
+    /// * `Err(...)` - If the file name format is invalid or the underlying price cannot be parsed
+    ///
+    /// # Errors
+    ///
+    /// Returns `ChainError` if:
+    /// - The file path is empty
+    /// - The file name format is invalid (expected 5 parts: symbol, day, month, year, price)
+    /// - The underlying price cannot be parsed as a valid number
+    pub fn set_from_title(&mut self, file: &str) -> Result<(), ChainError> {
+        let file_name = file
+            .split('/')
+            .next_back()
+            .ok_or_else(|| ChainError::invalid_parameters("file", "empty file path"))?;
+        let file_name = file_name
+            .rsplit_once('.')
+            .map_or(file_name, |(name, _ext)| name);
+        let parts: Vec<&str> = file_name.split('-').collect();
+        if parts.len() != 5 {
+            return Err(ChainError::invalid_parameters(
+                "file_name",
+                "expected exactly 5 parts (symbol, day, month, year, price)",
+            ));
+        }
+        let missing = || ChainError::invalid_parameters("file_name", "missing expected component");
+        let p0 = parts.first().ok_or_else(missing)?;
+        let p1 = parts.get(1).ok_or_else(missing)?;
+        let p2 = parts.get(2).ok_or_else(missing)?;
+        let p3 = parts.get(3).ok_or_else(missing)?;
+        let p4 = parts.get(4).ok_or_else(missing)?;
+        self.symbol = (*p0).to_string();
+        self.expiration_date = format!("{p1}-{p2}-{p3}");
+        let underlying_price_str = p4.replace(",", ".");
+        let price = underlying_price_str.parse::<f64>().map_err(|_| {
+            ChainError::invalid_parameters(
+                "underlying_price",
+                "invalid underlying price format in file name",
+            )
+        })?;
+        self.underlying_price = Positive::new(price).map_err(ChainError::from)?;
+        Ok(())
+    }
+
+    /// Updates the mid prices for all options in the chain.
+    ///
+    /// This method creates a new collection of options where each option has its
+    /// mid price calculated and updated. The mid price is typically the average
+    /// of the bid and ask prices.
+    ///
+    /// The original options in the chain are replaced with the updated ones.
+    pub fn update_mid_prices(&mut self) {
+        let modified_options: BTreeSet<OptionData> = self
+            .options
+            .iter()
+            .map(|option| {
+                let mut option = option.clone();
+                option.set_mid_prices();
+                option
+            })
+            .collect();
+        self.options = modified_options;
+    }
+
+    /// Calculates and updates the delta and gamma Greeks for all options in the chain.
+    ///
+    /// This method computes the delta and gamma values for each option in the chain based on
+    /// the current market parameters. Delta measures the rate of change of the option price
+    /// with respect to the underlying asset's price, while gamma measures the rate of change
+    /// of delta with respect to the underlying asset's price.
+    ///
+    /// The original options in the chain are replaced with the ones containing the updated Greeks.
+    pub fn update_greeks(&mut self) {
+        let modified_options: BTreeSet<OptionData> = self
+            .options
+            .iter()
+            .map(|option| {
+                let mut option = option.clone(); // Create a clone we can modify
+                option.calculate_delta();
+                option.calculate_gamma();
+                option
+            })
+            .collect();
+        self.options = modified_options;
+    }
+
+    /// Recomputes the full twelve-greek snapshot for every strike, for both
+    /// option styles.
+    ///
+    /// This is the opt-in counterpart to [`Self::update_greeks`], which only
+    /// refreshes delta and gamma. The full set costs roughly seven times a
+    /// whole chain build, because each greek re-derives `d1` and `d2` from
+    /// scratch, so it is a separate entry point rather than a widening of
+    /// `update_greeks`.
+    ///
+    /// A strike whose greeks cannot be computed keeps a `None` snapshot and
+    /// logs at `debug` level; see [`OptionData::calculate_greeks`].
+    pub fn update_greek_snapshots(&mut self) {
+        let modified_options: BTreeSet<OptionData> = self
+            .options
+            .iter()
+            .map(|option| {
+                let mut option = option.clone();
+                option.calculate_greeks();
+                option
+            })
+            .collect();
+        self.options = modified_options;
+    }
+
+    /// Saves the option chain data to a CSV file.
+    ///
+    /// This method writes the option chain data to a CSV file at the specified path.
+    /// The file will be named using the option chain's title (symbol, expiration date, and price).
+    /// The CSV includes headers for all option properties and each option in the chain is written as a row.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_path` - The directory path where the CSV file will be created
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), ChainError>` - Ok(()) if successful, or an Error if the file couldn't be created
+    ///   or written to.
+    ///
+    ///
+    /// # Note
+    ///
+    /// This method is only available on non-WebAssembly targets.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ChainError::FileError`] wrapping a `FileErrorKind::IOError`
+    /// when the file cannot be created or written, or
+    /// `FileErrorKind::ParseError` when `csv` serialization fails.
+    #[inline(never)]
+    #[cfg(feature = "io")]
+    pub fn save_to_csv(&self, file_path: &str) -> Result<(), ChainError> {
+        let full_path = format!("{}/{}.csv", file_path, self.get_title());
+        let mut wtr = WriterBuilder::new().from_path(full_path)?;
+        wtr.write_record([
+            "Strike Price",
+            "Call Bid",
+            "Call Ask",
+            "Put Bid",
+            "Put Ask",
+            "Implied Volatility",
+            "Delta",
+            "Delta",
+            "Gamma",
+            "Volume",
+            "Open Interest",
+        ])?;
+        for option in &self.options {
+            wtr.write_record(&[
+                option.strike_price.to_string(),
+                default_empty_string(option.call_bid),
+                default_empty_string(option.call_ask),
+                default_empty_string(option.put_bid),
+                default_empty_string(option.put_ask),
+                option.implied_volatility.to_string(),
+                default_empty_string(option.delta_call),
+                default_empty_string(option.delta_put),
+                default_empty_string(option.gamma),
+                default_empty_string(option.volume),
+                default_empty_string(option.open_interest),
+            ])?;
+        }
+        wtr.flush()?;
+        Ok(())
+    }
+
+    /// Saves the option chain data to a CSV file asynchronously.
+    ///
+    /// # Note
+    ///
+    /// This method is only available on non-WebAssembly targets with the `async` feature.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same variants as [`OptionChain::save_to_csv`]
+    /// ([`ChainError::FileError`] wrapping `FileErrorKind::IOError` or
+    /// `FileErrorKind::ParseError`). A `spawn_blocking` join failure is
+    /// surfaced as `FileErrorKind::IOError`.
+    #[cfg(feature = "async")]
+    pub async fn save_to_csv_async(&self, file_path: &str) -> Result<(), ChainError> {
+        let path = file_path.to_string();
+        let self_clone = self.clone();
+        tokio::task::spawn_blocking(move || self_clone.save_to_csv(&path))
+            .await
+            .map_err(|e| ChainError::invalid_parameters("async_task", &e.to_string()))?
+    }
+
+    /// Saves the option chain data to a JSON file.
+    ///
+    /// This method serializes the option chain into JSON format and writes it to a file
+    /// at the specified path. The file will be named using the option chain's title
+    /// (symbol, expiration date, and price).
+    ///
+    /// # Arguments
+    ///
+    /// * `file_path` - The directory path where the JSON file will be created
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), ChainError>` - Ok(()) if successful, or an Error if the file couldn't be created
+    ///   or written to.
+    ///
+    /// # Note
+    ///
+    /// This method is only available on non-WebAssembly targets.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ChainError::FileError`] wrapping a `FileErrorKind::IOError`
+    /// when the file cannot be created or written, or
+    /// `FileErrorKind::ParseError` when `serde_json` serialization fails.
+    #[inline(never)]
+    #[cfg(feature = "io")]
+    pub fn save_to_json(&self, file_path: &str) -> Result<(), ChainError> {
+        let full_path = format!("{}/{}.json", file_path, self.get_title());
+        let file = File::create(full_path)?;
+        serde_json::to_writer_pretty(file, &self)?;
+        Ok(())
+    }
+
+    /// Saves the option chain data to a JSON file asynchronously.
+    ///
+    /// # Note
+    ///
+    /// This method is only available on non-WebAssembly targets with the `async` feature.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same variants as [`OptionChain::save_to_json`]
+    /// ([`ChainError::FileError`] wrapping `FileErrorKind::IOError` or
+    /// `FileErrorKind::ParseError`). A `spawn_blocking` join failure is
+    /// surfaced as `FileErrorKind::IOError`.
+    #[cfg(feature = "async")]
+    pub async fn save_to_json_async(&self, file_path: &str) -> Result<(), ChainError> {
+        let path = file_path.to_string();
+        let self_clone = self.clone();
+        tokio::task::spawn_blocking(move || self_clone.save_to_json(&path))
+            .await
+            .map_err(|e| ChainError::invalid_parameters("async_task", &e.to_string()))?
+    }
+
+    /// Loads option chain data from a CSV file.
+    ///
+    /// This function reads option data from a CSV file and constructs an OptionChain.
+    /// It attempts to extract the symbol, underlying price, and expiration date from the file name.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_path` - The path to the CSV file containing option chain data
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Self, ChainError>` - An OptionChain if successful, or an Error if the file
+    ///   couldn't be read or the data is invalid.
+    ///
+    /// # Note
+    ///
+    /// This method is only available on non-WebAssembly targets.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ChainError::FileError`] wrapping `FileErrorKind::IOError`
+    /// when the CSV file cannot be opened or read, or
+    /// `FileErrorKind::ParseError` when the CSV records cannot be parsed.
+    /// Invalid option data (bad strike, volatility or price) surfaces as
+    /// [`ChainError::OptionDataError`].
+    #[inline(never)]
+    #[cfg(feature = "io")]
+    pub fn load_from_csv(file_path: &str) -> Result<Self, ChainError> {
+        let mut rdr = csv::Reader::from_path(file_path)?;
+        let mut options = BTreeSet::new();
+        for result in rdr.records() {
+            let record = result?;
+            debug!("To CSV: {:?}", record);
+            let field = |idx: usize| -> Result<&str, ChainError> {
+                record.get(idx).ok_or_else(|| {
+                    ChainError::invalid_parameters(
+                        "csv_record",
+                        &format!("missing column at index {idx}"),
+                    )
+                })
+            };
+            let strike_str = field(0)?;
+            let mut option_data = OptionData {
+                strike_price: strike_str.parse::<Positive>().map_err(|e| {
+                    ChainError::invalid_strike(
+                        strike_str.parse::<f64>().unwrap_or(f64::NAN),
+                        &e.to_string(),
+                    )
+                })?,
+                call_bid: parse(field(1)?),
+                call_ask: parse(field(2)?),
+                put_bid: parse(field(3)?),
+                put_ask: parse(field(4)?),
+                call_middle: None,
+                put_middle: None,
+                implied_volatility: parse(field(5)?).ok_or_else(|| {
+                    ChainError::invalid_volatility(None, "missing implied volatility in CSV record")
+                })?,
+                delta_call: parse(field(6)?),
+                delta_put: parse(field(7)?),
+                gamma: parse(field(8)?),
+                volume: parse(field(9)?),
+                open_interest: parse(field(10)?),
+                ..Default::default()
+            };
+            option_data.set_mid_prices();
+            options.insert(option_data);
+        }
+        let mut option_chain = OptionChain {
+            symbol: "unknown".to_string(),
+            underlying_price: Positive::ZERO,
+            expiration_date: "unknown".to_string(),
+            options,
+            risk_free_rate: None,
+            dividend_yield: None,
+        };
+        match option_chain.set_from_title(file_path) {
+            Ok(_) => {
+                // TODO: find other way to set symbol, underlying_price and expiration_date
+            }
+            Err(e) => {
+                debug!("Failed to set title from file name: {}", e);
+            }
+        }
+        Ok(option_chain)
+    }
+
+    /// Loads option chain data from a CSV file asynchronously.
+    ///
+    /// # Note
+    ///
+    /// This method is only available on non-WebAssembly targets with the `async` feature.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same variants as [`OptionChain::load_from_csv`]. A
+    /// `spawn_blocking` join failure is surfaced as
+    /// [`ChainError::FileError`] wrapping `FileErrorKind::IOError`.
+    #[cfg(feature = "async")]
+    pub async fn load_from_csv_async(file_path: &str) -> Result<Self, ChainError> {
+        let path = file_path.to_string();
+        tokio::task::spawn_blocking(move || Self::load_from_csv(&path))
+            .await
+            .map_err(|e| ChainError::invalid_parameters("async_task", &e.to_string()))?
+    }
+
+    /// Loads option chain data from a JSON file.
+    ///
+    /// This function deserializes an OptionChain from a JSON file and updates
+    /// the mid prices for all options in the chain.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_path` - The path to the JSON file containing serialized option chain data
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Self, ChainError>` - An OptionChain if successful, or an Error if the file
+    ///   couldn't be read or the data is invalid.
+    ///
+    /// # Note
+    ///
+    /// This method is only available on non-WebAssembly targets.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ChainError::FileError`] wrapping `FileErrorKind::IOError`
+    /// when the file cannot be opened, or `FileErrorKind::ParseError`
+    /// when `serde_json` deserialization fails.
+    #[inline(never)]
+    #[cfg(feature = "io")]
+    pub fn load_from_json(file_path: &str) -> Result<Self, ChainError> {
+        let file = File::open(file_path)?;
+        let mut option_chain: OptionChain = serde_json::from_reader(file)?;
+        option_chain.set_optiondata_extra_params()?;
+        option_chain.mutate_single_options(|option| {
+            option.implied_volatility = if option.implied_volatility >= Positive::ONE {
+                option.implied_volatility / Positive::HUNDRED
+            } else {
+                option.implied_volatility
+            }
+        });
+
+        option_chain.update_mid_prices();
+        option_chain.update_greeks();
+        // if implied volatility is in percentage, convert it to decimal
+        option_chain.check_and_convert_implied_volatility();
+        Ok(option_chain)
+    }
+
+    /// Loads option chain data from a JSON file asynchronously.
+    ///
+    /// # Note
+    ///
+    /// This method is only available on non-WebAssembly targets with the `async` feature.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same variants as [`OptionChain::load_from_json`]. A
+    /// `spawn_blocking` join failure is surfaced as
+    /// [`ChainError::FileError`] wrapping `FileErrorKind::IOError`.
+    #[cfg(feature = "async")]
+    pub async fn load_from_json_async(file_path: &str) -> Result<Self, ChainError> {
+        let path = file_path.to_string();
+        tokio::task::spawn_blocking(move || Self::load_from_json(&path))
+            .await
+            .map_err(|e| ChainError::invalid_parameters("async_task", &e.to_string()))?
+    }
+
+    #[cfg(feature = "io")]
+    fn check_and_convert_implied_volatility(&mut self) {
+        let updated_options: BTreeSet<OptionData> = self
+            .options
+            .iter()
+            .map(|option| {
+                let mut option_clone = option.clone();
+                option_clone.check_and_convert_implied_volatility();
+                option_clone
+            })
+            .collect();
+
+        self.options = updated_options;
+    }
+
+    /// Generates a vector of strike prices within the range of available options.
+    ///
+    /// This method creates a vector of strike prices starting from the lowest
+    /// strike price in the chain up to the highest, incrementing by the specified step.
+    ///
+    /// # Arguments
+    ///
+    /// * `step` - The increment value between consecutive strike prices
+    ///
+    /// # Returns
+    ///
+    /// * `Option<Vec<f64>>` - A vector containing the strike prices if the option chain
+    ///   is not empty, or None if there are no options in the chain.
+    ///
+    pub fn strike_price_range_vec(&self, step: f64) -> Option<Vec<f64>> {
+        let first = self.options.iter().next();
+        let last = self.options.iter().next_back();
+        // Reject step <= 0 and non-finite inputs: without a strictly
+        // positive increment the while loop below would spin forever
+        // (step == 0) or never enter (step NaN). `Positive::new` already
+        // rejects negative / NaN values; the extra `is_zero` check closes
+        // the infinite-loop gap.
+        let step = match Positive::new(step) {
+            Ok(s) if !s.is_zero() => s,
+            Ok(_) => {
+                tracing::warn!(
+                    step,
+                    "strike_price_range_vec: step must be strictly positive; returning None"
+                );
+                return None;
+            }
+            Err(e) => {
+                tracing::warn!(
+                    step,
+                    error = %e,
+                    "strike_price_range_vec: step must be non-negative and finite; returning None"
+                );
+                return None;
+            }
+        };
+        if let (Some(first), Some(last)) = (first, last) {
+            let mut range = Vec::new();
+            let mut current_price = first.strike_price;
+            while current_price <= last.strike_price {
+                range.push(current_price.to_f64());
+                current_price += step;
+            }
+            Some(range)
+        } else {
+            None
+        }
+    }
+
+    /// Creates random positions based on specified quantities of puts and calls
+    ///
+    /// # Arguments
+    ///
+    /// * `qty_puts_long` - Number of long put positions to create
+    /// * `qty_puts_short` - Number of short put positions to create
+    /// * `qty_calls_long` - Number of long call positions to create
+    /// * `qty_calls_short` - Number of short call positions to create
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<Position>, ChainError>` - Vector of created positions or error message
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ChainError::StrategyError`] wrapping a
+    /// `StrategyErrorKind::InvalidLegs` when the requested position counts
+    /// exceed available strikes on either side of the chain, or propagates
+    /// any [`ChainError::OptionDataError`] produced while materialising the
+    /// selected strikes into [`Position`] instances.
+    pub fn get_random_positions(
+        &self,
+        params: RandomPositionsParams,
+    ) -> Result<Vec<Position>, ChainError> {
+        if params.total_positions() == 0 {
+            return Err(ChainError::invalid_parameters(
+                "total_positions",
+                "The sum of the quantities must be greater than 0",
+            ));
+        }
+
+        let mut positions = Vec::with_capacity(params.total_positions());
+
+        // Add long put positions
+        if let Some(qty) = params.qty_puts_long {
+            for _ in 0..qty {
+                if let Some(option) = get_random_element(&self.options) {
+                    let position = Position::new(
+                        Options::new(
+                            OptionType::European,
+                            Side::Long,
+                            self.symbol.clone(),
+                            option.strike_price,
+                            params.expiration_date,
+                            option.implied_volatility,
+                            params.option_qty,
+                            self.underlying_price,
+                            params.risk_free_rate,
+                            OptionStyle::Put,
+                            params.dividend_yield,
+                            None,
+                        ),
+                        option.put_ask.unwrap_or(Positive::ZERO),
+                        Utc::now(),
+                        params.open_put_fee,
+                        params.close_put_fee,
+                        params.epic.clone(),
+                        params.extra_fields.clone(),
+                    );
+                    positions.push(position);
+                }
+            }
+        }
+
+        // Add short put positions
+        if let Some(qty) = params.qty_puts_short {
+            for _ in 0..qty {
+                if let Some(option) = get_random_element(&self.options) {
+                    let position = Position::new(
+                        Options::new(
+                            OptionType::European,
+                            Side::Short,
+                            self.symbol.clone(),
+                            option.strike_price,
+                            params.expiration_date,
+                            option.implied_volatility,
+                            params.option_qty,
+                            self.underlying_price,
+                            params.risk_free_rate,
+                            OptionStyle::Put,
+                            params.dividend_yield,
+                            None,
+                        ),
+                        option.put_bid.unwrap_or(Positive::ZERO),
+                        Utc::now(),
+                        params.open_put_fee,
+                        params.close_put_fee,
+                        params.epic.clone(),
+                        params.extra_fields.clone(),
+                    );
+                    positions.push(position);
+                }
+            }
+        }
+
+        // Add long call positions
+        if let Some(qty) = params.qty_calls_long {
+            for _ in 0..qty {
+                if let Some(option) = get_random_element(&self.options) {
+                    let position = Position::new(
+                        Options::new(
+                            OptionType::European,
+                            Side::Long,
+                            self.symbol.clone(),
+                            option.strike_price,
+                            params.expiration_date,
+                            option.implied_volatility,
+                            params.option_qty,
+                            self.underlying_price,
+                            params.risk_free_rate,
+                            OptionStyle::Call,
+                            params.dividend_yield,
+                            None,
+                        ),
+                        option.call_ask.unwrap_or(Positive::ZERO),
+                        Utc::now(),
+                        params.open_call_fee,
+                        params.close_call_fee,
+                        params.epic.clone(),
+                        params.extra_fields.clone(),
+                    );
+                    positions.push(position);
+                }
+            }
+        }
+
+        // Add short call positions
+        if let Some(qty) = params.qty_calls_short {
+            for _ in 0..qty {
+                if let Some(option) = get_random_element(&self.options) {
+                    let position = Position::new(
+                        Options::new(
+                            OptionType::European,
+                            Side::Short,
+                            self.symbol.clone(),
+                            option.strike_price,
+                            params.expiration_date,
+                            option.implied_volatility,
+                            params.option_qty,
+                            self.underlying_price,
+                            params.risk_free_rate,
+                            OptionStyle::Call,
+                            params.dividend_yield,
+                            None,
+                        ),
+                        option.call_bid.unwrap_or(Positive::ZERO),
+                        Utc::now(),
+                        params.open_call_fee,
+                        params.close_call_fee,
+                        params.epic.clone(),
+                        params.extra_fields.clone(),
+                    );
+                    positions.push(position);
+                }
+            }
+        }
+
+        Ok(positions)
+    }
+
+    /// Returns an iterator over the `OptionData` elements.
+    ///
+    /// This method provides an iterator that yields references to
+    /// the `OptionData` items contained within the structure.
+    ///
+    /// # Returns
+    ///
+    /// An iterator where each item is a reference to an `OptionData`.
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = &OptionData> {
+        self.get_single_iter()
+    }
+
+    /// Returns an iterator over the `options` field in the `OptionChain` structure.
+    ///
+    /// This method provides a mechanism to traverse through the set of options
+    /// (`OptionData`) associated with an `OptionChain`.
+    ///
+    /// # Returns
+    ///
+    /// An iterator that yields references to the `OptionData` elements in the `options` field.
+    /// Since the `options` field is stored as a `BTreeSet`, the elements are ordered
+    /// in ascending order based on the sorting rules of `BTreeSet` (typically defined by `Ord` implementation).
+    ///
+    #[inline]
+    pub fn get_single_iter(&self) -> impl Iterator<Item = &OptionData> {
+        self.options.iter().filter(|option| option.validate())
+    }
+
+    /// Applies a mutation function to each option in the chain that has an implied volatility value.
+    ///
+    /// This method filters the option chain to include only options with defined implied volatility,
+    /// applies the provided function to each option, and then updates the chain with these modified options.
+    /// The options collection is completely replaced with the new, modified set.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - A mutable closure that takes a mutable reference to an `OptionData` and applies
+    ///   some transformation or modification to it.
+    ///
+    pub fn mutate_single_options<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&mut OptionData),
+    {
+        let modified_options = self
+            .options
+            .iter()
+            .filter(|&option| option.validate())
+            .cloned()
+            .map(|mut option| {
+                f(&mut option);
+                option
+            })
+            .collect::<BTreeSet<_>>();
+
+        self.options = modified_options;
+    }
+
+    /// Returns an iterator that provides mutable access to individual options in the chain.
+    ///
+    /// This method enables modifying options in the chain while maintaining the collection's integrity.
+    /// It works by:
+    /// 1. Filtering options that have implied volatility
+    /// 2. Removing each option from the internal collection
+    /// 3. Providing mutable access to each option
+    ///
+    /// The caller is responsible for reinserting modified options back into the chain.
+    /// After modifications, options should be reinserted into the chain using appropriate methods.
+    ///
+    /// # Returns
+    ///
+    /// An iterator yielding mutable references to `OptionData` instances.
+    ///
+    /// # Examples
+    ///
+    pub fn get_single_iter_mut(&mut self) -> impl Iterator<Item = OptionData> {
+        self.options
+            .iter()
+            .filter(|&option| option.validate())
+            .cloned()
+    }
+
+    /// Returns an iterator that generates pairs of distinct option combinations from the `OptionChain`.
+    ///
+    /// This function iterates over all unique combinations of two options from the `options` collection
+    /// without repetition. In mathematical terms, it generates combinations where order does not matter
+    /// and an option cannot combine with itself.
+    ///
+    /// # Returns
+    ///
+    /// An iterator producing tuples of references to two distinct `OptionData` instances.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use tracing::info;
+    /// use optionstratlib_market::chains::chain::OptionChain;
+    /// use optionstratlib_core::{pos_or_panic, model::Positive};
+    /// let mut option_chain = OptionChain::new("TEST", Positive::HUNDRED, "2030-01-01".to_string(), None, None);
+    /// for (option1, option2) in option_chain.get_double_iter() {
+    ///     info!("{:?}, {:?}", option1, option2);
+    /// }
+    /// ```
+    pub fn get_double_iter(&self) -> impl Iterator<Item = (&OptionData, &OptionData)> {
+        self.get_single_iter().enumerate().flat_map(|(i, item1)| {
+            self.get_single_iter()
+                .skip(i + 1)
+                .map(move |item2| (item1, item2))
+        })
+    }
+
+    /// Returns an iterator that generates inclusive pairs of option combinations from the `OptionChain`.
+    ///
+    /// This function iterates over all combinations of two options from the `options` collection,
+    /// including pairing an option with itself.
+    ///
+    /// # Returns
+    ///
+    /// An iterator producing tuples with two references to `OptionData`, potentially including
+    /// self-pairs (e.g., `(option, option)`).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use tracing::info;
+    /// use optionstratlib_market::chains::chain::OptionChain;
+    /// use optionstratlib_core::model::Positive;
+    /// use optionstratlib_core::pos_or_panic;
+    /// let mut option_chain = OptionChain::new("TEST", Positive::HUNDRED, "2030-01-01".to_string(), None, None);
+    /// for (option1, option2) in option_chain.get_double_inclusive_iter() {
+    ///     info!("{:?}, {:?}", option1, option2);
+    /// }
+    /// ```
+    pub fn get_double_inclusive_iter(&self) -> impl Iterator<Item = (&OptionData, &OptionData)> {
+        self.get_single_iter().enumerate().flat_map(|(i, item1)| {
+            self.get_single_iter()
+                .skip(i)
+                .map(move |item2| (item1, item2))
+        })
+    }
+
+    /// Returns an iterator that generates unique triplets of distinct option combinations from the `OptionChain`.
+    ///
+    /// This function iterates over all unique combinations of three options from the `options` collection
+    /// without repetition.
+    ///
+    /// # Returns
+    ///
+    /// An iterator producing tuples containing references to three distinct `OptionData` instances.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use tracing::info;
+    /// use optionstratlib_market::chains::chain::OptionChain;
+    /// use optionstratlib_core::model::Positive;
+    /// use optionstratlib_core::pos_or_panic;
+    /// let mut option_chain = OptionChain::new("TEST", Positive::HUNDRED, "2030-01-01".to_string(), None, None);
+    /// for (option1, option2, option3) in option_chain.get_triple_iter() {
+    ///     info!("{:?}, {:?}, {:?}", option1, option2, option3);
+    /// }
+    /// ```
+    pub fn get_triple_iter(&self) -> impl Iterator<Item = (&OptionData, &OptionData, &OptionData)> {
+        self.get_single_iter()
+            .enumerate()
+            .flat_map(move |(i, item1)| {
+                self.get_single_iter()
+                    .skip(i + 1)
+                    .enumerate()
+                    .flat_map(move |(j, item2)| {
+                        self.get_single_iter()
+                            .skip(i + j + 2)
+                            .map(move |item3| (item1, item2, item3))
+                    })
+            })
+    }
+
+    /// Returns an iterator that generates inclusive triplets of option combinations from the `OptionChain`.
+    ///
+    /// This function iterates over all combinations of three options from the `options` collection,
+    /// including those where the same option may be included more than once.
+    ///
+    /// # Returns
+    ///
+    /// An iterator producing tuples with three references to `OptionData`, potentially including
+    /// repeated elements (e.g., `(option1, option2, option1)`).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use tracing::info;
+    /// use optionstratlib_market::chains::chain::OptionChain;
+    /// use optionstratlib_core::model::Positive;
+    /// use optionstratlib_core::pos_or_panic;
+    /// let mut option_chain = OptionChain::new("TEST", Positive::HUNDRED, "2030-01-01".to_string(), None, None);
+    /// for (option1, option2, option3) in option_chain.get_triple_inclusive_iter() {
+    ///     info!("{:?}, {:?}, {:?}", option1, option2, option3);
+    /// }
+    /// ```
+    pub fn get_triple_inclusive_iter(
+        &self,
+    ) -> impl Iterator<Item = (&OptionData, &OptionData, &OptionData)> {
+        self.get_single_iter()
+            .enumerate()
+            .flat_map(move |(i, item1)| {
+                self.get_single_iter()
+                    .skip(i)
+                    .enumerate()
+                    .flat_map(move |(j, item2)| {
+                        self.get_single_iter()
+                            .skip(i + j)
+                            .map(move |item3| (item1, item2, item3))
+                    })
+            })
+    }
+
+    /// Returns an iterator that generates unique quadruples of distinct option combinations from the `OptionChain`.
+    ///
+    /// This function iterates over all unique combinations of four options from the `options` collection
+    /// without repetition.
+    ///
+    /// # Returns
+    ///
+    /// An iterator producing tuples containing references to four distinct `OptionData` instances.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use tracing::info;
+    /// use optionstratlib_market::chains::chain::OptionChain;
+    /// use optionstratlib_core::model::Positive;
+    /// use optionstratlib_core::pos_or_panic;
+    /// let mut option_chain = OptionChain::new("TEST", Positive::HUNDRED, "2030-01-01".to_string(), None, None);
+    /// for (option1, option2, option3, option4) in option_chain.get_quad_iter() {
+    ///     info!("{:?}, {:?}, {:?}, {:?}", option1, option2, option3, option4);
+    /// }
+    /// ```
+    pub fn get_quad_iter(
+        &self,
+    ) -> impl Iterator<Item = (&OptionData, &OptionData, &OptionData, &OptionData)> {
+        self.get_single_iter()
+            .enumerate()
+            .flat_map(move |(i, item1)| {
+                self.get_single_iter()
+                    .skip(i + 1)
+                    .enumerate()
+                    .flat_map(move |(j, item2)| {
+                        self.get_single_iter().skip(i + j + 2).enumerate().flat_map(
+                            move |(k, item3)| {
+                                self.get_single_iter()
+                                    .skip(i + j + k + 3)
+                                    .map(move |item4| (item1, item2, item3, item4))
+                            },
+                        )
+                    })
+            })
+    }
+
+    /// Returns an iterator that generates inclusive quadruples of option combinations from the `OptionChain`.
+    ///
+    /// This function iterates over all combinations of four options from the `options` collection,
+    /// including those where the same option may be included more than once.
+    ///
+    /// # Returns
+    ///
+    /// An iterator producing tuples with four references to `OptionData`, potentially including
+    /// repeated elements (e.g., `(option1, option2, option1, option4)`).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use tracing::info;
+    /// use optionstratlib_market::chains::chain::OptionChain;
+    /// use optionstratlib_core::model::Positive;
+    /// use optionstratlib_core::pos_or_panic;
+    /// let mut option_chain = OptionChain::new("TEST", Positive::HUNDRED, "2030-01-01".to_string(), None, None);
+    /// for (option1, option2, option3, option4) in option_chain.get_quad_inclusive_iter() {
+    ///     info!("{:?}, {:?}, {:?}, {:?}", option1, option2, option3, option4);
+    /// }
+    /// ```
+    pub fn get_quad_inclusive_iter(
+        &self,
+    ) -> impl Iterator<Item = (&OptionData, &OptionData, &OptionData, &OptionData)> {
+        self.get_single_iter()
+            .enumerate()
+            .flat_map(move |(i, item1)| {
+                self.get_single_iter()
+                    .skip(i)
+                    .enumerate()
+                    .flat_map(move |(j, item2)| {
+                        self.get_single_iter().skip(i + j).enumerate().flat_map(
+                            move |(k, item3)| {
+                                self.get_single_iter()
+                                    .skip(i + j + k)
+                                    .map(move |item4| (item1, item2, item3, item4))
+                            },
+                        )
+                    })
+            })
+    }
+
+    /// Retrieves the call option price for a specific strike price
+    ///
+    /// This helper method finds and returns the ask price of a call option
+    /// at the specified strike price from the option chain.
+    ///
+    /// # Arguments
+    /// * `strike` - The strike price to look up
+    ///
+    /// # Returns
+    /// * `Some(Decimal)` - The call option ask price if found
+    /// * `None` - If no option exists at the specified strike or if the price is not available
+    ///
+    /// # Notes
+    /// * Uses the ask price as it represents the cost to buy the option
+    /// * Converts the price to Decimal for consistency in calculations
+    #[must_use]
+    pub fn get_call_price(&self, strike: Positive) -> Option<Decimal> {
+        self.options
+            .iter()
+            .find(|opt| opt.strike_price == strike)
+            .and_then(|opt| opt.call_ask)
+            .map(|price| price.to_dec())
+    }
+
+    /// Retrieves the At-The-Money (ATM) implied volatility.
+    ///
+    /// This function retrieves the implied volatility of the ATM option.
+    /// It calls `self.atm_option_data()` to find the ATM option and then
+    /// returns a reference to its implied volatility.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(&Option<Positive>)` - If the ATM option is found, returns a reference
+    ///   to its implied volatility, which is an `Option<Positive>`.
+    /// * `Err(ChainError)` - If the ATM option cannot be found, returns an error.
+    ///
+    /// # Errors
+    ///
+    /// This function returns an error if the underlying `atm_option_data()` call fails,
+    /// which can happen if the option chain is empty or no suitable ATM option is found.
+    pub fn get_atm_implied_volatility(&self) -> Result<&Positive, ChainError> {
+        let option_data = self.atm_option_data()?;
+        Ok(&option_data.implied_volatility)
+    }
+
+    /// Calculates the total gamma exposure for all options in the chain.
+    ///
+    /// Gamma exposure represents the aggregate rate of change in the delta value
+    /// with respect to changes in the underlying asset's price across all options.
+    /// It measures the second-order price sensitivity and indicates how the delta
+    /// will change as the underlying price moves.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Decimal, ChainError>` - The aggregate gamma value, or an error if calculation fails
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ChainError` if:
+    /// - Any option's gamma calculation fails
+    /// - Options greeks are not initialized
+    ///
+    /// # Note
+    ///
+    /// This method requires options greeks to be initialized first by calling the `update_greeks` method.
+    pub fn gamma_exposure(&self) -> Result<Decimal, ChainError> {
+        let mut gamma_exposure = Decimal::ZERO;
+        for option in &self.options {
+            gamma_exposure = d_add(
+                gamma_exposure,
+                option.gamma.unwrap_or(Decimal::ZERO),
+                "chains::gamma_exposure",
+            )?;
+        }
+        Ok(gamma_exposure)
+    }
+
+    /// Calculates the total delta exposure for all options in the chain.
+    ///
+    /// Delta exposure represents the aggregate sensitivity of option prices to changes
+    /// in the underlying asset's price. A delta exposure of 1.0 means that for every
+    /// $1 change in the underlying asset, the options portfolio will change by $1 in the same direction.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Decimal, ChainError>` - The aggregate delta value, or an error if calculation fails
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ChainError` if:
+    /// - Any option's delta calculation fails
+    /// - Options greeks are not initialized
+    ///
+    /// # Note
+    ///
+    /// This method requires options greeks to be initialized first by calling the `update_greeks` method.
+    pub fn delta_exposure(&self) -> Result<Decimal, ChainError> {
+        let mut delta_exposure = Decimal::ZERO;
+        for option in &self.options {
+            delta_exposure = d_add(
+                delta_exposure,
+                option.delta_call.unwrap_or(Decimal::ZERO),
+                "chains::delta_exposure::call",
+            )?;
+            delta_exposure = d_add(
+                delta_exposure,
+                option.delta_put.unwrap_or(Decimal::ZERO),
+                "chains::delta_exposure::put",
+            )?;
+        }
+        Ok(delta_exposure)
+    }
+
+    /// Calculates the total vega exposure for all options in the chain.
+    ///
+    /// Vega exposure represents the aggregate sensitivity of option prices to changes
+    /// in the implied volatility of the underlying asset. It measures how much option
+    /// prices will change for a 1% change in implied volatility.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Decimal, ChainError>` - The aggregate vega value, or an error if calculation fails
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ChainError` if:
+    /// - Any option's vega calculation fails
+    /// - Options greeks are not initialized
+    ///
+    /// # Note
+    ///
+    /// This method requires options greeks to be initialized first by calling the `update_greeks` method.
+    pub fn vega_exposure(&self) -> Result<Decimal, ChainError> {
+        let mut vega_exposure = Decimal::ZERO;
+        for option_data in &self.options {
+            let vega = option_data
+                .get_option(Side::Long, OptionStyle::Call)?
+                .vega()?;
+            vega_exposure = d_add(vega_exposure, vega, "chains::vega_exposure::call")?;
+            let vega = option_data
+                .get_option(Side::Long, OptionStyle::Put)?
+                .vega()?;
+            vega_exposure = d_add(vega_exposure, vega, "chains::vega_exposure::put")?;
+        }
+        Ok(vega_exposure)
+    }
+
+    /// Calculates the total theta exposure for all options in the chain.
+    ///
+    /// Theta exposure represents the aggregate rate of time decay in option prices
+    /// as they approach expiration. It measures how much value the options portfolio
+    /// will lose per day, holding all other factors constant.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Decimal, ChainError>` - The aggregate theta value, or an error if calculation fails
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ChainError` if:
+    /// - Any option's theta calculation fails
+    /// - Options greeks are not initialized
+    ///
+    /// # Note
+    ///
+    /// This method requires options greeks to be initialized first by calling the `update_greeks` method.
+    pub fn theta_exposure(&self) -> Result<Decimal, ChainError> {
+        let mut theta_exposure = Decimal::ZERO;
+        for option_data in &self.options {
+            let theta = option_data
+                .get_option(Side::Long, OptionStyle::Call)?
+                .theta()?;
+            theta_exposure = d_add(theta_exposure, theta, "chains::theta_exposure::call")?;
+            let theta = option_data
+                .get_option(Side::Long, OptionStyle::Put)?
+                .theta()?;
+            theta_exposure = d_add(theta_exposure, theta, "chains::theta_exposure::put")?;
+        }
+        Ok(theta_exposure)
+    }
+
+    /// Calculates the total vanna exposure for all options in the chain.
+    ///
+    /// Vanna exposure represents the aggregate sensitivity of option delta to changes
+    /// in the implied volatility of the underlying asset. It measures how much option
+    /// delta will change for a 1% change in implied volatility.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Decimal, ChainError>` - The aggregate vanna value, or an error if calculation fails
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ChainError` if:
+    /// - Any option's vanna calculation fails
+    /// - Options greeks are not initialized
+    ///
+    /// # Note
+    ///
+    /// This method requires options greeks to be initialized first by calling the `update_greeks` method.
+    pub fn vanna_exposure(&self) -> Result<Decimal, ChainError> {
+        let mut vanna_exposure = Decimal::ZERO;
+        for option_data in &self.options {
+            let vanna = option_data
+                .get_option(Side::Long, OptionStyle::Call)?
+                .vanna()?;
+            vanna_exposure = d_add(vanna_exposure, vanna, "chains::vanna_exposure::call")?;
+            let vanna = option_data
+                .get_option(Side::Long, OptionStyle::Put)?
+                .vanna()?;
+            vanna_exposure = d_add(vanna_exposure, vanna, "chains::vanna_exposure::put")?;
+        }
+        Ok(vanna_exposure)
+    }
+
+    /// Calculates the total vomma exposure for all options in the chain.
+    ///
+    /// Vomma exposure represents the aggregate sensitivity of option Vega to changes
+    /// in the implied volatility of the underlying asset.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Decimal, ChainError>` - The aggregate Vomma value, or an error if calculation fails
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ChainError` if:
+    /// - Any option's vomma calculation fails
+    /// - Options greeks are not initialized
+    ///
+    /// # Note
+    ///
+    /// This method requires options greeks to be initialized first by calling the `update_greeks` method.
+    pub fn vomma_exposure(&self) -> Result<Decimal, ChainError> {
+        let mut vomma_exposure = Decimal::ZERO;
+        for option_data in &self.options {
+            let vomma = option_data
+                .get_option(Side::Long, OptionStyle::Call)?
+                .vomma()?;
+            vomma_exposure = d_add(vomma_exposure, vomma, "chains::vomma_exposure::call")?;
+            let vomma = option_data
+                .get_option(Side::Long, OptionStyle::Put)?
+                .vomma()?;
+            vomma_exposure = d_add(vomma_exposure, vomma, "chains::vomma_exposure::put")?;
+        }
+        Ok(vomma_exposure)
+    }
+
+    /// Calculates the total veta exposure for all options in the chain.
+    ///
+    /// Veta exposure represents the aggregate sensitivity of option Vega with respect
+    /// to the passage of time.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Decimal, ChainError>` - The aggregate veta value, or an error if calculation fails
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ChainError` if:
+    /// - Any option's veta calculation fails
+    /// - Options greeks are not initialized
+    ///
+    /// # Note
+    ///
+    /// This method requires options greeks to be initialized first by calling the `update_greeks` method.
+    pub fn veta_exposure(&self) -> Result<Decimal, ChainError> {
+        let mut veta_exposure = Decimal::ZERO;
+        for option_data in &self.options {
+            let veta = option_data
+                .get_option(Side::Long, OptionStyle::Call)?
+                .veta()?;
+            veta_exposure = d_add(veta_exposure, veta, "chains::veta_exposure::call")?;
+            let veta = option_data
+                .get_option(Side::Long, OptionStyle::Put)?
+                .veta()?;
+            veta_exposure = d_add(veta_exposure, veta, "chains::veta_exposure::put")?;
+        }
+        Ok(veta_exposure)
+    }
+
+    /// Calculates the total charm exposure for all options in the chain.
+    ///
+    /// Charm exposure represents the aggregate sensitivity of option Delta
+    /// with respect to the passage of time.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Decimal, ChainError>` - The aggregate charm value, or an error if calculation fails
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ChainError` if:
+    /// - Any option's charm calculation fails
+    /// - Options greeks are not initialized
+    ///
+    /// # Note
+    ///
+    /// This method requires options greeks to be initialized first by calling
+    /// the `update_greeks` method.
+    pub fn charm_exposure(&self) -> Result<Decimal, ChainError> {
+        let mut charm_exposure = Decimal::ZERO;
+        for option_data in &self.options {
+            let charm = option_data
+                .get_option(Side::Long, OptionStyle::Call)?
+                .charm()?;
+            charm_exposure = d_add(charm_exposure, charm, "chains::charm_exposure::call")?;
+            let charm = option_data
+                .get_option(Side::Long, OptionStyle::Put)?
+                .charm()?;
+            charm_exposure = d_add(charm_exposure, charm, "chains::charm_exposure::put")?;
+        }
+        Ok(charm_exposure)
+    }
+
+    /// Calculates the total color exposure for all options in the chain.
+    ///
+    /// Color exposure represents the aggregate sensitivity of option Gamma
+    /// with respect to the passage of time.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Decimal, ChainError>` - The aggregate color value, or an error if calculation fails
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ChainError` if:
+    /// - Any option's color calculation fails
+    /// - Options greeks are not initialized
+    ///
+    /// # Note
+    ///
+    /// This method requires options greeks to be initialized first by calling
+    /// the `update_greeks` method.
+    pub fn color_exposure(&self) -> Result<Decimal, ChainError> {
+        let mut color_exposure = Decimal::ZERO;
+        for option_data in &self.options {
+            let color = option_data
+                .get_option(Side::Long, OptionStyle::Call)?
+                .color()?;
+            color_exposure = d_add(color_exposure, color, "chains::color_exposure::call")?;
+            let color = option_data
+                .get_option(Side::Long, OptionStyle::Put)?
+                .color()?;
+            color_exposure = d_add(color_exposure, color, "chains::color_exposure::put")?;
+        }
+        Ok(color_exposure)
+    }
+
+    /// Updates the expiration date for the option chain and recalculates Greeks.
+    ///
+    /// This method changes the expiration date of the option chain to the provided value
+    /// and then triggers a recalculation of all Greek values for every option in the chain.
+    /// The Greeks are financial measures that indicate how option prices are expected to change
+    /// in response to different factors.
+    ///
+    /// # Parameters
+    ///
+    /// * `expiration` - A string representing the new expiration date for the option chain.
+    ///   This should be in a standard date format compatible with the system.
+    ///
+    /// # Effects
+    ///
+    /// * Updates the `expiration_date` field of the option chain.
+    /// * Calls `update_greeks()` to recalculate delta and gamma for all options
+    ///   in the chain based on the new expiration date.
+    /// * Drops any stored twelve-greek snapshots, which were computed against
+    ///   the old expiry. Call [`Self::update_greek_snapshots`] afterwards to
+    ///   repopulate them.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use optionstratlib_market::chains::chain::OptionChain;
+    /// let mut chain = OptionChain::new("AAPL", Default::default(), "".to_string(), None, None);
+    /// chain.update_expiration_date("2023-12-15".to_string());
+    /// ```
+    pub fn update_expiration_date(&mut self, expiration: String) {
+        self.expiration_date = expiration;
+        // update expiration date for all options
+        let expiration = self.get_expiration();
+        if expiration.is_none() {
+            warn!("Expiration date is not valid, skipping update.");
+            return;
+        }
+
+        // Create a new set of options with updated expiration dates
+        let mut updated_options = BTreeSet::new();
+        for mut option in self.options.iter().cloned() {
+            option.expiration_date = expiration;
+            // Writing the field directly bypasses `set_extra_params`, so the
+            // stored greek snapshots would survive with the old expiry baked
+            // in. Drop them; `update_greek_snapshots` repopulates on demand.
+            option.invalidate_greek_snapshots();
+            updated_options.insert(option);
+        }
+
+        // Replace the old options with the updated ones
+        self.options = updated_options;
+
+        self.update_greeks();
+    }
+
+    /// Retrieves the expiration date of the option chain.
+    ///
+    /// This method returns the expiration date associated with the option chain as a `String`.
+    /// The expiration date represents the date on which the options in the chain will expire.
+    ///
+    /// # Returns
+    ///
+    /// A `String` representing the expiration date of the option chain.
+    #[inline]
+    #[must_use]
+    pub fn get_expiration_date(&self) -> String {
+        self.expiration_date.clone()
+    }
+
+    /// Test seam: replaces the expiration date string without validating it
+    /// and without the Greek refresh [`Self::update_expiration_date`] does,
+    /// so tests in other crates can install a past or malformed date. An
+    /// unparseable value surfaces as an error from the methods that need a
+    /// date. Use `update_expiration_date` in production code.
+    #[doc(hidden)]
+    #[inline]
+    pub fn set_expiration_date(&mut self, expiration_date: String) {
+        self.expiration_date = expiration_date;
+    }
+
+    /// Returns the expiration date of the option chain as an `ExpirationDate` object.
+    ///
+    /// # Returns
+    /// * `Option<ExpirationDate>` - The expiration date if it can be parsed, or `None` if parsing fails.
+    #[inline]
+    #[must_use]
+    pub fn get_expiration(&self) -> Option<ExpirationDate> {
+        ExpirationDate::from_string(&self.expiration_date).ok()
+    }
+
+    /// Calculates the strike price interval based on the available option contracts.
+    ///
+    /// This method determines a reasonable interval between strike prices by analyzing
+    /// the strike prices of the options within the option chain. It calculates the
+    /// differences between consecutive strike prices, and then returns the median of
+    /// these intervals, rounded to the nearest integer. This approach is robust against
+    /// outliers in strike price spacing.
+    ///
+    /// # Returns
+    ///
+    /// A `Positive` value representing the calculated strike price interval. If there are
+    /// fewer than two options in the chain, or if an error occurs during the calculation,
+    /// a default interval of 5.0 is returned. If the calculated median interval rounds to zero,
+    /// a minimum interval of 1.0 is returned to ensure a valid positive interval.
+    pub(crate) fn get_strike_interval(&self) -> Positive {
+        // `dec!(5.0)` is a compile-time positive constant; the checked
+        // constructor never fails, so the `unwrap_or(Positive::ZERO)`
+        // fallback is unreachable but keeps the call site `.unwrap`-free.
+        let default_interval = Positive::new_decimal(dec!(5.0)).unwrap_or(Positive::ZERO);
+        if self.options.len() < 2 {
+            return default_interval; // Default interval if not enough options
+        }
+
+        let strikes: Vec<Positive> = self.options.iter().map(|opt| opt.strike_price).collect();
+
+        let mut intervals: Vec<Decimal> = strikes
+            .windows(2)
+            .filter_map(|w| match w {
+                [prev, curr] => Some(curr.to_dec() - prev.to_dec()),
+                _ => None,
+            })
+            .collect();
+
+        // Return the median interval for robustness
+        intervals.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+        let median_slot = intervals.len() / 2;
+        if let Some(&median_interval) = intervals.get(median_slot) {
+            // Round to the nearest integer
+            let rounded_interval = median_interval.round();
+
+            // Ensure we're not returning 0 as an interval
+            if rounded_interval == Decimal::ZERO {
+                Positive::ONE // Minimum interval is 1
+            } else {
+                Positive::new_decimal(rounded_interval).unwrap_or(Positive::ONE)
+            }
+        } else {
+            default_interval // Default if something went wrong
+        }
+    }
+
+    /// Retrieves a `Position` with a delta closest to the specified `target_delta`.
+    ///
+    /// This function searches the option chain for an option whose delta is less than or equal to
+    /// the `target_delta`. It then selects the option with the highest delta value (for calls) or
+    /// the most negative delta value (for puts) that meets this criteria.  A `Position` is
+    /// constructed from the selected option.
+    ///
+    /// # Arguments
+    ///
+    /// * `target_delta` - The target delta value to search for.
+    /// * `side` - The side of the position (Long or Short).
+    /// * `option_style` - The style of the option (Call or Put).
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the `Position` if a suitable option is found, or a `ChainError` if no
+    /// option with a delta less than or equal to the `target_delta` is found.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ChainError::OptionDataError` with `OptionDataErrorKind::InvalidDelta` if no option
+    /// is found with a delta less than or equal to the specified `target_delta`.
+    pub fn get_position_with_delta(
+        &self,
+        target_delta: Decimal,
+        side: Side,
+        option_style: OptionStyle,
+    ) -> Result<Position, ChainError> {
+        // Early validation - empty chain check
+        if self.options.is_empty() {
+            return Err(ChainError::OptionDataError(
+                OptionDataErrorKind::InvalidDelta {
+                    delta: target_delta.to_f64(),
+                    reason: "Option chain is empty".to_string(),
+                },
+            ));
+        }
+
+        // Convert target to absolute value for consistent comparisons
+        let target_delta_abs = target_delta.abs();
+
+        // Find options with appropriate deltas based on option style
+        let filtered_options = self
+            .get_single_iter()
+            .filter_map(|option_data| {
+                // Get the appropriate delta based on option style
+                let delta_opt = match option_style {
+                    OptionStyle::Call => option_data.delta_call,
+                    OptionStyle::Put => option_data.delta_put,
+                };
+
+                // Include only options with valid deltas less than or equal to target (absolute value)
+                delta_opt.and_then(|delta| {
+                    if delta.abs() <= target_delta_abs {
+                        Some((option_data, delta))
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+
+        // If no options match our criteria, return a specific error
+        if filtered_options.is_empty() {
+            let message = match option_style {
+                OptionStyle::Call => {
+                    format!("No call option with delta ≤ {target_delta} was found")
+                }
+                OptionStyle::Put => {
+                    format!("No put option with delta ≥ {target_delta} was found")
+                }
+            };
+
+            return Err(ChainError::OptionDataError(
+                OptionDataErrorKind::InvalidDelta {
+                    delta: target_delta.to_f64(),
+                    reason: message,
+                },
+            ));
+        }
+
+        // Find the option with the highest absolute delta value that's still ≤ target
+        filtered_options
+            .into_iter()
+            .max_by(|(_, delta_a), (_, delta_b)| {
+                delta_a
+                    .abs()
+                    .partial_cmp(&delta_b.abs())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|(option_data, delta)| {
+                debug!(
+                    "Selected option with strike {} and delta {}",
+                    option_data.strike_price, delta
+                );
+
+                option_data
+                    .get_position(side, option_style, None, None, None)
+                    .map_err(|e| {
+                        error!("Failed to create position: {}", e);
+                        ChainError::OptionDataError(OptionDataErrorKind::InvalidDelta {
+                            delta: delta.to_f64(),
+                            reason: format!("Failed to create position: {e}"),
+                        })
+                    })
+            })
+            .unwrap_or_else(|| {
+                // This should never happen since we checked for empty filtered_options,
+                // but included for completeness
+                Err(ChainError::OptionDataError(
+                    OptionDataErrorKind::InvalidDelta {
+                        delta: target_delta.to_f64(),
+                        reason: "Unexpected error when selecting option with closest delta"
+                            .to_string(),
+                    },
+                ))
+            })
+    }
+
+    /// Retrieves a collection of strike prices from the chain of options.
+    ///
+    /// This method iterates through the options in the chain, extracts the `strike_price`
+    /// of each option, and returns them as a vector of `Positive` values.
+    ///
+    /// # Returns
+    /// This function returns a `Result`:
+    /// - On success, it returns an `Ok` variant containing a `Vec<Positive>`, where each
+    ///   element is the strike price of a corresponding option in the chain.
+    /// - If an error occurs, it returns an `Err` variant containing a `ChainError`.
+    ///
+    /// # Errors
+    /// This function will return an error if there is any issue in processing the options chain
+    /// that prevents successful extraction of strike prices.
+    ///
+    /// # Note
+    /// - The `Positive` type for `strike_price` ensures that only valid positive values are included.
+    /// - An empty vector will be returned if there are no options in the chain.
+    ///
+    /// # Dependencies
+    /// The method depends on `self.iter()` to provide access to the underlying collection of options.
+    /// Each option is expected to have a `strike_price` field.
+    pub fn get_strikes(&self) -> Result<Vec<Positive>, ChainError> {
+        Ok(self
+            .options
+            .iter()
+            .map(|option| option.strike_price)
+            .collect())
+    }
+
+    /// Retrieves an `OptionData` instance from an option chain that has a strike price
+    /// closest to the given price.
+    ///
+    /// # Arguments
+    ///
+    /// * `price` - A reference to a `Positive`, which represents the price to compare
+    ///   against the strike prices in the option chain.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(&OptionData)` - A reference to the `OptionData` instance with the strike price
+    ///   closest to the specified price.
+    /// * `Err(ChainError)` - An error indicating the failure to retrieve the option data,
+    ///   which could occur due to:
+    ///   - The option chain being empty.
+    ///   - No matching `OptionData` found for the given price.
+    ///
+    /// # Errors
+    ///
+    /// * `ChainError` - Returned if the option chain is empty or no suitable option data
+    ///   can be found that matches the given price.
+    ///
+    /// # Behavior
+    ///
+    /// * If the option chain is empty (`self.options.is_empty()`), this function will
+    ///   immediately return an error with a message indicating that the option data cannot be
+    ///   found for an empty chain.
+    /// * The function iterates through the available `OptionData` instances in the chain
+    ///   and identifies the one whose `strike_price` is closest to the specified `price`.
+    ///   - The comparison is done based on the absolute difference between the `strike_price`
+    ///     and `price`, with the smallest difference being considered the best match.
+    /// * If a matching option is found, it is returned as a reference inside an `Ok`.
+    /// * If no matching option is found, an error will be returned with a descriptive message.
+    ///
+    /// # Notes
+    ///
+    /// * The `strike_price` and `price` values are compared as decimal values using the
+    ///   `to_dec` method.
+    /// * If two or more `OptionData` instances have the same distance to the given `price`,
+    ///   the implementation will use the first instance it encounters based on the iteration
+    ///   order.
+    pub fn get_optiondata_with_strike(&self, price: &Positive) -> Result<&OptionData, ChainError> {
+        // Check for empty option chain
+        if self.options.is_empty() {
+            return Err(ChainError::EmptyChain {
+                symbol: self.symbol.clone(),
+            });
+        }
+
+        // Find the option with strike price closest to the price parameter
+        let option_data = self.options.iter().min_by(|a, b| {
+            let a_distance = (a.strike_price.to_dec() - price.to_dec()).abs();
+            let b_distance = (b.strike_price.to_dec() - price.to_dec()).abs();
+            a_distance
+                .partial_cmp(&b_distance)
+                .unwrap_or(Ordering::Equal)
+        });
+
+        match option_data {
+            Some(opt) => Ok(opt),
+            None => Err(ChainError::StrikeNotFound { strike: *price }),
+        }
+    }
+
+    /// Sets additional parameters for all option data objects in the chain.
+    ///
+    /// This method propagates the chain-level parameters (underlying price, expiration date,
+    /// risk-free rate, dividend yield, and symbol) to all individual option contracts.
+    ///
+    /// # Returns
+    /// * `Result<(), ChainError>` - Ok if successful, or an error if the operation fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ChainError::ExpirationDate`] when the chain's expiration
+    /// string cannot be parsed, or propagates any
+    /// [`ChainError::OptionDataError`] surfaced while enriching individual
+    /// [`OptionData`] entries with extra pricing parameters.
+    pub fn set_optiondata_extra_params(&mut self) -> Result<(), ChainError> {
+        let params = OptionDataPriceParams::new(
+            Some(Box::new(self.underlying_price)),
+            ExpirationDate::from_string(&self.expiration_date).ok(),
+            self.risk_free_rate,
+            self.dividend_yield,
+            Some(self.symbol.clone()),
+        );
+
+        self.mutate_single_options(|option| {
+            option.set_extra_params(params.clone());
+        });
+
+        Ok(())
+    }
+}
+
+impl PartialEq for OptionChain {
+    fn eq(&self, other: &Self) -> bool {
+        self.get_expiration() == other.get_expiration() && self.symbol == other.symbol
+    }
+}
+
+impl Eq for OptionChain {}
+
+impl PartialOrd for OptionChain {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for OptionChain {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.get_expiration()
+            .cmp(&other.get_expiration())
+            .then_with(|| self.symbol.cmp(&other.symbol))
+    }
+}
+
+impl Default for OptionChain {
+    fn default() -> Self {
+        Self::new("", Default::default(), "".to_string(), None, None)
+    }
+}
+
+impl Len for OptionChain {
+    fn len(&self) -> usize {
+        self.options.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.options.is_empty()
+    }
+}
+
+impl OptionChainParams for OptionChain {
+    fn get_params(&self, strike_price: Positive) -> Result<OptionDataPriceParams, ChainError> {
+        let option = self
+            .options
+            .iter()
+            .find(|option| option.strike_price == strike_price);
+        if option.is_none() {
+            let reason = format!("Option with strike price {strike_price} not found");
+            return Err(ChainError::invalid_strike(strike_price.to_f64(), &reason));
+        }
+        Ok(OptionDataPriceParams::new(
+            Some(Box::new(self.underlying_price)),
+            ExpirationDate::from_string(&self.expiration_date).ok(),
+            self.risk_free_rate,
+            self.dividend_yield,
+            Some(self.symbol.clone()),
+        ))
+    }
+}
+
+impl OptionChain {
+    /// Print the option chain with colored headers to stdout.
+    ///
+    /// This method prints the option chain directly to stdout using prettytable's
+    /// `printstd()` method, which properly displays colors in the terminal.
+    /// Use this method instead of `info!("{}", chain)` to see colored headers.
+    #[inline(never)]
+    pub fn show(&self) {
+        // Print header information
+        let mut header = Table::new();
+        header.set_format(*format::consts::FORMAT_BOX_CHARS);
+        header.add_row(Row::new(vec![
+            Cell::new("Symbol").with_style(Attr::ForegroundColor(color::GREEN)),
+            Cell::new("Underlying Price").with_style(Attr::ForegroundColor(color::GREEN)),
+            Cell::new("Expiration Date").with_style(Attr::ForegroundColor(color::GREEN)),
+        ]));
+        header.add_row(Row::new(vec![
+            Cell::new(&self.symbol).with_style(Attr::ForegroundColor(color::MAGENTA)),
+            Cell::new(&self.underlying_price.to_string())
+                .with_style(Attr::ForegroundColor(color::MAGENTA)),
+            Cell::new(&self.expiration_date).with_style(Attr::ForegroundColor(color::MAGENTA)),
+        ]));
+
+        header.printstd();
+
+        // Create the table
+        let mut table = Table::new();
+        table.set_format(*format::consts::FORMAT_BOX_CHARS);
+
+        // Add header row with green color
+        table.add_row(Row::new(vec![
+            Cell::new("Strike").with_style(Attr::ForegroundColor(color::GREEN)),
+            Cell::new("Call Bid").with_style(Attr::ForegroundColor(color::GREEN)),
+            Cell::new("Call Ask").with_style(Attr::ForegroundColor(color::GREEN)),
+            Cell::new("Call Mid").with_style(Attr::ForegroundColor(color::GREEN)),
+            Cell::new("Put Bid").with_style(Attr::ForegroundColor(color::GREEN)),
+            Cell::new("Put Ask").with_style(Attr::ForegroundColor(color::GREEN)),
+            Cell::new("Put Mid").with_style(Attr::ForegroundColor(color::GREEN)),
+            Cell::new("IV").with_style(Attr::ForegroundColor(color::GREEN)),
+            Cell::new("C-Delta").with_style(Attr::ForegroundColor(color::GREEN)),
+            Cell::new("P-Delta").with_style(Attr::ForegroundColor(color::GREEN)),
+            Cell::new("Gamma").with_style(Attr::ForegroundColor(color::GREEN)),
+            Cell::new("Vol.").with_style(Attr::ForegroundColor(color::GREEN)),
+            Cell::new("OI").with_style(Attr::ForegroundColor(color::GREEN)),
+        ]));
+
+        // Add data rows
+        for option in &self.options {
+            // Check if strike price is a multiple of 25
+            let is_multiple_of_25 = option.strike_price.is_multiple_of_dec(dec!(25));
+
+            let cells = vec![
+                Cell::new(&option.strike_price.to_string()),
+                Cell::new(&crate::chains::utils::empty_string_round_to_3(
+                    option.call_bid,
+                )),
+                Cell::new(&crate::chains::utils::empty_string_round_to_3(
+                    option.call_ask,
+                )),
+                Cell::new(&crate::chains::utils::empty_string_round_to_3(
+                    option.call_middle,
+                )),
+                Cell::new(&crate::chains::utils::empty_string_round_to_3(
+                    option.put_bid,
+                )),
+                Cell::new(&crate::chains::utils::empty_string_round_to_3(
+                    option.put_ask,
+                )),
+                Cell::new(&crate::chains::utils::empty_string_round_to_3(
+                    option.put_middle,
+                )),
+                Cell::new(&format!("{:.3}", option.implied_volatility)),
+                Cell::new(&format!(
+                    "{:.3}",
+                    option.delta_call.unwrap_or(Decimal::ZERO)
+                )),
+                Cell::new(&format!("{:.3}", option.delta_put.unwrap_or(Decimal::ZERO))),
+                Cell::new(&format!(
+                    "{:.4}",
+                    option.gamma.unwrap_or(Decimal::ZERO) * Decimal::ONE_HUNDRED
+                )),
+                Cell::new(&default_empty_string(option.volume)),
+                Cell::new(&default_empty_string(option.open_interest)),
+            ];
+
+            // Apply yellow color to all cells if strike price is multiple of 25
+            if is_multiple_of_25 {
+                let colored_cells: Vec<Cell> = cells
+                    .into_iter()
+                    .map(|cell| cell.with_style(Attr::ForegroundColor(color::YELLOW)))
+                    .collect();
+                table.add_row(Row::new(colored_cells));
+            } else {
+                table.add_row(Row::new(cells));
+            }
+        }
+
+        // Print the table with colors using printstd()
+        table.printstd();
+    }
+}
+
+impl fmt::Display for OptionChain {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut header = Table::new();
+        header.set_format(*format::consts::FORMAT_BOX_CHARS);
+        header.add_row(Row::new(vec![
+            Cell::new("Symbol").with_style(Attr::ForegroundColor(color::GREEN)),
+            Cell::new("Underlying Price").with_style(Attr::ForegroundColor(color::GREEN)),
+            Cell::new("Expiration Date").with_style(Attr::ForegroundColor(color::GREEN)),
+        ]));
+        header.add_row(Row::new(vec![
+            Cell::new(&self.symbol).with_style(Attr::ForegroundColor(color::MAGENTA)),
+            Cell::new(&self.underlying_price.to_string())
+                .with_style(Attr::ForegroundColor(color::MAGENTA)),
+            Cell::new(&self.expiration_date).with_style(Attr::ForegroundColor(color::MAGENTA)),
+        ]));
+
+        write!(f, "\n{}", header)?;
+
+        // Create the table
+        let mut table = Table::new();
+        table.set_format(*format::consts::FORMAT_BOX_CHARS);
+
+        // Add header row with green color (colors may not display through Display trait)
+        table.add_row(Row::new(vec![
+            Cell::new("Strike"),
+            Cell::new("Call Bid"),
+            Cell::new("Call Ask"),
+            Cell::new("Call Mid"),
+            Cell::new("Put Bid"),
+            Cell::new("Put Ask"),
+            Cell::new("Put Mid"),
+            Cell::new("IV"),
+            Cell::new("C-Delta"),
+            Cell::new("P-Delta"),
+            Cell::new("Gamma"),
+            Cell::new("Vol."),
+            Cell::new("OI"),
+        ]));
+
+        // Add data rows
+        for option in &self.options {
+            table.add_row(Row::new(vec![
+                Cell::new(&option.strike_price.to_string()),
+                Cell::new(&crate::chains::utils::empty_string_round_to_3(
+                    option.call_bid,
+                )),
+                Cell::new(&crate::chains::utils::empty_string_round_to_3(
+                    option.call_ask,
+                )),
+                Cell::new(&crate::chains::utils::empty_string_round_to_3(
+                    option.call_middle,
+                )),
+                Cell::new(&crate::chains::utils::empty_string_round_to_3(
+                    option.put_bid,
+                )),
+                Cell::new(&crate::chains::utils::empty_string_round_to_3(
+                    option.put_ask,
+                )),
+                Cell::new(&crate::chains::utils::empty_string_round_to_3(
+                    option.put_middle,
+                )),
+                Cell::new(&format!("{:.3}", option.implied_volatility)),
+                Cell::new(&format!(
+                    "{:.3}",
+                    option.delta_call.unwrap_or(Decimal::ZERO)
+                )),
+                Cell::new(&format!("{:.3}", option.delta_put.unwrap_or(Decimal::ZERO))),
+                Cell::new(&format!(
+                    "{:.4}",
+                    option.gamma.unwrap_or(Decimal::ZERO) * Decimal::ONE_HUNDRED
+                )),
+                Cell::new(&default_empty_string(option.volume)),
+                Cell::new(&default_empty_string(option.open_interest)),
+            ]));
+        }
+
+        // Print the table (colors may not display through Display trait)
+        write!(f, "{}", table)?;
+        Ok(())
+    }
+}
+
+/// The chain's ATM implied volatility as an [`AtmIvProvider`].
+///
+/// The trait is pricing-owned and generic; this implementation lives with
+/// the market-owned type so that pricing never imports option chains.
+impl AtmIvProvider for OptionChain {
+    fn atm_iv(&self) -> Result<&Positive, VolatilityError> {
+        match self.get_atm_implied_volatility() {
+            Ok(iv) => Ok(iv),
+            // The chain error stays in the market layer; pricing hears the
+            // reason, not the type.
+            Err(e) => Err(VolatilityError::AtmIvUnavailable {
+                source: Box::new(VolatilityError::NumericalFailure {
+                    reason: e.to_string(),
+                }),
+            }),
+        }
+    }
+}
+
+impl VolatilitySmile for OptionChain {
+    /// Computes the volatility smile for the option chain.
+    ///
+    /// This function calculates the volatility smile by interpolating the implied volatilities
+    /// for all strike prices in the option chain.  It uses the available implied volatilities
+    /// from the `options` field and performs linear interpolation to estimate missing values.
+    ///
+    /// # Returns
+    ///
+    /// A `Curve` object representing the volatility smile. The x-coordinates of the curve
+    /// correspond to the strike prices, and the y-coordinates represent the corresponding
+    /// implied volatilities.
+    fn smile(&self) -> Curve {
+        // Build a BTreeSet with the known points (options with implied volatility)
+        let mut bt_points: BTreeSet<Point2D> = self
+            .options
+            .iter()
+            .map(|option| {
+                Point2D::new(
+                    option.strike_price.to_dec(),
+                    option.implied_volatility.to_dec(),
+                )
+            })
+            .collect();
+
+        // Create an initial Curve object using the known points
+        let curve = Curve::new(bt_points.clone());
+
+        // Interpolate missing points (options without implied volatility)
+        for option in self
+            .options
+            .iter()
+            .filter(|o| o.implied_volatility.is_zero())
+        {
+            // Use linear interpolation to estimate the missing implied volatility
+            if let Ok(interpolated_point) = curve.linear_interpolate(option.strike_price.to_dec()) {
+                bt_points.insert(interpolated_point);
+            }
+        }
+
+        // Return the final Curve with all points, including interpolated ones
+        Curve::new(bt_points)
+    }
+}
+
+impl From<&Vec<OptionData>> for OptionChain {
+    fn from(options: &Vec<OptionData>) -> Self {
+        let first_option = match options.first() {
+            Some(opt) => opt,
+            None => {
+                return OptionChain::default();
+            }
+        };
+        let symbol = first_option.clone().symbol.unwrap_or("Unknown".to_string());
+        let underlying_price = *first_option
+            .clone()
+            .underlying_price
+            .unwrap_or(Box::new(Positive::ZERO));
+        let expiration_date = first_option
+            .clone()
+            .expiration_date
+            .unwrap_or(ExpirationDate::Days(Positive::ZERO))
+            .to_string();
+        let risk_free_rate = first_option.risk_free_rate;
+        let dividend_yield = first_option.dividend_yield;
+
+        let options: BTreeSet<OptionData> = options.iter().cloned().collect();
+
+        OptionChain {
+            symbol,
+            underlying_price,
+            expiration_date,
+            risk_free_rate,
+            dividend_yield,
+            options,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests_chain_base {
+
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    #[cfg(feature = "io")]
+    /// A directory of this test run's own, outside the working tree.
+    ///
+    /// Writing chain artifacts into `.` or `tests/` puts every file-writing
+    /// test in one shared directory, and `cargo` runs test binaries
+    /// concurrently. Asserting that the cleanup succeeded then asserts that
+    /// nothing else touched the file, which is not a property of the test:
+    /// two of these failed together on a full-suite run, each passing on its
+    /// own. `tests/` is a source directory besides, so the round trip was
+    /// leaving artifacts in the tree.
+    ///
+    /// The directory has to be unique per *process*, not per test: a path
+    /// derived from the test's own name is shared by every process running
+    /// that test, so two checkouts, or a `cargo test` beside a coverage run,
+    /// would still remove each other's directory — the same flake in a new
+    /// place. `tempfile` picks a fresh one and removes it when the returned
+    /// handle drops, so the caller keeps the handle alive for as long as it
+    /// needs the files.
+    fn scratch_dir() -> tempfile::TempDir {
+        tempfile::tempdir().expect("a temporary directory is available")
+    }
+
+    use optionstratlib_core::model::ExpirationDate;
+
+    use rust_decimal_macros::dec;
+
+    use optionstratlib_core::spos;
+    use tracing::info;
+
+    #[test]
+    fn test_new_option_chain() {
+        let chain = OptionChain::new(
+            "SP500",
+            pos_or_panic!(5781.88),
+            "18-oct-2024".to_string(),
+            None,
+            None,
+        );
+        assert_eq!(chain.symbol, "SP500");
+        assert_eq!(chain.underlying_price, 5781.88);
+        assert_eq!(chain.expiration_date, "18-oct-2024");
+        assert!(chain.options.is_empty());
+    }
+
+    /// `chain_size` is the number of strikes per side, at every tenor.
+    ///
+    /// The regression this pins: a worthless wing used to be priced as `None`
+    /// rather than as zero, and the build loop stopped as soon as both ends
+    /// were "priceless", so the SAME request returned fewer strikes the closer
+    /// the expiry got. Measured before the fix at a spot of 5100 with
+    /// `chain_size` 20: 41 strikes at one day, 11 at 0.05 days, 5 at 0.01 days.
+    #[test]
+    fn test_build_chain_returns_the_requested_width_at_every_tenor() {
+        for days in [30.0, 1.0, 0.3125, 0.05, 0.01] {
+            let params = OptionChainBuildParams::new(
+                "SP500".to_string(),
+                None,
+                20,
+                spos!(25.0),
+                dec!(-0.2),
+                dec!(0.4),
+                Positive::ZERO,
+                2,
+                OptionDataPriceParams::new(
+                    Some(Box::new(pos_or_panic!(5100.0))),
+                    Some(ExpirationDate::Days(pos_or_panic!(days))),
+                    Some(dec!(0.04)),
+                    Some(Positive::ZERO),
+                    Some("SP500".to_string()),
+                ),
+                pos_or_panic!(0.2),
+            );
+
+            let chain = match OptionChain::build_chain(&params) {
+                Ok(chain) => chain,
+                Err(error) => panic!("the chain must build at {days} days: {error}"),
+            };
+
+            assert_eq!(
+                chain.options.len(),
+                41,
+                "chain_size 20 must mean 41 strikes at {days} days, got [{:?} .. {:?}]",
+                chain.options.iter().next().map(|c| c.strike_price),
+                chain.options.iter().next_back().map(|c| c.strike_price),
+            );
+        }
+    }
+
+    /// A worthless wing is quoted at the tick, not withdrawn.
+    ///
+    /// Black-Scholes on `Decimal` returns a negative epsilon for an option
+    /// worth nothing, and reading that as "no price" removed the contract from
+    /// the chain. It is a contract that nobody would pay for, which is a price,
+    /// so it is quoted: this is issue #439's decision applied one layer up.
+    #[test]
+    fn test_a_worthless_wing_is_quoted_rather_than_dropped() {
+        let params = OptionChainBuildParams::new(
+            "SP500".to_string(),
+            None,
+            20,
+            spos!(25.0),
+            dec!(-0.2),
+            dec!(0.4),
+            // A real spread, so this cannot be read as an artefact of asking
+            // for none: the wing came back unpriced either way.
+            pos_or_panic!(0.02),
+            2,
+            OptionDataPriceParams::new(
+                Some(Box::new(pos_or_panic!(4793.056))),
+                Some(ExpirationDate::Days(pos_or_panic!(0.3125))),
+                Some(dec!(0.04)),
+                Some(Positive::ZERO),
+                Some("SP500".to_string()),
+            ),
+            pos_or_panic!(0.2),
+        );
+
+        let chain = match OptionChain::build_chain(&params) {
+            Ok(chain) => chain,
+            Err(error) => panic!("the chain must build: {error}"),
+        };
+
+        // 5100 is 300 points out of the money at seven and a half hours: the
+        // call there priced at -2.992e-25 before the fix.
+        let wing = match chain
+            .options
+            .iter()
+            .find(|contract| contract.strike_price == pos_or_panic!(5100.0))
+        {
+            Some(wing) => wing,
+            None => panic!("the worthless wing must be in the chain"),
+        };
+
+        assert!(
+            wing.call_bid.is_some() && wing.call_ask.is_some(),
+            "a worthless call must still be quoted: {wing:?}"
+        );
+        assert!(
+            wing.put_bid.is_some() && wing.put_ask.is_some(),
+            "the deep in-the-money put must be quoted too: {wing:?}"
+        );
+    }
+
+    #[test]
+    fn test_new_option_chain_build_chain() {
+        let params = OptionChainBuildParams::new(
+            "SP500".to_string(),
+            None,
+            10,
+            spos!(1.0),
+            dec!(-0.3),
+            Decimal::ZERO,
+            pos_or_panic!(0.02),
+            2,
+            OptionDataPriceParams::new(
+                Some(Box::new(Positive::HUNDRED)),
+                Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+                Some(dec!(0.05)),
+                spos!(0.02),
+                Some("SP500".to_string()),
+            ),
+            pos_or_panic!(0.17),
+        );
+
+        let chain = OptionChain::build_chain(&params).unwrap();
+
+        assert_eq!(chain.symbol, "SP500");
+        info!("{}", chain);
+        // With chain_size=10, we should get 21 strikes: 10 below + ATM + 10 above
+        assert_eq!(chain.options.len(), 21);
+        assert_eq!(chain.underlying_price, Positive::HUNDRED);
+
+        // First strike should be 10 strikes below ATM (100 - 10*1 = 90)
+        let first = chain.options.iter().next().unwrap();
+        assert_eq!(first.strike_price, pos_or_panic!(90.0));
+        assert_eq!(first.call_ask.unwrap(), 10.24);
+        assert_eq!(first.call_bid.unwrap(), 10.22);
+        assert_eq!(first.put_ask.unwrap(), 0.04);
+        assert_eq!(first.put_bid.unwrap(), 0.02);
+
+        // Last strike should be 10 strikes above ATM (100 + 10*1 = 110)
+        let last = chain.options.iter().next_back().unwrap();
+        assert_eq!(last.strike_price, pos_or_panic!(110.0));
+        assert_eq!(last.call_ask.unwrap(), 0.06);
+        assert_eq!(last.call_bid.unwrap(), 0.04);
+        assert_eq!(last.put_ask.unwrap(), 9.77);
+        assert_eq!(last.put_bid.unwrap(), 9.75);
+    }
+
+    #[test]
+    fn test_new_option_chain_build_chain_long() {
+        let params = OptionChainBuildParams::new(
+            "SP500".to_string(),
+            None,
+            25,
+            spos!(25.0),
+            dec!(-0.3),
+            dec!(0.2),
+            pos_or_panic!(0.02),
+            2,
+            OptionDataPriceParams::new(
+                Some(Box::new(pos_or_panic!(5878.10))),
+                Some(ExpirationDate::Days(pos_or_panic!(5.0))),
+                Some(dec!(0.05)),
+                spos!(0.02),
+                Some("SP500".to_string()),
+            ),
+            pos_or_panic!(0.2),
+        );
+        let chain = OptionChain::build_chain(&params).unwrap();
+
+        assert_eq!(chain.symbol, "SP500");
+        info!("{}", chain);
+        assert!(chain.options.len() > 1);
+        assert_eq!(chain.underlying_price, pos_or_panic!(5878.10));
+        // `chain_size` is a per-side half-width: the ATM strike plus 25 on
+        // each side. The wings used to be withdrawn by `apply_spread` — their
+        // mid sat below one spread — which also stopped the builder from
+        // generating past them.
+        assert_eq!(chain.options.len(), 51);
+
+        let first = chain.options.iter().next().unwrap();
+        assert_eq!(first.strike_price, pos_or_panic!(5250.0));
+        assert_eq!(first.call_ask, spos!(630.09));
+        assert_eq!(first.call_bid, spos!(630.07));
+        // Deep out-of-the-money put: quoted at the tick, not withdrawn. The
+        // mid is sub-tick, so `mid - half` floors to the tick and `mid + half`
+        // rounds down to it: both sides land on `0.01` and the quote would be
+        // locked. `apply_spread` lifts the ask one tick above the bid instead
+        // (#459), so the thinnest market the builder emits is one tick wide.
+        assert_eq!(first.put_bid, spos!(0.01));
+        assert_eq!(first.put_ask, spos!(0.02));
+        assert_eq!(first.put_middle, spos!(0.01));
+
+        let last = chain.options.iter().next_back().unwrap();
+        assert_eq!(last.strike_price, pos_or_panic!(6500.0));
+        assert_eq!(last.call_bid, spos!(0.01));
+        assert_eq!(last.call_ask, spos!(0.02));
+        assert_eq!(last.call_middle, spos!(0.01));
+        assert_eq!(last.put_ask, spos!(619.07));
+        assert_eq!(last.put_bid, spos!(619.05));
+    }
+
+    #[test]
+    fn test_add_option() {
+        let mut chain = OptionChain::new(
+            "SP500",
+            pos_or_panic!(5781.88),
+            "18-oct-2024".to_string(),
+            None,
+            None,
+        );
+        chain.add_option(
+            pos_or_panic!(5520.0),
+            spos!(274.26),
+            spos!(276.06),
+            spos!(13.22),
+            spos!(14.90),
+            pos_or_panic!(0.1631),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            spos!(100.0),
+            Some(100),
+            None,
+        );
+        assert_eq!(chain.options.len(), 1);
+        // first option in the chain
+        let option = chain.options.iter().next().unwrap();
+        assert_eq!(option.strike_price, 5520.0);
+        assert!(option.call_bid.is_some());
+        assert_eq!(option.call_bid.unwrap(), 274.26);
+    }
+
+    #[test]
+    fn test_get_title_i() {
+        let chain = OptionChain::new(
+            "SP500",
+            pos_or_panic!(5781.88),
+            "18-oct-2024".to_string(),
+            None,
+            None,
+        );
+        assert_eq!(chain.get_title(), "SP500-18-oct-2024-5781.88");
+    }
+
+    #[test]
+    fn test_get_title_ii() {
+        let chain = OptionChain::new(
+            "SP500",
+            pos_or_panic!(5781.88),
+            "18 oct 2024".to_string(),
+            None,
+            None,
+        );
+        assert_eq!(chain.get_title(), "SP500-18-oct-2024-5781.88");
+    }
+
+    #[test]
+    fn test_set_from_title_i() {
+        let mut chain = OptionChain::new("", Positive::ZERO, "".to_string(), None, None);
+        let _ = chain.set_from_title("SP500-18-oct-2024-5781.88.csv");
+        assert_eq!(chain.symbol, "SP500");
+        assert_eq!(chain.expiration_date, "18-oct-2024");
+        assert_eq!(chain.underlying_price, 5781.88);
+    }
+
+    #[test]
+    fn test_set_from_title_ii() {
+        let mut chain = OptionChain::new("", Positive::ZERO, "".to_string(), None, None);
+        let _ = chain.set_from_title("path/SP500-18-oct-2024-5781.88.csv");
+        assert_eq!(chain.symbol, "SP500");
+        assert_eq!(chain.expiration_date, "18-oct-2024");
+        assert_eq!(chain.underlying_price, 5781.88);
+    }
+
+    #[test]
+    fn test_set_from_title_iii() {
+        let mut chain = OptionChain::new("", Positive::ZERO, "".to_string(), None, None);
+        let _ = chain.set_from_title("path/SP500-18-oct-2024-5781.csv");
+        assert_eq!(chain.symbol, "SP500");
+        assert_eq!(chain.expiration_date, "18-oct-2024");
+        assert_eq!(chain.underlying_price, 5781.0);
+    }
+
+    #[test]
+    fn test_set_from_title_iv() {
+        let mut chain = OptionChain::new("", Positive::ZERO, "".to_string(), None, None);
+        let _ = chain.set_from_title("path/SP500-18-oct-2024-5781.88.json");
+        assert_eq!(chain.symbol, "SP500");
+        assert_eq!(chain.expiration_date, "18-oct-2024");
+        assert_eq!(chain.underlying_price, 5781.88);
+    }
+
+    #[test]
+    fn test_set_from_title_v() {
+        let mut chain = OptionChain::new("", Positive::ZERO, "".to_string(), None, None);
+        let _ = chain.set_from_title("path/SP500-18-oct-2024-5781.json");
+        assert_eq!(chain.symbol, "SP500");
+        assert_eq!(chain.expiration_date, "18-oct-2024");
+        assert_eq!(chain.underlying_price, 5781.0);
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_save_to_csv() {
+        let mut chain = OptionChain::new(
+            "SP500",
+            pos_or_panic!(5781.88),
+            "18-oct-2024".to_string(),
+            None,
+            None,
+        );
+        chain.add_option(
+            pos_or_panic!(5520.0),
+            spos!(274.26),
+            spos!(276.06),
+            spos!(13.22),
+            spos!(14.90),
+            pos_or_panic!(0.1631),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            spos!(100.0),
+            Some(100),
+            None,
+        );
+        let scratch = scratch_dir();
+        let dir = scratch.path().to_string_lossy();
+        let result = chain.save_to_csv(&dir);
+        assert!(result.is_ok());
+        assert!(std::path::Path::new(&format!("{dir}/SP500-18-oct-2024-5781.88.csv")).exists());
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_save_to_json() {
+        let mut chain = OptionChain::new(
+            "SP500",
+            pos_or_panic!(5781.88),
+            "18-oct-2024".to_string(),
+            None,
+            None,
+        );
+        chain.add_option(
+            pos_or_panic!(5520.0),
+            spos!(274.26),
+            spos!(276.06),
+            spos!(13.22),
+            spos!(14.90),
+            pos_or_panic!(0.1631),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            spos!(100.0),
+            Some(100),
+            None,
+        );
+        let scratch = scratch_dir();
+        let dir = scratch.path().to_string_lossy();
+        let result = chain.save_to_json(&dir);
+        assert!(result.is_ok());
+        assert!(std::path::Path::new(&format!("{dir}/SP500-18-oct-2024-5781.88.json")).exists());
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_load_from_csv() {
+        let mut chain = OptionChain::new(
+            "SP500",
+            pos_or_panic!(5781.89),
+            "18-oct-2024".to_string(),
+            None,
+            None,
+        );
+        chain.add_option(
+            pos_or_panic!(5520.0),
+            spos!(274.26),
+            spos!(276.06),
+            spos!(13.22),
+            spos!(14.90),
+            pos_or_panic!(0.1631),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            spos!(100.0),
+            Some(100),
+            None,
+        );
+        let scratch = scratch_dir();
+        let dir = scratch.path().to_string_lossy();
+        let result = chain.save_to_csv(&dir);
+        assert!(result.is_ok());
+
+        let result = OptionChain::load_from_csv(&format!("{dir}/SP500-18-oct-2024-5781.89.csv"));
+        assert!(result.is_ok());
+        let chain = result.unwrap();
+        assert_eq!(chain.symbol, "SP500");
+        assert_eq!(chain.expiration_date, "18-oct-2024");
+        assert_eq!(chain.underlying_price, 5781.89);
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_load_from_json() {
+        let mut chain = OptionChain::new(
+            "SP500",
+            pos_or_panic!(5781.9),
+            "18-oct-2024".to_string(),
+            None,
+            None,
+        );
+        chain.add_option(
+            pos_or_panic!(5520.0),
+            spos!(274.26),
+            spos!(276.06),
+            spos!(13.22),
+            spos!(14.90),
+            pos_or_panic!(0.1631),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            spos!(100.0),
+            Some(100),
+            None,
+        );
+        let scratch = scratch_dir();
+        let dir = scratch.path().to_string_lossy();
+        let result = chain.save_to_json(&dir);
+        assert!(result.is_ok());
+
+        let result = OptionChain::load_from_json(&format!("{dir}/SP500-18-oct-2024-5781.9.json"));
+        assert!(result.is_ok());
+        let chain = result.unwrap();
+        assert_eq!(chain.symbol, "SP500");
+        assert_eq!(chain.expiration_date, "18-oct-2024");
+        assert_eq!(chain.underlying_price, 5781.9);
+    }
+}
+
+#[cfg(test)]
+mod tests_option_data {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use num_traits::ToPrimitive;
+    use optionstratlib_core::{assert_pos_relative_eq, spos};
+    use rust_decimal_macros::dec;
+    use tracing::info;
+
+    fn create_valid_option_data() -> OptionData {
+        OptionData::new(
+            Positive::HUNDRED,  // strike_price
+            spos!(9.5),         // call_bid
+            spos!(10.0),        // call_ask
+            spos!(8.5),         // put_bid
+            spos!(9.0),         // put_ask
+            pos_or_panic!(0.2), // implied_volatility
+            Some(dec!(-0.3)),   // delta
+            Some(dec!(0.7)),
+            Some(dec!(0.5)),
+            spos!(1000.0), // volume
+            Some(500),     // open_interest
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+    }
+
+    #[test]
+    fn test_new_option_data() {
+        let option_data = create_valid_option_data();
+        assert_eq!(option_data.strike_price, Positive::HUNDRED);
+        assert_eq!(option_data.call_bid, spos!(9.5));
+        assert_eq!(option_data.call_ask, spos!(10.0));
+        assert_eq!(option_data.put_bid, spos!(8.5));
+        assert_eq!(option_data.put_ask, spos!(9.0));
+        assert_eq!(option_data.implied_volatility, pos_or_panic!(0.2));
+        assert_eq!(option_data.delta_call.unwrap().to_f64(), Some(-0.3));
+        assert_eq!(option_data.volume, spos!(1000.0));
+        assert_eq!(option_data.open_interest, Some(500));
+    }
+
+    #[test]
+    fn test_validate_valid_option() {
+        let option_data = create_valid_option_data();
+        assert!(option_data.validate());
+    }
+
+    #[test]
+    fn test_validate_zero_strike() {
+        let mut option_data = create_valid_option_data();
+        option_data.strike_price = Positive::ZERO;
+        assert!(!option_data.validate());
+    }
+
+    #[test]
+    fn test_validate_missing_both_sides() {
+        let mut option_data = OptionData {
+            strike_price: Positive::HUNDRED,
+            ..Default::default()
+        };
+        option_data.implied_volatility = pos_or_panic!(0.2);
+        assert!(!option_data.validate());
+    }
+
+    #[test]
+    fn test_valid_call() {
+        let option_data = create_valid_option_data();
+        assert!(option_data.valid_call());
+    }
+
+    #[test]
+    fn test_valid_call_missing_bid() {
+        let mut option_data = create_valid_option_data();
+        option_data.call_bid = None;
+        assert!(!option_data.valid_call());
+    }
+
+    #[test]
+    fn test_valid_call_missing_ask() {
+        let mut option_data = create_valid_option_data();
+        option_data.call_ask = None;
+        assert!(!option_data.valid_call());
+    }
+
+    #[test]
+    fn test_valid_put() {
+        let option_data = create_valid_option_data();
+        assert!(option_data.valid_put());
+    }
+
+    #[test]
+    fn test_valid_put_missing_bid() {
+        let mut option_data = create_valid_option_data();
+        option_data.put_bid = None;
+        assert!(!option_data.valid_put());
+    }
+
+    #[test]
+    fn test_valid_put_missing_ask() {
+        let mut option_data = create_valid_option_data();
+        option_data.put_ask = None;
+        assert!(!option_data.valid_put());
+    }
+
+    #[test]
+    fn test_calculate_prices_success() {
+        let mut option_data = OptionData {
+            strike_price: Positive::HUNDRED,
+            symbol: Some("TEST".to_string()),
+            expiration_date: Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+            underlying_price: Some(Box::new(Positive::HUNDRED)),
+            ..Default::default()
+        };
+        option_data.implied_volatility = pos_or_panic!(0.2);
+        let result = option_data.calculate_prices(None);
+
+        assert!(result.is_ok());
+        assert!(option_data.call_ask.is_some());
+        assert!(option_data.call_bid.is_some());
+        assert!(option_data.put_ask.is_some());
+        assert!(option_data.put_bid.is_some());
+    }
+
+    #[test]
+    fn test_calculate_prices_missing_volatility() {
+        let mut option_data = OptionData {
+            strike_price: Positive::HUNDRED,
+            symbol: Some("TEST".to_string()),
+            expiration_date: Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+            underlying_price: Some(Box::new(Positive::HUNDRED)),
+            ..Default::default()
+        };
+        let _ = option_data.calculate_prices(None);
+
+        info!("{}", option_data);
+        assert_eq!(option_data.call_ask, None);
+        assert_eq!(option_data.call_bid, None);
+        assert_eq!(option_data.put_ask, None);
+        assert_eq!(option_data.put_bid, None);
+        assert_eq!(option_data.implied_volatility, Positive::ZERO);
+        assert_eq!(option_data.delta_call, None);
+        assert_eq!(option_data.strike_price, Positive::HUNDRED);
+    }
+
+    #[test]
+    fn test_calculate_prices_override_volatility() {
+        let mut option_data = OptionData {
+            strike_price: Positive::HUNDRED,
+            symbol: Some("TEST".to_string()),
+            expiration_date: Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+            underlying_price: Some(Box::new(Positive::HUNDRED)),
+            ..Default::default()
+        };
+        option_data.implied_volatility = pos_or_panic!(0.2);
+        let result = option_data.calculate_prices(None);
+
+        assert!(result.is_ok());
+        info!("{}", option_data);
+        assert_pos_relative_eq!(
+            option_data.call_ask.unwrap(),
+            pos_or_panic!(2.2871),
+            pos_or_panic!(0.0001)
+        );
+        assert_pos_relative_eq!(
+            option_data.call_bid.unwrap(),
+            pos_or_panic!(2.2871),
+            pos_or_panic!(0.0001)
+        );
+        assert_pos_relative_eq!(
+            option_data.put_ask.unwrap(),
+            pos_or_panic!(2.2871),
+            pos_or_panic!(0.0001)
+        );
+        assert_pos_relative_eq!(
+            option_data.put_bid.unwrap(),
+            pos_or_panic!(2.2871),
+            pos_or_panic!(0.0001)
+        );
+        option_data.apply_spread(pos_or_panic!(0.02), 2);
+        info!("{}", option_data);
+        assert_eq!(option_data.call_ask, spos!(2.30));
+        assert_eq!(option_data.call_bid, spos!(2.28));
+        assert_eq!(option_data.put_ask, spos!(2.30));
+        assert_eq!(option_data.put_bid, spos!(2.28));
+    }
+
+    #[test]
+    fn test_calculate_prices_with_all_parameters() {
+        let mut option_data = OptionData {
+            strike_price: Positive::HUNDRED,
+            symbol: Some("TEST".to_string()),
+            expiration_date: Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+            underlying_price: Some(Box::new(Positive::HUNDRED)),
+            ..Default::default()
+        };
+        option_data.implied_volatility = pos_or_panic!(0.2);
+        let result = option_data.calculate_prices(None);
+
+        assert!(result.is_ok());
+        assert!(option_data.call_ask.is_some());
+        assert!(option_data.call_bid.is_some());
+        assert!(option_data.put_ask.is_some());
+        assert!(option_data.put_bid.is_some());
+    }
+}
+
+#[cfg(test)]
+mod tests_get_random_positions {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use crate::error::chains::ChainBuildErrorKind;
+    use optionstratlib_core::model::ExpirationDate;
+
+    use rust_decimal_macros::dec;
+
+    fn create_test_chain() -> OptionChain {
+        // Create a sample option chain
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        // Add some test options with different strikes
+        chain.add_option(
+            pos_or_panic!(95.0), // strike_price
+            spos!(4.0),          // call_bid
+            spos!(4.2),          // call_ask
+            spos!(3.0),          // put_bid
+            spos!(3.2),          // put_ask
+            pos_or_panic!(0.2),  // implied_volatility
+            Some(dec!(0.5)),     // delta
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            spos!(100.0), // volume
+            Some(50),     // open_interest
+            None,
+        );
+
+        chain.add_option(
+            Positive::HUNDRED,
+            spos!(3.0),
+            spos!(3.2),
+            spos!(3.0),
+            spos!(3.2),
+            pos_or_panic!(0.2),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            spos!(100.0),
+            Some(50),
+            None,
+        );
+
+        chain.add_option(
+            pos_or_panic!(105.0),
+            spos!(2.0),
+            spos!(2.2),
+            spos!(4.0),
+            spos!(4.2),
+            pos_or_panic!(0.2),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            spos!(100.0),
+            Some(50),
+            None,
+        );
+
+        chain
+    }
+
+    #[test]
+    fn test_zero_quantity() {
+        let chain = create_test_chain();
+        let params = RandomPositionsParams::new(
+            None,
+            None,
+            None,
+            None,
+            ExpirationDate::Days(pos_or_panic!(30.0)),
+            Positive::ONE,
+            dec!(0.05),
+            pos_or_panic!(0.02),
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            None,
+            None,
+        );
+        let result = chain.get_random_positions(params);
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        match error {
+            ChainError::ChainBuildError(ChainBuildErrorKind::InvalidParameters {
+                parameter,
+                reason,
+            }) => {
+                assert_eq!(parameter, "total_positions");
+                assert_eq!(reason, "The sum of the quantities must be greater than 0");
+            }
+            _ => panic!("Incorrect error type"),
+        }
+    }
+
+    #[test]
+    fn test_long_puts_only() {
+        let chain = create_test_chain();
+        let params = RandomPositionsParams::new(
+            Some(2),
+            None,
+            None,
+            None,
+            ExpirationDate::Days(pos_or_panic!(30.0)),
+            Positive::ONE,
+            dec!(0.05),
+            pos_or_panic!(0.02),
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            None,
+            None,
+        );
+        let result = chain.get_random_positions(params);
+
+        assert!(result.is_ok());
+        let positions = result.unwrap();
+        assert_eq!(positions.len(), 2);
+
+        for position in positions {
+            assert_eq!(position.option.option_style, OptionStyle::Put);
+            assert_eq!(position.option.side, Side::Long);
+            // Premium should be ask price for long positions
+            assert!(position.premium > 0.0);
+        }
+    }
+
+    #[test]
+    fn test_short_puts_only() {
+        let chain = create_test_chain();
+        let params = RandomPositionsParams::new(
+            None,
+            Some(2),
+            None,
+            None,
+            ExpirationDate::Days(pos_or_panic!(30.0)),
+            Positive::ONE,
+            dec!(0.05),
+            pos_or_panic!(0.02),
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            None,
+            None,
+        );
+        let result = chain.get_random_positions(params);
+
+        assert!(result.is_ok());
+        let positions = result.unwrap();
+        assert_eq!(positions.len(), 2);
+
+        for position in positions {
+            assert_eq!(position.option.option_style, OptionStyle::Put);
+            assert_eq!(position.option.side, Side::Short);
+            // Premium should be bid price for short positions
+            assert!(position.premium > 0.0);
+        }
+    }
+
+    #[test]
+    fn test_long_calls_only() {
+        let chain = create_test_chain();
+        let params = RandomPositionsParams::new(
+            None,
+            None,
+            Some(2),
+            None,
+            ExpirationDate::Days(pos_or_panic!(30.0)),
+            Positive::ONE,
+            dec!(0.05),
+            pos_or_panic!(0.02),
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            None,
+            None,
+        );
+        let result = chain.get_random_positions(params);
+
+        assert!(result.is_ok());
+        let positions = result.unwrap();
+        assert_eq!(positions.len(), 2);
+
+        for position in positions {
+            assert_eq!(position.option.option_style, OptionStyle::Call);
+            assert_eq!(position.option.side, Side::Long);
+            // Premium should be ask price for long positions
+            assert!(position.premium > 0.0);
+        }
+    }
+
+    #[test]
+    fn test_short_calls_only() {
+        let chain = create_test_chain();
+        let params = RandomPositionsParams::new(
+            None,
+            None,
+            None,
+            Some(2),
+            ExpirationDate::Days(pos_or_panic!(30.0)),
+            Positive::ONE,
+            dec!(0.05),
+            pos_or_panic!(0.02),
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            None,
+            None,
+        );
+        let result = chain.get_random_positions(params);
+
+        assert!(result.is_ok());
+        let positions = result.unwrap();
+        assert_eq!(positions.len(), 2);
+
+        for position in positions {
+            assert_eq!(position.option.option_style, OptionStyle::Call);
+            assert_eq!(position.option.side, Side::Short);
+            // Premium should be bid price for short positions
+            assert!(position.premium > 0.0);
+        }
+    }
+
+    #[test]
+    fn test_mixed_positions() {
+        let chain = create_test_chain();
+        let params = RandomPositionsParams::new(
+            Some(1),
+            Some(1),
+            Some(1),
+            Some(1),
+            ExpirationDate::Days(pos_or_panic!(30.0)),
+            Positive::ONE,
+            dec!(0.05),
+            pos_or_panic!(0.02),
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            None,
+            None,
+        );
+        let result = chain.get_random_positions(params);
+
+        assert!(result.is_ok());
+        let positions = result.unwrap();
+        assert_eq!(positions.len(), 4);
+
+        let mut long_puts = 0;
+        let mut short_puts = 0;
+        let mut long_calls = 0;
+        let mut short_calls = 0;
+
+        for position in positions {
+            match (position.option.option_style, position.option.side) {
+                (OptionStyle::Put, Side::Long) => long_puts += 1,
+                (OptionStyle::Put, Side::Short) => short_puts += 1,
+                (OptionStyle::Call, Side::Long) => long_calls += 1,
+                (OptionStyle::Call, Side::Short) => short_calls += 1,
+            }
+            // All premiums should be positive
+            assert!(position.premium > 0.0);
+        }
+
+        assert_eq!(long_puts, 1);
+        assert_eq!(short_puts, 1);
+        assert_eq!(long_calls, 1);
+        assert_eq!(short_calls, 1);
+    }
+
+    #[test]
+    fn test_empty_chain() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        let params = RandomPositionsParams::new(
+            Some(1),
+            None,
+            None,
+            None,
+            ExpirationDate::Days(pos_or_panic!(30.0)),
+            Positive::ONE,
+            dec!(0.05),
+            pos_or_panic!(0.02),
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            None,
+            None,
+        );
+        let result = chain.get_random_positions(params);
+
+        assert!(result.is_ok());
+        let positions = result.unwrap();
+        assert!(positions.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod tests_option_data_get_prices {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use rust_decimal_macros::dec;
+
+    fn create_test_option_data() -> OptionData {
+        OptionData::new(
+            Positive::HUNDRED,
+            spos!(9.5),
+            spos!(10.0),
+            spos!(8.5),
+            spos!(9.0),
+            pos_or_panic!(0.2),
+            Some(dec!(-0.3)),
+            Some(dec!(0.7)),
+            Some(dec!(0.5)),
+            spos!(1000.0),
+            Some(500),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+    }
+
+    #[test]
+    fn test_get_call_buy_price() {
+        let data = create_test_option_data();
+        assert_eq!(data.get_call_buy_price(), spos!(10.0));
+    }
+
+    #[test]
+    fn test_get_call_sell_price() {
+        let data = create_test_option_data();
+        assert_eq!(data.get_call_sell_price(), spos!(9.5));
+    }
+
+    #[test]
+    fn test_get_put_buy_price() {
+        let data = create_test_option_data();
+        assert_eq!(data.get_put_buy_price(), spos!(9.0));
+    }
+
+    #[test]
+    fn test_get_put_sell_price() {
+        let data = create_test_option_data();
+        assert_eq!(data.get_put_sell_price(), spos!(8.5));
+    }
+
+    #[test]
+    fn test_get_prices_with_none_values() {
+        let data = OptionData::new(
+            Positive::HUNDRED,
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.2),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        assert_eq!(data.get_call_buy_price(), None);
+        assert_eq!(data.get_call_sell_price(), None);
+        assert_eq!(data.get_put_buy_price(), None);
+        assert_eq!(data.get_put_sell_price(), None);
+    }
+}
+
+#[cfg(test)]
+mod tests_option_data_display {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use rust_decimal_macros::dec;
+
+    #[test]
+    fn test_display_full_data() {
+        let data = OptionData::new(
+            Positive::HUNDRED,
+            spos!(9.5),
+            spos!(10.0),
+            spos!(8.5),
+            spos!(9.0),
+            pos_or_panic!(0.2),
+            Some(dec!(-0.3)),
+            Some(dec!(0.7)),
+            Some(dec!(0.5)),
+            spos!(1000.0),
+            Some(500),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        let display_string = format!("{data}");
+        assert!(display_string.contains("100"));
+        assert!(display_string.contains("9.5"));
+        assert!(display_string.contains("10"));
+        assert!(display_string.contains("8.5"));
+        assert!(display_string.contains("9"));
+        assert!(display_string.contains("0.200"));
+        assert!(display_string.contains("-0.300"));
+        assert!(display_string.contains("1000"));
+        assert!(display_string.contains("500"));
+    }
+
+    #[test]
+    fn test_display_empty_data() {
+        let data = OptionData::default();
+        let display_string = format!("{data}");
+
+        assert!(display_string.contains("0.0"));
+        assert!(display_string.contains("")); // Para campos None
+    }
+}
+
+#[cfg(test)]
+mod tests_filter_option_data {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    fn create_test_chain() -> OptionChain {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        for strike in [90.0, 95.0, 100.0, 105.0, 110.0].iter() {
+            chain.add_option(
+                pos_or_panic!(*strike),
+                None,
+                None,
+                None,
+                None,
+                pos_or_panic!(0.2),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            );
+        }
+        chain
+    }
+
+    #[test]
+    fn test_filter_upper() {
+        let chain = create_test_chain();
+        let filtered = chain.filter_option_data(FindOptimalSide::Upper);
+        assert_eq!(filtered.len(), 2);
+        assert!(
+            filtered
+                .iter()
+                .all(|opt| opt.strike_price > chain.underlying_price)
+        );
+    }
+
+    #[test]
+    fn test_filter_lower() {
+        let chain = create_test_chain();
+        let filtered = chain.filter_option_data(FindOptimalSide::Lower);
+        assert_eq!(filtered.len(), 2);
+        assert!(
+            filtered
+                .iter()
+                .all(|opt| opt.strike_price < chain.underlying_price)
+        );
+    }
+
+    #[test]
+    fn test_filter_all() {
+        let chain = create_test_chain();
+        let filtered = chain.filter_option_data(FindOptimalSide::All);
+        assert_eq!(filtered.len(), 5);
+    }
+
+    #[test]
+    fn test_filter_range() {
+        let chain = create_test_chain();
+        let filtered = chain.filter_option_data(FindOptimalSide::Range(
+            pos_or_panic!(95.0),
+            pos_or_panic!(105.0),
+        ));
+        assert_eq!(filtered.len(), 3);
+        assert!(
+            filtered
+                .iter()
+                .all(|opt| opt.strike_price >= pos_or_panic!(95.0)
+                    && opt.strike_price <= pos_or_panic!(105.0))
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests_strike_price_range_vec {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    #[test]
+    fn test_empty_chain() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        assert_eq!(chain.strike_price_range_vec(5.0), None);
+    }
+
+    #[test]
+    fn test_single_option() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        chain.add_option(
+            Positive::HUNDRED,
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.2),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        let range = chain.strike_price_range_vec(5.0).unwrap();
+        assert_eq!(range.len(), 1);
+        assert_eq!(range[0], 100.0);
+    }
+
+    #[test]
+    fn test_multiple_options() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        for strike in [90.0, 95.0, 100.0].iter() {
+            chain.add_option(
+                pos_or_panic!(*strike),
+                None,
+                None,
+                None,
+                None,
+                pos_or_panic!(0.2),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            );
+        }
+        let range = chain.strike_price_range_vec(5.0).unwrap();
+        assert_eq!(range, vec![90.0, 95.0, 100.0]);
+    }
+
+    #[test]
+    fn test_step_size() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        for strike in [90.0, 100.0].iter() {
+            chain.add_option(
+                pos_or_panic!(*strike),
+                None,
+                None,
+                None,
+                None,
+                pos_or_panic!(0.2),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            );
+        }
+        let range = chain.strike_price_range_vec(2.0).unwrap();
+        assert_eq!(range.len(), 6); // [90, 92, 94, 96, 98, 100]
+        assert_eq!(range[1] - range[0], 2.0);
+    }
+}
+
+#[cfg(test)]
+mod tests_option_data_get_option {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    use num_traits::ToPrimitive;
+    use optionstratlib_core::spos;
+    use rust_decimal_macros::dec;
+
+    fn create_test_option_data() -> OptionData {
+        OptionData::new(
+            Positive::HUNDRED,                               // strike_price
+            spos!(9.5),                                      // call_bid
+            spos!(10.0),                                     // call_ask
+            spos!(8.5),                                      // put_bid
+            spos!(9.0),                                      // put_ask
+            pos_or_panic!(0.25),                             // implied_volatility
+            Some(dec!(-0.3)),                                // delta
+            Some(dec!(0.7)),                                 // delta
+            Some(dec!(0.3)),                                 // gamma
+            spos!(1000.0),                                   // volume
+            Some(500),                                       // open_interest
+            Some("TEST".to_string()),                        // symbol
+            Some(ExpirationDate::Days(pos_or_panic!(30.0))), // expiration_date
+            Some(Box::new(Positive::HUNDRED)),               // underlying_price
+            Some(dec!(0.05)),                                // risk_free_rate
+            Some(pos_or_panic!(0.02)),                       // dividend_yield
+            None,
+            None,
+        )
+    }
+
+    #[test]
+    fn test_get_option_success() {
+        let option_data = create_test_option_data();
+        let result = option_data.get_option(Side::Long, OptionStyle::Call);
+        assert!(result.is_ok());
+
+        let option = result.unwrap();
+        assert_eq!(option.strike_price, Positive::HUNDRED);
+        assert_eq!(option.implied_volatility, 0.25); // Uses provided IV
+        assert_eq!(option.underlying_price, Positive::HUNDRED);
+        assert_eq!(option.risk_free_rate.to_f64().unwrap(), 0.05);
+        assert_eq!(option.dividend_yield.to_f64(), 0.02);
+        assert_eq!(option.side, Side::Long);
+        assert_eq!(option.option_style, OptionStyle::Call);
+    }
+
+    #[test]
+    fn test_get_option_using_data_iv() {
+        let option_data = create_test_option_data();
+        let result = option_data.get_option(Side::Long, OptionStyle::Call);
+        assert!(result.is_ok());
+
+        let option = result.unwrap();
+        assert_eq!(option.implied_volatility, 0.25); // Uses IV from option_data
+    }
+}
+
+#[cfg(test)]
+mod tests_option_data_get_options_in_strike {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    use num_traits::ToPrimitive;
+    use optionstratlib_core::assert_decimal_eq;
+    use optionstratlib_core::spos;
+    use optionstratlib_pricing::greeks::Greeks;
+    use rust_decimal_macros::dec;
+
+    fn create_test_option_data() -> OptionData {
+        OptionData::new(
+            Positive::HUNDRED,  // strike_price
+            spos!(9.5),         // call_bid
+            spos!(10.0),        // call_ask
+            spos!(8.5),         // put_bid
+            spos!(9.0),         // put_ask
+            pos_or_panic!(0.2), // implied_volatility
+            Some(dec!(-0.3)),   // delta
+            Some(dec!(-0.3)),
+            Some(dec!(0.3)),
+            spos!(1000.0),                                   // volume
+            Some(500),                                       // open_interest
+            Some("TEST".to_string()),                        // symbol
+            Some(ExpirationDate::Days(pos_or_panic!(30.0))), // expiration_date
+            Some(Box::new(Positive::HUNDRED)),               // underlying_price
+            Some(dec!(0.05)),                                // risk_free_rate
+            Some(pos_or_panic!(0.02)),                       // dividend_yield
+            None,
+            None,
+        )
+    }
+
+    #[test]
+    fn test_get_options_in_strike_success() {
+        let option_data = create_test_option_data();
+        let result = option_data.get_options_in_strike();
+        assert!(result.is_ok());
+
+        let options = result.unwrap();
+
+        // Check long call
+        assert_eq!(options.long_call.strike_price, Positive::HUNDRED);
+        assert_eq!(options.long_call.option_style, OptionStyle::Call);
+        assert_eq!(options.long_call.side, Side::Long);
+
+        // Check short call
+        assert_eq!(options.short_call.strike_price, Positive::HUNDRED);
+        assert_eq!(options.short_call.option_style, OptionStyle::Call);
+        assert_eq!(options.short_call.side, Side::Short);
+
+        // Check long put
+        assert_eq!(options.long_put.strike_price, Positive::HUNDRED);
+        assert_eq!(options.long_put.option_style, OptionStyle::Put);
+        assert_eq!(options.long_put.side, Side::Long);
+
+        // Check short put
+        assert_eq!(options.short_put.strike_price, Positive::HUNDRED);
+        assert_eq!(options.short_put.option_style, OptionStyle::Put);
+        assert_eq!(options.short_put.side, Side::Short);
+    }
+
+    #[test]
+    fn test_get_options_in_strike_using_data_iv() {
+        let option_data = create_test_option_data();
+        let result = option_data.get_options_in_strike();
+        assert!(result.is_ok());
+
+        let options = result.unwrap();
+        assert_eq!(options.long_call.implied_volatility, 0.2);
+        assert_eq!(options.short_call.implied_volatility, 0.2);
+        assert_eq!(options.long_put.implied_volatility, 0.2);
+        assert_eq!(options.short_put.implied_volatility, 0.2);
+    }
+
+    #[test]
+    fn test_get_options_in_strike_all_properties() {
+        let option_data = create_test_option_data();
+        let result = option_data.get_options_in_strike();
+        assert!(result.is_ok());
+
+        let options = result.unwrap();
+
+        // Verify common properties across all options
+        let check_common_properties = |option: &Options| {
+            assert_eq!(option.strike_price, Positive::HUNDRED);
+            assert_eq!(option.underlying_price, Positive::HUNDRED);
+            assert_eq!(option.implied_volatility, 0.2);
+            assert_eq!(option.risk_free_rate.to_f64().unwrap(), 0.05);
+            assert_eq!(option.dividend_yield.to_f64(), 0.02);
+            assert_eq!(option.option_type, OptionType::European);
+            assert_eq!(option.quantity, Positive::ONE);
+        };
+
+        check_common_properties(&options.long_call);
+        check_common_properties(&options.short_call);
+        check_common_properties(&options.long_put);
+        check_common_properties(&options.short_put);
+    }
+
+    #[test]
+    fn test_get_options_in_strike_deltas() {
+        let option_data = create_test_option_data();
+        let result = option_data.get_options_in_strike();
+        assert!(result.is_ok());
+
+        let options = result.unwrap();
+
+        let epsilon = dec!(1e-8);
+
+        assert_decimal_eq!(
+            options.long_call.delta().unwrap(),
+            dec!(0.5277006710216260593080304827),
+            epsilon
+        );
+        assert_decimal_eq!(
+            options.short_call.delta().unwrap(),
+            dec!(-0.5277006710216260593080304827),
+            epsilon
+        );
+        assert_decimal_eq!(
+            options.long_put.delta().unwrap(),
+            dec!(-0.4706568437196791209984061354),
+            epsilon
+        );
+        assert_decimal_eq!(
+            options.short_put.delta().unwrap(),
+            dec!(0.4706568437196791209984061354),
+            epsilon
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests_filter_options_in_strike {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use rust_decimal::Decimal;
+    use rust_decimal_macros::dec;
+
+    fn create_test_chain() -> OptionChain {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        for strike in [90.0, 95.0, 100.0, 105.0, 110.0].iter() {
+            chain.add_option(
+                pos_or_panic!(*strike),
+                spos!(1.0),         // call_bid
+                spos!(1.2),         // call_ask
+                spos!(1.0),         // put_bid
+                spos!(1.2),         // put_ask
+                pos_or_panic!(0.2), // implied_volatility
+                Some(dec!(-0.3)),   // delta
+                Some(dec!(-0.3)),
+                Some(dec!(0.3)),
+                spos!(1000.0), // volume
+                Some(500),     // open_interest
+                None,
+            );
+        }
+        chain
+    }
+
+    #[test]
+    fn test_filter_upper_strikes() {
+        let chain = create_test_chain();
+        let result = chain.filter_options_in_strike(FindOptimalSide::Upper);
+        assert!(result.is_ok());
+
+        let filtered_options = result.unwrap();
+        assert_eq!(filtered_options.len(), 2);
+
+        for opt in filtered_options {
+            assert!(opt.long_call.strike_price > chain.underlying_price);
+            assert_eq!(opt.long_call.option_type, OptionType::European);
+            assert_eq!(opt.long_call.side, Side::Long);
+            assert_eq!(opt.short_call.side, Side::Short);
+            assert_eq!(opt.long_put.side, Side::Long);
+            assert_eq!(opt.short_put.side, Side::Short);
+        }
+    }
+
+    #[test]
+    fn test_filter_lower_strikes() {
+        let chain = create_test_chain();
+        let result = chain.filter_options_in_strike(FindOptimalSide::Lower);
+        assert!(result.is_ok());
+
+        let filtered_options = result.unwrap();
+        assert_eq!(filtered_options.len(), 2);
+
+        for opt in filtered_options {
+            assert!(opt.long_call.strike_price < chain.underlying_price);
+        }
+    }
+
+    #[test]
+    fn test_filter_all_strikes() {
+        let chain = create_test_chain();
+        let result = chain.filter_options_in_strike(FindOptimalSide::All);
+        assert!(result.is_ok());
+
+        let filtered_options = result.unwrap();
+        assert_eq!(filtered_options.len(), 5);
+    }
+
+    #[test]
+    fn test_filter_range_strikes() {
+        let chain = create_test_chain();
+        let result = chain.filter_options_in_strike(FindOptimalSide::Range(
+            pos_or_panic!(95.0),
+            pos_or_panic!(105.0),
+        ));
+        assert!(result.is_ok());
+
+        let filtered_options = result.unwrap();
+        assert_eq!(filtered_options.len(), 3);
+
+        for opt in filtered_options {
+            assert!(opt.long_call.strike_price >= pos_or_panic!(95.0));
+            assert!(opt.long_call.strike_price <= pos_or_panic!(105.0));
+        }
+    }
+
+    #[test]
+    fn test_filter_empty_chain() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        let result = chain.filter_options_in_strike(FindOptimalSide::All);
+        assert!(result.is_ok());
+
+        let filtered_options = result.unwrap();
+        assert!(filtered_options.is_empty());
+    }
+
+    #[test]
+    fn test_filter_invalid_range() {
+        let chain = create_test_chain();
+        let result = chain.filter_options_in_strike(FindOptimalSide::Range(
+            pos_or_panic!(200.0),
+            pos_or_panic!(300.0),
+        ));
+        assert!(result.is_ok());
+
+        let filtered_options = result.unwrap();
+        assert!(filtered_options.is_empty());
+    }
+
+    #[test]
+    fn test_filter_all_strikes_deltas() {
+        let chain = create_test_chain();
+        let result = chain.filter_options_in_strike(FindOptimalSide::All);
+        assert!(result.is_ok());
+
+        let filtered_options = result.unwrap();
+        assert_eq!(filtered_options.len(), 5);
+
+        for opt in filtered_options {
+            assert_eq!(opt.long_call.option_type, OptionType::European);
+            assert_eq!(opt.long_call.side, Side::Long);
+            assert_eq!(opt.short_call.side, Side::Short);
+            assert_eq!(opt.long_put.side, Side::Long);
+            assert_eq!(opt.short_put.side, Side::Short);
+
+            let deltas = opt.deltas().unwrap();
+            assert!(deltas.long_call >= Decimal::ZERO);
+            assert!(deltas.short_call <= Decimal::ZERO);
+            assert!(deltas.long_put <= Decimal::ZERO);
+            assert!(deltas.short_put >= Decimal::ZERO);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests_chain_iterators {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use rust_decimal_macros::dec;
+
+    fn create_test_chain() -> OptionChain {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        // Add three options with different strikes
+        chain.add_option(
+            pos_or_panic!(90.0), // strike_price
+            spos!(5.0),          // call_bid
+            spos!(5.5),          // call_ask
+            spos!(1.0),          // put_bid
+            spos!(1.5),          // put_ask
+            pos_or_panic!(0.2),  // implied_volatility
+            Some(dec!(0.6)),     // delta
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            spos!(100.0), // volume
+            Some(50),     // open_interest
+            None,
+        );
+
+        chain.add_option(
+            Positive::HUNDRED,
+            spos!(3.0),
+            spos!(3.5),
+            spos!(3.0),
+            spos!(3.5),
+            pos_or_panic!(0.25),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            spos!(150.0),
+            Some(75),
+            None,
+        );
+
+        chain.add_option(
+            pos_or_panic!(110.0),
+            spos!(1.0),
+            spos!(1.5),
+            spos!(5.0),
+            spos!(5.5),
+            pos_or_panic!(0.3),
+            Some(dec!(0.4)),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            spos!(80.0),
+            Some(40),
+            None,
+        );
+
+        chain
+    }
+
+    #[test]
+    fn test_get_double_iter_empty() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        let pairs: Vec<_> = chain.get_double_iter().collect();
+        assert!(pairs.is_empty());
+    }
+
+    #[test]
+    fn test_get_double_iter_single() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        chain.add_option(
+            Positive::HUNDRED,
+            spos!(3.0),
+            spos!(3.5),
+            spos!(3.0),
+            spos!(3.5),
+            pos_or_panic!(0.25),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            spos!(150.0),
+            Some(75),
+            None,
+        );
+
+        let pairs: Vec<_> = chain.get_double_iter().collect();
+        assert!(pairs.is_empty()); // No pairs with single element
+    }
+
+    #[test]
+    fn test_get_double_iter_multiple() {
+        let chain = create_test_chain();
+        let pairs: Vec<_> = chain.get_double_iter().collect();
+
+        // Should have 3 pairs: (90,100), (90,110), (100,110)
+        assert_eq!(pairs.len(), 3);
+
+        // Check strikes of pairs
+        assert_eq!(pairs[0].0.strike_price, pos_or_panic!(90.0));
+        assert_eq!(pairs[0].1.strike_price, Positive::HUNDRED);
+
+        assert_eq!(pairs[1].0.strike_price, pos_or_panic!(90.0));
+        assert_eq!(pairs[1].1.strike_price, pos_or_panic!(110.0));
+
+        assert_eq!(pairs[2].0.strike_price, Positive::HUNDRED);
+        assert_eq!(pairs[2].1.strike_price, pos_or_panic!(110.0));
+    }
+
+    #[test]
+    fn test_get_double_inclusive_iter_empty() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        let pairs: Vec<_> = chain.get_double_inclusive_iter().collect();
+        assert!(pairs.is_empty());
+    }
+
+    #[test]
+    fn test_get_double_inclusive_iter_single() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        chain.add_option(
+            Positive::HUNDRED,
+            spos!(3.0),
+            spos!(3.5),
+            spos!(3.0),
+            spos!(3.5),
+            pos_or_panic!(0.25),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            spos!(150.0),
+            Some(75),
+            None,
+        );
+
+        let pairs: Vec<_> = chain.get_double_inclusive_iter().collect();
+        assert_eq!(pairs.len(), 1); // Should have one pair (self-pair)
+        assert_eq!(pairs[0].0.strike_price, pairs[0].1.strike_price);
+    }
+
+    #[test]
+    fn test_get_double_inclusive_iter_multiple() {
+        let chain = create_test_chain();
+        let pairs: Vec<_> = chain.get_double_inclusive_iter().collect();
+
+        // Should have 6 pairs: (90,90), (90,100), (90,110), (100,100), (100,110), (110,110)
+        assert_eq!(pairs.len(), 6);
+
+        // Check strikes of pairs
+        assert_eq!(pairs[0].0.strike_price, pos_or_panic!(90.0));
+        assert_eq!(pairs[0].1.strike_price, pos_or_panic!(90.0));
+
+        assert_eq!(pairs[1].0.strike_price, pos_or_panic!(90.0));
+        assert_eq!(pairs[1].1.strike_price, Positive::HUNDRED);
+
+        assert_eq!(pairs[2].0.strike_price, pos_or_panic!(90.0));
+        assert_eq!(pairs[2].1.strike_price, pos_or_panic!(110.0));
+
+        assert_eq!(pairs[3].0.strike_price, Positive::HUNDRED);
+        assert_eq!(pairs[3].1.strike_price, Positive::HUNDRED);
+
+        assert_eq!(pairs[4].0.strike_price, Positive::HUNDRED);
+        assert_eq!(pairs[4].1.strike_price, pos_or_panic!(110.0));
+
+        assert_eq!(pairs[5].0.strike_price, pos_or_panic!(110.0));
+        assert_eq!(pairs[5].1.strike_price, pos_or_panic!(110.0));
+    }
+}
+
+#[cfg(test)]
+mod tests_chain_iterators_bis {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use rust_decimal_macros::dec;
+
+    fn create_test_chain() -> OptionChain {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        // Add four options with different strikes
+        chain.add_option(
+            pos_or_panic!(90.0), // strike_price
+            spos!(5.0),          // call_bid
+            spos!(5.5),          // call_ask
+            spos!(1.0),          // put_bid
+            spos!(1.5),          // put_ask
+            pos_or_panic!(0.2),  // implied_volatility
+            Some(dec!(0.6)),     // delta
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            spos!(100.0), // volume
+            Some(50),     // open_interest
+            None,
+        );
+
+        chain.add_option(
+            Positive::HUNDRED,
+            spos!(3.0),
+            spos!(3.5),
+            spos!(3.0),
+            spos!(3.5),
+            pos_or_panic!(0.25),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            spos!(150.0),
+            Some(75),
+            None,
+        );
+
+        chain.add_option(
+            pos_or_panic!(110.0),
+            spos!(1.0),
+            spos!(1.5),
+            spos!(5.0),
+            spos!(5.5),
+            pos_or_panic!(0.3),
+            Some(dec!(0.4)),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            spos!(80.0),
+            Some(40),
+            None,
+        );
+
+        chain.add_option(
+            pos_or_panic!(120.0),
+            spos!(0.5),
+            spos!(1.0),
+            spos!(7.0),
+            spos!(7.5),
+            pos_or_panic!(0.35),
+            Some(dec!(0.3)),
+            Some(dec!(0.5)),
+            Some(dec!(0.5)),
+            spos!(60.0),
+            Some(30),
+            None,
+        );
+
+        chain
+    }
+
+    // Tests for Triple Iterator
+    #[test]
+    fn test_get_triple_iter_empty() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        let triples: Vec<_> = chain.get_triple_iter().collect();
+        assert!(triples.is_empty());
+    }
+
+    #[test]
+    fn test_get_triple_iter_two_elements() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        // Add two options
+        chain.add_option(
+            pos_or_panic!(90.0),
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        chain.add_option(
+            Positive::HUNDRED,
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let triples: Vec<_> = chain.get_triple_iter().collect();
+        assert!(triples.is_empty()); // Not enough elements for a triple
+    }
+
+    #[test]
+    fn test_get_triple_iter_multiple() {
+        let chain = create_test_chain();
+        let triples: Vec<_> = chain.get_triple_iter().collect();
+
+        // Should have 4 triples: (90,100,110), (90,100,120), (90,110,120), (100,110,120)
+        assert_eq!(triples.len(), 4);
+
+        // Check first triple
+        assert_eq!(triples[0].0.strike_price, pos_or_panic!(90.0));
+        assert_eq!(triples[0].1.strike_price, Positive::HUNDRED);
+        assert_eq!(triples[0].2.strike_price, pos_or_panic!(110.0));
+
+        // Check last triple
+        assert_eq!(triples[3].0.strike_price, Positive::HUNDRED);
+        assert_eq!(triples[3].1.strike_price, pos_or_panic!(110.0));
+        assert_eq!(triples[3].2.strike_price, pos_or_panic!(120.0));
+    }
+
+    // Tests for Triple Inclusive Iterator
+    #[test]
+    fn test_get_triple_inclusive_iter_empty() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        let triples: Vec<_> = chain.get_triple_inclusive_iter().collect();
+        assert!(triples.is_empty());
+    }
+
+    #[test]
+    fn test_get_triple_inclusive_iter_single() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        chain.add_option(
+            Positive::HUNDRED,
+            spos!(3.0),
+            spos!(3.5),
+            spos!(3.0),
+            spos!(3.5),
+            pos_or_panic!(0.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let triples: Vec<_> = chain.get_triple_inclusive_iter().collect();
+        assert_eq!(triples.len(), 1);
+        assert_eq!(triples[0].0.strike_price, triples[0].1.strike_price);
+        assert_eq!(triples[0].1.strike_price, triples[0].2.strike_price);
+    }
+
+    #[test]
+    fn test_get_triple_inclusive_iter_multiple() {
+        let chain = create_test_chain();
+        let triples: Vec<_> = chain.get_triple_inclusive_iter().collect();
+
+        // Count should be (n+2)(n+1)n/6 where n is the number of elements
+        assert_eq!(triples.len(), 20); // For 4 elements: 4*5*6/6 = 20
+
+        // Check first few triples (including self-references)
+        assert_eq!(triples[0].0.strike_price, pos_or_panic!(90.0));
+        assert_eq!(triples[0].1.strike_price, pos_or_panic!(90.0));
+        assert_eq!(triples[0].2.strike_price, pos_or_panic!(90.0));
+    }
+
+    // Tests for Quad Iterator
+    #[test]
+    fn test_get_quad_iter_empty() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        let quads: Vec<_> = chain.get_quad_iter().collect();
+        assert!(quads.is_empty());
+    }
+
+    #[test]
+    fn test_get_quad_iter_three_elements() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        // Add three options
+        chain.add_option(
+            pos_or_panic!(90.0),
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        chain.add_option(
+            Positive::HUNDRED,
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        chain.add_option(
+            pos_or_panic!(110.0),
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let quads: Vec<_> = chain.get_quad_iter().collect();
+        assert!(quads.is_empty()); // Not enough elements for a quad
+    }
+
+    #[test]
+    fn test_get_quad_iter_multiple() {
+        let chain = create_test_chain();
+        let quads: Vec<_> = chain.get_quad_iter().collect();
+
+        // Should have 1 quad: (90,100,110,120)
+        assert_eq!(quads.len(), 1);
+
+        // Check the quad
+        assert_eq!(quads[0].0.strike_price, pos_or_panic!(90.0));
+        assert_eq!(quads[0].1.strike_price, Positive::HUNDRED);
+        assert_eq!(quads[0].2.strike_price, pos_or_panic!(110.0));
+        assert_eq!(quads[0].3.strike_price, pos_or_panic!(120.0));
+    }
+
+    // Tests for Quad Inclusive Iterator
+    #[test]
+    fn test_get_quad_inclusive_iter_empty() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        let quads: Vec<_> = chain.get_quad_inclusive_iter().collect();
+        assert!(quads.is_empty());
+    }
+
+    #[test]
+    fn test_get_quad_inclusive_iter_single() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        chain.add_option(
+            Positive::HUNDRED,
+            spos!(3.0),
+            spos!(3.5),
+            spos!(3.0),
+            spos!(3.5),
+            pos_or_panic!(0.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let quads: Vec<_> = chain.get_quad_inclusive_iter().collect();
+        assert_eq!(quads.len(), 1);
+        assert_eq!(quads[0].0.strike_price, quads[0].1.strike_price);
+        assert_eq!(quads[0].1.strike_price, quads[0].2.strike_price);
+        assert_eq!(quads[0].2.strike_price, quads[0].3.strike_price);
+    }
+
+    #[test]
+    fn test_get_quad_inclusive_iter_multiple() {
+        let chain = create_test_chain();
+        let quads: Vec<_> = chain.get_quad_inclusive_iter().collect();
+
+        // Count should be (n+3)(n+2)(n+1)n/24 where n is the number of elements
+        assert_eq!(quads.len(), 35); // For 4 elements: 7*6*5*4/24 = 35
+
+        // Check first quad (self-reference)
+        assert_eq!(quads[0].0.strike_price, pos_or_panic!(90.0));
+        assert_eq!(quads[0].1.strike_price, pos_or_panic!(90.0));
+        assert_eq!(quads[0].2.strike_price, pos_or_panic!(90.0));
+        assert_eq!(quads[0].3.strike_price, pos_or_panic!(90.0));
+
+        // Check last quad
+        assert_eq!(quads[34].0.strike_price, pos_or_panic!(120.0));
+        assert_eq!(quads[34].1.strike_price, pos_or_panic!(120.0));
+        assert_eq!(quads[34].2.strike_price, pos_or_panic!(120.0));
+        assert_eq!(quads[34].3.strike_price, pos_or_panic!(120.0));
+    }
+}
+
+#[cfg(test)]
+mod tests_is_valid_optimal_side {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    #[test]
+    fn test_upper_side_valid() {
+        let option_data = OptionData::new(
+            pos_or_panic!(110.0), // strike price higher than underlying
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        let underlying_price = Positive::HUNDRED;
+
+        assert!(option_data.is_valid_optimal_side(&underlying_price, &FindOptimalSide::Upper));
+    }
+
+    #[test]
+    fn test_upper_side_invalid() {
+        let option_data = OptionData::new(
+            pos_or_panic!(90.0), // strike price lower than underlying
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        let underlying_price = Positive::HUNDRED;
+
+        assert!(!option_data.is_valid_optimal_side(&underlying_price, &FindOptimalSide::Upper));
+    }
+
+    #[test]
+    fn test_lower_side_valid() {
+        let option_data = OptionData::new(
+            pos_or_panic!(90.0), // strike price lower than underlying
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        let underlying_price = Positive::HUNDRED;
+
+        assert!(option_data.is_valid_optimal_side(&underlying_price, &FindOptimalSide::Lower));
+    }
+
+    #[test]
+    fn test_lower_side_invalid() {
+        let option_data = OptionData::new(
+            pos_or_panic!(110.0), // strike price higher than underlying
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        let underlying_price = Positive::HUNDRED;
+
+        assert!(!option_data.is_valid_optimal_side(&underlying_price, &FindOptimalSide::Lower));
+    }
+
+    #[test]
+    fn test_all_side() {
+        let option_data = OptionData::new(
+            Positive::HUNDRED,
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        let underlying_price = Positive::HUNDRED;
+
+        assert!(option_data.is_valid_optimal_side(&underlying_price, &FindOptimalSide::All));
+    }
+
+    #[test]
+    fn test_range_side_valid() {
+        let option_data = OptionData::new(
+            Positive::HUNDRED, // strike price within range
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        let range_start = pos_or_panic!(90.0);
+        let range_end = pos_or_panic!(110.0);
+
+        assert!(option_data.is_valid_optimal_side(
+            &Positive::HUNDRED,
+            &FindOptimalSide::Range(range_start, range_end)
+        ));
+    }
+
+    #[test]
+    fn test_range_side_invalid_below() {
+        let option_data = OptionData::new(
+            pos_or_panic!(80.0), // strike price below range
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        let range_start = pos_or_panic!(90.0);
+        let range_end = pos_or_panic!(110.0);
+
+        assert!(!option_data.is_valid_optimal_side(
+            &Positive::HUNDRED,
+            &FindOptimalSide::Range(range_start, range_end)
+        ));
+    }
+
+    #[test]
+    fn test_range_side_invalid_above() {
+        let option_data = OptionData::new(
+            pos_or_panic!(120.0), // strike price above range
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        let range_start = pos_or_panic!(90.0);
+        let range_end = pos_or_panic!(110.0);
+
+        assert!(!option_data.is_valid_optimal_side(
+            &Positive::HUNDRED,
+            &FindOptimalSide::Range(range_start, range_end)
+        ));
+    }
+
+    #[test]
+    fn test_range_side_at_boundaries() {
+        let option_data_lower = OptionData::new(
+            pos_or_panic!(90.0), // strike price at lower boundary
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        let option_data_upper = OptionData::new(
+            pos_or_panic!(110.0), // strike price at upper boundary
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        let range_start = pos_or_panic!(90.0);
+        let range_end = pos_or_panic!(110.0);
+
+        assert!(option_data_lower.is_valid_optimal_side(
+            &Positive::HUNDRED,
+            &FindOptimalSide::Range(range_start, range_end)
+        ));
+        assert!(option_data_upper.is_valid_optimal_side(
+            &Positive::HUNDRED,
+            &FindOptimalSide::Range(range_start, range_end)
+        ));
+    }
+}
+
+#[cfg(test)]
+mod tests_option_data_delta {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use optionstratlib_core::model::ExpirationDate;
+
+    use rust_decimal_macros::dec;
+
+    // Helper function to create a standard test OptionDataPriceParams
+    fn create_standard_price_params() -> OptionDataPriceParams {
+        OptionDataPriceParams::new(
+            Some(Box::new(Positive::HUNDRED)),
+            Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+            Some(dec!(0.05)),
+            spos!(0.02),
+            Some("AAPL".to_string()),
+        )
+    }
+
+    // Helper function to create standard OptionData
+    fn create_standard_option_data() -> OptionData {
+        OptionData::new(
+            Positive::HUNDRED,  // strike_price
+            spos!(5.0),         // call_bid
+            spos!(5.5),         // call_ask
+            spos!(4.5),         // put_bid
+            spos!(5.0),         // put_ask
+            pos_or_panic!(0.2), // implied_volatility
+            None,               // delta
+            None,
+            None,
+            spos!(1000.0),            // volume
+            Some(500),                // open_interest
+            Some("AAPL".to_string()), // underlying_symbol
+            Some(ExpirationDate::Days(pos_or_panic!(3.9))),
+            Some(Box::new(Positive::HUNDRED)), // underlying_price
+            None,
+            None,
+            None,
+            None,
+        )
+    }
+
+    #[test]
+    fn test_calculate_delta_standard_call() {
+        let mut option_data = create_standard_option_data();
+
+        option_data.calculate_delta();
+
+        assert!(option_data.delta_call.is_some());
+        let delta = option_data.delta_call.unwrap();
+
+        // Typical at-the-money call delta should be around 0.5
+        assert!(delta > dec!(0.4) && delta < dec!(0.6));
+    }
+
+    #[test]
+    fn test_calculate_delta_near_the_money() {
+        let mut option_data = create_standard_option_data();
+        option_data.calculate_delta();
+        assert!(option_data.delta_call.is_some());
+        let delta = option_data.delta_call.unwrap();
+        // Near-the-money call delta should be slightly higher than 0.5
+        assert!(delta > dec!(0.5) && delta < dec!(0.6));
+    }
+
+    #[test]
+    fn test_calculate_delta_deep_itm() {
+        let mut option_data = create_standard_option_data();
+        option_data.underlying_price = Some(Box::new(pos_or_panic!(104.0)));
+        option_data.calculate_delta();
+
+        assert!(option_data.delta_call.is_some());
+        let delta = option_data.delta_call.unwrap();
+
+        // Deep ITM call delta should be close to 1
+        assert!(delta > dec!(0.9) && delta <= dec!(1.0));
+    }
+
+    #[test]
+    fn test_calculate_delta_deep_otm() {
+        let mut option_data = create_standard_option_data();
+        option_data.underlying_price = Some(Box::new(pos_or_panic!(94.0)));
+        option_data.calculate_delta();
+
+        assert!(option_data.delta_call.is_some());
+        let delta = option_data.delta_call.unwrap();
+
+        // Deep OTM call delta should be close to 0
+        assert!(delta >= Decimal::ZERO && delta < dec!(0.1));
+    }
+
+    #[test]
+    fn test_calculate_delta_multiple_calls() {
+        let mut option_data = create_standard_option_data();
+
+        // Call delta multiple times to ensure consistent behavior
+        for _ in 0..3 {
+            option_data.calculate_delta();
+            assert!(option_data.delta_call.is_some());
+        }
+    }
+
+    #[test]
+    fn test_calculate_delta_different_expiration() {
+        let mut price_params = create_standard_price_params();
+        price_params.expiration_date = Some(ExpirationDate::Days(pos_or_panic!(60.0))); // Longer expiration
+
+        let mut option_data = create_standard_option_data();
+        option_data.calculate_delta();
+
+        assert!(option_data.delta_call.is_some());
+        let delta = option_data.delta_call.unwrap();
+
+        // Delta should still be reasonable with longer expiration
+        assert!(delta > Decimal::ZERO && delta <= dec!(1.0));
+    }
+}
+
+#[cfg(test)]
+mod tests_serialization {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use rust_decimal_macros::dec;
+
+    #[test]
+    fn test_optiondata_serialization() {
+        let option_data = OptionData {
+            strike_price: Positive::HUNDRED,
+            call_bid: spos!(9.5),
+            call_ask: spos!(10.0),
+            put_bid: spos!(8.5),
+            put_ask: spos!(9.0),
+            call_middle: spos!(9.75),
+            put_middle: spos!(8.75),
+            implied_volatility: pos_or_panic!(0.2),
+            delta_call: Some(dec!(0.5)),
+            delta_put: Some(dec!(-0.5)),
+            gamma: Some(dec!(0.1)),
+            volume: spos!(1000.0),
+            open_interest: Some(500),
+            symbol: None,
+            expiration_date: None,
+            underlying_price: None,
+            risk_free_rate: None,
+            dividend_yield: None,
+            epic: None,
+            extra_fields: None,
+            greeks_call: None,
+            greeks_put: None,
+        };
+
+        let serialized = serde_json::to_string(&option_data).unwrap();
+        let deserialized: OptionData = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(option_data, deserialized);
+    }
+
+    #[test]
+    fn test_optionchain_serialization() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            Some(dec!(0.05)),
+            spos!(0.02),
+        );
+
+        // Add some test options
+        chain.add_option(
+            pos_or_panic!(95.0),
+            spos!(6.0),
+            spos!(6.5),
+            spos!(1.5),
+            spos!(2.0),
+            pos_or_panic!(0.2),
+            Some(dec!(0.7)),
+            Some(dec!(-0.3)),
+            Some(dec!(0.1)),
+            spos!(1000.0),
+            Some(500),
+            None,
+        );
+
+        let serialized = serde_json::to_string(&chain).unwrap();
+        let deserialized: OptionChain = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(chain.symbol, deserialized.symbol);
+        assert_eq!(chain.underlying_price, deserialized.underlying_price);
+        assert_eq!(chain.expiration_date, deserialized.expiration_date);
+        assert_eq!(chain.risk_free_rate, deserialized.risk_free_rate);
+        assert_eq!(chain.dividend_yield, deserialized.dividend_yield);
+    }
+
+    #[test]
+    fn test_optiondata_empty_fields() {
+        let option_data = OptionData {
+            strike_price: Positive::HUNDRED,
+            call_bid: None,
+            call_ask: None,
+            put_bid: None,
+            put_ask: None,
+            call_middle: None,
+            put_middle: None,
+            implied_volatility: Positive::ZERO,
+            delta_call: None,
+            delta_put: None,
+            gamma: None,
+            volume: None,
+            open_interest: None,
+            symbol: None,
+            expiration_date: None,
+            underlying_price: None,
+            risk_free_rate: None,
+            dividend_yield: None,
+            epic: None,
+            extra_fields: None,
+            greeks_call: None,
+            greeks_put: None,
+        };
+
+        let serialized = serde_json::to_string(&option_data).unwrap();
+        let deserialized: OptionData = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(option_data, deserialized);
+    }
+}
+
+#[cfg(test)]
+mod tests_option_data_serde {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use rust_decimal_macros::dec;
+    use serde_json;
+
+    // Helper function to create a sample OptionData
+    fn create_sample_option_data() -> OptionData {
+        OptionData {
+            strike_price: Positive::HUNDRED,
+            call_bid: spos!(9.5),
+            call_ask: spos!(10.0),
+            put_bid: spos!(8.5),
+            put_ask: spos!(9.0),
+            call_middle: spos!(9.75),
+            put_middle: spos!(8.75),
+            implied_volatility: pos_or_panic!(0.2),
+            delta_call: Some(dec!(0.5)),
+            delta_put: Some(dec!(-0.5)),
+            gamma: Some(dec!(0.1)),
+            volume: spos!(1000.0),
+            open_interest: Some(500),
+            symbol: None,
+            expiration_date: None,
+            underlying_price: None,
+            risk_free_rate: None,
+            dividend_yield: None,
+            epic: None,
+            extra_fields: None,
+            greeks_call: None,
+            greeks_put: None,
+        }
+    }
+
+    #[test]
+    fn test_optiondata_complete_serialization() {
+        let option_data = create_sample_option_data();
+        let serialized = serde_json::to_string(&option_data).unwrap();
+        let deserialized: OptionData = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(option_data, deserialized);
+        // Verify specific fields
+        assert_eq!(deserialized.strike_price, Positive::HUNDRED);
+        assert_eq!(deserialized.delta_call, Some(dec!(0.5)));
+    }
+
+    #[test]
+    fn test_optiondata_minimal_serialization() {
+        // Test with minimal required fields
+        let option_data = OptionData {
+            strike_price: Positive::HUNDRED,
+            call_bid: None,
+            call_ask: None,
+            put_bid: None,
+            put_ask: None,
+            call_middle: None,
+            put_middle: None,
+            implied_volatility: Positive::ZERO,
+            delta_call: None,
+            delta_put: None,
+            gamma: None,
+            volume: None,
+            open_interest: None,
+            symbol: None,
+            expiration_date: None,
+            underlying_price: None,
+            risk_free_rate: None,
+            dividend_yield: None,
+            epic: None,
+            extra_fields: None,
+            greeks_call: None,
+            greeks_put: None,
+        };
+
+        let serialized = serde_json::to_string(&option_data).unwrap();
+        let deserialized: OptionData = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(option_data, deserialized);
+        assert!(deserialized.call_bid.is_none());
+    }
+
+    #[test]
+    fn test_optiondata_large_numbers() {
+        // Test with large numbers to verify precision
+        let option_data = OptionData {
+            strike_price: pos_or_panic!(999999.99),
+            call_bid: spos!(99999.99),
+            call_ask: spos!(99999.99),
+            implied_volatility: Positive::ONE,
+            ..Default::default()
+        };
+
+        let serialized = serde_json::to_string(&option_data).unwrap();
+        let deserialized: OptionData = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(option_data, deserialized);
+        assert_eq!(deserialized.strike_price, pos_or_panic!(999999.99));
+    }
+
+    #[test]
+    fn test_optiondata_small_numbers() {
+        // Test with very small numbers to verify precision
+        let option_data = OptionData {
+            strike_price: pos_or_panic!(0.0001),
+            call_bid: spos!(0.0001),
+            implied_volatility: pos_or_panic!(0.0001),
+            delta_call: Some(dec!(0.0001)),
+            ..Default::default()
+        };
+
+        let serialized = serde_json::to_string(&option_data).unwrap();
+        let deserialized: OptionData = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(option_data, deserialized);
+        assert_eq!(deserialized.delta_call, Some(dec!(0.0001)));
+    }
+
+    #[test]
+    fn test_optiondata_special_cases() {
+        // Test with edge cases and special values
+        let option_data = OptionData {
+            strike_price: Positive::ONE,
+            call_bid: Some(Positive::ZERO),
+            implied_volatility: Positive::ONE,
+            delta_call: Some(Decimal::ONE),
+            delta_put: Some(Decimal::NEGATIVE_ONE),
+            gamma: Some(Decimal::ZERO),
+            open_interest: Some(u64::MAX),
+            ..Default::default()
+        };
+
+        let serialized = serde_json::to_string(&option_data).unwrap();
+        let deserialized: OptionData = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(option_data, deserialized);
+        assert_eq!(deserialized.open_interest, Some(u64::MAX));
+    }
+
+    #[test]
+    fn test_optiondata_json_structure() {
+        let option_data = create_sample_option_data();
+        let serialized = serde_json::to_string_pretty(&option_data).unwrap();
+
+        // Verify JSON structure
+        let json_value: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+        assert!(json_value.is_object());
+        assert!(json_value.get("strike_price").is_some());
+        // positive 0.6 serialises `Positive` as the exact decimal in a string
+        assert_eq!(
+            json_value.get("strike_price").unwrap().as_str().unwrap(),
+            "100"
+        );
+    }
+
+    #[test]
+    fn test_optiondata_deserialization_error_handling() {
+        // Test invalid JSON
+        let invalid_json = r#"{"strike": "invalid"}"#;
+        let result: Result<OptionData, _> = serde_json::from_str(invalid_json);
+        assert!(result.is_err());
+
+        // Test missing required field
+        let missing_strike = r#"{"call_bid": 1.0}"#;
+        let result: Result<OptionData, _> = serde_json::from_str(missing_strike);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_optiondata_deserializes_legacy_payload_without_greek_snapshots() {
+        // A payload written before the snapshots existed must still load, with
+        // both new fields defaulting to None.
+        let legacy = r#"{
+            "strike_price": "100",
+            "call_bid": "9.5",
+            "call_ask": "10.0",
+            "put_bid": "8.5",
+            "put_ask": "9.0",
+            "implied_volatility": "0.2",
+            "delta_call": "0.5",
+            "gamma": "0.02"
+        }"#;
+        let data: OptionData = match serde_json::from_str(legacy) {
+            Ok(data) => data,
+            Err(e) => panic!("legacy payload should deserialize: {e}"),
+        };
+        assert_eq!(data.strike_price, Positive::HUNDRED);
+        assert_eq!(data.delta_call, Some(dec!(0.5)));
+        assert!(data.greeks_call.is_none());
+        assert!(data.greeks_put.is_none());
+    }
+
+    #[test]
+    fn test_optiondata_without_greeks_does_not_grow_its_json() {
+        // The snapshots are skipped when absent, so an ungreeked chain row
+        // must not gain two null keys.
+        let data = OptionData::default();
+        let json = match serde_json::to_string(&data) {
+            Ok(json) => json,
+            Err(e) => panic!("serialization should succeed: {e}"),
+        };
+        assert!(!json.contains("greeks_call"), "unexpected key in {json}");
+        assert!(!json.contains("greeks_put"), "unexpected key in {json}");
+    }
+
+    #[test]
+    fn test_greeks_snapshot_round_trips_through_json() {
+        let mut data = OptionData::new(
+            Positive::HUNDRED,
+            spos!(9.5),
+            spos!(10.0),
+            spos!(8.5),
+            spos!(9.0),
+            pos_or_panic!(0.2),
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some("TEST".to_string()),
+            Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+            Some(Box::new(Positive::HUNDRED)),
+            Some(dec!(0.05)),
+            Some(pos_or_panic!(0.02)),
+            None,
+            None,
+        );
+        data.calculate_greeks();
+        assert!(data.greeks_call.is_some());
+
+        let json = match serde_json::to_string(&data) {
+            Ok(json) => json,
+            Err(e) => panic!("serialization should succeed: {e}"),
+        };
+        let restored: OptionData = match serde_json::from_str(&json) {
+            Ok(restored) => restored,
+            Err(e) => panic!("deserialization should succeed: {e}"),
+        };
+        assert_eq!(data.greeks_call, restored.greeks_call);
+        assert_eq!(data.greeks_put, restored.greeks_put);
+        assert_eq!(data, restored);
+    }
+}
+
+#[cfg(test)]
+mod tests_option_chain_serde {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use rust_decimal_macros::dec;
+
+    fn create_sample_chain() -> OptionChain {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            Some(dec!(0.05)),
+            spos!(0.02),
+        );
+
+        // Add some test options
+        chain.add_option(
+            pos_or_panic!(95.0),
+            spos!(6.0),
+            spos!(6.5),
+            spos!(1.5),
+            spos!(2.0),
+            pos_or_panic!(0.2),
+            Some(dec!(0.7)),
+            Some(dec!(-0.3)),
+            Some(dec!(0.1)),
+            spos!(1000.0),
+            Some(500),
+            None,
+        );
+
+        chain
+    }
+
+    #[test]
+    fn test_optionchain_complete_serialization() {
+        let chain = create_sample_chain();
+        let serialized = serde_json::to_string(&chain).unwrap();
+        let deserialized: OptionChain = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(chain.symbol, deserialized.symbol);
+        assert_eq!(chain.underlying_price, deserialized.underlying_price);
+        assert_eq!(chain.options.len(), deserialized.options.len());
+    }
+
+    #[test]
+    fn test_optionchain_empty_chain() {
+        let chain = OptionChain::new(
+            "EMPTY",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        let serialized = serde_json::to_string(&chain).unwrap();
+        let deserialized: OptionChain = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(chain.symbol, deserialized.symbol);
+        assert!(deserialized.options.is_empty());
+        assert!(deserialized.risk_free_rate.is_none());
+    }
+
+    #[test]
+    fn test_optionchain_multiple_options() {
+        let mut chain = create_sample_chain();
+
+        // Add more options
+        chain.add_option(
+            Positive::HUNDRED,
+            spos!(5.0),
+            spos!(5.5),
+            spos!(5.0),
+            spos!(5.5),
+            pos_or_panic!(0.2),
+            Some(dec!(0.5)),
+            Some(dec!(-0.5)),
+            Some(dec!(0.1)),
+            spos!(1000.0),
+            Some(500),
+            None,
+        );
+
+        chain.add_option(
+            pos_or_panic!(105.0),
+            spos!(4.0),
+            spos!(4.5),
+            spos!(8.0),
+            spos!(8.5),
+            pos_or_panic!(0.2),
+            Some(dec!(0.3)),
+            Some(dec!(-0.7)),
+            Some(dec!(0.1)),
+            spos!(1000.0),
+            Some(500),
+            None,
+        );
+
+        let serialized = serde_json::to_string(&chain).unwrap();
+        let deserialized: OptionChain = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(chain.options.len(), deserialized.options.len());
+        assert_eq!(deserialized.options.len(), 3);
+    }
+
+    #[test]
+    fn test_optionchain_special_values() {
+        let mut chain = OptionChain::new(
+            "SPECIAL",
+            Positive::MAX,
+            "2030-01-01".to_string(),
+            Some(Decimal::MAX),
+            Some(Positive::MAX),
+        );
+
+        chain.add_option(
+            Positive::ONE,
+            Some(Positive::ONE),
+            Some(Positive::ONE),
+            Some(Positive::ONE),
+            Some(Positive::ONE),
+            Positive::ONE,
+            Some(Decimal::ONE),
+            Some(Decimal::ONE),
+            Some(Decimal::ONE),
+            Some(Positive::ONE),
+            Some(1),
+            None,
+        );
+
+        let serialized = serde_json::to_string(&chain).unwrap();
+        let deserialized: OptionChain = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(chain.underlying_price, deserialized.underlying_price);
+        assert_eq!(chain.risk_free_rate, deserialized.risk_free_rate);
+    }
+
+    #[test]
+    fn test_optionchain_json_structure() {
+        let chain = create_sample_chain();
+        let serialized = serde_json::to_string_pretty(&chain).unwrap();
+
+        // Verify JSON structure
+        let json_value: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+        assert!(json_value.is_object());
+        assert!(json_value.get("symbol").is_some());
+        assert!(json_value.get("underlying_price").is_some());
+        assert!(json_value.get("options").is_some());
+        assert!(json_value.get("options").unwrap().is_array());
+    }
+
+    #[test]
+    fn test_optionchain_deserialization_error_handling() {
+        // Test invalid JSON
+        let invalid_json = r#"{"symbol": 123}"#;
+        let result: Result<OptionChain, _> = serde_json::from_str(invalid_json);
+        assert!(result.is_err());
+
+        // Test missing required fields
+        let missing_fields = r#"{"symbol": "TEST"}"#;
+        let result: Result<OptionChain, _> = serde_json::from_str(missing_fields);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_optionchain_options_validation() {
+        let mut chain = create_sample_chain();
+
+        // Add an option with all None values except strike
+        chain.add_option(
+            pos_or_panic!(110.0),
+            None,
+            None,
+            None,
+            None,
+            Positive::ZERO,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let serialized = serde_json::to_string(&chain).unwrap();
+        let deserialized: OptionChain = serde_json::from_str(&serialized).unwrap();
+
+        // Find the option with strike 110.0
+        let option = deserialized
+            .options
+            .iter()
+            .find(|opt| opt.strike_price == pos_or_panic!(110.0))
+            .unwrap();
+
+        assert!(option.call_bid.is_none());
+    }
+}
+
+#[cfg(test)]
+mod tests_gamma_calculations {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    #[cfg(feature = "io")]
+    use optionstratlib_core::spos;
+
+    #[cfg(feature = "io")]
+    use optionstratlib_core::assert_decimal_eq;
+    #[cfg(feature = "io")]
+    use optionstratlib_core::utils::time::get_x_days_formatted;
+    use rust_decimal_macros::dec;
+
+    // Helper function to create a test chain with predefined gamma values
+    #[cfg(feature = "io")]
+    fn create_test_chain_with_gamma() -> OptionChain {
+        let mut option_chain = OptionChain::load_from_json(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../examples/Chains/SP500-18-oct-2024-5781.88.json"
+        ))
+        .unwrap();
+        option_chain.expiration_date = get_x_days_formatted(30);
+        option_chain
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_gamma_exposure_basic() {
+        let mut chain = create_test_chain_with_gamma();
+        chain.update_greeks();
+        let result = chain.gamma_exposure();
+
+        assert!(result.is_ok());
+        let gamma_exposure = result.unwrap();
+        assert_decimal_eq!(gamma_exposure, dec!(0.0), dec!(0.001));
+    }
+
+    #[test]
+    fn test_gamma_exposure_empty_chain() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2024-12-31".to_string(),
+            None,
+            None,
+        );
+
+        let result = chain.gamma_exposure();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), dec!(0.0));
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_gamma_exposure_missing_gamma() {
+        let mut chain = create_test_chain_with_gamma();
+
+        // Add an option without gamma
+        chain.add_option(
+            pos_or_panic!(110.0),
+            spos!(0.5),
+            spos!(0.7),
+            spos!(2.5),
+            spos!(2.7),
+            pos_or_panic!(0.35),
+            Some(dec!(0.3)),
+            Some(dec!(-0.7)),
+            None, // No gamma value
+            spos!(60.0),
+            Some(30),
+            None,
+        );
+
+        chain.update_greeks();
+        let result = chain.gamma_exposure().unwrap();
+        assert_decimal_eq!(result, dec!(0.0), dec!(0.001));
+    }
+}
+
+#[cfg(test)]
+mod tests_delta_calculations {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    #[cfg(feature = "io")]
+    use optionstratlib_core::assert_decimal_eq;
+    use rust_decimal_macros::dec;
+
+    // Helper function to create a test chain with predefined delta values
+    #[cfg(feature = "io")]
+    fn create_test_chain_with_delta() -> OptionChain {
+        OptionChain::load_from_json(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../examples/Chains/SP500-18-oct-2024-5781.88.json"
+        ))
+        .unwrap()
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_delta_exposure_basic() {
+        let mut chain = create_test_chain_with_delta();
+        // Initialize the greeks first
+        chain.update_greeks();
+        let result = chain.delta_exposure();
+
+        assert!(result.is_ok());
+        let delta_exposure = result.unwrap();
+        // Test against expected value from sample data
+        assert_decimal_eq!(delta_exposure, dec!(17.0), dec!(0.000001));
+    }
+
+    #[test]
+    fn test_delta_exposure_empty_chain() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2024-12-31".to_string(),
+            None,
+            None,
+        );
+
+        let result = chain.delta_exposure();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), dec!(0.0));
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_delta_exposure_uninitialized_greeks() {
+        let mut chain = create_test_chain_with_delta();
+        chain.update_greeks();
+        // Don't initialize greeks, should return zero exposure
+        let result = chain.delta_exposure();
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), dec!(17.0));
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_delta_exposure_updates() {
+        let mut chain = create_test_chain_with_delta();
+
+        // Get initial delta exposure (should be 0 as greeks aren't initialized)
+        let initial_delta = chain.delta_exposure().unwrap();
+        assert_eq!(initial_delta, dec!(17.0));
+
+        // Update greeks and check new delta exposure
+        chain.update_greeks();
+        let updated_delta = chain.delta_exposure().unwrap();
+        assert_decimal_eq!(updated_delta, dec!(17.0), dec!(0.000001));
+    }
+}
+
+#[cfg(test)]
+mod tests_vega_calculations {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    #[cfg(feature = "io")]
+    use optionstratlib_core::assert_decimal_eq;
+    use rust_decimal_macros::dec;
+
+    // Helper function to create a test chain with predefined vega values
+    #[cfg(feature = "io")]
+    fn create_test_chain_with_vega() -> OptionChain {
+        OptionChain::load_from_json(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../examples/Chains/SP500-18-oct-2024-5781.88.json"
+        ))
+        .unwrap()
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_vega_exposure_basic() {
+        let mut chain = create_test_chain_with_vega();
+        // Initialize the greeks first
+        chain.update_greeks();
+        let result = chain.vega_exposure();
+
+        assert!(result.is_ok());
+        let vega_exposure = result.unwrap();
+        // Test against expected value from sample data
+        assert_decimal_eq!(vega_exposure, dec!(0.0), dec!(0.0001));
+    }
+
+    #[test]
+    fn test_vega_exposure_empty_chain() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2024-12-31".to_string(),
+            None,
+            None,
+        );
+
+        let result = chain.vega_exposure();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), dec!(0.0));
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_vega_exposure_uninitialized_greeks() {
+        let mut chain = create_test_chain_with_vega();
+        chain.update_greeks();
+        // Don't initialize greeks, should return zero exposure
+        let result = chain.vega_exposure();
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), dec!(0.0));
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_vega_exposure_updates() {
+        let mut chain = create_test_chain_with_vega();
+
+        // Get initial vega exposure (should be 0 as greeks aren't initialized)
+        let initial_vega = chain.vega_exposure().unwrap();
+        assert_eq!(initial_vega, dec!(0.0));
+
+        // Update greeks and check new vega exposure
+        chain.update_greeks();
+        let updated_vega = chain.vega_exposure().unwrap();
+        assert_decimal_eq!(updated_vega, dec!(0.0), dec!(0.000001));
+    }
+}
+
+#[cfg(test)]
+mod tests_theta_calculations {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    #[cfg(feature = "io")]
+    use optionstratlib_core::assert_decimal_eq;
+    use rust_decimal_macros::dec;
+
+    // Helper function to create a test chain with predefined theta values
+    #[cfg(feature = "io")]
+    fn create_test_chain_with_theta() -> OptionChain {
+        OptionChain::load_from_json(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../examples/Chains/SP500-18-oct-2024-5781.88.json"
+        ))
+        .unwrap()
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_theta_exposure_basic() {
+        let mut chain = create_test_chain_with_theta();
+        // Initialize the greeks first
+        chain.update_greeks();
+        let result = chain.theta_exposure();
+
+        assert!(result.is_ok());
+        let theta_exposure = result.unwrap();
+        // Test against expected value from sample data
+        assert_decimal_eq!(theta_exposure, dec!(0.0), dec!(0.000001));
+    }
+
+    #[test]
+    fn test_theta_exposure_empty_chain() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2024-12-31".to_string(),
+            None,
+            None,
+        );
+
+        let result = chain.theta_exposure();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), dec!(0.0));
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_theta_exposure_uninitialized_greeks() {
+        let mut chain = create_test_chain_with_theta();
+        chain.update_greeks();
+        // Don't initialize greeks, should return zero exposure
+        let result = chain.theta_exposure();
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), dec!(0.0));
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_theta_exposure_updates() {
+        let mut chain = create_test_chain_with_theta();
+
+        // Get initial theta exposure (should be 0 as greeks aren't initialized)
+        let initial_theta = chain.theta_exposure().unwrap();
+        assert_eq!(initial_theta, dec!(0.0));
+
+        // Update greeks and check new theta exposure
+        chain.update_greeks();
+        let updated_theta = chain.theta_exposure().unwrap();
+        assert_decimal_eq!(updated_theta, dec!(0.0), dec!(0.000001));
+    }
+}
+
+#[cfg(test)]
+mod tests_vanna_calculations {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    #[cfg(feature = "io")]
+    use optionstratlib_core::assert_decimal_eq;
+    use rust_decimal_macros::dec;
+
+    // Helper function to create a test chain for vanna calculations
+    #[cfg(feature = "io")]
+    fn create_test_chain_with_vanna() -> OptionChain {
+        let mut option_chain = OptionChain::load_from_json(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../examples/Chains/SP500-18-oct-2024-5781.88.json"
+        ))
+        .unwrap();
+        // It is necessary to update the expiration date of all the options in the chain
+        // with a relative number of days in order to have a correct vanna calculation
+        option_chain.update_expiration_date("30.0".to_string());
+        option_chain
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_vanna_exposure_basic() {
+        let mut chain = create_test_chain_with_vanna();
+        // Initialize the greeks first
+        chain.update_greeks();
+        let result = chain.vanna_exposure();
+
+        assert!(result.is_ok());
+        let vanna_exposure = result.unwrap();
+        // Test against expected value from sample data
+        assert_decimal_eq!(
+            vanna_exposure,
+            dec!(-38.126585967162624451799179198),
+            dec!(0.0001)
+        );
+    }
+
+    #[test]
+    fn test_vanna_exposure_empty_chain() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2024-12-31".to_string(),
+            None,
+            None,
+        );
+
+        let result = chain.vanna_exposure();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), dec!(0.0));
+    }
+}
+
+#[cfg(test)]
+mod tests_vomma_calculations {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    #[cfg(feature = "io")]
+    use optionstratlib_core::assert_decimal_eq;
+    use rust_decimal_macros::dec;
+
+    // Helper function to create a test chain for vomma calculation
+    #[cfg(feature = "io")]
+    fn create_test_chain_with_vomma() -> OptionChain {
+        let mut option_chain = OptionChain::load_from_json(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../examples/Chains/SP500-18-oct-2024-5781.88.json"
+        ))
+        .unwrap();
+        // It is necessary to update the expiration date of all the options in the chain
+        // with a relative number of days in order to have a correct vomma calculation
+        option_chain.update_expiration_date("30.0".to_string());
+        option_chain
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_vomma_exposure_basic() {
+        let mut chain = create_test_chain_with_vomma();
+        // Initialize the greeks first
+        chain.update_greeks();
+        let result = chain.vomma_exposure();
+
+        assert!(result.is_ok());
+        let vomma_exposure = result.unwrap();
+        // Test against expected value from sample data
+        assert_decimal_eq!(vomma_exposure, dec!(1393.74972558), dec!(0.0001));
+    }
+
+    #[test]
+    fn test_vomma_exposure_empty_chain() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2024-12-31".to_string(),
+            None,
+            None,
+        );
+
+        let result = chain.vomma_exposure();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), dec!(0.0));
+    }
+}
+
+#[cfg(test)]
+mod tests_veta_calculations {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    #[cfg(feature = "io")]
+    use optionstratlib_core::assert_decimal_eq;
+    use rust_decimal_macros::dec;
+
+    // Helper function to create a test chain for veta calculations
+    #[cfg(feature = "io")]
+    fn create_test_chain_with_veta() -> OptionChain {
+        let mut option_chain = OptionChain::load_from_json(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../examples/Chains/SP500-18-oct-2024-5781.88.json"
+        ))
+        .unwrap();
+        // It is necessary to update the expiration date of all the options in the chain
+        // with a relative number of days in order to have a correct veta calculation
+        option_chain.update_expiration_date("30.0".to_string());
+        option_chain
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_veta_exposure_basic() {
+        let mut chain = create_test_chain_with_veta();
+        // Initialize the greeks first
+        chain.update_greeks();
+        let result = chain.veta_exposure();
+
+        assert!(result.is_ok());
+        let veta_exposure = result.unwrap();
+        // Test against expected value from sample data
+        assert_decimal_eq!(veta_exposure, dec!(0.15239781588122), dec!(0.0001));
+    }
+
+    #[test]
+    fn test_veta_exposure_empty_chain() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2024-12-31".to_string(),
+            None,
+            None,
+        );
+
+        let result = chain.veta_exposure();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), dec!(0.0));
+    }
+}
+
+#[cfg(test)]
+mod tests_charm_calculations {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    #[cfg(feature = "io")]
+    use optionstratlib_core::assert_decimal_eq;
+    use rust_decimal_macros::dec;
+
+    // Helper function to create a test chain for charm calculations
+    #[cfg(feature = "io")]
+    fn create_test_chain_with_charm() -> OptionChain {
+        let mut option_chain = OptionChain::load_from_json(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../examples/Chains/SP500-18-oct-2024-5781.88.json"
+        ))
+        .unwrap();
+        // It is necessary to update the expiration date of all the options in the chain
+        // with a relative number of days in order to have a correct charm calculation
+        option_chain.update_expiration_date("30.0".to_string());
+        option_chain
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_charm_exposure_basic() {
+        let mut chain = create_test_chain_with_charm();
+        // Initialize the greeks first
+        chain.update_greeks();
+        let result = chain.charm_exposure();
+
+        assert!(result.is_ok());
+        let charm_exposure = result.unwrap();
+        // Test against expected value from sample data
+        assert_decimal_eq!(charm_exposure, dec!(0.115107), dec!(0.000001));
+    }
+
+    #[test]
+    fn test_charm_exposure_empty_chain() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2024-12-31".to_string(),
+            None,
+            None,
+        );
+
+        let result = chain.charm_exposure();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), dec!(0.0));
+    }
+}
+
+#[cfg(test)]
+mod tests_color_calculations {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    #[cfg(feature = "io")]
+    use optionstratlib_core::assert_decimal_eq;
+    use rust_decimal_macros::dec;
+
+    // Helper function to create a test chain for charm calculations
+    #[cfg(feature = "io")]
+    fn create_test_chain_with_color() -> OptionChain {
+        let mut option_chain = OptionChain::load_from_json(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../examples/Chains/SP500-18-oct-2024-5781.88.json"
+        ))
+        .unwrap();
+        // It is necessary to update the expiration date of all the options in the chain
+        // with a relative number of days in order to have a correct color calculation
+        option_chain.update_expiration_date("30.0".to_string());
+        option_chain
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_color_exposure_basic() {
+        let mut chain = create_test_chain_with_color();
+        // Initialize the greeks first
+        chain.update_greeks();
+        let result = chain.color_exposure();
+
+        assert!(result.is_ok());
+        let color_exposure = result.unwrap();
+        // Test against expected value from sample data
+        assert_decimal_eq!(color_exposure, dec!(-0.001356), dec!(0.000001));
+    }
+
+    #[test]
+    fn test_color_exposure_empty_chain() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2024-12-31".to_string(),
+            None,
+            None,
+        );
+
+        let result = chain.color_exposure();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), dec!(0.0));
+    }
+}
+
+#[cfg(test)]
+mod tests_atm_strike {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use crate::chains::utils::{OptionChainBuildParams, OptionDataPriceParams};
+    use optionstratlib_core::model::ExpirationDate;
+
+    use rust_decimal_macros::dec;
+
+    fn create_standard_chain() -> OptionChain {
+        let params = OptionChainBuildParams::new(
+            "SP500".to_string(),
+            None,
+            10,
+            spos!(1.0),
+            dec!(-0.3),
+            Decimal::ZERO,
+            pos_or_panic!(0.02),
+            2,
+            OptionDataPriceParams::new(
+                Some(Box::new(Positive::HUNDRED)),
+                Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+                Some(dec!(0.05)),
+                spos!(0.02),
+                Some("AAPL".to_string()),
+            ),
+            pos_or_panic!(0.2),
+        );
+
+        OptionChain::build_chain(&params).unwrap()
+    }
+
+    #[test]
+    fn test_atm_strike_exact_match() {
+        let chain = create_standard_chain();
+
+        // The default chain has a strike at 100.0 which matches the underlying price
+        let result = chain.atm_strike();
+        assert!(result.is_ok(), "Should find the ATM strike");
+
+        let strike = result.unwrap();
+        assert_eq!(
+            *strike,
+            Positive::HUNDRED,
+            "Should return strike at exactly 100.0"
+        );
+    }
+
+    #[test]
+    fn test_atm_strike_approximate_match() {
+        let mut chain = create_standard_chain();
+
+        // Modify the underlying price to a value that doesn't have an exact match
+        chain.underlying_price = pos_or_panic!(100.5);
+
+        let result = chain.atm_strike();
+        assert!(result.is_ok(), "Should find the closest strike");
+
+        let strike = result.unwrap();
+        assert_eq!(
+            *strike,
+            Positive::HUNDRED,
+            "Should return the closest strike (100.0)"
+        );
+
+        // Modify the underlying price to test the other direction
+        chain.underlying_price = pos_or_panic!(101.0);
+
+        let result = chain.atm_strike();
+        assert!(result.is_ok(), "Should find the closest strike");
+
+        let strike = result.unwrap();
+        assert_eq!(
+            *strike,
+            pos_or_panic!(101.0),
+            "Should return the closest strike (101.0)"
+        );
+    }
+
+    #[test]
+    fn test_atm_strike_empty_chain() {
+        let chain = OptionChain::new(
+            "EMPTY",
+            Positive::HUNDRED,
+            "2023-12-15".to_string(),
+            None,
+            None,
+        );
+
+        let result = chain.atm_strike();
+        assert!(result.is_err(), "Should return error for empty chain");
+
+        let error = result.unwrap_err().to_string();
+        assert!(
+            error.contains("empty option chain"),
+            "Error should mention empty chain"
+        );
+        assert!(error.contains("EMPTY"), "Error should include the symbol");
+    }
+
+    #[test]
+    fn test_atm_strike_extreme_underlying() {
+        let mut chain = create_standard_chain();
+
+        // Set underlying price far from any strike
+        chain.underlying_price = pos_or_panic!(110.0);
+
+        let result = chain.atm_strike();
+        assert!(
+            result.is_ok(),
+            "Should find the closest strike even for extreme values"
+        );
+
+        let strike = result.unwrap();
+
+        // The farthest strike in the standard chain should be around 110.0
+        assert!(
+            *strike >= pos_or_panic!(110.0),
+            "Should return the highest available strike"
+        );
+
+        // Test with very low underlying price
+        chain.underlying_price = pos_or_panic!(80.0);
+
+        let result = chain.atm_strike();
+        assert!(
+            result.is_ok(),
+            "Should find the closest strike for low values"
+        );
+
+        let strike = result.unwrap();
+
+        // The lowest strike in the standard chain should be 90.0 (chain_size=10, so 10 strikes below ATM)
+        assert_eq!(
+            *strike,
+            pos_or_panic!(90.0),
+            "Should return the lowest available strike"
+        );
+    }
+
+    #[test]
+    fn test_atm_strike_equidistant() {
+        let mut chain = create_standard_chain();
+
+        // Set underlying price exactly between two strikes
+        chain.underlying_price = pos_or_panic!(100.5);
+
+        // Set up a custom chain with known strikes
+        let mut options = BTreeSet::new();
+        options.insert(OptionData::new(
+            Positive::HUNDRED,
+            spos!(1.0),
+            spos!(1.1),
+            spos!(1.0),
+            spos!(1.1),
+            pos_or_panic!(0.2),
+            Some(dec!(0.5)),
+            Some(dec!(-0.5)),
+            Some(dec!(0.1)),
+            spos!(100.0),
+            Some(50),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ));
+
+        options.insert(OptionData::new(
+            pos_or_panic!(101.0),
+            spos!(0.9),
+            spos!(1.0),
+            spos!(1.1),
+            spos!(1.2),
+            pos_or_panic!(0.2),
+            Some(dec!(0.55)),
+            Some(dec!(-0.45)),
+            Some(dec!(0.1)),
+            spos!(100.0),
+            Some(50),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ));
+
+        chain.options = options;
+
+        let result = chain.atm_strike();
+        assert!(result.is_ok(), "Should find a strike when equidistant");
+
+        let strike = result.unwrap();
+
+        // When equidistant, should return one of the two closest strikes
+        assert!(
+            *strike == Positive::HUNDRED || *strike == pos_or_panic!(101.0),
+            "Should return one of the equidistant strikes"
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests_atm_strike_bis {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use crate::chains::utils::{OptionChainBuildParams, OptionDataPriceParams};
+    use optionstratlib_core::model::ExpirationDate;
+
+    use rust_decimal_macros::dec;
+
+    fn create_standard_chain() -> OptionChain {
+        let params = OptionChainBuildParams::new(
+            "SP500".to_string(),
+            None,
+            10,
+            spos!(1.0),
+            dec!(-0.3),
+            Decimal::ZERO,
+            pos_or_panic!(0.02),
+            2,
+            OptionDataPriceParams::new(
+                Some(Box::new(Positive::HUNDRED)),
+                Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+                Some(dec!(0.05)),
+                spos!(0.02),
+                Some("AAPL".to_string()),
+            ),
+            pos_or_panic!(0.2),
+        );
+
+        OptionChain::build_chain(&params).unwrap()
+    }
+
+    #[test]
+    fn test_atm_strike_approximate_match() {
+        let mut chain = create_standard_chain();
+
+        // Modify the underlying price to a value that doesn't have an exact match
+        chain.underlying_price = pos_or_panic!(100.5);
+
+        let result = chain.atm_strike();
+        assert!(result.is_ok(), "Should find the closest strike");
+
+        let strike = result.unwrap();
+        assert_eq!(
+            *strike,
+            Positive::HUNDRED,
+            "Should return the closest strike (100.0)"
+        );
+
+        // Modify the underlying price to test the other direction
+        chain.underlying_price = pos_or_panic!(101.0);
+
+        let result = chain.atm_strike();
+        assert!(result.is_ok(), "Should find the closest strike");
+
+        let strike = result.unwrap();
+        assert_eq!(
+            *strike,
+            pos_or_panic!(101.0),
+            "Should return the closest strike (101.0)"
+        );
+    }
+
+    #[test]
+    fn test_atm_strike_empty_chain() {
+        let chain = OptionChain::new(
+            "EMPTY",
+            Positive::HUNDRED,
+            "2023-12-15".to_string(),
+            None,
+            None,
+        );
+
+        let result = chain.atm_strike();
+        assert!(result.is_err(), "Should return error for empty chain");
+
+        let error = result.unwrap_err().to_string();
+        assert!(
+            error.contains("empty option chain"),
+            "Error should mention empty chain"
+        );
+        assert!(error.contains("EMPTY"), "Error should include the symbol");
+    }
+
+    #[test]
+    fn test_atm_strike_extreme_underlying() {
+        let mut chain = create_standard_chain();
+
+        // Set underlying price far from any strike
+        chain.underlying_price = pos_or_panic!(150.0);
+
+        let result = chain.atm_strike();
+        assert!(
+            result.is_ok(),
+            "Should find the closest strike even for extreme values"
+        );
+
+        let strike = result.unwrap();
+
+        // The farthest strike in the standard chain should be around 110.0
+        assert!(
+            *strike >= pos_or_panic!(110.0),
+            "Should return the highest available strike"
+        );
+
+        // Test with very low underlying price
+        chain.underlying_price = pos_or_panic!(80.0);
+
+        let result = chain.atm_strike();
+        assert!(
+            result.is_ok(),
+            "Should find the closest strike for low values"
+        );
+
+        let strike = result.unwrap();
+
+        // The lowest strike in the standard chain should be 90.0 (chain_size=10, so 10 strikes below ATM)
+        assert_eq!(
+            *strike,
+            pos_or_panic!(90.0),
+            "Should return the lowest available strike"
+        );
+    }
+
+    #[test]
+    fn test_atm_strike_equidistant() {
+        let mut chain = create_standard_chain();
+
+        // Set underlying price exactly between two strikes
+        chain.underlying_price = pos_or_panic!(100.5);
+
+        // Set up a custom chain with known strikes
+        let mut options = BTreeSet::new();
+        options.insert(OptionData::new(
+            Positive::HUNDRED,
+            spos!(1.0),
+            spos!(1.1),
+            spos!(1.0),
+            spos!(1.1),
+            pos_or_panic!(0.2),
+            Some(dec!(0.5)),
+            Some(dec!(-0.5)),
+            Some(dec!(0.1)),
+            spos!(100.0),
+            Some(50),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ));
+
+        options.insert(OptionData::new(
+            pos_or_panic!(101.0),
+            spos!(0.9),
+            spos!(1.0),
+            spos!(1.1),
+            spos!(1.2),
+            pos_or_panic!(0.2),
+            Some(dec!(0.55)),
+            Some(dec!(-0.45)),
+            Some(dec!(0.1)),
+            spos!(100.0),
+            Some(50),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ));
+
+        chain.options = options;
+
+        let result = chain.atm_strike();
+        assert!(result.is_ok(), "Should find a strike when equidistant");
+
+        let strike = result.unwrap();
+
+        // When equidistant, should return one of the two closest strikes
+        assert!(
+            *strike == Positive::HUNDRED || *strike == pos_or_panic!(101.0),
+            "Should return one of the equidistant strikes"
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests_option_chain_utils {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use rust_decimal_macros::dec;
+
+    // Helper function to create a chain with custom strikes for specific tests
+    fn create_custom_strike_chain() -> OptionChain {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            Some(dec!(0.05)),
+            spos!(0.02),
+        );
+
+        // Add options with irregular strike intervals
+        let strikes = [90.0, 92.5, 95.0, 100.0, 105.0, 110.0, 115.0, 125.0];
+        let vols = [0.22, 0.20, 0.18, 0.17, 0.175, 0.18, 0.19, 0.21]; // Volatility smile pattern
+        let deltas_call = [0.1, 0.2, 0.3, 0.5, 0.7, 0.8, 0.9, 0.95]; // Approximate delta values
+        let deltas_put = [-0.9, -0.8, -0.7, -0.5, -0.3, -0.2, -0.1, -0.05]; // Approximate put delta values
+        let gammas = [0.01, 0.02, 0.03, 0.04, 0.03, 0.02, 0.01, 0.005]; // Approximate gamma values
+
+        for (i, &strike) in strikes.iter().enumerate() {
+            chain.add_option(
+                pos_or_panic!(strike),
+                spos!(5.0),
+                spos!(5.5),
+                spos!(4.0),
+                spos!(4.5),
+                pos_or_panic!(vols[i]),
+                Some(Decimal::from_f64(deltas_call[i]).unwrap()),
+                Some(Decimal::from_f64(deltas_put[i]).unwrap()),
+                Some(Decimal::from_f64(gammas[i]).unwrap()),
+                spos!(100.0),
+                Some(50),
+                None,
+            );
+        }
+
+        chain
+    }
+
+    #[test]
+    fn test_get_strike_interval_custom_chain() {
+        let chain = create_custom_strike_chain();
+
+        // The custom chain has mostly 5.0 intervals but some irregular ones
+        let interval = chain.get_strike_interval();
+
+        assert_eq!(
+            interval,
+            pos_or_panic!(5.0),
+            "Strike interval should be 5.0 for custom chain"
+        );
+    }
+
+    #[test]
+    fn test_get_strike_interval_empty_chain() {
+        let chain = OptionChain::new(
+            "EMPTY",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        // Empty chain should return the default interval
+        let interval = chain.get_strike_interval();
+
+        assert_eq!(
+            interval,
+            pos_or_panic!(5.0),
+            "Empty chain should return default interval of 5.0"
+        );
+    }
+
+    #[test]
+    fn test_get_strike_interval_single_option_chain() {
+        let mut chain = OptionChain::new(
+            "SINGLE",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        chain.add_option(
+            Positive::HUNDRED,
+            spos!(5.0),
+            spos!(5.5),
+            spos!(4.0),
+            spos!(4.5),
+            pos_or_panic!(0.2),
+            Some(dec!(0.5)),
+            Some(dec!(-0.5)),
+            Some(dec!(0.04)),
+            spos!(100.0),
+            Some(50),
+            None,
+        );
+
+        // Chain with a single option should return the default interval
+        let interval = chain.get_strike_interval();
+
+        assert_eq!(
+            interval,
+            pos_or_panic!(5.0),
+            "Single option chain should return default interval of 5.0"
+        );
+    }
+
+    #[test]
+    fn test_get_strike_interval_fractional_intervals() {
+        let mut chain = OptionChain::new(
+            "FRACTIONAL",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        // Add options with small fractional intervals
+        let strikes = [100.0, 100.25, 100.5, 100.75, 101.0];
+
+        for &strike in &strikes {
+            chain.add_option(
+                pos_or_panic!(strike),
+                spos!(1.0),
+                spos!(1.1),
+                spos!(1.0),
+                spos!(1.1),
+                pos_or_panic!(0.2),
+                Some(dec!(0.5)),
+                Some(dec!(-0.5)),
+                Some(dec!(0.04)),
+                spos!(100.0),
+                Some(50),
+                None,
+            );
+        }
+
+        // The intervals are all 0.25, but method should round to 0 and then to 1
+        let interval = chain.get_strike_interval();
+
+        assert_eq!(
+            interval,
+            Positive::ONE,
+            "Fractional intervals should round to minimum of 1.0"
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests_option_chain_utils_bis {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use crate::chains::utils::OptionChainBuildParams;
+    use crate::chains::utils::OptionDataPriceParams;
+    use optionstratlib_core::model::ExpirationDate;
+
+    use rust_decimal_macros::dec;
+
+    // Helper function to create a standard option chain for testing
+    fn create_standard_chain() -> OptionChain {
+        let params = OptionChainBuildParams::new(
+            "SP500".to_string(),
+            None,
+            10,
+            spos!(1.0),
+            dec!(-0.3),
+            Decimal::ZERO,
+            pos_or_panic!(0.02),
+            2,
+            OptionDataPriceParams::new(
+                Some(Box::new(Positive::HUNDRED)),
+                Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+                Some(dec!(0.05)),
+                spos!(0.02),
+                Some("AAPL".to_string()),
+            ),
+            pos_or_panic!(0.2),
+        );
+
+        OptionChain::build_chain(&params).unwrap()
+    }
+
+    // Helper function to create a chain with custom strikes for specific tests
+    fn create_custom_strike_chain() -> OptionChain {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            Some(dec!(0.05)),
+            spos!(0.02),
+        );
+
+        // Add options with irregular strike intervals
+        let strikes = [90.0, 92.5, 95.0, 100.0, 105.0, 110.0, 115.0, 125.0];
+        let vols = [0.22, 0.20, 0.18, 0.17, 0.175, 0.18, 0.19, 0.21]; // Volatility smile pattern
+        let deltas_call = [0.1, 0.2, 0.3, 0.5, 0.7, 0.8, 0.9, 0.95]; // Approximate delta values
+        let deltas_put = [-0.9, -0.8, -0.7, -0.5, -0.3, -0.2, -0.1, -0.05]; // Approximate put delta values
+        let gammas = [0.01, 0.02, 0.03, 0.04, 0.03, 0.02, 0.01, 0.005]; // Approximate gamma values
+
+        for (i, &strike) in strikes.iter().enumerate() {
+            chain.add_option(
+                pos_or_panic!(strike),
+                spos!(5.0),
+                spos!(5.5),
+                spos!(4.0),
+                spos!(4.5),
+                pos_or_panic!(vols[i]),
+                Some(Decimal::from_f64(deltas_call[i]).unwrap()),
+                Some(Decimal::from_f64(deltas_put[i]).unwrap()),
+                Some(Decimal::from_f64(gammas[i]).unwrap()),
+                spos!(100.0),
+                Some(50),
+                None,
+            );
+        }
+
+        chain
+    }
+
+    #[test]
+    fn test_get_strike_interval_standard_chain() {
+        let chain = create_standard_chain();
+
+        // The standard chain should have a regular interval of 1.0
+        let interval = chain.get_strike_interval();
+
+        assert_eq!(
+            interval,
+            Positive::ONE,
+            "Strike interval should be 1.0 for standard chain"
+        );
+    }
+
+    #[test]
+    fn test_get_strike_interval_custom_chain() {
+        let chain = create_custom_strike_chain();
+
+        // The custom chain has mostly 5.0 intervals but some irregular ones
+        let interval = chain.get_strike_interval();
+
+        assert_eq!(
+            interval,
+            pos_or_panic!(5.0),
+            "Strike interval should be 5.0 for custom chain"
+        );
+    }
+
+    #[test]
+    fn test_get_strike_interval_empty_chain() {
+        let chain = OptionChain::new(
+            "EMPTY",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        // Empty chain should return the default interval
+        let interval = chain.get_strike_interval();
+
+        assert_eq!(
+            interval,
+            pos_or_panic!(5.0),
+            "Empty chain should return default interval of 5.0"
+        );
+    }
+
+    #[test]
+    fn test_get_strike_interval_single_option_chain() {
+        let mut chain = OptionChain::new(
+            "SINGLE",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        chain.add_option(
+            Positive::HUNDRED,
+            spos!(5.0),
+            spos!(5.5),
+            spos!(4.0),
+            spos!(4.5),
+            pos_or_panic!(0.2),
+            Some(dec!(0.5)),
+            Some(dec!(-0.5)),
+            Some(dec!(0.04)),
+            spos!(100.0),
+            Some(50),
+            None,
+        );
+
+        // Chain with a single option should return the default interval
+        let interval = chain.get_strike_interval();
+
+        assert_eq!(
+            interval,
+            pos_or_panic!(5.0),
+            "Single option chain should return default interval of 5.0"
+        );
+    }
+
+    #[test]
+    fn test_get_strike_interval_fractional_intervals() {
+        let mut chain = OptionChain::new(
+            "FRACTIONAL",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        // Add options with small fractional intervals
+        let strikes = [100.0, 100.25, 100.5, 100.75, 101.0];
+
+        for &strike in &strikes {
+            chain.add_option(
+                pos_or_panic!(strike),
+                spos!(1.0),
+                spos!(1.1),
+                spos!(1.0),
+                spos!(1.1),
+                pos_or_panic!(0.2),
+                Some(dec!(0.5)),
+                Some(dec!(-0.5)),
+                Some(dec!(0.04)),
+                spos!(100.0),
+                Some(50),
+                None,
+            );
+        }
+
+        // The intervals are all 0.25, but method should round to 0 and then to 1
+        let interval = chain.get_strike_interval();
+
+        assert_eq!(
+            interval,
+            Positive::ONE,
+            "Fractional intervals should round to minimum of 1.0"
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests_to_build_params_bis {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use crate::chains::utils::{OptionChainBuildParams, OptionDataPriceParams};
+    use optionstratlib_core::model::ExpirationDate;
+
+    use rust_decimal_macros::dec;
+    use tracing::info;
+
+    fn create_standard_chain() -> OptionChain {
+        let params = OptionChainBuildParams::new(
+            "SP500".to_string(),
+            None,
+            22,
+            spos!(25.0),
+            dec!(-0.1),
+            dec!(0.1),
+            pos_or_panic!(0.03),
+            2,
+            OptionDataPriceParams::new(
+                Some(Box::new(Positive::HUNDRED)),
+                Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+                Some(dec!(0.05)),
+                spos!(0.02),
+                Some("AAPL".to_string()),
+            ),
+            pos_or_panic!(0.2),
+        );
+
+        OptionChain::build_chain(&params).unwrap()
+    }
+
+    #[test]
+    fn test_to_build_params_simple() {
+        let chain = create_standard_chain();
+        info!("{}", chain);
+        let mut params = chain.to_build_params().unwrap();
+
+        params.smile_curve = dec!(0.000001);
+        params.price_params.underlying_price = Some(Box::new(
+            pos_or_panic!(params.price_params.underlying_price.unwrap().to_f64() * f64::exp(0.2))
+                .max(Positive::ZERO),
+        ));
+        params.implied_volatility =
+            pos_or_panic!(params.implied_volatility.to_f64() * f64::exp(0.2)).max(Positive::ZERO);
+        info!("{}", params);
+
+        let new_chain = OptionChain::build_chain(&params).unwrap();
+        info!("{}", new_chain);
+    }
+
+    /// Regression for #405: `to_build_params` fed the TOTAL row count back
+    /// as the per-side `chain_size`, so each `to_build_params` ->
+    /// `build_chain` round-trip roughly doubled the strike grid until the
+    /// deep-strike price break capped it. The strike count must be stable
+    /// across round-trips after the first rebuild (the first rebuild may
+    /// symmetrize an asymmetric input, but must not compound).
+    #[test]
+    fn test_to_build_params_round_trip_strike_count_stable() {
+        for days in [30.0, 180.0] {
+            let params = OptionChainBuildParams::new(
+                "TEST".to_string(),
+                None,
+                10,
+                spos!(5.0),
+                dec!(-0.2),
+                dec!(0.1),
+                pos_or_panic!(0.02),
+                2,
+                OptionDataPriceParams::new(
+                    Some(Box::new(Positive::HUNDRED)),
+                    Some(ExpirationDate::Days(pos_or_panic!(days))),
+                    Some(dec!(0.05)),
+                    spos!(0.02),
+                    Some("TEST".to_string()),
+                ),
+                pos_or_panic!(0.2),
+            );
+            let mut current = match OptionChain::build_chain(&params) {
+                Ok(chain) => chain,
+                Err(e) => panic!("initial build_chain failed at {days}d: {e}"),
+            };
+
+            let mut lens = Vec::new();
+            for round in 0..3 {
+                let rebuilt_params = match current.to_build_params() {
+                    Ok(p) => p,
+                    Err(e) => panic!("to_build_params failed at {days}d round {round}: {e}"),
+                };
+                current = match OptionChain::build_chain(&rebuilt_params) {
+                    Ok(chain) => chain,
+                    Err(e) => panic!("rebuild failed at {days}d round {round}: {e}"),
+                };
+                lens.push(current.len());
+            }
+
+            assert_eq!(
+                lens[0], lens[1],
+                "strike count compounded across round-trips at {days}d: {lens:?}"
+            );
+            assert_eq!(
+                lens[1], lens[2],
+                "strike count compounded across round-trips at {days}d: {lens:?}"
+            );
+        }
+    }
+
+    /// Regression for #409: a chain built from known skew/smile parameters
+    /// must recover those parameters (within tolerance) via the least-squares
+    /// fit in `to_build_params`, instead of resetting to the canned
+    /// constants.
+    #[test]
+    fn test_to_build_params_recovers_skew_smile() {
+        let true_slope = dec!(-0.3);
+        let true_curve = dec!(0.2);
+        let params = OptionChainBuildParams::new(
+            "TEST".to_string(),
+            None,
+            10,
+            spos!(5.0),
+            true_slope,
+            true_curve,
+            pos_or_panic!(0.02),
+            2,
+            OptionDataPriceParams::new(
+                Some(Box::new(Positive::HUNDRED)),
+                Some(ExpirationDate::Days(pos_or_panic!(60.0))),
+                Some(dec!(0.05)),
+                spos!(0.02),
+                Some("TEST".to_string()),
+            ),
+            pos_or_panic!(0.25),
+        );
+        let chain = match OptionChain::build_chain(&params) {
+            Ok(chain) => chain,
+            Err(e) => panic!("build_chain failed: {e}"),
+        };
+        let rebuilt = match chain.to_build_params() {
+            Ok(p) => p,
+            Err(e) => panic!("to_build_params failed: {e}"),
+        };
+
+        let slope_err = (rebuilt.skew_slope - true_slope).abs();
+        let curve_err = (rebuilt.smile_curve - true_curve).abs();
+        assert!(
+            slope_err < dec!(0.05),
+            "fitted slope {} too far from true {true_slope}",
+            rebuilt.skew_slope
+        );
+        assert!(
+            curve_err < dec!(0.1),
+            "fitted curve {} too far from true {true_curve}",
+            rebuilt.smile_curve
+        );
+    }
+
+    #[cfg(feature = "io")]
+    /// Regression for #409: round-tripping a chain with a real market smile
+    /// must preserve a meaningful fraction of the smile width (previously it
+    /// collapsed ~140x because `to_build_params` reset the skew to
+    /// constants).
+    #[test]
+    fn test_round_trip_preserves_smile_width() {
+        use optionstratlib_core::utils::time::get_x_days_formatted;
+
+        let mut chain = match OptionChain::load_from_json(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../examples/Chains/SP500-18-oct-2024-5781.88.json"
+        )) {
+            Ok(chain) => chain,
+            Err(e) => panic!("fixture load failed: {e}"),
+        };
+        chain.update_expiration_date(get_x_days_formatted(30));
+
+        let iv_span = |c: &OptionChain| -> Positive {
+            let ivs: Vec<Positive> = c
+                .options
+                .iter()
+                .map(|o| o.implied_volatility)
+                .filter(|iv| *iv > Positive::ZERO)
+                .collect();
+            let max = ivs.iter().max().copied().unwrap_or(Positive::ZERO);
+            let min = ivs.iter().min().copied().unwrap_or(Positive::ZERO);
+            max - min
+        };
+
+        let source_span = iv_span(&chain);
+        assert!(
+            source_span > Positive::ZERO,
+            "fixture has no smile to preserve"
+        );
+
+        let params = match chain.to_build_params() {
+            Ok(p) => p,
+            Err(e) => panic!("to_build_params failed: {e}"),
+        };
+        // Equity put skew: the fitted slope must be negative.
+        assert!(
+            params.skew_slope < Decimal::ZERO,
+            "expected negative put skew, got {}",
+            params.skew_slope
+        );
+
+        let rebuilt = match OptionChain::build_chain(&params) {
+            Ok(c) => c,
+            Err(e) => panic!("rebuild failed: {e}"),
+        };
+        let rebuilt_span = iv_span(&rebuilt);
+
+        // A quadratic fit on a real smile will not be exact, but it must
+        // retain a meaningful share of the width. Before the fit this
+        // collapsed to well under 1% of the source span.
+        assert!(
+            rebuilt_span.to_dec() >= source_span.to_dec() * dec!(0.3),
+            "smile collapsed on round-trip: source span {source_span}, rebuilt span {rebuilt_span}"
+        );
+    }
+
+    /// A pathological `chain_size` must surface as a typed error from the
+    /// checked 2n+1 conversion, not wrap or panic.
+    #[test]
+    fn test_build_chain_chain_size_overflow_errors() {
+        let params = OptionChainBuildParams::new(
+            "TEST".to_string(),
+            None,
+            usize::MAX,
+            None, // force the strike_step path that performs the conversion
+            dec!(-0.2),
+            dec!(0.1),
+            pos_or_panic!(0.02),
+            2,
+            OptionDataPriceParams::new(
+                Some(Box::new(Positive::HUNDRED)),
+                Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+                Some(dec!(0.05)),
+                spos!(0.02),
+                Some("TEST".to_string()),
+            ),
+            pos_or_panic!(0.2),
+        );
+        match OptionChain::build_chain(&params) {
+            Err(e) => {
+                let message = e.to_string();
+                assert!(
+                    message.contains("chain_size") && message.contains("overflow"),
+                    "expected chain_size overflow error, got: {message}"
+                );
+            }
+            Ok(_) => panic!("usize::MAX chain_size must not build"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod chain_coverage_tests {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use rust_decimal_macros::dec;
+
+    // Helper function to create a test chain with specific characteristics
+    fn create_test_chain() -> OptionChain {
+        let params = OptionChainBuildParams::new(
+            "TEST".to_string(),
+            None,
+            5,
+            spos!(5.0),
+            dec!(-0.3),
+            dec!(0.1),
+            pos_or_panic!(0.02),
+            2,
+            OptionDataPriceParams::new(
+                Some(Box::new(Positive::HUNDRED)),
+                Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+                Some(dec!(0.05)),
+                spos!(0.02),
+                Some("AAPL".to_string()),
+            ),
+            pos_or_panic!(0.2),
+        );
+
+        OptionChain::build_chain(&params).unwrap()
+    }
+
+    #[test]
+    fn test_option_chain_display() {
+        let chain = create_test_chain();
+
+        // Test the Display implementation - covers many lines
+        let display_output = format!("{chain}");
+
+        // Verify expected content in the display output
+        assert!(display_output.contains("TEST"));
+        assert!(display_output.contains("Underlying Price"));
+        assert!(display_output.contains("Strike"));
+        assert!(display_output.contains("Call Bid"));
+        assert!(display_output.contains("Put Ask"));
+    }
+
+    #[test]
+    fn test_get_title_variants() {
+        let chain = OptionChain::new(
+            "SP500 Index", // With space
+            pos_or_panic!(5781.88),
+            "18 Oct 2024".to_string(), // With spaces
+            Some(dec!(0.05)),
+            spos!(0.02),
+        );
+
+        let title = chain.get_title();
+        assert_eq!(title, "SP500-Index-18-Oct-2024-5781.88");
+    }
+
+    #[test]
+    fn test_update_expiration_date() {
+        let mut chain = create_test_chain();
+        let original_date = chain.get_expiration_date();
+
+        // Update to a new date
+        chain.update_expiration_date("2026-12-31".to_string());
+
+        // Verify the date was updated
+        assert_ne!(chain.get_expiration_date(), original_date);
+        assert_eq!(chain.get_expiration_date(), "2026-12-31");
+    }
+
+    #[test]
+    fn test_atm_option_data_edge_cases() {
+        // Test with empty chain
+        let empty_chain = OptionChain::new(
+            "EMPTY",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        let result = empty_chain.atm_option_data();
+        assert!(result.is_err());
+
+        // Test with a single option exactly at the money
+        let mut single_option_chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        single_option_chain.add_option(
+            Positive::HUNDRED,
+            spos!(5.0),
+            spos!(5.5),
+            spos!(4.5),
+            spos!(5.0),
+            pos_or_panic!(0.2),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let result = single_option_chain.atm_option_data();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().strike_price, Positive::HUNDRED);
+    }
+
+    #[test]
+    fn test_update_mid_prices_and_greeks() {
+        let mut chain = create_test_chain();
+
+        // Get original values
+        let original_options = chain.options.clone();
+
+        // Call the update methods
+        chain.update_mid_prices();
+        chain.update_greeks();
+
+        // Verify that values have been updated
+        for (original, updated) in original_options.iter().zip(chain.options.iter()) {
+            // The objects should have the same strike but potentially different values
+            assert_eq!(original.strike_price, updated.strike_price);
+
+            // Midpoints should now be set in the updated version
+            if original.call_bid.is_some() && original.call_ask.is_some() {
+                assert!(updated.call_middle.is_some());
+            }
+
+            if original.put_bid.is_some() && original.put_ask.is_some() {
+                assert!(updated.put_middle.is_some());
+            }
+
+            // Greeks should be set
+            assert!(updated.delta_call.is_some() || updated.delta_put.is_some());
+        }
+    }
+
+    #[test]
+    fn test_strike_price_range_vec() {
+        let chain = create_test_chain();
+
+        // Test with different step sizes
+        let range_1 = chain.strike_price_range_vec(1.0);
+        assert!(range_1.is_some());
+
+        let range_5 = chain.strike_price_range_vec(5.0);
+        assert!(range_5.is_some());
+
+        // Compare ranges
+        if let (Some(range_1), Some(range_5)) = (range_1, range_5) {
+            assert!(range_1.len() >= range_5.len());
+        }
+
+        // Test with empty chain
+        let empty_chain = OptionChain::new(
+            "EMPTY",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        let range = empty_chain.strike_price_range_vec(5.0);
+        assert!(range.is_none());
+    }
+
+    #[test]
+    fn test_get_params_and_atm_strike() {
+        let chain = create_test_chain();
+
+        // Test get_params
+        let atm_strike = chain.atm_strike().unwrap();
+        let params_result = chain.get_params(*atm_strike);
+        assert!(params_result.is_ok());
+
+        let params = params_result.unwrap();
+        assert_eq!(*params.underlying_price.unwrap(), chain.underlying_price);
+
+        // Test with invalid strike
+        let invalid_strike = pos_or_panic!(9999.0);
+        let invalid_params_result = chain.get_params(invalid_strike);
+        assert!(invalid_params_result.is_err());
+    }
+
+    #[test]
+    fn test_calculate_delta_exposure() {
+        let mut chain = create_test_chain();
+
+        // Update Greeks to ensure they are populated
+        chain.update_greeks();
+
+        // Now test delta exposure
+        let delta_exposure = chain.delta_exposure();
+        assert!(delta_exposure.is_ok());
+    }
+
+    #[test]
+    fn test_all_exposures() {
+        let mut chain = create_test_chain();
+
+        // Update Greeks to ensure they are populated
+        chain.update_greeks();
+
+        // Test various exposure calculations
+        let gamma_exposure = chain.gamma_exposure();
+        assert!(gamma_exposure.is_ok());
+
+        let delta_exposure = chain.delta_exposure();
+        assert!(delta_exposure.is_ok());
+
+        let vega_exposure = chain.vega_exposure();
+        assert!(vega_exposure.is_ok());
+
+        let theta_exposure = chain.theta_exposure();
+        assert!(theta_exposure.is_ok());
+
+        let vanna_exposure = chain.vanna_exposure();
+        assert!(vanna_exposure.is_ok());
+
+        let vomma_exposure = chain.vomma_exposure();
+        assert!(vomma_exposure.is_ok());
+
+        let veta_exposure = chain.veta_exposure();
+        assert!(veta_exposure.is_ok());
+
+        let charm_exposure = chain.charm_exposure();
+        assert!(charm_exposure.is_ok());
+
+        let color_exposure = chain.color_exposure();
+        assert!(color_exposure.is_ok());
+    }
+}
+
+#[cfg(test)]
+mod chain_coverage_tests_bis {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    #[cfg(feature = "io")]
+    /// A directory of this test run's own, outside the working tree.
+    ///
+    /// Writing chain artifacts into `.` or `tests/` puts every file-writing
+    /// test in one shared directory, and `cargo` runs test binaries
+    /// concurrently. Asserting that the cleanup succeeded then asserts that
+    /// nothing else touched the file, which is not a property of the test:
+    /// two of these failed together on a full-suite run, each passing on its
+    /// own. `tests/` is a source directory besides, so the round trip was
+    /// leaving artifacts in the tree.
+    ///
+    /// The directory has to be unique per *process*, not per test: a path
+    /// derived from the test's own name is shared by every process running
+    /// that test, so two checkouts, or a `cargo test` beside a coverage run,
+    /// would still remove each other's directory — the same flake in a new
+    /// place. `tempfile` picks a fresh one and removes it when the returned
+    /// handle drops, so the caller keeps the handle alive for as long as it
+    /// needs the files.
+    fn scratch_dir() -> tempfile::TempDir {
+        tempfile::tempdir().expect("a temporary directory is available")
+    }
+    use optionstratlib_core::spos;
+
+    use rust_decimal_macros::dec;
+
+    // Helper function to create a test chain with specific characteristics
+    fn create_test_chain() -> OptionChain {
+        let params = OptionChainBuildParams::new(
+            "TEST".to_string(),
+            None,
+            5,
+            spos!(5.0),
+            dec!(-0.3),
+            dec!(0.1),
+            pos_or_panic!(0.02),
+            2,
+            OptionDataPriceParams::new(
+                Some(Box::new(Positive::HUNDRED)),
+                Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+                Some(dec!(0.05)),
+                spos!(0.02),
+                Some("AAPL".to_string()),
+            ),
+            pos_or_panic!(0.17),
+        );
+
+        OptionChain::build_chain(&params).unwrap()
+    }
+
+    #[cfg(feature = "io")]
+    #[test]
+    fn test_deserializer_field_handling() {
+        let chain = create_test_chain();
+
+        // Save to JSON to trigger serialization
+        let scratch = scratch_dir();
+        let dir = scratch.path().to_string_lossy();
+        let result = chain.save_to_json(&dir);
+        assert!(result.is_ok());
+        let file = format!("{dir}/{}.json", chain.get_title());
+        // Load from JSON to trigger deserialization
+        let loaded_chain = OptionChain::load_from_json(&file);
+        assert!(loaded_chain.is_ok());
+
+        let loaded_chain = loaded_chain.unwrap();
+        assert_eq!(loaded_chain.symbol, "TEST");
+        assert_eq!(loaded_chain.underlying_price, Positive::HUNDRED);
+    }
+
+    // Test for many display-related lines
+    #[test]
+    fn test_option_chain_display() {
+        let chain = create_test_chain();
+
+        // Test the Display implementation - covers many lines
+        let display_output = format!("{chain}");
+
+        // Verify expected content in the display output
+        assert!(display_output.contains("TEST"));
+        assert!(display_output.contains("100"));
+        assert!(display_output.contains("Strike"));
+        assert!(display_output.contains("Call Bid"));
+        assert!(display_output.contains("Put Ask"));
+    }
+
+    #[test]
+    fn test_get_title_variants() {
+        let chain = OptionChain::new(
+            "SP500 Index", // With space
+            pos_or_panic!(5781.88),
+            "18 Oct 2024".to_string(), // With spaces
+            Some(dec!(0.05)),
+            spos!(0.02),
+        );
+
+        let title = chain.get_title();
+        assert_eq!(title, "SP500-Index-18-Oct-2024-5781.88");
+    }
+
+    // Test for line 345
+    #[test]
+    fn test_update_expiration_date() {
+        let mut chain = create_test_chain();
+        let original_date = chain.get_expiration_date();
+
+        // Update to a new date
+        chain.update_expiration_date("2026-12-31".to_string());
+
+        // Verify the date was updated
+        assert_ne!(chain.get_expiration_date(), original_date);
+        assert_eq!(chain.get_expiration_date(), "2026-12-31");
+    }
+
+    #[test]
+    fn test_atm_option_data_edge_cases() {
+        // Test with empty chain
+        let empty_chain = OptionChain::new(
+            "EMPTY",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        let result = empty_chain.atm_option_data();
+        assert!(result.is_err());
+
+        // Test with a single option exactly at the money
+        let mut single_option_chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        single_option_chain.add_option(
+            Positive::HUNDRED,
+            spos!(5.0),
+            spos!(5.5),
+            spos!(4.5),
+            spos!(5.0),
+            pos_or_panic!(0.2),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let result = single_option_chain.atm_option_data();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().strike_price, Positive::HUNDRED);
+    }
+
+    #[test]
+    fn test_update_mid_prices_and_greeks() {
+        let mut chain = create_test_chain();
+
+        // Get original values
+        let original_options = chain.options.clone();
+
+        // Call the update methods
+        chain.update_mid_prices();
+        chain.update_greeks();
+
+        // Verify that values have been updated
+        for (original, updated) in original_options.iter().zip(chain.options.iter()) {
+            // The objects should have the same strike but potentially different values
+            assert_eq!(original.strike_price, updated.strike_price);
+
+            // Midpoints should now be set in the updated version
+            if original.call_bid.is_some() && original.call_ask.is_some() {
+                assert!(updated.call_middle.is_some());
+            }
+
+            if original.put_bid.is_some() && original.put_ask.is_some() {
+                assert!(updated.put_middle.is_some());
+            }
+
+            // Greeks should be set
+            assert!(updated.delta_call.is_some() || updated.delta_put.is_some());
+        }
+    }
+
+    #[test]
+    fn test_strike_price_range_vec() {
+        let chain = create_test_chain();
+
+        // Test with different step sizes
+        let range_1 = chain.strike_price_range_vec(1.0);
+        assert!(range_1.is_some());
+
+        let range_5 = chain.strike_price_range_vec(5.0);
+        assert!(range_5.is_some());
+
+        // Compare ranges
+        if let (Some(range_1), Some(range_5)) = (range_1, range_5) {
+            assert!(range_1.len() >= range_5.len());
+        }
+
+        // Test with empty chain
+        let empty_chain = OptionChain::new(
+            "EMPTY",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        let range = empty_chain.strike_price_range_vec(5.0);
+        assert!(range.is_none());
+    }
+
+    #[test]
+    fn test_get_params_and_atm_strike() {
+        let chain = create_test_chain();
+
+        // Test get_params
+        let atm_strike = chain.atm_strike().unwrap();
+        let params_result = chain.get_params(*atm_strike);
+        assert!(params_result.is_ok());
+
+        let params = params_result.unwrap();
+        assert_eq!(*params.underlying_price.unwrap(), chain.underlying_price);
+
+        // Test with invalid strike
+        let invalid_strike = pos_or_panic!(9999.0);
+        let invalid_params_result = chain.get_params(invalid_strike);
+        assert!(invalid_params_result.is_err());
+    }
+
+    #[test]
+    fn test_calculate_delta_exposure() {
+        let mut chain = create_test_chain();
+
+        // Update Greeks to ensure they are populated
+        chain.update_greeks();
+
+        // Now test delta exposure
+        let delta_exposure = chain.delta_exposure();
+        assert!(delta_exposure.is_ok());
+    }
+
+    #[test]
+    fn test_all_exposures() {
+        let mut chain = create_test_chain();
+
+        // Update Greeks to ensure they are populated
+        chain.update_greeks();
+
+        // Test various exposure calculations
+        let gamma_exposure = chain.gamma_exposure();
+        assert!(gamma_exposure.is_ok());
+
+        let delta_exposure = chain.delta_exposure();
+        assert!(delta_exposure.is_ok());
+
+        let vega_exposure = chain.vega_exposure();
+        assert!(vega_exposure.is_ok());
+
+        let theta_exposure = chain.theta_exposure();
+        assert!(theta_exposure.is_ok());
+
+        let vanna_exposure = chain.vanna_exposure();
+        assert!(vanna_exposure.is_ok());
+
+        let vomma_exposure = chain.vomma_exposure();
+        assert!(vomma_exposure.is_ok());
+
+        let veta_exposure = chain.veta_exposure();
+        assert!(veta_exposure.is_ok());
+
+        let charm_exposure = chain.charm_exposure();
+        assert!(charm_exposure.is_ok());
+
+        let color_exposure = chain.color_exposure();
+        assert!(color_exposure.is_ok());
+    }
+}
+
+#[cfg(test)]
+mod tests_get_position_with_delta {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use crate::error::chains::OptionDataErrorKind;
+
+    use rust_decimal_macros::dec;
+    use tracing::info;
+
+    // Helper function to create a test option chain with various deltas
+    fn create_test_chain_with_deltas() -> OptionChain {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2024-12-31".to_string(),
+            Some(dec!(0.05)),
+            spos!(0.02),
+        );
+
+        // Add options with different deltas
+        // For calls: higher strike = lower delta
+        // For puts: higher strike = higher delta (more negative)
+
+        // Far ITM call, high delta / Far OTM put, low delta
+        chain.add_option(
+            pos_or_panic!(80.0),
+            spos!(20.0),
+            spos!(20.5),
+            spos!(0.5),
+            spos!(0.7),
+            pos_or_panic!(0.25),
+            Some(dec!(0.9)),  // High call delta (0.9)
+            Some(dec!(-0.1)), // Low put delta (-0.1)
+            Some(dec!(0.02)),
+            spos!(100.0),
+            Some(50),
+            None,
+        );
+
+        // ITM call / OTM put
+        chain.add_option(
+            pos_or_panic!(90.0),
+            spos!(11.0),
+            spos!(11.5),
+            spos!(1.5),
+            spos!(1.8),
+            pos_or_panic!(0.25),
+            Some(dec!(0.7)),  // Call delta (0.7)
+            Some(dec!(-0.3)), // Put delta (-0.3)
+            Some(dec!(0.04)),
+            spos!(200.0),
+            Some(100),
+            None,
+        );
+
+        // ATM call and put
+        chain.add_option(
+            Positive::HUNDRED,
+            spos!(5.0),
+            spos!(5.3),
+            spos!(5.0),
+            spos!(5.3),
+            pos_or_panic!(0.25),
+            Some(dec!(0.5)),  // ATM call delta (0.5)
+            Some(dec!(-0.5)), // ATM put delta (-0.5)
+            Some(dec!(0.05)),
+            spos!(500.0),
+            Some(250),
+            None,
+        );
+
+        // OTM call / ITM put
+        chain.add_option(
+            pos_or_panic!(110.0),
+            spos!(1.5),
+            spos!(1.8),
+            spos!(11.0),
+            spos!(11.5),
+            pos_or_panic!(0.25),
+            Some(dec!(0.3)),  // Call delta (0.3)
+            Some(dec!(-0.7)), // Put delta (-0.7)
+            Some(dec!(0.04)),
+            spos!(200.0),
+            Some(100),
+            None,
+        );
+
+        // Far OTM call, low delta / Far ITM put, high delta
+        chain.add_option(
+            pos_or_panic!(120.0),
+            spos!(0.5),
+            spos!(0.7),
+            spos!(20.0),
+            spos!(20.5),
+            pos_or_panic!(0.25),
+            Some(dec!(0.1)),  // Low call delta (0.1)
+            Some(dec!(-0.9)), // High put delta (-0.9)
+            Some(dec!(0.02)),
+            spos!(100.0),
+            Some(50),
+            None,
+        );
+
+        chain
+    }
+
+    #[test]
+    fn test_get_position_with_delta_long_call() {
+        let chain = create_test_chain_with_deltas();
+        info!("{}", chain);
+        // Request a long call with delta of 0.6 or lower
+        let result = chain.get_position_with_delta(dec!(0.6), Side::Long, OptionStyle::Call);
+
+        assert!(result.is_ok(), "Should find a suitable call option");
+
+        let position = result.unwrap();
+
+        assert_eq!(
+            position.option.strike_price,
+            Positive::HUNDRED,
+            "Should select option with strike 100.0 (delta 0.5)"
+        );
+        assert_eq!(position.option.side, Side::Long);
+        assert_eq!(position.option.option_style, OptionStyle::Call);
+    }
+
+    #[test]
+    fn test_get_position_with_delta_short_put() {
+        let chain = create_test_chain_with_deltas();
+
+        // Request a short put with delta of -0.4
+        let result = chain.get_position_with_delta(dec!(0.4), Side::Short, OptionStyle::Put);
+
+        assert!(result.is_ok(), "Should find a suitable put option");
+
+        let position = result.unwrap();
+
+        // Should select the option with delta -0.5 (closest to -0.3)
+        assert_eq!(
+            position.option.strike_price,
+            pos_or_panic!(90.0),
+            "Should select option with strike 90.0 (delta -0.3)"
+        );
+        assert_eq!(position.option.side, Side::Short);
+        assert_eq!(position.option.option_style, OptionStyle::Put);
+    }
+
+    #[test]
+    fn test_get_position_with_delta_exact_match() {
+        let chain = create_test_chain_with_deltas();
+
+        // Request a long call with delta of exactly 0.5
+        let result = chain.get_position_with_delta(dec!(-0.5), Side::Long, OptionStyle::Call);
+
+        assert!(result.is_ok(), "Should find an exact match");
+
+        let position = result.unwrap();
+
+        // Should select the option with delta exactly 0.5
+        assert_eq!(
+            position.option.strike_price,
+            Positive::HUNDRED,
+            "Should select option with strike 100.0 (delta exactly 0.5)"
+        );
+    }
+
+    #[test]
+    fn test_get_position_with_delta_high_target() {
+        let chain = create_test_chain_with_deltas();
+
+        // Request a long call with very high delta of 0.95
+        let result = chain.get_position_with_delta(dec!(-0.95), Side::Long, OptionStyle::Call);
+
+        assert!(result.is_ok(), "Should find the highest available delta");
+
+        let position = result.unwrap();
+
+        // Should select the option with highest delta (0.9)
+        assert_eq!(
+            position.option.strike_price,
+            pos_or_panic!(80.0),
+            "Should select option with strike 80.0 (highest delta 0.9)"
+        );
+    }
+
+    #[test]
+    fn test_get_position_with_delta_low_target() {
+        let chain = create_test_chain_with_deltas();
+        info!("{}", chain);
+        // Request a long call with very low delta of 0.05
+        let result = chain.get_position_with_delta(dec!(0.05), Side::Long, OptionStyle::Call);
+
+        assert!(result.is_err(), "Shouldn't find the lowest available delta");
+    }
+
+    #[test]
+    fn test_get_position_with_delta_put_high_target() {
+        let chain = create_test_chain_with_deltas();
+
+        // Request a long put with high delta (for puts, high means more negative)
+        let result = chain.get_position_with_delta(dec!(0.95), Side::Long, OptionStyle::Put);
+
+        assert!(result.is_ok(), "Should find highest available put delta");
+
+        let position = result.unwrap();
+
+        // Should select the option with highest delta (most negative: -0.9)
+        assert_eq!(
+            position.option.strike_price,
+            pos_or_panic!(120.0),
+            "Should select option with strike 120.0 (highest put delta -0.9)"
+        );
+    }
+
+    #[test]
+    fn test_get_position_with_delta_empty_chain() {
+        let empty_chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2024-12-31".to_string(),
+            Some(dec!(0.05)),
+            spos!(0.02),
+        );
+
+        // Request any position on an empty chain
+        let result = empty_chain.get_position_with_delta(dec!(0.5), Side::Long, OptionStyle::Call);
+
+        // Should fail because there are no options
+        assert!(result.is_err(), "Should fail with empty chain");
+
+        match result.unwrap_err() {
+            ChainError::OptionDataError(OptionDataErrorKind::InvalidDelta { delta, reason }) => {
+                assert_eq!(delta, Some(0.5));
+                assert!(
+                    reason.contains("Option chain is empty"),
+                    "Error message should mention missing delta: {reason}"
+                );
+            }
+            err => panic!("Unexpected error type: {err}"),
+        }
+    }
+
+    #[test]
+    fn test_get_position_with_delta_missing_deltas() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2024-12-31".to_string(),
+            Some(dec!(0.05)),
+            spos!(0.02),
+        );
+
+        // Add options without delta values
+        chain.add_option(
+            pos_or_panic!(90.0),
+            spos!(10.0),
+            spos!(10.5),
+            spos!(1.5),
+            spos!(1.8),
+            pos_or_panic!(0.25),
+            None, // No call delta
+            None, // No put delta
+            Some(dec!(0.04)),
+            spos!(200.0),
+            Some(100),
+            None,
+        );
+
+        chain.add_option(
+            Positive::HUNDRED,
+            spos!(5.0),
+            spos!(5.3),
+            spos!(5.0),
+            spos!(5.3),
+            pos_or_panic!(0.25),
+            None, // No call delta
+            None, // No put delta
+            Some(dec!(0.05)),
+            spos!(500.0),
+            Some(250),
+            None,
+        );
+
+        // Request a position but no option has delta values
+        let result = chain.get_position_with_delta(dec!(0.5), Side::Long, OptionStyle::Call);
+
+        // Should fail because there are no options with delta values
+        assert!(result.is_err(), "Should fail with missing deltas");
+
+        match result.unwrap_err() {
+            ChainError::OptionDataError(OptionDataErrorKind::InvalidDelta { delta, reason }) => {
+                assert_eq!(delta, Some(0.5));
+                assert!(
+                    reason.contains("No call option with delta ≤ 0.5 was found"),
+                    "Error message should mention missing delta: {reason}"
+                );
+            }
+            err => panic!("Unexpected error type: {err}"),
+        }
+    }
+
+    #[test]
+    fn test_get_position_with_delta_multiple_candidates() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2024-12-31".to_string(),
+            Some(dec!(0.05)),
+            spos!(0.02),
+        );
+
+        // Add multiple options with the same delta
+        chain.add_option(
+            pos_or_panic!(95.0),
+            spos!(11.0),
+            spos!(11.5),
+            spos!(1.5),
+            spos!(1.8),
+            pos_or_panic!(0.25),
+            Some(dec!(0.6)), // Same call delta
+            Some(dec!(-0.4)),
+            Some(dec!(0.04)),
+            spos!(200.0),
+            Some(100),
+            None,
+        );
+
+        chain.add_option(
+            pos_or_panic!(105.0),
+            spos!(10.0),
+            spos!(10.5),
+            spos!(2.5),
+            spos!(2.8),
+            pos_or_panic!(0.25),
+            Some(dec!(0.6)), // Same call delta
+            Some(dec!(-0.4)),
+            Some(dec!(0.04)),
+            spos!(200.0),
+            Some(100),
+            None,
+        );
+
+        // Request a position matching the delta
+        let result = chain.get_position_with_delta(dec!(0.6), Side::Long, OptionStyle::Call);
+
+        assert!(result.is_ok(), "Should find one of the matching options");
+
+        let position = result.unwrap();
+
+        // Should select one of the options with delta 0.6
+        // The implementation should be deterministic, always picking the same one
+        assert!(
+            position.option.strike_price == pos_or_panic!(95.0)
+                || position.option.strike_price == pos_or_panic!(105.0),
+            "Should select one of the options with delta 0.6"
+        );
+    }
+
+    #[test]
+    fn test_get_position_with_delta_side_combinations() {
+        let chain = create_test_chain_with_deltas();
+        info!("{}", chain);
+        // Test all combinations of Side and OptionStyle
+        let combinations = vec![
+            (Side::Long, OptionStyle::Call, dec!(0.5)),
+            (Side::Short, OptionStyle::Call, dec!(0.5)),
+            (Side::Long, OptionStyle::Put, dec!(0.5)), // Remember put deltas are negative
+            (Side::Short, OptionStyle::Put, dec!(0.5)),
+        ];
+
+        for (side, style, delta) in combinations {
+            let result = chain.get_position_with_delta(delta, side, style);
+
+            assert!(
+                result.is_ok(),
+                "Should find position for {side:?} {style:?}"
+            );
+
+            let position = result.unwrap();
+
+            // Verify the position has the correct side and style
+            assert_eq!(
+                position.option.side, side,
+                "Position should have requested side"
+            );
+            assert_eq!(
+                position.option.option_style, style,
+                "Position should have requested style"
+            );
+
+            // For this test with delta 0.5, all combinations should select the ATM option
+            assert_eq!(
+                position.option.strike_price,
+                Positive::HUNDRED,
+                "Should select ATM option with strike 100.0 for {side:?} {style:?}"
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests_get_strikes_and_optiondata {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use rust_decimal_macros::dec;
+
+    // Helper function to create a test chain with specific strikes
+    fn create_test_chain() -> OptionChain {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        // Add options with different strikes
+        for strike in [90.0, 95.0, 100.0, 105.0, 110.0].iter() {
+            chain.add_option(
+                pos_or_panic!(*strike),
+                spos!(1.0),
+                spos!(1.1),
+                spos!(1.0),
+                spos!(1.1),
+                pos_or_panic!(0.2),
+                Some(dec!(0.5)),
+                Some(dec!(-0.5)),
+                Some(dec!(0.1)),
+                spos!(100.0),
+                Some(50),
+                None,
+            );
+        }
+        chain
+    }
+
+    #[test]
+    fn test_get_strikes_normal_case() {
+        let chain = create_test_chain();
+
+        let result = chain.get_strikes();
+        assert!(result.is_ok(), "Should successfully get strikes");
+
+        let strikes = result.unwrap();
+        assert_eq!(strikes.len(), 5, "Should return 5 strikes");
+
+        // Verify strikes are in the expected order
+        assert_eq!(strikes[0], pos_or_panic!(90.0));
+        assert_eq!(strikes[1], pos_or_panic!(95.0));
+        assert_eq!(strikes[2], Positive::HUNDRED);
+        assert_eq!(strikes[3], pos_or_panic!(105.0));
+        assert_eq!(strikes[4], pos_or_panic!(110.0));
+    }
+
+    #[test]
+    fn test_get_strikes_empty_chain() {
+        let chain = OptionChain::new(
+            "EMPTY",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        let result = chain.get_strikes();
+        assert!(result.is_ok(), "Should handle empty chain");
+
+        let strikes = result.unwrap();
+        assert!(
+            strikes.is_empty(),
+            "Should return empty vector for empty chain"
+        );
+    }
+
+    #[test]
+    fn test_get_optiondata_with_strike_exact_match() {
+        let chain = create_test_chain();
+
+        // Test with exact strike match
+        let result = chain.get_optiondata_with_strike(&Positive::HUNDRED);
+        assert!(result.is_ok(), "Should find exact strike");
+
+        let option_data = result.unwrap();
+        assert_eq!(
+            option_data.strike_price,
+            Positive::HUNDRED,
+            "Should return option with strike 100.0"
+        );
+    }
+
+    #[test]
+    fn test_get_optiondata_with_strike_closest_match() {
+        let chain = create_test_chain();
+
+        // Test with price between two strikes but closer to 105
+        let result = chain.get_optiondata_with_strike(&pos_or_panic!(103.0));
+        assert!(result.is_ok(), "Should find closest strike");
+
+        let option_data = result.unwrap();
+        assert_eq!(
+            option_data.strike_price,
+            pos_or_panic!(105.0),
+            "Should return closest strike 105.0"
+        );
+
+        // Test with price between two strikes but closer to 100
+        let result = chain.get_optiondata_with_strike(&pos_or_panic!(97.0));
+        assert!(result.is_ok(), "Should find closest strike");
+
+        let option_data = result.unwrap();
+        assert_eq!(
+            option_data.strike_price,
+            pos_or_panic!(95.0),
+            "Should return closest strike 95.0"
+        );
+
+        // Test with price below lowest strike
+        let result = chain.get_optiondata_with_strike(&pos_or_panic!(85.0));
+        assert!(result.is_ok(), "Should find closest strike for low price");
+
+        let option_data = result.unwrap();
+        assert_eq!(
+            option_data.strike_price,
+            pos_or_panic!(90.0),
+            "Should return lowest strike 90.0"
+        );
+
+        // Test with price above highest strike
+        let result = chain.get_optiondata_with_strike(&pos_or_panic!(115.0));
+        assert!(result.is_ok(), "Should find closest strike for high price");
+
+        let option_data = result.unwrap();
+        assert_eq!(
+            option_data.strike_price,
+            pos_or_panic!(110.0),
+            "Should return highest strike 110.0"
+        );
+
+        // Test with price exactly between two strikes (equidistant case)
+        let result = chain.get_optiondata_with_strike(&pos_or_panic!(102.5));
+        assert!(
+            result.is_ok(),
+            "Should handle price exactly between strikes"
+        );
+
+        let option_data = result.unwrap();
+        assert_eq!(
+            option_data.strike_price,
+            Positive::HUNDRED,
+            "For equidistant strikes, should return the lower strike due to BTreeSet ordering"
+        );
+    }
+
+    #[test]
+    fn test_get_optiondata_with_strike_edge_cases() {
+        let chain = create_test_chain();
+
+        // Test with price exactly between two strikes
+        let result = chain.get_optiondata_with_strike(&pos_or_panic!(97.5));
+        assert!(
+            result.is_ok(),
+            "Should handle price exactly between strikes"
+        );
+
+        let option_data = result.unwrap();
+        // Could be either 95.0 or 100.0 depending on implementation details
+        assert!(
+            option_data.strike_price == pos_or_panic!(95.0)
+                || option_data.strike_price == Positive::HUNDRED,
+            "Should return one of the equidistant strikes"
+        );
+    }
+
+    #[test]
+    fn test_get_optiondata_with_strike_empty_chain() {
+        let chain = OptionChain::new(
+            "EMPTY",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        let result = chain.get_optiondata_with_strike(&Positive::HUNDRED);
+        assert!(result.is_err(), "Should return error for empty chain");
+
+        let error = result.unwrap_err();
+        assert!(
+            matches!(error, ChainError::EmptyChain { ref symbol } if symbol == "EMPTY"),
+            "Should return ChainError::EmptyChain for EMPTY symbol, got: {error:?}"
+        );
+        let error_msg = format!("{error}");
+        assert!(
+            error_msg.contains("option chain is empty"),
+            "Error should mention empty chain, got: {error_msg}"
+        );
+        assert!(
+            error_msg.contains("EMPTY"),
+            "Error should include the symbol"
+        );
+    }
+
+    #[test]
+    fn test_get_optiondata_with_strike_single_option() {
+        let mut chain = OptionChain::new(
+            "SINGLE",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        // Add a single option
+        chain.add_option(
+            Positive::HUNDRED,
+            spos!(1.0),
+            spos!(1.1),
+            spos!(1.0),
+            spos!(1.1),
+            pos_or_panic!(0.2),
+            Some(dec!(0.5)),
+            Some(dec!(-0.5)),
+            Some(dec!(0.1)),
+            spos!(100.0),
+            Some(50),
+            None,
+        );
+
+        // Test with any price - should always return the single option
+        let result = chain.get_optiondata_with_strike(&pos_or_panic!(150.0));
+        assert!(result.is_ok(), "Should find option in single-option chain");
+
+        let option_data = result.unwrap();
+        assert_eq!(
+            option_data.strike_price,
+            Positive::HUNDRED,
+            "Should return the only available strike"
+        );
+    }
+
+    #[test]
+    fn test_get_strikes_order() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        // Add options in non-sorted order
+        chain.add_option(
+            pos_or_panic!(105.0),
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.2),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        chain.add_option(
+            pos_or_panic!(95.0),
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.2),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        chain.add_option(
+            Positive::HUNDRED,
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.2),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let result = chain.get_strikes();
+        assert!(result.is_ok());
+
+        let strikes = result.unwrap();
+
+        // Verify they're in ascending order regardless of insertion order
+        assert_eq!(strikes[0], pos_or_panic!(95.0));
+        assert_eq!(strikes[1], Positive::HUNDRED);
+        assert_eq!(strikes[2], pos_or_panic!(105.0));
+    }
+}
+
+#[cfg(test)]
+mod tests_option_chain_comparison {
+
+    #![allow(clippy::indexing_slicing)]
+    use crate::chains::chain::OptionChain;
+    use optionstratlib_core::model::Positive;
+    use rust_decimal_macros::dec;
+    use std::cmp::Ordering;
+
+    fn create_test_chain(symbol: &str, expiration: &str) -> OptionChain {
+        OptionChain::new(
+            symbol,
+            Positive::new(100.0).unwrap(),
+            expiration.to_string(),
+            Some(dec!(0.05)),
+            Some(Positive::new(0.02).unwrap()),
+        )
+    }
+
+    fn create_chain_with_invalid_expiration(symbol: &str) -> OptionChain {
+        OptionChain::new(
+            symbol,
+            Positive::new(100.0).unwrap(),
+            "invalid-date".to_string(),
+            Some(dec!(0.05)),
+            Some(Positive::new(0.02).unwrap()),
+        )
+    }
+
+    #[test]
+    fn test_partial_eq_same_symbol_same_expiration() {
+        let chain1 = create_test_chain("AAPL", "2030-01-19");
+        let chain2 = create_test_chain("AAPL", "2030-01-19");
+
+        assert_eq!(chain1, chain2);
+    }
+
+    #[test]
+    fn test_partial_eq_same_symbol_different_expiration() {
+        let chain1 = create_test_chain("AAPL", "2030-01-19");
+        let chain2 = create_test_chain("AAPL", "2024-02-16");
+
+        assert_ne!(chain1, chain2);
+    }
+
+    #[test]
+    fn test_partial_eq_different_symbol_same_expiration() {
+        let chain1 = create_test_chain("AAPL", "2030-01-19");
+        let chain2 = create_test_chain("MSFT", "2030-01-19");
+
+        assert_ne!(chain1, chain2);
+    }
+
+    #[test]
+    fn test_partial_eq_different_symbol_different_expiration() {
+        let chain1 = create_test_chain("AAPL", "2030-01-19");
+        let chain2 = create_test_chain("MSFT", "2024-02-16");
+
+        assert_ne!(chain1, chain2);
+    }
+
+    #[test]
+    fn test_partial_eq_different_underlying_price_same_expiration_symbol() {
+        let chain1 = create_test_chain("AAPL", "2030-01-19");
+        let mut chain2 = create_test_chain("AAPL", "2030-01-19");
+
+        // Change underlying price - should still be equal based on implementation
+        chain2.underlying_price = Positive::new(150.0).unwrap();
+
+        assert_eq!(chain1, chain2);
+    }
+
+    #[test]
+    fn test_partial_eq_with_none_expiration() {
+        let chain1 = create_chain_with_invalid_expiration("AAPL");
+        let chain2 = create_chain_with_invalid_expiration("AAPL");
+
+        // Both should have None for get_expiration() and should be equal
+        assert_eq!(chain1, chain2);
+    }
+
+    #[test]
+    fn test_partial_eq_one_valid_one_invalid_expiration() {
+        let chain1 = create_test_chain("AAPL", "2030-01-19");
+        let chain2 = create_chain_with_invalid_expiration("AAPL");
+
+        // One has valid expiration, one has None - should not be equal
+        assert_ne!(chain1, chain2);
+    }
+
+    #[test]
+    fn test_eq_trait_reflexivity() {
+        let chain = create_test_chain("AAPL", "2030-01-19");
+
+        assert_eq!(chain, chain);
+    }
+
+    #[test]
+    fn test_eq_trait_symmetry() {
+        let chain1 = create_test_chain("AAPL", "2030-01-19");
+        let chain2 = create_test_chain("AAPL", "2030-01-19");
+
+        assert_eq!(chain1 == chain2, chain2 == chain1);
+    }
+
+    #[test]
+    fn test_eq_trait_transitivity() {
+        let chain1 = create_test_chain("AAPL", "2030-01-19");
+        let chain2 = create_test_chain("AAPL", "2030-01-19");
+        let chain3 = create_test_chain("AAPL", "2030-01-19");
+
+        assert!(chain1 == chain2 && chain2 == chain3 && chain1 == chain3);
+    }
+
+    #[test]
+    fn test_partial_ord_earlier_expiration_less_than_later() {
+        let earlier_chain = create_test_chain("AAPL", "2030-01-19");
+        let later_chain = create_test_chain("AAPL", "2035-02-16");
+
+        assert!(earlier_chain < later_chain);
+        assert!(earlier_chain.partial_cmp(&later_chain) == Some(Ordering::Less));
+    }
+
+    #[test]
+    fn test_partial_ord_later_expiration_greater_than_earlier() {
+        let earlier_chain = create_test_chain("AAPL", "2030-01-19");
+        let later_chain = create_test_chain("AAPL", "2030-02-16");
+
+        assert!(later_chain > earlier_chain);
+        assert!(later_chain.partial_cmp(&earlier_chain) == Some(Ordering::Greater));
+    }
+
+    #[test]
+    fn test_partial_ord_same_expiration_equal() {
+        let chain1 = create_test_chain("AAPL", "2030-01-19");
+        let chain2 = create_test_chain("MSFT", "2030-01-19"); // Different symbol, same expiration
+
+        assert!(chain1.partial_cmp(&chain2) != Some(Ordering::Equal));
+    }
+
+    #[test]
+    fn test_partial_ord_with_none_expiration() {
+        let valid_chain = create_test_chain("AAPL", "2030-01-19");
+        let invalid_chain = create_chain_with_invalid_expiration("AAPL");
+
+        // When one has None expiration, comparison should handle it appropriately
+        let result = valid_chain.partial_cmp(&invalid_chain);
+        assert!(result.is_some()); // Should return Some(Ordering) based on implementation
+    }
+
+    #[test]
+    fn test_partial_ord_both_none_expiration() {
+        let invalid_chain1 = create_chain_with_invalid_expiration("AAPL");
+        let invalid_chain2 = create_chain_with_invalid_expiration("MSFT");
+
+        // Both have None expiration - should be equal in ordering
+        assert!(invalid_chain1.partial_cmp(&invalid_chain2) != Some(Ordering::Equal));
+    }
+
+    #[test]
+    fn test_ord_consistency_with_partial_ord() {
+        let chain1 = create_test_chain("AAPL", "2030-01-19");
+        let chain2 = create_test_chain("AAPL", "2024-02-16");
+
+        assert_eq!(chain1.cmp(&chain2), chain1.partial_cmp(&chain2).unwrap());
+        assert_eq!(chain2.cmp(&chain1), chain2.partial_cmp(&chain1).unwrap());
+    }
+
+    #[test]
+    fn test_ord_earlier_less_than_later() {
+        let earlier_chain = create_test_chain("AAPL", "2030-01-19");
+        let later_chain = create_test_chain("AAPL", "2030-01-20");
+
+        assert_eq!(earlier_chain.cmp(&later_chain), Ordering::Less);
+    }
+
+    #[test]
+    fn test_ord_later_greater_than_earlier() {
+        let earlier_chain = create_test_chain("AAPL", "2030-01-19");
+        let later_chain = create_test_chain("SPX", "2031-02-16");
+
+        assert_eq!(later_chain.cmp(&earlier_chain), Ordering::Greater);
+    }
+
+    #[test]
+    fn test_ord_same_expiration_equal() {
+        let chain1 = create_test_chain("AAPL", "2030-01-19");
+        let chain2 = create_test_chain("MSFT", "2030-01-19");
+
+        assert_eq!(chain1.cmp(&chain2), Ordering::Less);
+    }
+
+    #[test]
+    fn test_ord_reflexivity() {
+        let chain = create_test_chain("AAPL", "2030-01-19");
+
+        assert_eq!(chain.cmp(&chain), Ordering::Equal);
+    }
+
+    #[test]
+    fn test_ord_antisymmetry() {
+        let chain1 = create_test_chain("AAPL", "2030-01-19");
+        let chain2 = create_test_chain("AAPL", "2024-02-16");
+
+        if chain1.cmp(&chain2) == Ordering::Less {
+            assert_eq!(chain2.cmp(&chain1), Ordering::Greater);
+        }
+    }
+
+    #[test]
+    fn test_ord_transitivity() {
+        let chain1 = create_test_chain("AAPL", "2030-01-19");
+        let chain2 = create_test_chain("AAPL", "2030-02-16");
+        let chain3 = create_test_chain("AAPL", "2030-02-17");
+
+        assert_eq!(chain1.cmp(&chain2), Ordering::Less);
+        assert_eq!(chain2.cmp(&chain3), Ordering::Less);
+        assert_eq!(chain1.cmp(&chain3), Ordering::Less);
+    }
+
+    #[test]
+    fn test_sorting_mixed_symbols_by_expiration() {
+        let mut chains = [
+            create_test_chain("MSFT", "2024-02-16"),
+            create_test_chain("AAPL", "2030-01-19"),
+            create_test_chain("GOOGL", "2024-03-15"),
+            create_test_chain("TSLA", "2030-01-19"), // Same expiration as AAPL
+        ];
+
+        chains.sort();
+
+        // Should be sorted by expiration date regardless of symbol
+        assert_eq!(chains[0].get_expiration_date(), "2024-03-15");
+        assert_eq!(chains[1].get_expiration_date(), "2024-02-16");
+        assert_eq!(chains[2].get_expiration_date(), "2030-01-19");
+        assert_eq!(chains[3].get_expiration_date(), "2030-01-19");
+    }
+
+    #[test]
+    fn test_ord_with_datetime_expiration_format() {
+        let chain1 = create_test_chain("AAPL", "2030-01-19 15:30:00");
+        let chain2 = create_test_chain("AAPL", "2030-01-19 16:00:00");
+
+        // Should compare properly even with time components
+        let result = chain1.cmp(&chain2);
+        assert!(matches!(
+            result,
+            Ordering::Less | Ordering::Equal | Ordering::Greater
+        ));
+    }
+
+    #[test]
+    fn test_consistency_between_eq_and_ord() {
+        let chain1 = create_test_chain("AAPL", "2030-01-19");
+        let chain2 = create_test_chain("MSFT", "2030-01-19"); // Same expiration, different symbol
+
+        // If chains are equal according to PartialEq, they should be Equal in Ord
+        if chain1 == chain2 {
+            assert_eq!(chain1.cmp(&chain2), Ordering::Equal);
+        }
+
+        // If chains compare as Equal in Ord, they should be equal according to PartialEq
+        if chain1.cmp(&chain2) == Ordering::Equal {
+            assert_eq!(chain1, chain2);
+        }
+    }
+
+    #[test]
+    fn test_option_chain_in_btreeset() {
+        use std::collections::BTreeSet;
+
+        let mut set = BTreeSet::new();
+
+        set.insert(create_test_chain("AAPL", "2027-03-15"));
+        set.insert(create_test_chain("AAPL", "2030-01-19"));
+        set.insert(create_test_chain("AAPL", "2027-02-16"));
+        set.insert(create_test_chain("MSFT", "2030-01-19"));
+        set.insert(create_test_chain("AAPL", "2027-03-15")); // Duplicate
+
+        // Should maintain sorted order and handle duplicates properly
+        let chains: Vec<_> = set.into_iter().collect();
+
+        // Verify ordering (chains with same expiration should be treated as equal)
+        assert_eq!(chains.len(), 4);
+        assert_eq!(chains[0].get_expiration_date(), "2027-02-16");
+        assert_eq!(chains[1].get_expiration_date(), "2027-03-15");
+        assert_eq!(chains[2].get_expiration_date(), "2030-01-19");
+        assert_eq!(chains[3].get_expiration_date(), "2030-01-19");
+    }
+}
+
+#[cfg(test)]
+mod tests_volatility_smile_skew {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    use rust_decimal_macros::dec;
+
+    fn create_chain_with_options() -> OptionChain {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        chain.add_option(
+            pos_or_panic!(90.0),
+            Some(pos_or_panic!(11.0)),
+            Some(pos_or_panic!(11.5)),
+            Some(pos_or_panic!(0.5)),
+            Some(Positive::ONE),
+            pos_or_panic!(0.28),
+            Some(dec!(0.85)),
+            Some(dec!(-0.15)),
+            Some(dec!(0.015)),
+            None,
+            None,
+            None,
+        );
+
+        chain.add_option(
+            pos_or_panic!(95.0),
+            Some(pos_or_panic!(6.5)),
+            Some(pos_or_panic!(7.0)),
+            Some(Positive::ONE),
+            Some(pos_or_panic!(1.5)),
+            pos_or_panic!(0.24),
+            Some(dec!(0.72)),
+            Some(dec!(-0.28)),
+            Some(dec!(0.020)),
+            None,
+            None,
+            None,
+        );
+
+        chain.add_option(
+            Positive::HUNDRED,
+            Some(pos_or_panic!(3.5)),
+            Some(pos_or_panic!(4.0)),
+            Some(pos_or_panic!(3.0)),
+            Some(pos_or_panic!(3.5)),
+            pos_or_panic!(0.20),
+            Some(dec!(0.52)),
+            Some(dec!(-0.48)),
+            Some(dec!(0.025)),
+            None,
+            None,
+            None,
+        );
+
+        chain.add_option(
+            pos_or_panic!(105.0),
+            Some(pos_or_panic!(1.5)),
+            Some(Positive::TWO),
+            Some(pos_or_panic!(6.0)),
+            Some(pos_or_panic!(6.5)),
+            pos_or_panic!(0.22),
+            Some(dec!(0.32)),
+            Some(dec!(-0.68)),
+            Some(dec!(0.020)),
+            None,
+            None,
+            None,
+        );
+
+        chain.add_option(
+            pos_or_panic!(110.0),
+            Some(pos_or_panic!(0.5)),
+            Some(Positive::ONE),
+            Some(pos_or_panic!(10.0)),
+            Some(pos_or_panic!(10.5)),
+            pos_or_panic!(0.26),
+            Some(dec!(0.18)),
+            Some(dec!(-0.82)),
+            Some(dec!(0.015)),
+            None,
+            None,
+            None,
+        );
+
+        chain
+    }
+
+    #[test]
+    fn test_volatility_smile_returns_curve_with_correct_points() {
+        let chain = create_chain_with_options();
+        let smile = chain.smile();
+
+        assert_eq!(smile.points.len(), 5);
+    }
+
+    #[test]
+    fn test_volatility_smile_strike_prices_as_x_axis() {
+        let chain = create_chain_with_options();
+        let smile = chain.smile();
+
+        let points: Vec<_> = smile.points.iter().collect();
+
+        assert_eq!(points[0].x, dec!(90.0));
+        assert_eq!(points[1].x, dec!(95.0));
+        assert_eq!(points[2].x, dec!(100.0));
+        assert_eq!(points[3].x, dec!(105.0));
+        assert_eq!(points[4].x, dec!(110.0));
+    }
+
+    #[test]
+    fn test_volatility_smile_iv_as_y_axis() {
+        let chain = create_chain_with_options();
+        let smile = chain.smile();
+
+        let points: Vec<_> = smile.points.iter().collect();
+
+        assert_eq!(points[0].y, dec!(0.28));
+        assert_eq!(points[2].y, dec!(0.20)); // ATM
+        assert_eq!(points[4].y, dec!(0.26));
+    }
+
+    #[test]
+    fn test_volatility_smile_empty_chain() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+        let smile = chain.smile();
+
+        assert!(smile.points.is_empty());
+    }
+
+    #[test]
+    fn test_volatility_smile_single_option() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        chain.add_option(
+            Positive::HUNDRED,
+            Some(pos_or_panic!(3.0)),
+            Some(pos_or_panic!(3.5)),
+            Some(pos_or_panic!(3.0)),
+            Some(pos_or_panic!(3.5)),
+            pos_or_panic!(0.20),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let smile = chain.smile();
+        assert_eq!(smile.points.len(), 1);
+    }
+}
+
+#[cfg(test)]
+mod tests_get_call_price {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    use rust_decimal_macros::dec;
+
+    #[test]
+    fn test_get_call_price_existing_strike() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        chain.add_option(
+            Positive::HUNDRED,
+            Some(pos_or_panic!(3.0)),
+            Some(pos_or_panic!(3.5)),
+            Some(pos_or_panic!(3.0)),
+            Some(pos_or_panic!(3.5)),
+            pos_or_panic!(0.20),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let price = chain.get_call_price(Positive::HUNDRED);
+        assert!(price.is_some());
+        assert_eq!(price.unwrap(), dec!(3.5));
+    }
+
+    #[test]
+    fn test_get_call_price_non_existing_strike() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        chain.add_option(
+            Positive::HUNDRED,
+            Some(pos_or_panic!(3.0)),
+            Some(pos_or_panic!(3.5)),
+            Some(pos_or_panic!(3.0)),
+            Some(pos_or_panic!(3.5)),
+            pos_or_panic!(0.20),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let price = chain.get_call_price(pos_or_panic!(105.0));
+        assert!(price.is_none());
+    }
+
+    #[test]
+    fn test_get_call_price_empty_chain() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        let price = chain.get_call_price(Positive::HUNDRED);
+        assert!(price.is_none());
+    }
+
+    #[test]
+    fn test_get_call_price_no_ask_price() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        chain.add_option(
+            Positive::HUNDRED,
+            Some(pos_or_panic!(3.0)),
+            None, // No ask price
+            Some(pos_or_panic!(3.0)),
+            Some(pos_or_panic!(3.5)),
+            pos_or_panic!(0.20),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let price = chain.get_call_price(Positive::HUNDRED);
+        assert!(price.is_none());
+    }
+}
+
+#[cfg(test)]
+mod tests_title_operations {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    #[test]
+    fn test_get_title_basic() {
+        let chain = OptionChain::new(
+            "AAPL",
+            pos_or_panic!(150.0),
+            "2030-01-15".to_string(),
+            None,
+            None,
+        );
+
+        let title = chain.get_title();
+        assert_eq!(title, "AAPL-2030-01-15-150");
+    }
+
+    #[test]
+    fn test_get_title_with_spaces_in_symbol() {
+        let chain = OptionChain::new(
+            "SPX INDEX",
+            pos_or_panic!(4500.0),
+            "2030-01-15".to_string(),
+            None,
+            None,
+        );
+
+        let title = chain.get_title();
+        assert_eq!(title, "SPX-INDEX-2030-01-15-4500");
+    }
+
+    #[test]
+    fn test_get_title_with_spaces_in_date() {
+        let chain = OptionChain::new(
+            "AAPL",
+            pos_or_panic!(150.0),
+            "2030 01 15".to_string(),
+            None,
+            None,
+        );
+
+        let title = chain.get_title();
+        assert_eq!(title, "AAPL-2030-01-15-150");
+    }
+
+    #[test]
+    fn test_set_from_title_valid_format() {
+        let mut chain = OptionChain::new("", Positive::ONE, "".to_string(), None, None);
+
+        let result = chain.set_from_title("AAPL-15-01-2030-150.5.csv");
+
+        assert!(result.is_ok());
+        assert_eq!(chain.symbol, "AAPL");
+        assert_eq!(chain.expiration_date, "15-01-2030");
+        assert_eq!(chain.underlying_price, pos_or_panic!(150.5));
+    }
+
+    #[test]
+    fn test_set_from_title_with_path() {
+        let mut chain = OptionChain::new("", Positive::ONE, "".to_string(), None, None);
+
+        let result = chain.set_from_title("/path/to/files/MSFT-20-03-2030-300.json");
+
+        assert!(result.is_ok());
+        assert_eq!(chain.symbol, "MSFT");
+        assert_eq!(chain.expiration_date, "20-03-2030");
+        assert_eq!(chain.underlying_price, pos_or_panic!(300.0));
+    }
+
+    #[test]
+    fn test_set_from_title_invalid_format() {
+        let mut chain = OptionChain::new("", Positive::ONE, "".to_string(), None, None);
+
+        let result = chain.set_from_title("invalid-format.csv");
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_set_from_title_too_few_parts() {
+        let mut chain = OptionChain::new("", Positive::ONE, "".to_string(), None, None);
+
+        let result = chain.set_from_title("AAPL-15-01.csv");
+
+        assert!(result.is_err());
+    }
+}
+
+#[cfg(test)]
+mod tests_expiration_operations {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use rust_decimal_macros::dec;
+
+    #[test]
+    fn test_get_expiration_date() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-15".to_string(),
+            None,
+            None,
+        );
+
+        assert_eq!(chain.get_expiration_date(), "2030-01-15");
+    }
+
+    #[test]
+    fn test_get_expiration_valid_date() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-15".to_string(),
+            None,
+            None,
+        );
+
+        let expiration = chain.get_expiration();
+        assert!(expiration.is_some());
+    }
+
+    #[test]
+    fn test_get_expiration_invalid_date() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "invalid-date".to_string(),
+            None,
+            None,
+        );
+
+        let expiration = chain.get_expiration();
+        assert!(expiration.is_none());
+    }
+
+    #[test]
+    fn test_update_expiration_date() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-15".to_string(),
+            Some(dec!(0.05)),
+            spos!(0.02),
+        );
+
+        chain.add_option(
+            Positive::HUNDRED,
+            Some(pos_or_panic!(3.0)),
+            Some(pos_or_panic!(3.5)),
+            Some(pos_or_panic!(3.0)),
+            Some(pos_or_panic!(3.5)),
+            pos_or_panic!(0.20),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        chain.update_expiration_date("2030-06-15".to_string());
+
+        assert_eq!(chain.get_expiration_date(), "2030-06-15");
+    }
+
+    #[test]
+    fn test_update_expiration_date_invalid() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-15".to_string(),
+            None,
+            None,
+        );
+
+        // Update with invalid date - should still update the string but warn
+        chain.update_expiration_date("invalid".to_string());
+
+        assert_eq!(chain.get_expiration_date(), "invalid");
+    }
+}
+
+#[cfg(test)]
+mod tests_from_vec_option_data {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use rust_decimal_macros::dec;
+
+    #[test]
+    fn test_from_empty_vec() {
+        let options: Vec<OptionData> = vec![];
+        let chain = OptionChain::from(&options);
+
+        assert!(chain.options.is_empty());
+        assert_eq!(chain.symbol, "");
+    }
+
+    #[test]
+    fn test_from_vec_with_options() {
+        let mut opt1 = OptionData::new(
+            pos_or_panic!(95.0),
+            Some(pos_or_panic!(6.0)),
+            Some(pos_or_panic!(6.5)),
+            Some(Positive::ONE),
+            Some(pos_or_panic!(1.5)),
+            pos_or_panic!(0.25),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        opt1.symbol = Some("TEST".to_string());
+        opt1.underlying_price = Some(Box::new(Positive::HUNDRED));
+        opt1.expiration_date = Some(ExpirationDate::Days(pos_or_panic!(30.0)));
+        opt1.risk_free_rate = Some(dec!(0.05));
+        opt1.dividend_yield = spos!(0.02);
+
+        let mut opt2 = OptionData::new(
+            Positive::HUNDRED,
+            Some(pos_or_panic!(3.0)),
+            Some(pos_or_panic!(3.5)),
+            Some(pos_or_panic!(3.0)),
+            Some(pos_or_panic!(3.5)),
+            pos_or_panic!(0.20),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        opt2.symbol = Some("TEST".to_string());
+        opt2.underlying_price = Some(Box::new(Positive::HUNDRED));
+        opt2.expiration_date = Some(ExpirationDate::Days(pos_or_panic!(30.0)));
+
+        let options = vec![opt1, opt2];
+        let chain = OptionChain::from(&options);
+
+        assert_eq!(chain.symbol, "TEST");
+        assert_eq!(chain.underlying_price, Positive::HUNDRED);
+        assert_eq!(chain.options.len(), 2);
+        assert_eq!(chain.risk_free_rate, Some(dec!(0.05)));
+        assert_eq!(chain.dividend_yield, spos!(0.02));
+    }
+
+    #[test]
+    fn test_from_vec_uses_first_option_metadata() {
+        let mut opt1 = OptionData::new(
+            pos_or_panic!(95.0),
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.25),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        opt1.symbol = Some("FIRST".to_string());
+        opt1.underlying_price = Some(Box::new(Positive::HUNDRED));
+
+        let mut opt2 = OptionData::new(
+            Positive::HUNDRED,
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.20),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        opt2.symbol = Some("SECOND".to_string());
+        opt2.underlying_price = Some(Box::new(pos_or_panic!(150.0)));
+
+        let options = vec![opt1, opt2];
+        let chain = OptionChain::from(&options);
+
+        // Should use first option's metadata
+        assert_eq!(chain.symbol, "FIRST");
+        assert_eq!(chain.underlying_price, Positive::HUNDRED);
+    }
+}
+
+#[cfg(test)]
+mod tests_len_trait {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    use optionstratlib_core::utils::Len;
+
+    #[test]
+    fn test_len_empty_chain() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        assert_eq!(chain.len(), 0);
+        assert!(chain.is_empty());
+    }
+
+    #[test]
+    fn test_len_with_options() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-01".to_string(),
+            None,
+            None,
+        );
+
+        chain.add_option(
+            pos_or_panic!(95.0),
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.20),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        chain.add_option(
+            Positive::HUNDRED,
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.20),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        chain.add_option(
+            pos_or_panic!(105.0),
+            None,
+            None,
+            None,
+            None,
+            pos_or_panic!(0.20),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        assert_eq!(chain.len(), 3);
+        assert!(!chain.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod tests_default_trait {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+
+    #[test]
+    fn test_default_chain() {
+        let chain = OptionChain::default();
+
+        assert_eq!(chain.symbol, "");
+        assert_eq!(chain.underlying_price, Positive::ZERO);
+        assert_eq!(chain.get_expiration_date(), "");
+        assert!(chain.options.is_empty());
+        assert!(chain.risk_free_rate.is_none());
+        assert!(chain.dividend_yield.is_none());
+    }
+}
+
+#[cfg(test)]
+mod tests_option_chain_params_trait {
+    #![allow(clippy::indexing_slicing)]
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use rust_decimal_macros::dec;
+
+    #[test]
+    fn test_get_params_existing_strike() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-15".to_string(),
+            Some(dec!(0.05)),
+            spos!(0.02),
+        );
+
+        chain.add_option(
+            Positive::HUNDRED,
+            Some(pos_or_panic!(3.0)),
+            Some(pos_or_panic!(3.5)),
+            Some(pos_or_panic!(3.0)),
+            Some(pos_or_panic!(3.5)),
+            pos_or_panic!(0.20),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let result = chain.get_params(Positive::HUNDRED);
+        assert!(result.is_ok());
+
+        let params = result.unwrap();
+        assert!(params.underlying_price.is_some());
+        assert_eq!(*params.underlying_price.unwrap(), Positive::HUNDRED);
+    }
+
+    #[test]
+    fn test_get_params_non_existing_strike() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2030-01-15".to_string(),
+            Some(dec!(0.05)),
+            spos!(0.02),
+        );
+
+        let result = chain.get_params(pos_or_panic!(150.0));
+        assert!(result.is_err());
+    }
+}
+
+#[cfg(test)]
+mod tests_atm_iv_provider {
+    use super::*;
+    use optionstratlib_core::pos_or_panic;
+    use optionstratlib_pricing::volatility::AtmIvProvider;
+    use rust_decimal_macros::dec;
+
+    #[test]
+    fn test_atm_iv_provider_for_option_chain_success() {
+        let mut chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2025-12-31".to_string(),
+            Some(dec!(0.05)),
+            None,
+        );
+
+        // Add options with implied volatility
+        chain.add_option(
+            pos_or_panic!(95.0),
+            Some(pos_or_panic!(6.0)),
+            Some(pos_or_panic!(6.5)),
+            Some(Positive::ONE),
+            Some(pos_or_panic!(1.5)),
+            pos_or_panic!(0.25),
+            Some(dec!(0.7)),
+            Some(dec!(-0.3)),
+            Some(dec!(0.02)),
+            None,
+            None,
+            None,
+        );
+
+        chain.add_option(
+            Positive::HUNDRED,
+            Some(pos_or_panic!(3.0)),
+            Some(pos_or_panic!(3.5)),
+            Some(pos_or_panic!(3.0)),
+            Some(pos_or_panic!(3.5)),
+            pos_or_panic!(0.20),
+            Some(dec!(0.5)),
+            Some(dec!(-0.5)),
+            Some(dec!(0.025)),
+            None,
+            None,
+            None,
+        );
+
+        chain.add_option(
+            pos_or_panic!(105.0),
+            Some(Positive::ONE),
+            Some(pos_or_panic!(1.5)),
+            Some(pos_or_panic!(6.0)),
+            Some(pos_or_panic!(6.5)),
+            pos_or_panic!(0.22),
+            Some(dec!(0.3)),
+            Some(dec!(-0.7)),
+            Some(dec!(0.02)),
+            None,
+            None,
+            None,
+        );
+
+        let result = chain.atm_iv();
+        assert!(result.is_ok());
+        let iv = result.unwrap();
+        assert!(*iv > Positive::ZERO);
+    }
+
+    #[test]
+    fn test_atm_iv_provider_for_option_chain_empty() {
+        let chain = OptionChain::new(
+            "TEST",
+            Positive::HUNDRED,
+            "2025-12-31".to_string(),
+            None,
+            None,
+        );
+
+        let result = chain.atm_iv();
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("ATM implied volatility is not available")
+        );
+    }
+}

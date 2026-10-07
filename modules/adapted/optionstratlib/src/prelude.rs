@@ -27,6 +27,7 @@ pub use crate::model::{
     BasicAxisTypes, ExpirationDate, Options, Position, Trade,
     types::{Action, OptionStyle, OptionType, Side},
 };
+#[cfg(feature = "strategies")]
 pub use crate::strategies::{
     StrategyConstructor,
     base::{
@@ -61,51 +62,80 @@ pub use crate::strategies::{
     short_put::ShortPut,
     short_straddle::ShortStraddle,
     short_strangle::ShortStrangle,
-    utils::FindOptimalSide,
 };
 
 // Greeks calculations
+#[cfg(feature = "pricing")]
 pub use crate::greeks::*;
 
 // Pricing and profit calculations
-pub use crate::pricing::payoff::*;
+pub use crate::model::payoff::{Payoff, PayoffInfo};
+#[cfg(feature = "pricing")]
 pub use crate::pricing::*;
 
 // PnL calculations
+#[cfg(feature = "analytics")]
 pub use crate::pnl::{PnL, PnLCalculator};
 
+#[cfg(feature = "backtest")]
 pub use crate::backtesting::*;
 
 // Visualization
+#[cfg(feature = "visualization")]
 pub use crate::visualization::{Graph, GraphData, Series2D, Surface3D, TraceMode};
 
 #[cfg(feature = "plotly")]
-pub use crate::visualization::utils::make_surface;
+pub use crate::visualization::make_surface;
 
 // Chain operations
-pub use crate::chains::{OptionData, StrategyLegs, chain::OptionChain, utils::OptionChainParams};
+#[cfg(feature = "market")]
+pub use crate::chains::{
+    OptionData, StrategyLegs,
+    chain::OptionChain,
+    utils::{FindOptimalSide, OptionChainParams},
+};
 
 // Curves and surfaces
-pub use crate::curves::{BasicCurves, Curvable, Curve, Point2D, StatisticalCurve};
-pub use crate::surfaces::{BasicSurfaces, Point3D, Surfacable, Surface};
+#[cfg(feature = "analytics")]
+pub use crate::analytics::{BasicCurves, BasicSurfaces};
+#[cfg(feature = "math")]
+pub use crate::curves::{Curvable, Curve, Point2D, StatisticalCurve};
+#[cfg(feature = "math")]
+pub use crate::surfaces::{Point3D, Surfacable, Surface};
 
 // Geometrics (commonly used in curve examples)
-pub use crate::geometrics::{ConstructionMethod, ConstructionParams, GeometricObject, Plottable};
+#[cfg(feature = "math")]
+pub use crate::geometrics::{ConstructionMethod, ConstructionParams, GeometricObject};
+#[cfg(feature = "visualization")]
+pub use crate::visualization::Plottable;
 
 // Volatility models
+#[cfg(feature = "pricing")]
 pub use crate::volatility::*;
 
 // Performance metrics
+#[cfg(feature = "analytics")]
 pub use crate::metrics::*;
 
 // Error types (most commonly encountered)
-pub use crate::error::{
-    ChainError, CurveError, DecimalError, Error, GraphError, GreeksError, InterpolationError,
-    MetricsError, OhlcvError, OperationErrorKind, OptionsError, PositionError, PricingError,
-    ProbabilityError, StrategyError, SurfaceError, TransactionError, VolatilityError,
-};
+#[cfg(feature = "market")]
+pub use crate::error::ChainError;
+#[cfg(feature = "market")]
+pub use crate::error::OhlcvError;
+#[cfg(feature = "strategies")]
+pub use crate::error::StrategyError;
+#[cfg(feature = "math")]
+pub use crate::error::{CurveError, InterpolationError, MetricsError, SurfaceError};
+pub use crate::error::{DecimalError, OperationErrorKind, OptionsError, PositionError};
+#[cfg(feature = "visualization")]
+pub use crate::error::{Error, GraphError};
+#[cfg(feature = "pricing")]
+pub use crate::error::{GreeksError, PricingError, VolatilityError};
+#[cfg(feature = "analytics")]
+pub use crate::error::{ProbabilityError, TransactionError};
 
 // Utility functions and traits
+#[cfg(feature = "io")]
 pub use crate::chains::csv::{OhlcvCandle, read_ohlcv_from_zip};
 pub use crate::model::utils::ToRound;
 pub use crate::utils::{
@@ -116,14 +146,17 @@ pub use crate::utils::{
 
 // Commonly used external dependencies
 pub use chrono::Utc;
-pub use positive::{Positive, assert_pos_relative_eq, pos_or_panic, spos};
+pub use optionstratlib_core::model::Positive;
+pub use optionstratlib_core::{assert_pos_relative_eq, pos_or_panic, spos};
 pub use rust_decimal::Decimal;
 pub use rust_decimal::prelude::ToPrimitive;
 pub use rust_decimal_macros::dec;
 pub use std::path::Path;
 
 // Simulation types and functions
+#[cfg(feature = "backtest")]
 pub use crate::backtesting::{Simulate, SimulationStats};
+#[cfg(feature = "simulation")]
 pub use crate::simulation::{
     ExitPolicy, WalkParams, WalkPath, WalkType, WalkTypeAble, WalkTypeAbleClone, check_exit_policy,
     expanding_window_vols, generator_positive,
@@ -136,11 +169,14 @@ pub use crate::simulation::{
 // Chain and series types and generators
 #[cfg(feature = "synthetic")]
 pub use crate::chains::generator_optionchain;
+#[cfg(feature = "market")]
 pub use crate::chains::{OptionChainBuildParams, utils::OptionDataPriceParams};
 #[cfg(feature = "synthetic")]
 pub use crate::series::generator_optionseries;
+#[cfg(feature = "market")]
 pub use crate::series::{OptionSeries, OptionSeriesBuildParams};
 
 // Volatility functions
+#[cfg(feature = "pricing")]
 pub use crate::volatility::{adjust_volatility, constant_volatility};
 pub use tracing::{debug, error, info, trace, warn};

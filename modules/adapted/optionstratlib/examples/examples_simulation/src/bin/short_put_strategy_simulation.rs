@@ -142,6 +142,7 @@ fn main() -> Result<(), Error> {
             vol_mean: volatility_dt,       // Mean volatility level (same as initial)
         },
         walker,
+        seed: None,
     };
 
     // Create Simulator with all random walks at once
@@ -159,7 +160,8 @@ fn main() -> Result<(), Error> {
     info!("Running simulations using Simulate trait...");
 
     // Use the Simulate trait to run all simulations
-    // (Progress bar is now handled inside the simulate method)
+    // (Progress is reported as `tracing` events: a `debug` event per path and
+    // an `info` event when the run completes)
     let stats = strategy.simulate(&simulator, exit_policy)?;
 
     // Print final statistics using the built-in formatting methods

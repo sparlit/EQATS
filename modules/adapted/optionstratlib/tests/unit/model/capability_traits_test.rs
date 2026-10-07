@@ -32,29 +32,12 @@ fn sample_option() -> Options {
     )
 }
 
-/// The 0.21 surface: inherent pricing methods on `Options` resolve with no
-/// trait in scope. These are the forwarding wrappers over `OptionPricing`.
+/// What core keeps after the pricing wrappers are gone: `Position`'s own
+/// cost and P&L arithmetic still resolves with no trait in scope, because it
+/// is core-owned. `Options`' pricing methods no longer appear here; they
+/// require the trait, which `trait_form_from_owning_module` pins.
 mod inherent_without_trait_import {
     use super::*;
-    use std::num::NonZeroUsize;
-
-    #[test]
-    fn test_options_inherent_pricing_methods_compile_without_trait_import() {
-        let option = sample_option();
-        let steps = NonZeroUsize::new(50).expect("non-zero step count");
-        let bs = option.calculate_price_black_scholes();
-        let binomial = option.calculate_price_binomial(steps);
-        let tree = option.calculate_price_binomial_tree(steps);
-        let telegraph = option.calculate_price_telegraph(steps);
-        let time_value = option.time_value();
-        let iv = option.calculate_implied_volatility(dec!(3.0));
-        assert!(bs.is_ok());
-        assert!(binomial.is_ok());
-        assert!(tree.is_ok());
-        assert!(telegraph.is_ok());
-        assert!(time_value.is_ok());
-        assert!(iv.is_ok());
-    }
 
     #[test]
     fn test_position_inherent_pnl_helpers_compile_without_trait_import() {
@@ -78,15 +61,29 @@ mod inherent_without_trait_import {
     }
 }
 
-/// The 0.22 canonical form: the same methods through the pricing-owned
-/// extension trait, imported from its owning module.
+/// The 0.22 canonical form: pricing reaches `Options` only through the
+/// pricing-owned extension trait, imported from its owning module. There is
+/// no inherent form to compare against any more, which is what lets `model`
+/// leave the facade without depending on `pricing` (#499).
 mod trait_form_from_owning_module {
     use super::*;
     use optionstratlib::pricing::OptionPricing;
     use std::num::NonZeroUsize;
 
     #[test]
-    fn test_option_pricing_trait_form_matches_inherent_form() {
+    fn test_every_pricing_method_resolves_through_the_trait() {
+        let option = sample_option();
+        let steps = NonZeroUsize::new(50).expect("non-zero step count");
+        assert!(option.calculate_price_black_scholes().is_ok());
+        assert!(option.calculate_price_binomial(steps).is_ok());
+        assert!(option.calculate_price_binomial_tree(steps).is_ok());
+        assert!(option.calculate_price_telegraph(steps).is_ok());
+        assert!(option.time_value().is_ok());
+        assert!(option.calculate_implied_volatility(dec!(3.0)).is_ok());
+    }
+
+    #[test]
+    fn test_fully_qualified_and_method_syntax_agree() {
         let option = sample_option();
         let steps = NonZeroUsize::new(50).expect("non-zero step count");
         assert_eq!(
@@ -97,16 +94,9 @@ mod trait_form_from_owning_module {
             OptionPricing::calculate_price_binomial(&option, steps).ok(),
             option.calculate_price_binomial(steps).ok()
         );
-        // The telegraph kernel samples a random process, so two runs do not
-        // compare; the trait form only has to resolve and succeed.
-        assert!(OptionPricing::calculate_price_telegraph(&option, steps).is_ok());
         assert_eq!(
             OptionPricing::time_value(&option).ok(),
             option.time_value().ok()
-        );
-        assert_eq!(
-            OptionPricing::calculate_implied_volatility(&option, dec!(3.0)).ok(),
-            option.calculate_implied_volatility(dec!(3.0)).ok()
         );
     }
 
@@ -185,5 +175,48 @@ mod moved_trait_impls_still_resolve {
         assert_eq!(option.get_title(), position.get_title());
         let _ = option.graph_data();
         let _ = position.graph_config();
+    }
+}
+
+/// The leg Greeks and a trade's P&L reach the core types through their owning
+/// layers (#498): `greeks::LegGreeks` for the legs, `PnL::from(&Trade)` for a
+/// trade. Core keeps the data; nothing here needs `model` to import an upper
+/// layer.
+mod leg_greeks_and_trade_pnl_from_owning_layers {
+    use super::*;
+    use optionstratlib::greeks::LegGreeks;
+    use optionstratlib::model::leg::{Leg, SpotPosition};
+    use optionstratlib::model::types::Action;
+    use optionstratlib::model::{Trade, TradeStatus};
+    use optionstratlib::pnl::PnL;
+
+    #[test]
+    fn test_leg_greeks_resolve_through_the_pricing_trait() {
+        let spot = SpotPosition::long("AAPL".to_string(), Positive::HUNDRED, pos_or_panic!(150.0));
+        let leg = Leg::spot(spot.clone());
+        assert_eq!(spot.delta().ok(), Some(dec!(100)));
+        assert_eq!(leg.delta().ok(), Some(dec!(100)));
+        assert_eq!(leg.gamma().ok(), Some(rust_decimal::Decimal::ZERO));
+    }
+
+    #[test]
+    fn test_trade_pnl_comes_from_the_pnl_layer() {
+        let trade = Trade::new(
+            uuid::Uuid::new_v4(),
+            Action::Sell,
+            Side::Short,
+            OptionStyle::Put,
+            pos_or_panic!(0.25),
+            None,
+            pos_or_panic!(200.0),
+            chrono::Utc::now(),
+            Positive::ONE,
+            pos_or_panic!(3.0),
+            pos_or_panic!(190.0),
+            None,
+            TradeStatus::Open,
+        );
+        let pnl = PnL::from(&trade);
+        assert_eq!(pnl.realized, Some(trade.net()));
     }
 }
