@@ -1294,8 +1294,8 @@
       "target": "ibm/nse-observer",
       "url": "https://github.com/ibm/nse-observer",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3103",
+      "merged": true
     },
     {
       "name": "nse-india-all-stocks-tickers-data",
