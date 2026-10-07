@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import hashlib
-import itertools
 import math
 import os
 from datetime import date, datetime, time
@@ -94,12 +93,16 @@ def _quote_frame(symbol: str, trading_date: str, expiration: str) -> pl.DataFram
     path = _option_day_dir(symbol, trading_date) / f"expiration={expiration}" / "quote_1m.parquet"
     if not path.is_file():
         raise HTTPException(404, f"Missing quote partition: {symbol} {trading_date} {expiration}")
-    return pl.read_parquet(path).select("timestamp", "strike", "right", "bid", "ask", "bid_size", "ask_size")
+    return pl.read_parquet(path).select(
+        "timestamp", "strike", "right", "bid", "ask", "bid_size", "ask_size"
+    )
 
 
 @lru_cache(maxsize=96)
 def _oi_frame(symbol: str, trading_date: str, expiration: str) -> pl.DataFrame:
-    path = _option_day_dir(symbol, trading_date) / f"expiration={expiration}" / "open_interest.parquet"
+    path = (
+        _option_day_dir(symbol, trading_date) / f"expiration={expiration}" / "open_interest.parquet"
+    )
     if not path.is_file():
         return pl.DataFrame({"strike": [], "right": [], "open_interest": []})
     return pl.read_parquet(path).select("strike", "right", "open_interest")
@@ -110,7 +113,9 @@ def _expirations(symbol: str, trading_date: str) -> list[str]:
     if not day_dir.is_dir():
         return []
     return sorted(
-        path.name.split("=", 1)[1] for path in day_dir.glob("expiration=*") if (path / "quote_1m.parquet").is_file()
+        path.name.split("=", 1)[1]
+        for path in day_dir.glob("expiration=*")
+        if (path / "quote_1m.parquet").is_file()
     )
 
 
@@ -130,7 +135,9 @@ def _option_value(spot: float, strike: float, years: float, sigma: float, right:
     if years <= 0 or sigma <= 0 or spot <= 0 or strike <= 0:
         return max(spot - strike, 0) if right == "CALL" else max(strike - spot, 0)
     root_t = math.sqrt(years)
-    d1 = (math.log(spot / strike) + (RISK_FREE_RATE + 0.5 * sigma * sigma) * years) / (sigma * root_t)
+    d1 = (math.log(spot / strike) + (RISK_FREE_RATE + 0.5 * sigma * sigma) * years) / (
+        sigma * root_t
+    )
     d2 = d1 - sigma * root_t
     discount = math.exp(-RISK_FREE_RATE * years)
     if right == "CALL":
@@ -138,7 +145,9 @@ def _option_value(spot: float, strike: float, years: float, sigma: float, right:
     return strike * discount * _normal_cdf(-d2) - spot * _normal_cdf(-d1)
 
 
-def _implied_volatility(price: float, spot: float, strike: float, years: float, right: str) -> float | None:
+def _implied_volatility(
+    price: float, spot: float, strike: float, years: float, right: str
+) -> float | None:
     intrinsic = max(spot - strike, 0) if right == "CALL" else max(strike - spot, 0)
     if price <= intrinsic + 0.001 or price >= spot or years <= 0:
         return None
@@ -154,20 +163,32 @@ def _implied_volatility(price: float, spot: float, strike: float, years: float, 
     return (low + high) / 2
 
 
-def _greeks(spot: float, strike: float, years: float, sigma: float, right: str) -> tuple[float, float]:
+def _greeks(
+    spot: float, strike: float, years: float, sigma: float, right: str
+) -> tuple[float, float]:
     root_t = math.sqrt(years)
-    d1 = (math.log(spot / strike) + (RISK_FREE_RATE + 0.5 * sigma * sigma) * years) / (sigma * root_t)
+    d1 = (math.log(spot / strike) + (RISK_FREE_RATE + 0.5 * sigma * sigma) * years) / (
+        sigma * root_t
+    )
     delta = _normal_cdf(d1) if right == "CALL" else _normal_cdf(d1) - 1
     gamma = _normal_pdf(d1) / (spot * sigma * root_t)
     return delta, gamma
 
 
-def _higher_order_greeks(spot: float, strike: float, years: float, sigma: float) -> tuple[float, float]:
+def _higher_order_greeks(
+    spot: float, strike: float, years: float, sigma: float
+) -> tuple[float, float]:
     root_t = math.sqrt(years)
-    d1 = (math.log(spot / strike) + (RISK_FREE_RATE + 0.5 * sigma * sigma) * years) / (sigma * root_t)
+    d1 = (math.log(spot / strike) + (RISK_FREE_RATE + 0.5 * sigma * sigma) * years) / (
+        sigma * root_t
+    )
     d2 = d1 - sigma * root_t
     vanna = -_normal_pdf(d1) * d2 / sigma
-    charm = -_normal_pdf(d1) * (2 * RISK_FREE_RATE * years - d2 * sigma * root_t) / (2 * years * sigma * root_t)
+    charm = (
+        -_normal_pdf(d1)
+        * (2 * RISK_FREE_RATE * years - d2 * sigma * root_t)
+        / (2 * years * sigma * root_t)
+    )
     return vanna, charm
 
 
@@ -186,7 +207,12 @@ def _svi_value(k: float, params: tuple[float, float, float, float, float]) -> fl
 
 def _valid_svi(params: tuple[float, float, float, float, float]) -> bool:
     a, b, rho, _m, sigma = params
-    return b >= 0 and abs(rho) < 0.999 and sigma > 0.001 and a + b * sigma * math.sqrt(max(1 - rho * rho, 0)) >= 0
+    return (
+        b >= 0
+        and abs(rho) < 0.999
+        and sigma > 0.001
+        and a + b * sigma * math.sqrt(max(1 - rho * rho, 0)) >= 0
+    )
 
 
 def _fit_svi(rows: list[dict[str, Any]], years: float, forward: float) -> dict[str, Any] | None:
@@ -215,9 +241,9 @@ def _fit_svi(rows: list[dict[str, Any]], years: float, forward: float) -> dict[s
     def objective(params: tuple[float, float, float, float, float]) -> float:
         if not _valid_svi(params):
             return math.inf
-        fit_error = sum(weight * (_svi_value(k, params) - variance) ** 2 for k, variance, weight in samples) / sum(
-            weight for _, _, weight in samples
-        )
+        fit_error = sum(
+            weight * (_svi_value(k, params) - variance) ** 2 for k, variance, weight in samples
+        ) / sum(weight for _, _, weight in samples)
         density_penalty = 0.0
         k_low, k_high = min(item[0] for item in samples), max(item[0] for item in samples)
         for index in range(21):
@@ -228,7 +254,9 @@ def _fit_svi(rows: list[dict[str, Any]], years: float, forward: float) -> dict[s
             right = _svi_value(k + step, params)
             first = (right - left) / (2 * step)
             second = (right - 2 * w + left) / (step * step)
-            density = (1 - k * first / (2 * w)) ** 2 - (first * first / 4) * (1 / w + 0.25) + second / 2
+            density = (
+                (1 - k * first / (2 * w)) ** 2 - (first * first / 4) * (1 / w + 0.25) + second / 2
+            )
             density_penalty += min(density, 0) ** 2
         return fit_error + density_penalty * 100
 
@@ -276,14 +304,19 @@ def _fit_svi(rows: list[dict[str, Any]], years: float, forward: float) -> dict[s
             "observed_iv": round(math.sqrt(variance / years) * 100, 3),
             "fitted_iv": round(math.sqrt(max(_svi_value(k, params), 0) / years) * 100, 3),
             "residual": round(
-                (math.sqrt(variance / years) - math.sqrt(max(_svi_value(k, params), 0) / years)) * 100,
+                (math.sqrt(variance / years) - math.sqrt(max(_svi_value(k, params), 0) / years))
+                * 100,
                 3,
             ),
         }
         for k, variance, _ in samples
     ]
     return {
-        "params": dict(zip(("a", "b", "rho", "m", "sigma"), (round(value, 8) for value in params), strict=False)),
+        "params": dict(
+            zip(
+                ("a", "b", "rho", "m", "sigma"), (round(value, 8) for value in params), strict=False
+            )
+        ),
         "rmse_total_variance": round(math.sqrt(best), 8),
         "butterfly_violations": butterfly_violations,
         "curve": curve,
@@ -292,7 +325,9 @@ def _fit_svi(rows: list[dict[str, Any]], years: float, forward: float) -> dict[s
 
 
 def _years_to_expiry(trading_date: str, minute: str, expiration: str) -> float:
-    current = datetime.combine(date.fromisoformat(trading_date), time.fromisoformat(minute), tzinfo=ET)
+    current = datetime.combine(
+        date.fromisoformat(trading_date), time.fromisoformat(minute), tzinfo=ET
+    )
     expires = datetime.combine(date.fromisoformat(expiration), time(16, 0), tzinfo=ET)
     return max((expires - current).total_seconds() / (365 * 24 * 3600), 1 / (365 * 24 * 60))
 
@@ -333,8 +368,14 @@ def _chain_snapshot(
         bid_size = int(row.get("bid_size") or 0)
         ask_size = int(row.get("ask_size") or 0)
         midpoint = (bid + ask) / 2
-        microprice = (ask * bid_size + bid * ask_size) / (bid_size + ask_size) if bid_size + ask_size > 0 else midpoint
-        mark = microprice if pricing_mode == "micro" else (ask if pricing_mode == "ask" else midpoint)
+        microprice = (
+            (ask * bid_size + bid * ask_size) / (bid_size + ask_size)
+            if bid_size + ask_size > 0
+            else midpoint
+        )
+        mark = (
+            microprice if pricing_mode == "micro" else (ask if pricing_mode == "ask" else midpoint)
+        )
         iv = _implied_volatility(mark, spot, strike, years, right)
         if iv is None or not 0.01 <= iv <= 4.0:
             continue
@@ -411,7 +452,9 @@ def _chain_snapshot(
         scenario_spot = spot * (0.85 + index * 0.01)
         scenario_gex = 0.0
         for row in rows:
-            _delta, scenario_gamma = _greeks(scenario_spot, row["strike"], years, row["iv"] / 100, row["right"])
+            _delta, scenario_gamma = _greeks(
+                scenario_spot, row["strike"], years, row["iv"] / 100, row["right"]
+            )
             scenario_gex += (
                 scenario_gamma
                 * row["open_interest"]
@@ -423,7 +466,7 @@ def _chain_snapshot(
             )
         scenarios.append((scenario_spot, scenario_gex))
     gamma_flip = None
-    for previous, current in itertools.pairwise(scenarios):
+    for previous, current in zip(scenarios, scenarios[1:], strict=False):
         if previous[1] == 0 or previous[1] * current[1] < 0:
             gamma_flip = previous[0] + (current[0] - previous[0]) * abs(previous[1]) / max(
                 abs(previous[1]) + abs(current[1]), 1e-9
@@ -464,16 +507,27 @@ def _chain_snapshot(
             "atm_iv": atm["iv"] if atm else None,
             "rr25": round(rr25, 3) if rr25 is not None else None,
             "bf25": round(bf25, 3) if bf25 is not None else None,
-            "avg_quality": round(sum(row["quality_score"] for row in rows) / len(rows), 2) if rows else None,
+            "avg_quality": round(sum(row["quality_score"] for row in rows) / len(rows), 2)
+            if rows
+            else None,
         },
         "quality": {
             "counts": quality_counts,
-            "usable_pct": round(sum(row["quality_score"] >= 60 for row in rows) / len(rows) * 100, 2) if rows else 0,
+            "usable_pct": round(
+                sum(row["quality_score"] >= 60 for row in rows) / len(rows) * 100, 2
+            )
+            if rows
+            else 0,
         },
         "svi": svi,
-        "dealer_scenarios": [{"spot": round(value, 3), "gex": round(gex, 2)} for value, gex in scenarios],
+        "dealer_scenarios": [
+            {"spot": round(value, 3), "gex": round(gex, 2)} for value, gex in scenarios
+        ],
         "rows": rows,
-        "gex_by_strike": [{"strike": strike, "gex": round(value, 2)} for strike, value in sorted(by_strike.items())],
+        "gex_by_strike": [
+            {"strike": strike, "gex": round(value, 2)}
+            for strike, value in sorted(by_strike.items())
+        ],
     }
 
 
@@ -492,7 +546,12 @@ def _surface_grid(points: list[dict[str, Any]]) -> list[list[list[float]]]:
         for moneyness, iv in values:
             buckets.setdefault(round(moneyness, 4), []).append(iv)
         curve = sorted((key, sum(items) / len(items)) for key, items in buckets.items())
-        if len(curve) >= 4 and curve[-1][0] - curve[0][0] >= 0.15 and curve[0][0] <= 0.95 and curve[-1][0] >= 1.05:
+        if (
+            len(curve) >= 4
+            and curve[-1][0] - curve[0][0] >= 0.15
+            and curve[0][0] <= 0.95
+            and curve[-1][0] >= 1.05
+        ):
             curves[dte] = curve
     if len(curves) < 2:
         return []
@@ -516,12 +575,17 @@ def _surface_grid(points: list[dict[str, Any]]) -> list[list[list[float]]]:
         return curve[-1][1]
 
     return [
-        [[round(x_value, 5), float(dte), round(interpolate(curve, x_value), 3)] for x_value in x_values]
+        [
+            [round(x_value, 5), float(dte), round(interpolate(curve, x_value), 3)]
+            for x_value in x_values
+        ]
         for dte, curve in sorted(curves.items())
     ]
 
 
-def _project_surface_grid(grid: list[list[list[float]]]) -> tuple[list[list[list[float]]], dict[str, int]]:
+def _project_surface_grid(
+    grid: list[list[list[float]]],
+) -> tuple[list[list[list[float]]], dict[str, int]]:
     if not grid:
         return [], {"convexity_adjustments": 0, "calendar_adjustments": 0}
     projected = [[cell[:] for cell in row] for row in grid]
@@ -565,7 +629,9 @@ def _project_surface_grid(grid: list[list[list[float]]]) -> tuple[list[list[list
 def _atm_history_iv(symbol: str, trading_date: str) -> float | None:
     expirations = _expirations(symbol, trading_date)
     day = date.fromisoformat(trading_date)
-    eligible = [expiry for expiry in expirations if 14 <= (date.fromisoformat(expiry) - day).days <= 60]
+    eligible = [
+        expiry for expiry in expirations if 14 <= (date.fromisoformat(expiry) - day).days <= 60
+    ]
     if not eligible:
         return None
     expiration = min(eligible, key=lambda expiry: abs((date.fromisoformat(expiry) - day).days - 30))
@@ -580,11 +646,19 @@ def _atm_history_iv(symbol: str, trading_date: str) -> float | None:
     years = _years_to_expiry(trading_date, "15:30", expiration)
     values: list[float] = []
     for right in ("CALL", "PUT"):
-        side = quotes.filter((pl.col("right") == right) & (pl.col("ask") > 0) & (pl.col("ask") >= pl.col("bid")))
+        side = quotes.filter(
+            (pl.col("right") == right) & (pl.col("ask") > 0) & (pl.col("ask") >= pl.col("bid"))
+        )
         if side.is_empty():
             continue
-        row = side.with_columns((pl.col("strike") - spot).abs().alias("distance")).sort("distance").row(0, named=True)
-        iv = _implied_volatility((float(row["bid"]) + float(row["ask"])) / 2, spot, float(row["strike"]), years, right)
+        row = (
+            side.with_columns((pl.col("strike") - spot).abs().alias("distance"))
+            .sort("distance")
+            .row(0, named=True)
+        )
+        iv = _implied_volatility(
+            (float(row["bid"]) + float(row["ask"])) / 2, spot, float(row["strike"]), years, right
+        )
         if iv and 0.02 <= iv <= 3:
             values.append(iv * 100)
     return sum(values) / len(values) if values else None
@@ -593,7 +667,10 @@ def _atm_history_iv(symbol: str, trading_date: str) -> float | None:
 def _realized_volatility(closes: list[float], window: int) -> float | None:
     if len(closes) <= window:
         return None
-    returns = [math.log(closes[index] / closes[index - 1]) for index in range(len(closes) - window, len(closes))]
+    returns = [
+        math.log(closes[index] / closes[index - 1])
+        for index in range(len(closes) - window, len(closes))
+    ]
     mean = sum(returns) / len(returns)
     variance = sum((value - mean) ** 2 for value in returns) / max(len(returns) - 1, 1)
     return math.sqrt(variance * 252) * 100
@@ -606,11 +683,18 @@ def health() -> dict[str, Any]:
 
 @app.get("/api/catalog")
 def catalog() -> dict[str, Any]:
-    symbols = sorted(path.name.split("=", 1)[1] for path in (DATA_ROOT / "underlying").glob("symbol=*"))
+    symbols = sorted(
+        path.name.split("=", 1)[1] for path in (DATA_ROOT / "underlying").glob("symbol=*")
+    )
     dates_by_symbol = {
-        symbol: sorted(path.name.split("=", 1)[1] for path in _symbol_dir(symbol).glob("date=*")) for symbol in symbols
+        symbol: sorted(path.name.split("=", 1)[1] for path in _symbol_dir(symbol).glob("date=*"))
+        for symbol in symbols
     }
-    common_dates = sorted(set.intersection(*(set(values) for values in dates_by_symbol.values()))) if symbols else []
+    common_dates = (
+        sorted(set.intersection(*(set(values) for values in dates_by_symbol.values())))
+        if symbols
+        else []
+    )
     return {
         "symbols": symbols,
         "dates_by_symbol": dates_by_symbol,
@@ -624,7 +708,9 @@ def session(
     symbols: str = Query(..., description="Comma separated symbols"),
     trading_date: str = Query(..., alias="date"),
 ) -> dict[str, Any]:
-    selected = list(dict.fromkeys(_validate_symbol(item) for item in symbols.split(",") if item.strip()))[:5]
+    selected = list(
+        dict.fromkeys(_validate_symbol(item) for item in symbols.split(",") if item.strip())
+    )[:5]
     if not selected:
         raise HTTPException(400, "Select at least one symbol")
     series: dict[str, Any] = {}
@@ -695,20 +781,31 @@ def surface(
             usable = usable[::step]
         dte = snapshot["dte"]
         for row in usable:
-            points.append({"moneyness": row["moneyness"], "dte": dte, "iv": row["iv"], "right": row["right"]})
+            points.append(
+                {"moneyness": row["moneyness"], "dte": dte, "iv": row["iv"], "right": row["right"]}
+            )
         atm = min(snapshot["rows"], key=lambda row: abs(row["strike"] - spot), default=None)
         if atm:
-            term.append({"expiration": expiry, "dte": dte, "iv": atm["iv"], "net_gex": snapshot["metrics"]["net_gex"]})
+            term.append(
+                {
+                    "expiration": expiry,
+                    "dte": dte,
+                    "iv": atm["iv"],
+                    "net_gex": snapshot["metrics"]["net_gex"],
+                }
+            )
         if snapshot.get("svi"):
             svi_slices.append({"expiration": expiry, "dte": dte, **snapshot["svi"]})
     calendar_violations = 0
     ordered_slices = sorted(svi_slices, key=lambda item: item["dte"])
-    for shorter, longer in itertools.pairwise(ordered_slices):
+    for shorter, longer in zip(ordered_slices, ordered_slices[1:], strict=False):
         shorter_curve = {
-            round(point["k"], 2): (point["iv"] / 100) ** 2 * max(shorter["dte"], 1) / 365 for point in shorter["curve"]
+            round(point["k"], 2): (point["iv"] / 100) ** 2 * max(shorter["dte"], 1) / 365
+            for point in shorter["curve"]
         }
         longer_curve = {
-            round(point["k"], 2): (point["iv"] / 100) ** 2 * max(longer["dte"], 1) / 365 for point in longer["curve"]
+            round(point["k"], 2): (point["iv"] / 100) ** 2 * max(longer["dte"], 1) / 365
+            for point in longer["curve"]
         }
         for key in shorter_curve.keys() & longer_curve.keys():
             if longer_curve[key] + 1e-7 < shorter_curve[key]:
@@ -752,19 +849,27 @@ def volatility_context(
     dates.sort()
     closes = []
     for value in dates:
-        valid = _stock_frame(clean, value).filter(pl.col("close").is_finite() & (pl.col("close") > 0))
+        valid = _stock_frame(clean, value).filter(
+            pl.col("close").is_finite() & (pl.col("close") > 0)
+        )
         if not valid.is_empty():
             closes.append(float(valid.tail(1).item(0, "close")))
     snapshot = _chain_snapshot(clean, trading_date, minute, expiration)
     current_iv = snapshot["metrics"].get("atm_iv")
-    history = [{"date": value, "iv": iv} for value in dates[-40:] if (iv := _atm_history_iv(clean, value)) is not None]
+    history = [
+        {"date": value, "iv": iv}
+        for value in dates[-40:]
+        if (iv := _atm_history_iv(clean, value)) is not None
+    ]
     historical_values = [item["iv"] for item in history]
     iv_rank = None
     iv_percentile = None
     if current_iv is not None and historical_values:
         low, high = min(historical_values), max(historical_values)
         iv_rank = min(100, max(0, (current_iv - low) / max(high - low, 1e-9) * 100))
-        iv_percentile = sum(value <= current_iv for value in historical_values) / len(historical_values) * 100
+        iv_percentile = (
+            sum(value <= current_iv for value in historical_values) / len(historical_values) * 100
+        )
     rv = {str(window): _realized_volatility(closes, window) for window in (5, 10, 20)}
     dte = max((date.fromisoformat(expiration) - date.fromisoformat(trading_date)).days, 1)
     expected_move = snapshot["spot"] * (current_iv or 0) / 100 * math.sqrt(dte / 365)
@@ -775,8 +880,12 @@ def volatility_context(
         "atm_iv": current_iv,
         "iv_rank": round(iv_rank, 2) if iv_rank is not None else None,
         "iv_percentile": round(iv_percentile, 2) if iv_percentile is not None else None,
-        "realized_volatility": {key: round(value, 3) if value is not None else None for key, value in rv.items()},
-        "vrp20": round(current_iv - rv["20"], 3) if current_iv is not None and rv["20"] is not None else None,
+        "realized_volatility": {
+            key: round(value, 3) if value is not None else None for key, value in rv.items()
+        },
+        "vrp20": round(current_iv - rv["20"], 3)
+        if current_iv is not None and rv["20"] is not None
+        else None,
         "expected_move": round(expected_move, 3),
         "history": history,
     }
