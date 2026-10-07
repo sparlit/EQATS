@@ -1494,8 +1494,8 @@
       "target": "kishanlalchoudhary/nse-option-chain",
       "url": "https://github.com/kishanlalchoudhary/nse-option-chain",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3129",
+      "merged": true
     },
     {
       "name": "dailyvaultrates",
