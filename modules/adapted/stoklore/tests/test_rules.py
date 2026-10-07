@@ -49,11 +49,17 @@ def test_max_pe_check():
 
 def test_ema_bullish_check():
     rule = {"ema_short": 20, "ema_long": 50}
-    with patch("app.core.prices.ema_crossover", return_value={"shortEma": 110, "longEma": 100, "crossover": None}):
+    with patch(
+        "app.core.prices.ema_crossover",
+        return_value={"shortEma": 110, "longEma": 100, "crossover": None},
+    ):
         result = rules.evaluate(rule, "TEST")
     assert result["passed"] is True
 
-    with patch("app.core.prices.ema_crossover", return_value={"shortEma": 90, "longEma": 100, "crossover": None}):
+    with patch(
+        "app.core.prices.ema_crossover",
+        return_value={"shortEma": 90, "longEma": 100, "crossover": None},
+    ):
         result = rules.evaluate(rule, "TEST")
     assert result["passed"] is False
 
@@ -69,7 +75,8 @@ def test_no_negative_events_check():
     assert result["passed"] is True
 
     with patch(
-        "app.core.db.list_events", return_value=[{"sentiment_label": "negative"}, {"sentiment_label": "positive"}]
+        "app.core.db.list_events",
+        return_value=[{"sentiment_label": "negative"}, {"sentiment_label": "positive"}],
     ):
         result = rules.evaluate(rule, "TEST")
     assert result["passed"] is False
@@ -93,7 +100,10 @@ def test_multiple_criteria_all_must_pass():
 
 def test_same_rule_checks_different_symbols_independently():
     rule = {"max_pe": 25}
-    with patch("app.core.scraper.get_quote", side_effect=lambda s: {"trailingPE": 20 if s == "GOOD" else 30}):
+    with patch(
+        "app.core.scraper.get_quote",
+        side_effect=lambda s: {"trailingPE": 20 if s == "GOOD" else 30},
+    ):
         assert rules.evaluate(rule, "GOOD")["passed"] is True
         assert rules.evaluate(rule, "BAD")["passed"] is False
 
@@ -101,12 +111,15 @@ def test_same_rule_checks_different_symbols_independently():
 def test_parse_watch_rule_extracts_only_mentioned_fields():
     reply = '{"max_pe": 25, "ema_short": 20, "ema_long": 50, "no_negative_events_days": 14}'
     with patch("app.core.llm._generate", return_value=reply):
-        parsed = llm.parse_watch_rule("P/E under 25 AND EMA20 above EMA50 AND no negative events in 14d")
+        parsed = llm.parse_watch_rule(
+            "P/E under 25 AND EMA20 above EMA50 AND no negative events in 14d"
+        )
     assert parsed == {"max_pe": 25, "ema_short": 20, "ema_long": 50, "no_negative_events_days": 14}
 
     # model wraps the JSON in prose, and only mentions one criterion - null fields dropped
     with patch(
-        "app.core.llm._generate", return_value='Sure, here it is: {"max_pe": 30, "ema_short": null}\nhope that helps'
+        "app.core.llm._generate",
+        return_value='Sure, here it is: {"max_pe": 30, "ema_short": null}\nhope that helps',
     ):
         parsed = llm.parse_watch_rule("P/E under 30")
     assert parsed == {"max_pe": 30}

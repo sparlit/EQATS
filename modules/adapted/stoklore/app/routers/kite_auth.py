@@ -36,7 +36,8 @@ def kite_login_url():
     creds = db.get_kite_credentials()
     if not creds:
         raise HTTPException(
-            status_code=400, detail="Kite isn't configured - add your API key and secret in Settings > Kite"
+            status_code=400,
+            detail="Kite isn't configured - add your API key and secret in Settings > Kite",
         )
     return {"url": kite.login_url(creds["api_key"])}
 

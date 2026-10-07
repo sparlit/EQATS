@@ -50,4 +50,6 @@ def _blank(data):
     Caching it served that blank to every reader for the whole TTL - a watchlist workflow priced
     eight stocks from cache in 5ms, all null. Checked on read too, so a blank already stored is a
     miss rather than another 15 minutes of nulls."""
-    return data is None or (isinstance(data, dict) and bool(data) and all(v is None for v in data.values()))
+    return data is None or (
+        isinstance(data, dict) and bool(data) and all(v is None for v in data.values())
+    )

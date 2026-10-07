@@ -51,9 +51,8 @@ def fetch_max(source, symbol):
     source name (a caller/config bug, not a runtime failure - not wrapped in SourceError) and
     SourceError for the plugin's own fetch failures."""
     if source not in SOURCES:
-        msg = f"unknown price source '{source}' - available: {', '.join(SOURCES)}"
-        raise ValueError(msg)
+        raise ValueError(f"unknown price source '{source}' - available: {', '.join(SOURCES)}")
     return SOURCES[source].fetch_max(symbol)
 
 
-__all__ = ["DEFAULT_SOURCE", "SOURCES", "SourceError", "fetch_max"]
+__all__ = ["SOURCES", "DEFAULT_SOURCE", "fetch_max", "SourceError"]

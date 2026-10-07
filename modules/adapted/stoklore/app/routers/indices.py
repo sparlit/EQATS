@@ -52,7 +52,9 @@ def index_chart(name: str, range: str = "1mo"):
     if name not in scraper.INDEX_SYMBOLS:
         raise HTTPException(status_code=404, detail=f"Unknown index '{name}'")
     if range not in scraper.CHART_RANGES:
-        raise HTTPException(status_code=400, detail=f"range must be one of {list(scraper.CHART_RANGES)}")
+        raise HTTPException(
+            status_code=400, detail=f"range must be one of {list(scraper.CHART_RANGES)}"
+        )
     return _cached(name, f"index-chart:{range}", 15, lambda: scraper.get_index_chart(name, range))
 
 

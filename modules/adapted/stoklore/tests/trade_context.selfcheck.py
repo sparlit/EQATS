@@ -45,7 +45,10 @@ def bar(date, o, h, l, c, v=1000):
 
 def flat_bars(n, price=100.0, spread=1.0, volume=1000):
     """n identical bars - ATR is exactly `spread`, both EMAs sit exactly on `price`."""
-    return [bar(f"2026-01-{i + 1:02d}", price, price + spread, price - spread, price, volume) for i in range(n)]
+    return [
+        bar(f"2026-01-{i + 1:02d}", price, price + spread, price - spread, price, volume)
+        for i in range(n)
+    ]
 
 
 # --- ATR ---------------------------------------------------------------------------------------
@@ -117,14 +120,16 @@ assert tc.volume_spike(flat_bars(21))["scanned"] == 1
 
 # The ceiling the API enforces is exactly what 100 fetched bars can actually serve.
 assert tc.MAX_SPIKE_LOOKBACK == tc.LOOKBACK - tc.VOLUME_AVG
-assert tc.volume_spike(flat_bars(tc.LOOKBACK), lookback=tc.MAX_SPIKE_LOOKBACK)["scanned"] == tc.MAX_SPIKE_LOOKBACK
+assert (
+    tc.volume_spike(flat_bars(tc.LOOKBACK), lookback=tc.MAX_SPIKE_LOOKBACK)["scanned"]
+    == tc.MAX_SPIKE_LOOKBACK
+)
 assert tc.volume_spike([]) == {}
 assert tc.volume_spike(flat_bars(60, volume=0)) == {}, "zero-volume history must not divide"
 
 # It rides the snapshot, carrying the config it was computed with.
 ctx_spike = tc.compute(spiky, None, "long", 100.0, spike_multiple=2.5, spike_lookback=5)
-assert ctx_spike["vol_spike"]["multiple"] == 2.5
-assert ctx_spike["vol_spike"]["count"] == 1
+assert ctx_spike["vol_spike"]["multiple"] == 2.5 and ctx_spike["vol_spike"]["count"] == 1
 # ...and is absent, not zeroed, when the history is too thin to read.
 assert "vol_spike" not in tc.entry_context(flat_bars(10), "long", 100)
 
@@ -206,7 +211,9 @@ assert with_stop["mae_r"] == 2.0, with_stop
 assert with_stop["mfe_r"] == 5.0, with_stop
 # No stop set, no R - a percentage isn't comparable across symbols, so it isn't faked.
 assert "mae_r" not in tc.excursion(held, "long", 100.0)
-assert "mae_r" not in tc.excursion(held, "long", 100.0, stop_loss=100.0), "zero risk must not divide"
+assert "mae_r" not in tc.excursion(held, "long", 100.0, stop_loss=100.0), (
+    "zero risk must not divide"
+)
 
 # Never negative: a trade that gapped straight up never went against you.
 gap_up = [bar("2026-04-01", 105, 112, 104, 110)]
@@ -216,8 +223,7 @@ assert tc.excursion([], "long", 100.0) == {}
 # --- compute(): the two halves, and the absent-not-zero rule --------------------------------------
 full = tc.compute(flat_bars(100), held, "long", 100.0, stop_loss=98.0, source="price_history_max")
 assert full["source"] == "price_history_max"
-assert full["trend"] == "chop"
-assert full["mae_pct"] == 4.0
+assert full["trend"] == "chop" and full["mae_pct"] == 4.0
 
 no_exit = tc.compute(flat_bars(100), None, "long", 100.0, stop_loss=98.0)
 assert no_exit["trend"] == "chop", "entry context must still be stored without an exit"
@@ -235,4 +241,6 @@ assert thin["mae_pct"] == 4.0 and thin["mfe_pct"] == 10.0, thin
 for key in ("trend", "vol_regime", "extension_atr", "range_pos"):
     assert key not in thin, key
 
-print("ok - trade_context: ATR, percentile, entry context, volume spike, direction flips, MAE/MFE, degradation")
+print(
+    "ok - trade_context: ATR, percentile, entry context, volume spike, direction flips, MAE/MFE, degradation"
+)

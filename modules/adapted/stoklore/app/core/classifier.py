@@ -51,7 +51,7 @@ _load_lock = threading.Lock()
 
 def installed():
     try:
-        import laya
+        import laya  # noqa: F401
     except ImportError:
         return False
     return True
@@ -88,7 +88,7 @@ def predict(state, questions):
         with _load_lock:  # one load, even when the first calls arrive together
             agent = _agent()
         return agent.predict(_clip(state), questions)["answers"]
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - a broken model must never break a chat turn
         print(f"laya: prediction failed: {e}")
         return None
 
@@ -126,7 +126,9 @@ def classify(text, question, qtype="choice", options=None):
         q["criteria"] = list(options)
     answers = predict({"text": text}, {"q": q})
     if answers is None:
-        return {"error": "the Laya classifier is off or unavailable - enable it in Settings > Classifier"}
+        return {
+            "error": "the Laya classifier is off or unavailable - enable it in Settings > Classifier"
+        }
     a = answers["q"]
     if qtype == "choice":
         return {
@@ -144,7 +146,12 @@ def classify(text, question, qtype="choice", options=None):
             "max": len(options) - 1,
             "confidence": a["confidence"],
         }
-    return {"type": "noul", "answer": a["noul"] >= 0.5, "probability": a["noul"], "confidence": a["confidence"]}
+    return {
+        "type": "noul",
+        "answer": a["noul"] >= 0.5,
+        "probability": a["noul"],
+        "confidence": a["confidence"],
+    }
 
 
 def _split_option(option):
@@ -205,10 +212,19 @@ EVENT_TYPES = {
     "market": "general market, sector or macro news",
     "other": "anything else",
 }
-MATERIALITY = ["none: routine or irrelevant", "minor", "moderate", "major: likely to move the stock"]
+MATERIALITY = [
+    "none: routine or irrelevant",
+    "minor",
+    "moderate",
+    "major: likely to move the stock",
+]
 
 NEWS_QUESTIONS = {
-    "event": {"type": "choice", "instructions": "What kind of event is `news` about?", "criteria": EVENT_TYPES},
+    "event": {
+        "type": "choice",
+        "instructions": "What kind of event is `news` about?",
+        "criteria": EVENT_TYPES,
+    },
     "materiality": {
         "type": "score",
         "instructions": "How material is `news` to the company's share price?",
@@ -217,7 +233,10 @@ NEWS_QUESTIONS = {
     # Phrasing matters to this model: "is it price-sensitive information" scored every headline
     # ~0.15; asking whether it could move the price separates an order win (0.63) from market
     # chatter (0.09).
-    "price_sensitive": {"type": "noul", "instructions": "Could `news` move the company's share price significantly?"},
+    "price_sensitive": {
+        "type": "noul",
+        "instructions": "Could `news` move the company's share price significantly?",
+    },
 }
 
 
@@ -310,7 +329,11 @@ def suggest_review(notes, mistakes, emotions):
     picked = []
     if "mistake" in answers:
         ranked = sorted(answers["mistake"]["probabilities"].items(), key=lambda kv: -kv[1])
-        picked = [{"label": m, "probability": p} for m, p in ranked[:2] if m == ranked[0][0] or p >= SECOND_MISTAKE_MIN]
+        picked = [
+            {"label": m, "probability": p}
+            for m, p in ranked[:2]
+            if m == ranked[0][0] or p >= SECOND_MISTAKE_MIN
+        ]
     return {
         "mistakes": picked,
         "emotion": (

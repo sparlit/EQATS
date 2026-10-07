@@ -69,7 +69,9 @@ def catalogue():
             {
                 "name": t["function"]["name"],
                 "description": t["function"]["description"],
-                "parameters": list((t["function"].get("parameters") or {}).get("properties", {}).keys()),
+                "parameters": list(
+                    (t["function"].get("parameters") or {}).get("properties", {}).keys()
+                ),
                 "required": (t["function"].get("parameters") or {}).get("required", []),
             }
             for t in AGENT_TOOLS
@@ -106,7 +108,12 @@ def create_from_template(template_id: str):
     # Cloned disabled on purpose: a template is a starting point, and arming something you have
     # not read yet is exactly the surprise this feature must not produce.
     db.save_workflow(
-        workflow_id, template["name"], template["description"], template["graph"], template["trigger"], False
+        workflow_id,
+        template["name"],
+        template["description"],
+        template["graph"],
+        template["trigger"],
+        False,
     )
     return db.get_workflow(workflow_id)
 
@@ -127,12 +134,19 @@ def create_from_screen(req: ScreenWorkflowRequest):
 
     name = screen["name"] or "screener.in screen"
     nodes, pairs = screen_graph(screen["url"], name, max_pages=req.max_pages)
-    graph = {"nodes": nodes, "edges": [{"id": f"e-{a}-{b}", "source": a, "target": b} for a, b in pairs]}
-    description = f"From screener.in: {screen['query']}" if screen.get("query") else f"From {screen['url']}"
+    graph = {
+        "nodes": nodes,
+        "edges": [{"id": f"e-{a}-{b}", "source": a, "target": b} for a, b in pairs],
+    }
+    description = (
+        f"From screener.in: {screen['query']}" if screen.get("query") else f"From {screen['url']}"
+    )
     workflow_id = str(uuid.uuid4())
     # Disarmed, same as a template: it runs on someone else's query, and you should see what it
     # matches before it starts filing anything.
-    db.save_workflow(workflow_id, name, description, graph, {"kind": "schedule", "time": req.time}, False)
+    db.save_workflow(
+        workflow_id, name, description, graph, {"kind": "schedule", "time": req.time}, False
+    )
     return {
         "workflow": db.get_workflow(workflow_id),
         "preview": {
@@ -154,7 +168,8 @@ def _shaped(workflows, with_unread=False):
         else {w["id"]: w["name"] for w in workflows}
     )
     guarded = any(
-        (w.get("trigger") or {}).get("trading_days_only") or (w.get("trigger") or {}).get("kind") == "market"
+        (w.get("trigger") or {}).get("trading_days_only")
+        or (w.get("trigger") or {}).get("kind") == "market"
         for w in workflows
     )
     holidays = workflow_triggers.trading_holidays() if guarded else frozenset()
@@ -228,7 +243,13 @@ def save_workflow(workflow_id: str, req: WorkflowRequest):
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     db.save_workflow(
-        workflow_id, name, req.description, req.graph, req.trigger, req.enabled, retain_runs=req.retain_runs
+        workflow_id,
+        name,
+        req.description,
+        req.graph,
+        req.trigger,
+        req.enabled,
+        retain_runs=req.retain_runs,
     )
     return get_workflow(workflow_id)
 
@@ -286,14 +307,18 @@ def run_workflow(workflow_id: str):
 
 
 @router.get("/api/workflows/{workflow_id}/series")
-def workflow_series(workflow_id: str, series: str | None = None, limit: int = 1000, run_id: str | None = None):
+def workflow_series(
+    workflow_id: str, series: str | None = None, limit: int = 1000, run_id: str | None = None
+):
     """A collected series as rows, newest first, plus which series this workflow has and which of
     their columns are numeric - the chart needs to know what it can plot, and only the data can
     answer that."""
     names = db.list_series_names(workflow_id)
     chosen = series or (names[0] if names else None)
     rows = db.read_series(workflow_id, chosen, limit, run_id=run_id) if chosen else []
-    shaped = [{"run_id": r["run_id"], "collected_at": r["collected_at"], **(r["row"] or {})} for r in rows]
+    shaped = [
+        {"run_id": r["run_id"], "collected_at": r["collected_at"], **(r["row"] or {})} for r in rows
+    ]
     numeric = sorted(
         {
             key
@@ -303,7 +328,13 @@ def workflow_series(workflow_id: str, series: str | None = None, limit: int = 10
         }
     )
     columns = sorted({key for row in shaped for key in row} - {"run_id", "collected_at"})
-    return {"series": names, "selected": chosen, "rows": shaped, "columns": columns, "numeric": numeric}
+    return {
+        "series": names,
+        "selected": chosen,
+        "rows": shaped,
+        "columns": columns,
+        "numeric": numeric,
+    }
 
 
 @router.get("/api/workflows/{workflow_id}/health")

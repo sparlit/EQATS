@@ -62,9 +62,16 @@ if __name__ == "__main__":
 
     # A forced board overrides the series (for an export whose SERIES column is blank), and a blank
     # series alone must never silently become SME.
-    forced = parse_csv(HEADER + b"NOSERIES,No Series Ltd,,01-JAN-2020,10,1,INE333X01011,10\n", "SME")
+    forced = parse_csv(
+        HEADER + b"NOSERIES,No Series Ltd,,01-JAN-2020,10,1,INE333X01011,10\n", "SME"
+    )
     assert forced[0]["board"] == "SME", forced
-    assert parse_csv(HEADER + b"NOSERIES,No Series Ltd,,01-JAN-2020,10,1,INE333X01011,10\n")[0]["board"] == "MAIN"
+    assert (
+        parse_csv(HEADER + b"NOSERIES,No Series Ltd,,01-JAN-2020,10,1,INE333X01011,10\n")[0][
+            "board"
+        ]
+        == "MAIN"
+    )
 
     # Garbage in the numeric columns is dropped, not fatal - the row is still worth having.
     messy = parse_csv(HEADER + b"MESSY,Messy Ltd,EQ,01-JAN-2020,10,-,INE444X01011,\n")
@@ -84,7 +91,5 @@ if __name__ == "__main__":
     assert aliased["listing_date"].isoformat() == "2023-07-12", aliased
     assert aliased["market_lot"] == 1200, aliased
 
-    assert board_for("SM") == "SME"
-    assert board_for("EQ") == "MAIN"
-    assert board_for(None) == "MAIN"
+    assert board_for("SM") == "SME" and board_for("EQ") == "MAIN" and board_for(None) == "MAIN"
     print("ok:", row)

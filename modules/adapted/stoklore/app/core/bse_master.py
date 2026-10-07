@@ -98,6 +98,5 @@ def fetch_scrips():
     """Every active BSE equity scrip, parsed. One request for the whole list."""
     rows = netfetch.request(SCRIP_LIST_URL, pool="bse", headers=HEADERS).json()
     if not isinstance(rows, list):
-        msg = "BSE scrip list did not come back as a list - the API likely blocked us"
-        raise RuntimeError(msg)
+        raise RuntimeError("BSE scrip list did not come back as a list - the API likely blocked us")
     return [p for p in (parse_scrip(r) for r in rows) if p]

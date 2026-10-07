@@ -60,7 +60,10 @@ def _auto_event_scan_loop():
     ist = ZoneInfo("Asia/Kolkata")
     while True:
         today = datetime.now(ist).date().isoformat()
-        if events.should_auto_scan(db.get_last_event_scan_date(), today) and not _event_scan_state["running"]:
+        if (
+            events.should_auto_scan(db.get_last_event_scan_date(), today)
+            and not _event_scan_state["running"]
+        ):
             db.set_last_event_scan_date(today)
             _run_event_scan(None)
             # Workflows wired to the event scan run on what it just found, not on yesterday's
@@ -122,7 +125,8 @@ def run_daily_digest(now=None):
     lines = [f"· {a['message']}" for a in todays if a.get("message")]
     alerts.record(
         "workflow",
-        f"Today's workflows — {len(todays)} result{'' if len(todays) == 1 else 's'}\n" + "\n".join(lines),
+        f"Today's workflows — {len(todays)} result{'' if len(todays) == 1 else 's'}\n"
+        + "\n".join(lines),
         meta={"digest": True},
     )
     return len(todays)
@@ -154,7 +158,7 @@ def _workflow_schedule_loop():
             if now.hour >= DIGEST_HOUR and db.get_last_digest_date() != today:
                 db.set_last_digest_date(today)
                 run_daily_digest(now)
-        except Exception:
+        except Exception:  # noqa: BLE001 - a bad workflow must not end the scheduler
             pass
         time.sleep(60)
 
@@ -198,11 +202,19 @@ def _run_max_collect(symbol, source):
 # one bulk run makes sense at a time, unlike the per-symbol state above.
 BULK_COLLECT_INTERVAL_SECONDS = 5
 
-_bulk_collect_state = {"running": False, "done": 0, "total": 0, "current_symbol": None, "results": []}
+_bulk_collect_state = {
+    "running": False,
+    "done": 0,
+    "total": 0,
+    "current_symbol": None,
+    "results": [],
+}
 
 
 def _run_bulk_collect(symbols, source):
-    _bulk_collect_state.update(running=True, done=0, total=len(symbols), current_symbol=None, results=[])
+    _bulk_collect_state.update(
+        running=True, done=0, total=len(symbols), current_symbol=None, results=[]
+    )
     for i, symbol in enumerate(symbols):
         _bulk_collect_state["current_symbol"] = symbol
         try:
@@ -213,7 +225,9 @@ def _run_bulk_collect(symbols, source):
             # stops the rest of the batch from running.
             _bulk_collect_state["results"].append({"symbol": symbol, "ok": False, "error": str(e)})
         except Exception as e:
-            _bulk_collect_state["results"].append({"symbol": symbol, "ok": False, "error": f"unexpected error: {e}"})
+            _bulk_collect_state["results"].append(
+                {"symbol": symbol, "ok": False, "error": f"unexpected error: {e}"}
+            )
         _bulk_collect_state["done"] = i + 1
         if i < len(symbols) - 1:
             time.sleep(BULK_COLLECT_INTERVAL_SECONDS)
@@ -230,7 +244,15 @@ def _run_bulk_collect(symbols, source):
 # Re-running is free by design: filings are keyed on NSE's own record id, so a window already
 # collected upserts the same rows, and a filing whose detail is already stored is skipped outright.
 
-_shareholding_state = {"running": False, "phase": None, "done": 0, "total": 0, "new": 0, "details": 0, "error": None}
+_shareholding_state = {
+    "running": False,
+    "phase": None,
+    "done": 0,
+    "total": 0,
+    "new": 0,
+    "details": 0,
+    "error": None,
+}
 
 # How many XBRL fetches one run will do. A cap rather than "everything pending": the first run after
 # a 5-year backfill has thousands of candidates, and hammering nsearchives for an hour is exactly
@@ -254,7 +276,9 @@ def _collect_shareholding_details(limit=MAX_DETAILS_PER_RUN):
         ordered = shareholding.latest_per_period(symbol_filings)
         for index, filing in enumerate(ordered):
             previous = ordered[index - 1] if index else None
-            if filing.get("detail_fetched_at") is None and shareholding.needs_detail(filing, previous):
+            if filing.get("detail_fetched_at") is None and shareholding.needs_detail(
+                filing, previous
+            ):
                 pending.append(filing)
     # Newest first: a filing from this quarter is the one being looked at today.
     pending.sort(key=lambda f: f["period_date"], reverse=True)
@@ -277,11 +301,17 @@ def _collect_shareholding_details(limit=MAX_DETAILS_PER_RUN):
 
 
 def _run_shareholding_sync(years, with_detail=True, start=None, end=None):
-    _shareholding_state.update(running=True, phase="master", done=0, total=0, new=0, details=0, error=None)
+    _shareholding_state.update(
+        running=True, phase="master", done=0, total=0, new=0, details=0, error=None
+    )
     try:
         # An explicit range wins over the years shorthand: "the last N years" is the common case,
         # a named span is the deliberate one.
-        ranges = shareholding.windows_between(start, end) if start and end else shareholding.windows(years)
+        ranges = (
+            shareholding.windows_between(start, end)
+            if start and end
+            else shareholding.windows(years)
+        )
         _shareholding_state["total"] = len(ranges)
         for index, (start, end) in enumerate(ranges):
             try:
@@ -305,7 +335,9 @@ def start_shareholding_sync(years=1, with_detail=True, start=None, end=None):
     fight over the same NSE cookie pool for no benefit."""
     if _shareholding_state["running"]:
         return False
-    threading.Thread(target=_run_shareholding_sync, args=(years, with_detail, start, end), daemon=True).start()
+    threading.Thread(
+        target=_run_shareholding_sync, args=(years, with_detail, start, end), daemon=True
+    ).start()
     return True
 
 

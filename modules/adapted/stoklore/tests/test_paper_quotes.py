@@ -33,7 +33,7 @@ it - so that's what's checked, by swapping the per-symbol lookup for a slow fake
 import sys
 import threading
 import time
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -177,7 +177,9 @@ def test_never_quoted_symbol_is_fetched_inline():
         return price
 
     with (
-        patch.object(quotes.db, "get_paper_prices", lambda s: {k: table[k] for k in s if k in table}),
+        patch.object(
+            quotes.db, "get_paper_prices", lambda s: {k: table[k] for k in s if k in table}
+        ),
         patch.object(quotes, "paper_price", fetch_and_store),
     ):
         out = quotes.paper_quotes(["TCS", "BROKEN"])

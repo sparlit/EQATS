@@ -55,7 +55,9 @@ def shareholding_screener(
     to the default rather than 422-ing, since it only ever costs a different row order.
     """
     wanted = [s.strip().upper() for s in (symbols or "").split(",") if s.strip()] or None
-    filings = db.list_shareholding_filings(symbols=wanted, since=date.today() - timedelta(days=days))
+    filings = db.list_shareholding_filings(
+        symbols=wanted, since=date.today() - timedelta(days=days)
+    )
     return {
         "rows": shareholding.screener_rows(filings, span=span, sort=sort, order=order),
         "sort": {"key": sort if sort in shareholding.SORT_KEYS else "move", "order": order},
@@ -94,7 +96,8 @@ def start_shareholding_sync(
             raise HTTPException(status_code=422, detail="dates must be YYYY-MM-DD") from None
         if start > end:
             start, end = end, start
-        end = min(end, date.today())
+        if end > date.today():
+            end = date.today()
         # The guard is on SPAN, not on how far back it reaches: collecting one old quarter is one
         # request, and refusing it would make the picker useless for exactly the case it exists for.
         if (end - start).days > 365 * shareholding.MAX_SEED_YEARS:
@@ -103,7 +106,9 @@ def start_shareholding_sync(
                 detail=f"range must be {shareholding.MAX_SEED_YEARS} years or less",
             )
     elif not 1 <= years <= shareholding.MAX_SEED_YEARS:
-        raise HTTPException(status_code=422, detail=f"years must be 1-{shareholding.MAX_SEED_YEARS}")
+        raise HTTPException(
+            status_code=422, detail=f"years must be 1-{shareholding.MAX_SEED_YEARS}"
+        )
 
     if not jobs.start_shareholding_sync(years=years, with_detail=detail, start=start, end=end):
         raise HTTPException(status_code=409, detail="a shareholding sync is already running")

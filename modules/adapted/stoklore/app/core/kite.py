@@ -63,11 +63,9 @@ def generate_session(api_key, api_secret, request_token):
             timeout=15,
         )
     except requests.RequestException as e:
-        msg = f"Couldn't reach Kite: {e}"
-        raise KiteError(msg) from e
+        raise KiteError(f"Couldn't reach Kite: {e}") from e
     if not res.ok:
-        msg = f"Kite login failed ({res.status_code}): {res.text[:200]}"
-        raise KiteError(msg)
+        raise KiteError(f"Kite login failed ({res.status_code}): {res.text[:200]}")
     return res.json()["data"]["access_token"]
 
 
@@ -75,11 +73,9 @@ def _get(path, api_key, access_token):
     try:
         res = requests.get(f"{BASE_URL}{path}", headers=_headers(api_key, access_token), timeout=15)
     except requests.RequestException as e:
-        msg = f"Couldn't reach Kite: {e}"
-        raise KiteError(msg) from e
+        raise KiteError(f"Couldn't reach Kite: {e}") from e
     if not res.ok:
-        msg = f"Kite API error ({res.status_code}): {res.text[:200]}"
-        raise KiteError(msg)
+        raise KiteError(f"Kite API error ({res.status_code}): {res.text[:200]}")
     return res.json()["data"]
 
 

@@ -68,7 +68,9 @@ def run_events(run_id: str):
             yield _sse(event)
         yield "data: [DONE]\n\n"
 
-    return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
+    return StreamingResponse(
+        stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"}
+    )
 
 
 @router.get("/api/agent/runs/{run_id}/workflow")

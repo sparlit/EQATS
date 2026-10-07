@@ -37,5 +37,4 @@ def fetch_max(symbol):
     try:
         return scraper.get_daily_bars(symbol, period="max")
     except Exception as e:
-        msg = f"yfinance: {e}"
-        raise SourceError(msg) from e
+        raise SourceError(f"yfinance: {e}") from e

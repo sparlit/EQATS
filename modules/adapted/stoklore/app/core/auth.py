@@ -52,7 +52,7 @@ import hashlib
 import hmac
 import secrets
 import time
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.core import db
 
@@ -331,7 +331,8 @@ def new_recovery_code() -> str:
     """A fresh code (~98 bits), generated and nothing more - `issue_recovery_code` is what stores
     one. Split so the generator stays pure and testable without a database."""
     return "-".join(
-        "".join(secrets.choice(_RECOVERY_ALPHABET) for _ in range(RECOVERY_GROUP_LEN)) for _ in range(RECOVERY_GROUPS)
+        "".join(secrets.choice(_RECOVERY_ALPHABET) for _ in range(RECOVERY_GROUP_LEN))
+        for _ in range(RECOVERY_GROUPS)
     )
 
 
