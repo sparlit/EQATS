@@ -1534,8 +1534,8 @@
       "target": "krakenfx/kraken-cli",
       "url": "https://github.com/krakenfx/kraken-cli",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3134",
+      "merged": true
     },
     {
       "name": "algo-trader",
