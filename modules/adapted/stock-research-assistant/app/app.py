@@ -51,7 +51,9 @@ with st.sidebar:
         from lakebase.db import get_connection
 
         with get_connection() as conn, conn.cursor() as cur:
-            cur.execute("SELECT ticker, note_text, created_at FROM research_notes ORDER BY created_at DESC LIMIT 5")
+            cur.execute(
+                "SELECT ticker, note_text, created_at FROM research_notes ORDER BY created_at DESC LIMIT 5"
+            )
             rows = cur.fetchall()
         if not rows:
             st.caption("No notes yet.")
