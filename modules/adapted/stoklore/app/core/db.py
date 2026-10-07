@@ -24,7 +24,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """Postgres + pgvector storage for scraped reports and chat history."""
 import json
 import os
-from datetime import UTC, date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 import psycopg
 from psycopg.rows import dict_row
@@ -806,6 +806,61 @@ CREATE TABLE IF NOT EXISTS live_intents (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   settled_at TIMESTAMPTZ
 );
+
+-- Bookkeeping for the engine's bar cache (app/core/minute_data.py). The bars stay in parquet files
+-- under MINUTE_DATA_DIR; this holds each stock's sliding expiry (every use pushes it 2 weeks out,
+-- an expired stock's files are deleted) and its built 1D series, so a restart reloads the series
+-- instead of rebuilding it. Nothing here is user data: losing a row only costs a re-fetch.
+CREATE TABLE IF NOT EXISTS minute_cache (
+  symbol TEXT PRIMARY KEY,
+  last_used TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  daily_key TEXT,        -- the source files' mtimes the series was built from; a change rebuilds it
+  daily JSONB            -- [days, events, patched, jumps] as _full_days returns them
+);
+
+-- The algo engine's background runs (app/services/engine_jobs.py). `request` is the same body the
+-- run-now endpoint takes, so a job is replayable as-is. Results stay files under the engine folder;
+-- a job only points at them.
+CREATE TABLE IF NOT EXISTS engine_jobs (
+  id BIGSERIAL PRIMARY KEY,
+  kind TEXT NOT NULL,                      -- 'backtest' | 'sweep' | 'autotune'
+  request JSONB NOT NULL,
+  label TEXT,
+  status TEXT NOT NULL DEFAULT 'queued',   -- queued | running | done | failed | cancelled | interrupted
+  priority INT NOT NULL DEFAULT 0,         -- higher first, then oldest first
+  cancel BOOLEAN NOT NULL DEFAULT false,   -- asked to stop while running; the worker checks between stocks
+  progress JSONB,                          -- {done, total} while it runs
+  result JSONB,                            -- where the output is: {batch, ids} | {sweep} | {batch, ids, errors}
+  error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  started_at TIMESTAMPTZ,
+  finished_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS engine_jobs_queue ON engine_jobs (status, priority DESC, id);
+
+-- Chart scans (the chart modal's slideshow, frontend components/ChartModal.tsx): a list of stocks
+-- flipped through one chart at a time, and the A/B/C priority marked on each. `symbols` is the
+-- list as it was when the scan started (a watchlist changes; the scan is a record), `position`
+-- where it was left, so it can be resumed.
+CREATE TABLE IF NOT EXISTS scans (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  source TEXT NOT NULL,            -- 'watchlist:<name>' or what table it came from
+  symbols JSONB NOT NULL,
+  position INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  finished_at TIMESTAMPTZ
+);
+CREATE TABLE IF NOT EXISTS scan_marks (
+  scan_id BIGINT NOT NULL REFERENCES scans(id) ON DELETE CASCADE,
+  symbol TEXT NOT NULL,
+  priority TEXT CHECK (priority IN ('A', 'B', 'C')),  -- null with a note = noted, not ranked
+  note TEXT,
+  price NUMERIC,                   -- the last price on the chart when it was marked
+  marked_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (scan_id, symbol)
+);
 """
 
 
@@ -841,7 +896,8 @@ def insert_scraped_item(symbol, markdown, embedding):
 def list_recent_items(limit=20):
     with connect() as conn:
         return conn.execute(
-            "SELECT id, symbol, content_markdown, scraped_at FROM scraped_items ORDER BY scraped_at DESC LIMIT %s",
+            "SELECT id, symbol, content_markdown, scraped_at FROM scraped_items "
+            "ORDER BY scraped_at DESC LIMIT %s",
             (limit,),
         ).fetchall()
 
@@ -885,13 +941,16 @@ def has_recent_item(symbol, hours=24):
         row = conn.execute(
             "SELECT max(scraped_at) AS latest FROM scraped_items WHERE symbol = %s", (symbol,)
         ).fetchone()
-    return bool(row and row["latest"] and row["latest"] > datetime.now(UTC) - timedelta(hours=hours))
+    return bool(
+        row and row["latest"] and row["latest"] > datetime.now(UTC) - timedelta(hours=hours)
+    )
 
 
 def latest_item_markdown(symbol):
     with connect() as conn:
         row = conn.execute(
-            "SELECT content_markdown FROM scraped_items WHERE symbol = %s ORDER BY scraped_at DESC LIMIT 1",
+            "SELECT content_markdown FROM scraped_items WHERE symbol = %s "
+            "ORDER BY scraped_at DESC LIMIT 1",
             (symbol,),
         ).fetchone()
     return row["content_markdown"] if row else None
@@ -971,15 +1030,15 @@ def untagged_news(limit=25):
     with connect() as conn:
         for table, query in _NEWS_TABLES.items():
             rows += [
-                {**r, "table": table} for r in conn.execute(f"{query} ORDER BY id DESC LIMIT %s", (limit,)).fetchall()
+                {**r, "table": table}
+                for r in conn.execute(f"{query} ORDER BY id DESC LIMIT %s", (limit,)).fetchall()
             ]
     return rows[:limit]
 
 
 def set_news_tags(table, row_id, tags):
     if table not in _NEWS_TABLES:
-        msg = f"{table} isn't a news table"
-        raise ValueError(msg)
+        raise ValueError(f"{table} isn't a news table")
     with connect() as conn:
         conn.execute(f"UPDATE {table} SET laya_tags = %s WHERE id = %s", (Jsonb(tags), row_id))
 
@@ -1065,7 +1124,9 @@ def list_watchlist():
     """Every watchlisted symbol with its list name(s) - one row per (symbol, list) membership,
     since a stock can now live in more than one list."""
     with connect() as conn:
-        return conn.execute("SELECT symbol, list_name FROM watchlist ORDER BY list_name, added_at").fetchall()
+        return conn.execute(
+            "SELECT symbol, list_name FROM watchlist ORDER BY list_name, added_at"
+        ).fetchall()
 
 
 _NEXT_POSITION_INSERT = (
@@ -1081,7 +1142,8 @@ def set_watchlist(symbol, list_name):
     with connect() as conn:
         conn.execute(_NEXT_POSITION_INSERT, (list_name,))
         conn.execute(
-            "INSERT INTO watchlist (symbol, list_name) VALUES (%s, %s) ON CONFLICT (symbol, list_name) DO NOTHING",
+            "INSERT INTO watchlist (symbol, list_name) VALUES (%s, %s) "
+            "ON CONFLICT (symbol, list_name) DO NOTHING",
             (symbol, list_name),
         )
 
@@ -1093,7 +1155,9 @@ def remove_from_watchlist(symbol, list_name=None):
         if list_name is None:
             conn.execute("DELETE FROM watchlist WHERE symbol = %s", (symbol,))
         else:
-            conn.execute("DELETE FROM watchlist WHERE symbol = %s AND list_name = %s", (symbol, list_name))
+            conn.execute(
+                "DELETE FROM watchlist WHERE symbol = %s AND list_name = %s", (symbol, list_name)
+            )
 
 
 def list_watchlist_names():
@@ -1118,8 +1182,12 @@ def create_watchlist(name):
 
 def rename_watchlist(old_name, new_name):
     with connect() as conn:
-        conn.execute("UPDATE watchlist SET list_name = %s WHERE list_name = %s", (new_name, old_name))
-        renamed = conn.execute("UPDATE watchlists SET name = %s WHERE name = %s", (new_name, old_name))
+        conn.execute(
+            "UPDATE watchlist SET list_name = %s WHERE list_name = %s", (new_name, old_name)
+        )
+        renamed = conn.execute(
+            "UPDATE watchlists SET name = %s WHERE name = %s", (new_name, old_name)
+        )
         if renamed.rowcount == 0:
             conn.execute(_NEXT_POSITION_INSERT, (new_name,))
 
@@ -1138,14 +1206,34 @@ def reorder_watchlists(names):
             conn.execute("UPDATE watchlists SET position = %s WHERE name = %s", (i, name))
 
 
-def insert_event(symbol, event_type, dedup_key, headline, detail, url, event_time, sentiment_label, sentiment_score):
+def insert_event(
+    symbol,
+    event_type,
+    dedup_key,
+    headline,
+    detail,
+    url,
+    event_time,
+    sentiment_label,
+    sentiment_score,
+):
     """Inserts one event; returns True if it was new, False if the dedup key already existed."""
     with connect() as conn:
         row = conn.execute(
             "INSERT INTO stock_events (symbol, event_type, dedup_key, headline, detail, url, "
             "event_time, sentiment_label, sentiment_score) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT (symbol, event_type, dedup_key) DO NOTHING RETURNING id",
-            (symbol, event_type, dedup_key, headline, detail, url, event_time, sentiment_label, sentiment_score),
+            (
+                symbol,
+                event_type,
+                dedup_key,
+                headline,
+                detail,
+                url,
+                event_time,
+                sentiment_label,
+                sentiment_score,
+            ),
         ).fetchone()
     return row is not None
 
@@ -1324,7 +1412,12 @@ def get_paper_prices(symbols):
             (symbols,),
         ).fetchall()
     return {
-        r["symbol"]: {"price": float(r["price"]), "sector": r["sector"], "fetched_at": r["fetched_at"]} for r in rows
+        r["symbol"]: {
+            "price": float(r["price"]),
+            "sector": r["sector"],
+            "fetched_at": r["fetched_at"],
+        }
+        for r in rows
     }
 
 
@@ -1344,7 +1437,9 @@ def latest_price_date(symbol):
     """Latest stored trading date for symbol, or None if no history stored yet - tells the sync
     whether to backfill a full year or just fetch the gap since this date."""
     with connect() as conn:
-        row = conn.execute("SELECT max(date) AS latest FROM price_history WHERE symbol = %s", (symbol,)).fetchone()
+        row = conn.execute(
+            "SELECT max(date) AS latest FROM price_history WHERE symbol = %s", (symbol,)
+        ).fetchone()
     return row["latest"] if row else None
 
 
@@ -1359,13 +1454,18 @@ def insert_price_bars(symbol, bars):
             "VALUES (%s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT (symbol, date) DO UPDATE SET open = excluded.open, high = excluded.high, "
             "low = excluded.low, close = excluded.close, volume = excluded.volume",
-            [(symbol, b["date"], b["open"], b["high"], b["low"], b["close"], b["volume"]) for b in bars],
+            [
+                (symbol, b["date"], b["open"], b["high"], b["low"], b["close"], b["volume"])
+                for b in bars
+            ],
         )
 
 
 def earliest_price_date(symbol):
     with connect() as conn:
-        row = conn.execute("SELECT min(date) AS earliest FROM price_history WHERE symbol = %s", (symbol,)).fetchone()
+        row = conn.execute(
+            "SELECT min(date) AS earliest FROM price_history WHERE symbol = %s", (symbol,)
+        ).fetchone()
     return row["earliest"] if row else None
 
 
@@ -1448,7 +1548,10 @@ def insert_max_bars(symbol, bars):
             "VALUES (%s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT (symbol, date) DO UPDATE SET open = excluded.open, high = excluded.high, "
             "low = excluded.low, close = excluded.close, volume = excluded.volume",
-            [(symbol, b["date"], b["open"], b["high"], b["low"], b["close"], b["volume"]) for b in bars],
+            [
+                (symbol, b["date"], b["open"], b["high"], b["low"], b["close"], b["volume"])
+                for b in bars
+            ],
         )
 
 
@@ -1456,16 +1559,20 @@ def has_max_history(symbol):
     """Whether price_history_max has ever been collected for this symbol - the frontend uses
     this to decide whether to show the max-history section at all."""
     with connect() as conn:
-        row = conn.execute("SELECT 1 FROM price_history_max WHERE symbol = %s LIMIT 1", (symbol,)).fetchone()
+        row = conn.execute(
+            "SELECT 1 FROM price_history_max WHERE symbol = %s LIMIT 1", (symbol,)
+        ).fetchone()
     return row is not None
 
 
 def list_max_history(symbol):
     with connect() as conn:
-        return conn.execute(
-            "SELECT date, open, high, low, close, volume FROM price_history_max WHERE symbol = %s ORDER BY date",
+        rows = conn.execute(
+            "SELECT date, open, high, low, close, volume FROM price_history_max "
+            "WHERE symbol = %s ORDER BY date",
             (symbol,),
         ).fetchall()
+    return rows
 
 
 def watchlist_symbols(list_name=None):
@@ -1473,7 +1580,9 @@ def watchlist_symbols(list_name=None):
     belong to more than one list now, so the all-lists query must dedupe."""
     with connect() as conn:
         if list_name:
-            rows = conn.execute("SELECT symbol FROM watchlist WHERE list_name = %s", (list_name,)).fetchall()
+            rows = conn.execute(
+                "SELECT symbol FROM watchlist WHERE list_name = %s", (list_name,)
+            ).fetchall()
         else:
             rows = conn.execute("SELECT DISTINCT symbol FROM watchlist").fetchall()
     return [r["symbol"] for r in rows]
@@ -1506,7 +1615,8 @@ def _get_setting(key, default=None):
 def _set_setting(key, value):
     with connect() as conn:
         conn.execute(
-            "INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+            "INSERT INTO settings (key, value) VALUES (%s, %s) "
+            "ON CONFLICT (key) DO UPDATE SET value = excluded.value",
             (key, value),
         )
 
@@ -1650,7 +1760,9 @@ def set_session_model(session_id, model):
 
 def get_session_model(session_id):
     with connect() as conn:
-        row = conn.execute("SELECT model FROM chat_sessions WHERE id = %s", (session_id,)).fetchone()
+        row = conn.execute(
+            "SELECT model FROM chat_sessions WHERE id = %s", (session_id,)
+        ).fetchone()
     return row["model"] if row else None
 
 
@@ -1699,7 +1811,8 @@ def add_message(session_id, role, content):
 def create_run(run_id, session_id, prompt, model, workflow_id=None):
     with connect() as conn:
         conn.execute(
-            "INSERT INTO chat_runs (id, session_id, prompt, model, workflow_id) VALUES (%s, %s, %s, %s, %s)",
+            "INSERT INTO chat_runs (id, session_id, prompt, model, workflow_id) "
+            "VALUES (%s, %s, %s, %s, %s)",
             (run_id, session_id, prompt, model, workflow_id),
         )
 
@@ -1750,7 +1863,8 @@ def append_series(workflow_id, series, run_id, rows):
     with connect() as conn:
         for row in rows:
             conn.execute(
-                "INSERT INTO workflow_series (workflow_id, series, run_id, row) VALUES (%s, %s, %s, %s)",
+                "INSERT INTO workflow_series (workflow_id, series, run_id, row) "
+                "VALUES (%s, %s, %s, %s)",
                 (workflow_id, series, run_id, Jsonb(row)),
             )
 
@@ -1799,7 +1913,9 @@ def read_series(workflow_id, series, limit=1000, run_id=None, since=None, until=
         sql += " AND collected_at <= %s"
         params.append(until)
     with connect() as conn:
-        return conn.execute(sql + " ORDER BY collected_at DESC LIMIT %s", (*params, limit)).fetchall()
+        return conn.execute(
+            sql + " ORDER BY collected_at DESC LIMIT %s", (*params, limit)
+        ).fetchall()
 
 
 def workflow_health(workflow_id, limit=50):
@@ -1872,7 +1988,9 @@ def workflow_notifications_between(workflow_id, since, until, limit=1000):
         sql += " AND triggered_at <= %s"
         params.append(until)
     with connect() as conn:
-        return conn.execute(sql + " ORDER BY triggered_at DESC LIMIT %s", (*params, limit)).fetchall()
+        return conn.execute(
+            sql + " ORDER BY triggered_at DESC LIMIT %s", (*params, limit)
+        ).fetchall()
 
 
 # --- dashboards -------------------------------------------------------------------------------------
@@ -1982,7 +2100,9 @@ def list_workflow_notifications(workflow_id, unread=False, limit=200):
     if unread:
         sql += " AND acknowledged_at IS NULL"
     with connect() as conn:
-        return conn.execute(sql + " ORDER BY triggered_at DESC LIMIT %s", (workflow_id, limit)).fetchall()
+        return conn.execute(
+            sql + " ORDER BY triggered_at DESC LIMIT %s", (workflow_id, limit)
+        ).fetchall()
 
 
 def unread_workflow_notification_counts():
@@ -2008,7 +2128,9 @@ def mark_workflow_notifications_read(workflow_id, ids=None):
 
 def delete_workflow_notification(workflow_id, alert_id):
     with connect() as conn:
-        return conn.execute(f"DELETE FROM alerts WHERE id = %s AND {_WORKFLOW_ROWS}", (alert_id, workflow_id)).rowcount
+        return conn.execute(
+            f"DELETE FROM alerts WHERE id = %s AND {_WORKFLOW_ROWS}", (alert_id, workflow_id)
+        ).rowcount
 
 
 def list_held_workflow_notifications(now):
@@ -2040,13 +2162,16 @@ def mark_workflow_ran(workflow_id, on_date):
     "has today's run happened", so a machine that was asleep at the target hour still runs when it
     wakes - the same reasoning as the event scan and shareholding loops."""
     with connect() as conn:
-        conn.execute("UPDATE workflows SET last_run_date = %s WHERE id = %s", (on_date, workflow_id))
+        conn.execute(
+            "UPDATE workflows SET last_run_date = %s WHERE id = %s", (on_date, workflow_id)
+        )
 
 
 def finish_run(run_id, reply=None, error=None):
     with connect() as conn:
         conn.execute(
-            "UPDATE chat_runs SET status = %s, reply = %s, error = %s, finished_at = now() WHERE id = %s",
+            "UPDATE chat_runs SET status = %s, reply = %s, error = %s, finished_at = now() "
+            "WHERE id = %s",
             ("failed" if error else "done", reply, error, run_id),
         )
 
@@ -2076,7 +2201,8 @@ def list_runs(session_id=None, status=None, limit=50):
 def start_tool_call(run_id, call_id, round_, seq, name, args):
     with connect() as conn:
         conn.execute(
-            "INSERT INTO chat_tool_calls (run_id, call_id, round, seq, name, args) VALUES (%s, %s, %s, %s, %s, %s)",
+            "INSERT INTO chat_tool_calls (run_id, call_id, round, seq, name, args) "
+            "VALUES (%s, %s, %s, %s, %s, %s)",
             (run_id, call_id, round_, seq, name, Jsonb(args or {})),
         )
 
@@ -2092,19 +2218,31 @@ def finish_tool_call(run_id, call_id, result=None, error=None):
 
 def list_tool_calls(run_id):
     with connect() as conn:
-        return conn.execute("SELECT * FROM chat_tool_calls WHERE run_id = %s ORDER BY round, seq", (run_id,)).fetchall()
+        return conn.execute(
+            "SELECT * FROM chat_tool_calls WHERE run_id = %s ORDER BY round, seq", (run_id,)
+        ).fetchall()
 
 
 def list_messages(session_id):
     with connect() as conn:
         return conn.execute(
-            "SELECT role, content, created_at FROM chat_messages WHERE session_id = %s ORDER BY created_at",
+            "SELECT role, content, created_at FROM chat_messages "
+            "WHERE session_id = %s ORDER BY created_at",
             (session_id,),
         ).fetchall()
 
 
 def create_backtest(
-    symbol, short_period, long_period, from_date, to_date, total_return_pct, win_rate, num_trades, trades, lessons
+    symbol,
+    short_period,
+    long_period,
+    from_date,
+    to_date,
+    total_return_pct,
+    win_rate,
+    num_trades,
+    trades,
+    lessons,
 ):
     with connect() as conn:
         row = conn.execute(
@@ -2173,7 +2311,9 @@ def list_auto_backtest_scripts():
 
 def get_auto_backtest_script(script_id):
     with connect() as conn:
-        return conn.execute("SELECT * FROM auto_backtest_scripts WHERE id = %s", (script_id,)).fetchone()
+        return conn.execute(
+            "SELECT * FROM auto_backtest_scripts WHERE id = %s", (script_id,)
+        ).fetchone()
 
 
 def update_auto_backtest_script(script_id, name, script):
@@ -2203,9 +2343,15 @@ def list_trade_accounts(kind="journal"):
 
 # The cost fields are passed as one dict rather than five more positional arguments - the create
 # signature was already at the limit of readable, and every caller has them together anyway.
-COST_FIELDS = ("slippage_value", "slippage_type", "brokerage_flat", "brokerage_pct", "other_charges_pct")
+COST_FIELDS = (
+    "slippage_value",
+    "slippage_type",
+    "brokerage_flat",
+    "brokerage_pct",
+    "other_charges_pct",
+)
 # The volume-spike scan config rides the same dict, for the same reason.
-SETTING_FIELDS = (*COST_FIELDS, "vol_spike_multiple", "vol_spike_lookback", "loss_streak_alert")
+SETTING_FIELDS = COST_FIELDS + ("vol_spike_multiple", "vol_spike_lookback", "loss_streak_alert")
 SETTING_DEFAULTS = {
     "slippage_value": 0,
     "slippage_type": "per_share",
@@ -2235,7 +2381,10 @@ def vol_spike_config(account_id):
         ).fetchone()
     if not row:
         return {}
-    return {"spike_multiple": row["vol_spike_multiple"], "spike_lookback": row["vol_spike_lookback"]}
+    return {
+        "spike_multiple": row["vol_spike_multiple"],
+        "spike_lookback": row["vol_spike_lookback"],
+    }
 
 
 def create_trade_account(
@@ -2285,7 +2434,9 @@ def update_trade_account(
         conn.execute(
             "UPDATE trade_accounts SET name = %s, strategy = %s, strategy_explanation = %s, "
             "opening_balance = %s, max_position_size = %s, max_position_size_type = %s, "
-            "max_position_count = %s, " + ", ".join(f"{f} = %s" for f in SETTING_FIELDS) + " WHERE id = %s",
+            "max_position_count = %s, "
+            + ", ".join(f"{f} = %s" for f in SETTING_FIELDS)
+            + " WHERE id = %s",
             (
                 name,
                 strategy,
@@ -2325,7 +2476,9 @@ def list_paper_positions(account_id=None):
 
 def get_paper_position(position_id):
     with connect() as conn:
-        return conn.execute("SELECT * FROM paper_positions WHERE id = %s", (position_id,)).fetchone()
+        return conn.execute(
+            "SELECT * FROM paper_positions WHERE id = %s", (position_id,)
+        ).fetchone()
 
 
 def paper_position_symbols():
@@ -2377,12 +2530,20 @@ def update_paper_position(position_id, **fields):
     """Partial update - only the named columns are touched. The engine uses this to shrink a
     position after a partial exit and to fill a resting limit, both of which change two or three
     columns and must leave the rest alone."""
-    allowed = {"status", "quantity", "entry_price", "stop_losses", "targets", "notes", "opened_at", "initial_stop_loss"}
+    allowed = {
+        "status",
+        "quantity",
+        "entry_price",
+        "stop_losses",
+        "targets",
+        "notes",
+        "opened_at",
+        "initial_stop_loss",
+    }
     sets, params = [], []
     for key, value in fields.items():
         if key not in allowed:
-            msg = f"cannot update paper_positions.{key}"
-            raise ValueError(msg)
+            raise ValueError(f"cannot update paper_positions.{key}")
         sets.append(f"{key} = %s")
         params.append(Jsonb(value) if key in ("stop_losses", "targets") else value)
     if not sets:
@@ -2404,7 +2565,9 @@ def account_balance_at(account_id, at):
     Called once per trade at creation time and snapshotted onto the row - see the
     account_balance_at_trade column comment for why this is never recomputed afterwards."""
     with connect() as conn:
-        account = conn.execute("SELECT opening_balance FROM trade_accounts WHERE id = %s", (account_id,)).fetchone()
+        account = conn.execute(
+            "SELECT opening_balance FROM trade_accounts WHERE id = %s", (account_id,)
+        ).fetchone()
         if not account:
             return None
         row = conn.execute(
@@ -2505,7 +2668,9 @@ def list_manual_trades():
     in a stable order. Anything that needs market-date order sorts for itself - see
     tradeStats.chronological()."""
     with connect() as conn:
-        return conn.execute("SELECT * FROM manual_trades ORDER BY created_at DESC, id DESC").fetchall()
+        return conn.execute(
+            "SELECT * FROM manual_trades ORDER BY created_at DESC, id DESC"
+        ).fetchall()
 
 
 def get_manual_trade(trade_id):
@@ -2602,14 +2767,15 @@ def update_manual_trade_review(trade_id, fields):
     sets, params = [], []
     for key, value in fields.items():
         if key not in REVIEW_FIELDS:
-            msg = f"cannot update manual_trades.{key} as a review field"
-            raise ValueError(msg)
+            raise ValueError(f"cannot update manual_trades.{key} as a review field")
         sets.append(f"{key} = %s")
         params.append(_jsonb_or_none(value) if key.endswith("_checks") else value)
     if not sets:
         return
     with connect() as conn:
-        conn.execute(f"UPDATE manual_trades SET {', '.join(sets)} WHERE id = %s", (*params, trade_id))
+        conn.execute(
+            f"UPDATE manual_trades SET {', '.join(sets)} WHERE id = %s", (*params, trade_id)
+        )
 
 
 def _jsonb_or_none(value):
@@ -2618,7 +2784,9 @@ def _jsonb_or_none(value):
 
 def list_trade_reviews():
     with connect() as conn:
-        return conn.execute("SELECT * FROM trade_reviews ORDER BY period_end DESC, id DESC").fetchall()
+        return conn.execute(
+            "SELECT * FROM trade_reviews ORDER BY period_end DESC, id DESC"
+        ).fetchall()
 
 
 TRADE_REVIEW_COLUMNS = (
@@ -2701,7 +2869,8 @@ def traded_dates(days=371):
     into daily_activity so it can never drift out of sync with the trade journal."""
     with connect() as conn:
         rows = conn.execute(
-            "SELECT DISTINCT created_at::date AS date FROM manual_trades WHERE created_at >= CURRENT_DATE - %s::int",
+            "SELECT DISTINCT created_at::date AS date FROM manual_trades "
+            "WHERE created_at >= CURRENT_DATE - %s::int",
             (days,),
         ).fetchall()
     return {r["date"] for r in rows}
@@ -2808,7 +2977,9 @@ def list_balance_adjustments():
     """Every account's, unfiltered - the frontend already holds the whole list to draw the balance
     curve and filters by the selected account there, same as it does for trades."""
     with connect() as conn:
-        return conn.execute("SELECT * FROM balance_adjustments ORDER BY adjusted_at DESC").fetchall()
+        return conn.execute(
+            "SELECT * FROM balance_adjustments ORDER BY adjusted_at DESC"
+        ).fetchall()
 
 
 def delete_balance_adjustment(adjustment_id):
@@ -2957,7 +3128,9 @@ def upsert_shareholding_filings(rows):
         return 0
     columns = ", ".join(SHAREHOLDING_MASTER_FIELDS)
     placeholders = ", ".join(["%s"] * len(SHAREHOLDING_MASTER_FIELDS))
-    updates = ", ".join(f"{f} = excluded.{f}" for f in SHAREHOLDING_MASTER_FIELDS if f != "record_id")
+    updates = ", ".join(
+        f"{f} = excluded.{f}" for f in SHAREHOLDING_MASTER_FIELDS if f != "record_id"
+    )
     with connect() as conn:
         before = conn.execute("SELECT count(*) AS n FROM shareholding_filings").fetchone()["n"]
         conn.cursor().executemany(
@@ -3004,7 +3177,9 @@ def list_shareholding_filings(symbols=None, since=None):
     if where:
         sql += " WHERE " + " AND ".join(where)
     with connect() as conn:
-        return conn.execute(sql + " ORDER BY symbol, period_date, submission_date", params).fetchall()
+        return conn.execute(
+            sql + " ORDER BY symbol, period_date, submission_date", params
+        ).fetchall()
 
 
 def shareholding_coverage():
@@ -3051,9 +3226,13 @@ def upsert_bse_master(rows):
     with connect() as conn:
         existing_isins = {
             r["isin"]: r["symbol"]
-            for r in conn.execute("SELECT symbol, isin FROM stocks_master WHERE isin IS NOT NULL").fetchall()
+            for r in conn.execute(
+                "SELECT symbol, isin FROM stocks_master WHERE isin IS NOT NULL"
+            ).fetchall()
         }
-        existing_symbols = {r["symbol"] for r in conn.execute("SELECT symbol FROM stocks_master").fetchall()}
+        existing_symbols = {
+            r["symbol"] for r in conn.execute("SELECT symbol FROM stocks_master").fetchall()
+        }
 
         merges, inserts = [], []
         for row in rows:
@@ -3099,8 +3278,255 @@ def exchange_of(symbol):
     from, and which board. Defaults to NSE main board for anything not in the master at all, which
     is what every symbol did before BSE existed (and what a hand-typed journal symbol still does)."""
     with connect() as conn:
-        row = conn.execute("SELECT exchange, board FROM stocks_master WHERE symbol = %s", (symbol,)).fetchone() or {}
+        row = (
+            conn.execute(
+                "SELECT exchange, board FROM stocks_master WHERE symbol = %s", (symbol,)
+            ).fetchone()
+            or {}
+        )
     return row.get("exchange") or "NSE", row.get("board") or "MAIN"
+
+
+# --- chart scans (scans, scan_marks) --------------------------------------------------------------
+# Every write is by a scan's id, or by (scan_id, symbol) - the mark's own key.
+
+SCAN_COLS = "id, name, source, symbols, position, created_at, finished_at"
+
+
+def create_scan(name, source, symbols):
+    with connect() as conn:
+        return conn.execute(
+            f"INSERT INTO scans (name, source, symbols) VALUES (%s, %s, %s) RETURNING {SCAN_COLS}",
+            (name, source, json.dumps(symbols)),
+        ).fetchone()
+
+
+def list_scans(limit=100):
+    """Newest first, each with how many stocks it got marked A, B and C."""
+    with connect() as conn:
+        return conn.execute(
+            f"""SELECT {", ".join("s." + c for c in SCAN_COLS.split(", "))},
+                   count(m.*) FILTER (WHERE m.priority = 'A') AS a,
+                   count(m.*) FILTER (WHERE m.priority = 'B') AS b,
+                   count(m.*) FILTER (WHERE m.priority = 'C') AS c
+                FROM scans s LEFT JOIN scan_marks m ON m.scan_id = s.id
+                GROUP BY s.id ORDER BY s.id DESC LIMIT %s""",
+            (limit,),
+        ).fetchall()
+
+
+def get_scan(scan_id):
+    with connect() as conn:
+        scan = conn.execute(f"SELECT {SCAN_COLS} FROM scans WHERE id = %s", (scan_id,)).fetchone()
+        if not scan:
+            return None
+        marks = conn.execute(
+            "SELECT symbol, priority, note, price, marked_at FROM scan_marks WHERE scan_id = %s ORDER BY marked_at",
+            (scan_id,),
+        ).fetchall()
+    return {
+        **scan,
+        "marks": [
+            {**m, "price": float(m["price"]) if m["price"] is not None else None} for m in marks
+        ],
+    }
+
+
+def update_scan(scan_id, position=None, finished=None):
+    with connect() as conn:
+        if position is not None:
+            conn.execute("UPDATE scans SET position = %s WHERE id = %s", (position, scan_id))
+        if finished is not None:
+            conn.execute(
+                "UPDATE scans SET finished_at = CASE WHEN %s THEN coalesce(finished_at, now()) END WHERE id = %s",
+                (finished, scan_id),
+            )
+
+
+def set_scan_mark(scan_id, symbol, priority, note, price):
+    """A mark with neither a priority nor a note is no mark: its row goes, by its own key."""
+    with connect() as conn:
+        if priority is None and not note:
+            conn.execute(
+                "DELETE FROM scan_marks WHERE scan_id = %s AND symbol = %s", (scan_id, symbol)
+            )
+            return None
+        return conn.execute(
+            "INSERT INTO scan_marks (scan_id, symbol, priority, note, price) VALUES (%s, %s, %s, %s, %s) "
+            "ON CONFLICT (scan_id, symbol) DO UPDATE SET priority = excluded.priority, note = excluded.note, "
+            "price = coalesce(excluded.price, scan_marks.price), marked_at = now() "
+            "RETURNING symbol, priority, note, price, marked_at",
+            (scan_id, symbol, priority, note or None, price),
+        ).fetchone()
+
+
+def delete_scan(scan_id):
+    """One scan by id; its marks go with it (ON DELETE CASCADE)."""
+    with connect() as conn:
+        return conn.execute("DELETE FROM scans WHERE id = %s", (scan_id,)).rowcount
+
+
+# --- engine bar cache TTL (minute_cache) ---------------------------------------------------------
+
+
+def touch_minute_cache(symbols, ttl_days):
+    """Marks stocks used now: expiry slides to `ttl_days` from now. Registers ones never seen."""
+    with connect() as conn:
+        conn.cursor().executemany(
+            "INSERT INTO minute_cache (symbol, last_used, expires_at) VALUES (%s, now(), now() + make_interval(days => %s)) "
+            "ON CONFLICT (symbol) DO UPDATE SET last_used = now(), expires_at = excluded.expires_at",
+            [(s, ttl_days) for s in symbols],
+        )
+
+
+def register_minute_cache(symbols, ttl_days):
+    """Starts the clock for cached stocks with no row yet (files from before the TTL existed),
+    without touching the expiry of ones already tracked."""
+    with connect() as conn:
+        conn.cursor().executemany(
+            "INSERT INTO minute_cache (symbol, expires_at) VALUES (%s, now() + make_interval(days => %s)) "
+            "ON CONFLICT (symbol) DO NOTHING",
+            [(s, ttl_days) for s in symbols],
+        )
+
+
+def expired_minute_cache():
+    with connect() as conn:
+        return [
+            r["symbol"]
+            for r in conn.execute(
+                "SELECT symbol FROM minute_cache WHERE expires_at < now()"
+            ).fetchall()
+        ]
+
+
+def delete_minute_cache(symbol):
+    """One stock's row, by its key - after its files are gone."""
+    with connect() as conn:
+        conn.execute("DELETE FROM minute_cache WHERE symbol = %s", (symbol,))
+
+
+def get_minute_daily(symbol):
+    """(daily_key, [days, events, patched, jumps]) or None."""
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT daily_key, daily FROM minute_cache WHERE symbol = %s", (symbol,)
+        ).fetchone()
+    return (row["daily_key"], row["daily"]) if row and row["daily"] is not None else None
+
+
+def set_minute_daily(symbol, key, daily, ttl_days):
+    with connect() as conn:
+        conn.execute(
+            "INSERT INTO minute_cache (symbol, expires_at, daily_key, daily) "
+            "VALUES (%s, now() + make_interval(days => %s), %s, %s) "
+            "ON CONFLICT (symbol) DO UPDATE SET daily_key = excluded.daily_key, daily = excluded.daily",
+            (symbol, ttl_days, key, json.dumps(daily)),
+        )
+
+
+def list_minute_cache():
+    with connect() as conn:
+        return conn.execute(
+            "SELECT symbol, last_used, expires_at, daily IS NOT NULL AS has_daily FROM minute_cache ORDER BY symbol"
+        ).fetchall()
+
+
+# --- engine background jobs (engine_jobs) --------------------------------------------------------
+# Every write here is by primary key or by status transition on the job's own row.
+
+ENGINE_JOB_COLS = "id, kind, request, label, status, priority, cancel, progress, result, error, created_at, started_at, finished_at"
+
+
+def create_engine_job(kind, request, label=None, priority=0):
+    with connect() as conn:
+        return conn.execute(
+            f"INSERT INTO engine_jobs (kind, request, label, priority) VALUES (%s, %s, %s, %s) RETURNING {ENGINE_JOB_COLS}",
+            (kind, json.dumps(request), label, priority),
+        ).fetchone()
+
+
+def claim_engine_job():
+    """The next queued job, marked running in the same statement - two workers never get one job."""
+    with connect() as conn:
+        return conn.execute(
+            f"""UPDATE engine_jobs SET status = 'running', started_at = now()
+                WHERE id = (SELECT id FROM engine_jobs WHERE status = 'queued'
+                            ORDER BY priority DESC, id LIMIT 1 FOR UPDATE SKIP LOCKED)
+                RETURNING {ENGINE_JOB_COLS}"""
+        ).fetchone()
+
+
+def update_engine_job(job_id, **fields):
+    """progress/result are JSON; status/error as given. A final status stamps finished_at."""
+    allowed = {"status", "progress", "result", "error"}
+    assert set(fields) <= allowed, fields
+    sets, vals = [], []
+    for k, v in fields.items():
+        sets.append(f"{k} = %s")
+        vals.append(json.dumps(v) if k in ("progress", "result") and v is not None else v)
+    if fields.get("status") in ("done", "failed", "cancelled", "interrupted"):
+        sets.append("finished_at = now()")
+    with connect() as conn:
+        conn.execute(f"UPDATE engine_jobs SET {', '.join(sets)} WHERE id = %s", (*vals, job_id))
+
+
+def get_engine_job(job_id):
+    with connect() as conn:
+        return conn.execute(
+            f"SELECT {ENGINE_JOB_COLS} FROM engine_jobs WHERE id = %s", (job_id,)
+        ).fetchone()
+
+
+def list_engine_jobs(limit=200):
+    with connect() as conn:
+        return conn.execute(
+            f"SELECT {ENGINE_JOB_COLS} FROM engine_jobs ORDER BY id DESC LIMIT %s", (limit,)
+        ).fetchall()
+
+
+def cancel_engine_job(job_id):
+    """Queued: cancelled on the spot. Running: flagged, and the worker stops at its next check."""
+    with connect() as conn:
+        conn.execute(
+            "UPDATE engine_jobs SET status = 'cancelled', finished_at = now() WHERE id = %s AND status = 'queued'",
+            (job_id,),
+        )
+        conn.execute(
+            "UPDATE engine_jobs SET cancel = true WHERE id = %s AND status = 'running'", (job_id,)
+        )
+
+
+def engine_job_cancelled(job_id):
+    with connect() as conn:
+        row = conn.execute("SELECT cancel FROM engine_jobs WHERE id = %s", (job_id,)).fetchone()
+    return bool(row and row["cancel"])
+
+
+def set_engine_job_priority(job_id, priority):
+    with connect() as conn:
+        conn.execute(
+            "UPDATE engine_jobs SET priority = %s WHERE id = %s AND status = 'queued'",
+            (priority, job_id),
+        )
+
+
+def delete_engine_job(job_id):
+    """A finished job's row, by id. Its results are files the job only pointed at - they stay."""
+    with connect() as conn:
+        return conn.execute(
+            "DELETE FROM engine_jobs WHERE id = %s AND status NOT IN ('queued', 'running')",
+            (job_id,),
+        ).rowcount
+
+
+def interrupt_engine_jobs():
+    """At startup: a job still marked running died with the last process. Queued ones just wait."""
+    with connect() as conn:
+        return conn.execute(
+            "UPDATE engine_jobs SET status = 'interrupted', finished_at = now(), "
+            "error = 'the server restarted while this ran - retry it' WHERE status = 'running'"
+        ).rowcount
 
 
 # --- alerts + live trading -----------------------------------------------------------------------
@@ -3142,7 +3568,9 @@ def get_auth_session(token_hash):
 
 def touch_auth_session(token_hash, seen_at):
     with connect() as conn:
-        conn.execute("UPDATE auth_sessions SET last_seen = %s WHERE token_hash = %s", (seen_at, token_hash))
+        conn.execute(
+            "UPDATE auth_sessions SET last_seen = %s WHERE token_hash = %s", (seen_at, token_hash)
+        )
 
 
 def delete_auth_session(token_hash):
@@ -3180,14 +3608,17 @@ def get_auth_device(token_hash):
 
 def touch_auth_device(token_hash, seen_at):
     with connect() as conn:
-        conn.execute("UPDATE auth_devices SET last_seen = %s WHERE token_hash = %s", (seen_at, token_hash))
+        conn.execute(
+            "UPDATE auth_devices SET last_seen = %s WHERE token_hash = %s", (seen_at, token_hash)
+        )
 
 
 def bump_auth_device_failures(token_hash):
     """Returns the new failure count, so the caller can revoke the device at the limit."""
     with connect() as conn:
         row = conn.execute(
-            "UPDATE auth_devices SET pin_failures = pin_failures + 1 WHERE token_hash = %s RETURNING pin_failures",
+            "UPDATE auth_devices SET pin_failures = pin_failures + 1 WHERE token_hash = %s "
+            "RETURNING pin_failures",
             (token_hash,),
         ).fetchone()
     return row["pin_failures"] if row else 0
@@ -3195,7 +3626,9 @@ def bump_auth_device_failures(token_hash):
 
 def clear_auth_device_failures(token_hash):
     with connect() as conn:
-        conn.execute("UPDATE auth_devices SET pin_failures = 0 WHERE token_hash = %s", (token_hash,))
+        conn.execute(
+            "UPDATE auth_devices SET pin_failures = 0 WHERE token_hash = %s", (token_hash,)
+        )
 
 
 def delete_auth_device(token_hash):
@@ -3210,7 +3643,9 @@ def delete_all_auth_devices():
 
 def count_auth_devices():
     with connect() as conn:
-        return conn.execute("SELECT count(*) AS n FROM auth_devices WHERE expires_at > now()").fetchone()["n"]
+        return conn.execute(
+            "SELECT count(*) AS n FROM auth_devices WHERE expires_at > now()"
+        ).fetchone()["n"]
 
 
 def purge_expired_auth_devices():
@@ -3264,11 +3699,12 @@ def get_live_trading_settings():
 def set_live_trading_settings(**fields):
     for key, value in fields.items():
         if key not in LIVE_DEFAULTS:
-            msg = f"unknown live trading setting {key!r}"
-            raise ValueError(msg)
+            raise ValueError(f"unknown live trading setting {key!r}")
         _set_setting(
             f"live_{key}",
-            "" if value is None else ("true" if value is True else "false" if value is False else str(value)),
+            ""
+            if value is None
+            else ("true" if value is True else "false" if value is False else str(value)),
         )
 
 
@@ -3410,10 +3846,13 @@ def fire_alert(alert_id, price, message, rearm=False, reference_price=None):
 def acknowledge_alerts(ids=None):
     with connect() as conn:
         if ids:
-            conn.execute("UPDATE alerts SET acknowledged_at = now() WHERE id = ANY(%s)", (list(ids),))
+            conn.execute(
+                "UPDATE alerts SET acknowledged_at = now() WHERE id = ANY(%s)", (list(ids),)
+            )
         else:
             conn.execute(
-                "UPDATE alerts SET acknowledged_at = now() WHERE acknowledged_at IS NULL AND triggered_at IS NOT NULL"
+                "UPDATE alerts SET acknowledged_at = now() "
+                "WHERE acknowledged_at IS NULL AND triggered_at IS NOT NULL"
             )
 
 
@@ -3473,7 +3912,8 @@ def count_live_orders_today():
         row = conn.execute(
             # Legs are rows too (see dhan_orders.super_order_book); a super order is one order
             # against the daily count, not three.
-            "SELECT count(*) AS n FROM live_orders WHERE first_seen::date = current_date AND parent_order_id IS NULL"
+            "SELECT count(*) AS n FROM live_orders WHERE first_seen::date = current_date "
+            "AND parent_order_id IS NULL"
         ).fetchone()
     return row["n"]
 
@@ -3511,7 +3951,9 @@ def replace_live_positions(positions):
 
 def live_realised_today():
     with connect() as conn:
-        row = conn.execute("SELECT COALESCE(sum(realised), 0) AS pnl FROM live_positions").fetchone()
+        row = conn.execute(
+            "SELECT COALESCE(sum(realised), 0) AS pnl FROM live_positions"
+        ).fetchone()
     return row["pnl"]
 
 
@@ -3527,7 +3969,8 @@ def record_live_intent(correlation_id, symbol, payload):
 def confirm_live_intent(correlation_id, order_id, status):
     with connect() as conn:
         conn.execute(
-            "UPDATE live_intents SET order_id = %s, status = %s, settled_at = now() WHERE correlation_id = %s",
+            "UPDATE live_intents SET order_id = %s, status = %s, settled_at = now() "
+            "WHERE correlation_id = %s",
             (order_id, status, correlation_id),
         )
 
@@ -3549,7 +3992,9 @@ def list_unconfirmed_intents():
         ).fetchall()
 
 
-def create_manual_trade_from_live(account_id, symbol, direction, quantity, entry_price, exit_price, source_ref=None):
+def create_manual_trade_from_live(
+    account_id, symbol, direction, quantity, entry_price, exit_price, source_ref=None
+):
     """A finished real trade, filed in the journal like any other - same table, same statistics,
     same simulation input. Tagged 'live' so it can be told from one typed in by hand, and the
     result is left to the journal's own rule rather than computed here."""
@@ -3565,7 +4010,9 @@ def create_manual_trade_from_live(account_id, symbol, direction, quantity, entry
         result=None,
         emotion=None,
         tags=["live"],
-        notes=f"Auto-journaled from Dhan ({source_ref})" if source_ref else "Auto-journaled from Dhan",
+        notes=f"Auto-journaled from Dhan ({source_ref})"
+        if source_ref
+        else "Auto-journaled from Dhan",
         traded_at=None,
         account_id=account_id,
     )

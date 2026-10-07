@@ -49,7 +49,9 @@ from app.services.workflow_templates import CATEGORIES, QUIET, TEMPLATES  # noqa
 assert len(TEMPLATES) >= 15, f"expected at least 15 templates, have {len(TEMPLATES)}"
 assert len({t["id"] for t in TEMPLATES}) == len(TEMPLATES), "template ids must be unique"
 
-REQUIRED = {t["function"]["name"]: t["function"]["parameters"].get("required", []) for t in AGENT_TOOLS}
+REQUIRED = {
+    t["function"]["name"]: t["function"]["parameters"].get("required", []) for t in AGENT_TOOLS
+}
 REFERENCED = ("prompt", "message", "left", "right", "rows", "for_each")
 
 # --- static wiring --------------------------------------------------------------------------------
@@ -70,7 +72,9 @@ for t in TEMPLATES:
         if kind == "tool":
             assert data["tool"] in REAL_TOOL_IMPLS, f"{tid}: '{data['tool']}' is not a real tool"
             for arg in REQUIRED[data["tool"]]:
-                assert data.get("args", {}).get(arg), f"{tid}/{node['id']}: missing required '{arg}'"
+                assert data.get("args", {}).get(arg), (
+                    f"{tid}/{node['id']}: missing required '{arg}'"
+                )
         if kind == "condition":
             assert data["op"] in we.OPERATORS, f"{tid}/{node['id']}: unknown op {data['op']}"
         if kind == "collect":
@@ -83,9 +87,13 @@ for t in TEMPLATES:
             for ref in we.TEMPLATE.findall(str(text)):
                 head = ref.split(".")[0]
                 if head == "item":
-                    assert data.get("for_each"), f"{tid}/{node['id']}: {{{{ item }}}} outside a for_each"
+                    assert data.get("for_each"), (
+                        f"{tid}/{node['id']}: {{{{ item }}}} outside a for_each"
+                    )
                 else:
-                    assert head in parents, f"{tid}/{node['id']}: references '{head}' but is wired to {parents}"
+                    assert head in parents, (
+                        f"{tid}/{node['id']}: references '{head}' but is wired to {parents}"
+                    )
 
     # A screen template's URL is fetched server-side, so it must pass the same guard a pasted one does.
     for node in graph["nodes"]:
@@ -107,18 +115,39 @@ FAKES = {
     ],
     "get_price": lambda symbol: {"symbol": symbol, "price": 101.5, "changePercent": 4.8},
     "get_ema_crossover": lambda symbol, short=20, long=50: {"crossover": "bullish", "short": 20},
-    "web_search": lambda query: [{"title": f"{query} wins order", "url": "https://x.test", "snippet": "…"}],
-    "check_watch_rule": lambda name, symbol=None: "**buy dip** — met by 1/2 watchlisted stock(s)\n- ✅ TCS\n- ❌ WABAG",
-    "get_recent_events": lambda days=1, list_name=None: [
-        {"symbol": "WABAG", "event_type": "news", "headline": "Order cancelled", "sentiment": "negative"},
+    "web_search": lambda query: [
+        {"title": f"{query} wins order", "url": "https://x.test", "snippet": "…"}
     ],
-    "get_holdings": lambda: {"holdings": [{"symbol": "TCS", "quantity": 10, "avg_price": 120.0, "ltp": 101.5}]},
+    "check_watch_rule": lambda name, symbol=None: (
+        "**buy dip** — met by 1/2 watchlisted stock(s)\n- ✅ TCS\n- ❌ WABAG"
+    ),
+    "get_recent_events": lambda days=1, list_name=None: [
+        {
+            "symbol": "WABAG",
+            "event_type": "news",
+            "headline": "Order cancelled",
+            "sentiment": "negative",
+        },
+    ],
+    "get_holdings": lambda: {
+        "holdings": [{"symbol": "TCS", "quantity": 10, "avg_price": 120.0, "ltp": 101.5}]
+    },
     "run_screen": lambda url, max_pages=4: {
         "name": "Screen",
         "total": 2,
         "rows": [
-            {"symbol": "GABRIEL", "bse_code": None, "name": "Gabriel India", "current_price": 1300.5},
-            {"symbol": None, "bse_code": "538786", "name": "Citizen Solar", "current_price": 199.65},
+            {
+                "symbol": "GABRIEL",
+                "bse_code": None,
+                "name": "Gabriel India",
+                "current_price": 1300.5,
+            },
+            {
+                "symbol": None,
+                "bse_code": "538786",
+                "name": "Citizen Solar",
+                "current_price": 199.65,
+            },
         ],
     },
 }
@@ -179,9 +208,9 @@ for t in TEMPLATES:
             tool = node["data"]["tool"]
             fanned = [kw for name, kw in calls if name == tool]
             assert len(fanned) == 2, f"{tid}: {tool} ran {len(fanned)}x over a 2-stock watchlist"
-            assert any("TCS" in str(kw) for kw in fanned) and any("WABAG" in str(kw) for kw in fanned), (
-                f"{tid}: fan-out didn't pass each stock's symbol: {fanned}"
-            )
+            assert any("TCS" in str(kw) for kw in fanned) and any(
+                "WABAG" in str(kw) for kw in fanned
+            ), f"{tid}: fan-out didn't pass each stock's symbol: {fanned}"
 
 # The watchlist price log in particular: every collected row has to say which stock it is.
 _, _, collected = we.execute(next(t for t in TEMPLATES if t["id"] == "watchlist-prices"))
@@ -192,7 +221,11 @@ assert [r["symbol"] for r in rows] == ["TCS", "WABAG"], f"price rows lost their 
 # The same alerting templates on a day nothing happened: the agent says the sentinel, and nothing is
 # filed. This is the behaviour that makes arming them bearable.
 we.llm._generate = lambda prompt, model: QUIET
-quiet_ids = [t["id"] for t in TEMPLATES if any(n["data"].get("op") == "not_contains" for n in t["graph"]["nodes"])]
+quiet_ids = [
+    t["id"]
+    for t in TEMPLATES
+    if any(n["data"].get("op") == "not_contains" for n in t["graph"]["nodes"])
+]
 assert len(quiet_ids) >= 8, f"expected most alerting templates to be quiet-gated, got {quiet_ids}"
 for tid in quiet_ids:
     filed.clear()

@@ -56,22 +56,33 @@ llm._post = fake_post
 llm.configure_omniroute(None, None)
 assert llm.OMNIROUTE_BASE == llm.DEFAULT_OMNIROUTE_BASE, "a local gateway needs no settings at all"
 llm.configure_omniroute("", None)
-assert llm.OMNIROUTE_BASE == llm.DEFAULT_OMNIROUTE_BASE, "cleared field falls back, never routes to ''"
+assert llm.OMNIROUTE_BASE == llm.DEFAULT_OMNIROUTE_BASE, (
+    "cleared field falls back, never routes to ''"
+)
 llm.configure_omniroute("https://gw.example.com/v1/", "sk-test")
-assert llm.OMNIROUTE_BASE == "https://gw.example.com/v1", "trailing slash would double up on /chat/completions"
+assert llm.OMNIROUTE_BASE == "https://gw.example.com/v1", (
+    "trailing slash would double up on /chat/completions"
+)
 
 # --- the auth header ----------------------------------------------------------------------------
 llm._chat([{"role": "user", "content": "x"}], "auto")
 assert sent["headers"]["Authorization"] == "Bearer sk-test"
-assert sent["base"] == "https://gw.example.com/v1"
-assert sent["path"] == "/chat/completions"
+assert sent["base"] == "https://gw.example.com/v1" and sent["path"] == "/chat/completions"
 
 llm.configure_omniroute(None, None)
 llm._chat([{"role": "user", "content": "x"}], "auto")
-assert "Authorization" not in sent["headers"], "a keyless local gateway must not send an empty bearer"
+assert "Authorization" not in sent["headers"], (
+    "a keyless local gateway must not send an empty bearer"
+)
 
 # --- routing: OmniRoute is the fall-through, and the auto suffix must survive --------------------
-for model in ("auto", "auto/chat:free", "auto/reasoning:free", "openai/gpt-4", "some-provider/model"):
+for model in (
+    "auto",
+    "auto/chat:free",
+    "auto/reasoning:free",
+    "openai/gpt-4",
+    "some-provider/model",
+):
     llm._chat([{"role": "user", "content": "x"}], model)
     assert sent["base"] == llm.DEFAULT_OMNIROUTE_BASE, f"{model} should route to OmniRoute"
     assert sent["body"]["model"] == model, (
@@ -80,7 +91,9 @@ for model in ("auto", "auto/chat:free", "auto/reasoning:free", "openai/gpt-4", "
 
 llm.configure_litellm("http://localhost:4000", "sk-lite")
 llm._chat([{"role": "user", "content": "x"}], "litellm/gpt-4o")
-assert sent["base"] == "http://localhost:4000" and sent["body"]["model"] == "gpt-4o", "prefix is stripped for LiteLLM"
+assert sent["base"] == "http://localhost:4000" and sent["body"]["model"] == "gpt-4o", (
+    "prefix is stripped for LiteLLM"
+)
 
 # Tools ride along on both OpenAI-compatible backends - the agent loop depends on it.
 llm._omniroute_chat([], "auto", tools=[{"type": "function"}])
@@ -107,8 +120,7 @@ for alias, _label in llm.AUTO_MODELS:
 
 
 def dead_urlopen(req, timeout=None):
-    msg = "refused"
-    raise urllib.error.URLError(msg)
+    raise urllib.error.URLError("refused")
 
 
 llm.urllib.request.urlopen = dead_urlopen

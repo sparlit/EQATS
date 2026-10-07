@@ -143,7 +143,9 @@ def release_held(now=None):
     workflows = {w["id"]: w for w in db.list_workflows()}
     released = 0
     for row in db.list_held_workflow_notifications(now):
-        db.merge_alert_meta(row["id"], {"delivered": True, "delivered_at": now.isoformat(), "held_until": None})
+        db.merge_alert_meta(
+            row["id"], {"delivered": True, "delivered_at": now.isoformat(), "held_until": None}
+        )
         workflow = workflows.get((row.get("meta") or {}).get("workflow_id"))
         if workflow and rules(workflow)["telegram"]:
             send_telegram_async(f"{workflow['name']}\n{row['message']}")
@@ -168,7 +170,9 @@ def send_telegram(text):
             timeout=10,
         )
         body = response.json() if response.content else {}
-        error = None if body.get("ok") else (body.get("description") or f"HTTP {response.status_code}")
+        error = (
+            None if body.get("ok") else (body.get("description") or f"HTTP {response.status_code}")
+        )
     except (requests.RequestException, ValueError) as e:
         error = str(e)
     db.set_setting_value("telegram_last_error", error or "")

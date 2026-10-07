@@ -85,7 +85,9 @@ def _at(day, at):
 
 def _market_time(trigger):
     anchor = MARKET_CLOSE if trigger.get("anchor") == "close" else MARKET_OPEN
-    moment = datetime.combine(date(2000, 1, 1), anchor) + timedelta(minutes=int(trigger.get("offset") or 0))
+    moment = datetime.combine(date(2000, 1, 1), anchor) + timedelta(
+        minutes=int(trigger.get("offset") or 0)
+    )
     return moment.time()
 
 
@@ -127,7 +129,9 @@ def validate(trigger):
                 return "anchor to the market open or close"
             if abs(int(trigger.get("offset") or 0)) > 360:
                 return "an offset is at most 6 hours either way"
-        if kind == "order_event" and any(e not in ORDER_EVENTS for e in trigger.get("events") or []):
+        if kind == "order_event" and any(
+            e not in ORDER_EVENTS for e in trigger.get("events") or []
+        ):
             return f"order events are {', '.join(ORDER_EVENTS)}"
         if kind == "workflow_done":
             if not trigger.get("workflow_id"):
@@ -206,7 +210,9 @@ def next_run(trigger, after, holidays=frozenset()):
             return slot
         if trigger["kind"] == "interval":
             window = trigger.get("window")
-            slot = _at(slot.date() + timedelta(days=1), _hm(window["start"]) if window else time(0, 0))
+            slot = _at(
+                slot.date() + timedelta(days=1), _hm(window["start"]) if window else time(0, 0)
+            )
         else:
             slot = _next_slot(trigger, _at(slot.date(), time(23, 59, 59)))
     return None
@@ -307,7 +313,11 @@ def label(trigger, names=None):
         "event_scan": "After the daily event scan",
     }.get(kind)
     if kind == "interval":
-        unit = "min" if trigger.get("unit") != "hours" else ("hour" if trigger.get("every") == 1 else "hours")
+        unit = (
+            "min"
+            if trigger.get("unit") != "hours"
+            else ("hour" if trigger.get("every") == 1 else "hours")
+        )
         text = f"Every {trigger.get('every')} {unit}"
         if trigger.get("window"):
             text += f", {trigger['window']['start']}–{trigger['window']['end']}"
@@ -356,7 +366,9 @@ def trading_holidays():
         try:
             from app.core import shareholding
 
-            rows = (shareholding._nse_json("/api/holiday-master?type=trading") or {}).get("CM") or []
+            rows = (shareholding._nse_json("/api/holiday-master?type=trading") or {}).get(
+                "CM"
+            ) or []
             dates = sorted(
                 {
                     datetime.strptime(r["tradingDate"], "%d-%b-%Y").date().isoformat()
@@ -367,9 +379,11 @@ def trading_holidays():
             if dates:
                 data = {"fetched": today.isoformat(), "dates": dates}
                 db.set_setting_value("nse_trading_holidays", json.dumps(data))
-        except Exception:
+        except Exception:  # noqa: BLE001 - a holiday list we can't refresh is not a reason to stop
             pass
-    _holidays.update(on=today, dates=frozenset(date.fromisoformat(d) for d in (data or {}).get("dates", [])))
+    _holidays.update(
+        on=today, dates=frozenset(date.fromisoformat(d) for d in (data or {}).get("dates", []))
+    )
     return _holidays["dates"]
 
 
@@ -377,14 +391,18 @@ def _start(workflow, now, payload):
     from app.services.workflow_engine import workflow_engine_run
 
     db.mark_workflow_triggered(workflow["id"], now)
-    threading.Thread(target=workflow_engine_run, args=(workflow,), kwargs={"payload": payload}, daemon=True).start()
+    threading.Thread(
+        target=workflow_engine_run, args=(workflow,), kwargs={"payload": payload}, daemon=True
+    ).start()
 
 
 def run_due(now=None):
     """Every armed time-triggered workflow whose slot has come. Called by the minute tick."""
     now = now or datetime.now(IST)
     workflows = [
-        w for w in db.list_workflows() if w.get("enabled") and (w.get("trigger") or {}).get("kind") in TIME_KINDS
+        w
+        for w in db.list_workflows()
+        if w.get("enabled") and (w.get("trigger") or {}).get("kind") in TIME_KINDS
     ]
     holidays = trading_holidays() if any(_guarded(w["trigger"]) for w in workflows) else frozenset()
     started = 0
@@ -395,7 +413,11 @@ def run_due(now=None):
             # Still going from last time. Skipped, not queued - it becomes due again on the next
             # tick, so it starts the moment the previous run ends instead of stacking copies.
             continue
-        _start(workflow, now, {"trigger": workflow["trigger"]["kind"], "scheduled_for": now.isoformat()})
+        _start(
+            workflow,
+            now,
+            {"trigger": workflow["trigger"]["kind"], "scheduled_for": now.isoformat()},
+        )
         started += 1
     return started
 
@@ -407,9 +429,13 @@ def fire_event(kind, payload=None):
     depth = int(payload.get("chain_depth") or 0)
     started = 0
     for workflow in db.list_workflows():
-        if not workflow.get("enabled") or not matches_event(workflow.get("trigger") or {}, kind, payload):
+        if not workflow.get("enabled") or not matches_event(
+            workflow.get("trigger") or {}, kind, payload
+        ):
             continue
-        if kind == "workflow_done" and (workflow["id"] == payload.get("workflow_id") or depth >= MAX_CHAIN_DEPTH):
+        if kind == "workflow_done" and (
+            workflow["id"] == payload.get("workflow_id") or depth >= MAX_CHAIN_DEPTH
+        ):
             continue
         if db.running_workflow_run(workflow["id"]):
             continue
@@ -423,5 +449,5 @@ def fire_event_quietly(kind, payload=None):
     never break the thing that noticed the event."""
     try:
         return fire_event(kind, payload)
-    except Exception:
+    except Exception:  # noqa: BLE001
         return 0

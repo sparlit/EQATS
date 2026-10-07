@@ -30,7 +30,7 @@ importing another's schemas.
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.core import price_sources
 
@@ -240,8 +240,12 @@ class ManualTradeRequest(BaseModel):
     notes: str | None = None
     traded_at: str | None = None  # ISO datetime; omitted -> now()
     image_filename: str | None = None  # already-uploaded file (e.g. from the Bulk Trades import)
-    setup: str | None = None  # freeform strategy/setup label, e.g. "Breakout" - see manual-backtesting plan
-    ideal_risk_amount: float | None = None  # planned risk in rupees, for Expected-R / risk-deviation
+    setup: str | None = (
+        None  # freeform strategy/setup label, e.g. "Breakout" - see manual-backtesting plan
+    )
+    ideal_risk_amount: float | None = (
+        None  # planned risk in rupees, for Expected-R / risk-deviation
+    )
     account_id: int | None = None  # which trade_accounts row this belongs to; None = unassigned
     # When the position was actually opened and closed. Both optional; `entried_at` defaults to
     # traded_at (for a hand-logged trade they are the same moment), and without `exited_at` MAE/MFE
@@ -434,6 +438,15 @@ class LiveOrderRequest(BaseModel):
     target_price: float | None = None
     trailing_jump: float | None = None
     product: Literal["INTRADAY", "CNC", "MARGIN", "MTF"] | None = None
+    # Omitted = MARKET, or LIMIT when limit_price is set (what older clients send). STOP_LOSS is a
+    # stop-limit (trigger + limit_price), STOP_LOSS_MARKET a stop-market (trigger only).
+    order_type: Literal["MARKET", "LIMIT", "STOP_LOSS", "STOP_LOSS_MARKET"] | None = None
+    trigger_price: float | None = None
+    validity: Literal["DAY", "IOC"] = "DAY"
+    disclosed_quantity: int | None = None
+    # After-market order: queued now, sent to the exchange at `amo_time`.
+    amo: bool = False
+    amo_time: Literal["PRE_OPEN", "OPEN", "OPEN_30", "OPEN_60"] | None = None
     # What the UI showed the user when they pressed the button. Sizing guardrails are checked
     # against this for a market order, so the cap means something before the fill price exists.
     reference_price: float | None = None
@@ -509,6 +522,36 @@ class AlertUpdateRequest(BaseModel):
     active: bool | None = None
 
 
+class BarRange(BaseModel):
+    """Which stretch of history a run uses: everything, the last `years`, or `start`..`end`
+    (inclusive, either end may be open). Each stock uses what it has inside it - see
+    minute_data.range_bounds."""
+
+    mode: Literal["all", "years", "dates"] = "all"
+    years: float | None = Field(None, gt=0, le=30)
+    start: date | None = None
+    end: date | None = None
+
+    @model_validator(mode="after")
+    def _complete(self):
+        if self.mode == "years" and not self.years:
+            raise ValueError("say how many years")
+        if self.mode == "dates" and not (self.start or self.end):
+            raise ValueError("give a start date, an end date, or both")
+        if self.mode == "dates" and self.start and self.end and self.start > self.end:
+            raise ValueError("the range starts after it ends")
+        return self
+
+
+class Sizing(BaseModel):
+    """Backtest position sizing - the engine's sizing/capital params (hft src/core.hpp `Sizing`).
+    fixed: `qty` shares every trade. scale: `qty` grows and shrinks with capital + P&L so far.
+    all_in: each entry buys as much as capital + P&L so far pays for. The last two compound."""
+
+    mode: Literal["fixed", "scale", "all_in"] = "fixed"
+    capital: float = Field(100000, gt=0, le=1e12)
+
+
 class EngineBacktestRequest(BaseModel):
     strategy: str
     symbols: list[str]
@@ -516,7 +559,9 @@ class EngineBacktestRequest(BaseModel):
     # every value list is one axis of the sweep; the run count is the product of their lengths
     params: dict[str, list[float]] = {}
     cost_bps: float = Field(3, ge=0, le=100)
+    sizing: Sizing = Sizing()
     label: str | None = None
+    range: BarRange = BarRange()
 
 
 class EngineSweepRequest(BaseModel):
@@ -530,7 +575,81 @@ class EngineSweepRequest(BaseModel):
     # oat only: base value for a swept param (default: the strategy's default)
     base: dict[str, float] = {}
     cost_bps: float = Field(3, ge=0, le=100)
+    sizing: Sizing = Sizing()
     label: str | None = None
+    range: BarRange = BarRange()
+
+
+class EngineAutotuneRequest(BaseModel):
+    """Walk-forward tuning of one strategy, on each stock separately (app/core/autotune.py)."""
+
+    strategy: str
+    symbols: list[str] = Field(min_length=1, max_length=30)
+    interval: str = "5m"
+    # as typed, like a sweep: several values ("5:20:1", "5,9,13") are tuned, one value is fixed
+    params: dict[str, str] = {}
+    train: int = Field(60, ge=5, le=500)  # sessions each pick is tuned on
+    test: int = Field(5, ge=1, le=60)  # sessions each pick then trades, unseen, before re-tuning
+    range: BarRange = BarRange(mode="years", years=1)  # the stretch of each stock's history to walk
+    min_trades: int = Field(30, ge=1, le=10000)  # a cell with fewer train trades is never picked
+    margin: float = Field(
+        0.15, ge=0, le=5
+    )  # how much better a new pick must score to replace the current one
+    cost_bps: float = Field(3, ge=0, le=100)
+    sizing: Sizing = Sizing()
+
+
+class EngineRunNotesRequest(BaseModel):
+    """A note and tags kept inside a run's own file (runs are files, not rows)."""
+
+    note: str | None = Field(None, max_length=5000)
+    tags: list[str] = Field([], max_length=20)
+
+
+class EngineJobRequest(BaseModel):
+    """A run for the background queue: `request` is exactly what the run-now endpoint of `kind`
+    takes, checked against that shape before it's queued."""
+
+    kind: Literal["backtest", "sweep", "autotune"]
+    request: dict
+    label: str | None = Field(None, max_length=200)
+    priority: int = Field(0, ge=-100, le=100)
+
+
+class EngineJobPriority(BaseModel):
+    priority: int = Field(ge=-100, le=100)
+
+
+class EngineJobConfig(BaseModel):
+    workers: int = Field(
+        ge=1, le=8
+    )  # jobs at once; each auto-tune job still walks 4 stocks at a time
+
+
+class ScanRequest(BaseModel):
+    """A chart scan: the stocks to flip through, in order."""
+
+    name: str = Field(min_length=1, max_length=120)
+    source: str = Field(max_length=200)
+    symbols: list[str] = Field(min_length=1, max_length=2000)
+
+
+class ScanUpdateRequest(BaseModel):
+    position: int | None = Field(None, ge=0)
+    finished: bool | None = None
+
+
+class ScanMarkRequest(BaseModel):
+    """priority null + no note clears the mark."""
+
+    priority: Literal["A", "B", "C"] | None = None
+    note: str | None = Field(None, max_length=500)
+    price: float | None = None
+
+
+class ScanToWatchlistRequest(BaseModel):
+    priorities: list[Literal["A", "B", "C"]] = Field(min_length=1)
+    list_name: str = Field(min_length=1, max_length=80)
 
 
 class EngineSettingsRequest(BaseModel):

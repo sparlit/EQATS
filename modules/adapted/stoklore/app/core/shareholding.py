@@ -61,7 +61,6 @@ tables across a whole watchlist every quarter.
 
 Self-check: .venv/bin/python tests/shareholding.selfcheck.py
 """
-import itertools
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta
 
@@ -147,7 +146,8 @@ def parse_master_row(row):
 def fetch_window(from_date, to_date):
     """Every listed company's filings in one date range - one HTTP call for the lot."""
     path = (
-        f"/api/corporate-share-holdings-master?index=equities&from_date={from_date:%d-%m-%Y}&to_date={to_date:%d-%m-%Y}"
+        "/api/corporate-share-holdings-master?index=equities"
+        f"&from_date={from_date:%d-%m-%Y}&to_date={to_date:%d-%m-%Y}"
     )
     rows = _nse_json(path)
     if not isinstance(rows, list):
@@ -209,7 +209,9 @@ def parse_xbrl(xml_bytes):
     dims = {}
     for context in root.iter(f"{_XBRLI}context"):
         members = [
-            (el.text or "").split(":")[-1] for el in context.iter() if el.tag.endswith("explicitMember") and el.text
+            (el.text or "").split(":")[-1]
+            for el in context.iter()
+            if el.tag.endswith("explicitMember") and el.text
         ]
         dims[context.get("id")] = members
 
@@ -224,7 +226,9 @@ def parse_xbrl(xml_bytes):
 
     shares = by_dim("NumberOfFullyPaidUpEquityShares")
     holders = by_dim("NumberOfShareholders")
-    allotment = next((el.text for el in root if el.tag.endswith("DateOfAllotment") and el.text), None)
+    allotment = next(
+        (el.text for el in root if el.tag.endswith("DateOfAllotment") and el.text), None
+    )
 
     promoter_shares = shares.get(PROMOTER_DIM)
     public_shares = shares.get(PUBLIC_DIM)
@@ -266,7 +270,11 @@ def needs_detail(filing, previous):
         return False
     if is_off_cycle(filing["period_date"]):
         return True
-    if previous is None or filing.get("promoter_pct") is None or previous.get("promoter_pct") is None:
+    if (
+        previous is None
+        or filing.get("promoter_pct") is None
+        or previous.get("promoter_pct") is None
+    ):
         # The first filing on record has nothing to compare against; take its detail anyway, so
         # the NEXT one has a baseline to be measured against.
         return previous is None
@@ -362,7 +370,10 @@ def classify(previous, current):
         # of a reclassification (a promoter being re-labelled public), which is a change of
         # substance masquerading as a change of holding.
         promoter_holders_delta = None
-        if previous.get("promoter_holders") is not None and current.get("promoter_holders") is not None:
+        if (
+            previous.get("promoter_holders") is not None
+            and current.get("promoter_holders") is not None
+        ):
             promoter_holders_delta = current["promoter_holders"] - previous["promoter_holders"]
         if promoter_delta < 0 and promoter_holders_delta is not None and promoter_holders_delta < 0:
             out["verdict"] = "reclassification"
@@ -412,7 +423,7 @@ def series_changes(filings):
     no change - it is the baseline, not a zero."""
     ordered = latest_per_period(filings)
     out = []
-    for previous, current in itertools.pairwise(ordered):
+    for previous, current in zip(ordered, ordered[1:], strict=False):
         out.append(
             {
                 "period_date": current["period_date"],
@@ -493,7 +504,7 @@ def screener_rows(filings, span=4, sort="move", order="desc"):
         window = pace(changes, span)
         verdict = (last or {}).get("verdict", "detail_missing")
 
-        if verdict == "no_change" or last is None:
+        if verdict in ("no_change",) or last is None:
             flag = "quiet"
         elif verdict in ("organic_buy", "organic_sell"):
             flag = "organic"

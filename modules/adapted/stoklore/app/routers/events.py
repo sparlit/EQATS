@@ -52,7 +52,9 @@ def events_feed(
     to_date: str | None = None,
     limit: int = 100,
 ):
-    return db.list_events(list_name=list_name, symbol=symbol, from_date=from_date, to_date=to_date, limit=limit)
+    return db.list_events(
+        list_name=list_name, symbol=symbol, from_date=from_date, to_date=to_date, limit=limit
+    )
 
 
 @router.get("/api/events/attention")
@@ -65,4 +67,6 @@ def events_attention(
     """Per-symbol event-coverage volume vs. that symbol's own baseline - see db.attention_scores.
     Powers the Events page's "Unusual attention" panel: which watchlisted stocks are getting more
     coverage than usual right now, not just what the latest single headline says."""
-    return db.attention_scores(list_name=list_name, symbol=symbol, baseline_days=baseline_days, recent_days=recent_days)
+    return db.attention_scores(
+        list_name=list_name, symbol=symbol, baseline_days=baseline_days, recent_days=recent_days
+    )

@@ -58,8 +58,7 @@ def tone(seconds=1.0, amplitude=0.3, rate=speech.SAMPLE_RATE):
 
 # read_wav: shape and range.
 audio = speech.read_wav(wav_bytes(tone()))
-assert audio.dtype == np.float32
-assert len(audio) == speech.SAMPLE_RATE
+assert audio.dtype == np.float32 and len(audio) == speech.SAMPLE_RATE
 assert abs(audio).max() <= 1.0
 
 # Stereo is downmixed rather than refused.
@@ -72,12 +71,13 @@ def refused(data):
         speech.read_wav(data)
     except ValueError as e:
         return str(e)
-    msg = "expected a ValueError"
-    raise AssertionError(msg)
+    raise AssertionError("expected a ValueError")
 
 
 assert "not a WAV" in refused(b"this is not audio")
-assert "8000Hz" in refused(wav_bytes(tone(), rate=8000))  # the browser resamples; a mismatch is a bug
+assert "8000Hz" in refused(
+    wav_bytes(tone(), rate=8000)
+)  # the browser resamples; a mismatch is a bug
 assert "16-bit" in refused(wav_bytes(tone(), width=1))
 assert "longer than" in refused(wav_bytes(tone(seconds=speech.MAX_SECONDS + 1)))
 
@@ -95,8 +95,7 @@ assert speech.transcribe(wav_bytes(tone(seconds=0.05))) == ""  # a tapped key
 assert calls == [], "silence was sent to Whisper"
 
 assert speech.transcribe(wav_bytes(tone())) == "hello there"  # trimmed
-assert len(calls) == 1
-assert calls[0]["sampling_rate"] == speech.SAMPLE_RATE
+assert len(calls) == 1 and calls[0]["sampling_rate"] == speech.SAMPLE_RATE
 
 speech._pipeline = lambda: lambda payload: {"text": None}
 assert speech.transcribe(wav_bytes(tone())) == ""

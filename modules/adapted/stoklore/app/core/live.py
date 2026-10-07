@@ -135,7 +135,9 @@ def panic(creds=None):
     cancelled, errors = 0, []
     for order in db.list_live_orders(open_only=True):
         try:
-            dhan_orders.cancel(creds, order["order_id"], order.get("leg") if order.get("parent_order_id") else None)
+            dhan_orders.cancel(
+                creds, order["order_id"], order.get("leg") if order.get("parent_order_id") else None
+            )
             cancelled += 1
         except dhan_orders.DhanOrderError as e:
             errors.append(f"{order['order_id']}: {e}")
@@ -169,9 +171,13 @@ def place_intent(intent, super_order=True):
     if errors:
         return {"ok": False, "errors": errors}
 
-    wants_exits = intent.get("stop_price") is not None or intent.get("target_price") is not None
+    wants_exits = intent.get("stop_price") is not None and intent.get("target_price") is not None
     use_super = super_order and wants_exits
-    payload = dhan_orders.build_super_order(intent, sec_id) if use_super else dhan_orders.build_order(intent, sec_id)
+    payload = (
+        dhan_orders.build_super_order(intent, sec_id)
+        if use_super
+        else dhan_orders.build_order(intent, sec_id)
+    )
 
     db.record_live_intent(intent["correlation_id"], intent["symbol"], payload)
     try:
@@ -184,10 +190,8 @@ def place_intent(intent, super_order=True):
             "correlation_id": intent["correlation_id"],
             "unconfirmed": True,
             "errors": [
-                (
-                    f"{e} — the order may still have reached the exchange. "
-                    "Nothing was re-sent; reconcile before trying again."
-                )
+                f"{e} — the order may still have reached the exchange. "
+                "Nothing was re-sent; reconcile before trying again."
             ],
         }
 
@@ -201,7 +205,12 @@ def place_intent(intent, super_order=True):
         meta={"order_id": order_id, "correlation_id": intent["correlation_id"], "event": "sent"},
     )
     sync_once(creds)
-    return {"ok": True, "order_id": order_id, "correlation_id": intent["correlation_id"], "errors": []}
+    return {
+        "ok": True,
+        "order_id": order_id,
+        "correlation_id": intent["correlation_id"],
+        "errors": [],
+    }
 
 
 def recover(correlation_id, creds=None):
@@ -277,7 +286,8 @@ def _journal(closed):
     account_id = limits().get("account_id")
     alerts.record(
         "order",
-        f"Closed {trade['symbol']}: {trade['quantity']} @ ₹{trade['entry_price']:,.2f} → ₹{trade['exit_price']:,.2f}",
+        f"Closed {trade['symbol']}: {trade['quantity']} @ ₹{trade['entry_price']:,.2f} → "
+        f"₹{trade['exit_price']:,.2f}",
         symbol=trade["symbol"],
         meta={"security_id": closed.get("security_id"), "event": "closed"},
     )
@@ -325,7 +335,7 @@ def _loop(price_fn):
         try:
             if market_is_open():
                 poll_once(price_fn)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - the loop must outlive any single failure
             state["last_error"] = str(e)
         time.sleep(POLL_SECONDS)
 

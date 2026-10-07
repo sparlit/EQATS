@@ -60,9 +60,13 @@ def manual_trades(request: Request):
     for t in trades:
         # Full URL (not just the bare filename) so the frontend never has to know or guess the
         # /uploads mount path itself - one source of truth, here, for where images actually live.
-        t["image_url"] = f"{request.base_url}uploads/{t['image_filename']}" if t["image_filename"] else None
+        t["image_url"] = (
+            f"{request.base_url}uploads/{t['image_filename']}" if t["image_filename"] else None
+        )
         t["image_entry_url"] = (
-            f"{request.base_url}uploads/{t['image_filename_entry']}" if t["image_filename_entry"] else None
+            f"{request.base_url}uploads/{t['image_filename_entry']}"
+            if t["image_filename_entry"]
+            else None
         )
     return trades
 
@@ -74,7 +78,7 @@ def _market_date(value):
     if not value:
         return datetime.now(IST).date()
     try:
-        parsed = datetime.fromisoformat(value)
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
     if parsed.tzinfo is None:
@@ -192,7 +196,9 @@ def update_manual_trade(trade_id: int, req: ManualTradeRequest):
     # on an ordinary edit. db.update_manual_trade COALESCEs None onto the existing value.
     existing = db.get_manual_trade(trade_id)
     moved = existing and existing["account_id"] != req.account_id
-    balance = db.account_balance_at(req.account_id, req.traded_at) if moved and req.account_id else None
+    balance = (
+        db.account_balance_at(req.account_id, req.traded_at) if moved and req.account_id else None
+    )
     context = _fill_once_context(existing, req)
     db.update_manual_trade(
         trade_id,
@@ -217,7 +223,9 @@ def update_manual_trade(trade_id: int, req: ManualTradeRequest):
         context,
         req.entried_at,
     )
-    db.update_manual_trade_review(trade_id, {k: getattr(req, k) for k in db.REVIEW_FIELDS if k in req.model_fields_set})
+    db.update_manual_trade_review(
+        trade_id, {k: getattr(req, k) for k in db.REVIEW_FIELDS if k in req.model_fields_set}
+    )
     return {"ok": True}
 
 
@@ -241,7 +249,9 @@ async def upload_manual_trade_image(
     # ponytail: re-uploading (editing a trade's screenshot) orphans the old file on disk instead
     # of deleting it - add cleanup if upload volume ever makes that worth doing.
     if file.content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(status_code=422, detail="unsupported image type - use PNG, JPEG, WEBP, or GIF")
+        raise HTTPException(
+            status_code=422, detail="unsupported image type - use PNG, JPEG, WEBP, or GIF"
+        )
     ext = os.path.splitext(file.filename or "")[1]
     filename = f"{trade_id}-{uuid.uuid4().hex}{ext}"
     with open(os.path.join(UPLOAD_DIR, filename), "wb") as f:
@@ -259,7 +269,9 @@ async def analyze_bulk_trade_image(file: UploadFile = File(...), model: str | No
     ponytail: a cancelled/abandoned bulk import orphans these files on disk, same tradeoff as the
     single re-upload path above."""
     if file.content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(status_code=422, detail="unsupported image type - use PNG, JPEG, WEBP, or GIF")
+        raise HTTPException(
+            status_code=422, detail="unsupported image type - use PNG, JPEG, WEBP, or GIF"
+        )
     raw = await file.read()
     ext = os.path.splitext(file.filename or "")[1]
     filename = f"bulk-{uuid.uuid4().hex}{ext}"
@@ -281,7 +293,9 @@ def get_manual_backtest_settings():
 
 @router.put("/api/settings/manual-backtest")
 def set_manual_backtest_settings(req: ManualBacktestSettingsRequest):
-    mistakes = req.mistakes if req.mistakes is not None else db.get_manual_backtest_settings()["mistakes"]
+    mistakes = (
+        req.mistakes if req.mistakes is not None else db.get_manual_backtest_settings()["mistakes"]
+    )
     settings = {
         "setups": [s.strip() for s in req.setups if s.strip()],
         "mistakes": [m.strip() for m in mistakes if m.strip()],
@@ -311,10 +325,15 @@ def suggest_review(req: ReviewSuggestRequest):
     """Laya's read of a trade's notes: likely mistakes and the emotion. Suggestions only - the form
     pre-selects them and nothing is stored until the user saves the trade."""
     if not req.notes.strip():
-        raise HTTPException(status_code=422, detail="write some notes first - suggestions come from them")
+        raise HTTPException(
+            status_code=422, detail="write some notes first - suggestions come from them"
+        )
     result = classifier.suggest_review(req.notes, req.mistakes, req.emotions)
     if result is None:
-        raise HTTPException(status_code=409, detail="the Laya classifier is off - enable it in Settings > Classifier")
+        raise HTTPException(
+            status_code=409,
+            detail="the Laya classifier is off - enable it in Settings > Classifier",
+        )
     return result
 
 
@@ -329,7 +348,10 @@ def _review_payload(req):
     # Whitespace-only is "not written", stored as NULL, so the tab can tell an empty box from text.
     return {
         **req.model_dump(),
-        **{k: (getattr(req, k) or "").strip() or None for k in ("keep", "stop", "improve", "test", "change")},
+        **{
+            k: (getattr(req, k) or "").strip() or None
+            for k in ("keep", "stop", "improve", "test", "change")
+        },
     }
 
 
@@ -406,8 +428,14 @@ def export_manual_trades(format: str = "csv"):
         writer = csv.DictWriter(buf, fieldnames=MANUAL_TRADE_EXPORT_FIELDS, extrasaction="ignore")
         writer.writeheader()
         for t in trades:
-            writer.writerow({**t, "tags": ", ".join(t["tags"]), "mistakes": ", ".join(t["mistakes"] or [])})
+            writer.writerow(
+                {**t, "tags": ", ".join(t["tags"]), "mistakes": ", ".join(t["mistakes"] or [])}
+            )
         body, media_type, filename = buf.getvalue(), "text/csv", "manual-trades.csv"
     else:
         raise HTTPException(status_code=422, detail="format must be 'csv' or 'json'")
-    return Response(body, media_type=media_type, headers={"Content-Disposition": f"attachment; filename={filename}"})
+    return Response(
+        body,
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )

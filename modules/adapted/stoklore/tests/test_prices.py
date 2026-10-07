@@ -37,7 +37,14 @@ SYMBOL = "ZZZPRICETEST"
 
 
 def _bar(d, close):
-    return {"date": d.isoformat(), "open": close, "high": close, "low": close, "close": close, "volume": 1000}
+    return {
+        "date": d.isoformat(),
+        "open": close,
+        "high": close,
+        "low": close,
+        "close": close,
+        "volume": 1000,
+    }
 
 
 def test_sync_backfills_then_gap_fills_then_dedups():
@@ -72,7 +79,9 @@ def test_sync_backfills_then_gap_fills_then_dedups():
 def test_ema_crossover_needs_enough_history():
     db.init_schema()
     try:
-        db.insert_price_bars(SYMBOL, [_bar(date(2026, 1, 1) + timedelta(days=i), 100) for i in range(5)])
+        db.insert_price_bars(
+            SYMBOL, [_bar(date(2026, 1, 1) + timedelta(days=i), 100) for i in range(5)]
+        )
         assert prices.ema_crossover(SYMBOL, short=20, long=50) is None  # not enough bars yet
 
         # 60 rising closes: short EMA(20) should end up above long EMA(50) - a bullish setup
@@ -96,11 +105,15 @@ def test_chart_from_history_respects_coverage():
         assert prices.chart_from_history(SYMBOL, "1mo") is None  # no history stored yet
 
         # only 10 days stored - not enough warmup for "1mo" (needs 30 + 120 warmup days back)
-        db.insert_price_bars(SYMBOL, [_bar(date.today() - timedelta(days=i), 100 + i) for i in range(10)])
+        db.insert_price_bars(
+            SYMBOL, [_bar(date.today() - timedelta(days=i), 100 + i) for i in range(10)]
+        )
         assert prices.chart_from_history(SYMBOL, "1mo") is None
 
         # a full year stored - "1mo" is now covered, should build real bars from the DB
-        db.insert_price_bars(SYMBOL, [_bar(date.today() - timedelta(days=i), 100 + i) for i in range(365)])
+        db.insert_price_bars(
+            SYMBOL, [_bar(date.today() - timedelta(days=i), 100 + i) for i in range(365)]
+        )
         chart = prices.chart_from_history(SYMBOL, "1mo")
         assert chart is not None
         assert chart["interval"] == "1d"
@@ -114,7 +127,9 @@ def test_collect_max_history_is_separate_from_price_history():
     db.init_schema()
 
     def fake_max_bars(symbol, start=None, period="1y"):
-        assert period == "max"  # collect_max_history must request the full range, not the 1y default
+        assert (
+            period == "max"
+        )  # collect_max_history must request the full range, not the 1y default
         return [_bar(date(2000, 1, 1) + timedelta(days=i), 100 + i) for i in range(3)]
 
     scraper.get_daily_bars = fake_max_bars

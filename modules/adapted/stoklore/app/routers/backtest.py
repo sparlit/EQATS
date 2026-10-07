@@ -36,11 +36,16 @@ router = APIRouter(tags=["backtest"])
 
 def _run_backtest(req):
     if req.short >= req.long:
-        raise HTTPException(status_code=422, detail="Short period must be less than the long period")
-    result = backtest.run_ema_crossover(req.symbol.upper(), req.short, req.long, req.from_date, req.to_date)
+        raise HTTPException(
+            status_code=422, detail="Short period must be less than the long period"
+        )
+    result = backtest.run_ema_crossover(
+        req.symbol.upper(), req.short, req.long, req.from_date, req.to_date
+    )
     if result is None:
         raise HTTPException(
-            status_code=404, detail=f"Not enough synced price history for '{req.symbol}' yet - run a price sync first"
+            status_code=404,
+            detail=f"Not enough synced price history for '{req.symbol}' yet - run a price sync first",
         )
     return result
 

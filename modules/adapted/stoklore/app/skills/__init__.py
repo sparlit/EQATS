@@ -35,6 +35,5 @@ def available_skills():
 def load_skill(name):
     module = importlib.import_module(f"app.skills.{name}")
     if not hasattr(module, "filter"):
-        msg = f"skill '{name}' has no filter(tickers) function"
-        raise ValueError(msg)
+        raise ValueError(f"skill '{name}' has no filter(tickers) function")
     return module.filter

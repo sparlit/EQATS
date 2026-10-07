@@ -60,11 +60,14 @@ def _get_holdings(broker_id=None, force=False):
         creds = db.get_kite_credentials()
         if not creds:
             raise HTTPException(
-                status_code=400, detail="Kite isn't configured - add your API key and secret in Settings > Kite"
+                status_code=400,
+                detail="Kite isn't configured - add your API key and secret in Settings > Kite",
             )
         session = db.get_kite_session()
         if not session:
-            raise HTTPException(status_code=400, detail="Not logged in to Kite today - connect in Settings > Kite")
+            raise HTTPException(
+                status_code=400, detail="Not logged in to Kite today - connect in Settings > Kite"
+            )
         try:
             data = kite.get_portfolio(creds["api_key"], session["access_token"])
         except kite.KiteError as e:
@@ -77,7 +80,9 @@ def _get_holdings(broker_id=None, force=False):
         if h.get("ltp") is not None:
             continue
         try:
-            h["ltp"] = _cached(h["symbol"], "price", 15, lambda s=h["symbol"]: scraper.get_price(s))["price"]
+            h["ltp"] = _cached(
+                h["symbol"], "price", 15, lambda s=h["symbol"]: scraper.get_price(s)
+            )["price"]
         except Exception:
             h["ltp"] = None
 

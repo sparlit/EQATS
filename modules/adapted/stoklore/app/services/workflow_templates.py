@@ -66,8 +66,18 @@ def _gated_alert(source, prompt, column):
     """agent -> quiet gate -> file it. The tail almost every alerting template shares."""
     return (
         [
-            _node("say", "agent", column, label="Decide", prompt=prompt + _HOUSE_STYLE + _QUIET_RULE),
-            _node("gate", "condition", column + 1, label="Anything?", left="{{ say }}", op="not_contains", right=QUIET),
+            _node(
+                "say", "agent", column, label="Decide", prompt=prompt + _HOUSE_STYLE + _QUIET_RULE
+            ),
+            _node(
+                "gate",
+                "condition",
+                column + 1,
+                label="Anything?",
+                left="{{ say }}",
+                op="not_contains",
+                right=QUIET,
+            ),
             _node("file", "output", column + 2, label="Tell me", message="{{ say }}"),
         ],
         # file reads {{ say }}, so it is wired to say as well as to the gate. The gate still decides
@@ -99,9 +109,26 @@ def screen_graph(url, name, max_pages=2):
     """
     nodes = [
         _node("t", "trigger", 0, label="Daily"),
-        _node("screen", "tool", 1, label=name[:40], tool="run_screen", args={"url": url, "max_pages": str(max_pages)}),
-        _node("keep", "collect", 2, 1, label="Keep matches", series="matches", rows="{{ screen.rows }}"),
-        _node("any", "condition", 2, label="Any matches?", left="{{ screen.rows }}", op="not_empty"),
+        _node(
+            "screen",
+            "tool",
+            1,
+            label=name[:40],
+            tool="run_screen",
+            args={"url": url, "max_pages": str(max_pages)},
+        ),
+        _node(
+            "keep",
+            "collect",
+            2,
+            1,
+            label="Keep matches",
+            series="matches",
+            rows="{{ screen.rows }}",
+        ),
+        _node(
+            "any", "condition", 2, label="Any matches?", left="{{ screen.rows }}", op="not_empty"
+        ),
     ]
     tail, tail_pairs = _gated_alert(
         "any",
@@ -112,7 +139,12 @@ def screen_graph(url, name, max_pages=2):
     )
     # The summary reads the screen, so it has to be wired to it as well as to the gate that
     # decides whether it runs - a node only sees what it is wired to.
-    return nodes + tail, [("t", "screen"), ("screen", "keep"), ("screen", "any"), ("screen", "say"), *tail_pairs]
+    return nodes + tail, [
+        ("t", "screen"),
+        ("screen", "keep"),
+        ("screen", "any"),
+        ("screen", "say"),
+    ] + tail_pairs
 
 
 def _screen_template(template_id, url, name, description, time, max_pages=2):
@@ -161,7 +193,8 @@ TEMPLATES = [
         "morning-movers",
         "Morning movers",
         "Market",
-        "The day's biggest NSE movers every morning - but it only tells you when something moved more than 5%.",
+        "The day's biggest NSE movers every morning - but it only tells you when something moved "
+        "more than 5%.",
         _daily("09:30"),
         [
             _node("t", "trigger", 0, label="Every morning"),
@@ -194,7 +227,15 @@ TEMPLATES = [
         [
             _node("t", "trigger", 0, label="At the open"),
             _node("movers", "tool", 1, 0, label="Movers", tool="get_movers", args={"count": "15"}),
-            _node("events", "tool", 1, 1, label="Recent events", tool="get_recent_events", args={"days": "1"}),
+            _node(
+                "events",
+                "tool",
+                1,
+                1,
+                label="Recent events",
+                tool="get_recent_events",
+                args={"days": "1"},
+            ),
             _node(
                 "say",
                 "agent",
@@ -212,7 +253,8 @@ TEMPLATES = [
         "movers-log",
         "Movers log",
         "Market",
-        "Logs the day's top 25 movers after the close. Files nothing - it builds a series for the Data tab.",
+        "Logs the day's top 25 movers after the close. Files nothing - it builds a series for the "
+        "Data tab.",
         _daily("15:35"),
         [
             _node("t", "trigger", 0, label="After the close"),
@@ -231,8 +273,9 @@ TEMPLATES = [
         _daily("16:00"),
         *(
             lambda n, p: (
-                [*n, _node("keep", "collect", 3, label="Log it", series="prices", rows="{{ each }}")],
-                [*p, ("each", "keep")],
+                n
+                + [_node("keep", "collect", 3, label="Log it", series="prices", rows="{{ each }}")],
+                p + [("each", "keep")],
             )
         )(*_watchlist_fanout("get_price", {"symbol": "{{ item.symbol }}"}, "Price each")),
     ),
@@ -240,7 +283,8 @@ TEMPLATES = [
         "watchlist-big-moves",
         "Watchlist big moves",
         "Watchlist",
-        "Prices your whole watchlist mid-afternoon and tells you only about stocks that moved more than 4%.",
+        "Prices your whole watchlist mid-afternoon and tells you only about stocks that moved more "
+        "than 4%.",
         _daily("15:00"),
         *_watchlist_alert(
             "get_price",
@@ -290,10 +334,25 @@ TEMPLATES = [
         _daily("15:15"),
         [
             _node("t", "trigger", 0, label="Daily"),
-            _node("rule", "tool", 1, label="Check rule", tool="check_watch_rule", args={"name": "buy dip"}),
+            _node(
+                "rule",
+                "tool",
+                1,
+                label="Check rule",
+                tool="check_watch_rule",
+                args={"name": "buy dip"},
+            ),
             # The rule tool answers in markdown, with a ✅ per stock that meets it - so that mark IS
             # the signal. There are no fields to test.
-            _node("gate", "condition", 2, label="Anyone met it?", left="{{ rule }}", op="contains", right="✅"),
+            _node(
+                "gate",
+                "condition",
+                2,
+                label="Anyone met it?",
+                left="{{ rule }}",
+                op="contains",
+                right="✅",
+            ),
             _node("file", "output", 3, label="Tell me", message="{{ rule }}"),
         ],
         [("t", "rule"), ("rule", "gate"), ("gate", "file"), ("rule", "file")],
@@ -303,15 +362,29 @@ TEMPLATES = [
         "event-triage",
         "Event triage",
         "Events",
-        "After the daily event scan, reads what landed and files a summary only if something negative came in.",
+        "After the daily event scan, reads what landed and files a summary only if something "
+        "negative came in.",
         {"kind": "event_scan"},
         [
             _node("t", "trigger", 0, label="After the event scan"),
             # get_recent_events, not scan_events: the scan starts in the background and returns at
             # once, so gating on ITS reply meant this template could never fire.
-            _node("events", "tool", 1, label="Today's events", tool="get_recent_events", args={"days": "1"}),
             _node(
-                "neg", "condition", 2, label="Anything negative?", left="{{ events }}", op="contains", right="negative"
+                "events",
+                "tool",
+                1,
+                label="Today's events",
+                tool="get_recent_events",
+                args={"days": "1"},
+            ),
+            _node(
+                "neg",
+                "condition",
+                2,
+                label="Anything negative?",
+                left="{{ events }}",
+                op="contains",
+                right="negative",
             ),
             _node(
                 "say",
@@ -335,7 +408,14 @@ TEMPLATES = [
         {"kind": "event_scan"},
         [
             _node("t", "trigger", 0, label="After the event scan"),
-            _node("events", "tool", 1, label="Today's events", tool="get_recent_events", args={"days": "1"}),
+            _node(
+                "events",
+                "tool",
+                1,
+                label="Today's events",
+                tool="get_recent_events",
+                args={"days": "1"},
+            ),
             _node("keep", "collect", 2, label="Log them", series="events", rows="{{ events }}"),
         ],
         [("t", "events"), ("events", "keep")],
@@ -351,7 +431,9 @@ TEMPLATES = [
         [
             _node("t", "trigger", 0, label="After the close"),
             _node("h", "tool", 1, label="Holdings", tool="get_holdings", args={}),
-            _node("keep", "collect", 2, label="Snapshot", series="holdings", rows="{{ h.holdings }}"),
+            _node(
+                "keep", "collect", 2, label="Snapshot", series="holdings", rows="{{ h.holdings }}"
+            ),
         ],
         [("t", "h"), ("h", "keep")],
     ),
@@ -359,7 +441,8 @@ TEMPLATES = [
         "holdings-drawdown",
         "Holdings drawdown",
         "Portfolio",
-        "Tells you when any position you hold is more than 8% below your average price. Silent otherwise.",
+        "Tells you when any position you hold is more than 8% below your average price. Silent "
+        "otherwise.",
         _daily("15:40"),
         [
             _node("t", "trigger", 0, label="Near the close"),
@@ -394,7 +477,8 @@ TEMPLATES = [
         "screen-quarterly-growers",
         "https://www.screener.in/screens/86/quarterly-growers/",
         "Quarterly growers",
-        "Net profit up for three quarters running. A big screen (300+ results), so it reads the first two pages of 50.",
+        "Net profit up for three quarters running. A big screen (300+ results), so it reads the "
+        "first two pages of 50.",
         "19:30",
         max_pages=2,
     ),

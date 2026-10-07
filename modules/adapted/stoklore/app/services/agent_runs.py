@@ -71,7 +71,9 @@ def stream_and_persist(run_id, messages, model, tools=AGENT_TOOLS, impls=AGENT_T
             # failed:" rather than by raising - keep that as the row's error so the diagram can
             # colour the node red instead of showing the message as a successful result.
             failed = isinstance(result, str) and result.startswith(("tool '", "unknown tool "))
-            db.finish_tool_call(run_id, call_id, None if failed else result, result if failed else None)
+            db.finish_tool_call(
+                run_id, call_id, None if failed else result, result if failed else None
+            )
         yield event
 
 
@@ -86,7 +88,7 @@ def start(session_id, prompt, model, history):
     db.create_run(run_id, session_id, prompt, model)
     db.add_message(session_id, "user", prompt)
 
-    messages = [{"role": "system", "content": AGENT_SYSTEM}, *history]
+    messages = [{"role": "system", "content": AGENT_SYSTEM}] + history
 
     def work():
         reply, error = "", None
@@ -94,7 +96,7 @@ def start(session_id, prompt, model, history):
             for event in stream_and_persist(run_id, messages, model):
                 if event[0] == "done":
                     reply = event[1]
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - a dead provider must finish the run, not vanish
             error = str(e)
         db.finish_run(run_id, reply=reply or None, error=error)
         if reply or error:
@@ -140,9 +142,17 @@ def follow(run_id):
                 }
 
         if run["status"] != "running":
-            yield {"type": "done", "status": run["status"], "reply": run["reply"], "error": run["error"]}
+            yield {
+                "type": "done",
+                "status": run["status"],
+                "reply": run["reply"],
+                "error": run["error"],
+            }
             return
         if time.monotonic() > deadline:
-            yield {"type": "error", "error": "stopped watching this run - it is taking unusually long"}
+            yield {
+                "type": "error",
+                "error": "stopped watching this run - it is taking unusually long",
+            }
             return
         time.sleep(POLL_SECONDS)

@@ -23,7 +23,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """On-demand scrape/analyze helpers shared by the chat agent, the sentiment endpoint and
 the stock-detail routes."""
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 import requests
 from fastapi import HTTPException
@@ -66,14 +66,19 @@ def _analyze_url(url, model):
     try:
         article = scraper.scrape_article(url)
     except requests.RequestException as e:
-        msg = f"Couldn't fetch that URL: {e}"
-        raise RuntimeError(msg) from e
+        raise RuntimeError(f"Couldn't fetch that URL: {e}") from e
     if not article["text"]:
         raise HTTPException(status_code=422, detail="Couldn't extract article text from that URL")
     tickers = llm.extract_tickers(article["text"], model)
     score = sentiment.analyze(article["text"])
     reasoning = llm.explain_sentiment(article["text"], score["label"], model)
-    return {"title": article["title"], "url": url, "tickers": tickers, "sentiment": score, "reasoning": reasoning}
+    return {
+        "title": article["title"],
+        "url": url,
+        "tickers": tickers,
+        "sentiment": score,
+        "reasoning": reasoning,
+    }
 
 
 def _cached_news(symbol):

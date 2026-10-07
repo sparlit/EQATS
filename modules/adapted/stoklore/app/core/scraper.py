@@ -112,7 +112,9 @@ def get_movers(count=25):
 
     volume_gainers = _nse_json("/api/live-analysis-volume-gainers")
     for row in volume_gainers.get("data", [])[:count]:
-        movers.setdefault(row["symbol"], {"symbol": row["symbol"], "changePercent": row.get("pChange", 0.0)})
+        movers.setdefault(
+            row["symbol"], {"symbol": row["symbol"], "changePercent": row.get("pChange", 0.0)}
+        )
         movers[row["symbol"]]["volume"] = row.get("volume", 0)
         movers[row["symbol"]]["avgVolume"] = row.get("week1AvgVolume", 0) or 1
 
@@ -214,12 +216,17 @@ def scrape_article(url):
     jsonld = _jsonld_article_body(soup)
     if jsonld:
         headline, text = jsonld
-        return {"title": headline or (soup.title.get_text(strip=True) if soup.title else url), "text": text}
+        return {
+            "title": headline or (soup.title.get_text(strip=True) if soup.title else url),
+            "text": text,
+        }
 
     for tag in soup(["script", "style", "nav", "header", "footer", "aside", "form"]):
         tag.decompose()
     h1 = soup.find("h1")
-    title = h1.get_text(strip=True) if h1 else (soup.title.get_text(strip=True) if soup.title else url)
+    title = (
+        h1.get_text(strip=True) if h1 else (soup.title.get_text(strip=True) if soup.title else url)
+    )
     text = " ".join(p.get_text(" ", strip=True) for p in soup.find_all("p"))
     return {"title": title, "text": text}
 
@@ -403,15 +410,18 @@ def screen_url(url):
     parsed = urlparse((url or "").strip())
     host = (parsed.hostname or "").lower()
     match = _SCREEN_PATH.match(parsed.path or "")
-    if parsed.scheme not in ("http", "https") or host not in ("screener.in", "www.screener.in") or not match:
-        msg = (
+    if (
+        parsed.scheme not in ("http", "https")
+        or host not in ("screener.in", "www.screener.in")
+        or not match
+    ):
+        raise ValueError(
             "that isn't a screener.in screen URL - it should look like "
             "https://www.screener.in/screens/86/quarterly-growers/"
         )
-        raise ValueError(msg)
-    return f"https://www.screener.in/screens/{match.group(1)}/{match.group(2)}/".replace("//", "/").replace(
-        "https:/", "https://"
-    )
+    return f"https://www.screener.in/screens/{match.group(1)}/{match.group(2)}/".replace(
+        "//", "/"
+    ).replace("https:/", "https://")
 
 
 def _column_key(label):
@@ -440,11 +450,10 @@ def parse_screen_html(html_text, url):
     # The register wall is a 200 with a sign-up form, not an error status - so it has to be recognised
     # by content, or it parses as a screen with no table and gets reported as the wrong problem.
     if soup.find("form", action="/register/"):
-        msg = (
+        raise ScreenLoginRequired(
             "screener.in is asking for a login before it will show this screen - it limits how many "
             "screens an anonymous visitor can open. The screen itself is fine."
         )
-        raise ScreenLoginRequired(msg)
     table = soup.select_one("table.data-table")
     if table is None:
         return None
@@ -478,7 +487,9 @@ def parse_screen_html(html_text, url):
     name = soup.find("h1")
     query = soup.find("textarea", attrs={"name": "query"})
     found = re.search(
-        r"([\d,]+)\s+results?\s+found(?:.*?page\s+(\d+)\s+of\s+(\d+))?", soup.get_text(" ", strip=True), re.IGNORECASE
+        r"([\d,]+)\s+results?\s+found(?:.*?page\s+(\d+)\s+of\s+(\d+))?",
+        soup.get_text(" ", strip=True),
+        re.I,
     )
     total = int(found.group(1).replace(",", "")) if found else len(rows)
     return {
@@ -487,7 +498,9 @@ def parse_screen_html(html_text, url):
         "query": query.get_text().strip() if query else None,
         "total": total,
         "page": int(found.group(2)) if found and found.group(2) else 1,
-        "pages": int(found.group(3)) if found and found.group(3) else max(1, -(-total // SCREEN_PAGE_SIZE)),
+        "pages": int(found.group(3))
+        if found and found.group(3)
+        else max(1, -(-total // SCREEN_PAGE_SIZE)),
         "columns": columns,
         "rows": rows,
     }
@@ -513,7 +526,8 @@ def _login_wall_help(session_cookie):
         " The saved screener.in session cookie didn't work - it has probably expired. Paste a fresh "
         "one in Settings → Screener."
         if session_cookie
-        else " Paste your own screener.in session cookie in Settings → Screener, so unattended runs can open screens."
+        else " Paste your own screener.in session cookie in Settings → Screener, so unattended runs "
+        "can open screens."
     )
 
 
@@ -529,8 +543,7 @@ def get_screen(url, max_pages=SCREEN_MAX_PAGES, session_cookie=None):
     try:
         return _get_screen(base, max_pages, session_cookie)
     except ScreenLoginRequired as e:
-        msg = f"{e}{_login_wall_help(session_cookie)}"
-        raise ScreenLoginRequired(msg) from e
+        raise ScreenLoginRequired(f"{e}{_login_wall_help(session_cookie)}") from e
 
 
 def _get_screen(base, max_pages, session_cookie):
@@ -539,8 +552,9 @@ def _get_screen(base, max_pages, session_cookie):
 
     first = parse_screen_html(_fetch_html(f"{base}?limit={SCREEN_PAGE_SIZE}&page=1"), base)
     if first is None:
-        msg = "screener.in returned no results table for that screen - it may be private or deleted"
-        raise ValueError(msg)
+        raise ValueError(
+            "screener.in returned no results table for that screen - it may be private or deleted"
+        )
     wanted = min(first["pages"], max(1, int(max_pages)))
     for page in range(2, wanted + 1):
         more = parse_screen_html(_fetch_html(f"{base}?limit={SCREEN_PAGE_SIZE}&page={page}"), base)
@@ -607,7 +621,8 @@ def get_cogencis_news(isin, token, limit=20):
     once they do; there's no login flow here to auto-renew them. Returns the same shape as
     get_news: [{title, summary, url, published_at, source, origin}]."""
     rows = _cogencis_rows(
-        token, {"sWebNews": "true", "forWebSite": "true", "pageNo": 1, "pageSize": limit, "isins": isin}
+        token,
+        {"sWebNews": "true", "forWebSite": "true", "pageNo": 1, "pageSize": limit, "isins": isin},
     )
     return [_cogencis_item(r) for r in rows]
 
@@ -886,7 +901,9 @@ def get_history(symbol, start, end):
         "close": float(df["Close"].iloc[-1]),
         "high": float(df["High"].max()),
         "low": float(df["Low"].min()),
-        "changePercent": float((df["Close"].iloc[-1] - df["Open"].iloc[0]) / df["Open"].iloc[0] * 100),
+        "changePercent": float(
+            (df["Close"].iloc[-1] - df["Open"].iloc[0]) / df["Open"].iloc[0] * 100
+        ),
         "avgVolume": int(df["Volume"].mean()),
     }
 
@@ -910,7 +927,7 @@ def get_financial_statements(symbol):
         values.append(None if ttm_val is None or ttm_val != ttm_val else float(ttm_val))
         rows.append({"label": label, "values": values})
 
-    return {"periods": [*periods, "TTM"], "rows": rows}
+    return {"periods": periods + ["TTM"], "rows": rows}
 
 
 def get_daily_bars(symbol, start=None, period="1y"):
@@ -919,7 +936,11 @@ def get_daily_bars(symbol, start=None, period="1y"):
     start='YYYY-MM-DD' fetches only bars from that date forward (incremental gap-fill, ignores
     `period`)."""
     ticker = _stock_ticker(symbol)
-    df = ticker.history(period=period, interval="1d") if start is None else ticker.history(start=start, interval="1d")
+    df = (
+        ticker.history(period=period, interval="1d")
+        if start is None
+        else ticker.history(start=start, interval="1d")
+    )
     return [
         {
             "date": ts.date().isoformat(),
@@ -992,7 +1013,11 @@ def get_corporate_actions(symbol, since_days=30):
     try:
         for d in (ticker.calendar or {}).get("Earnings Date", []):
             events.append(
-                {"action_type": "earnings", "date": d.isoformat(), "detail": f"Earnings scheduled for {d.isoformat()}"}
+                {
+                    "action_type": "earnings",
+                    "date": d.isoformat(),
+                    "detail": f"Earnings scheduled for {d.isoformat()}",
+                }
             )
     except Exception:
         pass  # no calendar data for this symbol - fine, skip earnings events

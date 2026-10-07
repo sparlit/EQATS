@@ -34,8 +34,6 @@ from app.schemas import ChatRequest
 from app.services import agent_runs
 from app.services.agent import (
     AGENT_SYSTEM,
-    AGENT_TOOL_IMPLS,
-    AGENT_TOOLS,
     CONFIRM_TOOLS,
     REAL_TOOL_IMPLS,
     _format_rule_check,
@@ -50,11 +48,17 @@ router = APIRouter(tags=["chat"])
 # coming back empty for junk input. Swap for a real symbol-list lookup if false positives bite.
 TICKER_PATTERN = re.compile(r"\b[A-Z]{2,15}\b")
 
-HISTORY_COMMAND = re.compile(r"^/history\s+(\S+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{4}-\d{2}-\d{2})\s*$", re.IGNORECASE)
-HISTORY_USAGE = "Usage: `/history SYMBOL YYYY-MM-DD YYYY-MM-DD` — e.g. `/history TCS 2026-01-01 2026-03-01`"
+HISTORY_COMMAND = re.compile(
+    r"^/history\s+(\S+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{4}-\d{2}-\d{2})\s*$", re.IGNORECASE
+)
+HISTORY_USAGE = (
+    "Usage: `/history SYMBOL YYYY-MM-DD YYYY-MM-DD` — e.g. `/history TCS 2026-01-01 2026-03-01`"
+)
 
 SENTIMENT_COMMAND = re.compile(r"^/sentiment\s+(\S+)\s*$", re.IGNORECASE)
-SENTIMENT_USAGE = "Usage: `/sentiment URL` — e.g. `/sentiment https://example.com/some-news-article`"
+SENTIMENT_USAGE = (
+    "Usage: `/sentiment URL` — e.g. `/sentiment https://example.com/some-news-article`"
+)
 
 RULE_COMMAND = re.compile(r"^/rule\s+(.+)$", re.IGNORECASE)
 RULE_USAGE = (
@@ -89,10 +93,16 @@ def _history_text(message):
         ptype = p.get("type", "")
         if ptype == "text" and p.get("text"):
             segments.append(p["text"])
-        elif (ptype == "dynamic-tool" or ptype.startswith("tool-")) and p.get("state") == "output-available":
+        elif (ptype == "dynamic-tool" or ptype.startswith("tool-")) and p.get(
+            "state"
+        ) == "output-available":
             name = p.get("toolName") or ptype.removeprefix("tool-")
             output = p.get("output")
-            text = output if isinstance(output, str) else json.dumps(output, default=str, ensure_ascii=False)
+            text = (
+                output
+                if isinstance(output, str)
+                else json.dumps(output, default=str, ensure_ascii=False)
+            )
             if len(text) > _HISTORY_TOOL_OUTPUT_CHARS:
                 text = text[:_HISTORY_TOOL_OUTPUT_CHARS] + "…(truncated)"
             segments.append(llm._wrap_tool_result(name, text))
@@ -102,7 +112,9 @@ def _history_text(message):
 def _windowed_history(messages):
     """Last MAX_HISTORY_MESSAGES messages, rendered for the model - a sliding window so a long
     session doesn't send unbounded, ever-growing history on every turn."""
-    return [{"role": m["role"], "content": _history_text(m)} for m in messages[-MAX_HISTORY_MESSAGES:]]
+    return [
+        {"role": m["role"], "content": _history_text(m)} for m in messages[-MAX_HISTORY_MESSAGES:]
+    ]
 
 
 @router.get("/api/chat/sessions")
@@ -119,7 +131,11 @@ def delete_session(session_id: str):
 @router.get("/api/chat/sessions/{session_id}/messages")
 def messages(session_id: str):
     return [
-        {"id": str(uuid.uuid4()), "role": m["role"], "parts": [{"type": "text", "text": m["content"]}]}
+        {
+            "id": str(uuid.uuid4()),
+            "role": m["role"],
+            "parts": [{"type": "text", "text": m["content"]}],
+        }
         for m in db.list_messages(session_id)
     ]
 
@@ -206,8 +222,9 @@ def _parse_confirm(user_text):
         raise ValueError(CONFIRM_USAGE)
     name, arg_str = match.group(1), (match.group(2) or "").strip()
     if name not in CONFIRM_TOOLS:
-        msg = f"'{name}' doesn't require confirmation (or isn't a tool) - nothing to do."
-        raise ValueError(msg)
+        raise ValueError(
+            f"'{name}' doesn't require confirmation (or isn't a tool) - nothing to do."
+        )
     kwargs = {}
     for part in arg_str.split():
         if "=" in part:
@@ -221,7 +238,13 @@ def _rag_reply(user_text, messages, model):
     stored reports, answer from those. The original path for every model, and now the fallback
     for a provider whose tool support turns out to be a promise rather than a feature."""
     live_reports = list(
-        filter(None, (_live_scrape(symbol, model) for symbol in dict.fromkeys(TICKER_PATTERN.findall(user_text))))
+        filter(
+            None,
+            (
+                _live_scrape(symbol, model)
+                for symbol in dict.fromkeys(TICKER_PATTERN.findall(user_text))
+            ),
+        )
     )
     query_embedding = llm.embed(user_text)
     matches = db.similarity_search(query_embedding, limit=5)
@@ -282,7 +305,14 @@ def post_chat(req: ChatRequest):
         if confirm_call:
             name, kwargs = confirm_call
             call_id = str(uuid.uuid4())
-            yield _sse({"type": "tool-input-available", "toolCallId": call_id, "toolName": name, "input": kwargs})
+            yield _sse(
+                {
+                    "type": "tool-input-available",
+                    "toolCallId": call_id,
+                    "toolName": name,
+                    "input": kwargs,
+                }
+            )
             try:
                 result = REAL_TOOL_IMPLS[name](**kwargs)
                 final_reply = f"Ran `{name}`."
@@ -293,7 +323,7 @@ def post_chat(req: ChatRequest):
             db.add_message(req.sessionId, "assistant", final_reply)
         if use_agent:
             history = _windowed_history(req.messages)
-            messages = [{"role": "system", "content": AGENT_SYSTEM}, *history]
+            messages = [{"role": "system", "content": AGENT_SYSTEM}] + history
             # A run row even for the widget's own turns, so every tool call this app makes lands
             # in one place and the Workflow tab can draw a chat that started here.
             run_id = str(uuid.uuid4())
@@ -304,11 +334,22 @@ def post_chat(req: ChatRequest):
                     if event[0] == "tool":
                         _, call_id, name, args, _round = event
                         yield _sse(
-                            {"type": "tool-input-available", "toolCallId": call_id, "toolName": name, "input": args}
+                            {
+                                "type": "tool-input-available",
+                                "toolCallId": call_id,
+                                "toolName": name,
+                                "input": args,
+                            }
                         )
                     elif event[0] == "tool_result":
                         _, call_id, result, _round = event
-                        yield _sse({"type": "tool-output-available", "toolCallId": call_id, "output": result})
+                        yield _sse(
+                            {
+                                "type": "tool-output-available",
+                                "toolCallId": call_id,
+                                "output": result,
+                            }
+                        )
                     else:
                         final_reply = event[1]
             except RuntimeError as e:
@@ -336,4 +377,6 @@ def post_chat(req: ChatRequest):
         yield _sse({"type": "finish"})
         yield "data: [DONE]\n\n"
 
-    return StreamingResponse(stream(), media_type="text/event-stream", headers={"x-vercel-ai-ui-message-stream": "v1"})
+    return StreamingResponse(
+        stream(), media_type="text/event-stream", headers={"x-vercel-ai-ui-message-stream": "v1"}
+    )
