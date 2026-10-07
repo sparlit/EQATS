@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """
 Tests for nse_scraper settings - Configuration validation
 """
-import os
 import unittest
 
 from nse_scraper import settings
@@ -35,44 +34,44 @@ class TestScrapySettings(unittest.TestCase):
 
     def test_settings_module_exists(self):
         """Test settings module can be imported"""
-        assert hasattr(settings, "BOT_NAME")
+        self.assertTrue(hasattr(settings, "BOT_NAME"))
 
     def test_bot_name_configured(self):
         """Test BOT_NAME is set"""
-        assert getattr(settings, "BOT_NAME", None) is not None
+        self.assertIsNotNone(getattr(settings, "BOT_NAME", None))
 
     def test_spider_modules_configured(self):
         """Test spider modules are configured"""
         spider_modules = getattr(settings, "SPIDER_MODULES", [])
-        assert len(spider_modules) > 0
+        self.assertTrue(len(spider_modules) > 0)
 
     def test_logging_configured(self):
         """Test logging level is configured"""
         log_level = getattr(settings, "LOG_LEVEL", None)
-        assert log_level in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+        self.assertIn(log_level, ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
 
     def test_concurrent_requests(self):
         """Test concurrent requests setting"""
         concurrent = getattr(settings, "CONCURRENT_REQUESTS", None)
-        assert concurrent is not None
-        assert concurrent > 0
+        self.assertIsNotNone(concurrent)
+        self.assertGreater(concurrent, 0)
 
     def test_download_delay_configured(self):
         """Test download delay is set (respectful scraping)"""
         delay = getattr(settings, "DOWNLOAD_DELAY", 0)
-        assert delay >= 0
+        self.assertGreaterEqual(delay, 0)
 
     def test_retry_enabled(self):
         """Test retry mechanism is configured"""
         retry_times = getattr(settings, "RETRY_TIMES", 0)
-        assert retry_times > 0
+        self.assertGreater(retry_times, 0)
 
     def test_user_agent_configured(self):
         """Test user agent is configured"""
         user_agent = getattr(settings, "USER_AGENT", None)
-        assert user_agent is not None
-        assert isinstance(user_agent, str)
-        assert len(user_agent) > 0
+        self.assertIsNotNone(user_agent)
+        self.assertIsInstance(user_agent, str)
+        self.assertGreater(len(user_agent), 0)
 
 
 class TestEnvironmentSettings(unittest.TestCase):
@@ -83,7 +82,7 @@ class TestEnvironmentSettings(unittest.TestCase):
         # This tests that python-dotenv is available and working
         from dotenv import load_dotenv
 
-        assert callable(load_dotenv)
+        self.assertTrue(callable(load_dotenv))
 
 
 if __name__ == "__main__":

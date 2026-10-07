@@ -42,37 +42,43 @@ class TestNseScraperItem(unittest.TestCase):
             stock_change=0.5,
             created_at=datetime.now(),
         )
-        assert item["ticker_symbol"] == "BAT"
-        assert item["stock_name"] == "Britam Holdings"
-        assert item["stock_price"] == 38.5
-        assert item["stock_change"] == 0.5
-        assert isinstance(item["created_at"], datetime)
+        self.assertEqual(item["ticker_symbol"], "BAT")
+        self.assertEqual(item["stock_name"], "Britam Holdings")
+        self.assertEqual(item["stock_price"], 38.5)
+        self.assertEqual(item["stock_change"], 0.5)
+        self.assertIsInstance(item["created_at"], datetime)
 
     def test_item_fields(self):
         """Test that all required fields exist"""
         item = NseScraperItem()
-        required_fields = ["ticker_symbol", "stock_name", "stock_price", "stock_change", "created_at"]
+        required_fields = [
+            "ticker_symbol",
+            "stock_name",
+            "stock_price",
+            "stock_change",
+            "created_at",
+        ]
 
         for field in required_fields:
-            assert field in item.fields
+            self.assertIn(field, item.fields)
 
     def test_item_with_partial_data(self):
         """Test creating item with partial data"""
         item = NseScraperItem(ticker_symbol="EABL", stock_name="East African Breweries")
-        assert item["ticker_symbol"] == "EABL"
-        assert item["stock_name"] == "East African Breweries"
+        self.assertEqual(item["ticker_symbol"], "EABL")
+        self.assertEqual(item["stock_name"], "East African Breweries")
 
     def test_stock_price_as_float(self):
         """Test stock price is stored as float"""
         item = NseScraperItem(stock_price=42.75)
-        assert isinstance(item["stock_price"], (int, float))
-        assert item["stock_price"] == 42.75
+        self.assertIsInstance(item["stock_price"], (int, float))
+        self.assertEqual(item["stock_price"], 42.75)
 
     def test_stock_change_as_float(self):
         """Test stock change is stored as float"""
         item = NseScraperItem(stock_change=-0.25)
-        assert isinstance(item["stock_change"], (int, float))
-        assert item["stock_change"] == -0.25
+        self.assertIsInstance(item["stock_change"], (int, float))
+        self.assertEqual(item["stock_change"], -0.25)
 
 
 if __name__ == "__main__":

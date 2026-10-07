@@ -24,8 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """
 Integration tests for nse_scraper - End-to-end functionality
 """
-import os
-import sys
 import unittest
 from pathlib import Path
 
@@ -36,14 +34,14 @@ class TestProjectStructure(unittest.TestCase):
     def test_project_root_exists(self):
         """Test project root directory exists"""
         project_root = Path(__file__).parent.parent
-        assert project_root.exists()
+        self.assertTrue(project_root.exists())
 
     def test_nse_scraper_package_exists(self):
         """Test nse_scraper package is importable"""
         try:
             import nse_scraper
 
-            assert True
+            self.assertTrue(True)
         except ImportError:
             self.fail("nse_scraper package not importable")
 
@@ -52,7 +50,7 @@ class TestProjectStructure(unittest.TestCase):
         try:
             from nse_scraper.spiders import afx_scraper
 
-            assert True
+            self.assertTrue(True)
         except ImportError:
             self.fail("Spider module not found")
 
@@ -61,7 +59,7 @@ class TestProjectStructure(unittest.TestCase):
         try:
             from nse_scraper import items
 
-            assert True
+            self.assertTrue(True)
         except ImportError:
             self.fail("Items module not found")
 
@@ -70,7 +68,7 @@ class TestProjectStructure(unittest.TestCase):
         try:
             from nse_scraper import settings
 
-            assert True
+            self.assertTrue(True)
         except ImportError:
             self.fail("Settings module not found")
 
@@ -79,7 +77,7 @@ class TestProjectStructure(unittest.TestCase):
         try:
             from nse_scraper import pipelines
 
-            assert True
+            self.assertTrue(True)
         except ImportError:
             self.fail("Pipelines module not found")
 
@@ -92,7 +90,7 @@ class TestDependencies(unittest.TestCase):
         try:
             import scrapy
 
-            assert True
+            self.assertTrue(True)
         except ImportError:
             self.fail("Scrapy not installed")
 
@@ -101,7 +99,7 @@ class TestDependencies(unittest.TestCase):
         try:
             import pymongo
 
-            assert True
+            self.assertTrue(True)
         except ImportError:
             self.fail("PyMongo not installed")
 
@@ -110,7 +108,7 @@ class TestDependencies(unittest.TestCase):
         try:
             import africastalking
 
-            assert True
+            self.assertTrue(True)
         except ImportError:
             self.fail("Africa's Talking not installed")
 
@@ -119,7 +117,7 @@ class TestDependencies(unittest.TestCase):
         try:
             import dotenv
 
-            assert True
+            self.assertTrue(True)
         except ImportError:
             self.fail("python-dotenv not installed")
 
@@ -128,7 +126,7 @@ class TestDependencies(unittest.TestCase):
         try:
             import requests
 
-            assert True
+            self.assertTrue(True)
         except ImportError:
             self.fail("requests not installed")
 
@@ -140,25 +138,25 @@ class TestConfigurationFiles(unittest.TestCase):
         """Test requirements.txt exists"""
         project_root = Path(__file__).parent.parent
         requirements_file = project_root / "requirements.txt"
-        assert requirements_file.exists()
+        self.assertTrue(requirements_file.exists())
 
     def test_scrapy_config_exists(self):
         """Test scrapy.cfg exists"""
         project_root = Path(__file__).parent.parent
         scrapy_config = project_root / "scrapy.cfg"
-        assert scrapy_config.exists()
+        self.assertTrue(scrapy_config.exists())
 
     def test_dockerfile_exists(self):
         """Test Dockerfile exists"""
         project_root = Path(__file__).parent.parent
         dockerfile = project_root / "Dockerfile"
-        assert dockerfile.exists()
+        self.assertTrue(dockerfile.exists())
 
     def test_docker_compose_exists(self):
         """Test docker-compose.yml exists"""
         project_root = Path(__file__).parent.parent
         docker_compose = project_root / "docker-compose.yml"
-        assert docker_compose.exists()
+        self.assertTrue(docker_compose.exists())
 
 
 if __name__ == "__main__":
