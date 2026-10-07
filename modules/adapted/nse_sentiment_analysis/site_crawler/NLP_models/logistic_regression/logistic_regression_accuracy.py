@@ -21,7 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn import metrics
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
@@ -31,7 +30,9 @@ from sklearn.pipeline import Pipeline
 
 
 def readcsv():
-    df = pd.read_csv("../../data/dataset/csv/dataset_sentiment.csv")  # read labelled tweets
+    df = pd.read_csv(
+        "../../data/dataset/csv/dataset_sentiment.csv",
+    )  # read labelled tweets
     X = df.text
     y = df.label
     return X, y
@@ -44,7 +45,12 @@ def logistic_regression_accuracy(X, y):
         [
             ("vect", CountVectorizer()),
             ("tfidf", TfidfTransformer()),
-            ("logistic", LogisticRegression(C=0.001, multi_class="multinomial", solver="lbfgs", random_state=1)),
+            (
+                "logistic",
+                LogisticRegression(
+                    C=0.001, multi_class="multinomial", solver="lbfgs", random_state=1
+                ),
+            ),
         ]
     )
     logreg = logreg.fit(X_train, y_train)

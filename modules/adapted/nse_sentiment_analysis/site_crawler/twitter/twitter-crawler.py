@@ -21,7 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import tweepy
 from site_crawler.twitter.credentials import Credentials
 
 c = Credentials()

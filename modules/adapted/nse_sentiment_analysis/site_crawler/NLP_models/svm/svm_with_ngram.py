@@ -30,15 +30,24 @@ from sklearn.svm import SVC
 
 
 def readcsv():
-    df = pd.read_csv("../../data/dataset/csv/dataset_sentiment.csv")
+    df = pd.read_csv(
+        "../../data/dataset/csv/dataset_sentiment.csv",
+    )
     X = df.text
     y = df.label
     return X, y
 
 
 def createSVM(X, y):
-    svm_clf = Pipeline([("vect", CountVectorizer()), ("tfidf", TfidfTransformer()), ("svm", SVC(kernel="linear", C=1))])
-    return svm_clf.fit(X, y)
+    svm_clf = Pipeline(
+        [
+            ("vect", CountVectorizer()),
+            ("tfidf", TfidfTransformer()),
+            ("svm", SVC(kernel="linear", C=1)),
+        ]
+    )
+    svm_clf = svm_clf.fit(X, y)
+    return svm_clf
 
 
 def svm_ngram(X, y):
@@ -56,13 +65,17 @@ def svm_ngram(X, y):
     print("Just unigram counts Accuracy")
     print(metrics.accuracy_score(y_test, ypred2))
     print(metrics.classification_report(y_test, ypred2))
-    svm3 = Pipeline([("vect", CountVectorizer(ngram_range=(1, 2))), ("svm", SVC(kernel="linear", C=1))])
+    svm3 = Pipeline(
+        [("vect", CountVectorizer(ngram_range=(1, 2))), ("svm", SVC(kernel="linear", C=1))]
+    )
     svm3 = svm3.fit(X_train, y_train)
     ypred3 = svm3.predict(X_test)
     print("just bigram counts Accuracy")
     print(metrics.accuracy_score(y_test, ypred3))
     print(metrics.classification_report(y_test, ypred3))
-    svm4 = Pipeline([("vect", CountVectorizer(ngram_range=(1, 3))), ("svm", SVC(kernel="linear", C=1))])
+    svm4 = Pipeline(
+        [("vect", CountVectorizer(ngram_range=(1, 3))), ("svm", SVC(kernel="linear", C=1))]
+    )
     svm4 = svm4.fit(X_train, y_train)
     ypred4 = svm4.predict(X_test)
     print("Trigram counts Accuracy")
