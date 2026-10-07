@@ -1,5 +1,5 @@
 {
-  "current_index": 202,
+  "current_index": 203,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1621,7 +1621,7 @@
       "name": "longbridge-terminal",
       "target": "longbridge/longbridge-terminal",
       "url": "https://github.com/longbridge/longbridge-terminal",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
