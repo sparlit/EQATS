@@ -39,9 +39,9 @@ can point it at a throwaway file (see verify_intraday_db.py).
 """
 
 
-import datetime as dt
 import os
 import sqlite3
+import time
 
 import pandas as pd
 
@@ -140,12 +140,34 @@ CREATE TABLE IF NOT EXISTS intraday_capital_state (
 def get_conn(db_path: str | None = None) -> sqlite3.Connection:
     db_path = db_path or DB_PATH
     os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    conn.executescript(_SCHEMA)
-    conn.commit()
-    _migrate_daily_selection_schema(conn)
-    return conn
+    # timeout=30 + WAL: this file is hit concurrently from genuinely
+    # separate OS processes (the live/paper intraday_engine.py process
+    # AND the dashboard's own Streamlit process), not just separate
+    # threads -- the same "database is locked" risk state_db.get_conn()
+    # had (fresh connection + full schema/migration cost on every call,
+    # sqlite3's 5s default timeout) applies here too, if anything with
+    # more exposure given the cross-process access. The retry loop
+    # absorbs the brief race switching INTO WAL mode for the very first
+    # connection ever (skipped on every later one, once a connection
+    # reports it's already in WAL) and the same-class race in the
+    # migration function's own check-then-ALTER pattern.
+    last_err = None
+    for attempt in range(8):
+        try:
+            conn = sqlite3.connect(db_path, timeout=30)
+            if conn.execute("PRAGMA journal_mode").fetchone()[0] != "wal":
+                conn.execute("PRAGMA journal_mode=WAL")
+            conn.row_factory = sqlite3.Row
+            conn.executescript(_SCHEMA)
+            conn.commit()
+            _migrate_daily_selection_schema(conn)
+            return conn
+        except sqlite3.OperationalError as e:
+            last_err = e
+            if "locked" not in str(e).lower() and "duplicate column" not in str(e).lower():
+                raise
+            time.sleep(0.1 * (attempt + 1))
+    raise last_err
 
 
 def _migrate_daily_selection_schema(conn: sqlite3.Connection) -> None:
@@ -159,7 +181,9 @@ def _migrate_daily_selection_schema(conn: sqlite3.Connection) -> None:
     badge for both."""
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(intraday_daily_selection)")}
     if "status" not in cols:
-        conn.execute("ALTER TABLE intraday_daily_selection ADD COLUMN status TEXT NOT NULL DEFAULT 'watching'")
+        conn.execute(
+            "ALTER TABLE intraday_daily_selection ADD COLUMN status TEXT NOT NULL DEFAULT 'watching'"
+        )
     if "status_updated_at" not in cols:
         conn.execute("ALTER TABLE intraday_daily_selection ADD COLUMN status_updated_at TEXT")
     # v2 Spec §6 -- entry-time sector-confirmation gate, resolved once at
@@ -216,7 +240,11 @@ def _migrate_daily_selection_schema(conn: sqlite3.Connection) -> None:
 
 
 def record_day(
-    date: str, nifty_ratio: float, day_bias: str | None, advancers: int | None = None, decliners: int | None = None
+    date: str,
+    nifty_ratio: float,
+    day_bias: str | None,
+    advancers: int | None = None,
+    decliners: int | None = None,
 ) -> None:
     """One call per trading day the engine runs the 09:30 check --
     day_bias=None records a SKIPPED day (ratio didn't clear either
@@ -251,7 +279,10 @@ def record_candidates(date: str, candidates: list[dict]) -> None:
         "VALUES (?, ?, ?, ?, ?) ON CONFLICT(date, symbol) DO UPDATE SET "
         "rank = excluded.rank, ret_first15_pct = excluded.ret_first15_pct, "
         "gap_pct = excluded.gap_pct",
-        [(date, c["rank"], c["symbol"], c["ret_first15_pct"], c.get("gap_pct")) for c in candidates],
+        [
+            (date, c["rank"], c["symbol"], c["ret_first15_pct"], c.get("gap_pct"))
+            for c in candidates
+        ],
     )
     conn.commit()
     conn.close()
@@ -310,13 +341,27 @@ def update_candidate_sector_gate(
 
 
 def create_signal(
-    date: str, symbol: str, signal_time: str, signal_high: float, signal_low: float, signal_atr: float
+    date: str,
+    symbol: str,
+    signal_time: str,
+    signal_high: float,
+    signal_low: float,
+    signal_atr: float,
 ) -> int:
+    # Defense-in-depth float() cast, on top of the callers already casting
+    # their own candle-derived values: a raw numpy.int64 (unlike
+    # numpy.float64) silently serializes to a BLOB instead of a REAL via
+    # sqlite3's bind parameters rather than erroring -- hit live
+    # (2026-10-01, BAJAJ-AUTO: that day's OHLCV all happened to be whole
+    # numbers, fetched as an int64 dtype column) and corrupted
+    # signal_high/signal_low until the next read crashed the dashboard.
+    # float() on a plain Python float is a no-op, so this is free for
+    # every normal (already-float) call.
     conn = get_conn()
     cur = conn.execute(
         "INSERT INTO intraday_signals (date, symbol, signal_time, signal_high, "
         "signal_low, signal_atr) VALUES (?, ?, ?, ?, ?, ?)",
-        (date, symbol, signal_time, signal_high, signal_low, signal_atr),
+        (date, symbol, signal_time, float(signal_high), float(signal_low), float(signal_atr)),
     )
     signal_id = cur.lastrowid
     conn.commit()
@@ -328,7 +373,8 @@ def update_signal_status(signal_id: int, status: str) -> None:
     """status: 'active' | 'expired' | 'triggered' | 'invalidated'."""
     conn = get_conn()
     conn.execute(
-        "UPDATE intraday_signals SET status = ?, updated_at = datetime('now') WHERE id = ?", (status, signal_id)
+        "UPDATE intraday_signals SET status = ?, updated_at = datetime('now') WHERE id = ?",
+        (status, signal_id),
     )
     conn.commit()
     conn.close()
@@ -337,7 +383,8 @@ def update_signal_status(signal_id: int, status: str) -> None:
 def get_active_signal(date: str, symbol: str) -> dict | None:
     conn = get_conn()
     row = conn.execute(
-        "SELECT * FROM intraday_signals WHERE date = ? AND symbol = ? AND status = 'active' ORDER BY id DESC LIMIT 1",
+        "SELECT * FROM intraday_signals WHERE date = ? AND symbol = ? AND status = 'active' "
+        "ORDER BY id DESC LIMIT 1",
         (date, symbol),
     ).fetchone()
     conn.close()
@@ -423,7 +470,9 @@ def close_position_leg(
         "gross_pnl, costs, net_pnl, order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (position_id, leg_type, qty, exit_price, exit_time, gross_pnl, costs, net_pnl, order_id),
     )
-    row = conn.execute("SELECT qty_remaining FROM intraday_positions WHERE id = ?", (position_id,)).fetchone()
+    row = conn.execute(
+        "SELECT qty_remaining FROM intraday_positions WHERE id = ?", (position_id,)
+    ).fetchone()
     new_remaining = max(0, row["qty_remaining"] - qty)
     new_status = "closed" if new_remaining == 0 else "open"
     conn.execute(
@@ -462,7 +511,11 @@ def get_open_positions(date: str | None = None, mode: str | None = None) -> pd.D
     if mode:
         where.append("mode = ?")
         params.append(mode)
-    df = pd.read_sql(f"SELECT * FROM intraday_positions WHERE {' AND '.join(where)} ORDER BY id", conn, params=params)
+    df = pd.read_sql(
+        f"SELECT * FROM intraday_positions WHERE {' AND '.join(where)} ORDER BY id",
+        conn,
+        params=params,
+    )
     conn.close()
     return df
 
@@ -484,12 +537,18 @@ def get_positions(date: str | None = None, mode: str | None = None) -> pd.DataFr
     return df
 
 
-def get_legs(position_id: int | None = None, date: str | None = None, mode: str | None = None) -> pd.DataFrame:
+def get_legs(
+    position_id: int | None = None, date: str | None = None, mode: str | None = None
+) -> pd.DataFrame:
     """All legs, optionally for one position, or joined/filtered by the
     parent position's date/mode (for the Tradebook page's day view)."""
     conn = get_conn()
     if position_id is not None:
-        df = pd.read_sql("SELECT * FROM intraday_legs WHERE position_id = ? ORDER BY id", conn, params=(position_id,))
+        df = pd.read_sql(
+            "SELECT * FROM intraday_legs WHERE position_id = ? ORDER BY id",
+            conn,
+            params=(position_id,),
+        )
         conn.close()
         return df
     where, params = [], []
@@ -502,7 +561,7 @@ def get_legs(position_id: int | None = None, date: str | None = None, mode: str 
     clause = f"WHERE {' AND '.join(where)}" if where else ""
     df = pd.read_sql(
         f"SELECT l.*, p.date, p.symbol, p.direction, p.entry_price, p.entry_time, "
-        f"p.mode AS position_mode FROM intraday_legs l "
+        f"p.qty AS position_qty, p.mode AS position_mode FROM intraday_legs l "
         f"JOIN intraday_positions p ON p.id = l.position_id {clause} ORDER BY l.id",
         conn,
         params=params,
@@ -524,7 +583,8 @@ def ensure_capital_seeded(mode: str, starting_capital: float) -> None:
     row = conn.execute("SELECT 1 FROM intraday_capital_state WHERE mode = ?", (mode,)).fetchone()
     if row is None:
         conn.execute(
-            "INSERT INTO intraday_capital_state (mode, starting_capital, current_capital) VALUES (?, ?, ?)",
+            "INSERT INTO intraday_capital_state (mode, starting_capital, current_capital) "
+            "VALUES (?, ?, ?)",
             (mode, starting_capital, starting_capital),
         )
         conn.commit()
@@ -544,14 +604,19 @@ def apply_day_pnl(mode: str, day_pnl: float) -> float:
     P&L"). Returns the new current_capital. Raises if ensure_capital_
     seeded() was never called for this mode."""
     conn = get_conn()
-    row = conn.execute("SELECT current_capital FROM intraday_capital_state WHERE mode = ?", (mode,)).fetchone()
+    row = conn.execute(
+        "SELECT current_capital FROM intraday_capital_state WHERE mode = ?", (mode,)
+    ).fetchone()
     if row is None:
         conn.close()
-        msg = f"intraday_capital_state has no row for mode={mode!r} -- call ensure_capital_seeded() first"
-        raise ValueError(msg)
+        raise ValueError(
+            f"intraday_capital_state has no row for mode={mode!r} -- "
+            f"call ensure_capital_seeded() first"
+        )
     new_capital = row["current_capital"] + day_pnl
     conn.execute(
-        "UPDATE intraday_capital_state SET current_capital = ?, updated_at = datetime('now') WHERE mode = ?",
+        "UPDATE intraday_capital_state SET current_capital = ?, updated_at = datetime('now') "
+        "WHERE mode = ?",
         (new_capital, mode),
     )
     conn.commit()

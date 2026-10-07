@@ -39,11 +39,9 @@ for the right context (current quarter, consolidated where available).
 
 
 import datetime as dt
-import re
 import xml.etree.ElementTree as ET
 
 import nse_api
-import numpy as np
 import pandas as pd
 
 # Candidate XBRL local-names per concept (Ind-AS taxonomy, several vintages)
@@ -130,7 +128,7 @@ CONCEPTS = {
 
 
 def _localname(tag: str) -> str:
-    return tag.rsplit("}", maxsplit=1)[-1] if "}" in tag else tag
+    return tag.split("}")[-1] if "}" in tag else tag
 
 
 def _to_float(text):
@@ -328,7 +326,9 @@ def _derive_ratios(out: dict) -> dict:
     return out
 
 
-def quarterly_financials(symbol: str, max_quarters: int = 12, consolidated_only: bool = False) -> pd.DataFrame:
+def quarterly_financials(
+    symbol: str, max_quarters: int = 12, consolidated_only: bool = False
+) -> pd.DataFrame:
     """Parse the last N quarterly XBRL filings into a tidy DataFrame.
 
     Falls back to Standalone on a PER-QUARTER basis when Consolidated isn't
@@ -469,20 +469,30 @@ def earnings_quality(df: pd.DataFrame) -> dict:
         wins = sum(
             1
             for i in range(4, len(d))
-            if pd.notna(d["pat"].iloc[i]) and pd.notna(d["pat"].iloc[i - 4]) and d["pat"].iloc[i] > d["pat"].iloc[i - 4]
+            if pd.notna(d["pat"].iloc[i])
+            and pd.notna(d["pat"].iloc[i - 4])
+            and d["pat"].iloc[i] > d["pat"].iloc[i - 4]
         )
         out["yoy_win_rate_pct"] = round(100 * wins / (len(d) - 4), 1)
 
     # Quality warnings
     warn = []
     if (out.get("other_income_share_of_pbt") or 0) > 30:
-        warn.append(f"{out['other_income_share_of_pbt']:.0f}% of PBT is other income — not the core business")
+        warn.append(
+            f"{out['other_income_share_of_pbt']:.0f}% of PBT is other "
+            f"income — not the core business"
+        )
     if abs(out.get("exceptional_share_of_pbt") or 0) > 20:
         warn.append("large exceptional items distort PBT")
     etr = out.get("effective_tax_rate")
     if etr is not None and (etr < 10 or etr > 45):
         warn.append(f"unusual effective tax rate {etr:.0f}%")
-    if out.get("rev_yoy") is not None and out.get("pat_yoy") is not None and out["pat_yoy"] > 30 and out["rev_yoy"] < 5:
+    if (
+        out.get("rev_yoy") is not None
+        and out.get("pat_yoy") is not None
+        and out["pat_yoy"] > 30
+        and out["rev_yoy"] < 5
+    ):
         warn.append("PAT growing without revenue growth — margin/one-off driven")
     out["quality_warnings"] = warn
     return out
@@ -542,7 +552,9 @@ def _pick_filing_slot(slot: dict[str, dict], basis: str, f: dict) -> None:
     would otherwise throw away real point-in-time information.
     """
     existing = slot.get(basis)
-    if existing is None or (existing.get("broadcast_Date") is None and f.get("broadcast_Date") is not None):
+    if existing is None or (
+        existing.get("broadcast_Date") is None and f.get("broadcast_Date") is not None
+    ):
         slot[basis] = f
 
 
@@ -772,7 +784,9 @@ def quarterly_summed_annual(symbol: str, n_years: int = 5) -> list[dict]:
             end.strftime("%d-%b-%Y"),
         ]
 
-    fy_ends = sorted({fy for fy, _ in by_fy}, key=lambda s: dt.datetime.strptime(s, "%d-%b-%Y"), reverse=True)
+    fy_ends = sorted(
+        {fy for fy, _ in by_fy}, key=lambda s: dt.datetime.strptime(s, "%d-%b-%Y"), reverse=True
+    )
 
     rows = []
     for fy_end in fy_ends:
@@ -816,7 +830,9 @@ def quarterly_summed_annual(symbol: str, n_years: int = 5) -> list[dict]:
                 if concept in _FLOW_CONCEPTS:
                     merged[concept] = sum(vals)
                 else:
-                    merged[concept] = parsed[-1].get(concept) if parsed[-1].get(concept) is not None else vals[-1]
+                    merged[concept] = (
+                        parsed[-1].get(concept) if parsed[-1].get(concept) is not None else vals[-1]
+                    )
             # Don't rely on the XBRL content's own period_start/period_end —
             # older files sometimes leave it unset even when concepts extract
             # fine (whichever concept happens to be processed first in
@@ -834,7 +850,9 @@ def quarterly_summed_annual(symbol: str, n_years: int = 5) -> list[dict]:
             # was actually complete, so the whole row is excluded (None)
             # rather than guessed at (see fundamentals_asof).
             bc_dates = [_parse_broadcast(quarters[qd].get("broadCastDate")) for qd in needed]
-            combined["known_as_of"] = max(bc_dates) if all(bc is not None for bc in bc_dates) else None
+            combined["known_as_of"] = (
+                max(bc_dates) if all(bc is not None for bc in bc_dates) else None
+            )
             break
         if combined is None:
             continue
@@ -842,7 +860,9 @@ def quarterly_summed_annual(symbol: str, n_years: int = 5) -> list[dict]:
             {
                 "symbol": symbol,
                 "qe_date": fy_end.upper(),
-                "consolidation_basis": "Standalone" if basis_used == "Non-Consolidated" else basis_used,
+                "consolidation_basis": "Standalone"
+                if basis_used == "Non-Consolidated"
+                else basis_used,
                 "reconstructed_from_quarters": True,
             }
         )
@@ -871,7 +891,9 @@ def fundamentals_asof(bs_years: list[dict], date) -> list[dict]:
     """
     cutoff = pd.Timestamp(date).normalize()
     return [
-        r for r in bs_years if r.get("known_as_of") is not None and pd.Timestamp(r["known_as_of"]).normalize() <= cutoff
+        r
+        for r in bs_years
+        if r.get("known_as_of") is not None and pd.Timestamp(r["known_as_of"]).normalize() <= cutoff
     ]
 
 
@@ -895,7 +917,9 @@ def quarterly_asof(qdf: pd.DataFrame, date) -> pd.DataFrame:
     if qdf is None or qdf.empty:
         return qdf if qdf is not None else pd.DataFrame()
     cutoff = pd.Timestamp(date).normalize()
-    mask = qdf["known_as_of"].notna() & (pd.to_datetime(qdf["known_as_of"]).dt.normalize() <= cutoff)
+    mask = qdf["known_as_of"].notna() & (
+        pd.to_datetime(qdf["known_as_of"]).dt.normalize() <= cutoff
+    )
     return qdf[mask].sort_values("qe_dt").reset_index(drop=True)
 
 
@@ -925,7 +949,11 @@ def _aggregate_pillars(
             pillar_scores[pillar] = sum(vals) / len(vals)
         else:
             missing.append(pillar)
-    total = round(sum(pillar_scores.values()) / (5 * len(pillar_scores)) * 100, 1) if pillar_scores else None
+    total = (
+        round(sum(pillar_scores.values()) / (5 * len(pillar_scores)) * 100, 1)
+        if pillar_scores
+        else None
+    )
     return pillar_scores, missing, total
 
 
@@ -987,7 +1015,9 @@ def quarterly_momentum_pillar(qdf: pd.DataFrame | None) -> tuple[dict, dict]:
 
     sub_scores = {
         "pat_yoy_q": _bucket(pat_yoy_q, _QUARTERLY_THRESHOLDS),
-        "revenue_yoy_q": _bucket(rev_yoy_q, _QUARTERLY_THRESHOLDS) if rev_yoy_q is not None else None,
+        "revenue_yoy_q": _bucket(rev_yoy_q, _QUARTERLY_THRESHOLDS)
+        if rev_yoy_q is not None
+        else None,
     }
     extra = {
         "pat_yoy_q_pct": pat_yoy_q,
@@ -1041,9 +1071,13 @@ def add_quarterly_pillar(
         weight_total += weight
         out["quarterly_as_of"] = (q_extra or {}).get("latest_quarter")
     else:
-        missing = [*missing, "quarterly_momentum"]
+        missing = missing + ["quarterly_momentum"]
 
-    total = round(weighted_sum / (5 * weight_total) * 100, 1) if weight_total else score.get("total_score")
+    total = (
+        round(weighted_sum / (5 * weight_total) * 100, 1)
+        if weight_total
+        else score.get("total_score")
+    )
 
     out["pillar_scores"] = {k: round(v, 2) for k, v in pillar_scores.items()}
     out["sub_scores"] = sub_scores
@@ -1080,7 +1114,9 @@ def value_score(bs_years: list[dict], market_price: float | None = None) -> dict
         -latest["debt_to_equity"] if latest.get("debt_to_equity") is not None else None,
         [(-0.3, 5), (-0.6, 4), (-1.0, 3), (-2.0, 2)],
     )  # lower D/E is better -> negate
-    sub_scores["current_ratio"] = _bucket(latest.get("current_ratio"), [(2.0, 5), (1.5, 4), (1.2, 3), (1.0, 2)])
+    sub_scores["current_ratio"] = _bucket(
+        latest.get("current_ratio"), [(2.0, 5), (1.5, 4), (1.2, 3), (1.0, 2)]
+    )
 
     rev_cagr = None
     if oldest and oldest.get("revenue") and latest.get("revenue"):
@@ -1096,7 +1132,9 @@ def value_score(bs_years: list[dict], market_price: float | None = None) -> dict
         pe = market_price / latest["eps_basic"] if latest["eps_basic"] > 0 else None
         if pe and pe > 0:
             peg = pe / rev_cagr
-    sub_scores["peg"] = _bucket(-peg if peg is not None else None, [(-1.0, 5), (-1.5, 4), (-2.0, 3), (-3.0, 2)])
+    sub_scores["peg"] = _bucket(
+        -peg if peg is not None else None, [(-1.0, 5), (-1.5, 4), (-2.0, 3), (-3.0, 2)]
+    )
 
     pillars = {
         "profitability": ["roe", "net_margin", "fcf_yoy"],
@@ -1139,7 +1177,9 @@ def bank_score(bs_years: list[dict]) -> dict:
     sub_scores: dict[str, int | None] = {}
     sub_scores["roe"] = _bucket(latest.get("roe"), [(18, 5), (15, 4), (12, 3), (8, 2), (0, 1)])
     sub_scores["roa"] = _bucket(latest.get("roa"), [(1.5, 5), (1.2, 4), (1.0, 3), (0.7, 2)])
-    sub_scores["nim"] = _bucket(latest.get("nim_proxy_pct"), [(4.0, 5), (3.5, 4), (3.0, 3), (2.5, 2)])
+    sub_scores["nim"] = _bucket(
+        latest.get("nim_proxy_pct"), [(4.0, 5), (3.5, 4), (3.0, 3), (2.5, 2)]
+    )
 
     sub_scores["gross_npa"] = _bucket(
         -latest["gross_npa_pct"] if latest.get("gross_npa_pct") is not None else None,
@@ -1361,7 +1401,17 @@ if __name__ == "__main__":
         print(f"No parseable XBRL for {sym}")
     else:
         cols = [
-            c for c in ["qe_date", "revenue", "ebitda_margin", "pat", "net_margin", "eps_basic", "audited"] if c in df
+            c
+            for c in [
+                "qe_date",
+                "revenue",
+                "ebitda_margin",
+                "pat",
+                "net_margin",
+                "eps_basic",
+                "audited",
+            ]
+            if c in df
         ]
         print(df[cols].to_string(index=False))
         print("\nEarnings quality:", earnings_quality(df))

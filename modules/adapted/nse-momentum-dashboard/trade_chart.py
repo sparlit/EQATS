@@ -54,7 +54,9 @@ import plotly.graph_objects as go
 import indicators
 
 
-def build_trade_overlay(df: pd.DataFrame, cfg: dict, entry_date, entry_price: float, exit_date=None) -> dict:
+def build_trade_overlay(
+    df: pd.DataFrame, cfg: dict, entry_date, entry_price: float, exit_date=None
+) -> dict:
     """Simulated fallback stop-line path from entry_date through exit_date
     (or df's last available date, for an open position). df must be daily
     OHLC indexed by date, covering enough history before entry_date for
@@ -105,7 +107,9 @@ def build_trade_overlay(df: pd.DataFrame, cfg: dict, entry_date, entry_price: fl
             elif trailing_on:
                 highest_close = max(highest_close, close_t)
                 atr_now = float(atr_series.loc[d]) if d in atr_series.index else float("nan")
-                running_stop = max(running_stop, highest_close - cfg.get("trailing_atr_multiple", 3.0) * atr_now)
+                running_stop = max(
+                    running_stop, highest_close - cfg.get("trailing_atr_multiple", 3.0) * atr_now
+                )
             # else: neither ratchet mechanism is on -- stop stays flat at
             # its entry-day value, matching backtest's day-loop exactly.
         stop_vals[d] = running_stop
@@ -142,7 +146,7 @@ def build_real_stop_history(
     if log_df.empty:
         return None
 
-    idx = [entry_date, *list(log_df["date"])]
+    idx = [entry_date] + list(log_df["date"])
     applied_val = [initial_stop]
     rec_val = [initial_stop]
     current_applied = initial_stop
@@ -152,7 +156,9 @@ def build_real_stop_history(
         applied_val.append(current_applied)
         rec_val.append(row.new_stop)
 
-    return pd.DataFrame({"applied": applied_val, "recommended": rec_val}, index=pd.DatetimeIndex(idx))
+    return pd.DataFrame(
+        {"applied": applied_val, "recommended": rec_val}, index=pd.DatetimeIndex(idx)
+    )
 
 
 _MODE_LABEL = {
@@ -237,7 +243,12 @@ def build_symbol_figure(
                         name="Recommended (MAD/ATR, may not be applied yet)",
                         legendgroup="recommended",
                         showlegend=first,
-                        marker={"symbol": "diamond", "size": 6, "color": "#2e7d32", "opacity": 0.85},
+                        marker={
+                            "symbol": "diamond",
+                            "size": 6,
+                            "color": "#2e7d32",
+                            "opacity": 0.85,
+                        },
                     )
                 )
         else:

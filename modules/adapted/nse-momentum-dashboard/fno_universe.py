@@ -325,7 +325,10 @@ def get_fno_universe(force_refresh: bool = False, verbose: bool = True) -> list[
             with open(CACHE_PATH) as f:
                 symbols = json.load(f)["symbols"]
             if verbose:
-                print(f"[fno] using stale cache ({len(symbols)} symbols, {_cache_age_days():.0f}d old)")
+                print(
+                    f"[fno] using stale cache ({len(symbols)} symbols, "
+                    f"{_cache_age_days():.0f}d old)"
+                )
             return symbols
         if verbose:
             print(f"[fno] using bundled fallback ({len(FALLBACK_FNO)} symbols)")

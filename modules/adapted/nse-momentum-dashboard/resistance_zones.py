@@ -155,7 +155,9 @@ def resistance_clearance_asof(
         return None
 
     upper_bound = current_price * (1 + search_pct)
-    lower_bound = current_price * (1 - tolerance_pct)  # catches a zone price is already sitting inside
+    lower_bound = current_price * (
+        1 - tolerance_pct
+    )  # catches a zone price is already sitting inside
     band = visible[(visible["price"] >= lower_bound) & (visible["price"] <= upper_bound)]
     if band.empty:
         return None

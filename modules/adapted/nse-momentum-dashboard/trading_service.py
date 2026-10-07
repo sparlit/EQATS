@@ -79,7 +79,11 @@ LOG_PATH = os.path.join(CACHE_DIR, "service_log.txt")
 
 REBALANCE_HOUR, REBALANCE_MINUTE = 16, 0  # matches the Task Scheduler entry this replaces
 GAP_CHECK_HOUR, GAP_CHECK_MINUTE = 9, 16  # shortly after NSE's 09:15 open
-FUNDAMENTALS_WEEKDAY, FUNDAMENTALS_HOUR, FUNDAMENTALS_MINUTE = 0, 8, 0  # Monday 08:00 (weekday() Mon=0)
+FUNDAMENTALS_WEEKDAY, FUNDAMENTALS_HOUR, FUNDAMENTALS_MINUTE = (
+    0,
+    8,
+    0,
+)  # Monday 08:00 (weekday() Mon=0)
 DASHBOARD_PORT = 8501
 
 
@@ -126,7 +130,9 @@ class TradingAppService(win32serviceutil.ServiceFramework):
 
     def SvcDoRun(self):
         servicemanager.LogMsg(
-            servicemanager.EVENTLOG_INFORMATION_TYPE, servicemanager.PYS_SERVICE_STARTED, (self._svc_name_, "")
+            servicemanager.EVENTLOG_INFORMATION_TYPE,
+            servicemanager.PYS_SERVICE_STARTED,
+            (self._svc_name_, ""),
         )
         _log("Service starting.")
         self._start_dashboard()
@@ -157,7 +163,9 @@ class TradingAppService(win32serviceutil.ServiceFramework):
                 if self.running:
                     self._start_dashboard()
 
-    def _is_due(self, key: str, now: dt.datetime, weekday: int | None, hour: int, minute: int) -> bool:
+    def _is_due(
+        self, key: str, now: dt.datetime, weekday: int | None, hour: int, minute: int
+    ) -> bool:
         """weekday=None means every weekday (Mon-Fri); a specific weekday
         (Monday=0) restricts to just that day, for the weekly fundamentals
         job. `minute >= minute` (not `==`) so a job still fires if the exact
@@ -176,7 +184,7 @@ class TradingAppService(win32serviceutil.ServiceFramework):
         _log(f"Running {label}.")
         stdout_log = open(os.path.join(CACHE_DIR, stdout_filename), "a")
         proc = subprocess.Popen(
-            [PYTHON_EXE, *script_args], cwd=PROJECT_DIR, stdout=stdout_log, stderr=subprocess.STDOUT
+            [PYTHON_EXE] + script_args, cwd=PROJECT_DIR, stdout=stdout_log, stderr=subprocess.STDOUT
         )
         self._current_scheduled_proc = proc
         proc.wait()
@@ -198,19 +206,27 @@ class TradingAppService(win32serviceutil.ServiceFramework):
 
             if self._is_due("rebalance", now, None, REBALANCE_HOUR, REBALANCE_MINUTE):
                 self._run_scheduled_once(
-                    "scheduled rebalance scan", ["live_rebalance.py"], "service_rebalance_stdout.txt"
+                    "scheduled rebalance scan",
+                    ["live_rebalance.py"],
+                    "service_rebalance_stdout.txt",
                 )
                 self._last_run_date["rebalance"] = now.date()
 
             if self._is_due("gap_check", now, None, GAP_CHECK_HOUR, GAP_CHECK_MINUTE):
                 self._run_scheduled_once(
-                    "morning gap-down check", ["live_rebalance.py", "--gap-check"], "service_gap_check_stdout.txt"
+                    "morning gap-down check",
+                    ["live_rebalance.py", "--gap-check"],
+                    "service_gap_check_stdout.txt",
                 )
                 self._last_run_date["gap_check"] = now.date()
 
-            if self._is_due("fundamentals", now, FUNDAMENTALS_WEEKDAY, FUNDAMENTALS_HOUR, FUNDAMENTALS_MINUTE):
+            if self._is_due(
+                "fundamentals", now, FUNDAMENTALS_WEEKDAY, FUNDAMENTALS_HOUR, FUNDAMENTALS_MINUTE
+            ):
                 self._run_scheduled_once(
-                    "weekly fundamentals scan", ["fundamentals_agent.py"], "service_fundamentals_stdout.txt"
+                    "weekly fundamentals scan",
+                    ["fundamentals_agent.py"],
+                    "service_fundamentals_stdout.txt",
                 )
                 self._last_run_date["fundamentals"] = now.date()
 
@@ -277,8 +293,8 @@ def main() -> None:
     # yourself (before "install") to override, e.g. `trading-app --startup
     # manual install` to opt out of auto-start.
     if argv and argv[-1] == "install" and not any(a.startswith("--startup") for a in argv):
-        argv = ["--startup", "auto", *argv]
-    win32serviceutil.HandleCommandLine(TradingAppService, argv=[sys.argv[0], *argv])
+        argv = ["--startup", "auto"] + argv
+    win32serviceutil.HandleCommandLine(TradingAppService, argv=[sys.argv[0]] + argv)
 
 
 if __name__ == "__main__":
