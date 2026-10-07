@@ -123,8 +123,7 @@ class TestTimestamps:
     def test_ist_session_close(self):
         day = datetime(2025, 6, 2, tzinfo=UTC)
         close = ist_session_close_utc(day)
-        assert close.hour == 10
-        assert close.minute == 0
+        assert close.hour == 10 and close.minute == 0
 
 
 class TestResample:

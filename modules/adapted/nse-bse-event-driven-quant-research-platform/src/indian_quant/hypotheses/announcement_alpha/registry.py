@@ -25,7 +25,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """Announcement Alpha hypothesis — integrates with platform hypothesis registry."""
 
-from indian_quant.hypotheses.base import BaseHypothesis, Signal
+from indian_quant.hypotheses.base import BaseHypothesis
 from indian_quant.hypotheses.registry import register_hypothesis
 
 
@@ -53,6 +53,7 @@ class AnnouncementAlpha(BaseHypothesis):
 
 def register_announcement_alpha() -> None:
     """No-op; @register_hypothesis on the class handles registration."""
+    pass
 
 
 __all__ = ["AnnouncementAlpha", "register_announcement_alpha"]

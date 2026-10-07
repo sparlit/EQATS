@@ -79,7 +79,9 @@ def identity_to_nautilus_equity(identity: InstrumentIdentity) -> Equity:
 
 def option_to_nautilus(option: OptionInstrument) -> OptionContract:
     precision = tick_precision(option.tick_size)
-    expiration_ns = to_nautilus_timestamp(_datetime_at(option.expiry.year, option.expiry.month, option.expiry.day))
+    expiration_ns = to_nautilus_timestamp(
+        _datetime_at(option.expiry.year, option.expiry.month, option.expiry.day)
+    )
     return OptionContract(
         instrument_id=InstrumentId.from_str(option.nautilus_instrument_id),
         raw_symbol=Symbol(option.nautilus_symbol),

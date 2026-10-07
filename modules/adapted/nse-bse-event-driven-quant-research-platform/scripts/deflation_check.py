@@ -151,7 +151,10 @@ def main() -> int:
     shown = 0
     for r in rows:
         if r["bonferroni_sig"] or r["bh_sig"]:
-            print(f"  {r['hypothesis']} | t={r['t']} p={r['p']} bonf={r['bonferroni_sig']} bh={r['bh_sig']}")
+            print(
+                f"  {r['hypothesis']} | t={r['t']} p={r['p']} "
+                f"bonf={r['bonferroni_sig']} bh={r['bh_sig']}"
+            )
             shown += 1
         if shown >= 12:
             break
@@ -170,7 +173,9 @@ def main() -> int:
     metadata = MetadataStore(settings.storage.metadata_dsn)
     tracker = ExperimentTracker(metadata)
     tracker.record(
-        kind="deflation_check", config={"m": len(hyps), "q": 0.10}, metrics={"target_survives": int(target_survives)}
+        kind="deflation_check",
+        config={"m": len(hyps), "q": 0.10},
+        metrics={"target_survives": int(target_survives)},
     )
     metadata.close()
     print(f"\nTARGET ({verdict['target']}) survives Bonferroni+BH: {target_survives}")

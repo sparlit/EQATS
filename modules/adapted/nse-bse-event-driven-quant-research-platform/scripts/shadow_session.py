@@ -81,7 +81,10 @@ async def record(settings, keys: list[str], minutes: float, mode: str) -> int:
 
     await client.connect()
     await client.subscribe(keys, mode=mode)
-    print(f"recording session {session_id}: keys={keys} mode={mode} for <= {minutes} min (Ctrl-C to stop)")
+    print(
+        f"recording session {session_id}: keys={keys} mode={mode} "
+        f"for <= {minutes} min (Ctrl-C to stop)"
+    )
 
     async def _stop_after() -> None:
         await asyncio.sleep(minutes * 60)
@@ -89,7 +92,7 @@ async def record(settings, keys: list[str], minutes: float, mode: str) -> int:
 
     stopper = asyncio.create_task(_stop_after())
     recorder = asyncio.create_task(client.run())
-    _done, pending = await asyncio.wait(
+    done, pending = await asyncio.wait(
         {recorder, stopper, asyncio.create_task(stop.wait())},
         return_when=asyncio.FIRST_COMPLETED,
     )
@@ -124,7 +127,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Record live feed session")
     parser.add_argument("--keys", required=True, help="comma-separated instrument keys")
     parser.add_argument("--minutes", type=float, default=60.0)
-    parser.add_argument("--mode", default="full", choices=["ltpc", "option_greeks", "full", "full_d30"])
+    parser.add_argument(
+        "--mode", default="full", choices=["ltpc", "option_greeks", "full", "full_d30"]
+    )
     parser.add_argument("--config", default=None)
     args = parser.parse_args()
 

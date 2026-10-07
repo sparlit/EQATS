@@ -46,36 +46,30 @@ class TestCompareLogic:
     def test_position_mismatch_detected(self):
         rows = [{"instrument_key": "NSE_EQ|X", "quantity": 75}]
         out = Reconciler.compare_positions({"NSE_EQ|X": 100.0}, rows)
-        assert out
-        assert out[0]["kind"] == "POSITION"
-        assert out[0]["local_qty"] == 100.0
-        assert out[0]["broker_qty"] == 75.0
+        assert out and out[0]["kind"] == "POSITION"
+        assert out[0]["local_qty"] == 100.0 and out[0]["broker_qty"] == 75.0
 
     def test_local_only_position_detected(self):
         out = Reconciler.compare_positions({"NSE_EQ|Y": 10.0}, [])
-        assert out
-        assert out[0]["instrument"] == "NSE_EQ|Y"
+        assert out and out[0]["instrument"] == "NSE_EQ|Y"
 
     def test_orders_symmetric_mismatch(self):
         broker = [{"order_id": "A", "status": "open"}]
         out = Reconciler.compare_orders({"B"}, broker)
         kinds = {m["kind"] for m in out}
-        assert "ORDER_LOCAL_ONLY" in kinds
-        assert "ORDER_BROKER_ONLY" in kinds
+        assert "ORDER_LOCAL_ONLY" in kinds and "ORDER_BROKER_ONLY" in kinds
 
     def test_funds_within_tolerance(self):
         assert Reconciler.compare_funds(500000.5, {"available_margin": 500000.9}) == []
         out = Reconciler.compare_funds(400000.0, {"available_margin": 500000.0})
-        assert out
-        assert out[0]["kind"] == "FUNDS"
+        assert out and out[0]["kind"] == "FUNDS"
 
     def test_should_halt(self):
         from indian_quant.adapters.upstox.reconciliation import ReconciliationReport
 
         ok = ReconciliationReport("t", 1, 1, True)
         bad = ReconciliationReport("t", 1, 1, True, mismatches=[{"kind": "POSITION"}])
-        assert not should_halt(ok)
-        assert should_halt(bad)
+        assert not should_halt(ok) and should_halt(bad)
 
 
 class TestReconcilerRun:
@@ -83,9 +77,13 @@ class TestReconcilerRun:
         def handler(request: httpx.Request) -> httpx.Response:
             path = request.url.path
             if path.endswith("/order/retrieve-all"):
-                return httpx.Response(200, json={"data": [{"order_id": "O1", "status": "complete"}]})
+                return httpx.Response(
+                    200, json={"data": [{"order_id": "O1", "status": "complete"}]}
+                )
             if "positions" in path:
-                return httpx.Response(200, json={"data": [{"instrument_key": "NSE_EQ|X", "quantity": 100}]})
+                return httpx.Response(
+                    200, json={"data": [{"instrument_key": "NSE_EQ|X", "quantity": 100}]}
+                )
             if path.endswith("/funds-and-margin"):
                 return httpx.Response(200, json={"data": {"equity": {"available_margin": 500000}}})
             return httpx.Response(200, json={})
@@ -102,8 +100,7 @@ class TestReconcilerRun:
             local_available_funds=500000.0,
             checked_at_iso="2026-08-23T00:00:00+00:00",
         )
-        assert report.ok
-        assert report.orders_compared == 1
+        assert report.ok and report.orders_compared == 1
 
     def test_divergence_halts(self):
         report = self._client().run(

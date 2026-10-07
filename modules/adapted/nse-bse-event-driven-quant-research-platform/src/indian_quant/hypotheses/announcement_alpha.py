@@ -76,7 +76,9 @@ _KEYWORD_SCORES = {
 @register_hypothesis
 class AnnouncementAlpha(BaseHypothesis):
     name = "announcement_alpha"
-    description = "Buy on positive announcements (results, orders, capex) within seconds. Fundamental filter."
+    description = (
+        "Buy on positive announcements (results, orders, capex) within seconds. Fundamental filter."
+    )
     max_positions = 7
     default_stop_pct = 0.05
     default_horizon_days = 5
@@ -174,7 +176,9 @@ class AnnouncementAlpha(BaseHypothesis):
             signals.append(
                 Signal(
                     symbol=row.get("symbol", ""),
-                    signal_date=str(row["date"].date()) if hasattr(row["date"], "date") else str(row["date"])[:10],
+                    signal_date=str(row["date"].date())
+                    if hasattr(row["date"], "date")
+                    else str(row["date"])[:10],
                     signal_type="announcement_alpha",
                     strength=round(strength, 2),
                     entry_price=round(row["close"], 2),
@@ -220,7 +224,9 @@ class AnnouncementAlpha(BaseHypothesis):
                 announcements = self._load_announcements(symbol)
                 if not announcements:
                     continue
-                sigs = self.compute_signals(df, signal_date=signal_date, announcements=announcements)
+                sigs = self.compute_signals(
+                    df, signal_date=signal_date, announcements=announcements
+                )
                 all_signals.extend(sigs)
             except Exception as e:
                 log.warning(f"Signal computation failed for {symbol}: {e}")

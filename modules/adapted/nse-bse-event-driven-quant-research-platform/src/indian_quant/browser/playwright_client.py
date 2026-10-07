@@ -62,7 +62,8 @@ class PlaywrightBrowserClient(BaseBrowserClient):
         self._context = await self._browser.new_context(
             viewport={"width": 1920, "height": 1080},
             user_agent=(
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             ),
         )
         self._page = await self._context.new_page()

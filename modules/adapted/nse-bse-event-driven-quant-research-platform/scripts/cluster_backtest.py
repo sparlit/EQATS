@@ -82,9 +82,15 @@ def main() -> int:
         help="Use detailed Indian cost breakdown (default: True)",
     )
     parser.add_argument("--no-indian-costs", action="store_false", dest="use_indian_costs")
-    parser.add_argument("--slippage-bps", type=float, default=10.0, help="Slippage in bps per side (default: 10)")
-    parser.add_argument("--impact-bps", type=float, default=5.0, help="Impact cost in bps per side (default: 5)")
-    parser.add_argument("--full", action="store_true", help="Run Monte Carlo + walk-forward analysis")
+    parser.add_argument(
+        "--slippage-bps", type=float, default=10.0, help="Slippage in bps per side (default: 10)"
+    )
+    parser.add_argument(
+        "--impact-bps", type=float, default=5.0, help="Impact cost in bps per side (default: 5)"
+    )
+    parser.add_argument(
+        "--full", action="store_true", help="Run Monte Carlo + walk-forward analysis"
+    )
     parser.add_argument("--mc-sims", type=int, default=1000, help="Monte Carlo simulation count")
     parser.add_argument("--wf-splits", type=int, default=5, help="Walk-forward splits")
     parser.add_argument("--config", default=None)

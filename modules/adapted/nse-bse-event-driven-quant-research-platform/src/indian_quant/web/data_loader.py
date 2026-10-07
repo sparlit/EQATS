@@ -62,8 +62,12 @@ def get_paper_summary() -> dict[str, Any]:
             FROM paper_signals WHERE status='SETTLED'
         """)
         ).fetchone()
-        open_n = conn.execute(sa.text("SELECT COUNT(*) FROM paper_signals WHERE status='OPEN'")).fetchone()[0]
-        cursor = conn.execute(sa.text("SELECT * FROM paper_signals WHERE status='OPEN' ORDER BY created_at DESC"))
+        open_n = conn.execute(
+            sa.text("SELECT COUNT(*) FROM paper_signals WHERE status='OPEN'")
+        ).fetchone()[0]
+        cursor = conn.execute(
+            sa.text("SELECT * FROM paper_signals WHERE status='OPEN' ORDER BY created_at DESC")
+        )
         cols = cursor.keys()
         open_rows = []
         for row in cursor.fetchall():
@@ -137,7 +141,9 @@ def get_latest_signals() -> dict[str, Any]:
     latest_date = ""
     for path in sorted(dl_dir.glob("*.parquet")):
         try:
-            raw = pd.read_parquet(path, columns=["date", "symbol", "segment", "close", "deliv_pct", "volume"])
+            raw = pd.read_parquet(
+                path, columns=["date", "symbol", "segment", "close", "deliv_pct", "volume"]
+            )
         except Exception:
             continue
         if raw.empty or len(raw) < 20:
@@ -145,7 +151,8 @@ def get_latest_signals() -> dict[str, Any]:
         frame = raw.copy()
         frame["date_str"] = pd.to_datetime(frame["date"]).dt.strftime("%Y-%m-%d")
         d = frame["date_str"].iloc[-1]
-        latest_date = max(latest_date, d)
+        if d > latest_date:
+            latest_date = d
         last = frame.iloc[-1]
         prev = frame.iloc[-2] if len(frame) > 1 else frame.iloc[-1]
         deliv_series = pd.to_numeric(frame["deliv_pct"], errors="coerce").dropna()
@@ -154,13 +161,17 @@ def get_latest_signals() -> dict[str, Any]:
         mean = deliv_series.tail(30).mean()
         std = deliv_series.tail(30).std()
         z = (last["deliv_pct"] - mean) / std if std > 0 else np.nan
-        ret = (float(last["close"]) / float(prev["close"]) - 1.0) if float(prev["close"]) > 0 else 0.0
+        ret = (
+            (float(last["close"]) / float(prev["close"]) - 1.0) if float(prev["close"]) > 0 else 0.0
+        )
         rows.append(
             {
                 "symbol": str(last["symbol"]),
                 "segment": str(last["segment"]) if "segment" in frame.columns else "EQ",
                 "close": round(float(last["close"]), 2),
-                "deliv_pct": round(float(last["deliv_pct"]), 1) if not pd.isna(last["deliv_pct"]) else None,
+                "deliv_pct": round(float(last["deliv_pct"]), 1)
+                if not pd.isna(last["deliv_pct"])
+                else None,
                 "deliv_z": round(float(z), 2) if not pd.isna(z) else None,
                 "ret_1d_pct": round(ret * 100, 2),
                 "_date": d,
@@ -180,7 +191,7 @@ def get_latest_signals() -> dict[str, Any]:
         "date": str(latest_date),
         "buys": buys.replace(np.nan, None).to_dict(orient="records"),
         "avoids": avoids.replace(np.nan, None).to_dict(orient="records"),
-        "total_scanned": len(today),
+        "total_scanned": int(len(today)),
     }
     return _sanitize(result)
 

@@ -29,7 +29,9 @@ Half-Kelly is used by default for safety margin.
 """
 
 
-def kelly_fraction(win_rate: float, avg_win_bps: float, avg_loss_bps: float, fraction: float = 0.5) -> float:
+def kelly_fraction(
+    win_rate: float, avg_win_bps: float, avg_loss_bps: float, fraction: float = 0.5
+) -> float:
     """Compute fractional Kelly bet size.
 
     f* = (p * b - q) / b
@@ -54,7 +56,9 @@ def kelly_fraction(win_rate: float, avg_win_bps: float, avg_loss_bps: float, fra
     return round(full_kelly * fraction, 6)
 
 
-def kelly_position(capital: float, risk_pct: float, entry_px: float, stop_pct: float, kelly_frac: float) -> int:
+def kelly_position(
+    capital: float, risk_pct: float, entry_px: float, stop_pct: float, kelly_frac: float
+) -> int:
     """Convert Kelly fraction to share count.
 
     Position size = (capital × kelly_frac × risk_pct) / (entry_px × stop_pct)

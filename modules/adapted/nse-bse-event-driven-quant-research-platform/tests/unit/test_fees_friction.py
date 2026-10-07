@@ -55,7 +55,9 @@ class TestIndiaDeliveryFeeModel:
         assert float(fee) == pytest.approx(20.0 + 100 * 4.5 / 10_000, abs=0.01)
 
     def test_zero_config_is_free(self):
-        model = IndiaDeliveryFeeModel(brokerage_bps=0, stt_sell_bps=0, stamp_buy_bps=0, flat_fee_per_order=0)
+        model = IndiaDeliveryFeeModel(
+            brokerage_bps=0, stt_sell_bps=0, stamp_buy_bps=0, flat_fee_per_order=0
+        )
         assert float(model.get_commission(FakeOrder("SELL"), 500, 2000.0, None)) == 0.0
 
     def test_currency_is_inr(self):
@@ -108,7 +110,9 @@ class TestFrictionMetrics:
         assert m["alpha_leakage_pct"] is None
 
     def test_holding_days_from_positions(self):
-        positions = pd.DataFrame({"realized_pnl": ["700.00 INR"], "duration_ns": [2 * 86_400_000_000_000]})
+        positions = pd.DataFrame(
+            {"realized_pnl": ["700.00 INR"], "duration_ns": [2 * 86_400_000_000_000]}
+        )
         m = compute_friction_metrics(_fills_frame(), positions)
         assert m["median_holding_days"] == pytest.approx(2.0)
 
@@ -172,8 +176,7 @@ class TestContinuityDetector:
         )
         report, _ = run_quality_suite(bars, dataset="t", actions=[action])
         issues = [i for i in report.issues if i.code == "ADJ_DISCONTINUITY"]
-        assert issues
-        assert issues[0].severity == "error"
+        assert issues and issues[0].severity == "error"
 
     def test_dividend_ignored(self):
         from indian_quant.quality import run_quality_suite

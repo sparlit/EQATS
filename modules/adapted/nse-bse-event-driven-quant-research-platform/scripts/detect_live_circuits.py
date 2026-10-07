@@ -96,7 +96,9 @@ def get_live_prices_from_upstox(engine) -> dict[str, float]:
         syms = [
             r[0]
             for r in conn.execute(
-                sa.text("SELECT DISTINCT symbol FROM stock_circuit_limits WHERE source='upstox_snapshot'")
+                sa.text(
+                    "SELECT DISTINCT symbol FROM stock_circuit_limits WHERE source='upstox_snapshot'"
+                )
             ).fetchall()
         ]
 
@@ -204,7 +206,8 @@ def record_signals(engine, hits: list[dict], dry_run: bool = False, top_n: int =
 
         if dry_run:
             log.info(
-                f"  DRY RUN: {sym} {signal_type} entry=₹{entry} stop=₹{stop} target=₹{target} filt={hit['filter_pct']}%"
+                f"  DRY RUN: {sym} {signal_type} entry=₹{entry} "
+                f"stop=₹{stop} target=₹{target} filt={hit['filter_pct']}%"
             )
             recorded += 1
             continue
@@ -283,7 +286,14 @@ def record_signals(engine, hits: list[dict], dry_run: bool = False, top_n: int =
                 VALUES (2, :sym, :date, :entry, :qty,
                         :entry_value, :sig_id, 0.05, 5, 'OPEN')
             """),
-                {"sym": sym, "date": today, "entry": entry, "qty": qty, "entry_value": entry_value, "sig_id": sig_id},
+                {
+                    "sym": sym,
+                    "date": today,
+                    "entry": entry,
+                    "qty": qty,
+                    "entry_value": entry_value,
+                    "sig_id": sig_id,
+                },
             )
 
             # Record paper signal
@@ -308,12 +318,14 @@ def record_signals(engine, hits: list[dict], dry_run: bool = False, top_n: int =
                     "close": entry,
                     "qty": qty,
                     "note": (
-                        f"live_circuit {signal_type} filter={hit['filter_pct']}% pct_from_prev={hit['pct_from_prev']}%"
+                        f"live_circuit {signal_type} "
+                        f"filter={hit['filter_pct']}% "
+                        f"pct_from_prev={hit['pct_from_prev']}%"
                     ),
                     "date": today,
                     "pos_val": round(pos_val, 2),
                     "risk": round(risk, 2),
-                    "cap": capital_per_pos,
+                    "cap": round(capital_per_pos, 2),
                     "conviction": round(strength / 100, 4),
                 },
             ).scalar()

@@ -34,7 +34,7 @@ Flow for every acquisition:
 
 import json
 from datetime import UTC, date, datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from indian_quant.ingestion.mcp.client import NseBseMcpClient, new_request_id
 from indian_quant.ingestion.nse.parsing import (
@@ -56,10 +56,8 @@ from indian_quant.schemas import (
     Timeframe,
     make_instrument_id,
 )
-
-if TYPE_CHECKING:
-    from indian_quant.storage.metadata import MetadataStore
-    from indian_quant.storage.raw_store import RawStore
+from indian_quant.storage.metadata import MetadataStore
+from indian_quant.storage.raw_store import RawStore
 
 
 class NseIngestionService:
@@ -75,7 +73,9 @@ class NseIngestionService:
         self.raw_store = raw_store
         self.metadata = metadata
 
-    def _persist_raw(self, tool: str, payload: Any, request_meta: dict[str, Any]) -> tuple[bytes, str]:
+    def _persist_raw(
+        self, tool: str, payload: Any, request_meta: dict[str, Any]
+    ) -> tuple[bytes, str]:
         body = json.dumps(payload, sort_keys=True, default=str).encode()
         _, digest = self.raw_store.save(
             source=self.source,
@@ -217,7 +217,9 @@ class NseIngestionService:
         for i, rec in enumerate(extract_record_list(payload)):
             sym = rec.get("symbol") or rec.get("SYMBOL") or symbol or "UNKNOWN"
             published = parse_timestamp(
-                _first(rec, ["sort_date", "sortDate", "an_dt", "exchdisstime", "date", "publishedAt"])
+                _first(
+                    rec, ["sort_date", "sortDate", "an_dt", "exchdisstime", "date", "publishedAt"]
+                )
             )
             if published is None:
                 continue

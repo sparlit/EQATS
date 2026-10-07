@@ -37,8 +37,6 @@ Functions:
 
 import pandas as pd
 
-from indian_quant.config.connections import get_engine
-
 
 def get_concall_calendar(
     sector: str | None = None,

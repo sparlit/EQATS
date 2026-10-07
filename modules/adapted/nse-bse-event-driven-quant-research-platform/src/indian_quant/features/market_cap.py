@@ -102,7 +102,7 @@ def refresh_cache_from_investorfeed() -> int:
         logger.info("Refreshed cache from InvestorFeed: %d companies added", added)
         return added
     except Exception as e:
-        logger.exception("Failed to refresh cache from InvestorFeed: %s", e)
+        logger.error("Failed to refresh cache from InvestorFeed: %s", e)
         return 0
 
 
@@ -222,7 +222,9 @@ def classify_signals(signals: list[dict], router: Any | None = None) -> list[dic
         if key in cache:
             entry = cache[key]
             s["market_cap_cr"] = entry.get("market_cap_cr")
-            s["market_cap_class"] = apply_sme_override(entry.get("market_cap_class", "Unknown"), segment)
+            s["market_cap_class"] = apply_sme_override(
+                entry.get("market_cap_class", "Unknown"), segment
+            )
             cache_hits += 1
         else:
             # Try other exchange (BSE stocks might be cached under BSE|symbol)
@@ -230,7 +232,9 @@ def classify_signals(signals: list[dict], router: Any | None = None) -> list[dic
             if other_key in cache:
                 entry = cache[other_key]
                 s["market_cap_cr"] = entry.get("market_cap_cr")
-                s["market_cap_class"] = apply_sme_override(entry.get("market_cap_class", "Unknown"), segment)
+                s["market_cap_class"] = apply_sme_override(
+                    entry.get("market_cap_class", "Unknown"), segment
+                )
                 cache_hits += 1
             elif cache and not has_cache:
                 # Only call router if no disk cache exists (slow)

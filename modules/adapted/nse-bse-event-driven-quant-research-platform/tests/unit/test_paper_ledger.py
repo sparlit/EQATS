@@ -41,7 +41,13 @@ def md(tmp_path):
 class TestPaperLedger:
     def test_record_and_open(self, md):
         pid = md.record_paper_signal(
-            symbol="GOKUL", close_at_signal=42.55, qty=83, horizon_days=10, stop_pct=0.07, segment="EQ", note="z=4.2"
+            symbol="GOKUL",
+            close_at_signal=42.55,
+            qty=83,
+            horizon_days=10,
+            stop_pct=0.07,
+            segment="EQ",
+            note="z=4.2",
         )
         papers = md.open_papers()
         assert len(papers) == 1
@@ -50,8 +56,12 @@ class TestPaperLedger:
         _ = pid
 
     def test_settle_computes_net_bps(self, md):
-        pid = md.record_paper_signal(symbol="TEST", close_at_signal=100.0, qty=10, horizon_days=10, stop_pct=0.07)
-        result = md.settle_paper_signal(pid, exit_date="2026-08-24", exit_close=102.0, cost_bps=107.0)
+        pid = md.record_paper_signal(
+            symbol="TEST", close_at_signal=100.0, qty=10, horizon_days=10, stop_pct=0.07
+        )
+        result = md.settle_paper_signal(
+            pid, exit_date="2026-08-24", exit_close=102.0, cost_bps=107.0
+        )
         # gross = +200bps, net = 200 - 107 = 93
         assert result["realized_net_bps"] == pytest.approx(93.0)
 
@@ -64,12 +74,15 @@ class TestPaperLedger:
         assert result["realized_net_bps"] == pytest.approx(150.0)
 
     def test_papers_summary_counts(self, md):
-        a = md.record_paper_signal(symbol="A", close_at_signal=10.0, qty=1, horizon_days=5, stop_pct=0.05)
-        b = md.record_paper_signal(symbol="B", close_at_signal=20.0, qty=1, horizon_days=5, stop_pct=0.05)
+        a = md.record_paper_signal(
+            symbol="A", close_at_signal=10.0, qty=1, horizon_days=5, stop_pct=0.05
+        )
+        b = md.record_paper_signal(
+            symbol="B", close_at_signal=20.0, qty=1, horizon_days=5, stop_pct=0.05
+        )
         md.settle_paper_signal(a, exit_date="d", exit_close=11.0, cost_bps=107.0)
         s = md.papers_summary()
-        assert s["open"] == 1
-        assert s["settled"] == 1
+        assert s["open"] == 1 and s["settled"] == 1
         _ = b
 
     def test_settle_missing_id_raises(self, md):

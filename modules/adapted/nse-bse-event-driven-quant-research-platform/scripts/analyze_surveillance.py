@@ -112,7 +112,9 @@ def fetch_prices(symbols: list[str], period: str = "6mo") -> dict[str, pd.DataFr
     for i in range(0, len(tickers), batch_size):
         batch = tickers[i : i + batch_size]
         try:
-            data = yf.download(batch, period=period, group_by="ticker", progress=False, threads=True)
+            data = yf.download(
+                batch, period=period, group_by="ticker", progress=False, threads=True
+            )
             for t in batch:
                 try:
                     df = data[t].dropna() if len(batch) > 1 else data.dropna()
@@ -143,7 +145,9 @@ def compute_metrics(df: pd.DataFrame) -> dict:
         "vol_60d": float(ret_1d.tail(60).std() * (252**0.5) * 100) if len(ret_1d) > 60 else None,
         "max_drawdown_3m": None,
         "above_20sma": bool(close.iloc[-1] > close.rolling(20).mean().iloc[-1]),
-        "above_50sma": bool(close.iloc[-1] > close.rolling(50).mean().iloc[-1]) if len(close) > 50 else None,
+        "above_50sma": bool(close.iloc[-1] > close.rolling(50).mean().iloc[-1])
+        if len(close) > 50
+        else None,
     }
 
     # Max drawdown
@@ -178,7 +182,9 @@ def classify_signal(metrics: dict, surv: dict, fund: dict) -> dict | None:
         elif g(metrics, "ret_1m") < -15 and g(metrics, "vol_20d") > 50:
             signal_type = "surveillance_oversold"
             strength = 50 + min(abs(g(metrics, "ret_1m")) / 3, 20)
-            notes.append(f"STASM oversold: {g(metrics, 'ret_1m'):.0f}% 1M, vol={g(metrics, 'vol_20d'):.0f}%")
+            notes.append(
+                f"STASM oversold: {g(metrics, 'ret_1m'):.0f}% 1M, vol={g(metrics, 'vol_20d'):.0f}%"
+            )
 
     # === LTASM: Long-term abnormal ===
     elif fw == "LTASM":
@@ -276,7 +282,9 @@ def main():
 
     # Framework breakdown
     print("\n--- FRAMEWORK PERFORMANCE ---")
-    print(f"{'Framework':<10} {'Count':<7} {'1M med':<9} {'3M med':<9} {'Vol med':<9} {'Signals':<8}")
+    print(
+        f"{'Framework':<10} {'Count':<7} {'1M med':<9} {'3M med':<9} {'Vol med':<9} {'Signals':<8}"
+    )
     print("-" * 52)
     for fw in ["GSM", "LTASM", "STASM"]:
         sub = df[df["framework"] == fw]
@@ -298,8 +306,8 @@ def main():
     print("-" * 95)
     for _, r in signals.head(args.top).iterrows():
         print(
-            f"{r['symbol']:<15} {r['signal_type']!s:<30} {r['signal_strength']:<6.0f} "
-            f"{r['framework']:<8} {r['stage']!s:<4} ₹{r['price']:<9.1f} "
+            f"{r['symbol']:<15} {str(r['signal_type']):<30} {r['signal_strength']:<6.0f} "
+            f"{r['framework']:<8} {str(r['stage']):<4} ₹{r['price']:<9.1f} "
             f"{r['ret_1m']:+.1f}%{'':<3} {r['ret_3m']:+.1f}%{'':<3} {r['vol_20d']:.0f}%"
         )
 
@@ -317,7 +325,8 @@ def main():
     avoid = df[(df["has_ibc"]) | ((df["ret_3m"] < -30) & (df["framework"] == "GSM"))]
     for _, r in avoid.head(10).iterrows():
         print(
-            f"  {r['symbol']:<15} {r['framework']:<8} ₹{r['price']:<8.1f} 3M: {r['ret_3m']:+.1f}%  IBC: {r['has_ibc']}"
+            f"  {r['symbol']:<15} {r['framework']:<8} ₹{r['price']:<8.1f} "
+            f"3M: {r['ret_3m']:+.1f}%  IBC: {r['has_ibc']}"
         )
 
     # Save full results

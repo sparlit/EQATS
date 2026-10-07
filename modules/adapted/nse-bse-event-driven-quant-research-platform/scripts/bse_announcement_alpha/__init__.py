@@ -31,7 +31,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from indian_quant.adapters.announcements import AnnouncementFilter, AnnouncementScanner, BSEAnnouncementClient
+from indian_quant.adapters.announcements import (
+    AnnouncementFilter,
+    AnnouncementScanner,
+    BSEAnnouncementClient,
+)
 from indian_quant.config.connections import get_engine
 from indian_quant.hypotheses.registry import HypothesisRegistry
 

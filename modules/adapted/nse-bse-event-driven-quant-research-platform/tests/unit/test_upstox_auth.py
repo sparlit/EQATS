@@ -75,7 +75,9 @@ class TestTokenFile:
 
     def test_get_valid_token_refreshes_when_only_refresh_present(self, tmp_path, monkeypatch):
         monkeypatch.setattr(upstox_auth, "TOKEN_FILE", tmp_path / "t.json")
-        (tmp_path / "t.json").write_text(json.dumps({"access_token": "", "extended_token": "REFRESH_ME"}))
+        (tmp_path / "t.json").write_text(
+            json.dumps({"access_token": "", "extended_token": "REFRESH_ME"})
+        )
         monkeypatch.setattr(upstox_auth, "get_creds", lambda overrides=None: ("K", "S", "R"))
         monkeypatch.setattr(
             upstox_auth,
@@ -130,7 +132,9 @@ class TestExchangeAndProfile:
         handler = lambda request: httpx.Response(  # noqa: E731
             200, json={"user_id": "2EBWYN", "user_name": "POLA NARAMMA"}
         )
-        profile = upstox_auth.whoami("TOK", http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+        profile = upstox_auth.whoami(
+            "TOK", http_client=httpx.Client(transport=httpx.MockTransport(handler))
+        )
         assert profile["user_name"] == "POLA NARAMMA"
 
     def test_masking_hides_long_tokens(self):

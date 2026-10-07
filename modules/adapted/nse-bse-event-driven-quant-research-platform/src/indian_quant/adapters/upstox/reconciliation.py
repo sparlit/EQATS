@@ -78,8 +78,7 @@ class Reconciler:
 
     def _headers(self) -> dict[str, str]:
         if not self.access_token:
-            msg = "reconciler requires an access token"
-            raise RuntimeError(msg)
+            raise RuntimeError("reconciler requires an access token")
         return {"Authorization": f"Bearer {self.access_token}", "Accept": "application/json"}
 
     # ------------------------------------------------------------- broker IO
@@ -92,12 +91,16 @@ class Reconciler:
         return list(data.values()) if isinstance(data, dict) else list(data)
 
     def fetch_positions(self) -> list[dict[str, Any]]:
-        resp = self._http.get(f"{self.base_url}/v2/portfolio/short-term-positions", headers=self._headers())
+        resp = self._http.get(
+            f"{self.base_url}/v2/portfolio/short-term-positions", headers=self._headers()
+        )
         resp.raise_for_status()
         return list(resp.json().get("data") or [])
 
     def fetch_funds(self) -> dict[str, Any]:
-        resp = self._http.get(f"{self.base_url}/v2/user/get-funds-and-margin", headers=self._headers())
+        resp = self._http.get(
+            f"{self.base_url}/v2/user/get-funds-and-margin", headers=self._headers()
+        )
         resp.raise_for_status()
         return dict((resp.json().get("data") or {}).get("equity") or {})
 
@@ -140,7 +143,9 @@ class Reconciler:
     ) -> list[dict[str, Any]]:
         open_statuses = {"open", "trigger pending", "modified"}
         broker_open = {
-            str(o.get("order_id")) for o in broker_rows if str(o.get("status") or "").lower() in open_statuses
+            str(o.get("order_id"))
+            for o in broker_rows
+            if str(o.get("status") or "").lower() in open_statuses
         }
         mismatches: list[dict[str, Any]] = []
         for order_id in sorted(local_open_ids - broker_open):

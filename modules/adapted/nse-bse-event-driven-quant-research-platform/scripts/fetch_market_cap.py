@@ -141,7 +141,11 @@ def main() -> int:
 
     # Group by exchange
     nse_symbols = [s["symbol"] for s in universe if s.get("exchange") == "NSE"]
-    bse_symbols = [s["symbol"] for s in universe if s.get("exchange") == "BSE" and s.get("dual_listed") is not True]
+    bse_symbols = [
+        s["symbol"]
+        for s in universe
+        if s.get("exchange") == "BSE" and s.get("dual_listed") is not True
+    ]
 
     print(f"Universe: {len(nse_symbols)} NSE, {len(bse_symbols)} BSE-only")
     print(f"Already cached: {len(existing)}")
@@ -170,7 +174,8 @@ def main() -> int:
             all_results.update(results)
             fetched = sum(1 for v in results.values() if v["market_cap_cr"] is not None)
             print(
-                f"  {i + len(batch)}/{len(symbols)} done, {fetched} with market cap ({time.time() - t0:.0f}s)",
+                f"  {i + len(batch)}/{len(symbols)} done, {fetched} with market cap "
+                f"({time.time() - t0:.0f}s)",
                 flush=True,
             )
             # Rate limit: yfinance free tier

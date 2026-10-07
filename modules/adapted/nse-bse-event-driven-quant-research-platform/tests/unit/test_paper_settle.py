@@ -26,7 +26,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import sys
 from pathlib import Path
 
-import pandas as pd
 import pytest
 import sqlalchemy as sa
 
@@ -53,7 +52,12 @@ def pg_store():
 class TestPaperSettle:
     def test_settle_horizon(self, pg_store):
         pid = pg_store.record_paper_signal(
-            symbol="SETHOR", close_at_signal=100.0, qty=10, horizon_days=10, stop_pct=0.07, segment="EQ"
+            symbol="SETHOR",
+            close_at_signal=100.0,
+            qty=10,
+            horizon_days=10,
+            stop_pct=0.07,
+            segment="EQ",
         )
         result = pg_store.settle_paper_signal(
             pid,
@@ -70,7 +74,12 @@ class TestPaperSettle:
 
     def test_settle_stop(self, pg_store):
         pid = pg_store.record_paper_signal(
-            symbol="SETSTOP", close_at_signal=100.0, qty=10, horizon_days=10, stop_pct=0.07, segment="EQ"
+            symbol="SETSTOP",
+            close_at_signal=100.0,
+            qty=10,
+            horizon_days=10,
+            stop_pct=0.07,
+            segment="EQ",
         )
         # Stop at 93 (7% below 100)
         result = pg_store.settle_paper_signal(
@@ -89,7 +98,13 @@ class TestPaperSettle:
 
     def test_settle_short_side(self, pg_store):
         pid = pg_store.record_paper_signal(
-            symbol="SETSHORT", close_at_signal=100.0, qty=5, horizon_days=5, stop_pct=0.05, segment="EQ", side="SELL"
+            symbol="SETSHORT",
+            close_at_signal=100.0,
+            qty=5,
+            horizon_days=5,
+            stop_pct=0.05,
+            segment="EQ",
+            side="SELL",
         )
         result = pg_store.settle_paper_signal(
             pid,
@@ -105,7 +120,12 @@ class TestPaperSettle:
 
     def test_papers_summary(self, pg_store):
         pid = pg_store.record_paper_signal(
-            symbol="SETSUM", close_at_signal=100.0, qty=10, horizon_days=10, stop_pct=0.07, segment="EQ"
+            symbol="SETSUM",
+            close_at_signal=100.0,
+            qty=10,
+            horizon_days=10,
+            stop_pct=0.07,
+            segment="EQ",
         )
         pg_store.settle_paper_signal(
             pid,
@@ -122,17 +142,31 @@ class TestPaperSettle:
 
     def test_open_papers(self, pg_store):
         pid = pg_store.record_paper_signal(
-            symbol="SETOPEN", close_at_signal=100.0, qty=10, horizon_days=10, stop_pct=0.07, segment="EQ"
+            symbol="SETOPEN",
+            close_at_signal=100.0,
+            qty=10,
+            horizon_days=10,
+            stop_pct=0.07,
+            segment="EQ",
         )
         open_papers = pg_store.open_papers()
         assert any(p["id"] == pid for p in open_papers)
 
     def test_journal_auto_recorded_on_exit(self, pg_store):
         pid = pg_store.record_paper_signal(
-            symbol="SETJOURNAL", close_at_signal=100.0, qty=10, horizon_days=10, stop_pct=0.07, segment="EQ"
+            symbol="SETJOURNAL",
+            close_at_signal=100.0,
+            qty=10,
+            horizon_days=10,
+            stop_pct=0.07,
+            segment="EQ",
         )
         pg_store.journal_record_on_entry(
-            paper_trade_id=pid, symbol="SETJOURNAL", entry_date="2026-09-01", entry_price=100.0, entry_signal="dz_hi_up"
+            paper_trade_id=pid,
+            symbol="SETJOURNAL",
+            entry_date="2026-09-01",
+            entry_price=100.0,
+            entry_signal="dz_hi_up",
         )
 
         pg_store.settle_paper_signal(

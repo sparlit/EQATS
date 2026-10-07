@@ -46,7 +46,9 @@ def get_signal_symbols() -> list[tuple[str, str]]:
     """Get all unique (symbol, exchange) pairs from cached_signals."""
     engine = sa.create_engine("postgresql://postgres:quant2026@127.0.0.1:5432/postgres")
     with engine.connect() as conn:
-        rows = conn.execute(sa.text("SELECT DISTINCT symbol, exchange FROM cached_signals")).fetchall()
+        rows = conn.execute(
+            sa.text("SELECT DISTINCT symbol, exchange FROM cached_signals")
+        ).fetchall()
     return [(r[0], r[1]) for r in rows]
 
 

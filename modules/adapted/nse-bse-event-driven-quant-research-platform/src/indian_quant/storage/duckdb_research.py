@@ -31,12 +31,9 @@ materialized query results. Large datasets stay in parquet.
 
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Self
 
 import duckdb
-
-if TYPE_CHECKING:
-    import pandas as pd
+import pandas as pd
 
 
 class ResearchDB:
@@ -95,7 +92,7 @@ class ResearchDB:
     def close(self) -> None:
         self._con.close()
 
-    def __enter__(self) -> Self:
+    def __enter__(self) -> ResearchDB:
         return self
 
     def __exit__(self, *exc) -> None:

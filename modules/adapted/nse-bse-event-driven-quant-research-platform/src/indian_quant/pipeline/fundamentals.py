@@ -349,7 +349,8 @@ def _upsert_key_ratios(engine, symbol: str, data: dict) -> None:
     update_clause = ", ".join(f"{k} = EXCLUDED.{k}" for k in values if k != "symbol")
 
     sql = sa.text(
-        f"INSERT INTO key_ratios ({columns}) VALUES ({placeholders}) ON CONFLICT (symbol) DO UPDATE SET {update_clause}"
+        f"INSERT INTO key_ratios ({columns}) VALUES ({placeholders}) "
+        f"ON CONFLICT (symbol) DO UPDATE SET {update_clause}"
     )
     with engine.begin() as conn:
         conn.execute(sql, values)
@@ -387,7 +388,9 @@ def _get_universe_symbols(engine) -> list[str]:
     """Get all NSE symbols from cached_signals or instruments."""
     with engine.connect() as conn:
         try:
-            result = conn.execute(sa.text("SELECT DISTINCT symbol FROM cached_signals ORDER BY symbol"))
+            result = conn.execute(
+                sa.text("SELECT DISTINCT symbol FROM cached_signals ORDER BY symbol")
+            )
             symbols = [r[0] for r in result.fetchall()]
             if symbols:
                 return symbols
@@ -475,5 +478,8 @@ def ingest_all_fundamentals(
             time.sleep(sleep)
 
     elapsed = time.time() - start
-    log.info(f"Done in {elapsed:.1f}s: {success} success, {failed} failed, {skipped} skipped out of {len(symbols)}")
+    log.info(
+        f"Done in {elapsed:.1f}s: {success} success, {failed} failed, "
+        f"{skipped} skipped out of {len(symbols)}"
+    )
     return {"success": success, "failed": failed, "skipped": skipped, "total": len(symbols)}

@@ -43,7 +43,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import yfinance as yf
 from indian_quant.config.connections import get_engine
-from indian_quant.hypotheses import DeliveryMomentum
+from indian_quant.hypotheses import DeliveryMomentum  # noqa: F401 — register all
 from indian_quant.hypotheses.registry import HypothesisRegistry
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -62,7 +62,9 @@ def get_current_price(symbol: str) -> float | None:
         return None
 
 
-def run_settle(registry: HypothesisRegistry, hypothesis_name: str | None = None, dry_run: bool = False) -> dict:
+def run_settle(
+    registry: HypothesisRegistry, hypothesis_name: str | None = None, dry_run: bool = False
+) -> dict:
     """Settle open trades for one or all hypotheses."""
     get_engine()
     today = date.today()

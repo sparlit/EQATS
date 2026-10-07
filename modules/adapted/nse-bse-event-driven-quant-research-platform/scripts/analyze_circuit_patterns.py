@@ -89,7 +89,8 @@ def load_bars(symbol: str, start_date: date, end_date: date) -> pd.DataFrame | N
         return None
     df["date"] = pd.to_datetime(df["timestamp"]).dt.date
     df = df[(df["date"] >= start_date) & (df["date"] <= end_date)].copy()
-    return df.sort_values("date").reset_index(drop=True)
+    df = df.sort_values("date").reset_index(drop=True)
+    return df
 
 
 def load_delivery(symbol: str, start_date: date, end_date: date) -> pd.DataFrame | None:
@@ -105,7 +106,8 @@ def load_delivery(symbol: str, start_date: date, end_date: date) -> pd.DataFrame
         return None
     df["date"] = pd.to_datetime(df["date"]).dt.date
     df = df[(df["date"] >= start_date) & (df["date"] <= end_date)].copy()
-    return df.sort_values("date").reset_index(drop=True)
+    df = df.sort_values("date").reset_index(drop=True)
+    return df
 
 
 def identify_circuit_hits(circuit_df: pd.DataFrame, bars_df: pd.DataFrame) -> pd.DataFrame:
@@ -159,7 +161,9 @@ def identify_circuit_hits(circuit_df: pd.DataFrame, bars_df: pd.DataFrame) -> pd
             count = 0
 
     # Next-day continuation
-    merged["next_open"] = merged["open"].shift(-1) if "open" in merged.columns else merged["close"].shift(-1)
+    merged["next_open"] = (
+        merged["open"].shift(-1) if "open" in merged.columns else merged["close"].shift(-1)
+    )
     merged["next_close"] = merged["close"].shift(-1)
     merged["continuation"] = (merged["next_open"] >= merged["close"] * 0.98) & (
         merged["next_close"] >= merged["close"] * 0.97
@@ -180,7 +184,7 @@ def analyze_patterns(hits: pd.DataFrame) -> dict:
         subset = hits[hits["filter_pct"] == filt]
         key = f"filter_{int(filt)}pct"
         stats[key] = {
-            "count": len(subset),
+            "count": int(len(subset)),
             "upper_hits": int(subset["upper_hit"].sum()),
             "lower_hits": int(subset["lower_hit"].sum()),
         }
@@ -193,64 +197,83 @@ def analyze_patterns(hits: pd.DataFrame) -> dict:
                     stats[key][f"win_rate_{h}d"] = round(float((valid > 0).mean()) * 100, 1)
 
     # Volume ratio buckets
-    for vol_lo, vol_hi, label in [(0, 1.5, "low"), (1.5, 3, "medium"), (3, 10, "high"), (10, 100, "extreme")]:
-        subset = hits[(hits["vol_ratio"] >= vol_lo) & (hits["vol_ratio"] < vol_hi) & hits["upper_hit"]]
+    for vol_lo, vol_hi, label in [
+        (0, 1.5, "low"),
+        (1.5, 3, "medium"),
+        (3, 10, "high"),
+        (10, 100, "extreme"),
+    ]:
+        subset = hits[
+            (hits["vol_ratio"] >= vol_lo) & (hits["vol_ratio"] < vol_hi) & hits["upper_hit"]
+        ]
         if len(subset) > 0:
-            stats[f"vol_{label}"] = {"count": len(subset)}
+            stats[f"vol_{label}"] = {"count": int(len(subset))}
             for h in HORIZONS:
                 col = f"fwd_{h}d"
                 if col in subset.columns:
                     valid = subset[col].dropna()
                     if len(valid) > 0:
                         stats[f"vol_{label}"][f"avg_fwd_{h}d"] = round(float(valid.mean()) * 100, 2)
-                        stats[f"vol_{label}"][f"win_rate_{h}d"] = round(float((valid > 0).mean()) * 100, 1)
+                        stats[f"vol_{label}"][f"win_rate_{h}d"] = round(
+                            float((valid > 0).mean()) * 100, 1
+                        )
 
     # Consecutive upper circuits
     for n in [1, 2, 3, 4]:
         subset = hits[(hits["consec_upper"] == n) & hits["upper_hit"]]
         if len(subset) > 0:
-            stats[f"consec_{n}"] = {"count": len(subset)}
+            stats[f"consec_{n}"] = {"count": int(len(subset))}
             for h in HORIZONS:
                 col = f"fwd_{h}d"
                 if col in subset.columns:
                     valid = subset[col].dropna()
                     if len(valid) > 0:
                         stats[f"consec_{n}"][f"avg_fwd_{h}d"] = round(float(valid.mean()) * 100, 2)
-                        stats[f"consec_{n}"][f"win_rate_{h}d"] = round(float((valid > 0).mean()) * 100, 1)
+                        stats[f"consec_{n}"][f"win_rate_{h}d"] = round(
+                            float((valid > 0).mean()) * 100, 1
+                        )
 
     # Continuation pattern
     cont = hits[hits["continuation"] & hits["upper_hit"]]
     no_cont = hits[~hits["continuation"] & hits["upper_hit"]]
     if len(cont) > 0:
-        stats["with_continuation"] = {"count": len(cont)}
+        stats["with_continuation"] = {"count": int(len(cont))}
         for h in HORIZONS:
             col = f"fwd_{h}d"
             if col in cont.columns:
                 valid = cont[col].dropna()
                 if len(valid) > 0:
-                    stats["with_continuation"][f"avg_fwd_{h}d"] = round(float(valid.mean()) * 100, 2)
-                    stats["with_continuation"][f"win_rate_{h}d"] = round(float((valid > 0).mean()) * 100, 1)
+                    stats["with_continuation"][f"avg_fwd_{h}d"] = round(
+                        float(valid.mean()) * 100, 2
+                    )
+                    stats["with_continuation"][f"win_rate_{h}d"] = round(
+                        float((valid > 0).mean()) * 100, 1
+                    )
     if len(no_cont) > 0:
-        stats["no_continuation"] = {"count": len(no_cont)}
+        stats["no_continuation"] = {"count": int(len(no_cont))}
         for h in HORIZONS:
             col = f"fwd_{h}d"
             if col in no_cont.columns:
                 valid = no_cont[col].dropna()
                 if len(valid) > 0:
                     stats["no_continuation"][f"avg_fwd_{h}d"] = round(float(valid.mean()) * 100, 2)
-                    stats["no_continuation"][f"win_rate_{h}d"] = round(float((valid > 0).mean()) * 100, 1)
+                    stats["no_continuation"][f"win_rate_{h}d"] = round(
+                        float((valid > 0).mean()) * 100, 1
+                    )
 
     # Lower circuit reversal
     lower_hits = hits[hits["lower_hit"]]
     if len(lower_hits) > 0:
-        stats["lower_circuit"] = {"count": len(lower_hits)}
+        stats["lower_circuit"] = {"count": int(len(lower_hits))}
         for h in HORIZONS:
             col = f"fwd_{h}d"
             if col in lower_hits.columns:
                 valid = lower_hits[col].dropna()
                 if len(valid) > 0:
                     stats["lower_circuit"][f"avg_fwd_{h}d"] = round(float(valid.mean()) * 100, 2)
-                    stats["lower_circuit"][f"win_rate_{h}d"] = round(float((valid > 0).mean()) * 100, 1)
+                    stats["lower_circuit"][f"win_rate_{h}d"] = round(
+                        float((valid > 0).mean()) * 100, 1
+                    )
 
     return stats
 
@@ -269,7 +292,9 @@ def main() -> int:
     log.info(f"  {len(circuit_df)} circuit limit records")
 
     if circuit_df.empty:
-        log.error("No circuit limits found. Run ingest_circuit_limits.py or infer_historical_circuits.py first.")
+        log.error(
+            "No circuit limits found. Run ingest_circuit_limits.py or infer_historical_circuits.py first."
+        )
         return 1
 
     # Get unique symbols
@@ -303,7 +328,9 @@ def main() -> int:
     all_hits_df = pd.concat(all_hits, ignore_index=True)
     upper_count = all_hits_df["upper_hit"].sum()
     lower_count = all_hits_df["lower_hit"].sum()
-    log.info(f"Circuit hits: {upper_count} upper, {lower_count} lower across {len(all_hits_df)} merged rows")
+    log.info(
+        f"Circuit hits: {upper_count} upper, {lower_count} lower across {len(all_hits_df)} merged rows"
+    )
 
     # Run analysis
     stats = analyze_patterns(all_hits_df)

@@ -93,8 +93,10 @@ def get_creds(overrides: dict[str, str] | None = None) -> tuple[str, str, str]:
     api_secret = merged.get("UPSTOX_API_SECRET", "")
     redirect_uri = merged.get("UPSTOX_REDIRECT_URI", "")
     if not (api_key and api_secret and redirect_uri):
-        msg = f"missing UPSTOX_API_KEY / UPSTOX_API_SECRET / UPSTOX_REDIRECT_URI in {ENV_FILE} or environment"
-        raise SystemExit(msg)
+        raise SystemExit(
+            "missing UPSTOX_API_KEY / UPSTOX_API_SECRET / UPSTOX_REDIRECT_URI "
+            f"in {ENV_FILE} or environment"
+        )
     return api_key, api_secret, redirect_uri
 
 
@@ -116,8 +118,7 @@ def extract_code(pasted: str) -> str:
         return match.group(1)
     if re.fullmatch(r"[\w\-]{10,}", pasted):
         return pasted
-    msg = f"could not find an authorization code in: {pasted[:80]}..."
-    raise SystemExit(msg)
+    raise SystemExit(f"could not find an authorization code in: {pasted[:80]}...")
 
 
 def save_token_file(payload: dict[str, object]) -> None:
@@ -128,8 +129,7 @@ def save_token_file(payload: dict[str, object]) -> None:
 
 def load_token_file() -> dict[str, object]:
     if not TOKEN_FILE.exists():
-        msg = f"{TOKEN_FILE} not found - run `login` first"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"{TOKEN_FILE} not found - run `login` first")
     return json.loads(TOKEN_FILE.read_text())
 
 
@@ -173,8 +173,7 @@ def exchange_code(
         },
     )
     if resp.status_code != 200:
-        msg = f"token exchange failed ({resp.status_code}): {resp.text[:300]}"
-        raise SystemExit(msg)
+        raise SystemExit(f"token exchange failed ({resp.status_code}): {resp.text[:300]}")
     payload: dict[str, object] = resp.json()
     save_token_file(payload)
     return payload
@@ -190,8 +189,7 @@ def refresh_tokens(
     data = load_token_file()
     refresh_token = str(data.get("refresh_token") or data.get("extended_token") or "")
     if not refresh_token:
-        msg = "no refresh_token in upstox_tokens.json - run `login`"
-        raise SystemExit(msg)
+        raise SystemExit("no refresh_token in upstox_tokens.json - run `login`")
     own = http_client or httpx.Client(timeout=30.0)
     resp = own.post(
         TOKEN_URL,
@@ -205,8 +203,7 @@ def refresh_tokens(
         },
     )
     if resp.status_code != 200:
-        msg = f"refresh failed ({resp.status_code}): {resp.text[:300]}"
-        raise SystemExit(msg)
+        raise SystemExit(f"refresh failed ({resp.status_code}): {resp.text[:300]}")
     payload: dict[str, object] = resp.json()
     merged = {**data, **payload}
     save_token_file(merged)
@@ -226,8 +223,7 @@ def get_valid_access_token() -> str:
         api_key, api_secret, _ = get_creds()
         refreshed = refresh_tokens(api_key=api_key, api_secret=api_secret)
         return str(refreshed["access_token"])
-    msg = "no usable tokens - run `login`"
-    raise SystemExit(msg)
+    raise SystemExit("no usable tokens - run `login`")
 
 
 def whoami(token: str, http_client: httpx.Client | None = None) -> dict[str, object]:
@@ -240,8 +236,7 @@ def whoami(token: str, http_client: httpx.Client | None = None) -> dict[str, obj
         },
     )
     if resp.status_code != 200:
-        msg = f"profile probe failed ({resp.status_code}): {resp.text[:300]}"
-        raise SystemExit(msg)
+        raise SystemExit(f"profile probe failed ({resp.status_code}): {resp.text[:300]}")
     profile: dict[str, object] = resp.json()
     return profile
 
@@ -277,7 +272,9 @@ def main(argv: list[str] | None = None) -> int:
         print("   " + build_login_url(api_key, redirect_uri) + "\n")
         pasted = input("2. paste the redirected URL (or bare code): ")
         code = extract_code(pasted)
-        payload = exchange_code(code, api_key=api_key, api_secret=api_secret, redirect_uri=redirect_uri)
+        payload = exchange_code(
+            code, api_key=api_key, api_secret=api_secret, redirect_uri=redirect_uri
+        )
         print("3. saved upstox_tokens.json:")
         print(json.dumps(masked(payload), indent=2))
         return 0
@@ -297,7 +294,9 @@ def main(argv: list[str] | None = None) -> int:
         if "data" in profile and isinstance(profile["data"], dict):
             profile = profile["data"]
         interesting = {
-            k: profile.get(k) for k in ("user_id", "user_name", "email", "exchanges", "broker") if k in profile
+            k: profile.get(k)
+            for k in ("user_id", "user_name", "email", "exchanges", "broker")
+            if k in profile
         }
         print(json.dumps(interesting, indent=2))
         return 0

@@ -50,8 +50,7 @@ import pandas as pd
 def load_session_records(settings, session_id: str) -> list[dict]:
     path = settings.data_root / "raw" / "upstox" / "feed_sessions" / session_id / "records.jsonl"
     if not path.exists():
-        msg = f"no recording at {path}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"no recording at {path}")
     records = []
     for line in path.read_text().splitlines():
         if line.strip():
@@ -59,7 +58,9 @@ def load_session_records(settings, session_id: str) -> list[dict]:
     return records
 
 
-def aggregate_ltps(records: list[dict], key: str | None = None, freq: str = "1min") -> dict[str, pd.DataFrame]:
+def aggregate_ltps(
+    records: list[dict], key: str | None = None, freq: str = "1min"
+) -> dict[str, pd.DataFrame]:
     """Aggregate decoded ltp fields into time-bucketed close series."""
     rows_by_key: dict[str, list[tuple[datetime, float]]] = {}
     for rec in records:
@@ -95,7 +96,8 @@ def signal_sequence(closes: pd.Series, fast: int, slow: int) -> list[int]:
         s = sum(history[-slow:]) / slow
         targets.append(1 if f > s else -1)
     # collapse to transition events only
-    return [t for i, t in enumerate(targets) if i == 0 or t != targets[i - 1]]
+    events = [t for i, t in enumerate(targets) if i == 0 or t != targets[i - 1]]
+    return events
 
 
 def parity_report(
