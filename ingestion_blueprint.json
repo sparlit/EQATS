@@ -1614,8 +1614,8 @@
       "target": "llc-993/matching-core",
       "url": "https://github.com/llc-993/matching-core",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3144",
+      "merged": true
     },
     {
       "name": "longbridge-terminal",
