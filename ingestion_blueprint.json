@@ -1,5 +1,5 @@
 {
-  "current_index": 239,
+  "current_index": 240,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1917,9 +1917,9 @@
       "name": "mutxri-terminal",
       "target": "mutxri/mutxri-terminal",
       "url": "https://github.com/mutxri/mutxri-terminal",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3193",
+      "merged": true
     },
     {
       "name": "shortcircuit",
