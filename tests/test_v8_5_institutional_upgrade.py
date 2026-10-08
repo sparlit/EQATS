@@ -2,10 +2,8 @@
 EQATS Version 8.5 Institutional Upgrade Verification Suite
 Verifies version assertions, ScalperBrain v8.5 attributes, and AAT Expert feature adaptations.
 """
-from typing import Any
-import pytest
-import brain
 from brain import ScalperBrain
+
 
 def test_v8_5_version_assertions() -> None:
     scalper = ScalperBrain()

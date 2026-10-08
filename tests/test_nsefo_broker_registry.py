@@ -2,9 +2,13 @@
 Unit Tests for NSEFO Broker Configuration Registry.
 Verifies spec retrieval and account registration across all 26 supported brokers.
 """
-from typing import Any
 import unittest
-from institutional_integrations.nsefo_broker_registry import NSeFoBrokerConfigManager, NSEFO_BROKERS_REGISTRY
+
+from institutional_integrations.nsefo_broker_registry import (
+    NSEFO_BROKERS_REGISTRY,
+    NSeFoBrokerConfigManager,
+)
+
 
 class TestNSeFoBrokerRegistry(unittest.TestCase):
 

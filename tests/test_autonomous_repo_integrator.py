@@ -2,7 +2,6 @@
 Unit and Integration Tests for EQATS Autonomous Repository Integrator & Self-Healing Pipeline
 """
 
-import json
 import os
 import shutil
 import sys
@@ -16,7 +15,7 @@ scripts_dir = root_dir / ".github" / "scripts"
 sys.path.insert(0, str(root_dir))
 sys.path.insert(0, str(scripts_dir))
 
-from autonomous_repo_integrator import IST_SESSION_HELPER, AutonomousRepoIntegrator
+from autonomous_repo_integrator import AutonomousRepoIntegrator
 from trigger_loop import dispatch_next_cycle
 
 

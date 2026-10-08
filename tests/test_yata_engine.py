@@ -5,15 +5,16 @@ Tests for YATA High-Performance Technical Analysis Engine Integration Module
 from unittest.mock import patch
 
 import pytest
-from institutional_integrations.yata_engine import (
-    YATATechnicalEngine,
-    YATABrokerAdapter,
-    round_tick_005,
-    MAGIC_NUMBER_YATA,
-)
+
 from institutional_integrations.sebi_broker_adapter import (
-    SEBIOrderRequest,
     IndianBrokerPluginRegistry,
+    SEBIOrderRequest,
+)
+from institutional_integrations.yata_engine import (
+    MAGIC_NUMBER_YATA,
+    YATABrokerAdapter,
+    YATATechnicalEngine,
+    round_tick_005,
 )
 
 

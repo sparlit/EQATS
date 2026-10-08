@@ -2,10 +2,8 @@
 EQATS Version 10.2 Institutional Upgrade Verification Suite
 Verifies version assertions, ScalperBrain v10.2 attributes, and Data Collector role mode dispatching.
 """
-from typing import Any
-import pytest
-import brain
 from brain import ScalperBrain
+
 
 def test_v10_2_version_assertions() -> None:
     scalper = ScalperBrain()

@@ -1,10 +1,12 @@
-from typing import Any
 import os
 import unittest
+from typing import Any
+
 import brain
 import config
 import database
 import main
+
 
 class TestAllStrategiesAndRules(unittest.TestCase):
 

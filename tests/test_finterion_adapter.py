@@ -2,9 +2,15 @@
 Unit Tests for Finterion Adapter Engine.
 Verifies portfolio synchronization, order execution routing, and health check heartbeats.
 """
-from typing import Any
 import unittest
-from institutional_integrations.finterion_adapter import FinterionPortfolioProvider, FinterionOrderExecutor, FinterionPingHook, FinterionOrderRequest
+
+from institutional_integrations.finterion_adapter import (
+    FinterionOrderExecutor,
+    FinterionOrderRequest,
+    FinterionPingHook,
+    FinterionPortfolioProvider,
+)
+
 
 class TestFinterionAdapter(unittest.TestCase):
 

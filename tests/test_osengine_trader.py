@@ -3,7 +3,8 @@ Unit & Integration Tests for OsEngine Trader (AlexWan/OsEngine Adaptation)
 """
 
 from datetime import datetime
-from institutional_integrations.osengine_trader import OsEngineTrader, MAGIC_NUMBER
+
+from institutional_integrations.osengine_trader import MAGIC_NUMBER, OsEngineTrader
 from institutional_integrations.sebi_broker_adapter import IndianBrokerPluginRegistry
 
 

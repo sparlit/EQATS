@@ -2,10 +2,8 @@
 EQATS Version 9.7 Institutional Upgrade Verification Suite
 Verifies version assertions, ScalperBrain v9.7 attributes, and full-execution strategy stack adaptations.
 """
-from typing import Any
-import pytest
-import brain
 from brain import ScalperBrain
+
 
 def test_v9_7_version_assertions() -> None:
     scalper = ScalperBrain()

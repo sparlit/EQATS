@@ -2,10 +2,9 @@
 Unit & Integration Tests for Kronos Financial Time-Series Foundation Model Integration.
 """
 
-from datetime import datetime
 import os
-from typing import Any
 import unittest
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -16,12 +15,12 @@ import predictive_brain
 from brain import ScalperBrain
 from connector import SimulatorConnector
 from institutional_integrations.kronos_model import (
+    MAGIC_NUMBER,
     KronosBrokerAdapter,
     KronosFinetuneConfig,
     KronosFoundationModel,
     KronosPredictor,
     KronosTokenizer,
-    MAGIC_NUMBER,
     round_to_tick,
     validate_ist_market_session,
 )
@@ -56,7 +55,7 @@ class TestKronosModelIntegration(unittest.TestCase):
         tokenizer = KronosTokenizer(num_bins=64)
         subtokens = tokenizer.tokenize_bar(100.0, 105.0, 98.0, 102.0, 500.0, 100.0)
         self.assertEqual(len(subtokens), 4)
-        self.assertTrue(all((isinstance(x, int) for x in subtokens)))
+        self.assertTrue(all(isinstance(x, int) for x in subtokens))
         matrix = np.array([[100.0, 105.0, 98.0, 102.0, 500.0], [102.0, 104.0, 101.0, 103.0, 600.0]])
         seq_tokens = tokenizer.tokenize_kline_sequence(matrix)
         self.assertEqual(len(seq_tokens), 2)

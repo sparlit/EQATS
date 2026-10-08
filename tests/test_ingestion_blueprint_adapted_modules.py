@@ -3,13 +3,26 @@ Unit and Integration Tests for Ingestion Blueprint Adapted Quantitative Modules.
 Verifies RQAlpha event engine, Polymarket/Kalshi prediction market arbitrage,
 High-Frequency L3 matching orderbook, and Option Strategy Greeks engine.
 """
-from typing import Any
-import pytest
 import time
-from institutional_integrations.rqalpha_event_engine import RQAlphaEventEngine, Bar, EventOrder, OrderSide, OrderType
-from institutional_integrations.polymarket_kalshi_arb import PolymarketKalshiArbEngine, MarketQuote
-from institutional_integrations.hft_matching_orderbook import HighFrequencyMatchingOrderBook, LimitOrder, BookSide
-from institutional_integrations.option_strat_greeks_engine import OptionStratGreeksEngine, OptionLeg, OptionType as StratOptionType
+
+import pytest
+
+from institutional_integrations.hft_matching_orderbook import (
+    BookSide,
+    HighFrequencyMatchingOrderBook,
+    LimitOrder,
+)
+from institutional_integrations.option_strat_greeks_engine import OptionLeg, OptionStratGreeksEngine
+from institutional_integrations.option_strat_greeks_engine import OptionType as StratOptionType
+from institutional_integrations.polymarket_kalshi_arb import MarketQuote, PolymarketKalshiArbEngine
+from institutional_integrations.rqalpha_event_engine import (
+    Bar,
+    EventOrder,
+    OrderSide,
+    OrderType,
+    RQAlphaEventEngine,
+)
+
 
 def test_rqalpha_event_engine() -> None:
     engine = RQAlphaEventEngine(initial_capital=100000.0)

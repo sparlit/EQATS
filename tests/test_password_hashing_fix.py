@@ -7,14 +7,13 @@ This script demonstrates:
 3. Automatic migration from SHA-256 to bcrypt
 4. Migration status monitoring
 """
-from typing import Any
 import os
-import sys
 import tempfile
 import unittest
 
 import config
 import database
+
 
 class TestPasswordHashingFix(unittest.TestCase):
 

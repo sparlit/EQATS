@@ -2,18 +2,16 @@
 Tests for Rust Finance Engine Integration Module
 """
 
-import pytest
 from unittest.mock import patch
 
 from institutional_integrations.rust_finance_engine import (
-    RustFinanceEngine,
-    RustFinanceBrokerAdapter,
-    round_tick_005,
     MAGIC_NUMBER_RUST_FINANCE,
+    RustFinanceBrokerAdapter,
+    RustFinanceEngine,
 )
 from institutional_integrations.sebi_broker_adapter import (
-    SEBIOrderRequest,
     IndianBrokerPluginRegistry,
+    SEBIOrderRequest,
 )
 
 

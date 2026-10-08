@@ -10,7 +10,6 @@ from datetime import datetime
 from institutional_integrations.indian_market_holiday_calendar import (
     MAGIC_NUMBER_HOLIDAY_CALENDAR,
     IndianMarketHolidayCalendar,
-    global_indian_holiday_calendar,
 )
 
 

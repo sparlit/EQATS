@@ -1,11 +1,13 @@
 """
 Unit and integration tests for CircuitBreaker and UniversalBrokerGateway integration.
 """
-from typing import Any
 import time
+from typing import Any
+
 from event_bus import global_event_bus
 from institutional_integrations.circuit_breaker import CircuitBreaker
 from institutional_integrations.universal_broker_adapter import UniversalBrokerGateway
+
 
 def test_circuit_breaker_transitions() -> None:
     """Tests CLOSED -> OPEN -> HALF_OPEN -> CLOSED state machine transitions."""

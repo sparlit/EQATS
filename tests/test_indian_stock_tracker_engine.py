@@ -5,7 +5,6 @@ Verifies IndianStockTrackerEngine gainers/losers classification, portfolio alloc
 0.05 INR tick rounding, and microkernel plugin registry lookup.
 """
 
-from typing import Any
 
 from institutional_integrations.indian_stock_tracker_engine import (
     MAGIC_NUMBER_INDIAN_STOCK_TRACKER,
@@ -14,7 +13,6 @@ from institutional_integrations.indian_stock_tracker_engine import (
 )
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
-    SEBIOrderRequest,
     UnifiedIndianBrokerClientAdapter,
 )
 

@@ -2,9 +2,8 @@
 Unit tests for PyTrader & TradingGym Suite integration.
 Verifies TradingGymRLAdapter and PyTraderDepthAnalyzer.
 """
-from typing import Any
-import pytest
 from institutional_integrations.pytrader_gym_suite import PyTraderDepthAnalyzer, TradingGymRLAdapter
+
 
 def test_trading_gym_rl_adapter() -> None:
     adapter = TradingGymRLAdapter(initial_balance=10000.0, fee_pct=0.001)

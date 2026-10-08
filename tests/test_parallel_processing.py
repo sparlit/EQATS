@@ -1,9 +1,9 @@
 """
 Unit test suite verifying parallel processing and batch worker performance.
 """
-from typing import Any
 from institutional_integrations.backtest_engine import EventDrivenBacktester
 from predictive_brain import batch_predict_symbols_parallel
+
 
 def test_batch_predict_symbols_parallel() -> None:
     """Verify concurrent multi-symbol neural network predictions."""

@@ -4,19 +4,19 @@ Unit and Integration Tests for EOD2 Relative Strength & Market Breadth Engine.
 """
 
 import unittest
-from datetime import datetime
 import zoneinfo
+from datetime import datetime
 
 from institutional_integrations.eod2_engine import (
-    EOD2Engine,
-    EOD2BrokerAdapter,
-    round_tick_005,
-    is_ist_market_open,
     MAGIC_NUMBER_EOD2,
+    EOD2BrokerAdapter,
+    EOD2Engine,
+    is_ist_market_open,
+    round_tick_005,
 )
 from institutional_integrations.sebi_broker_adapter import (
-    SEBIOrderRequest,
     IndianBrokerPluginRegistry,
+    SEBIOrderRequest,
 )
 
 

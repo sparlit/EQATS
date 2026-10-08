@@ -2,12 +2,10 @@
 Unit and Integration Tests for Institutional Smart Order Router (SOR).
 """
 
-import pytest
 from institutional_integrations.institutional_order_router import (
     InstitutionalOrderRouter,
     InstitutionalOrderRouterAdapter,
     round_tick_005,
-    is_ist_market_open,
 )
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,

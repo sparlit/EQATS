@@ -2,18 +2,17 @@
 Tests for NSE System Multi-Factor & Market Regime Engine Integration Module
 """
 
-import pytest
 from unittest.mock import patch
 
 from institutional_integrations.nse_system_engine import (
-    NSESystemEngine,
-    NSESystemBrokerAdapter,
-    round_tick_005,
     MAGIC_NUMBER_NSE_SYSTEM,
+    NSESystemBrokerAdapter,
+    NSESystemEngine,
+    round_tick_005,
 )
 from institutional_integrations.sebi_broker_adapter import (
-    SEBIOrderRequest,
     IndianBrokerPluginRegistry,
+    SEBIOrderRequest,
 )
 
 
