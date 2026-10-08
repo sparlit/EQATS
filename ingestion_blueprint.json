@@ -1710,8 +1710,8 @@
       "target": "mapsx/nse",
       "url": "https://github.com/mapsx/nse",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3166",
+      "merged": true
     },
     {
       "name": "openalgo",
