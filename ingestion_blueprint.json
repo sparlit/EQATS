@@ -1926,8 +1926,8 @@
       "target": "nabrahma/shortcircuit",
       "url": "https://github.com/nabrahma/shortcircuit",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3194",
+      "merged": true
     },
     {
       "name": "nseindexoptionsdata",
