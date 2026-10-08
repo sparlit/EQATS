@@ -1,9 +1,11 @@
 """
 Unit and Integration Tests for Lean Framework Engine.
 """
-from typing import Any
-import pytest
-from institutional_integrations.lean_framework_engine import PearsonCorrelationPairsTradingAlphaModel, LeanMaximumDrawdownPercentPortfolio
+from institutional_integrations.lean_framework_engine import (
+    LeanMaximumDrawdownPercentPortfolio,
+    PearsonCorrelationPairsTradingAlphaModel,
+)
+
 
 def test_lean_pearson_pairs_alpha_model() -> None:
     alpha_model = PearsonCorrelationPairsTradingAlphaModel(minimum_correlation=0.7, z_score_threshold=1.5)

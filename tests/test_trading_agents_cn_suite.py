@@ -1,9 +1,12 @@
 """
 Unit and Integration Tests for TradingAgents-CN Suite.
 """
-from typing import Any
-import pytest
-from institutional_integrations.trading_agents_cn_suite import ChinaMarketAnalystAgent, EnhancedNewsFilterEngine, DataCompletenessChecker
+from institutional_integrations.trading_agents_cn_suite import (
+    ChinaMarketAnalystAgent,
+    DataCompletenessChecker,
+    EnhancedNewsFilterEngine,
+)
+
 
 def test_china_market_analyst_agent() -> None:
     agent = ChinaMarketAnalystAgent()

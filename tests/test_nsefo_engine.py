@@ -2,9 +2,14 @@
 Unit Tests for NSEFO Derivatives & Probability Synthesis Engine.
 Verifies Black-Scholes Greeks, conviction probability synthesis, and NLP order parsing.
 """
-from typing import Any
 import unittest
-from institutional_integrations.nsefo_engine import NSeFoOptionGreeksCalculator, NSeFoProbabilitySynthesis, NSeFoNlpCommandParser
+
+from institutional_integrations.nsefo_engine import (
+    NSeFoNlpCommandParser,
+    NSeFoOptionGreeksCalculator,
+    NSeFoProbabilitySynthesis,
+)
+
 
 class TestNSeFoEngine(unittest.TestCase):
 

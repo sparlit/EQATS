@@ -1,13 +1,15 @@
-from typing import Any
-import os
-import unittest
 import multiprocessing as mp
+import os
 import time
+import unittest
+from typing import Any
+
 import brain
 import config
 import database
 import indicators
 import main
+
 
 def _run_single_stress_worker(worker_id: Any) -> Any:
     """

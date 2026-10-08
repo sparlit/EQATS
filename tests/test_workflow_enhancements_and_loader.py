@@ -12,6 +12,7 @@ sys.path.insert(0, str(scripts_dir))
 
 from alert_dispatcher import send_webhook_alert  # noqa: E402
 from generate_dashboard import generate_dashboard  # noqa: E402
+
 from institutional_integrations.dynamic_plugin_loader import DynamicPluginLoader  # noqa: E402
 
 

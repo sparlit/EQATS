@@ -4,13 +4,15 @@ Verifies system version headers, ScalperBrain v8.4 dynamic adaptive volatility s
 multi-agent consensus directives, system capacity auto-tuning, and zero-error execution state.
 """
 from typing import Any
-import pytest
-import config
-import database
+
 from brain import ScalperBrain
 from brain_agents_orchestrator import global_brain_orchestrator
-from institutional_integrations.system_autotune import auto_tune_system_parameters, detect_system_capabilities
+from institutional_integrations.system_autotune import (
+    auto_tune_system_parameters,
+    detect_system_capabilities,
+)
 from institutional_integrations.trade_memory_protocol import global_trade_memory_protocol
+
 
 def test_v8_4_version_assertions() -> None:
     """Verifies that all core engine modules report valid EQATS Version major number."""

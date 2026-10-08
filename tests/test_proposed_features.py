@@ -1,4 +1,3 @@
-from typing import Any
 from institutional_integrations.alert_dispatcher import MultiChannelAlertDispatcher
 from institutional_integrations.backtest_engine import EventDrivenBacktester
 from institutional_integrations.drl_execution_agent import DRLExecutionPolicyAgent
@@ -6,8 +5,12 @@ from institutional_integrations.execution_slicing import ExecutionSlicer
 from institutional_integrations.fix_engine import FIXEngine
 from institutional_integrations.mcts_risk_engine import BlackSwanStressEngine
 from institutional_integrations.portfolio_optimizer import BlackLittermanOptimizer
-from institutional_integrations.tft_tcn_predictor import TemporalConvolutionalNetwork, TemporalFusionTransformer
+from institutional_integrations.tft_tcn_predictor import (
+    TemporalConvolutionalNetwork,
+    TemporalFusionTransformer,
+)
 from institutional_integrations.whale_tracker import WhaleLiquidityTracker
+
 
 def test_fix_engine() -> None:
     fix = FIXEngine()
@@ -99,6 +102,7 @@ def test_fixed_001_lot_position_sizing() -> None:
 
 def test_symbol_floating_loss_protection_gate() -> None:
     import time
+
     import brain
     import database
     database.init_db()

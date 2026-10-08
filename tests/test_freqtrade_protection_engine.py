@@ -1,10 +1,13 @@
 """
 Unit and Integration Tests for Freqtrade Protection Engine.
 """
-from typing import Any
 from datetime import datetime, timedelta
-import pytest
-from institutional_integrations.freqtrade_protection_engine import FreqtradeProtectionEngine, LockSide
+
+from institutional_integrations.freqtrade_protection_engine import (
+    FreqtradeProtectionEngine,
+    LockSide,
+)
+
 
 def test_freqtrade_pair_and_global_locks() -> None:
     engine = FreqtradeProtectionEngine()

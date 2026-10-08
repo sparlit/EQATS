@@ -3,9 +3,10 @@
 Covers the TelemetryStreamServer payload builder introduced in
 commit 8f62709 and Round 5 schema versioning / chaos stress testing.
 """
-from typing import Any
 import time
+
 from institutional_integrations.web_api import SocketIPCBridge, TelemetryStreamServer
+
 
 def test_telemetry_server_default_host_port() -> None:
     server = TelemetryStreamServer()

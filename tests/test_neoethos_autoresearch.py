@@ -1,9 +1,11 @@
 """
 Unit and Integration Tests for Neoethos AutoResearch Engine.
 """
-from typing import Any
-import pytest
-from institutional_integrations.neoethos_autoresearch import NeoethosAutoResearchEngine, ResearchObjectiveConfig
+from institutional_integrations.neoethos_autoresearch import (
+    NeoethosAutoResearchEngine,
+    ResearchObjectiveConfig,
+)
+
 
 def test_neoethos_evaluate_hypothesis() -> None:
     engine = NeoethosAutoResearchEngine(ResearchObjectiveConfig(min_t_stat_threshold=1.5))

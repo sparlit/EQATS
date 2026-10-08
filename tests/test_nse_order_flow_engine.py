@@ -3,7 +3,8 @@ Unit & Integration Tests for NSE Order Flow Engine (alloc7260/NSE Adaptation)
 """
 
 from datetime import datetime
-from institutional_integrations.nse_order_flow_engine import NSEOrderFlowEngine, MAGIC_NUMBER
+
+from institutional_integrations.nse_order_flow_engine import MAGIC_NUMBER, NSEOrderFlowEngine
 from institutional_integrations.sebi_broker_adapter import IndianBrokerPluginRegistry
 
 

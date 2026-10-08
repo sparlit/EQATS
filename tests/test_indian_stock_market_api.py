@@ -5,7 +5,6 @@ Verifies IndianStockMarketAPIClient lifecycle, market depth, option chain genera
 0.05 INR tick rounding, and microkernel plugin registry lookup.
 """
 
-from typing import Any
 
 from institutional_integrations.indian_stock_market_api import (
     MAGIC_NUMBER_INDIAN_API,

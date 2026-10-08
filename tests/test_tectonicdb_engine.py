@@ -1,6 +1,5 @@
-from typing import Any
-import pytest
 from institutional_integrations.tectonicdb_engine import TectonicDBEngine
+
 
 def test_tectonicdb_pack_unpack_roundtrip() -> None:
     engine = TectonicDBEngine(magic_number=9500001)

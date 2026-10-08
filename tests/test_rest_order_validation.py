@@ -7,12 +7,11 @@ This test validates the fix for the security vulnerability where any parseable
 JSON response was treated as a successful order execution, including broker
 rejections, pending acknowledgements, and empty objects.
 """
-from typing import Any
 import json
-import socket
-from unittest.mock import Mock, patch, MagicMock
-import urllib.request
+from unittest.mock import MagicMock, Mock, patch
+
 from institutional_integrations.universal_broker_adapter import UniversalBrokerGateway
+
 
 def test_rejected_order_returns_failure() -> None:
     """Verify that broker rejection response returns failure, not success."""

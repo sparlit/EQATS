@@ -1,9 +1,11 @@
-from typing import Any
 import os
 import unittest
+from typing import Any
+
 import brain
 import config
 import database
+
 
 class TestMultiStrategyMultiMethodConcurrent(unittest.TestCase):
 

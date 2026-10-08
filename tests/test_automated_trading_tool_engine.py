@@ -15,7 +15,10 @@ from institutional_integrations.automated_trading_tool_engine import (
     is_ist_market_session_active,
     round_to_ist_tick,
 )
-from institutional_integrations.sebi_broker_adapter import IndianBrokerPluginRegistry, SEBIOrderRequest
+from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
+    SEBIOrderRequest,
+)
 
 
 def test_round_to_ist_tick():

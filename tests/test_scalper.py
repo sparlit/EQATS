@@ -1,11 +1,12 @@
-from typing import Any
 import os
 import unittest
+
 import brain
 import connector
 import database
 import indicators
 import main
+
 
 class TestScalperIndicators(unittest.TestCase):
 
@@ -59,7 +60,9 @@ class TestScalperBrainAndConnector(unittest.TestCase):
         except Exception:
             pass
         try:
-            from institutional_integrations.nofx_ai_terminal_engine import global_nofx_direction_board
+            from institutional_integrations.nofx_ai_terminal_engine import (
+                global_nofx_direction_board,
+            )
             global_nofx_direction_board.directions.clear()
         except Exception:
             pass

@@ -4,7 +4,7 @@ Unit tests for the CredentialManager standalone module.
 
 import os
 import tempfile
-from typing import Generator
+from collections.abc import Generator
 
 import pytest
 
@@ -12,7 +12,7 @@ from src.credential_manager import CredentialManager
 
 
 @pytest.fixture
-def temp_db() -> Generator[str, None, None]:
+def temp_db() -> Generator[str]:
     """Creates a temporary database file for test isolation."""
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)

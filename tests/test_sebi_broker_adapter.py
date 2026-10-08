@@ -5,26 +5,19 @@ data ingestion, database schema persistence, and ensures zero breakage for Forex
 """
 
 import os
-import sqlite3
 import time
 
 # codespell:ignore MIS,IST
 from typing import Any
 
-import pytest
-
 import database
-from connector import SimulatorConnector, UniversalConnector
+from connector import UniversalConnector
 from institutional_integrations.extended_market_connectors import ExtendedDataConnectors
 from institutional_integrations.openalgo_engine import OpenAlgoIndianExchangeRouter
 from institutional_integrations.sebi_broker_adapter import (
-    VALID_INDIAN_EXCHANGES,
-    VALID_INDIAN_PRODUCT_TAGS,
     DhanHQAdapter,
     KiteConnectAdapter,
-    SEBIBrokerAdapter,
     SEBIOrderRequest,
-    SEBIOrderResponse,
     validate_indian_product_tag,
 )
 from institutional_integrations.universal_broker_adapter import UniversalBrokerGateway
@@ -162,7 +155,6 @@ def test_extended_connectors_and_openalgo_router() -> None:
 def test_indian_instrument_scheduler() -> None:
     from institutional_integrations.indian_instrument_scheduler import (
         IndianInstrumentScheduler,
-        global_indian_scheduler,
     )
 
     scheduler = IndianInstrumentScheduler(data_dir="data_test_temp")
@@ -231,7 +223,6 @@ def test_indian_market_state_machine_and_tick_size() -> None:
 def test_indian_broker_plugin_registry_and_microkernel() -> None:
     from institutional_integrations.sebi_broker_adapter import (
         IndianBrokerPluginRegistry,
-        KiteConnectAdapter,
         OpenAlgoFenixAdapter,
     )
 
@@ -324,7 +315,10 @@ def test_database_instrument_token_caching_and_scheduler() -> None:
 def test_intraday_mis_cutoff_and_auto_squareoff() -> Any:
     from datetime import datetime
 
-    from institutional_integrations.indian_market_state_machine import IST_TIMEZONE, IndianMarketStateMachine
+    from institutional_integrations.indian_market_state_machine import (
+        IST_TIMEZONE,
+        IndianMarketStateMachine,
+    )
 
     dt_cutoff = datetime(2026, 8, 31, 15, 15, tzinfo=IST_TIMEZONE)
     dt_normal = datetime(2026, 8, 31, 10, 30, tzinfo=IST_TIMEZONE)

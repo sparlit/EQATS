@@ -10,13 +10,14 @@ The fix ensures:
 2. The same normalized volume is used for validation and execution
 3. Both simulator and live connector use the same volume
 """
-from typing import Any
 import unittest
-from unittest.mock import Mock, MagicMock, patch
-import config
+from typing import Any
+from unittest.mock import MagicMock, Mock
+
 import connector
 import database
 import eqats_planes
+
 
 class TestVolumeNormalizationSecurity(unittest.TestCase):
     """Test suite for volume normalization security fix."""

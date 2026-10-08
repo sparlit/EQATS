@@ -3,9 +3,10 @@ GUI Integration Tests for gui.py (Round 5).
 Validates GUI data flows, screen update handlers, calculations, and event logic.
 Handles environments without native Tkinter installed via mock stubs.
 """
-from typing import Any
 import sys
 import unittest.mock as mock
+from typing import Any
+
 try:
     import tkinter as tk
 except ModuleNotFoundError:
@@ -98,6 +99,7 @@ except ModuleNotFoundError:
 import config
 import database
 
+
 def test_gui_module_imports_and_logger() -> None:
     """Verifies gui module import and logger configuration."""
     import gui
@@ -119,7 +121,7 @@ def test_gui_data_flow_updates_without_display() -> None:
         assert config.TRADING_STYLE == 'SWING_TRADING'
         initial_sim = config.SIMULATION_MODE
         app.toggle_mode()
-        assert config.SIMULATION_MODE != initial_sim
+        assert initial_sim != config.SIMULATION_MODE
         app.toggle_mode()
         app.ent_mkt_loss_pct = mock.MagicMock()
         app.ent_mkt_loss_pct.get.return_value = '20.0'

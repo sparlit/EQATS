@@ -1,16 +1,12 @@
-from typing import Any
 import os
-import unittest
 import time
+import unittest
+from typing import Any
+
 import brain_agents_orchestrator
 import config
 import database
 import event_bus
-import main
-import predictive_brain
-import release_gates
-import supervisor_agent
-import telegram_bot
 import institutional_integrations as ii
 import institutional_integrations.alert_dispatcher as alert_disp
 import institutional_integrations.backtest_engine as backtest
@@ -37,6 +33,12 @@ import institutional_integrations.trade_memory_protocol as trade_mem
 import institutional_integrations.universal_broker_adapter as univ_adapter
 import institutional_integrations.web_api as web_api
 import institutional_integrations.whale_tracker as whale
+import main
+import predictive_brain
+import release_gates
+import supervisor_agent
+import telegram_bot
+
 
 class TestExhaustiveAllModulesAndHiddenCorners(unittest.TestCase):
     """

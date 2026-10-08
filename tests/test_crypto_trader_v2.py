@@ -1,9 +1,13 @@
 """
 Unit and Integration Tests for CryptoTrader V2 Engine.
 """
-from typing import Any
-import pytest
-from institutional_integrations.crypto_trader_v2_engine import CryptoTraderV2Engine, OBISignalType, OrderBookLevel, OrderBookDepthPayload
+from institutional_integrations.crypto_trader_v2_engine import (
+    CryptoTraderV2Engine,
+    OBISignalType,
+    OrderBookDepthPayload,
+    OrderBookLevel,
+)
+
 
 def test_crypto_trader_obi_ratio_calculation() -> None:
     engine = CryptoTraderV2Engine(obi_buy_threshold=0.75)

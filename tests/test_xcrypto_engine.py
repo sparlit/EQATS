@@ -2,26 +2,27 @@
 Unit tests for XCryptoEngine and XCryptoBrokerAdapter (Repo 083 Adaptation, Magic 9100080)
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
-from institutional_integrations.xcrypto_engine import (
-    XCryptoEngine,
-    XCryptoBrokerAdapter,
-    MAGIC_NUMBER,
-    round_tick_005,
-    is_ist_market_open,
-)
+
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
     SEBIOrderRequest,
     SEBIOrderResponse,
 )
+from institutional_integrations.xcrypto_engine import (
+    MAGIC_NUMBER,
+    XCryptoBrokerAdapter,
+    XCryptoEngine,
+    is_ist_market_open,
+    round_tick_005,
+)
 
 
 def test_xcrypto_engine_pyalgo_signals():
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     assert now_utc is not None
     assert round_tick_005(100.03) == 100.05
     assert is_ist_market_open(now_utc) in [True, False]

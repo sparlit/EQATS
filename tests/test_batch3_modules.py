@@ -2,13 +2,25 @@
 Unit and Integration Tests for Batch 3 Modules:
 Monte Carlo EV, Trading Seatbelt OS, DXTrade Adapter, and Quant Strategies.
 """
-from typing import Any
 from datetime import datetime, timedelta
-import pytest
-from institutional_integrations.prop_firm_monte_carlo_ev import PropFirmMonteCarloEVEngine, PropChallengeConfig
-from institutional_integrations.trading_seatbelt_engine import TradingSeatbeltEngine, SeatbeltStatus
-from institutional_integrations.dxtrade_broker_adapter import DXTradeBrokerAdapter, DXTradeOrderRequest
-from institutional_integrations.batch3_quant_strategies import VWAPFadeStrategy, OvernightDriftStrategy, VolatilityExpansionStrategy, EngulfingAtExtremeStrategy, PivotReactionZoneStrategy
+
+from institutional_integrations.batch3_quant_strategies import (
+    EngulfingAtExtremeStrategy,
+    OvernightDriftStrategy,
+    PivotReactionZoneStrategy,
+    VolatilityExpansionStrategy,
+    VWAPFadeStrategy,
+)
+from institutional_integrations.dxtrade_broker_adapter import (
+    DXTradeBrokerAdapter,
+    DXTradeOrderRequest,
+)
+from institutional_integrations.prop_firm_monte_carlo_ev import (
+    PropChallengeConfig,
+    PropFirmMonteCarloEVEngine,
+)
+from institutional_integrations.trading_seatbelt_engine import TradingSeatbeltEngine
+
 
 def test_monte_carlo_ev_engine() -> None:
     engine = PropFirmMonteCarloEVEngine(PropChallengeConfig(firm_name='FTMO 100K', fee_usd=500.0))

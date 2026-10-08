@@ -3,7 +3,8 @@ Unit & Integration Tests for BuyNSell Engine (akt114/BuyNSell Adaptation)
 """
 
 from datetime import datetime
-from institutional_integrations.buy_n_sell_engine import BuyNSellEngine, MAGIC_NUMBER
+
+from institutional_integrations.buy_n_sell_engine import MAGIC_NUMBER, BuyNSellEngine
 from institutional_integrations.sebi_broker_adapter import IndianBrokerPluginRegistry
 
 

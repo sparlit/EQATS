@@ -9,12 +9,14 @@ The fix implements strict validation at multiple layers:
 1. Database write time (add_broker_account, save_broker_credentials)
 2. Database read time (MT5Connector.connect)
 """
-from typing import Any
 import os
 import tempfile
+
 import pytest
-import database
+
 import config
+import database
+
 
 def test_validate_terminal_path_legitimate_paths() -> None:
     """Test that legitimate MT5 terminal paths are accepted."""
@@ -24,7 +26,7 @@ def test_validate_terminal_path_legitimate_paths() -> None:
             result = database.validate_terminal_path(path)
             assert result.lower().endswith(('terminal64.exe', 'terminal.exe'))
             print(f'✓ Valid path accepted: {path}')
-        except ValueError as e:
+        except ValueError:
             print(f'✓ Valid path format accepted (file may not exist): {path}')
 
 def test_validate_terminal_path_rejects_arbitrary_executables() -> None:

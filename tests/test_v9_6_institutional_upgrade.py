@@ -2,10 +2,8 @@
 EQATS Version 9.6 Institutional Upgrade Verification Suite
 Verifies version assertions, ScalperBrain v9.6 attributes, and high-density multi-timeframe structural matrix adaptations.
 """
-from typing import Any
-import pytest
-import brain
 from brain import ScalperBrain
+
 
 def test_v9_6_version_assertions() -> None:
     scalper = ScalperBrain()

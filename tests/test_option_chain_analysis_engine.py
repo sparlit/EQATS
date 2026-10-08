@@ -5,7 +5,6 @@ Verifies OptionChainAnalyzerEngine PCR, Max Pain, Black-Scholes Greeks,
 0.05 INR tick rounding, and microkernel plugin registry lookup.
 """
 
-from typing import Any
 
 from institutional_integrations.option_chain_analysis_engine import (
     MAGIC_NUMBER_OPTION_CHAIN,
@@ -14,7 +13,6 @@ from institutional_integrations.option_chain_analysis_engine import (
 )
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
-    SEBIOrderRequest,
     UnifiedIndianBrokerClientAdapter,
 )
 
