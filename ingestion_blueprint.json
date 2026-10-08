@@ -1,5 +1,5 @@
 {
-  "current_index": 220,
+  "current_index": 221,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1765,9 +1765,9 @@
       "name": "tastytrade-rs",
       "target": "mchsl/tastytrade-rs",
       "url": "https://github.com/mchsl/tastytrade-rs",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3173",
+      "merged": true
     },
     {
       "name": "velocity",
