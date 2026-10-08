@@ -1798,8 +1798,8 @@
       "target": "meetnepali/market-platform",
       "url": "https://github.com/meetnepali/market-platform",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3177",
+      "merged": true
     },
     {
       "name": "algomln",
