@@ -1702,8 +1702,8 @@
       "target": "manitgupta/nse-mcp",
       "url": "https://github.com/manitgupta/nse-mcp",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3165",
+      "merged": true
     },
     {
       "name": "nse",
