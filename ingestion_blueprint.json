@@ -1,5 +1,5 @@
 {
-  "current_index": 242,
+  "current_index": 243,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1941,7 +1941,7 @@
       "name": "openlimits",
       "target": "nash-io/openlimits",
       "url": "https://github.com/nash-io/openlimits",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
