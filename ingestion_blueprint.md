@@ -246,7 +246,7 @@ Total Repositories: 424 | Current Index: 244
 | 241 | nabrahma/shortcircuit | Completed | https://github.com/sparlit/EQATS/pull/3194 |
 | 242 | nagarajugunda/nseindexoptionsdata | Processed | https://github.com/sparlit/EQATS/pull/3195 |
 | 243 | nash-io/openlimits | Processed | https://github.com/sparlit/EQATS/pull/3196 |
-| 244 | nautechsystems/nautilus_trader | Completed | None |
+| 244 | nautechsystems/nautilus_trader | Completed | https://github.com/sparlit/EQATS/pull/3197 |
 | 245 | nawin383/nse-top500-realtime-screener | pending | None |
 | 246 | nayakwadis/mftool | pending | None |
 | 247 | nayakwadis/nse-neuron | pending | None |
