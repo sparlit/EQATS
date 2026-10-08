@@ -1822,8 +1822,8 @@
       "target": "mileswangs/pm-hftbacktest",
       "url": "https://github.com/mileswangs/pm-hftbacktest",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3180",
+      "merged": true
     },
     {
       "name": "rust-share",
