@@ -1,5 +1,5 @@
 {
-  "current_index": 216,
+  "current_index": 217,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1733,9 +1733,9 @@
       "name": "sector-rotation-map",
       "target": "marketcalls/sector-rotation-map",
       "url": "https://github.com/marketcalls/sector-rotation-map",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3169",
+      "merged": true
     },
     {
       "name": "lfest-rs",
