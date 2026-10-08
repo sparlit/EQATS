@@ -1,5 +1,5 @@
 {
-  "current_index": 243,
+  "current_index": 244,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1949,7 +1949,7 @@
       "name": "nautilus_trader",
       "target": "nautechsystems/nautilus_trader",
       "url": "https://github.com/nautechsystems/nautilus_trader",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },

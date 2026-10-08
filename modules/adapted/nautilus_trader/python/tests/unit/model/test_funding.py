@@ -1,0 +1,193 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+# -------------------------------------------------------------------------------------------------
+#  Copyright (C) 2015-2026 Nautech Systems Pty Ltd. All rights reserved.
+#  https://nautechsystems.io
+#
+#  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
+#  You may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at https://www.gnu.org/licenses/lgpl-3.0.en.html
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+# -------------------------------------------------------------------------------------------------
+"""
+Test funding behavior.
+"""
+
+import pickle
+from decimal import Decimal
+
+from nautilus_trader.model import FundingRateUpdate, InstrumentId
+
+
+def test_funding_rate_update_construction(audusd_id: InstrumentId) -> None:
+    """
+    Test funding rate update construction.
+    """
+    funding = FundingRateUpdate(
+        instrument_id=audusd_id,
+        rate=Decimal("0.0001"),
+        ts_event=1_000_000_000,
+        ts_init=1_000_000_001,
+        interval=480,
+        next_funding_ns=2_000_000_000,
+    )
+
+    assert funding.instrument_id == audusd_id
+    assert funding.rate == Decimal("0.0001")
+    assert funding.interval == 480
+    assert funding.next_funding_ns == 2_000_000_000
+    assert funding.ts_event == 1_000_000_000
+    assert funding.ts_init == 1_000_000_001
+
+
+def test_funding_rate_update_equality(audusd_id: InstrumentId) -> None:
+    """
+    Test funding rate update equality.
+    """
+    f1 = FundingRateUpdate(audusd_id, Decimal("0.0001"), 0, 0, interval=480)
+    f2 = FundingRateUpdate(audusd_id, Decimal("0.0001"), 0, 0, interval=480)
+
+    assert f1 == f2
+
+
+def test_funding_rate_update_hash(audusd_id: InstrumentId) -> None:
+    """
+    Test funding rate update hash.
+    """
+    f1 = FundingRateUpdate(audusd_id, Decimal("0.0001"), 0, 0, interval=480)
+    f2 = FundingRateUpdate(audusd_id, Decimal("0.0001"), 0, 0, interval=480)
+
+    assert hash(f1) == hash(f2)
+
+
+def test_funding_rate_update_repr(audusd_id: InstrumentId) -> None:
+    """
+    Test funding rate update repr.
+    """
+    funding = FundingRateUpdate(audusd_id, Decimal("0.0001"), 0, 0)
+    r = repr(funding)
+
+    assert "FundingRateUpdate" in r
+    assert "AUD/USD.SIM" in r
+    assert "0.0001" in r
+
+
+def test_funding_rate_update_to_dict_and_from_dict_roundtrip(audusd_id: InstrumentId) -> None:
+    """
+    Test funding rate update to dict and from dict roundtrip.
+    """
+    funding = FundingRateUpdate(
+        instrument_id=audusd_id,
+        rate=Decimal("0.0001"),
+        ts_event=1_000_000_000,
+        ts_init=1_000_000_001,
+        interval=480,
+        next_funding_ns=2_000_000_000,
+    )
+
+    d = FundingRateUpdate.to_dict(funding)
+    restored = FundingRateUpdate.from_dict(d)
+
+    assert d == {
+        "type": "FundingRateUpdate",
+        "instrument_id": "AUD/USD.SIM",
+        "rate": "0.0001",
+        "interval": 480,
+        "next_funding_ns": 2_000_000_000,
+        "ts_event": 1_000_000_000,
+        "ts_init": 1_000_000_001,
+    }
+    assert restored == funding
+
+
+def test_funding_rate_update_fully_qualified_name() -> None:
+    """
+    Test funding rate update fully qualified name.
+    """
+    assert FundingRateUpdate.fully_qualified_name() == "nautilus_trader.model:FundingRateUpdate"
+
+
+def test_funding_rate_update_pickle_roundtrip(audusd_id: InstrumentId) -> None:
+    """
+    Test funding rate update pickle roundtrip.
+    """
+    funding = FundingRateUpdate(audusd_id, Decimal("0.0001"), 0, 0, interval=480)
+
+    pickled = pickle.dumps(funding)
+    unpickled = pickle.loads(pickled)
+
+    assert unpickled == funding
+
+
+def test_funding_rate_update_json_roundtrip(audusd_id: InstrumentId) -> None:
+    """
+    Test funding rate update json roundtrip.
+    """
+    funding = FundingRateUpdate(audusd_id, Decimal("0.0001"), 0, 0, interval=480)
+
+    json_bytes = funding.to_json()
+    restored = FundingRateUpdate.from_json(json_bytes)
+
+    assert restored == funding
+
+
+def test_funding_rate_update_msgpack_roundtrip(audusd_id: InstrumentId) -> None:
+    """
+    Test funding rate update msgpack roundtrip.
+    """
+    funding = FundingRateUpdate(audusd_id, Decimal("0.0001"), 0, 0, interval=480)
+
+    msgpack_bytes = funding.to_msgpack()
+    restored = FundingRateUpdate.from_msgpack(msgpack_bytes)
+
+    assert restored == funding
+
+
+def test_funding_rate_update_get_metadata(audusd_id: InstrumentId) -> None:
+    """
+    Test funding rate update get metadata.
+    """
+    metadata = FundingRateUpdate.get_metadata(audusd_id)
+
+    assert metadata["instrument_id"] == "AUD/USD.SIM"
+
+
+def test_funding_rate_update_get_fields() -> None:
+    """
+    Test funding rate update get fields.
+    """
+    fields = FundingRateUpdate.get_fields()
+
+    assert fields == {
+        "rate": "Utf8",
+        "interval": "UInt64",
+        "next_funding_ns": 'Timestamp(Nanosecond, Some("UTC"))',
+        "ts_event": 'Timestamp(Nanosecond, Some("UTC"))',
+        "ts_init": 'Timestamp(Nanosecond, Some("UTC"))',
+    }
