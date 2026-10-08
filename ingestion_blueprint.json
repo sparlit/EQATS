@@ -1,5 +1,5 @@
 {
-  "current_index": 215,
+  "current_index": 216,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1725,9 +1725,9 @@
       "name": "openchart",
       "target": "marketcalls/openchart",
       "url": "https://github.com/marketcalls/openchart",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3168",
+      "merged": true
     },
     {
       "name": "sector-rotation-map",
