@@ -1,5 +1,5 @@
 {
-  "current_index": 232,
+  "current_index": 233,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1861,9 +1861,9 @@
       "name": "solana-copy-sniper-mev-trading-bot",
       "target": "mortdeus/solana-copy-sniper-mev-trading-bot",
       "url": "https://github.com/mortdeus/solana-copy-sniper-mev-trading-bot",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3185",
+      "merged": true
     },
     {
       "name": "nse-data-analysis",
