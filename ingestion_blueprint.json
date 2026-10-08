@@ -1,5 +1,5 @@
 {
-  "current_index": 240,
+  "current_index": 241,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1925,7 +1925,7 @@
       "name": "shortcircuit",
       "target": "nabrahma/shortcircuit",
       "url": "https://github.com/nabrahma/shortcircuit",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
