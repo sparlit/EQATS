@@ -1790,8 +1790,8 @@
       "target": "mechvec-debug/ai_driven_algorithmic_trading",
       "url": "https://github.com/mechvec-debug/ai_driven_algorithmic_trading",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3176",
+      "merged": true
     },
     {
       "name": "market-platform",
