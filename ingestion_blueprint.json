@@ -1878,8 +1878,8 @@
       "target": "mrimahajan/nse-market-app",
       "url": "https://github.com/mrimahajan/nse-market-app",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3187",
+      "merged": true
     },
     {
       "name": "nse-smart-investor",
