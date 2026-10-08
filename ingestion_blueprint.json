@@ -1,5 +1,5 @@
 {
-  "current_index": 218,
+  "current_index": 219,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1749,9 +1749,9 @@
       "name": "trade_aggregation-rs",
       "target": "mathiswellmann/trade_aggregation-rs",
       "url": "https://github.com/mathiswellmann/trade_aggregation-rs",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3171",
+      "merged": true
     },
     {
       "name": "stock-news-monitor",
