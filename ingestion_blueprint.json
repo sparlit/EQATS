@@ -1718,8 +1718,8 @@
       "target": "marketcalls/openalgo",
       "url": "https://github.com/marketcalls/openalgo",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3167",
+      "merged": true
     },
     {
       "name": "openchart",
