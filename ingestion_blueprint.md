@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 424 | Current Index: 208
+Total Repositories: 424 | Current Index: 209
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -211,7 +211,7 @@ Total Repositories: 424 | Current Index: 208
 | 206 | maheshcharig/financial-data | Processed | https://github.com/sparlit/EQATS/pull/3148 |
 | 207 | mailbagrahul/nseoptionalpha | Skipped: Private/Non-Existent (404/403) | None |
 | 208 | manavgupta83/nse-factor-engine | Completed | https://github.com/sparlit/EQATS/pull/3160 |
-| 209 | mandarl/nsedata | pending | None |
+| 209 | mandarl/nsedata | Processed | https://github.com/sparlit/EQATS/pull/3161 |
 | 210 | manddar/open-interest-data-extractor | pending | None |
 | 211 | manishkr1754/nifty50_data_analysis_nsetools_nsepy_python | pending | None |
 | 212 | manishn32/option_chain_analyzer | pending | None |

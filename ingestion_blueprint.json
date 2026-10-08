@@ -1,5 +1,5 @@
 {
-  "current_index": 208,
+  "current_index": 209,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1669,9 +1669,9 @@
       "name": "nsedata",
       "target": "mandarl/nsedata",
       "url": "https://github.com/mandarl/nsedata",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3161",
+      "merged": true
     },
     {
       "name": "open-interest-data-extractor",
