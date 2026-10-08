@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 424 | Current Index: 216
+Total Repositories: 424 | Current Index: 217
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -219,7 +219,7 @@ Total Repositories: 424 | Current Index: 216
 | 214 | mapsx/nse | Processed | https://github.com/sparlit/EQATS/pull/3166 |
 | 215 | marketcalls/openalgo | Completed | https://github.com/sparlit/EQATS/pull/3167 |
 | 216 | marketcalls/openchart | Processed | https://github.com/sparlit/EQATS/pull/3168 |
-| 217 | marketcalls/sector-rotation-map | pending | None |
+| 217 | marketcalls/sector-rotation-map | Processed | None |
 | 218 | mathiswellmann/lfest-rs | pending | None |
 | 219 | mathiswellmann/trade_aggregation-rs | pending | None |
 | 220 | maverick14303/stock-news-monitor | pending | None |
