@@ -1,5 +1,5 @@
 {
-  "current_index": 234,
+  "current_index": 235,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1877,7 +1877,7 @@
       "name": "nse-market-app",
       "target": "mrimahajan/nse-market-app",
       "url": "https://github.com/mrimahajan/nse-market-app",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
