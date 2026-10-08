@@ -1726,8 +1726,8 @@
       "target": "marketcalls/openchart",
       "url": "https://github.com/marketcalls/openchart",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3168",
+      "merged": true
     },
     {
       "name": "sector-rotation-map",
