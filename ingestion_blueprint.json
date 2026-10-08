@@ -1,5 +1,5 @@
 {
-  "current_index": 221,
+  "current_index": 222,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1773,7 +1773,7 @@
       "name": "velocity",
       "target": "me-imfhd/velocity",
       "url": "https://github.com/me-imfhd/velocity",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
