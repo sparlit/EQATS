@@ -1,5 +1,5 @@
 {
-  "current_index": 234,
+  "current_index": 235,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1877,9 +1877,9 @@
       "name": "nse-market-app",
       "target": "mrimahajan/nse-market-app",
       "url": "https://github.com/mrimahajan/nse-market-app",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3187",
+      "merged": true
     },
     {
       "name": "nse-smart-investor",
