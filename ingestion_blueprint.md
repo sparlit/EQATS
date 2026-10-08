@@ -240,7 +240,7 @@ Total Repositories: 424 | Current Index: 238
 | 235 | mrimahajan/nse-market-app | Completed | https://github.com/sparlit/EQATS/pull/3187 |
 | 236 | mrinaljhunjhunwala-ui/nse-smart-investor | Skipped: Private/Non-Existent (404/403) | None |
 | 237 | muepsilon/nsemodule | Completed | https://github.com/sparlit/EQATS/pull/3190 |
-| 238 | muokapwambua/nse-bot | Processed | None |
+| 238 | muokapwambua/nse-bot | Processed | https://github.com/sparlit/EQATS/pull/3191 |
 | 239 | muthuvenki/stock | pending | None |
 | 240 | mutxri/mutxri-terminal | pending | None |
 | 241 | nabrahma/shortcircuit | pending | None |

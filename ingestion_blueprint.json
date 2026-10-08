@@ -1902,8 +1902,8 @@
       "target": "muokapwambua/nse-bot",
       "url": "https://github.com/muokapwambua/nse-bot",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3191",
+      "merged": true
     },
     {
       "name": "stock",
