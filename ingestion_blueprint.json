@@ -1830,8 +1830,8 @@
       "target": "mineralres/rust-share",
       "url": "https://github.com/mineralres/rust-share",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3181",
+      "merged": true
     },
     {
       "name": "breadth-radar",
