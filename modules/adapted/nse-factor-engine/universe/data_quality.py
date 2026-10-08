@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 from datetime import date
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 PRICES_PATH = Path("data/prices.parquet")
@@ -82,7 +81,9 @@ log(f"    close < low         : {cl}{' ***' if cl > 0 else ''}")
 
 if hl > 0 or ch > 0 or cl > 0:
     bad = prices[
-        (prices["high"] < prices["low"]) | (prices["close"] > prices["high"]) | (prices["close"] < prices["low"])
+        (prices["high"] < prices["low"])
+        | (prices["close"] > prices["high"])
+        | (prices["close"] < prices["low"])
     ]
     log("\n    Offending rows:")
     log(bad[["symbol", "date", "open", "high", "low", "close"]].to_string(index=False))

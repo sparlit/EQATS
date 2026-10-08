@@ -70,9 +70,10 @@ def get_adtv_threshold(date: pd.Timestamp) -> float:
     year = date.year
     if year < 2018:
         return 10.0
-    if year <= 2021:
+    elif year <= 2021:
         return 20.0
-    return 30.0
+    else:
+        return 30.0
 
 
 # ---------------------------------------------------------------------------
@@ -86,7 +87,8 @@ def load_prices_long(price_file: Path) -> pd.DataFrame:
     """
     df = pd.read_parquet(price_file)
     df["date"] = pd.to_datetime(df["date"])
-    return df.sort_values(["symbol", "date"]).reset_index(drop=True)
+    df = df.sort_values(["symbol", "date"]).reset_index(drop=True)
+    return df
 
 
 # ---------------------------------------------------------------------------
@@ -96,7 +98,9 @@ def build_universe_lookup(csv_file: Path) -> pd.DataFrame:
     df = pd.read_csv(csv_file)
     df["effective_date"] = pd.to_datetime(df["effective_date"])
     df = df.sort_values("effective_date").reset_index(drop=True)
-    df["symbols_list"] = df["symbols"].apply(lambda s: [x.strip() for x in str(s).split(",") if x.strip()])
+    df["symbols_list"] = df["symbols"].apply(
+        lambda s: [x.strip() for x in str(s).split(",") if x.strip()]
+    )
     return df[["effective_date", "symbols_list"]]
 
 
@@ -162,7 +166,7 @@ def get_clean_universe(
     prices_long: pd.DataFrame,
     universe_df: pd.DataFrame,
     sym_map: dict,
-    adtv_crore: float | None = None,
+    adtv_crore: float = None,
     adtv_days: int = 63,
 ) -> list:
     """
@@ -212,4 +216,5 @@ def build_monthly_close(prices_long: pd.DataFrame) -> pd.DataFrame:
     daily_wide = prices_long.pivot(index="date", columns="symbol", values="close")
     daily_wide.index = pd.to_datetime(daily_wide.index)
     daily_wide.columns.name = None
-    return daily_wide.resample("ME").last()
+    monthly = daily_wide.resample("ME").last()
+    return monthly

@@ -63,7 +63,7 @@ def run_forward_algo(as_of_date=None, verbose=True):
         as_of_month, regime, P_Bull, P_Choppy, P_Crisis,
         model_train_window, full_series (DataFrame)
     """
-    eval_end = as_of_date or EVAL_END
+    eval_end = as_of_date if as_of_date else EVAL_END
 
     # Load model
     bundle = joblib.load(MODEL_FILE)
@@ -95,7 +95,10 @@ def run_forward_algo(as_of_date=None, verbose=True):
 
     # Emission log-probabilities
     log_b = np.column_stack(
-        [multivariate_normal.logpdf(X, mean=model.means_[s], cov=model.covars_[s]) for s in range(n_states)]
+        [
+            multivariate_normal.logpdf(X, mean=model.means_[s], cov=model.covars_[s])
+            for s in range(n_states)
+        ]
     )
 
     # Initial state: use Dec 2019 Viterbi label as prior
@@ -154,7 +157,9 @@ def run_forward_algo(as_of_date=None, verbose=True):
             bw = pd.read_csv(BW_CSV)
             bw["date"] = pd.to_datetime(bw["date"])
             out_reset = out.reset_index()
-            out_reset["date"] = pd.to_datetime(out_reset["date"].dt.to_period("M").dt.to_timestamp())
+            out_reset["date"] = pd.to_datetime(
+                out_reset["date"].dt.to_period("M").dt.to_timestamp()
+            )
             merged = bw.merge(out_reset[["date", "regime"]], on="date", suffixes=("_bw", "_fwd"))
             matches = (merged["viterbi"] == merged["regime"]).sum()
             total = len(merged)
@@ -177,7 +182,9 @@ def run_forward_algo(as_of_date=None, verbose=True):
         "eval_window": {"start": EVAL_START, "end": eval_end, "n_months": len(out)},
         "initial_state": {"dec2019_label": dec2019_label, "prior": prior.tolist()},
         "regime_counts": {r: int(counts.get(r, 0)) for r in ["Bull", "Choppy", "Crisis"]},
-        "regime_pct": {r: round(counts.get(r, 0) / len(out) * 100, 2) for r in ["Bull", "Choppy", "Crisis"]},
+        "regime_pct": {
+            r: round(counts.get(r, 0) / len(out) * 100, 2) for r in ["Bull", "Choppy", "Crisis"]
+        },
     }
     with open(OUT_JSON, "w") as f:
         json.dump(summary, f, indent=2)

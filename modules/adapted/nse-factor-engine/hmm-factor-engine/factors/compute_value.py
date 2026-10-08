@@ -56,7 +56,8 @@ FUND_FILE = DATA_DIR / "fundamentals_annual.parquet"
 SECTOR_FILE = DATA_DIR / "ticker_to_sector.csv"
 SYMBOL_MAP_FILE = DATA_DIR / "symbol_map.csv"
 CONSTITUENT_CSV = Path(
-    "/home/ec2-user/nse-factor-engine/nifty_constituent_history/nifty500_2005-01-01_to_2026-06-30.csv"
+    "/home/ec2-user/nse-factor-engine/nifty_constituent_history/"
+    "nifty500_2005-01-01_to_2026-06-30.csv"
 )
 OUTPUT_FILE = FACTORS_DIR / "factor_value.parquet"
 OUTPUT_RET = FACTORS_DIR / "value_returns.parquet"
@@ -257,7 +258,10 @@ def get_signals_at_date(
 ) -> pd.DataFrame:
     avail = fund_df[(fund_df["available_from"] <= date) & (fund_df["book_equity"].notna())]
     latest = (
-        avail[avail["nse_ticker"].isin(universe)].sort_values("fy_end").groupby("nse_ticker", as_index=False).nth(-1)
+        avail[avail["nse_ticker"].isin(universe)]
+        .sort_values("fy_end")
+        .groupby("nse_ticker", as_index=False)
+        .nth(-1)
     )
 
     if latest.empty:
@@ -343,20 +347,21 @@ def compute_scores(signals: pd.DataFrame) -> pd.DataFrame:
                 s = z_bp
             else:
                 s = np.nan
-        elif have_ep and have_bp and have_sp:
-            s = z_ep / 3 + z_bp / 3 + z_sp / 3
-        elif have_ep and have_bp:
-            s = 0.5 * z_ep + 0.5 * z_bp
-        elif have_ep and have_sp:
-            s = 0.5 * z_ep + 0.5 * z_sp
-        elif have_bp and have_sp:
-            s = 0.5 * z_bp + 0.5 * z_sp
-        elif have_ep:
-            s = z_ep
-        elif have_bp:
-            s = z_bp
         else:
-            s = np.nan
+            if have_ep and have_bp and have_sp:
+                s = z_ep / 3 + z_bp / 3 + z_sp / 3
+            elif have_ep and have_bp:
+                s = 0.5 * z_ep + 0.5 * z_bp
+            elif have_ep and have_sp:
+                s = 0.5 * z_ep + 0.5 * z_sp
+            elif have_bp and have_sp:
+                s = 0.5 * z_bp + 0.5 * z_sp
+            elif have_ep:
+                s = z_ep
+            elif have_bp:
+                s = z_bp
+            else:
+                s = np.nan
 
         result.loc[idx, "score_within"] = s
 
@@ -401,7 +406,9 @@ def run_backtest(
         pit_cols = [c for c in pit_cols if c in adtv_row.index]
         adtv_pass = adtv_row[pit_cols].dropna()
         adtv_pass = adtv_pass[adtv_pass >= threshold].index.tolist()
-        universe = [rev_map.get(c, c) for c in adtv_pass if rev_map.get(c, c) not in EXCLUDE_TICKERS]
+        universe = [
+            rev_map.get(c, c) for c in adtv_pass if rev_map.get(c, c) not in EXCLUDE_TICKERS
+        ]
 
         if len(universe) < MIN_STOCKS:
             continue
@@ -448,7 +455,9 @@ def compute_long_short_returns(
     idx = monthly_px.index
 
     for date in sorted(scores_df["date"].unique()):
-        month_df = scores_df[scores_df["date"] == date][["nse_ticker", score_col]].dropna(subset=[score_col])
+        month_df = scores_df[scores_df["date"] == date][["nse_ticker", score_col]].dropna(
+            subset=[score_col]
+        )
 
         if len(month_df) < MIN_STOCKS:
             continue
@@ -502,7 +511,9 @@ def print_return_stats(df: pd.DataFrame, name: str):
     if df.empty:
         print(f"  {name}: NO RESULTS")
         return
-    ret_col = next(c for c in df.columns if c.endswith("_return") and "long" not in c and "short" not in c)
+    ret_col = [
+        c for c in df.columns if c.endswith("_return") and "long" not in c and "short" not in c
+    ][0]
     r = df[ret_col]
     ann_ret = r.mean() * 12
     ann_vol = r.std() * np.sqrt(12)
@@ -552,7 +563,9 @@ def main():
     adtv_matrix = build_adtv_matrix(prices_long, monthly_px.index)
 
     print(f"\nRunning backtest: {BACKTEST_START} to {BACKTEST_END} ...")
-    results = run_backtest(monthly_px, return_matrix, adtv_matrix, universe_df, fund_df, sector_map, sym_map)
+    results = run_backtest(
+        monthly_px, return_matrix, adtv_matrix, universe_df, fund_df, sector_map, sym_map
+    )
 
     if results.empty:
         print("ERROR: no results produced")
@@ -562,7 +575,9 @@ def main():
     print(f"Saved -> {OUTPUT_FILE}")
 
     print("\nComputing long-short return series ...")
-    value_returns = compute_long_short_returns(results, "score_combined", monthly_px, return_matrix, sym_map)
+    value_returns = compute_long_short_returns(
+        results, "score_combined", monthly_px, return_matrix, sym_map
+    )
     print_return_stats(value_returns, "VALUE")
     value_returns.to_parquet(OUTPUT_RET)
 

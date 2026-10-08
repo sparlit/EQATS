@@ -79,7 +79,9 @@ def compute(signals: pd.DataFrame) -> pd.DataFrame:
 
         n_null_fip = pool["fip_score"].isnull().sum()
         if n_null_fip > 0:
-            print(f"WARNING: {n_null_fip} null fip_score values within '{metric}' top-{TOP_N} pool.")
+            print(
+                f"WARNING: {n_null_fip} null fip_score values within '{metric}' top-{TOP_N} pool."
+            )
 
         out = out.merge(pool[["symbol", fip_rank_col]], on="symbol", how="left")
         print(f"{fip_rank_col}: {n_pool} symbols in pool, FIP-ranked 1..{fip_ranks.max()}")
@@ -102,7 +104,9 @@ if __name__ == "__main__":
         if m:
             dated.append((m.group(1), f))
     assert dated, "No signals files found"
-    dated.sort(key=lambda x: pd.Timestamp(day=int(x[0][:2]), month=int(x[0][2:4]), year=int(x[0][4:])))
+    dated.sort(
+        key=lambda x: pd.Timestamp(day=int(x[0][:2]), month=int(x[0][2:4]), year=int(x[0][4:]))
+    )
     run_date_str, SIGNALS_PATH = dated[-1]
 
     print(f"Using signals file run_date: {run_date_str}")
@@ -130,7 +134,9 @@ if __name__ == "__main__":
     pool = check[check["rank_ret_12m1m"] <= TOP_N]
     actual_min_fip_symbol = pool.loc[pool["fip_score"].idxmin(), "symbol"]
     top1_fip_symbols = check[check["rank_fip_ret_12m1m"] == 1]["symbol"].values
-    assert actual_min_fip_symbol in top1_fip_symbols, "MISMATCH: rank_fip 1 does not match actual min fip_score in pool"
+    assert actual_min_fip_symbol in top1_fip_symbols, (
+        "MISMATCH: rank_fip 1 does not match actual min fip_score in pool"
+    )
     print(
         f"PASS: rank_fip_ret_12m1m==1 ({list(top1_fip_symbols)}) matches actual min fip_score in pool ({actual_min_fip_symbol})"
     )

@@ -42,7 +42,17 @@ import pandas as pd
 BASE = Path("/home/ec2-user/nse-factor-engine")
 SIGNALS_DIR = BASE / "signals" / "stage6"
 WATCHLIST_SEP = "<<<WATCHLIST>>>"
-COLS = ["symbol", "as_of_date", "rsi_14", "market_cap_cr", "adtv_63_cr", "g6_pool_size", "tier", "action", "run_date"]
+COLS = [
+    "symbol",
+    "as_of_date",
+    "rsi_14",
+    "market_cap_cr",
+    "adtv_63_cr",
+    "g6_pool_size",
+    "tier",
+    "action",
+    "run_date",
+]
 ACTION_ORDER = ["BUY", "HOLD", "SELL"]
 ACTION_EMOJI = {"BUY": "🟢", "HOLD": "🔵", "SELL": "🔴", "WATCHLIST": "📋"}
 
@@ -60,7 +70,10 @@ def main():
     parquet_path = SIGNALS_DIR / f"portfolio_recommendations_{run_date_str}.parquet"
 
     if not parquet_path.exists():
-        print(f"ERROR: {parquet_path.name} not found. Stage 6 may not have completed successfully.", file=sys.stderr)
+        print(
+            f"ERROR: {parquet_path.name} not found. Stage 6 may not have completed successfully.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     df = pd.read_parquet(parquet_path)[COLS]

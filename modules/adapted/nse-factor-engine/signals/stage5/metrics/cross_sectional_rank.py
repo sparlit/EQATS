@@ -66,7 +66,10 @@ def compute(signals: pd.DataFrame) -> pd.DataFrame:
         out[rank_col] = signals[metric].rank(method="min", ascending=False).astype("Int64")
         n_null_input = signals[metric].isnull().sum()
         if n_null_input > 0:
-            print(f"WARNING: {n_null_input} null values in '{metric}' before ranking -- these rank as NaN.")
+            print(
+                f"WARNING: {n_null_input} null values in '{metric}' before ranking "
+                f"-- these rank as NaN."
+            )
 
     print(f"Ranked {len(out)} in-universe symbols on {len(RANK_METRICS)} metrics: {RANK_METRICS}")
     return out
@@ -86,7 +89,9 @@ if __name__ == "__main__":
         if m:
             dated.append((m.group(1), f))
     assert dated, "No signals files found"
-    dated.sort(key=lambda x: pd.Timestamp(day=int(x[0][:2]), month=int(x[0][2:4]), year=int(x[0][4:])))
+    dated.sort(
+        key=lambda x: pd.Timestamp(day=int(x[0][:2]), month=int(x[0][2:4]), year=int(x[0][4:]))
+    )
     run_date_str, SIGNALS_PATH = dated[-1]
 
     print(f"Using signals file run_date: {run_date_str}")
@@ -112,7 +117,9 @@ if __name__ == "__main__":
     actual_max_symbol = check.loc[check["ret_12m1m"].idxmax(), "symbol"]
     top1_symbols = check[check["rank_ret_12m1m"] == 1]["symbol"].values
     assert actual_max_symbol in top1_symbols, "MISMATCH: rank 1 does not match actual max ret_12m1m"
-    print(f"PASS: rank 1 ({list(top1_symbols)}) matches actual max ret_12m1m symbol ({actual_max_symbol})")
+    print(
+        f"PASS: rank 1 ({list(top1_symbols)}) matches actual max ret_12m1m symbol ({actual_max_symbol})"
+    )
 
     import os
 

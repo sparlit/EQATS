@@ -31,7 +31,7 @@ import glob
 import os
 import subprocess
 import sys
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 
 BASE = Path("/home/ec2-user/nse-factor-engine")
@@ -161,15 +161,16 @@ def main():
                 os.environ["STAGE6_MODE"] = "rebalance"
                 log("Pipeline mode: REBALANCE")
                 break
-            if choice in ("2", "monitor", "m"):
+            elif choice in ("2", "monitor", "m"):
                 os.environ["STAGE6_MODE"] = "monitor"
                 log("Pipeline mode: MONITOR")
                 break
-            if choice in ("3", "mid_month", "mid", "mm"):
+            elif choice in ("3", "mid_month", "mid", "mm"):
                 os.environ["STAGE6_MODE"] = "mid_month"
                 log("Pipeline mode: MID_MONTH")
                 break
-            print("  Invalid — enter 1, 2, or 3 (or r/m/mm)")
+            else:
+                print("  Invalid — enter 1, 2, or 3 (or r/m/mm)")
 
     run_stage(
         "STAGE 1 — Universe & Liquidity",
@@ -243,7 +244,9 @@ def main():
         BASE / "market_movement" / "generate_market_report.py",
     )
 
-    final_files = sorted(glob.glob(str(BASE / "signals" / "final" / "momentum_signals_final_*.parquet")))
+    final_files = sorted(
+        glob.glob(str(BASE / "signals" / "final" / "momentum_signals_final_*.parquet"))
+    )
     final_files = [f for f in final_files if "backup" not in f]
 
     log("\n" + "#" * 70)

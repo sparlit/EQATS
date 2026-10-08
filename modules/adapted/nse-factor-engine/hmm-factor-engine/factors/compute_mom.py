@@ -54,7 +54,8 @@ FACTORS_DIR = Path(__file__).parent / "data"
 
 PRICE_FILE = DATA_DIR / "prices_hmm_daily.parquet"
 CONSTITUENT_CSV = Path(
-    "/home/ec2-user/nse-factor-engine/nifty_constituent_history/nifty500_2005-01-01_to_2026-06-30.csv"
+    "/home/ec2-user/nse-factor-engine/nifty_constituent_history/"
+    "nifty500_2005-01-01_to_2026-06-30.csv"
 )
 SYMBOL_MAP_FILE = DATA_DIR / "symbol_map.csv"
 OUTPUT_FILE = FACTORS_DIR / "mom_returns.parquet"
@@ -110,7 +111,9 @@ def build_adtv_matrix(prices_long: pd.DataFrame, monthly_index: pd.DatetimeIndex
     prices_long["dtv"] = prices_long["close"] * prices_long["volume"] / CRORE
 
     # Pivot to wide: (date x symbol) daily DTV
-    dtv_wide = prices_long.pivot_table(index="date", columns="symbol", values="dtv", aggfunc="first")
+    dtv_wide = prices_long.pivot_table(
+        index="date", columns="symbol", values="dtv", aggfunc="first"
+    )
     dtv_wide.index = pd.to_datetime(dtv_wide.index)
     dtv_wide = dtv_wide.sort_index()
 
@@ -206,7 +209,9 @@ def run_backtest(
                         "nse_ticker": sym,
                         "date": date,
                         "signal": float(raw),
-                        "percentile": float(pct[col].iloc[0] if hasattr(pct[col], "__len__") else pct[col]),
+                        "percentile": float(
+                            pct[col].iloc[0] if hasattr(pct[col], "__len__") else pct[col]
+                        ),
                     }
                 )
 

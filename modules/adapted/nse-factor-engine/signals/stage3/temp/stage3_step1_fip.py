@@ -72,17 +72,25 @@ def fip_components(group):
     )
 
 
-components = window.groupby("symbol", group_keys=False).apply(fip_components, include_groups=False).reset_index()
+components = (
+    window.groupby("symbol", group_keys=False)
+    .apply(fip_components, include_groups=False)
+    .reset_index()
+)
 
 # ── Merge ret_12m1m from signals to get sign ─────────────────────────────────
 components = components.merge(signals[["symbol", "ret_12m1m"]], on="symbol", how="left")
 
 # ── Compute FIP score ─────────────────────────────────────────────────────────
-components["fip_score"] = np.sign(components["ret_12m1m"]) * (components["pct_neg_days"] - components["pct_pos_days"])
+components["fip_score"] = np.sign(components["ret_12m1m"]) * (
+    components["pct_neg_days"] - components["pct_pos_days"]
+)
 
 # ── Re-index to all 500, NaN for insufficient history ────────────────────────
 all_symbols = signals[["symbol"]].copy()
-result = all_symbols.merge(components[["symbol", "pct_pos_days", "pct_neg_days", "fip_score"]], on="symbol", how="left")
+result = all_symbols.merge(
+    components[["symbol", "pct_pos_days", "pct_neg_days", "fip_score"]], on="symbol", how="left"
+)
 
 # ── Sanity checks ─────────────────────────────────────────────────────────────
 print("\n--- Result shape ---")

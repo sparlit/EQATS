@@ -78,14 +78,19 @@ def apply_mr_score(signals_df: pd.DataFrame) -> tuple:
         print("USE_G6_GATE=0 — no gate applied")
         import pandas as _pd
 
-        reject_df = _pd.DataFrame(columns=["symbol", "lower_circuit_hits_63d", "rejection_stage", "rejection_reason"])
+        reject_df = _pd.DataFrame(
+            columns=["symbol", "lower_circuit_hits_63d", "rejection_stage", "rejection_reason"]
+        )
 
     # Step 3: Drop NaN inputs
     n_before = len(df)
-    bad = df["vol_252"].isna() | (df["vol_252"] == 0) | df["ret_12m1m"].isna() | df["ret_6m1m"].isna()
+    bad = (
+        df["vol_252"].isna() | (df["vol_252"] == 0) | df["ret_12m1m"].isna() | df["ret_6m1m"].isna()
+    )
     if bad.sum() > 0:
         print(
-            f"WARNING: dropping {bad.sum()} rows — NaN/zero in scoring inputs: {sorted(df.loc[bad, 'symbol'].tolist())}"
+            f"WARNING: dropping {bad.sum()} rows — NaN/zero in scoring inputs: "
+            f"{sorted(df.loc[bad, 'symbol'].tolist())}"
         )
     df = df[~bad].copy()
     print(f"Scoring universe: {len(df)} symbols ({n_before - len(df)} dropped for NaN/zero)")
@@ -104,7 +109,9 @@ def apply_mr_score(signals_df: pd.DataFrame) -> tuple:
     df["weighted_z"] = W_12M * df["z_12"] + W_6M * df["z_6"]
 
     # Step 7: Normalized score
-    df["norm_momentum_score"] = df["weighted_z"].apply(lambda wz: 1 + wz if wz >= 0 else 1.0 / (1.0 - wz))
+    df["norm_momentum_score"] = df["weighted_z"].apply(
+        lambda wz: 1 + wz if wz >= 0 else 1.0 / (1.0 - wz)
+    )
 
     # Step 8: Rank
     df["mr_rank"] = df["norm_momentum_score"].rank(method="min", ascending=False).astype("Int64")
@@ -113,7 +120,11 @@ def apply_mr_score(signals_df: pd.DataFrame) -> tuple:
 
     print("\nScoring complete:")
     print(f"  Symbols scored   : {len(df)}")
-    print(f"  norm_score range : {df['norm_momentum_score'].min():.4f} — {df['norm_momentum_score'].max():.4f}")
+    print(
+        f"  norm_score range : "
+        f"{df['norm_momentum_score'].min():.4f} — "
+        f"{df['norm_momentum_score'].max():.4f}"
+    )
     print(f"  weighted_z range : {df['weighted_z'].min():.4f} — {df['weighted_z'].max():.4f}")
 
     return df, reject_df

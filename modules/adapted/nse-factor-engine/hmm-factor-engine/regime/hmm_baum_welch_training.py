@@ -90,7 +90,9 @@ from sklearn.preprocessing import StandardScaler
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-DATA_FILE = Path("/home/ec2-user/nse-factor-engine/hmm-factor-engine/data/nifty500_hmm_data.parquet")
+DATA_FILE = Path(
+    "/home/ec2-user/nse-factor-engine/hmm-factor-engine/data/nifty500_hmm_data.parquet"
+)
 MODEL_DIR = Path("/home/ec2-user/nse-factor-engine/hmm-factor-engine/regime/models")
 MODEL_FILE = MODEL_DIR / "hmm_3states_200511_201912.pkl"
 PARAMS_FILE = MODEL_DIR / "hmm_3states_200511_201912_params.json"
@@ -164,11 +166,12 @@ def label_states(model: GaussianHMM, scaler: StandardScaler) -> dict:
     vol_idx = HMM_FEATURES.index("realised_vol")
     vol_means = means_orig[:, vol_idx]
     sorted_by_vol = np.argsort(vol_means)
-    return {
+    state_labels = {
         int(sorted_by_vol[0]): "Bull",
         int(sorted_by_vol[1]): "Choppy",
         int(sorted_by_vol[2]): "Crisis",
     }
+    return state_labels
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +225,11 @@ def print_parameters(model: GaussianHMM, scaler: StandardScaler, state_labels: d
 # Save human-readable artifacts
 # ---------------------------------------------------------------------------
 def save_artifacts(
-    model: GaussianHMM, scaler: StandardScaler, state_labels: dict, best_score: float, train: pd.DataFrame
+    model: GaussianHMM,
+    scaler: StandardScaler,
+    state_labels: dict,
+    best_score: float,
+    train: pd.DataFrame,
 ) -> None:
     label_map = {v: k for k, v in state_labels.items()}
     means_orig = scaler.inverse_transform(model.means_)
@@ -244,15 +251,25 @@ def save_artifacts(
         },
         "state_labels": {str(k): v for k, v in state_labels.items()},
         "emission_means": {
-            name: {feat: round(float(means_orig[label_map[name]][i]), 6) for i, feat in enumerate(HMM_FEATURES)}
+            name: {
+                feat: round(float(means_orig[label_map[name]][i]), 6)
+                for i, feat in enumerate(HMM_FEATURES)
+            }
             for name in names
         },
-        "emission_covariances_scaled": {name: model.covars_[label_map[name]].round(6).tolist() for name in names},
+        "emission_covariances_scaled": {
+            name: model.covars_[label_map[name]].round(6).tolist() for name in names
+        },
         "transition_matrix": {
-            name: {to_name: round(float(A[label_map[name], label_map[to_name]]), 6) for to_name in names}
+            name: {
+                to_name: round(float(A[label_map[name], label_map[to_name]]), 6)
+                for to_name in names
+            }
             for name in names
         },
-        "initial_state_probs": {name: round(float(model.startprob_[label_map[name]]), 6) for name in names},
+        "initial_state_probs": {
+            name: round(float(model.startprob_[label_map[name]]), 6) for name in names
+        },
     }
 
     with open(PARAMS_FILE, "w") as f:
@@ -274,8 +291,14 @@ def main():
     X = train.values
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
-    print("\nScaler means    : " + ", ".join(f"{f}={scaler.mean_[i]:.6f}" for i, f in enumerate(HMM_FEATURES)))
-    print("Scaler std devs : " + ", ".join(f"{f}={scaler.scale_[i]:.6f}" for i, f in enumerate(HMM_FEATURES)))
+    print(
+        "\nScaler means    : "
+        + ", ".join(f"{f}={scaler.mean_[i]:.6f}" for i, f in enumerate(HMM_FEATURES))
+    )
+    print(
+        "Scaler std devs : "
+        + ", ".join(f"{f}={scaler.scale_[i]:.6f}" for i, f in enumerate(HMM_FEATURES))
+    )
 
     # 3. Fit HMM
     best_model, best_score = fit_hmm(X_scaled)

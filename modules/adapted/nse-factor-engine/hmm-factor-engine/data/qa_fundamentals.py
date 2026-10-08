@@ -35,7 +35,6 @@ Usage:
 import sys
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 # ── Load ──────────────────────────────────────────────────────────────────────
@@ -70,7 +69,15 @@ for col, n in nulls.items():
     print(f"  {col:<15} {n:>6} nulls ({pct:5.1f}%)  {bar}")
 
 # ── 4. Tickers with zero data ─────────────────────────────────────────────────
-numeric_cols = ["sales", "raw_material", "net_profit", "eps", "shares_cr", "book_equity", "total_debt"]
+numeric_cols = [
+    "sales",
+    "raw_material",
+    "net_profit",
+    "eps",
+    "shares_cr",
+    "book_equity",
+    "total_debt",
+]
 all_null = df.groupby("nse_ticker")[numeric_cols].apply(lambda g: g.isnull().all().all())
 empty_tickers = all_null[all_null].index.tolist()
 print("\n── Tickers with ALL nulls (no usable data) ────────────────")

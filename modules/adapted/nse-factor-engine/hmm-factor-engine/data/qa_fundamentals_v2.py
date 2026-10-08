@@ -44,7 +44,6 @@ Usage:
 import sys
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
@@ -107,7 +106,9 @@ print("\n── sales (RMW non-fin, S/P Value) ───────────
 check_null("Non-fin sales", nonfin["sales"], nonfin, "sales")
 # For financials, sales null is expected — just report count
 fin_sales_null = fin["sales"].isnull().sum()
-print(f"  ✅ Financial sales null: {fin_sales_null}/{len(fin)} — expected (banks have NII not Sales)")
+print(
+    f"  ✅ Financial sales null: {fin_sales_null}/{len(fin)} — expected (banks have NII not Sales)"
+)
 
 # ── 5. raw_material — critical for RMW non-fin ───────────────────────────────
 print("\n── raw_material (RMW non-fin only) ───────────────────────")
@@ -118,7 +119,9 @@ rm_null = nonfin_with_sales[nonfin_with_sales["raw_material"].isnull()]
 rm_null_tickers = rm_null["nse_ticker"].unique()
 pct = len(rm_null) / len(nonfin_with_sales) * 100
 status = "⚠️ " if pct > 15 else "✅"
-print(f"  {status} Non-fin with sales but no raw_material: {len(rm_null)}/{len(nonfin_with_sales)} ({pct:.1f}%)")
+print(
+    f"  {status} Non-fin with sales but no raw_material: {len(rm_null)}/{len(nonfin_with_sales)} ({pct:.1f}%)"
+)
 print("      These will be excluded from RMW — verify a few are genuinely services cos:")
 print(f"      Sample: {sorted(rm_null_tickers)[:15]}")
 
@@ -180,9 +183,13 @@ print("  ✅ EPS is derived — not fetched. No action needed.")
 print("\n── VERDICT ────────────────────────────────────────────────")
 issues = []
 if nf_no_shares:
-    issues.append(f"🔴 {len(nf_no_shares)} non-fin tickers have no shares_cr at all → excluded from Size/Value/Quality")
+    issues.append(
+        f"🔴 {len(nf_no_shares)} non-fin tickers have no shares_cr at all → excluded from Size/Value/Quality"
+    )
 if nf_no_sales:
-    issues.append(f"⚠️  {len(nf_no_sales)} non-fin tickers have no sales → excluded from RMW and S/P")
+    issues.append(
+        f"⚠️  {len(nf_no_sales)} non-fin tickers have no sales → excluded from RMW and S/P"
+    )
 if not issues:
     print("  ✅ No critical missing must-haves. Ready for factor scripts.")
 else:

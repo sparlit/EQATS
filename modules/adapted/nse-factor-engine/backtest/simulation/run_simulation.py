@@ -68,7 +68,9 @@ print(f"Valid Fridays  : {len(valid)} ({valid[0].date()} → {valid[-1].date()})
 
 # ── Pre-index close prices by date ────────────────────────────────────────────
 print("Indexing close prices by date ...")
-prices_by_date = {date: grp.set_index("symbol")["close"].to_dict() for date, grp in prices.groupby("date")}
+prices_by_date = {
+    date: grp.set_index("symbol")["close"].to_dict() for date, grp in prices.groupby("date")
+}
 print(f"  Indexed {len(prices_by_date)} dates")
 print()
 
@@ -113,7 +115,8 @@ for i, T in enumerate(valid):
         elapsed = time.time() - t_start
         remaining = elapsed / (i + 1) * (len(valid) - i - 1)
         print(
-            f"[{i + 1:03d}/{len(valid)}] T={T.date()} | elapsed={elapsed / 60:.1f}min | ETA={remaining / 60:.1f}min",
+            f"[{i + 1:03d}/{len(valid)}] T={T.date()} | "
+            f"elapsed={elapsed / 60:.1f}min | ETA={remaining / 60:.1f}min",
             flush=True,
         )
 
@@ -121,7 +124,9 @@ print()
 
 # ── Assemble weekly returns DataFrame ─────────────────────────────────────────
 print("Assembling weekly returns ...")
-weekly_df = pd.DataFrame({"friday_date": [t for t, _ in portfolio_values[next(iter(cell_states.keys()))]]})
+weekly_df = pd.DataFrame(
+    {"friday_date": [t for t, _ in portfolio_values[list(cell_states.keys())[0]]]}
+)
 
 for cell_id, vals in portfolio_values.items():
     pv = pd.Series([v for _, v in vals])
@@ -130,7 +135,7 @@ for cell_id, vals in portfolio_values.items():
 
 # benchmark weekly return
 bench_aligned = []
-for T in [t for t, _ in portfolio_values[next(iter(cell_states.keys()))]]:
+for T in [t for t, _ in portfolio_values[list(cell_states.keys())[0]]]:
     bench_aligned.append(bench.get(T, np.nan))
 bench_series = pd.Series(bench_aligned)
 weekly_df["benchmark"] = bench_series.pct_change().values

@@ -21,7 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import glob
 import os
 
 import numpy as np
@@ -165,10 +164,21 @@ for _, row in flagged.iterrows():
     print(f"  {row['symbol']:12s} → {row['data_quality_flag']}")
 
 print("\nTop 10 by vol_adj_ret (all symbols, NaN excluded):")
-top = df.dropna(subset=["simple_vol_adj_momentum"]).sort_values("simple_vol_adj_momentum", ascending=False).head(10)
+top = (
+    df.dropna(subset=["simple_vol_adj_momentum"])
+    .sort_values("simple_vol_adj_momentum", ascending=False)
+    .head(10)
+)
 print(
     top[
-        ["symbol", "ret_12m1m", "vol_231", "simple_vol_adj_momentum", "sharpe_style_momentum", "sortino_style_momentum"]
+        [
+            "symbol",
+            "ret_12m1m",
+            "vol_231",
+            "simple_vol_adj_momentum",
+            "sharpe_style_momentum",
+            "sortino_style_momentum",
+        ]
     ].to_string(index=False)
 )
 
@@ -176,7 +186,14 @@ print("\nBottom 5 by vol_adj_ret (all symbols, NaN excluded):")
 bot = df.dropna(subset=["simple_vol_adj_momentum"]).sort_values("simple_vol_adj_momentum").head(5)
 print(
     bot[
-        ["symbol", "ret_12m1m", "vol_231", "simple_vol_adj_momentum", "sharpe_style_momentum", "sortino_style_momentum"]
+        [
+            "symbol",
+            "ret_12m1m",
+            "vol_231",
+            "simple_vol_adj_momentum",
+            "sharpe_style_momentum",
+            "sortino_style_momentum",
+        ]
     ].to_string(index=False)
 )
 

@@ -39,7 +39,8 @@ BATCH_SIZE = 20
 SLEEP_BATCH = 3
 
 CONSTITUENT_CSV = Path(
-    "/home/ec2-user/nse-factor-engine/nifty_constituent_history/nifty500_2005-01-01_to_2026-06-30.csv"
+    "/home/ec2-user/nse-factor-engine/nifty_constituent_history/"
+    "nifty500_2005-01-01_to_2026-06-30.csv"
 )
 OUTPUT_DIR = Path(__file__).parent
 PRICE_FILE = OUTPUT_DIR / "prices_hmm_daily.parquet"
@@ -104,7 +105,14 @@ def load_universe() -> list:
 
 def fetch_batch(tickers_ns: list) -> pd.DataFrame:
     try:
-        raw = yf.download(tickers_ns, start=START_DATE, end=END_DATE, auto_adjust=True, progress=False, threads=True)
+        raw = yf.download(
+            tickers_ns,
+            start=START_DATE,
+            end=END_DATE,
+            auto_adjust=True,
+            progress=False,
+            threads=True,
+        )
     except Exception as e:
         print(f"ERROR: {e}")
         return pd.DataFrame()
@@ -199,7 +207,7 @@ def main():
         print(f"  {old_sym} <- {new_sym}: {len(old_copy)} rows")
 
     if extra:
-        combined = pd.concat([combined, *extra], ignore_index=True)
+        combined = pd.concat([combined] + extra, ignore_index=True)
         combined = combined.drop_duplicates(subset=["symbol", "date"], keep="last")
         combined = combined.sort_values(["symbol", "date"]).reset_index(drop=True)
 

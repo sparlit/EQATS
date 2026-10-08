@@ -91,8 +91,16 @@ def compute(prices: pd.DataFrame, T: pd.Timestamp) -> pd.DataFrame:
         ema20, close_t = _compute_ema_row(close, 20)
         ema50, _ = _compute_ema_row(close, 50)
 
-        dist20 = round((close_t - ema20) / ema20 * 100, 4) if not (np.isnan(ema20) or ema20 == 0) else np.nan
-        dist50 = round((close_t - ema50) / ema50 * 100, 4) if not (np.isnan(ema50) or ema50 == 0) else np.nan
+        dist20 = (
+            round((close_t - ema20) / ema20 * 100, 4)
+            if not (np.isnan(ema20) or ema20 == 0)
+            else np.nan
+        )
+        dist50 = (
+            round((close_t - ema50) / ema50 * 100, 4)
+            if not (np.isnan(ema50) or ema50 == 0)
+            else np.nan
+        )
 
         records.append(
             {

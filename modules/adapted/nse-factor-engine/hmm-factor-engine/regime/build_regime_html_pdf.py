@@ -39,9 +39,9 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-import matplotlib as mpl
+import matplotlib
 
-mpl.use("Agg")
+matplotlib.use("Agg")
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
@@ -242,7 +242,9 @@ def render_chart(metric, series, cal_univ):
 
     # scale calibration bounds by the same factor
     if scale_factor != 1:
-        cal_scaled = {k: {pk: pv * scale_factor for pk, pv in v.items()} for k, v in cal_univ.items()}
+        cal_scaled = {
+            k: {pk: pv * scale_factor for pk, pv in v.items()} for k, v in cal_univ.items()
+        }
     else:
         cal_scaled = cal_univ
 
@@ -281,12 +283,16 @@ def render_chart(metric, series, cal_univ):
             shade(p95, ymax, "calm")
         for pval in (p25, p75, p95):
             if ymin <= pval <= ymax:
-                ax.axhline(pval, color=COL_MUTED, linewidth=0.5, linestyle="--", alpha=0.6, zorder=1)
+                ax.axhline(
+                    pval, color=COL_MUTED, linewidth=0.5, linestyle="--", alpha=0.6, zorder=1
+                )
 
     # ── daily bars ────────────────────────────────────────────────────────────
     in_range = (~np.isnan(vals)) & (vals >= ymin) & (vals <= ymax)
     if in_range.any():
-        ax.vlines(dates[in_range], base, vals[in_range], color=COL_BAR, linewidth=0.5, alpha=0.8, zorder=2)
+        ax.vlines(
+            dates[in_range], base, vals[in_range], color=COL_BAR, linewidth=0.5, alpha=0.8, zorder=2
+        )
 
     # clipped top: red bars + upward triangle
     top_mask = (~np.isnan(vals)) & (vals > ymax)
@@ -307,7 +313,9 @@ def render_chart(metric, series, cal_univ):
     bot_mask = (~np.isnan(vals)) & (vals < ymin)
     if bot_mask.any():
         floor = ymin * 0.998
-        ax.vlines(dates[bot_mask], floor, base, color="#7C3AED", linewidth=0.6, alpha=0.75, zorder=2)
+        ax.vlines(
+            dates[bot_mask], floor, base, color="#7C3AED", linewidth=0.6, alpha=0.75, zorder=2
+        )
         ax.scatter(
             dates[bot_mask],
             np.full(int(bot_mask.sum()), floor),
@@ -383,7 +391,12 @@ def render_chart(metric, series, cal_univ):
         va="top",
         ha="right",
         fontfamily="monospace",
-        bbox={"boxstyle": "round,pad=0.35", "facecolor": "white", "edgecolor": COL_MUTED, "alpha": 0.90},
+        bbox={
+            "boxstyle": "round,pad=0.35",
+            "facecolor": "white",
+            "edgecolor": COL_MUTED,
+            "alpha": 0.90,
+        },
         zorder=6,
     )
 
@@ -409,7 +422,15 @@ def render_chart(metric, series, cal_univ):
             f"{n_clipped} bar{'s' if n_clipped != 1 else ''} off-scale)"
         )
         ax.text(
-            0.015, 0.03, notice, transform=ax.transAxes, fontsize=4.5, color="#DC2626", va="bottom", ha="left", zorder=6
+            0.015,
+            0.03,
+            notice,
+            transform=ax.transAxes,
+            fontsize=4.5,
+            color="#DC2626",
+            va="bottom",
+            ha="left",
+            zorder=6,
         )
 
     # ── legend ────────────────────────────────────────────────────────────────
@@ -427,7 +448,14 @@ def render_chart(metric, series, cal_univ):
     )
 
     # ── axes ──────────────────────────────────────────────────────────────────
-    ax.set_title(MEASURE_LABELS.get(metric, metric), color=COL_TEXT, fontsize=7, fontweight="bold", pad=4, loc="left")
+    ax.set_title(
+        MEASURE_LABELS.get(metric, metric),
+        color=COL_TEXT,
+        fontsize=7,
+        fontweight="bold",
+        pad=4,
+        loc="left",
+    )
     ax.set_xlim(dates[0], dates[-1])
     ax.set_ylim(ymin, ymax)
     ax.tick_params(axis="both", colors=COL_MUTED, labelsize=5.5, length=2.5)
@@ -556,13 +584,11 @@ def load_consolidated(date_str=None):
     if date_str:
         path = REGIME_DATA / f"regime_consolidated_{date_str}.json"
         if not path.exists():
-            msg = f"Not found: {path}"
-            raise FileNotFoundError(msg)
+            raise FileNotFoundError(f"Not found: {path}")
         return json.loads(path.read_text())
     files = sorted(REGIME_DATA.glob("regime_consolidated_*.json"))
     if not files:
-        msg = f"No consolidated JSON in {REGIME_DATA}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"No consolidated JSON in {REGIME_DATA}")
     return json.loads(files[-1].read_text())
 
 
@@ -597,7 +623,12 @@ def parse_args():
     p = argparse.ArgumentParser(description="Render regime report PDF from consolidated JSON")
     p.add_argument("--date", "-d", default=None, help="Run date YYYY-MM-DD (default: latest)")
     p.add_argument("--out", "-o", default=None, help="Output PDF path")
-    p.add_argument("--template", "-t", default=str(TEMPLATE), help=f"Path to template.html (default: {TEMPLATE})")
+    p.add_argument(
+        "--template",
+        "-t",
+        default=str(TEMPLATE),
+        help=f"Path to template.html (default: {TEMPLATE})",
+    )
     return p.parse_args()
 
 

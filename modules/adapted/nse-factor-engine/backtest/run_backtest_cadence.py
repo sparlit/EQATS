@@ -38,7 +38,6 @@ import pandas as pd
 warnings.filterwarnings("ignore")
 sys.path.insert(0, "/home/ec2-user/nse-factor-engine")
 
-from backtest.metrics.compute_metrics import compute_benchmark_metrics
 from backtest.metrics.compute_metrics import run as compute_metrics
 from backtest.simulation.portfolio import PortfolioState
 from backtest.strategies.config import CELLS
@@ -62,7 +61,9 @@ valid = [f for f in fridays if len(all_dates[all_dates < f]) >= 252]
 print(f"Valid Fridays: {len(valid)}")
 
 print("Indexing close prices by date ...")
-prices_by_date = {date: grp.set_index("symbol")["close"].to_dict() for date, grp in prices.groupby("date")}
+prices_by_date = {
+    date: grp.set_index("symbol")["close"].to_dict() for date, grp in prices.groupby("date")
+}
 
 bench = pd.read_parquet(BENCH_PATH).set_index("date")["close"]
 
@@ -105,7 +106,9 @@ def run_cadence(cadence: int, tag: str):
 
             if is_rebalance:
                 incumbent_symbols = set(state.holdings.keys())
-                port_df = get_portfolio(gate_id, score_id, signals, verbose=False, incumbent_symbols=incumbent_symbols)
+                port_df = get_portfolio(
+                    gate_id, score_id, signals, verbose=False, incumbent_symbols=incumbent_symbols
+                )
                 top_n = port_df["symbol"].tolist() if not port_df.empty else []
             else:
                 top_n = list(state.holdings.keys())
@@ -132,7 +135,7 @@ def run_cadence(cadence: int, tag: str):
     print(f"  Total rebalances done : {rebal_count} (expected {expected_rebal})")
 
     # ── Assemble weekly returns ────────────────────────────────────────────────
-    friday_dates = [t for t, _ in portfolio_values[next(iter(cell_states.keys()))]]
+    friday_dates = [t for t, _ in portfolio_values[list(cell_states.keys())[0]]]
     weekly_df = pd.DataFrame({"friday_date": friday_dates})
 
     for cell_id, vals in portfolio_values.items():
@@ -152,17 +155,24 @@ def run_cadence(cadence: int, tag: str):
     sells = activity_df[activity_df["action"] == "SELL"]
     buys = activity_df[activity_df["action"] == "BUY"]
     holds = activity_df[activity_df["action"] == "HOLD"]
-    print(f"  Activity rows — BUY:{len(buys)} SELL:{len(sells)} HOLD:{len(holds)} TOTAL:{len(activity_df)}")
+    print(
+        f"  Activity rows — BUY:{len(buys)} SELL:{len(sells)} HOLD:{len(holds)} TOTAL:{len(activity_df)}"
+    )
 
     # Verify portfolio size per week for G6_C6
-    g6c6_act = activity_df[(activity_df["cell_id"] == "G6_C6") & (activity_df["action"].isin(["BUY", "HOLD"]))]
+    g6c6_act = activity_df[
+        (activity_df["cell_id"] == "G6_C6") & (activity_df["action"].isin(["BUY", "HOLD"]))
+    ]
     port_sizes = g6c6_act.groupby("friday_date")["symbol"].nunique()
-    print(f"  G6_C6 holdings per week — mean:{port_sizes.mean():.1f} min:{port_sizes.min()} max:{port_sizes.max()}")
+    print(
+        f"  G6_C6 holdings per week — mean:{port_sizes.mean():.1f} "
+        f"min:{port_sizes.min()} max:{port_sizes.max()}"
+    )
 
     # Verify rebalance dates for G6_C6
-    rebal_dates = activity_df[(activity_df["cell_id"] == "G6_C6") & (activity_df["action"] == "BUY")][
-        "friday_date"
-    ].unique()
+    rebal_dates = activity_df[
+        (activity_df["cell_id"] == "G6_C6") & (activity_df["action"] == "BUY")
+    ]["friday_date"].unique()
     print(f"  G6_C6 BUY events on {len(rebal_dates)} distinct dates")
 
     weekly_df.to_parquet(WR_PATH, index=False)
@@ -200,7 +210,9 @@ def run_cadence(cadence: int, tag: str):
     results_df.to_parquet(RES_PATH, index=False)
 
     g6c6 = results_df[results_df["cell_id"] == "G6_C6"].iloc[0]
-    print(f"  [{tag}] G6_C6 — CAGR={g6c6.cagr:.2%} Sharpe={g6c6.sharpe:.2f} MaxDD={g6c6.max_dd:.2%}")
+    print(
+        f"  [{tag}] G6_C6 — CAGR={g6c6.cagr:.2%} Sharpe={g6c6.sharpe:.2f} MaxDD={g6c6.max_dd:.2%}"
+    )
     print(f"  Saved metrics: {RES_PATH}")
 
     return results_df

@@ -60,11 +60,14 @@ RSI_EXIT_THRESH = 50
 
 # ── Find latest activity CSV from the mid-month-only sim ─────────────────────
 candidates = sorted(
-    [f for f in os.listdir(RESULTS_DIR) if f.startswith("MR_M_V3_RSI_SIM_activity") and f.endswith(".csv")]
+    [
+        f
+        for f in os.listdir(RESULTS_DIR)
+        if f.startswith("MR_M_V3_RSI_SIM_activity") and f.endswith(".csv")
+    ]
 )
 if not candidates:
-    msg = "No MR_M_V3_RSI_SIM_activity CSV found in results/"
-    raise FileNotFoundError(msg)
+    raise FileNotFoundError("No MR_M_V3_RSI_SIM_activity CSV found in results/")
 act_path = os.path.join(RESULTS_DIR, candidates[-1])
 print(f"Loading activity: {act_path}")
 act = pd.read_csv(act_path, parse_dates=["friday_date", "signal_date"])
@@ -74,11 +77,15 @@ print("Loading prices ...")
 prices = pd.read_parquet(PRICES_PATH, columns=["symbol", "date", "open", "close"])
 prices["date"] = pd.to_datetime(prices["date"])
 
-open_by_date = {pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict() for date, grp in prices.groupby("date")}
+open_by_date = {
+    pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict()
+    for date, grp in prices.groupby("date")
+}
 all_trading_days = sorted(open_by_date.keys())
 
 prices_by_sym = {
-    sym: grp[["date", "close"]].sort_values("date").reset_index(drop=True) for sym, grp in prices.groupby("symbol")
+    sym: grp[["date", "close"]].sort_values("date").reset_index(drop=True)
+    for sym, grp in prices.groupby("symbol")
 }
 print(f"  {len(prices_by_sym)} symbols | {len(all_trading_days)} trading days")
 del prices
@@ -178,12 +185,14 @@ bucket_stats["pct_of_total"] = bucket_stats["count"] / len(df) * 100
 print(f"\n{'=' * 72}")
 print("Q1: NEXT-MONTH SLOT RETURN BY SOM RSI BUCKET")
 print(f"{'=' * 72}")
-print(f"  {'RSI':>7}  {'Count':>6}  {'% Total':>8}  {'Mean Ret':>9}  {'Median':>8}  {'% Positive':>11}")
+print(
+    f"  {'RSI':>7}  {'Count':>6}  {'% Total':>8}  {'Mean Ret':>9}  {'Median':>8}  {'% Positive':>11}"
+)
 print(f"  {'-' * 7}  {'-' * 6}  {'-' * 8}  {'-' * 9}  {'-' * 8}  {'-' * 11}")
 for _, r in bucket_stats.iterrows():
     marker = " ◄ filter zone" if r["rsi_bucket"] in ["<30", "30-40", "40-50"] else ""
     print(
-        f"  {r['rsi_bucket']!s:>7}  {r['count']:>6.0f}  {r['pct_of_total']:>7.1f}%  "
+        f"  {str(r['rsi_bucket']):>7}  {r['count']:>6.0f}  {r['pct_of_total']:>7.1f}%  "
         f"{r['mean_ret_pct']:>8.2f}%  {r['median_ret_pct']:>7.2f}%  "
         f"{r['pct_positive'] * 100:>10.1f}%{marker}"
     )
@@ -198,14 +207,18 @@ print(f"{'=' * 72}")
 print(f"  {'':22}  {'RSI < 50':>12}  {'RSI >= 50':>12}  {'Delta':>10}")
 print(f"  {'-' * 22}  {'-' * 12}  {'-' * 12}  {'-' * 10}")
 print(f"  {'Count':22}  {len(below):>12}  {len(above):>12}")
-print(f"  {'% of holdings':22}  {len(below) / len(df) * 100:>11.1f}%  {len(above) / len(df) * 100:>11.1f}%")
+print(
+    f"  {'% of holdings':22}  {len(below) / len(df) * 100:>11.1f}%  {len(above) / len(df) * 100:>11.1f}%"
+)
 print(
     f"  {'Mean next-month ret':22}  {below.mean() * 100:>11.2f}%  {above.mean() * 100:>11.2f}%  {(below.mean() - above.mean()) * 100:>+9.2f}%"
 )
 print(
     f"  {'Median next-month ret':22}  {below.median() * 100:>11.2f}%  {above.median() * 100:>11.2f}%  {(below.median() - above.median()) * 100:>+9.2f}%"
 )
-print(f"  {'% months positive':22}  {(below > 0).mean() * 100:>11.1f}%  {(above > 0).mean() * 100:>11.1f}%")
+print(
+    f"  {'% months positive':22}  {(below > 0).mean() * 100:>11.1f}%  {(above > 0).mean() * 100:>11.1f}%"
+)
 print(f"  {'Std dev':22}  {below.std() * 100:>11.2f}%  {above.std() * 100:>11.2f}%")
 
 # ── Q2: RSI distribution per period ──────────────────────────────────────────
@@ -232,11 +245,13 @@ print(f"  Periods with 0 below 50    : {(period_summary['n_below_50'] == 0).sum(
 print(f"  Periods with > 10 below 50 : {(period_summary['n_below_50'] > 10).sum()}")
 
 print("\n  Top 10 periods by # holdings with RSI < 50:")
-print(f"  {'Exec Date':>12}  {'# Below 50':>11}  {'% Portfolio':>12}  {'Avg RSI':>8}  {'Period Ret':>11}")
+print(
+    f"  {'Exec Date':>12}  {'# Below 50':>11}  {'% Portfolio':>12}  {'Avg RSI':>8}  {'Period Ret':>11}"
+)
 print(f"  {'-' * 12}  {'-' * 11}  {'-' * 12}  {'-' * 8}  {'-' * 11}")
 for _, r in period_summary.nlargest(10, "n_below_50").iterrows():
     print(
-        f"  {r['exec_date'].date()!s:>12}  {r['n_below_50']:>11.0f}  "
+        f"  {str(r['exec_date'].date()):>12}  {r['n_below_50']:>11.0f}  "
         f"{r['pct_below_50']:>11.1f}%  {r['mean_rsi']:>8.1f}  "
         f"{r['mean_slot_ret'] * 100:>10.2f}%"
     )
@@ -251,7 +266,9 @@ if abs(delta) < 0.3:
     print("  Filter has no alpha. Cash drag is the entire reason SOM sim underperformed.")
 elif delta < 0:
     print(f"  RSI < 50 at SOM stocks underperform by {delta:+.2f}% next month.")
-    print(f"  Filter HAS signal — but cash drag of {period_summary['n_below_50'].mean():.1f} slots/month")
+    print(
+        f"  Filter HAS signal — but cash drag of {period_summary['n_below_50'].mean():.1f} slots/month"
+    )
     print("  overwhelmed the alpha. Worth retesting with hold-instead-of-cash fallback.")
 else:
     print(f"  RSI < 50 at SOM stocks OUTPERFORM by {delta:+.2f}% next month.")

@@ -122,7 +122,8 @@ def _compute_stoch_rsi(close: pd.Series) -> tuple:
 
     # StochRSI over rolling 14-period window of RSI values
     stoch = rsi_valid.rolling(STOCH_PERIOD).apply(
-        lambda x: (x[-1] - x.min()) / (x.max() - x.min()) if (x.max() - x.min()) != 0 else 0.0, raw=True
+        lambda x: (x[-1] - x.min()) / (x.max() - x.min()) if (x.max() - x.min()) != 0 else 0.0,
+        raw=True,
     )
 
     # %K = 3-SMA of StochRSI
@@ -134,7 +135,10 @@ def _compute_stoch_rsi(close: pd.Series) -> tuple:
     k = k_series.dropna().iloc[-1] if k_series.dropna().shape[0] > 0 else np.nan
     d = d_series.dropna().iloc[-1] if d_series.dropna().shape[0] > 0 else np.nan
 
-    return (round(float(k), 4) if not np.isnan(k) else np.nan, round(float(d), 4) if not np.isnan(d) else np.nan)
+    return (
+        round(float(k), 4) if not np.isnan(k) else np.nan,
+        round(float(d), 4) if not np.isnan(d) else np.nan,
+    )
 
 
 def compute(prices: pd.DataFrame, T: pd.Timestamp) -> pd.DataFrame:

@@ -79,7 +79,10 @@ for i, T in enumerate(valid):
         total_elapsed = time.time() - t_start
         avg = total_elapsed / done
         remaining = (total - done - skipped) * avg
-        print(f"[{i + 1:03d}/{total}] T={T.date()} | {info} | {elapsed:.1f}s | ETA {remaining / 60:.1f}min", flush=True)
+        print(
+            f"[{i + 1:03d}/{total}] T={T.date()} | {info} | {elapsed:.1f}s | ETA {remaining / 60:.1f}min",
+            flush=True,
+        )
 
     except Exception as e:
         failed.append((T.date(), str(e)))

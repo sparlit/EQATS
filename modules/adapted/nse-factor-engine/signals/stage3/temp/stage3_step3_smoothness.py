@@ -82,7 +82,11 @@ def compute_smoothness(group):
     )
 
 
-result = window.groupby("symbol", group_keys=False).apply(compute_smoothness, include_groups=False).reset_index()
+result = (
+    window.groupby("symbol", group_keys=False)
+    .apply(compute_smoothness, include_groups=False)
+    .reset_index()
+)
 
 # ── Re-index to all 500, NaN for insufficient history ────────────────────────
 all_symbols = signals[["symbol"]].copy()

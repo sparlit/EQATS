@@ -39,7 +39,6 @@ Strict match required: if no universe file exists with the exact same
 run_date as the signals file, STOP rather than guessing.
 """
 import glob
-import re
 
 import pandas as pd
 
@@ -69,18 +68,31 @@ def compute(signals: pd.DataFrame, run_date_str: str, base_path: str) -> pd.Data
 
     universe = pd.read_parquet(chosen_path)
 
-    required_cols = {"symbol", "in_universe", "passes_mktcap", "passes_adtv", "market_cap_cr", "adtv_63_cr"}
+    required_cols = {
+        "symbol",
+        "in_universe",
+        "passes_mktcap",
+        "passes_adtv",
+        "market_cap_cr",
+        "adtv_63_cr",
+    }
     missing = required_cols - set(universe.columns)
     assert not missing, f"universe file {chosen_path} missing columns: {missing}"
 
-    out = universe[["symbol", "in_universe", "passes_mktcap", "passes_adtv", "market_cap_cr", "adtv_63_cr"]].copy()
+    out = universe[
+        ["symbol", "in_universe", "passes_mktcap", "passes_adtv", "market_cap_cr", "adtv_63_cr"]
+    ].copy()
 
     n_signals = len(signals)
     n_universe = len(out)
     n_matched = signals["symbol"].isin(out["symbol"]).sum()
-    print(f"Signals symbols: {n_signals} | Universe snapshot symbols: {n_universe} | Matched: {n_matched}")
+    print(
+        f"Signals symbols: {n_signals} | Universe snapshot symbols: {n_universe} | Matched: {n_matched}"
+    )
     if n_matched < n_signals:
         unmatched = sorted(set(signals["symbol"]) - set(out["symbol"]))
-        print(f"WARNING: {n_signals - n_matched} signal symbols not found in universe snapshot: {unmatched}")
+        print(
+            f"WARNING: {n_signals - n_matched} signal symbols not found in universe snapshot: {unmatched}"
+        )
 
     return out

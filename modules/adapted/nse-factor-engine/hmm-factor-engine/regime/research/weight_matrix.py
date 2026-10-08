@@ -81,7 +81,12 @@ def clean_cov(subset, active):
 def solve_weights(objective, n, bounds, constraints):
     w0 = np.ones(n) / n
     res = minimize(
-        objective, w0, method="SLSQP", bounds=bounds, constraints=constraints, options={"ftol": 1e-12, "maxiter": 2000}
+        objective,
+        w0,
+        method="SLSQP",
+        bounds=bounds,
+        constraints=constraints,
+        options={"ftol": 1e-12, "maxiter": 2000},
     )
     return res.x
 
@@ -137,7 +142,11 @@ for regime in REGIMES:
 
     # Active factors: Sharpe >= MIN_SHARPE and enough data
     active = [
-        f for f in FACTORS if not np.isnan(sharpes[f]) and sharpes[f] >= MIN_SHARPE and subset[f].dropna().shape[0] >= 3
+        f
+        for f in FACTORS
+        if not np.isnan(sharpes[f])
+        and sharpes[f] >= MIN_SHARPE
+        and subset[f].dropna().shape[0] >= 3
     ]
 
     print(f"\n{regime}: active factors = {active}")

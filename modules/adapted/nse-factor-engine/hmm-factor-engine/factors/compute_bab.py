@@ -54,7 +54,8 @@ FACTORS_DIR = Path(__file__).parent / "data"
 PRICE_FILE = DATA_DIR / "prices_hmm_daily.parquet"
 HMM_FILE = DATA_DIR / "nifty500_hmm_data.parquet"
 CONSTITUENT_CSV = Path(
-    "/home/ec2-user/nse-factor-engine/nifty_constituent_history/nifty500_2005-01-01_to_2026-06-30.csv"
+    "/home/ec2-user/nse-factor-engine/nifty_constituent_history/"
+    "nifty500_2005-01-01_to_2026-06-30.csv"
 )
 SYMBOL_MAP_FILE = DATA_DIR / "symbol_map.csv"
 OUTPUT_FILE = FACTORS_DIR / "bab_returns.parquet"
@@ -112,7 +113,9 @@ def load_symbol_map(map_file: Path) -> dict:
 def build_rfr_series(index: pd.DatetimeIndex) -> pd.Series:
     rfr = pd.Series(np.nan, index=index, name="rfr_monthly")
     for start, end, annual_rate in RFR_SCHEDULE:
-        mask = (index >= pd.Period(start, "M").to_timestamp()) & (index <= pd.Period(end, "M").to_timestamp(how="end"))
+        mask = (index >= pd.Period(start, "M").to_timestamp()) & (
+            index <= pd.Period(end, "M").to_timestamp(how="end")
+        )
         rfr[mask] = annual_rate / 12
     return rfr
 
@@ -121,7 +124,10 @@ def load_nifty_excess_returns(hmm_file: Path) -> pd.Series:
     hmm = pd.read_parquet(hmm_file)
     excess = hmm["excess_return"].copy()
     excess.index = pd.to_datetime(excess.index)
-    print(f"  Nifty excess returns: {excess.index[0].date()} -> {excess.index[-1].date()} ({len(excess)} months)")
+    print(
+        f"  Nifty excess returns: {excess.index[0].date()} -> "
+        f"{excess.index[-1].date()} ({len(excess)} months)"
+    )
     return excess
 
 
@@ -133,7 +139,9 @@ def build_adtv_matrix(prices_long: pd.DataFrame, monthly_index: pd.DatetimeIndex
     prices_long = prices_long.copy()
     prices_long["dtv"] = prices_long["close"] * prices_long["volume"] / CRORE
 
-    dtv_wide = prices_long.pivot_table(index="date", columns="symbol", values="dtv", aggfunc="first")
+    dtv_wide = prices_long.pivot_table(
+        index="date", columns="symbol", values="dtv", aggfunc="first"
+    )
     dtv_wide.index = pd.to_datetime(dtv_wide.index)
     dtv_wide = dtv_wide.sort_index()
 
@@ -185,7 +193,9 @@ def build_beta_matrix(
 
         stock_w = stock_excess.reindex(window_idx)
         # Covariance of each stock with nifty
-        cov = stock_w.apply(lambda col: col.cov(nifty_w) if col.dropna().shape[0] >= MIN_OBS else np.nan)
+        cov = stock_w.apply(
+            lambda col: col.cov(nifty_w) if col.dropna().shape[0] >= MIN_OBS else np.nan
+        )
         betas = cov / nv
         # Clip to valid range
         betas = betas.where((betas >= MIN_BETA) & (betas <= MAX_BETA))
@@ -268,7 +278,9 @@ def run_backtest(
                         "nse_ticker": sym,
                         "date": date,
                         "signal": float(raw),
-                        "percentile": float(pct[col] if not hasattr(pct[col], "__len__") else pct[col].iloc[0]),
+                        "percentile": float(
+                            pct[col] if not hasattr(pct[col], "__len__") else pct[col].iloc[0]
+                        ),
                     }
                 )
 

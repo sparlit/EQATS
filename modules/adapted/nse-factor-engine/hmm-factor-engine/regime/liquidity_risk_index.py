@@ -265,7 +265,10 @@ def compute_avg_corr(returns_w, idx_ret):
     print("  Computing RI-4 Avg Corr (PCA proxy)...")
     idx_aligned = idx_ret.reindex(returns_w.index)
     corr_cols = [
-        returns_w[sym].rolling(ROLL_SHORT, min_periods=ROLL_SHORT // 2).corr(idx_aligned).rename(sym)
+        returns_w[sym]
+        .rolling(ROLL_SHORT, min_periods=ROLL_SHORT // 2)
+        .corr(idx_aligned)
+        .rename(sym)
         for sym in returns_w.columns
     ]
     avg_corr = pd.concat(corr_cols, axis=1).mean(axis=1)
@@ -405,17 +408,19 @@ def run_universe(univ_name, idx_ticker, csv_path, prices, shares, excluded):
 
 def main():
     # Staleness check
-    import os
     from pathlib import Path
 
     pq = Path(INDEX_PARQUET)
     if not pq.exists():
-        msg = f"ERROR: {INDEX_PARQUET} not found.\nRun data/fetch_index_data.py first."
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(
+            f"ERROR: {INDEX_PARQUET} not found.\nRun data/fetch_index_data.py first."
+        )
     index_mtime = date.fromtimestamp(pq.stat().st_mtime)
     if index_mtime < date.today():
-        msg = f"ERROR: {INDEX_PARQUET} is stale (last modified {index_mtime}).\nRun data/fetch_index_data.py first."
-        raise RuntimeError(msg)
+        raise RuntimeError(
+            f"ERROR: {INDEX_PARQUET} is stale (last modified {index_mtime}).\n"
+            "Run data/fetch_index_data.py first."
+        )
 
     prices, shares, excluded = load_data()
     for univ_name, (idx_ticker, csv_path) in UNIVERSES.items():

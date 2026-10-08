@@ -73,7 +73,9 @@ print(rank_result.isnull().sum().to_string())
 print("\n--- Rank range check (should be 1 to N for each metric) ---")
 for metric in RANK_METRICS:
     col = f"rank_{metric}"
-    print(f"{col}: min={rank_result[col].min()}, max={rank_result[col].max()}, n_unique={rank_result[col].nunique()}")
+    print(
+        f"{col}: min={rank_result[col].min()}, max={rank_result[col].max()}, n_unique={rank_result[col].nunique()}"
+    )
 
 print("\n--- Spot check: rank_ret_12m1m == 1 ---")
 check = in_universe_signals.merge(rank_result, on="symbol")
