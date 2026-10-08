@@ -1,5 +1,5 @@
 {
-  "current_index": 206,
+  "current_index": 207,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1653,7 +1653,7 @@
       "name": "nseoptionalpha",
       "target": "mailbagrahul/nseoptionalpha",
       "url": "https://github.com/mailbagrahul/nseoptionalpha",
-      "status": "pending",
+      "status": "Skipped: Private/Non-Existent (404/403)",
       "pr_url": null,
       "merged": false
     },
