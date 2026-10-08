@@ -1,5 +1,5 @@
 {
-  "current_index": 231,
+  "current_index": 232,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1853,7 +1853,7 @@
       "name": "rust-trailer",
       "target": "monomadic/rust-trailer",
       "url": "https://github.com/monomadic/rust-trailer",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
