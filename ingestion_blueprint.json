@@ -1,5 +1,5 @@
 {
-  "current_index": 241,
+  "current_index": 242,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1933,9 +1933,9 @@
       "name": "nseindexoptionsdata",
       "target": "nagarajugunda/nseindexoptionsdata",
       "url": "https://github.com/nagarajugunda/nseindexoptionsdata",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3195",
+      "merged": true
     },
     {
       "name": "openlimits",
