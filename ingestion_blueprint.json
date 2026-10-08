@@ -1734,8 +1734,8 @@
       "target": "marketcalls/sector-rotation-map",
       "url": "https://github.com/marketcalls/sector-rotation-map",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3169",
+      "merged": true
     },
     {
       "name": "lfest-rs",
