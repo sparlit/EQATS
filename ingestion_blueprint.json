@@ -1662,8 +1662,8 @@
       "target": "manavgupta83/nse-factor-engine",
       "url": "https://github.com/manavgupta83/nse-factor-engine",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3160",
+      "merged": true
     },
     {
       "name": "nsedata",
