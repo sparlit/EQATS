@@ -1,5 +1,5 @@
 {
-  "current_index": 224,
+  "current_index": 225,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1797,7 +1797,7 @@
       "name": "market-platform",
       "target": "meetnepali/market-platform",
       "url": "https://github.com/meetnepali/market-platform",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
