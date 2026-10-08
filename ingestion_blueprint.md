@@ -245,7 +245,7 @@ Total Repositories: 424 | Current Index: 243
 | 240 | mutxri/mutxri-terminal | Processed | https://github.com/sparlit/EQATS/pull/3193 |
 | 241 | nabrahma/shortcircuit | Completed | https://github.com/sparlit/EQATS/pull/3194 |
 | 242 | nagarajugunda/nseindexoptionsdata | Processed | https://github.com/sparlit/EQATS/pull/3195 |
-| 243 | nash-io/openlimits | Processed | None |
+| 243 | nash-io/openlimits | Processed | https://github.com/sparlit/EQATS/pull/3196 |
 | 244 | nautechsystems/nautilus_trader | pending | None |
 | 245 | nawin383/nse-top500-realtime-screener | pending | None |
 | 246 | nayakwadis/mftool | pending | None |

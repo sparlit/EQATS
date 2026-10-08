@@ -1942,8 +1942,8 @@
       "target": "nash-io/openlimits",
       "url": "https://github.com/nash-io/openlimits",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3196",
+      "merged": true
     },
     {
       "name": "nautilus_trader",
