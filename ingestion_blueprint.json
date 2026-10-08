@@ -1,5 +1,5 @@
 {
-  "current_index": 222,
+  "current_index": 223,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1781,9 +1781,9 @@
       "name": "meanalgo.github.io",
       "target": "meanalgo/meanalgo.github.io",
       "url": "https://github.com/meanalgo/meanalgo.github.io",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3175",
+      "merged": true
     },
     {
       "name": "ai_driven_algorithmic_trading",
