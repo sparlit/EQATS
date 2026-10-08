@@ -189,9 +189,15 @@ def compute_signals(prices: pd.DataFrame, meta: pd.DataFrame, T: pd.Timestamp) -
         neg = (group["log_ret"] < 0).sum()
         return pd.Series({"pct_pos_days": pos / total, "pct_neg_days": neg / total})
 
-    fip_df = wr.groupby("symbol", group_keys=False).apply(_fip_components, include_groups=False).reset_index()
+    fip_df = (
+        wr.groupby("symbol", group_keys=False)
+        .apply(_fip_components, include_groups=False)
+        .reset_index()
+    )
     fip_df = fip_df.merge(signals[["symbol", "ret_12m1m"]], on="symbol", how="left")
-    fip_df["fip_score"] = np.sign(fip_df["ret_12m1m"]) * (fip_df["pct_neg_days"] - fip_df["pct_pos_days"])
+    fip_df["fip_score"] = np.sign(fip_df["ret_12m1m"]) * (
+        fip_df["pct_neg_days"] - fip_df["pct_pos_days"]
+    )
 
     # Smoothness
     def _smoothness(group):
@@ -200,10 +206,18 @@ def compute_signals(prices: pd.DataFrame, meta: pd.DataFrame, T: pd.Timestamp) -
         complete_weeks = n // 5
         if complete_weeks == 0:
             return pd.Series({"smoothness": np.nan})
-        pos_weeks = sum(1 for i in range(complete_weeks) if group.loc[i * 5 + 4, "close"] > group.loc[i * 5, "open"])
+        pos_weeks = sum(
+            1
+            for i in range(complete_weeks)
+            if group.loc[i * 5 + 4, "close"] > group.loc[i * 5, "open"]
+        )
         return pd.Series({"smoothness": pos_weeks / complete_weeks})
 
-    smooth_df = window.groupby("symbol", group_keys=False).apply(_smoothness, include_groups=False).reset_index()
+    smooth_df = (
+        window.groupby("symbol", group_keys=False)
+        .apply(_smoothness, include_groups=False)
+        .reset_index()
+    )
 
     # 52w proximity
     close_T = px[px["date"] == T][["symbol", "close"]].rename(columns={"close": "close_T"})
@@ -219,7 +233,9 @@ def compute_signals(prices: pd.DataFrame, meta: pd.DataFrame, T: pd.Timestamp) -
 
     # Residual momentum
     rm_win = window[["symbol", "date", "close"]].copy()
-    rm_win["log_ret"] = rm_win.groupby("symbol")["close"].transform(lambda x: np.log(x / x.shift(1)))
+    rm_win["log_ret"] = rm_win.groupby("symbol")["close"].transform(
+        lambda x: np.log(x / x.shift(1))
+    )
     rm_win = rm_win.dropna(subset=["log_ret"])
     rm_win = (
         rm_win.groupby("symbol", group_keys=False)
@@ -289,18 +305,26 @@ def compute_signals(prices: pd.DataFrame, meta: pd.DataFrame, T: pd.Timestamp) -
         rm_results[sym] = (residuals.sum(), r2, len(sub))
 
     rm_df = (
-        pd.DataFrame.from_dict(rm_results, orient="index", columns=["residual_momentum", "rm_r2", "rm_n_obs"])
+        pd.DataFrame.from_dict(
+            rm_results, orient="index", columns=["residual_momentum", "rm_r2", "rm_n_obs"]
+        )
         .rename_axis("symbol")
         .reset_index()
     )
 
     # Leading industry
     li_win = window.copy()
-    li_win["log_ret"] = li_win.groupby("symbol")["close"].transform(lambda x: np.log(x / x.shift(1)))
+    li_win["log_ret"] = li_win.groupby("symbol")["close"].transform(
+        lambda x: np.log(x / x.shift(1))
+    )
     li_win = li_win.dropna(subset=["log_ret"])
     li_win["industry"] = li_win["symbol"].map(meta.set_index("symbol")["industry"])
     ind_cum_ret = (
-        li_win.groupby(["industry", "date"])["log_ret"].mean().groupby("industry").sum().rename("industry_cum_ret")
+        li_win.groupby(["industry", "date"])["log_ret"]
+        .mean()
+        .groupby("industry")
+        .sum()
+        .rename("industry_cum_ret")
     )
     ind_rank = ind_cum_ret.rank(pct=True).rename("industry_rank")
     li_df = meta[["symbol"]].copy()
@@ -313,15 +337,33 @@ def compute_signals(prices: pd.DataFrame, meta: pd.DataFrame, T: pd.Timestamp) -
     ws_px["week"] = ws_px["date"].dt.to_period("W")
     weekly = ws_px.groupby(["symbol", "week"])["close"].last().reset_index()
     weekly = weekly.sort_values(["symbol", "week"])
-    weekly["ma30w"] = weekly.groupby("symbol")["close"].transform(lambda x: x.rolling(30, min_periods=20).mean())
+    weekly["ma30w"] = weekly.groupby("symbol")["close"].transform(
+        lambda x: x.rolling(30, min_periods=20).mean()
+    )
     weekly["ma30w_prev"] = weekly.groupby("symbol")["ma30w"].transform(lambda x: x.shift(1))
-    weekly["weinstein_stage2"] = (weekly["close"] > weekly["ma30w"]) & (weekly["ma30w"] > weekly["ma30w_prev"])
-    ws_df = weekly.sort_values("week").groupby("symbol").last().reset_index()[["symbol", "weinstein_stage2"]]
+    weekly["weinstein_stage2"] = (weekly["close"] > weekly["ma30w"]) & (
+        weekly["ma30w"] > weekly["ma30w_prev"]
+    )
+    ws_df = (
+        weekly.sort_values("week")
+        .groupby("symbol")
+        .last()
+        .reset_index()[["symbol", "weinstein_stage2"]]
+    )
 
     # 150-day SMA > 200-day SMA (daily, at T)
-    ws_px["sma150"] = ws_px.groupby("symbol")["close"].transform(lambda x: x.rolling(150, min_periods=100).mean())
-    ws_px["sma200"] = ws_px.groupby("symbol")["close"].transform(lambda x: x.rolling(200, min_periods=130).mean())
-    sma_df = ws_px.sort_values("date").groupby("symbol").last().reset_index()[["symbol", "sma150", "sma200"]]
+    ws_px["sma150"] = ws_px.groupby("symbol")["close"].transform(
+        lambda x: x.rolling(150, min_periods=100).mean()
+    )
+    ws_px["sma200"] = ws_px.groupby("symbol")["close"].transform(
+        lambda x: x.rolling(200, min_periods=130).mean()
+    )
+    sma_df = (
+        ws_px.sort_values("date")
+        .groupby("symbol")
+        .last()
+        .reset_index()[["symbol", "sma150", "sma200"]]
+    )
     sma_df["sma150_gt_sma200"] = sma_df["sma150"] > sma_df["sma200"]
 
     ws_df = ws_df.merge(sma_df[["symbol", "sma150_gt_sma200"]], on="symbol", how="left")
@@ -330,7 +372,9 @@ def compute_signals(prices: pd.DataFrame, meta: pd.DataFrame, T: pd.Timestamp) -
 
     # Relative strength
     rs_win = window.copy()
-    rs_win["log_ret"] = rs_win.groupby("symbol")["close"].transform(lambda x: np.log(x / x.shift(1)))
+    rs_win["log_ret"] = rs_win.groupby("symbol")["close"].transform(
+        lambda x: np.log(x / x.shift(1))
+    )
     rs_win = rs_win.dropna(subset=["log_ret"])
     sym_cum_ret = rs_win.groupby("symbol")["log_ret"].sum().rename("stock_cum_ret")
     market_cum_ret = rs_win.groupby("date")["log_ret"].mean().sum()
@@ -343,17 +387,32 @@ def compute_signals(prices: pd.DataFrame, meta: pd.DataFrame, T: pd.Timestamp) -
     # STPB
     close_T21 = px[px["date"] == T_21][["symbol", "close"]].rename(columns={"close": "close_T21"})
     close_T7 = px[px["date"] == T_7][["symbol", "close"]].rename(columns={"close": "close_T7"})
-    stpb = close_T.merge(close_T21, on="symbol", how="outer").merge(close_T7, on="symbol", how="outer")
+    stpb = close_T.merge(close_T21, on="symbol", how="outer").merge(
+        close_T7, on="symbol", how="outer"
+    )
     stpb["stpb_ret_21d"] = (stpb["close_T"] - stpb["close_T21"]) / stpb["close_T21"]
     stpb["stpb_ret_7d"] = (stpb["close_T"] - stpb["close_T7"]) / stpb["close_T7"]
-    ma_21 = px[(px["date"] > T_21) & (px["date"] <= T)].groupby("symbol")["close"].mean().rename("ma_21").reset_index()
+    ma_21 = (
+        px[(px["date"] > T_21) & (px["date"] <= T)]
+        .groupby("symbol")["close"]
+        .mean()
+        .rename("ma_21")
+        .reset_index()
+    )
     stpb = stpb.merge(ma_21, on="symbol", how="left")
     stpb["stpb_ma_distance_21d"] = (stpb["close_T"] - stpb["ma_21"]) / stpb["ma_21"]
     stpb = stpb.merge(signals[["symbol", "vol_231"]], on="symbol", how="left")
     stpb["stpb_zscore_21d"] = stpb["stpb_ret_21d"] / stpb["vol_231"]
     stpb["stpb_zscore_7d"] = stpb["stpb_ret_7d"] / stpb["vol_231"]
     stpb_out = stpb[
-        ["symbol", "stpb_ret_21d", "stpb_ret_7d", "stpb_zscore_21d", "stpb_zscore_7d", "stpb_ma_distance_21d"]
+        [
+            "symbol",
+            "stpb_ret_21d",
+            "stpb_ret_7d",
+            "stpb_zscore_21d",
+            "stpb_zscore_7d",
+            "stpb_ma_distance_21d",
+        ]
     ]
 
     # Volume confirmation
@@ -374,7 +433,9 @@ def compute_signals(prices: pd.DataFrame, meta: pd.DataFrame, T: pd.Timestamp) -
     volconf = avg_vol_21.merge(avg_vol_252, on="symbol", how="outer")
     volconf["vol_ratio_21_252"] = volconf["avg_vol_21"] / volconf["avg_vol_252"]
     volconf = volconf.merge(stpb_out[["symbol", "stpb_ret_21d"]], on="symbol", how="left")
-    volconf["volume_price_pos_move_confirmed"] = (volconf["stpb_ret_21d"] > 0) & (volconf["vol_ratio_21_252"] > 1.2)
+    volconf["volume_price_pos_move_confirmed"] = (volconf["stpb_ret_21d"] > 0) & (
+        volconf["vol_ratio_21_252"] > 1.2
+    )
     volconf_out = volconf[["symbol", "vol_ratio_21_252", "volume_price_pos_move_confirmed"]]
 
     # Lottery classifier
@@ -394,7 +455,11 @@ def compute_signals(prices: pd.DataFrame, meta: pd.DataFrame, T: pd.Timestamp) -
             }
         )
 
-    lot_df = lot_rets.groupby("symbol", group_keys=False).apply(_bucket_counts, include_groups=False).reset_index()
+    lot_df = (
+        lot_rets.groupby("symbol", group_keys=False)
+        .apply(_bucket_counts, include_groups=False)
+        .reset_index()
+    )
     conditions = [
         lot_df["days_bw_15_20perc"] > 2,
         lot_df["days_bw_15_20perc"] > 0,
@@ -417,17 +482,25 @@ def compute_signals(prices: pd.DataFrame, meta: pd.DataFrame, T: pd.Timestamp) -
 
     # assemble full signals before ranking
     out = signals.copy()
-    out = out.merge(fip_df[["symbol", "fip_score", "pct_pos_days", "pct_neg_days"]], on="symbol", how="left")
+    out = out.merge(
+        fip_df[["symbol", "fip_score", "pct_pos_days", "pct_neg_days"]], on="symbol", how="left"
+    )
     out = out.merge(smooth_df, on="symbol", how="left")
     out = out.merge(prox_df[["symbol", "proximity_52w_high"]], on="symbol", how="left")
     out = out.merge(rm_df, on="symbol", how="left")
     out = out.merge(li_df, on="symbol", how="left")
     out = out.merge(ws_df, on="symbol", how="left")
-    out = out.merge(rs_df[["symbol", "stock_cum_ret", "rs_excess_ret_mkt", "rs_rank_500"]], on="symbol", how="left")
+    out = out.merge(
+        rs_df[["symbol", "stock_cum_ret", "rs_excess_ret_mkt", "rs_rank_500"]],
+        on="symbol",
+        how="left",
+    )
     out = out.merge(stpb_out, on="symbol", how="left")
     out = out.merge(volconf_out, on="symbol", how="left")
     out = out.merge(lot_df, on="symbol", how="left")
-    out = out.merge(adtv[["symbol", "adtv_63_cr", "passes_adtv", "in_universe"]], on="symbol", how="left")
+    out = out.merge(
+        adtv[["symbol", "adtv_63_cr", "passes_adtv", "in_universe"]], on="symbol", how="left"
+    )
 
     # rs_excess_ret_industry = stock_cum_ret - industry_cum_ret (point-in-time sector comparison)
     out["rs_excess_ret_industry"] = out["stock_cum_ret"] - out["industry_cum_ret"]

@@ -83,13 +83,20 @@ print("Loading prices ...")
 prices = pd.read_parquet(PRICES_PATH)
 prices["date"] = pd.to_datetime(prices["date"])
 
-open_by_date = {pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict() for date, grp in prices.groupby("date")}
+open_by_date = {
+    pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict()
+    for date, grp in prices.groupby("date")
+}
 all_trading_days = sorted(open_by_date.keys())
-print(f"  {len(all_trading_days)} trading days  ({prices['date'].min().date()} -> {prices['date'].max().date()})")
+print(
+    f"  {len(all_trading_days)} trading days  "
+    f"({prices['date'].min().date()} -> {prices['date'].max().date()})"
+)
 
 print("Building prices_by_sym for RSI ...")
 prices_by_sym = {
-    sym: grp[["date", "close"]].sort_values("date").reset_index(drop=True) for sym, grp in prices.groupby("symbol")
+    sym: grp[["date", "close"]].sort_values("date").reset_index(drop=True)
+    for sym, grp in prices.groupby("symbol")
 }
 print(f"  {len(prices_by_sym)} symbols loaded")
 del prices
@@ -126,7 +133,9 @@ def compute_rsi(sym, up_to_date):
 # ── Scoring -- identical to v3_backtest.py ────────────────────────────────────
 def compute_mr_scores(signals_df, w_12m, w_6m):
     df = signals_df[signals_df["in_universe"]].copy()
-    bad = df["vol_252"].isna() | (df["vol_252"] == 0) | df["ret_12m1m"].isna() | df["ret_6m1m"].isna()
+    bad = (
+        df["vol_252"].isna() | (df["vol_252"] == 0) | df["ret_12m1m"].isna() | df["ret_6m1m"].isna()
+    )
     df = df[~bad].copy()
     if len(df) < 10:
         return pd.DataFrame()
@@ -135,7 +144,9 @@ def compute_mr_scores(signals_df, w_12m, w_6m):
     df["z_12"] = (df["mr_12"] - df["mr_12"].mean()) / df["mr_12"].std(ddof=1)
     df["z_6"] = (df["mr_6"] - df["mr_6"].mean()) / df["mr_6"].std(ddof=1)
     df["weighted_z"] = w_12m * df["z_12"] + w_6m * df["z_6"]
-    df["norm_momentum_score"] = df["weighted_z"].apply(lambda wz: 1 + wz if wz >= 0 else 1.0 / (1.0 - wz))
+    df["norm_momentum_score"] = df["weighted_z"].apply(
+        lambda wz: 1 + wz if wz >= 0 else 1.0 / (1.0 - wz)
+    )
     df["mr_rank"] = df["norm_momentum_score"].rank(method="min", ascending=False).astype("Int64")
     return df.sort_values("mr_rank").reset_index(drop=True)
 
@@ -167,7 +178,9 @@ def reconstitute(ranked_df, current_holdings, rsi_map=None):
                 continue
             drop = prior_rsi - rebal_rsi
             cond_a = (prior_rsi < RSI_THRESH) and (rebal_rsi < prior_rsi) and (drop >= RSI_MIN_DROP)
-            cond_b = (prior_rsi > RSI_THRESH) and (rebal_rsi < RSI_THRESH) and (drop >= RSI_MIN_DROP)
+            cond_b = (
+                (prior_rsi > RSI_THRESH) and (rebal_rsi < RSI_THRESH) and (drop >= RSI_MIN_DROP)
+            )
             if cond_a or cond_b:
                 portfolio.discard(s)
                 forced_out.add(s)
@@ -239,7 +252,9 @@ print("Building monthly pairs ...")
 fri_files = sorted(
     f
     for f in os.listdir(FRI_SIG_DIR)
-    if f.startswith("signals_") and f.endswith(".parquet") and os.path.isfile(os.path.join(FRI_SIG_DIR, f))
+    if f.startswith("signals_")
+    and f.endswith(".parquet")
+    and os.path.isfile(os.path.join(FRI_SIG_DIR, f))
 )
 all_pairs = []
 for fname in fri_files:
@@ -252,7 +267,10 @@ for fname in fri_files:
         continue
 all_pairs.sort(key=lambda x: x[1])
 monthly_pairs = to_monthly_pairs(all_pairs)
-print(f"  {len(monthly_pairs)} monthly periods  ({monthly_pairs[0][1].date()} -> {monthly_pairs[-1][1].date()})")
+print(
+    f"  {len(monthly_pairs)} monthly periods  "
+    f"({monthly_pairs[0][1].date()} -> {monthly_pairs[-1][1].date()})"
+)
 
 # ── Run backtest ──────────────────────────────────────────────────────────────
 print(f"\nRunning {VARIANT_LABEL} (W_12M={W_12M}, W_6M={W_6M}) ...")
@@ -278,10 +296,14 @@ for i, (sig_date, exec_date, sig_path) in enumerate(monthly_pairs):
                 compute_rsi(sym, exec_date),  # Rebal_RSI
             )
 
-    top25_symbols, action_map, rsi_forced_out = reconstitute(ranked_df, current_holdings, rsi_map=rsi_map)
+    top25_symbols, action_map, rsi_forced_out = reconstitute(
+        ranked_df, current_holdings, rsi_map=rsi_map
+    )
     total_rsi_exits += len(rsi_forced_out)
 
-    port_value_post, port_value_pre, activity = state.rebalance(list(top25_symbols), exec_px, exec_date, VARIANT_LABEL)
+    port_value_post, port_value_pre, activity = state.rebalance(
+        list(top25_symbols), exec_px, exec_date, VARIANT_LABEL
+    )
 
     mr_meta = {}
     if not ranked_df.empty:
@@ -368,7 +390,9 @@ print(f"GROSS RESULTS: {VARIANT_LABEL}")
 print(f"{'=' * 62}")
 print("  Rebal cadence  : monthly")
 print(f"  Periods        : {len(monthly_pairs)} rebalances over {ny:.1f} years")
-print(f"  Total RSI exits: {total_rsi_exits} ({total_rsi_exits / len(monthly_pairs):.1f}/period avg)")
+print(
+    f"  Total RSI exits: {total_rsi_exits} ({total_rsi_exits / len(monthly_pairs):.1f}/period avg)"
+)
 print(f"  CAGR           : {cagr_gross * 100:.2f}%")
 print(f"  Sharpe         : {sharpe_gross:.3f}")
 print(f"  Max DD         : {max_dd * 100:.2f}%")

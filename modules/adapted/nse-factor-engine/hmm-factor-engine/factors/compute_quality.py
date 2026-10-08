@@ -56,7 +56,8 @@ FUND_FILE = DATA_DIR / "fundamentals_annual.parquet"
 SECTOR_FILE = DATA_DIR / "ticker_to_sector.csv"
 SYMBOL_MAP_FILE = DATA_DIR / "symbol_map.csv"
 CONSTITUENT_CSV = Path(
-    "/home/ec2-user/nse-factor-engine/nifty_constituent_history/nifty500_2005-01-01_to_2026-06-30.csv"
+    "/home/ec2-user/nse-factor-engine/nifty_constituent_history/"
+    "nifty500_2005-01-01_to_2026-06-30.csv"
 )
 OUTPUT_FILE = FACTORS_DIR / "factor_quality.parquet"
 OUTPUT_RET = FACTORS_DIR / "quality_returns.parquet"
@@ -251,7 +252,9 @@ def build_eps_history(fund_df: pd.DataFrame) -> dict:
             annual_rows = march_rows.copy()
 
         annual_rows = annual_rows[
-            annual_rows["net_profit_ann"].notna() & annual_rows["shares_cr"].notna() & (annual_rows["shares_cr"] > 0)
+            annual_rows["net_profit_ann"].notna()
+            & annual_rows["shares_cr"].notna()
+            & (annual_rows["shares_cr"] > 0)
         ].copy()
 
         if len(annual_rows) < MIN_EPS_YEARS:
@@ -294,7 +297,10 @@ def get_signals_at_date(
 ) -> pd.DataFrame:
     avail = fund_df[(fund_df["available_from"] <= date) & (fund_df["book_equity"].notna())]
     latest = (
-        avail[avail["nse_ticker"].isin(universe)].sort_values("fy_end").groupby("nse_ticker", as_index=False).nth(-1)
+        avail[avail["nse_ticker"].isin(universe)]
+        .sort_values("fy_end")
+        .groupby("nse_ticker", as_index=False)
+        .nth(-1)
     )
 
     if latest.empty:
@@ -324,7 +330,9 @@ def get_signals_at_date(
             ce = be + td
             raw_roce = (op / ce) if (pd.notna(op) and ce != 0) else np.nan
 
-        raw_de = (row["total_debt"] / be) if (not is_fin and pd.notna(row["total_debt"])) else np.nan
+        raw_de = (
+            (row["total_debt"] / be) if (not is_fin and pd.notna(row["total_debt"])) else np.nan
+        )
         raw_eps_std = get_eps_growth_std(ticker, date, eps_history, available_from_map)
 
         profitability = raw_roce if not is_fin else raw_roe
@@ -395,12 +403,13 @@ def compute_scores(signals: pd.DataFrame) -> pd.DataFrame:
                     s = zp
                 else:
                     s = np.nan
-            elif hp and he:
-                s = 0.50 * zp - 0.50 * ze
-            elif hp:
-                s = zp
             else:
-                s = np.nan
+                if hp and he:
+                    s = 0.50 * zp - 0.50 * ze
+                elif hp:
+                    s = zp
+                else:
+                    s = np.nan
 
             result.loc[idx, "score_within"] = s
 
@@ -450,7 +459,9 @@ def run_backtest(
         if len(universe) < MIN_STOCKS:
             continue
 
-        signals = get_signals_at_date(date, universe, fund_df, sector_map, eps_history, available_from_map)
+        signals = get_signals_at_date(
+            date, universe, fund_df, sector_map, eps_history, available_from_map
+        )
         if signals.empty or len(signals) < 10:
             print(f"  SKIP {date.strftime('%Y-%m')}: only {len(signals)} stocks with signal")
             continue
@@ -493,7 +504,9 @@ def compute_long_short_returns(
     idx = monthly_px.index
 
     for date in sorted(scores_df["date"].unique()):
-        month_df = scores_df[scores_df["date"] == date][["nse_ticker", score_col]].dropna(subset=[score_col])
+        month_df = scores_df[scores_df["date"] == date][["nse_ticker", score_col]].dropna(
+            subset=[score_col]
+        )
 
         if len(month_df) < MIN_STOCKS:
             continue
@@ -547,7 +560,9 @@ def print_return_stats(df: pd.DataFrame, name: str):
     if df.empty:
         print(f"  {name}: NO RESULTS")
         return
-    ret_col = next(c for c in df.columns if c.endswith("_return") and "long" not in c and "short" not in c)
+    ret_col = [
+        c for c in df.columns if c.endswith("_return") and "long" not in c and "short" not in c
+    ][0]
     r = df[ret_col]
     ann_ret = r.mean() * 12
     ann_vol = r.std() * np.sqrt(12)
@@ -627,7 +642,9 @@ def main():
     print(f"Saved -> {OUTPUT_FILE}")
 
     print("\nComputing long-short return series ...")
-    quality_returns = compute_long_short_returns(results, "score_combined", monthly_px, return_matrix, sym_map)
+    quality_returns = compute_long_short_returns(
+        results, "score_combined", monthly_px, return_matrix, sym_map
+    )
     print_return_stats(quality_returns, "QUALITY")
     quality_returns.to_parquet(OUTPUT_RET)
 

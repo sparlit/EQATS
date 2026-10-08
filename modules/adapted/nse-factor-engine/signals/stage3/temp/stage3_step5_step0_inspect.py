@@ -29,7 +29,6 @@ Run from: /home/ec2-user/nse-factor-engine/
     python3 signals/stage3/stage3_step5_step0_inspect.py
 """
 
-import numpy as np
 import pandas as pd
 
 BASE = "/home/ec2-user/nse-factor-engine"
@@ -65,7 +64,9 @@ if len(nan_close) > 0:
 
 # Row counts per symbol in window
 sym_counts = window.groupby("symbol")["date"].count()
-print(f"\n  Rows per symbol in window — min:{sym_counts.min()}  max:{sym_counts.max()}  median:{sym_counts.median()}")
+print(
+    f"\n  Rows per symbol in window — min:{sym_counts.min()}  max:{sym_counts.max()}  median:{sym_counts.median()}"
+)
 short_syms = sym_counts[sym_counts < 230].sort_values()
 print(f"  Symbols with < 230 rows: {len(short_syms)}")
 if len(short_syms) > 0:

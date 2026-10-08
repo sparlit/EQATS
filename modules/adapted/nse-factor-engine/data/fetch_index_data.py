@@ -96,7 +96,8 @@ INDEX_SYMBOLS = [
 # Repo-root guard
 if not Path("signals").is_dir():
     sys.exit(
-        "ERROR: 'signals/' not found in current directory.\nRun from repo root: cd /home/ec2-user/nse-factor-engine/"
+        "ERROR: 'signals/' not found in current directory.\n"
+        "Run from repo root: cd /home/ec2-user/nse-factor-engine/"
     )
 
 DATA_DIR = Path("data")
@@ -174,7 +175,9 @@ if PRICES_PATH.exists():
 else:
     existing_prices = pd.DataFrame()
     last_dates = pd.Series(dtype="datetime64[ns]")
-    print(f"\n[1/3] No existing data -- full fetch from {START_DATE} for {len(INDEX_SYMBOLS)} tickers")
+    print(
+        f"\n[1/3] No existing data -- full fetch from {START_DATE} for {len(INDEX_SYMBOLS)} tickers"
+    )
 
 
 def compute_fetch_start(symbol):
@@ -213,7 +216,11 @@ for idx, symbol in enumerate(INDEX_SYMBOLS, 1):
             continue
 
         if failure in ("NO_DATA", "DOWNLOAD_ERROR"):
-            failed_symbols[symbol] = {"failure_type": failure, "error_message": errmsg, "attempts": 1}
+            failed_symbols[symbol] = {
+                "failure_type": failure,
+                "error_message": errmsg,
+                "attempts": 1,
+            }
             print(f"  [{idx:02d}] {symbol:25s} {failure} : {errmsg}")
             time.sleep(SLEEP_SECS)
             continue
@@ -222,8 +229,12 @@ for idx, symbol in enumerate(INDEX_SYMBOLS, 1):
         print(f"  [{idx:02d}] {symbol:25s} {mode} {len(df)} rows")
 
     except Exception as e:
-        failed_symbols[symbol] = {"failure_type": "DOWNLOAD_ERROR", "error_message": str(e), "attempts": 1}
-        print(f"  [{idx:02d}] {symbol:25s} ERROR : {e!s}")
+        failed_symbols[symbol] = {
+            "failure_type": "DOWNLOAD_ERROR",
+            "error_message": str(e),
+            "attempts": 1,
+        }
+        print(f"  [{idx:02d}] {symbol:25s} ERROR : {str(e)}")
 
     time.sleep(SLEEP_SECS)
 
@@ -259,15 +270,20 @@ if failed_symbols:
     failed_df = pd.DataFrame([{"symbol": s, **v} for s, v in failed_symbols.items()])
     failed_df.to_csv(FAILED_PATH, index=False)
     print(f"\n  {len(failed_symbols)} tickers still failing -- saved to {FAILED_PATH}")
-elif FAILED_PATH.exists():
-    FAILED_PATH.unlink()
+else:
+    if FAILED_PATH.exists():
+        FAILED_PATH.unlink()
 
 # ── Merge and save ────────────────────────────────
 print("\n[3/3] Saving...")
 
 if new_price_rows:
     new_prices = pd.concat(new_price_rows, ignore_index=True)
-    combined = pd.concat([existing_prices, new_prices], ignore_index=True) if not existing_prices.empty else new_prices
+    combined = (
+        pd.concat([existing_prices, new_prices], ignore_index=True)
+        if not existing_prices.empty
+        else new_prices
+    )
 else:
     combined = existing_prices
 
@@ -287,13 +303,17 @@ dated_snapshot = combined.copy()
 dated_snapshot["as_of_date"] = as_of_date
 dated_snapshot["run_date"] = END_DATE
 dated_snapshot.to_parquet(OUTPUT_PATH, index=False)
-print(f"      {OUTPUT_PATH.name} : {dated_snapshot.shape[0]} rows | as_of_date={as_of_date} | run_date={END_DATE}")
+print(
+    f"      {OUTPUT_PATH.name} : {dated_snapshot.shape[0]} rows | as_of_date={as_of_date} | run_date={END_DATE}"
+)
 
 if not failed_symbols:
     LAST_RUN_PATH.write_text(END_DATE.strftime("%Y-%m-%d"))
     print(f"\n      last_run_date_index.txt updated : {END_DATE}")
 else:
-    print(f"\n      last_run_date_index.txt NOT updated -- {len(failed_symbols)} tickers still failing")
+    print(
+        f"\n      last_run_date_index.txt NOT updated -- {len(failed_symbols)} tickers still failing"
+    )
 
 print("\n" + "=" * 60)
 print("SUMMARY")

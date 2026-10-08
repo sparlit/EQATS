@@ -42,7 +42,6 @@ Depends on stpb_ret_21d from metrics/stpb.py (same 21d window, so the
 price leg of the confirmation check is internally consistent with the
 volume leg).
 """
-import numpy as np
 import pandas as pd
 
 
@@ -70,6 +69,8 @@ def compute(prices: pd.DataFrame, stpb_result: pd.DataFrame, T, all_dates) -> pd
     out["vol_ratio_21_252"] = out["avg_vol_21"] / out["avg_vol_252"]
 
     out = out.merge(stpb_result[["symbol", "stpb_ret_21d"]], on="symbol", how="left")
-    out["volume_price_pos_move_confirmed"] = (out["stpb_ret_21d"] > 0) & (out["vol_ratio_21_252"] > 1.2)
+    out["volume_price_pos_move_confirmed"] = (out["stpb_ret_21d"] > 0) & (
+        out["vol_ratio_21_252"] > 1.2
+    )
 
     return out[["symbol", "stpb_ret_21d", "vol_ratio_21_252", "volume_price_pos_move_confirmed"]]

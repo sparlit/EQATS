@@ -77,7 +77,9 @@ for short, fname, col in FACTORS:
     s = series[short].dropna()
     ann_ret = s.mean() * 12 * 100
     sharpe = (s.mean() / s.std()) * np.sqrt(12)
-    print(f"  {short:<12} {len(s):>7} {ann_ret:>+8.2f}% {sharpe:>+8.3f} {s.index[0]!s:<10} {s.index[-1]!s}")
+    print(
+        f"  {short:<12} {len(s):>7} {ann_ret:>+8.2f}% {sharpe:>+8.3f} {str(s.index[0]):<10} {str(s.index[-1])}"
+    )
 
 # ── IS vs OOS stats ───────────────────────────────────────────────────────────
 print("\n--- IS vs OOS stats ---")
@@ -90,7 +92,9 @@ for short, fname, col in FACTORS:
     oos_data = s[s.index > pd.Period(is_e, "M")]
     is_sharpe = (is_data.mean() / is_data.std()) * np.sqrt(12) if len(is_data) > 1 else np.nan
     oos_sharpe = (oos_data.mean() / oos_data.std()) * np.sqrt(12) if len(oos_data) > 1 else np.nan
-    print(f"  {short:<12} {is_sharpe:>+10.3f} {oos_sharpe:>+11.3f} {len(is_data):>10} {len(oos_data):>11}")
+    print(
+        f"  {short:<12} {is_sharpe:>+10.3f} {oos_sharpe:>+11.3f} {len(is_data):>10} {len(oos_data):>11}"
+    )
 
 # ── Correlation matrix (common window = inner join) ───────────────────────────
 print("\n--- Correlation matrix (common window) ---")

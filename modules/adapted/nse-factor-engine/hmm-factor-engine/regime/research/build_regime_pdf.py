@@ -36,7 +36,7 @@ from datetime import datetime
 from pathlib import Path
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
@@ -123,13 +123,11 @@ def load_consolidated(date_str=None):
     if date_str:
         path = REGIME_DATA / f"regime_consolidated_{date_str}.json"
         if not path.exists():
-            msg = f"Consolidated JSON not found: {path}"
-            raise FileNotFoundError(msg)
+            raise FileNotFoundError(f"Consolidated JSON not found: {path}")
         return path, json.loads(path.read_text())
     files = sorted(REGIME_DATA.glob("regime_consolidated_*.json"))
     if not files:
-        msg = f"No consolidated JSON found in {REGIME_DATA}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"No consolidated JSON found in {REGIME_DATA}")
     path = files[-1]
     return path, json.loads(path.read_text())
 
@@ -137,7 +135,12 @@ def load_consolidated(date_str=None):
 def make_styles():
     return {
         "cover_title": ParagraphStyle(
-            "cover_title", fontName="Helvetica-Bold", fontSize=26, textColor=WHITE, leading=32, alignment=TA_LEFT
+            "cover_title",
+            fontName="Helvetica-Bold",
+            fontSize=26,
+            textColor=WHITE,
+            leading=32,
+            alignment=TA_LEFT,
         ),
         "cover_sub": ParagraphStyle(
             "cover_sub",
@@ -192,7 +195,12 @@ def make_styles():
             rightIndent=8,
         ),
         "tbl_header": ParagraphStyle(
-            "tbl_header", fontName="Helvetica-Bold", fontSize=9, textColor=WHITE, leading=12, alignment=TA_LEFT
+            "tbl_header",
+            fontName="Helvetica-Bold",
+            fontSize=9,
+            textColor=WHITE,
+            leading=12,
+            alignment=TA_LEFT,
         ),
     }
 
@@ -217,7 +225,12 @@ def build_measures_table(measure_keys, measures_dict, S, col_w):
                 Paragraph(
                     tier.upper(),
                     ParagraphStyle(
-                        f"t_{key}", fontName="Helvetica-Bold", fontSize=8, textColor=tc, leading=11, alignment=TA_CENTER
+                        f"t_{key}",
+                        fontName="Helvetica-Bold",
+                        fontSize=8,
+                        textColor=tc,
+                        leading=11,
+                        alignment=TA_CENTER,
                     ),
                 ),
                 Paragraph(reading, S["reading_text"]),
@@ -256,7 +269,7 @@ def build_measures_table(measure_keys, measures_dict, S, col_w):
 
 def build_pdf(consolidated, out_path):
     S = make_styles()
-    W, _H = A4
+    W, H = A4
     M = 18 * mm
     col_w = W - 2 * M
     doc = SimpleDocTemplate(
@@ -604,14 +617,21 @@ def build_pdf(consolidated, out_path):
 
 def parse_args():
     p = argparse.ArgumentParser(description="Generate regime PDF from consolidated JSON")
-    p.add_argument("--date", "-d", default=None, help="Run date YYYY-MM-DD (default: latest available)")
-    p.add_argument("--out", "-o", default=None, help="Output PDF path (default: regime_data/regime_report_<date>.pdf)")
+    p.add_argument(
+        "--date", "-d", default=None, help="Run date YYYY-MM-DD (default: latest available)"
+    )
+    p.add_argument(
+        "--out",
+        "-o",
+        default=None,
+        help="Output PDF path (default: regime_data/regime_report_<date>.pdf)",
+    )
     return p.parse_args()
 
 
 def main():
     args = parse_args()
-    _json_path, consolidated = load_consolidated(args.date)
+    json_path, consolidated = load_consolidated(args.date)
     run_date = consolidated["meta"]["run_date"]
     out_path = Path(args.out) if args.out else REGIME_DATA / f"regime_report_{run_date}.pdf"
     build_pdf(consolidated, out_path)

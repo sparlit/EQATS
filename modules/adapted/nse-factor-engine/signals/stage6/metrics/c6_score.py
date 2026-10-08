@@ -46,7 +46,9 @@ PORTFOLIO_N = 25
 DISPLAY_N = 50
 
 
-def apply_c6_score(filtered_df: pd.DataFrame, current_holdings=None, N=PORTFOLIO_N, pool_size=None) -> pd.DataFrame:
+def apply_c6_score(
+    filtered_df: pd.DataFrame, current_holdings=None, N=PORTFOLIO_N, pool_size=None
+) -> pd.DataFrame:
     if current_holdings is None:
         current_holdings = set()
 

@@ -46,7 +46,11 @@ def compute(window: pd.DataFrame, meta: pd.DataFrame) -> pd.DataFrame:
 
     # Equal-weighted industry return per day, summed over window
     ind_cum_ret = (
-        win.groupby(["industry", "date"])["log_ret"].mean().groupby("industry").sum().rename("industry_cum_ret")
+        win.groupby(["industry", "date"])["log_ret"]
+        .mean()
+        .groupby("industry")
+        .sum()
+        .rename("industry_cum_ret")
     )
 
     # Percentile rank across industries

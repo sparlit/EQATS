@@ -188,7 +188,8 @@ def load_existing_prices(flags: pd.DataFrame) -> pd.DataFrame:
             f"{df['symbol'].nunique()} symbols, "
             f"{df['date'].min().date()} -> {df['date'].max().date()}"
         )
-        return apply_flags(df, flags)
+        df = apply_flags(df, flags)
+        return df
     print("  No existing prices found — full fetch for all symbols")
     return pd.DataFrame()
 
@@ -430,7 +431,9 @@ def main():
 
         if flagged_pairs:
             unique_syms = list({s for s, _ in flagged_pairs})
-            print(f"  {len(flagged_pairs)} bad date(s) across {len(unique_syms)} symbol(s) — refetching...")
+            print(
+                f"  {len(flagged_pairs)} bad date(s) across {len(unique_syms)} symbol(s) — refetching..."
+            )
 
             # Refetch full history for affected symbols
             refetch_parts = []
@@ -460,7 +463,10 @@ def main():
 
                 # Save to flags file
                 new_flag_rows = pd.DataFrame(
-                    [{"symbol": s, "bad_date": d, "reason": "yfinance_unadjusted"} for s, d in still_flagged]
+                    [
+                        {"symbol": s, "bad_date": d, "reason": "yfinance_unadjusted"}
+                        for s, d in still_flagged
+                    ]
                 )
                 updated_flags = pd.concat([flags, new_flag_rows], ignore_index=True)
                 save_flags(updated_flags)
@@ -480,7 +486,9 @@ def main():
 
         combined.to_parquet(PRICE_FILE, index=False)
         print(f"  Saved prices : {combined.shape} -> {PRICE_FILE.name}")
-        print(f"  Date range   : {combined['date'].min().date()} -> {combined['date'].max().date()}")
+        print(
+            f"  Date range   : {combined['date'].min().date()} -> {combined['date'].max().date()}"
+        )
         print(f"  Symbols      : {combined['symbol'].nunique()}")
 
         save_volume_parquet(combined)

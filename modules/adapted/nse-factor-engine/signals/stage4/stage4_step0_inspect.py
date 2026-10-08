@@ -21,7 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import numpy as np
 import pandas as pd
 
 BASE = "/home/ec2-user/nse-factor-engine/"
@@ -63,7 +62,10 @@ print("volume <= 0 rows:", (prices["volume"] <= 0).sum())
 print("volume null rows:", prices["volume"].isnull().sum())
 vol_by_symbol_count = prices.groupby("symbol")["volume"].apply(lambda x: (x <= 0).sum())
 print("symbols with any zero/neg volume:", (vol_by_symbol_count > 0).sum())
-print("top 5 symbols by zero/neg volume day count:\n", vol_by_symbol_count.sort_values(ascending=False).head())
+print(
+    "top 5 symbols by zero/neg volume day count:\n",
+    vol_by_symbol_count.sort_values(ascending=False).head(),
+)
 
 print()
 print("=" * 60)
@@ -82,7 +84,10 @@ print("=" * 60)
 print("shape:", signals.shape)
 print("columns:", list(signals.columns))
 print("nulls per column:\n", signals.isnull().sum())
-print("as_of_date unique:", signals["as_of_date"].unique() if "as_of_date" in signals.columns else "no as_of_date col")
+print(
+    "as_of_date unique:",
+    signals["as_of_date"].unique() if "as_of_date" in signals.columns else "no as_of_date col",
+)
 
 print()
 print("=" * 60)
@@ -96,5 +101,11 @@ print()
 print("=" * 60)
 print("SYMBOL ALIGNMENT")
 print("=" * 60)
-print("prices symbols not in signals:", set(prices["symbol"].unique()) - set(signals["symbol"].unique()))
-print("signals symbols not in prices:", set(signals["symbol"].unique()) - set(prices["symbol"].unique()))
+print(
+    "prices symbols not in signals:",
+    set(prices["symbol"].unique()) - set(signals["symbol"].unique()),
+)
+print(
+    "signals symbols not in prices:",
+    set(signals["symbol"].unique()) - set(prices["symbol"].unique()),
+)

@@ -98,7 +98,12 @@ print("\nNaN counts:")
 print(df[["vol_252", "vol_231", "downside_vol_252", "downside_vol_231"]].isna().sum().to_string())
 
 print("\nDescriptive stats:")
-print(df[["vol_252", "vol_231", "downside_vol_252", "downside_vol_231"]].describe().round(4).to_string())
+print(
+    df[["vol_252", "vol_231", "downside_vol_252", "downside_vol_231"]]
+    .describe()
+    .round(4)
+    .to_string()
+)
 
 print("\nSample — 5 symbols with all vol cols valid:")
 print(df.dropna().head(5).to_string(index=False))
@@ -112,4 +117,6 @@ print(f"downside_vol_231 > vol_231 (expect 0): {viol_231}")
 
 # correlation matrix across all four vol cols
 print("\nCorrelation matrix:")
-print(df[["vol_252", "vol_231", "downside_vol_252", "downside_vol_231"]].corr().round(4).to_string())
+print(
+    df[["vol_252", "vol_231", "downside_vol_252", "downside_vol_231"]].corr().round(4).to_string()
+)

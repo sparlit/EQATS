@@ -77,18 +77,24 @@ def main():
         before = prices[old_sym].notna().sum() if old_sym in prices.columns else 0
 
         if new_sym not in prices.columns:
-            print(f"  {old_sym:15s} {new_sym:15s} {before:>10} {'N/A':>10}  SKIP — new sym not in parquet")
+            print(
+                f"  {old_sym:15s} {new_sym:15s} {before:>10} {'N/A':>10}  SKIP — new sym not in parquet"
+            )
             continue
 
         new_data_count = prices[new_sym].notna().sum()
         if new_data_count == 0:
-            print(f"  {old_sym:15s} {new_sym:15s} {before:>10} {'N/A':>10}  SKIP — new sym has no data")
+            print(
+                f"  {old_sym:15s} {new_sym:15s} {before:>10} {'N/A':>10}  SKIP — new sym has no data"
+            )
             continue
 
         # Copy new symbol data into old symbol column
         if old_sym in prices.columns:
             prices[old_sym] = prices[new_sym].values
-            volume[old_sym] = volume[new_sym].values if new_sym in volume.columns else volume[old_sym]
+            volume[old_sym] = (
+                volume[new_sym].values if new_sym in volume.columns else volume[old_sym]
+            )
         else:
             prices[old_sym] = prices[new_sym].values
             volume[old_sym] = volume[new_sym].values if new_sym in volume.columns else 0

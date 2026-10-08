@@ -54,7 +54,8 @@ PRICE_FILE = DATA_DIR / "prices_hmm_daily.parquet"
 FUND_FILE = DATA_DIR / "fundamentals_annual.parquet"
 SYMBOL_MAP_FILE = DATA_DIR / "symbol_map.csv"
 CONSTITUENT_CSV = Path(
-    "/home/ec2-user/nse-factor-engine/nifty_constituent_history/nifty500_2005-01-01_to_2026-06-30.csv"
+    "/home/ec2-user/nse-factor-engine/nifty_constituent_history/"
+    "nifty500_2005-01-01_to_2026-06-30.csv"
 )
 OUTPUT_FILE = FACTORS_DIR / "factor_size.parquet"
 OUTPUT_RET = FACTORS_DIR / "size_returns.parquet"
@@ -176,7 +177,10 @@ def get_signals_at_date(
 ) -> pd.DataFrame:
     avail = shares_df[shares_df["available_from"] <= date]
     latest = (
-        avail[avail["nse_ticker"].isin(universe)].sort_values("fy_end").groupby("nse_ticker", as_index=False).nth(-1)
+        avail[avail["nse_ticker"].isin(universe)]
+        .sort_values("fy_end")
+        .groupby("nse_ticker", as_index=False)
+        .nth(-1)
     )
 
     if latest.empty:
@@ -243,7 +247,9 @@ def run_backtest(
         pit_cols = [c for c in pit_cols if c in adtv_row.index]
         adtv_pass = adtv_row[pit_cols].dropna()
         adtv_pass = adtv_pass[adtv_pass >= threshold].index.tolist()
-        universe = [rev_map.get(c, c) for c in adtv_pass if rev_map.get(c, c) not in EXCLUDE_TICKERS]
+        universe = [
+            rev_map.get(c, c) for c in adtv_pass if rev_map.get(c, c) not in EXCLUDE_TICKERS
+        ]
 
         if len(universe) < MIN_STOCKS:
             continue
@@ -277,7 +283,9 @@ def compute_long_short_returns(
     idx = monthly_px.index
 
     for date in sorted(scores_df["date"].unique()):
-        month_df = scores_df[scores_df["date"] == date][["nse_ticker", score_col]].dropna(subset=[score_col])
+        month_df = scores_df[scores_df["date"] == date][["nse_ticker", score_col]].dropna(
+            subset=[score_col]
+        )
 
         if len(month_df) < MIN_STOCKS:
             continue
@@ -331,7 +339,9 @@ def print_return_stats(df: pd.DataFrame, name: str):
     if df.empty:
         print(f"  {name}: NO RESULTS")
         return
-    ret_col = next(c for c in df.columns if c.endswith("_return") and "long" not in c and "short" not in c)
+    ret_col = [
+        c for c in df.columns if c.endswith("_return") and "long" not in c and "short" not in c
+    ][0]
     r = df[ret_col]
     ann_ret = r.mean() * 12
     ann_vol = r.std() * np.sqrt(12)

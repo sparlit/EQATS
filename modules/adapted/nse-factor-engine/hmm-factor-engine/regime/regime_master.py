@@ -141,8 +141,7 @@ def run_subprocess(script_path, label, verbose=True):
     )
     if result.returncode != 0:
         print(f"ERROR in {label}:\n{result.stderr}")
-        msg = f"{label} failed with exit code {result.returncode}"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"{label} failed with exit code {result.returncode}")
     print(f"  OK -- {label} complete")
 
 
@@ -202,7 +201,9 @@ def step_1a_stock_prices(force=False, verbose=True):
     if prices_max is None:
         print("  Status: MISSING -- running full fetch")
     else:
-        print(f"  Status: STALE by {(target - prices_max).days} day(s) -- running incremental fetch")
+        print(
+            f"  Status: STALE by {(target - prices_max).days} day(s) -- running incremental fetch"
+        )
 
     run_subprocess(FETCH_STOCKS_PY, "fetch_hmm_stock_data_historical.py", verbose=verbose)
 
@@ -222,8 +223,10 @@ def step_2_narrative(verbose=True):
     section("STEP 2 -- Narrative (all 4 universes)")
 
     if not CAL_PATH.exists():
-        msg = f"calibration.json not found at {CAL_PATH}\nRun liquidity_risk_parameters_calibration.py first."
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(
+            f"calibration.json not found at {CAL_PATH}\n"
+            "Run liquidity_risk_parameters_calibration.py first."
+        )
 
     with open(CAL_PATH) as f:
         cal_all = json.load(f)
@@ -234,8 +237,7 @@ def step_2_narrative(verbose=True):
     for univ in UNIVERSES:
         pq = REGIME_DATA / f"liquidity_risk_{univ}.parquet"
         if not pq.exists():
-            msg = f"Parquet not found: {pq}"
-            raise FileNotFoundError(msg)
+            raise FileNotFoundError(f"Parquet not found: {pq}")
 
         df = pd.read_parquet(pq)
         df.index = pd.to_datetime(df.index)
@@ -244,8 +246,7 @@ def step_2_narrative(verbose=True):
         print(f"\n  [{univ}] latest_date={latest_date}")
 
         if univ not in cal_all:
-            msg = f"{univ} not in calibration.json"
-            raise KeyError(msg)
+            raise KeyError(f"{univ} not in calibration.json")
 
         cal = cal_all[univ]
         text = narrative_mod.generate_narrative(univ, latest_date, cal, df)
@@ -253,12 +254,15 @@ def step_2_narrative(verbose=True):
             print(text)
 
         dt = pd.Timestamp(latest_date)
-        actual_date = dt.date() if dt in df.index else df.index[df.index.get_indexer([dt], method="nearest")[0]].date()
+        actual_date = (
+            dt.date()
+            if dt in df.index
+            else df.index[df.index.get_indexer([dt], method="nearest")[0]].date()
+        )
 
         json_path = REGIME_DATA / f"narrative_{univ}_{actual_date}.json"
         if not json_path.exists():
-            msg = f"Expected narrative JSON at {json_path}"
-            raise FileNotFoundError(msg)
+            raise FileNotFoundError(f"Expected narrative JSON at {json_path}")
 
         narrative_paths[univ] = json_path
         print(f"  OK -- narrative saved -> {json_path.name}")
@@ -277,7 +281,9 @@ def step_3a_hmm_data(force=False, verbose=True):
     hmm_max_month = parquet_max_month(NIFTY500_PQ)
 
     print(f"  Current month         : {current_month.strftime('%Y-%m')}")
-    print(f"  nifty500_hmm_data max : {hmm_max_month.strftime('%Y-%m') if hmm_max_month else 'NOT FOUND'}")
+    print(
+        f"  nifty500_hmm_data max : {hmm_max_month.strftime('%Y-%m') if hmm_max_month else 'NOT FOUND'}"
+    )
 
     if not force and hmm_max_month and hmm_max_month >= current_month:
         print("  Status: CURRENT -- skipping fetch")
@@ -286,7 +292,9 @@ def step_3a_hmm_data(force=False, verbose=True):
     if hmm_max_month is None:
         print("  Status: MISSING -- running full fetch")
     else:
-        months_behind = (current_month.year - hmm_max_month.year) * 12 + (current_month.month - hmm_max_month.month)
+        months_behind = (current_month.year - hmm_max_month.year) * 12 + (
+            current_month.month - hmm_max_month.month
+        )
         print(f"  Status: STALE by {months_behind} month(s) -- running fetch")
 
     run_subprocess(FETCH_INDICES_PY, "fetch_hmm_nifty_indices_data.py", verbose=verbose)
@@ -315,9 +323,10 @@ def _conviction_label(hmm):
     top_p = max(hmm["P_Bull"], hmm["P_Choppy"], hmm["P_Crisis"])
     if top_p >= 0.85:
         return "high"
-    if top_p >= 0.65:
+    elif top_p >= 0.65:
         return "moderate"
-    return "low/mixed"
+    else:
+        return "low/mixed"
 
 
 def _build_regime_blurb(regime, hmm, narrative):
@@ -332,7 +341,10 @@ def _build_regime_blurb(regime, hmm, narrative):
     p_crisis = hmm["P_Crisis"]
 
     if regime == "Bull":
-        base = f"HMM assigns a {conviction}-conviction Bull signal (P_Bull={p_bull:.2%}, P_Crisis={p_crisis:.2%}). "
+        base = (
+            f"HMM assigns a {conviction}-conviction Bull signal "
+            f"(P_Bull={p_bull:.2%}, P_Crisis={p_crisis:.2%}). "
+        )
         if rv_tier in ("elevated", "extreme") and corr_tier in ("elevated", "extreme"):
             base += (
                 "However, the narrative flags elevated volatility and correlation -- "
@@ -350,14 +362,19 @@ def _build_regime_blurb(regime, hmm, narrative):
             )
 
     elif regime == "Crisis":
-        base = f"HMM assigns a {conviction}-conviction Crisis signal (P_Crisis={p_crisis:.2%}, P_Bull={p_bull:.2%}). "
+        base = (
+            f"HMM assigns a {conviction}-conviction Crisis signal "
+            f"(P_Crisis={p_crisis:.2%}, P_Bull={p_bull:.2%}). "
+        )
         if amihud_tier in ("severely illiquid", "illiquid"):
             base += (
                 "Amihud illiquidity confirms the crisis classification -- "
                 "price impact elevated, consistent with a stress/deleveraging episode."
             )
         elif rv_tier in ("elevated", "extreme") and dd_tier in ("deep", "severe"):
-            base += "High realized volatility and deep drawdown reinforce the crisis classification."
+            base += (
+                "High realized volatility and deep drawdown reinforce the crisis classification."
+            )
         else:
             base += (
                 "Liquidity/risk measures partially confirm stress but the full "
@@ -506,7 +523,9 @@ def step_4_combine(narrative_paths, hmm_result):
         with open(ind_path, "w") as f:
             json.dump(individual, f, indent=2)
 
-        print_narrative_block(univ, narrative_date, narrative, hmm_is_current, univ_block["hmm_lag_note"])
+        print_narrative_block(
+            univ, narrative_date, narrative, hmm_is_current, univ_block["hmm_lag_note"]
+        )
         print(f"  OK -- saved -> {ind_path.name}")
 
     consolidated = {

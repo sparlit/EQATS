@@ -97,5 +97,12 @@ def compute(prices: pd.DataFrame, T, all_dates) -> pd.DataFrame:
     out["lottery_class"] = np.select(conditions, choices, default="BORING")
 
     return out[
-        ["symbol", "days_bw_15_20perc", "days_bw_10_15perc", "days_bw_5_10perc", "days_bw_2_5perc", "lottery_class"]
+        [
+            "symbol",
+            "days_bw_15_20perc",
+            "days_bw_10_15perc",
+            "days_bw_5_10perc",
+            "days_bw_2_5perc",
+            "lottery_class",
+        ]
     ]

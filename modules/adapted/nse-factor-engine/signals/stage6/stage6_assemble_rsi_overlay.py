@@ -115,7 +115,10 @@ RSI_ENTRY_THRESH = 50
 def load_prices_by_sym():
     px = pd.read_parquet(PRICES_PATH, columns=["symbol", "date", "close"])
     px["date"] = pd.to_datetime(px["date"])
-    return {sym: grp[["date", "close"]].sort_values("date").reset_index(drop=True) for sym, grp in px.groupby("symbol")}
+    return {
+        sym: grp[["date", "close"]].sort_values("date").reset_index(drop=True)
+        for sym, grp in px.groupby("symbol")
+    }
 
 
 def compute_wilder_rsi(sym, prices_by_sym, as_of_date, window=14):
@@ -190,7 +193,9 @@ if PORTFOLIO_STATE_PATH.exists():
     portfolio_state = pd.read_parquet(PORTFOLIO_STATE_PATH)
     current_holdings = set(portfolio_state["symbol"])
     stored_last_rebalance_date = (
-        pd.Timestamp(portfolio_state["last_rebalance_date"].iloc[0]) if len(portfolio_state) > 0 else None
+        pd.Timestamp(portfolio_state["last_rebalance_date"].iloc[0])
+        if len(portfolio_state) > 0
+        else None
     )
     # Graceful handling of old schema (no entry_date/entry_type)
     if "entry_date" not in portfolio_state.columns:
@@ -225,7 +230,10 @@ if MID_MONTH_MODE:
     print(f"\nTrading days since last rebalance ({stored_last_rebalance_date.date()}): {n_days}")
 
     if n_days < CHECK_DAY:
-        print(f"Mid-month check not yet due. Need {CHECK_DAY} trading days, currently at day {n_days}.")
+        print(
+            f"Mid-month check not yet due. Need {CHECK_DAY} trading days, "
+            f"currently at day {n_days}."
+        )
         print(f"Next eligible: approximately {CHECK_DAY - n_days} trading day(s) away.")
         sys.exit(0)
 
@@ -286,7 +294,9 @@ if MID_MONTH_MODE:
         _s = _pr["symbol"]
         _enrich[_s] = {
             "rank": int(_pr["mr_rank"]) if pd.notna(_pr.get("mr_rank")) else 999,
-            "score": round(float(_pr["norm_momentum_score"]), 2) if pd.notna(_pr.get("norm_momentum_score")) else None,
+            "score": round(float(_pr["norm_momentum_score"]), 2)
+            if pd.notna(_pr.get("norm_momentum_score"))
+            else None,
             "ret12m": round(float(_pr["ret_12m1m"]), 4) if pd.notna(_pr.get("ret_12m1m")) else None,
             "rsi_rebal": round(float(_pr["rsi_14"]), 1) if pd.notna(_pr.get("rsi_14")) else None,
             "beta": round(float(_pr["beta_12m"]), 2) if pd.notna(_pr.get("beta_12m")) else None,
@@ -308,8 +318,14 @@ if MID_MONTH_MODE:
         """Build a monitor-compatible stock entry for the JSON."""
         e = _enrich.get(sym, {})
         rsi_rebal = e.get("rsi_rebal")
-        rsi_today = round(float(rsi_today_val), 1) if rsi_today_val and pd.notna(rsi_today_val) else None
-        rsi_chg = round(rsi_today - rsi_rebal, 1) if rsi_today is not None and rsi_rebal is not None else None
+        rsi_today = (
+            round(float(rsi_today_val), 1) if rsi_today_val and pd.notna(rsi_today_val) else None
+        )
+        rsi_chg = (
+            round(rsi_today - rsi_rebal, 1)
+            if rsi_today is not None and rsi_rebal is not None
+            else None
+        )
         entry = {
             "rank": e.get("rank", 999),
             "symbol": sym,
@@ -356,7 +372,11 @@ if MID_MONTH_MODE:
         sys.exit(0)
 
     # ── Watchlist + replacements ──────────────────────────────────────────────
-    watchlist_df = last_port_df[last_port_df["action"] == "WATCHLIST"].sort_values("mr_rank").reset_index(drop=True)
+    watchlist_df = (
+        last_port_df[last_port_df["action"] == "WATCHLIST"]
+        .sort_values("mr_rank")
+        .reset_index(drop=True)
+    )
     print(f"\nWatchlist loaded from {port_files[-1].name}: {len(watchlist_df)} candidates")
 
     mid_buys = []
@@ -382,7 +402,10 @@ if MID_MONTH_MODE:
                         "replaces": sym,
                     }
                 )
-                print(f"  MID_BUY: {candidate} (rank={int(wrow['mr_rank'])}, RSI={rsi:.1f}) → replaces {sym}")
+                print(
+                    f"  MID_BUY: {candidate} (rank={int(wrow['mr_rank'])}, "
+                    f"RSI={rsi:.1f}) → replaces {sym}"
+                )
                 found = True
                 break
             else:
@@ -393,9 +416,14 @@ if MID_MONTH_MODE:
                 )
         if not found:
             cash_slots.append(sym)
-            print(f"  No replacement for {sym} (RSI > {RSI_ENTRY_THRESH} not found in watchlist) → cash")
+            print(
+                f"  No replacement for {sym} (RSI > {RSI_ENTRY_THRESH} "
+                f"not found in watchlist) → cash"
+            )
 
-    print(f"\nSummary: {len(mid_sells)} exits | {len(mid_buys)} replaced | {len(cash_slots)} to cash")
+    print(
+        f"\nSummary: {len(mid_sells)} exits | {len(mid_buys)} replaced | {len(cash_slots)} to cash"
+    )
 
     # ── Update portfolio_state.parquet ────────────────────────────────────────
     remaining = portfolio_state[~portfolio_state["symbol"].isin(mid_sells)].copy()
@@ -492,7 +520,9 @@ if MID_MONTH_MODE:
         print(f"  ⚠️  Signal cols not in last rebalance parquet (will FAIL): {cols_missing}")
     mid_df = mid_df.merge(last_port_df[cols_available], on="symbol", how="left")
     print("\nRunning Abs Momentum Scorecard on mid_df ...")
-    print(f"  Signal cols merged from last rebalance parquet: {len(cols_available) - 1}/{len(SCORECARD_SIGNAL_COLS)}")
+    print(
+        f"  Signal cols merged from last rebalance parquet: {len(cols_available) - 1}/{len(SCORECARD_SIGNAL_COLS)}"
+    )
 
     # Step 1.5: For MID_BUY stocks — overwrite 13 recomputable signals with fresh values
     # Stale cols (smoothness, rm_r2, residual_momentum, stpb_zscore_21d) stay from last_port_df
@@ -635,14 +665,24 @@ if MONITOR_MODE:
         holding_rows = holding_rows.sort_values("mr_rank")
         cols = [
             c
-            for c in ["mr_rank", "symbol", "norm_momentum_score", "weighted_z", "weinstein_stage2", "ret_12m1m"]
+            for c in [
+                "mr_rank",
+                "symbol",
+                "norm_momentum_score",
+                "weighted_z",
+                "weinstein_stage2",
+                "ret_12m1m",
+            ]
             if c in holding_rows.columns
         ]
         print(holding_rows[cols].to_string(index=False))
 
         would_force_out = holding_rows[holding_rows["mr_rank"] > BUFFER_ZONE]
         if len(would_force_out) > 0:
-            print(f"\n  ⚠ Would be forced out (rank > {BUFFER_ZONE}): {sorted(would_force_out['symbol'].tolist())}")
+            print(
+                f"\n  ⚠ Would be forced out (rank > {BUFFER_ZONE}): "
+                f"{sorted(would_force_out['symbol'].tolist())}"
+            )
 
     print("\nIf rebalanced TODAY:")
     top25_df = ranked[ranked["tier"] == "TOP_25"].copy()
@@ -659,7 +699,9 @@ if MONITOR_MODE:
     port_files = [f for f in port_files if "_mid" not in f.name]
     if port_files:
         last_port_df = pd.read_parquet(port_files[-1])
-        rsi_at_rebal = last_port_df[last_port_df["tier"] == "TOP_25"].set_index("symbol")["rsi_14"].to_dict()
+        rsi_at_rebal = (
+            last_port_df[last_port_df["tier"] == "TOP_25"].set_index("symbol")["rsi_14"].to_dict()
+        )
         rebal_date = pd.to_datetime(last_port_df["as_of_date"].iloc[0]).date()
         display_df["rsi_14_rebal"] = display_df["symbol"].map(rsi_at_rebal)
 
@@ -680,7 +722,9 @@ if MONITOR_MODE:
                 _avg_l = _loss.ewm(com=13, min_periods=14).mean()
                 _rs = _avg_g / _avg_l.replace(0, float("nan"))
                 _rsi = 100 - (100 / (1 + _rs))
-                display_df.loc[display_df["symbol"] == _sym, "rsi_14_rebal"] = round(_rsi.iloc[-1], 4)
+                display_df.loc[display_df["symbol"] == _sym, "rsi_14_rebal"] = round(
+                    _rsi.iloc[-1], 4
+                )
 
         display_df["rsi_14_today"] = display_df["rsi_14"]
         display_df["rsi_chg"] = (display_df["rsi_14_today"] - display_df["rsi_14_rebal"]).round(1)
@@ -691,17 +735,9 @@ if MONITOR_MODE:
 
     cols = [
         c
-        for c in [
-            "mr_rank",
-            "symbol",
-            "action",
-            "norm_momentum_score",
-            "ret_12m1m",
-            *rsi_cols,
-            "beta_12m",
-            "stock_12m_ret",
-            "alpha_12m",
-        ]
+        for c in ["mr_rank", "symbol", "action", "norm_momentum_score", "ret_12m1m"]
+        + rsi_cols
+        + ["beta_12m", "stock_12m_ret", "alpha_12m"]
         if c in display_df.columns
     ]
     print(display_df[cols].to_string(index=False))
@@ -719,16 +755,24 @@ if MONITOR_MODE:
                 "score": round(float(_r["norm_momentum_score"]), 2)
                 if pd.notna(_r.get("norm_momentum_score"))
                 else None,
-                "ret12m": round(float(_r["ret_12m1m"]), 4) if pd.notna(_r.get("ret_12m1m")) else None,
+                "ret12m": round(float(_r["ret_12m1m"]), 4)
+                if pd.notna(_r.get("ret_12m1m"))
+                else None,
                 "rsi_rebal": round(float(_r["rsi_14_rebal"]), 1)
                 if "rsi_14_rebal" in _r and pd.notna(_r["rsi_14_rebal"])
                 else None,
                 "rsi_today": round(float(_r["rsi_14_today"]), 1)
                 if "rsi_14_today" in _r and pd.notna(_r["rsi_14_today"])
                 else None,
-                "rsi_chg": round(float(_r["rsi_chg"]), 1) if "rsi_chg" in _r and pd.notna(_r["rsi_chg"]) else None,
-                "beta": round(float(_r["beta_12m"]), 2) if "beta_12m" in _r and pd.notna(_r["beta_12m"]) else None,
-                "alpha": round(float(_r["alpha_12m"]), 4) if "alpha_12m" in _r and pd.notna(_r["alpha_12m"]) else None,
+                "rsi_chg": round(float(_r["rsi_chg"]), 1)
+                if "rsi_chg" in _r and pd.notna(_r["rsi_chg"])
+                else None,
+                "beta": round(float(_r["beta_12m"]), 2)
+                if "beta_12m" in _r and pd.notna(_r["beta_12m"])
+                else None,
+                "alpha": round(float(_r["alpha_12m"]), 4)
+                if "alpha_12m" in _r and pd.notna(_r["alpha_12m"])
+                else None,
             }
         )
 
@@ -758,7 +802,9 @@ if MONITOR_MODE:
     if len(watchlist) > 0:
         print(f"\nWATCHLIST (rank <= {BUFFER_ZONE}, {len(watchlist)} symbols):")
         wl_cols = [
-            c for c in ["mr_rank", "symbol", "weinstein_stage2", "norm_momentum_score"] if c in watchlist.columns
+            c
+            for c in ["mr_rank", "symbol", "weinstein_stage2", "norm_momentum_score"]
+            if c in watchlist.columns
         ]
         print(watchlist[wl_cols].to_string(index=False))
 
@@ -768,7 +814,11 @@ if MONITOR_MODE:
 
     if len(wein_rejects) > 0:
         print(f"\nWeinstein rejects ({len(wein_rejects)}):")
-        print(wein_rejects[["symbol", "mr_rank", "rejection_stage", "rejection_reason"]].to_string(index=False))
+        print(
+            wein_rejects[["symbol", "mr_rank", "rejection_stage", "rejection_reason"]].to_string(
+                index=False
+            )
+        )
 
     print(
         f"\nMONITOR complete. Next rebalance eligible after: "
@@ -900,7 +950,14 @@ if len(watchlist) > 0:
     print(f"\nWATCHLIST (rank <= {BUFFER_ZONE}, {len(watchlist)} symbols):")
     wl_cols = [
         c
-        for c in ["mr_rank", "symbol", "weinstein_stage2", "norm_momentum_score", "Score", "AbsMom_Tier"]
+        for c in [
+            "mr_rank",
+            "symbol",
+            "weinstein_stage2",
+            "norm_momentum_score",
+            "Score",
+            "AbsMom_Tier",
+        ]
         if c in watchlist.columns
     ]
     print(watchlist[wl_cols].to_string(index=False))

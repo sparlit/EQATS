@@ -79,37 +79,49 @@ def tier_rv(val, cal):
     pct = round(val * 100, 1)
     if val < p25:
         return "calm", f"Realized vol at {pct}% annualised — well within normal range"
-    if val < p75:
+    elif val < p75:
         return "moderate", f"Realized vol at {pct}% annualised — unremarkable"
-    if val < p90:
+    elif val < p90:
         return "elevated", f"Realized vol at {pct}% annualised — above median, stress building"
-    return "extreme", f"Realized vol at {pct}% annualised — systemic stress territory"
+    else:
+        return "extreme", f"Realized vol at {pct}% annualised — systemic stress territory"
 
 
 def tier_avg_corr(val, cal):
     p25, p75, p90 = cal["p25"], cal["p75"], cal["p90"]
     pct = round(val * 100, 1)
     if val < p25:
-        return "calm", f"Avg stock-index correlation {pct}% — stocks moving independently, low macro influence"
-    if val < p75:
-        return "moderate", f"Avg stock-index correlation {pct}% — moderate co-movement, some macro influence"
-    if val < p90:
+        return (
+            "calm",
+            f"Avg stock-index correlation {pct}% — stocks moving independently, low macro influence",
+        )
+    elif val < p75:
+        return (
+            "moderate",
+            f"Avg stock-index correlation {pct}% — moderate co-movement, some macro influence",
+        )
+    elif val < p90:
         return (
             "elevated",
             f"Avg stock-index correlation {pct}% — macro influence rising, stocks increasingly correlated",
         )
-    return "extreme", f"Avg stock-index correlation {pct}% — high macro dominance, stocks moving in lockstep"
+    else:
+        return (
+            "extreme",
+            f"Avg stock-index correlation {pct}% — high macro dominance, stocks moving in lockstep",
+        )
 
 
 def tier_vov(val, cal):
     p25, p75, p90 = cal["p25"], cal["p75"], cal["p90"]
     if val < p25:
         return "calm", "VoV low — volatility regime stable, no transition in progress"
-    if val < p75:
+    elif val < p75:
         return "moderate", "VoV moderate — vol oscillating normally"
-    if val < p90:
+    elif val < p90:
         return "elevated", "VoV elevated — regime transition likely underway"
-    return "extreme", "VoV extreme — sharp regime shift, vol itself becoming volatile"
+    else:
+        return "extreme", "VoV extreme — sharp regime shift, vol itself becoming volatile"
 
 
 def tier_dispersion(val, cal):
@@ -117,16 +129,24 @@ def tier_dispersion(val, cal):
     pct = round(val * 100, 2)
     if val < p25:
         return "calm", f"Cross-sectional dispersion {pct}% — stocks moving together, macro driven"
-    if val < p75:
+    elif val < p75:
         return "moderate", f"Cross-sectional dispersion {pct}% — normal stock divergence"
-    if val < p95:
-        return "elevated", f"Cross-sectional dispersion {pct}% — stocks diverging, factor or sector stress"
-    if val > 2 * p75:
-        return "extreme", f"Cross-sectional dispersion {pct}% — crash-day spike, extreme stock divergence"
-    return (
-        "extreme",
-        f"Cross-sectional dispersion {pct}% — tail dispersion, stocks diverging sharply but not crash-day magnitude",
-    )
+    elif val < p95:
+        return (
+            "elevated",
+            f"Cross-sectional dispersion {pct}% — stocks diverging, factor or sector stress",
+        )
+    else:
+        if val > 2 * p75:
+            return (
+                "extreme",
+                f"Cross-sectional dispersion {pct}% — crash-day spike, extreme stock divergence",
+            )
+        else:
+            return (
+                "extreme",
+                f"Cross-sectional dispersion {pct}% — tail dispersion, stocks diverging sharply but not crash-day magnitude",
+            )
 
 
 def tier_amihud(val, cal):
@@ -136,11 +156,15 @@ def tier_amihud(val, cal):
     display = round(scaled, 3)
     if scaled < p25:
         return "liquid", f"Amihud {display} (x1e10) — deep market, low price impact"
-    if scaled < p75:
+    elif scaled < p75:
         return "normal", f"Amihud {display} (x1e10) — normal liquidity"
-    if scaled < p90:
+    elif scaled < p90:
         return "illiquid", f"Amihud {display} (x1e10) — elevated price impact, liquidity thinning"
-    return "severely illiquid", f"Amihud {display} (x1e10) — severe illiquidity, large trades moving prices"
+    else:
+        return (
+            "severely illiquid",
+            f"Amihud {display} (x1e10) — severe illiquidity, large trades moving prices",
+        )
 
 
 def tier_cs_spread(val, cal):
@@ -151,11 +175,12 @@ def tier_cs_spread(val, cal):
             "compressed",
             f"CS spread {bps}bps — spread compressed, likely slow-burn macro stress not a liquidity crisis",
         )
-    if val < p75:
+    elif val < p75:
         return "normal", f"CS spread {bps}bps — normal transaction cost"
-    if val < p90:
+    elif val < p90:
         return "wide", f"CS spread {bps}bps — elevated transaction cost, liquidity thinning"
-    return "spike", f"CS spread {bps}bps — sudden liquidity event, bid-ask blowing out"
+    else:
+        return "spike", f"CS spread {bps}bps — sudden liquidity event, bid-ask blowing out"
 
 
 def tier_turnover(val, cal):
@@ -163,11 +188,12 @@ def tier_turnover(val, cal):
     pct = round(val * 100, 3)
     if val < p10:
         return "low", f"Turnover {pct}% — very thin participation, market quiet or disengaged"
-    if val < p75:
+    elif val < p75:
         return "normal", f"Turnover {pct}% — normal market participation"
-    if val < p90:
+    elif val < p90:
         return "elevated", f"Turnover {pct}% — active market, above-average participation"
-    return "surge", f"Turnover {pct}% — volume surge, panic buying or selling"
+    else:
+        return "surge", f"Turnover {pct}% — volume surge, panic buying or selling"
 
 
 def tier_drawdown(val, cal):
@@ -176,26 +202,37 @@ def tier_drawdown(val, cal):
     pct = round(val * 100, 1)
     if mag < p25:
         return "shallow", f"Drawdown {pct}% — near recent highs, no structural damage"
-    if mag < p75:
+    elif mag < p75:
         return "moderate", f"Drawdown {pct}% — moderate correction from 52-week high"
-    if mag < p90:
+    elif mag < p90:
         return "deep", f"Drawdown {pct}% — deep correction, meaningful distance from peak"
-    return "severe", f"Drawdown {pct}% — severe drawdown, market well below peak"
+    else:
+        return "severe", f"Drawdown {pct}% — severe drawdown, market well below peak"
 
 
 def tier_skew(val, cal):
     p10, p25, p75 = cal["p10"], cal["p25"], cal["p75"]
     rounded = round(val, 3)
     if val > p75:
-        return "rally-like", f"Skew {rounded} — recent 60-day return distribution positively skewed, rally-like"
-    if val > p25:
-        return "neutral", f"Skew {rounded} — return distribution neutral, no strong directional memory"
-    if val > p10:
-        return "crash-like", f"Skew {rounded} — moderately negative skew, crash-like distribution memory"
-    return (
-        "extreme crash memory",
-        f"Skew {rounded} — strongly negative, extreme crash-like distribution (lags stress by ~60 days)",
-    )
+        return (
+            "rally-like",
+            f"Skew {rounded} — recent 60-day return distribution positively skewed, rally-like",
+        )
+    elif val > p25:
+        return (
+            "neutral",
+            f"Skew {rounded} — return distribution neutral, no strong directional memory",
+        )
+    elif val > p10:
+        return (
+            "crash-like",
+            f"Skew {rounded} — moderately negative skew, crash-like distribution memory",
+        )
+    else:
+        return (
+            "extreme crash memory",
+            f"Skew {rounded} — strongly negative, extreme crash-like distribution (lags stress by ~60 days)",
+        )
 
 
 # ─────────────────────────────────────────────
@@ -237,67 +274,74 @@ def get_tier(measure, val, cal):
         p25, p75, p90 = cal["p25"], cal["p75"], cal["p90"]
         if val < p25:
             return "calm"
-        if val < p75:
+        elif val < p75:
             return "moderate"
-        if val < p90:
+        elif val < p90:
             return "elevated"
-        return "extreme"
-    if measure == "dispersion":
+        else:
+            return "extreme"
+    elif measure == "dispersion":
         p25, p75, p95 = cal["p25"], cal["p75"], cal["p95"]
         if val < p25:
             return "calm"
-        if val < p75:
+        elif val < p75:
             return "moderate"
-        if val < p95:
+        elif val < p95:
             return "elevated"
-        return "extreme"
-    if measure == "amihud":
+        else:
+            return "extreme"
+    elif measure == "amihud":
         scaled = val * 1e10
         p25, p75, p90 = cal["p25"], cal["p75"], cal["p90"]
         if scaled < p25:
             return "liquid"
-        if scaled < p75:
+        elif scaled < p75:
             return "normal"
-        if scaled < p90:
+        elif scaled < p90:
             return "illiquid"
-        return "severely illiquid"
-    if measure == "cs_spread":
+        else:
+            return "severely illiquid"
+    elif measure == "cs_spread":
         p10, p75, p90 = cal["p10"], cal["p75"], cal["p90"]
         if val < p10:
             return "compressed"
-        if val < p75:
+        elif val < p75:
             return "normal"
-        if val < p90:
+        elif val < p90:
             return "wide"
-        return "spike"
-    if measure == "turnover":
+        else:
+            return "spike"
+    elif measure == "turnover":
         p10, p75, p90 = cal["p10"], cal["p75"], cal["p90"]
         if val < p10:
             return "low"
-        if val < p75:
+        elif val < p75:
             return "normal"
-        if val < p90:
+        elif val < p90:
             return "elevated"
-        return "surge"
-    if measure == "drawdown":
+        else:
+            return "surge"
+    elif measure == "drawdown":
         mag = abs(val)
         p25, p75, p90 = cal["p25"], cal["p75"], cal["p90"]
         if mag < p25:
             return "shallow"
-        if mag < p75:
+        elif mag < p75:
             return "moderate"
-        if mag < p90:
+        elif mag < p90:
             return "deep"
-        return "severe"
-    if measure == "skew":
+        else:
+            return "severe"
+    elif measure == "skew":
         p10, p25, p75 = cal["p10"], cal["p25"], cal["p75"]
         if val > p75:
             return "rally-like"
-        if val > p25:
+        elif val > p25:
             return "neutral"
-        if val > p10:
+        elif val > p10:
             return "crash-like"
-        return "extreme crash memory"
+        else:
+            return "extreme crash memory"
     return "unavailable"
 
 
@@ -307,15 +351,15 @@ def fmt_val(measure, val):
         return "N/A"
     if measure == "amihud":
         return f"{round(val * 1e10, 3)} (x1e10)"
-    if measure in ("rv", "avg_corr", "turnover", "drawdown"):
+    elif measure in ("rv", "avg_corr", "turnover", "drawdown"):
         return f"{round(val * 100, 1)}%"
-    if measure == "cs_spread":
+    elif measure == "cs_spread":
         return f"{round(val * 10000, 1)}bps"
-    if measure == "dispersion":
+    elif measure == "dispersion":
         return f"{round(val * 100, 2)}%"
-    if measure == "vov":
+    elif measure == "vov":
         return f"{round(val, 4)}"
-    if measure == "skew":
+    elif measure == "skew":
         return f"{round(val, 3)}"
     return f"{round(val, 4)}"
 
@@ -333,7 +377,7 @@ def get_trend_sentence(measure, today_tier, today_val, lookbacks, cal):
     ordered_periods = [p for p in ["3M", "1M", "1W"] if p in available]
     ordered_tiers = [TIER_ORDER.get(available[p]["tier"], 1) for p in ordered_periods]
     today_score = TIER_ORDER.get(today_tier, 1)
-    full_sequence = [*ordered_tiers, today_score]
+    full_sequence = ordered_tiers + [today_score]
 
     # Check trajectory — monotonically worsening, improving, flat, or mixed
     diffs_seq = [full_sequence[i + 1] - full_sequence[i] for i in range(len(full_sequence) - 1)]
@@ -352,7 +396,9 @@ def get_trend_sentence(measure, today_tier, today_val, lookbacks, cal):
             direction = "Recovering consistently"
         else:
             net = today_score - ordered_tiers[0]
-            direction = "Net worsening" if net > 0 else "Net recovering" if net < 0 else "Fluctuating"
+            direction = (
+                "Net worsening" if net > 0 else "Net recovering" if net < 0 else "Fluctuating"
+            )
 
     elif measure == "skew":
         # directional memory — higher score = more crash-like
@@ -365,26 +411,39 @@ def get_trend_sentence(measure, today_tier, today_val, lookbacks, cal):
         else:
             net = today_score - ordered_tiers[0]
             direction = (
-                "Trending more crash-like" if net > 0 else "Trending more rally-like" if net < 0 else "Fluctuating"
+                "Trending more crash-like"
+                if net > 0
+                else "Trending more rally-like"
+                if net < 0
+                else "Fluctuating"
             )
 
-    # all others: rising / falling — let reader interpret
-    elif all_flat:
-        direction = "Stable"
-    elif all_up:
-        direction = "Rising consistently"
-    elif all_down:
-        direction = "Falling consistently"
     else:
-        net = today_score - ordered_tiers[0]
-        direction = "Rising overall" if net > 0 else "Falling overall" if net < 0 else "Fluctuating"
+        # all others: rising / falling — let reader interpret
+        if all_flat:
+            direction = "Stable"
+        elif all_up:
+            direction = "Rising consistently"
+        elif all_down:
+            direction = "Falling consistently"
+        else:
+            net = today_score - ordered_tiers[0]
+            direction = (
+                "Rising overall" if net > 0 else "Falling overall" if net < 0 else "Fluctuating"
+            )
 
     if direction == "Stable":
         return "Stable across all lookback windows."
 
     # Window label
     n = len(available)
-    window = "over 3 months" if n == 3 else "over available windows" if n == 2 else "over available window"
+    window = (
+        "over 3 months"
+        if n == 3
+        else "over available windows"
+        if n == 2
+        else "over available window"
+    )
 
     # Lookback clauses — oldest first
     period_labels = {"3M": "three months ago", "1M": "a month ago", "1W": "last week"}
@@ -440,7 +499,15 @@ def build_overall_story(tiers, readings):
     skew_t = tiers.get("skew", "neutral")
 
     avg_stress = (
-        sum([SEVERITY.get(rv_t, 1), SEVERITY.get(corr_t, 1), SEVERITY.get(vov_t, 1), SEVERITY.get(dd_t, 1)]) / 4
+        sum(
+            [
+                SEVERITY.get(rv_t, 1),
+                SEVERITY.get(corr_t, 1),
+                SEVERITY.get(vov_t, 1),
+                SEVERITY.get(dd_t, 1),
+            ]
+        )
+        / 4
     )
 
     # CS spike or extreme dispersion lift the overall stress level independently
@@ -474,14 +541,18 @@ def build_overall_story(tiers, readings):
     drivers = []
     if rv_t in ("elevated", "extreme") and corr_t in ("elevated", "extreme"):
         if dd_t in ("deep", "severe"):
-            drivers.append("correlated macro selloff — elevated vol, herding, and significant drawdown confirming it")
+            drivers.append(
+                "correlated macro selloff — elevated vol, herding, and significant drawdown confirming it"
+            )
         elif dd_t == "unavailable":
             if skew_t in ("crash-like", "extreme crash memory"):
                 drivers.append(
                     "correlated stress event — skew confirms crash-like character despite drawdown data unavailable"
                 )
             elif skew_t == "rally-like":
-                drivers.append("elevated vol and correlation in rally conditions — euphoric or momentum-driven market")
+                drivers.append(
+                    "elevated vol and correlation in rally conditions — euphoric or momentum-driven market"
+                )
             else:
                 drivers.append(
                     "elevated vol and correlation — direction unclear, drawdown data unavailable and skew neutral"
@@ -493,10 +564,14 @@ def build_overall_story(tiers, readings):
     elif rv_t in ("elevated", "extreme"):
         drivers.append("elevated realised volatility without broad herding — idiosyncratic stress")
     elif corr_t in ("elevated", "extreme"):
-        drivers.append("macro-driven correlation spike without extreme volatility — positioning/sentiment shift")
+        drivers.append(
+            "macro-driven correlation spike without extreme volatility — positioning/sentiment shift"
+        )
 
     if dd_t in ("deep", "severe"):
-        drivers.append(f"significant drawdown from peak ({readings.get('drawdown', '').split('—')[0].strip()})")
+        drivers.append(
+            f"significant drawdown from peak ({readings.get('drawdown', '').split('—')[0].strip()})"
+        )
 
     if disp_t == "extreme":
         disp_reading = readings.get("dispersion", "")
@@ -510,7 +585,9 @@ def build_overall_story(tiers, readings):
     if cs_t == "spike":
         drivers.append("bid-ask blowout indicating sudden liquidity event")
     elif cs_t == "compressed":
-        drivers.append("spread compression consistent with slow-burn macro stress rather than a liquidity crisis")
+        drivers.append(
+            "spread compression consistent with slow-burn macro stress rather than a liquidity crisis"
+        )
 
     if turn_t == "surge":
         drivers.append("volume surge suggesting panic activity")
@@ -528,11 +605,11 @@ def build_overall_story(tiers, readings):
     elif skew_t == "extreme crash memory":
         sentence3 = "Skew confirms recent 60-day window is strongly crash-like — this lags the stress event, not a leading signal."
     elif skew_t == "crash-like":
-        sentence3 = (
-            "Skew mildly negative — some crash memory in the 60-day window, likely trailing a recent stress event."
-        )
+        sentence3 = "Skew mildly negative — some crash memory in the 60-day window, likely trailing a recent stress event."
     elif skew_t == "rally-like":
-        sentence3 = "Skew positive — recent 60-day return distribution is rally-like, no crash memory."
+        sentence3 = (
+            "Skew positive — recent 60-day return distribution is rally-like, no crash memory."
+        )
     else:
         sentence3 = "Skew neutral — no strong directional memory in the recent return distribution."
 
@@ -723,7 +800,7 @@ def main():
             continue
         cal = cal_all[univ]
         df = pd.read_parquet(f"{OUT_DIR}/liquidity_risk_{univ}.parquet")
-        dates = target_dates or [str(df.index.max().date())]
+        dates = target_dates if target_dates else [str(df.index.max().date())]
         for d in dates:
             narrative = generate_narrative(univ, d, cal, df)
             print(narrative)

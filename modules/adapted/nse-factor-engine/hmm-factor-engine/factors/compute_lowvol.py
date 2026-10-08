@@ -54,7 +54,8 @@ FACTORS_DIR = Path(__file__).parent / "data"
 
 PRICE_FILE = DATA_DIR / "prices_hmm_daily.parquet"
 CONSTITUENT_CSV = Path(
-    "/home/ec2-user/nse-factor-engine/nifty_constituent_history/nifty500_2005-01-01_to_2026-06-30.csv"
+    "/home/ec2-user/nse-factor-engine/nifty_constituent_history/"
+    "nifty500_2005-01-01_to_2026-06-30.csv"
 )
 SYMBOL_MAP_FILE = DATA_DIR / "symbol_map.csv"
 OUTPUT_FILE = FACTORS_DIR / "lowvol_returns.parquet"
@@ -137,7 +138,9 @@ def build_vol_matrix(
     print("  Precomputing volatility matrix (vectorized) ...")
 
     # Wide daily returns
-    daily_wide = prices_long.pivot_table(index="date", columns="symbol", values="close", aggfunc="first")
+    daily_wide = prices_long.pivot_table(
+        index="date", columns="symbol", values="close", aggfunc="first"
+    )
     daily_wide.index = pd.to_datetime(daily_wide.index)
     daily_wide = daily_wide.sort_index()
     daily_ret = daily_wide.pct_change()
@@ -240,7 +243,9 @@ def run_backtest(
                         "nse_ticker": sym,
                         "date": date,
                         "signal": float(raw),
-                        "percentile": float(pct[col] if not hasattr(pct[col], "__len__") else pct[col].iloc[0]),
+                        "percentile": float(
+                            pct[col] if not hasattr(pct[col], "__len__") else pct[col].iloc[0]
+                        ),
                     }
                 )
 

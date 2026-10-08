@@ -169,15 +169,23 @@ print(f"Sortino |score| < Sharpe |score| count (expect low): {viol}")
 flagged = df[df["data_quality_flag"] != ""]
 print(f"\nData quality flagged symbols: {len(flagged)}")
 print(
-    flagged[["symbol", "data_quality_flag", "vol_252", "vol_adj_ret", "sharpe_style", "sortino_style"]].to_string(
-        index=False
-    )
+    flagged[
+        ["symbol", "data_quality_flag", "vol_252", "vol_adj_ret", "sharpe_style", "sortino_style"]
+    ].to_string(index=False)
 )
 
 print("\nSample — 5 clean symbols, all signals valid:")
 clean = df[(df["data_quality_flag"] == "") & df["sortino_style"].notna()]
 print(
     clean.head(5)[
-        ["symbol", "ret_12m1m", "vol_231", "downside_vol_231", "vol_adj_ret", "sharpe_style", "sortino_style"]
+        [
+            "symbol",
+            "ret_12m1m",
+            "vol_231",
+            "downside_vol_231",
+            "vol_adj_ret",
+            "sharpe_style",
+            "sortino_style",
+        ]
     ].to_string(index=False)
 )

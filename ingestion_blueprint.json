@@ -1,5 +1,5 @@
 {
-  "current_index": 207,
+  "current_index": 208,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1661,9 +1661,9 @@
       "name": "nse-factor-engine",
       "target": "manavgupta83/nse-factor-engine",
       "url": "https://github.com/manavgupta83/nse-factor-engine",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3160",
+      "merged": true
     },
     {
       "name": "nsedata",

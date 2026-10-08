@@ -55,15 +55,13 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
 from playwright.async_api import TimeoutError as PWTimeout
 from playwright.async_api import async_playwright
 
 # ── Config ──────────────────────────────────────────────────────────────────
 SESSION_PATH = Path.home() / "tijori-finance-mcp/output/session.json"
 CSV_PATH = Path("ticker_to_slug.csv")  # adjust if needed
-OUTPUT_DIR = Path()
+OUTPUT_DIR = Path(".")
 CONCURRENCY = 3  # parallel pages
 BASE_URL = "https://www.tijorifinance.com"
 NAV_TIMEOUT = 45_000  # ms
@@ -173,7 +171,8 @@ def normalise_metric(raw: str) -> str:
     # Remove any remaining non-alphanumeric except underscore
     key = re.sub(r"[^a-z0-9_]", "", key)
     # Collapse multiple underscores
-    return re.sub(r"_+", "_", key).strip("_")
+    key = re.sub(r"_+", "_", key).strip("_")
+    return key
 
 
 def rows_to_dict(tijori_rows: list[dict], field_map: dict) -> dict[str, dict]:
@@ -204,9 +203,10 @@ def rows_to_dict(tijori_rows: list[dict], field_map: dict) -> dict[str, dict]:
                 # Accumulate into total_debt
                 existing = year_data[fy].get("total_debt") or 0.0
                 year_data[fy]["total_debt"] = existing + (val or 0.0)
-            # Don't overwrite already-set value (first match wins)
-            elif col not in year_data[fy]:
-                year_data[fy][col] = val
+            else:
+                # Don't overwrite already-set value (first match wins)
+                if col not in year_data[fy]:
+                    year_data[fy][col] = val
 
     return year_data
 
@@ -283,8 +283,7 @@ async def fetch_company(page, ticker: str, slug: str) -> list[dict] | None:
         if resp and resp.status == 404:
             return None  # slug doesn't exist
         if resp and resp.status == 403:
-            msg = "SESSION_EXPIRED"
-            raise RuntimeError(msg)
+            raise RuntimeError("SESSION_EXPIRED")
 
         # Wait for the DataTable to render
         try:
@@ -329,7 +328,7 @@ async def fetch_company(page, ticker: str, slug: str) -> list[dict] | None:
                 row.setdefault(col, None)
             out.append(row)
 
-        return out or None
+        return out if out else None
 
     except RuntimeError:
         raise
@@ -341,7 +340,9 @@ async def fetch_company(page, ticker: str, slug: str) -> list[dict] | None:
 # ── Worker ───────────────────────────────────────────────────────────────────
 
 
-async def worker(semaphore, context, queue, checkpoint_lock, failed_lock, checkpoint_fh, failed_fh, counters):
+async def worker(
+    semaphore, context, queue, checkpoint_lock, failed_lock, checkpoint_fh, failed_fh, counters
+):
     while True:
         try:
             ticker, slug = queue.get_nowait()
@@ -354,7 +355,9 @@ async def worker(semaphore, context, queue, checkpoint_lock, failed_lock, checkp
                 rows = await fetch_company(page, ticker, slug)
             except RuntimeError as e:
                 if "SESSION_EXPIRED" in str(e):
-                    print("\n[FATAL] Session expired. Re-run: node discover.js --reauth", flush=True)
+                    print(
+                        "\n[FATAL] Session expired. Re-run: node discover.js --reauth", flush=True
+                    )
                     sys.exit(1)
                 rows = None
             finally:
@@ -458,7 +461,16 @@ async def main():
 
             workers = [
                 asyncio.create_task(
-                    worker(semaphore, context, queue, checkpoint_lock, failed_lock, chk_fh, fail_fh, counters)
+                    worker(
+                        semaphore,
+                        context,
+                        queue,
+                        checkpoint_lock,
+                        failed_lock,
+                        chk_fh,
+                        fail_fh,
+                        counters,
+                    )
                 )
                 for _ in range(CONCURRENCY)
             ]

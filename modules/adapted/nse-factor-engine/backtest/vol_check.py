@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import numpy as np
 import pandas as pd
 
-ACTIVITY = "/home/ec2-user/nse-factor-engine/backtest/results/backtest_portfolio_activity_09072026.parquet"
+ACTIVITY = (
+    "/home/ec2-user/nse-factor-engine/backtest/results/backtest_portfolio_activity_09072026.parquet"
+)
 PRICES = "/home/ec2-user/nse-factor-engine/backtest/data/prices_backtest.parquet"
 
 # Load
@@ -64,7 +66,9 @@ for fri in fridays:
         continue
     vols = hist.std()
     for s in holdings:
-        results.append({"friday_date": fri, "symbol": s, "vol": vols.get(s, np.nan), "burn_in": False})
+        results.append(
+            {"friday_date": fri, "symbol": s, "vol": vols.get(s, np.nan), "burn_in": False}
+        )
 
 vol_df = pd.DataFrame(results)
 

@@ -147,12 +147,19 @@ def _compute_bb(close: pd.Series) -> dict:
     # ── Prior weeks: slice close up to T-Nw and recompute bandwidth ──
     n = len(close)
     bw_1w = _bandwidth_as_of(close.iloc[: n - TRADING_DAYS_W]) if n > TRADING_DAYS_W else np.nan
-    bw_2w = _bandwidth_as_of(close.iloc[: n - 2 * TRADING_DAYS_W]) if n > 2 * TRADING_DAYS_W else np.nan
-    bw_3w = _bandwidth_as_of(close.iloc[: n - 3 * TRADING_DAYS_W]) if n > 3 * TRADING_DAYS_W else np.nan
+    bw_2w = (
+        _bandwidth_as_of(close.iloc[: n - 2 * TRADING_DAYS_W]) if n > 2 * TRADING_DAYS_W else np.nan
+    )
+    bw_3w = (
+        _bandwidth_as_of(close.iloc[: n - 3 * TRADING_DAYS_W]) if n > 3 * TRADING_DAYS_W else np.nan
+    )
 
     # ── Squeeze: curr bandwidth < all three prior weeks ──
     prior = [x for x in [bw_1w, bw_2w, bw_3w] if not np.isnan(x)]
-    squeeze = ("Y" if bw_curr < min(prior) else "N") if not np.isnan(bw_curr) and len(prior) == 3 else np.nan
+    if not np.isnan(bw_curr) and len(prior) == 3:
+        squeeze = "Y" if bw_curr < min(prior) else "N"
+    else:
+        squeeze = np.nan
 
     return {
         "bb_middle": round(float(middle), 4),
@@ -197,7 +204,9 @@ def compute(prices: pd.DataFrame, T: pd.Timestamp) -> pd.DataFrame:
     for col in ["bb_middle", "bb_pct_b", "bb_bandwidth_curr_wk"]:
         n_null = results[col].isnull().sum()
         if n_null > 0:
-            print(f"WARNING: {n_null} symbol(s) have NaN {col} (< {BB_PERIOD} price rows or zero std)")
+            print(
+                f"WARNING: {n_null} symbol(s) have NaN {col} (< {BB_PERIOD} price rows or zero std)"
+            )
 
     valid_pct = results["bb_pct_b"].dropna()
     valid_bw = results["bb_bandwidth_curr_wk"].dropna()

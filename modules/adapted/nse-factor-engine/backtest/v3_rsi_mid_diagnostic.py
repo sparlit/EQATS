@@ -51,11 +51,14 @@ PRICES_PATH = f"{BASE}/data/prices_backtest.parquet"
 
 # ── Find latest activity CSV ──────────────────────────────────────────────────
 candidates = sorted(
-    [f for f in os.listdir(RESULTS_DIR) if f.startswith("MR_M_V3_RSI_SIM_activity") and f.endswith(".csv")]
+    [
+        f
+        for f in os.listdir(RESULTS_DIR)
+        if f.startswith("MR_M_V3_RSI_SIM_activity") and f.endswith(".csv")
+    ]
 )
 if not candidates:
-    msg = "No MR_M_V3_RSI_SIM_activity CSV found in results/"
-    raise FileNotFoundError(msg)
+    raise FileNotFoundError("No MR_M_V3_RSI_SIM_activity CSV found in results/")
 act_path = os.path.join(RESULTS_DIR, candidates[-1])
 print(f"Loading activity: {act_path}")
 act = pd.read_csv(act_path, parse_dates=["friday_date", "signal_date"])
@@ -65,11 +68,15 @@ print("Loading prices ...")
 prices = pd.read_parquet(PRICES_PATH, columns=["symbol", "date", "open", "close"])
 prices["date"] = pd.to_datetime(prices["date"])
 
-open_by_date = {pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict() for date, grp in prices.groupby("date")}
+open_by_date = {
+    pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict()
+    for date, grp in prices.groupby("date")
+}
 all_trading_days = sorted(open_by_date.keys())
 
 prices_by_sym = {
-    sym: grp[["date", "close"]].sort_values("date").reset_index(drop=True) for sym, grp in prices.groupby("symbol")
+    sym: grp[["date", "close"]].sort_values("date").reset_index(drop=True)
+    for sym, grp in prices.groupby("symbol")
 }
 print(f"  {len(prices_by_sym)} symbols | {len(all_trading_days)} trading days")
 del prices
@@ -77,15 +84,21 @@ gc.collect()
 
 # ── Build signal_date → next SOM exec date ───────────────────────────────────
 # SOM rows: friday_date = SOM exec date, signal_date = signal Friday
-som_rows = act[act["rebal_type"] == "SOM"][["friday_date", "signal_date"]].drop_duplicates("signal_date")
+som_rows = act[act["rebal_type"] == "SOM"][["friday_date", "signal_date"]].drop_duplicates(
+    "signal_date"
+)
 sig_to_som_exec = dict(zip(som_rows["signal_date"], som_rows["friday_date"], strict=False))
 
 # Sort SOM exec dates to find next one
 som_exec_dates = sorted(som_rows["friday_date"].unique())
-som_exec_to_next = {som_exec_dates[i]: som_exec_dates[i + 1] for i in range(len(som_exec_dates) - 1)}
+som_exec_to_next = {
+    som_exec_dates[i]: som_exec_dates[i + 1] for i in range(len(som_exec_dates) - 1)
+}
 
 # signal_date → next SOM exec date (one period ahead)
-sig_to_next_som = {sig: som_exec_to_next[exec] for sig, exec in sig_to_som_exec.items() if exec in som_exec_to_next}
+sig_to_next_som = {
+    sig: som_exec_to_next[exec] for sig, exec in sig_to_som_exec.items() if exec in som_exec_to_next
+}
 
 print(f"\n  Built signal→next SOM map: {len(sig_to_next_som)} periods")
 print(f"  Sample: {list(sig_to_next_som.items())[:3]}")
@@ -189,20 +202,30 @@ period_mid_summary = (
     )
     .reset_index()
 )
-period_mid_summary["pct_exited"] = period_mid_summary["n_exits"] / period_mid_summary["n_held"] * 100
+period_mid_summary["pct_exited"] = (
+    period_mid_summary["n_exits"] / period_mid_summary["n_held"] * 100
+)
 
 print(f"\n{'=' * 72}")
 print("Q2: RSI < 50 PREVALENCE — SOM vs MID-MONTH")
 print(f"{'=' * 72}")
 print(f"  {'':35}  {'SOM':>10}  {'Mid-Month':>10}")
 print(f"  {'-' * 35}  {'-' * 10}  {'-' * 10}")
-print(f"  {'Avg slots with RSI < 50/period':35}  {'12.6':>10}  {period_mid_summary['n_exits'].mean():>10.1f}")
-print(f"  {'Avg % of portfolio':35}  {'50.2%':>10}  {period_mid_summary['pct_exited'].mean():>9.1f}%")
+print(
+    f"  {'Avg slots with RSI < 50/period':35}  {'12.6':>10}  {period_mid_summary['n_exits'].mean():>10.1f}"
+)
+print(
+    f"  {'Avg % of portfolio':35}  {'50.2%':>10}  {period_mid_summary['pct_exited'].mean():>9.1f}%"
+)
 print(f"  {'Periods with 0 exits':35}  {'1':>10}  {(period_mid_summary['n_exits'] == 0).sum():>10}")
-print(f"  {'Periods with > 10 exits':35}  {'77':>10}  {(period_mid_summary['n_exits'] > 10).sum():>10}")
+print(
+    f"  {'Periods with > 10 exits':35}  {'77':>10}  {(period_mid_summary['n_exits'] > 10).sum():>10}"
+)
 
 # ── Q3: Per-period swap quality ───────────────────────────────────────────────
-period_exit_ret = exits_df.groupby("signal_date")["counterfactual_ret"].mean().rename("replaced_ret")
+period_exit_ret = (
+    exits_df.groupby("signal_date")["counterfactual_ret"].mean().rename("replaced_ret")
+)
 period_repl_ret = repls_df.groupby("signal_date")["actual_ret"].mean().rename("replacement_ret")
 period_compare = pd.concat([period_exit_ret, period_repl_ret], axis=1).dropna()
 period_compare["delta"] = period_compare["replacement_ret"] - period_compare["replaced_ret"]

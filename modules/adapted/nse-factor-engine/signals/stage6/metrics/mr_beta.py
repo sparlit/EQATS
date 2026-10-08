@@ -74,7 +74,9 @@ def _latest_index_file(index_dir: Path) -> Path:
 def _load_nifty500() -> pd.Series:
     """Load Nifty500 daily close prices, return as date-indexed Series."""
     idx = pd.read_parquet(_latest_index_file(INDEX_DIR))
-    n500 = idx[idx["symbol"] == NIFTY500_SYMBOL].copy().sort_values("date").set_index("date")["close"]
+    n500 = (
+        idx[idx["symbol"] == NIFTY500_SYMBOL].copy().sort_values("date").set_index("date")["close"]
+    )
     assert len(n500) > 0, f"{NIFTY500_SYMBOL} not found in index file"
     return n500
 
@@ -126,7 +128,9 @@ def _compute_single_beta(ret_stock: pd.Series, ret_bench: pd.Series) -> tuple:
     return beta, cov, bench_var
 
 
-def compute_beta(top25_symbols: set, as_of_date: pd.Timestamp, portfolio_symbols: set | None = None) -> dict:
+def compute_beta(
+    top25_symbols: set, as_of_date: pd.Timestamp, portfolio_symbols: set = None
+) -> dict:
     """
     Compute 12-month beta, returns, covariance and Jensen alpha
     for each stock in top25 and for the equal-weighted portfolio.
@@ -251,7 +255,9 @@ def compute_beta(top25_symbols: set, as_of_date: pd.Timestamp, portfolio_symbols
         port_r2 = np.nan
 
     # ── Print summary ──────────────────────────────────────────────────────────
-    print(f"\n  {'Symbol':<15} {'Beta':>7} {'R2':>6} {'Stock 12m':>10} {'Mkt 12m':>9} {'Alpha':>10} {'n_obs':>6}")
+    print(
+        f"\n  {'Symbol':<15} {'Beta':>7} {'R2':>6} {'Stock 12m':>10} {'Mkt 12m':>9} {'Alpha':>10} {'n_obs':>6}"
+    )
     print(f"  {'-' * 67}")
     for r in stock_rows:
         b = f"{r['beta_12m']:.3f}" if pd.notna(r["beta_12m"]) else "N/A"
@@ -260,7 +266,9 @@ def compute_beta(top25_symbols: set, as_of_date: pd.Timestamp, portfolio_symbols
         m12 = f"{r['market_12m_ret']:.2%}"
         alp = f"{r['alpha_12m']:.2%}" if pd.notna(r["alpha_12m"]) else "N/A"
         print(f"  {r['symbol']:<15} {b:>7} {r2s:>6} {s12:>10} {m12:>9} {alp:>10} {r['n_obs']:>6}")
-    print(f"  {'PORTFOLIO':<15} {port_beta:>7.3f} {port_r2:>6.3f} {port_12m:>10.2%} {market_12m_ret:>9.2%}")
+    print(
+        f"  {'PORTFOLIO':<15} {port_beta:>7.3f} {port_r2:>6.3f} {port_12m:>10.2%} {market_12m_ret:>9.2%}"
+    )
 
     return {
         "stocks": stock_rows,

@@ -40,7 +40,6 @@ Output:
   hmm-factor-engine/backtest/oos_backtest_summary.csv
 """
 
-import sys
 import warnings
 from pathlib import Path
 
@@ -87,7 +86,8 @@ FACTOR_FILES = {
 def load_blended_weights() -> pd.DataFrame:
     bw = pd.read_parquet(BLENDED_WEIGHTS).reset_index()
     bw["date"] = bw["date"].dt.to_timestamp()
-    return bw[bw["method"] == METHOD].set_index("date").drop(columns=["method", "weight_sum"])
+    bw = bw[bw["method"] == METHOD].set_index("date").drop(columns=["method", "weight_sum"])
+    return bw
 
 
 def load_factor_signals() -> dict:
@@ -99,7 +99,9 @@ def load_factor_signals() -> dict:
         # Normalize to percentile rank within each month
         df["pct_rank"] = df.groupby("date")["score"].rank(pct=True)
         signals[factor] = df.set_index(["date", "nse_ticker"])["pct_rank"]
-        print(f"  {factor}: {len(df)} rows, dates {df['date'].min().date()} to {df['date'].max().date()}")
+        print(
+            f"  {factor}: {len(df)} rows, dates {df['date'].min().date()} to {df['date'].max().date()}"
+        )
     return signals
 
 
@@ -107,7 +109,11 @@ def load_monthly_returns(price_file: Path) -> pd.DataFrame:
     print("  Loading prices ...")
     prices = pd.read_parquet(price_file)
     prices["date"] = pd.to_datetime(prices["date"])
-    monthly = prices.groupby(["symbol", pd.Grouper(key="date", freq="ME")])["close"].last().unstack("symbol")
+    monthly = (
+        prices.groupby(["symbol", pd.Grouper(key="date", freq="ME")])["close"]
+        .last()
+        .unstack("symbol")
+    )
     ret = monthly.pct_change()
     print(f"  Monthly return matrix: {ret.shape}")
     return ret
