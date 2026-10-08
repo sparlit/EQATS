@@ -1,5 +1,5 @@
 {
-  "current_index": 217,
+  "current_index": 218,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1741,7 +1741,7 @@
       "name": "lfest-rs",
       "target": "mathiswellmann/lfest-rs",
       "url": "https://github.com/mathiswellmann/lfest-rs",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
