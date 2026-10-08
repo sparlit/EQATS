@@ -1838,8 +1838,8 @@
       "target": "mkshibu2/breadth-radar",
       "url": "https://github.com/mkshibu2/breadth-radar",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3182",
+      "merged": true
     },
     {
       "name": "pynse",
