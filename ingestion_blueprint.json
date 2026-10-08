@@ -1758,8 +1758,8 @@
       "target": "maverick14303/stock-news-monitor",
       "url": "https://github.com/maverick14303/stock-news-monitor",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3172",
+      "merged": true
     },
     {
       "name": "tastytrade-rs",
