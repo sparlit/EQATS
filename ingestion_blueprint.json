@@ -1,5 +1,5 @@
 {
-  "current_index": 226,
+  "current_index": 227,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1813,9 +1813,9 @@
       "name": "tickerstore",
       "target": "meticulouscraftman/tickerstore",
       "url": "https://github.com/meticulouscraftman/tickerstore",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3179",
+      "merged": true
     },
     {
       "name": "pm-hftbacktest",
