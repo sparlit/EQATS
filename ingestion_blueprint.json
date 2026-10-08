@@ -1,5 +1,5 @@
 {
-  "current_index": 213,
+  "current_index": 214,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1709,7 +1709,7 @@
       "name": "nse",
       "target": "mapsx/nse",
       "url": "https://github.com/mapsx/nse",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
