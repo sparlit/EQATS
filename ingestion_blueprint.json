@@ -1870,8 +1870,8 @@
       "target": "mrappipramod/nse-data-analysis",
       "url": "https://github.com/mrappipramod/nse-data-analysis",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3186",
+      "merged": true
     },
     {
       "name": "nse-market-app",
