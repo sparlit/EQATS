@@ -4,8 +4,8 @@
 ---
 
 ### A. Project Status
-- **Current Architecture**: TradingOS EQATS Version 11.0.0 Hybrid Architecture - Modular Microkernel Engine & 10 Operational Planes.
-- **Execution Engine**: Multi-threaded Python microkernel + C/Rust acceleration extensions (`eqats_rust_core`) with Zero-Copy Shared Memory IPC, ThreadPoolExecutor + ProcessPoolExecutor parallel execution core, and SQLite WAL connection pool.
+- **Current Architecture**: TradingOS EQATS Version 11.0.0 Hybrid Microkernel Architecture - 10 Operational Planes & Zero-Copy Shared Memory IPC.
+- **Execution Engine**: Multi-threaded Python microkernel + C/Rust PyO3 acceleration extensions (`eqats_rust_core`), ThreadPoolExecutor + ProcessPoolExecutor parallel execution core, and SQLite WAL connection pool.
 - **Implementation State**: Production Ready, Zero Stubs/Mocks across all operational execution pathways.
 - **Completed Components**:
   - Full MT5 EA WebRequest bridge & TCP socket server operating within the 50000–60000 port matrix (Ports 50001–50005) with 5 fallback port tiers.
