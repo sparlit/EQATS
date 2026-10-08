@@ -1854,8 +1854,8 @@
       "target": "monomadic/rust-trailer",
       "url": "https://github.com/monomadic/rust-trailer",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3184",
+      "merged": true
     },
     {
       "name": "solana-copy-sniper-mev-trading-bot",
