@@ -1894,8 +1894,8 @@
       "target": "muepsilon/nsemodule",
       "url": "https://github.com/muepsilon/nsemodule",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3190",
+      "merged": true
     },
     {
       "name": "nse-bot",
