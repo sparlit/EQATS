@@ -229,7 +229,7 @@ Total Repositories: 424 | Current Index: 227
 | 224 | mechvec-debug/ai_driven_algorithmic_trading | Completed | https://github.com/sparlit/EQATS/pull/3176 |
 | 225 | meetnepali/market-platform | Processed | https://github.com/sparlit/EQATS/pull/3177 |
 | 226 | melognestudio/algomln | Completed | https://github.com/sparlit/EQATS/pull/3178 |
-| 227 | meticulouscraftman/tickerstore | Completed | None |
+| 227 | meticulouscraftman/tickerstore | Completed | https://github.com/sparlit/EQATS/pull/3179 |
 | 228 | mileswangs/pm-hftbacktest | pending | None |
 | 229 | mineralres/rust-share | pending | None |
 | 230 | mkshibu2/breadth-radar | pending | None |
