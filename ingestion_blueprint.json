@@ -1,5 +1,5 @@
 {
-  "current_index": 230,
+  "current_index": 231,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1845,9 +1845,9 @@
       "name": "pynse",
       "target": "mlfreerl/pynse",
       "url": "https://github.com/mlfreerl/pynse",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3183",
+      "merged": true
     },
     {
       "name": "rust-trailer",
