@@ -1,0 +1,160 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""
+Zerodha order-update adapter — order postbacks on a Kite ticker connection.
+
+Docs: broker-api-docs/zerodha-api-docs/10-websocket.md ("Text Messages") and
+12-postbacks.md (payload shape — the ticker's {"type":"order"} text frames
+carry the same fields as the HTTPS postback).
+Endpoint: wss://ws.kite.trade?api_key=<api_key>&access_token=<access_token>
+
+Kite allows up to 3 concurrent ticker connections per API key; this adapter
+opens a dedicated one and never subscribes to any instrument, so every
+incoming *binary* frame (market data / 1-byte heartbeats) is ignored — only
+JSON *text* frames are decoded. Order postbacks arrive on the ticker without
+any explicit subscription.
+
+Credentials: OpenAlgo stores Zerodha's DB auth token as the composite
+"api_key:access_token" string (see broker/zerodha/streaming/
+zerodha_websocket.py::_refresh_access_token, which splits on ":").
+"""
+
+import json
+
+from broker.zerodha.mapping.mcx_contract_size import from_kite_quantity
+from broker.zerodha.mapping.order_data import ZERODHA_ORDER_STATUS_MAP, map_order_status
+from database.auth_db import get_auth_token
+from utils.logging import get_logger
+from websocket_proxy.order_adapter import BaseOrderUpdateAdapter, to_openalgo_symbol
+
+
+def _units(value, data, exchange):
+    """Kite contract count -> OpenAlgo units, keyed on Kite's own tradingsymbol.
+
+    The stream is read before the symbol is translated, and an MCX root reads
+    the same in either convention, so Kite's tradingsymbol resolves it.
+    """
+    return int(from_kite_quantity(value, data.get("tradingsymbol", ""), exchange))
+
+
+logger = get_logger(__name__)
+
+# Kept for the postback normalizer and existing integrations that import it.
+_STATUS_MAP = ZERODHA_ORDER_STATUS_MAP
+
+
+class ZerodhaOrderUpdateAdapter(BaseOrderUpdateAdapter):
+    """Order-update adapter for Zerodha (Kite ticker text frames)."""
+
+    def __init__(self, user_id: str, api_key: str, access_token: str):
+        super().__init__(broker_name="zerodha", user_id=user_id)
+        self.api_key = api_key
+        self.access_token = access_token
+
+    def get_ws_url(self) -> str:
+        return f"wss://ws.kite.trade?api_key={self.api_key}&access_token={self.access_token}"
+
+    def get_headers(self):
+        return None  # auth is in the URL query params
+
+    def normalize(self, raw_message):
+        if isinstance(raw_message, (bytes, bytearray)):
+            return None  # binary market-data / heartbeat frames
+
+        try:
+            message = json.loads(raw_message)
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+        if message.get("type") != "order":
+            return None  # "message"/"error" broker notices — not order events
+
+        data = message.get("data") or {}
+        order_status = map_order_status(data.get("status"))
+
+        # Kite's order_type (MARKET/LIMIT/SL/SL-M) and product (CNC/NRML/MIS)
+        # already match OpenAlgo's constants — no mapping tables needed.
+        # The postback also carries "instrument_token" (see
+        # broker-api-docs/zerodha-api-docs/12-postbacks.md's sample payload);
+        # passing it lets to_openalgo_symbol try the more reliable
+        # token-keyed lookup first, same as upstox_order_adapter.py, falling
+        # back to get_oa_symbol on Kite's tradingsymbol if that misses.
+        exchange = data.get("exchange", "")
+        symbol = to_openalgo_symbol(
+            data.get("tradingsymbol", ""), exchange, token=data.get("instrument_token")
+        )
+
+        return {
+            "orderid": str(data.get("order_id", "")),
+            "symbol": symbol,
+            "exchange": exchange,
+            "action": str(data.get("transaction_type", "")).upper(),
+            # Kite streams MCX quantity in contracts, like its REST responses.
+            "quantity": _units(data.get("quantity") or 0, data, exchange),
+            "price": float(data.get("price") or 0),
+            "trigger_price": float(data.get("trigger_price") or 0),
+            "pricetype": data.get("order_type", ""),
+            "product": data.get("product", ""),
+            "order_status": order_status,
+            "filled_quantity": _units(data.get("filled_quantity") or 0, data, exchange),
+            "pending_quantity": _units(
+                data.get("pending_quantity") or data.get("unfilled_quantity") or 0,
+                data,
+                exchange,
+            ),
+            "average_price": float(data.get("average_price") or 0),
+            "rejection_reason": data.get("status_message") or ""
+            if order_status == "rejected"
+            else "",
+        }
+
+
+def create_zerodha_order_adapter(user_id: str) -> "ZerodhaOrderUpdateAdapter | None":
+    """
+    Factory: build a ZerodhaOrderUpdateAdapter for user_id. The stored DB
+    token is the composite "api_key:access_token"; both halves are needed for
+    the ticker URL.
+    """
+    auth_token = get_auth_token(user_id, bypass_cache=True)
+    if not auth_token:
+        logger.warning(
+            f"No Zerodha auth token found for user {user_id}; order-update adapter not started"
+        )
+        return None
+
+    if ":" in auth_token:
+        api_key, access_token = auth_token.split(":", 1)
+    else:
+        import os
+
+        api_key = os.getenv("BROKER_API_KEY", "")
+        access_token = auth_token
+
+    if not api_key or not access_token:
+        logger.warning(
+            f"Incomplete Zerodha credentials for user {user_id}; order-update adapter not started"
+        )
+        return None
+
+    return ZerodhaOrderUpdateAdapter(user_id=user_id, api_key=api_key, access_token=access_token)

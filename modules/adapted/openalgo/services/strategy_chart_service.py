@@ -1,0 +1,465 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""
+Strategy Chart Service.
+
+Computes a per-share "combined premium" time series for a user-built strategy
+(N option legs, optionally across multiple expiries for calendar/diagonal
+spreads), along with the underlying price on a common IST-aligned timeline.
+
+Combined premium formula (per-share, quantity-independent):
+
+    sign_i      = +1 if leg.side == SELL else -1     (credit vs debit)
+    price_i(t)  = close of leg_i.symbol at candle t  (from /history)
+
+    net_premium(t)      = sum_i( sign_i * price_i(t) )
+    combined_premium(t) = | net_premium(t) |         (always positive)
+
+The sign of the entry-time net_premium classifies the strategy as a
+credit or debit strategy. Only active OPTION legs contribute. Futures
+legs are ignored (their price levels are not premia and would blow up
+the scale). Timestamps missing for any active leg are dropped.
+"""
+
+from datetime import date, datetime, timedelta
+
+import pandas as pd
+from services.history_service import get_history
+from services.quotes_service import get_quotes
+from services.strategy_builder_reference_service import (
+    resolve_strategy_builder_reference,
+)
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+def _resolve_trading_window(days: int, ist_tz: pytz.BaseTzInfo) -> tuple[str, str]:
+    """
+    Resolve (start_date_str, end_date_str) as a GENEROUS calendar window
+    that is guaranteed to contain at least `days` trading dates' worth of
+    data for any market (NSE, MCX, CDS, crypto, ...).
+
+    We intentionally don't hardcode market-close times here — the broker
+    decides which calendar days have candles. The caller is expected to
+    post-filter the returned series via `_cap_last_n_trading_dates`, which
+    keeps only the last N distinct IST dates that actually carry data.
+
+    The buffer `days * 3 + 2` covers worst-case long weekends/holidays for
+    weekend-closed markets while staying small for typical UI options
+    (1/3/5/10 days → 5/11/17/32 calendar days fetched).
+    """
+    today = datetime.now(ist_tz).date()
+    buffer_calendar_days = max(2, days * 3 + 2)
+    start = today - timedelta(days=buffer_calendar_days)
+    return start.strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d")
+
+
+# Bounds on an explicit window. Both endpoints fan one request out into a
+# broker call per leg, so an unbounded range is an amplifier: ten legs over
+# twenty years is two hundred years of broker history from a single click.
+MAX_WINDOW_DAYS = 400
+EARLIEST_START = date(2000, 1, 1)
+
+
+def _parse_ymd(value: str, field: str) -> date:
+    """
+    Parse a caller-supplied `YYYY-MM-DD`, rejecting anything else.
+
+    These dates come from a request body and are handed to broker adapters that
+    interpolate them into upstream URLs and query strings. `/api/v1/history`
+    validates its own with a schema; these endpoints call the history service
+    directly and so have to do it here rather than inherit it.
+
+    `strptime` is the check, not a regular expression: it rejects both the wrong
+    shape and the right shape with an impossible date in it, such as a 31st of
+    February.
+    """
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} must be a date in YYYY-MM-DD form") from exc
+
+
+def _resolve_explicit_window(
+    start_date: str | None, end_date: str | None, ist_tz: pytz.BaseTzInfo
+) -> tuple[str, str] | None:
+    """
+    Resolve an explicit (start_date, end_date) window supplied by the caller.
+
+    The chart pages older history by asking for successively earlier windows,
+    so a request has to be able to name the window it wants rather than always
+    counting back from today. Returns None when the caller named no window, in
+    which case the day-count path applies.
+
+    An end date is optional and defaults to today: the first request for a
+    symbol asks for everything up to now, and only the paging requests carry
+    both ends.
+
+    Raises:
+        ValueError: when the window is malformed, inverted, or wider than a
+            chart could plausibly be scrolled through.
+    """
+    if not start_date:
+        return None
+
+    today = datetime.now(ist_tz).date()
+    start = _parse_ymd(start_date, "start_date")
+    end = _parse_ymd(end_date, "end_date") if end_date else today
+
+    if start < EARLIEST_START:
+        raise ValueError(f"start_date cannot be earlier than {EARLIEST_START.isoformat()}")
+    if end < start:
+        raise ValueError("end_date cannot be earlier than start_date")
+    if (end - start).days > MAX_WINDOW_DAYS:
+        raise ValueError(f"the window cannot be wider than {MAX_WINDOW_DAYS} days")
+
+    return start.isoformat(), end.isoformat()
+
+
+def _cap_last_n_trading_dates(series: list[dict], n: int, ist_tz: pytz.BaseTzInfo) -> list[dict]:
+    """
+    Trim `series` to rows whose IST calendar date is among the last N
+    distinct dates present. Market-agnostic — counts actual trading dates
+    returned by the broker (empty days are naturally skipped since they
+    contribute no rows). Works for 24x7 crypto and weekend-closed markets
+    alike.
+    """
+    if not series or n <= 0:
+        return series
+    tagged = [
+        (datetime.fromtimestamp(r["time"], tz=pytz.UTC).astimezone(ist_tz).date(), r)
+        for r in series
+    ]
+    distinct_dates = sorted({d for d, _ in tagged}, reverse=True)
+    keep = set(distinct_dates[:n])
+    return [r for d, r in tagged if d in keep]
+
+
+def _convert_timestamp_to_ist(df: pd.DataFrame) -> pd.DataFrame | None:
+    """Normalize a history dataframe's timestamp column to an IST datetime index."""
+    ist = pytz.timezone("Asia/Kolkata")
+    try:
+        if "timestamp" not in df.columns:
+            logger.warning("No timestamp field in history data")
+            return None
+        try:
+            df["datetime"] = pd.to_datetime(df["timestamp"], unit="s", utc=True)
+            df["datetime"] = df["datetime"].dt.tz_convert(ist)
+        except Exception:
+            try:
+                df["datetime"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
+                df["datetime"] = df["datetime"].dt.tz_convert(ist)
+            except Exception:
+                df["datetime"] = pd.to_datetime(df["timestamp"])
+                if df["datetime"].dt.tz is None:
+                    df["datetime"] = df["datetime"].dt.tz_localize("UTC").dt.tz_convert(ist)
+                else:
+                    df["datetime"] = df["datetime"].dt.tz_convert(ist)
+        df.set_index("datetime", inplace=True)
+        return df.sort_index()
+    except Exception as e:
+        logger.warning(f"Error converting timestamps: {e}")
+        return None
+
+
+def _normalize_leg(leg: dict) -> dict | None:
+    """
+    Validate and normalize a single leg payload.
+
+    Returns None for legs that should NOT contribute to the combined premium
+    (inactive, non-option, or missing symbol/side).
+    """
+    if not isinstance(leg, dict):
+        return None
+    if leg.get("active") is False:
+        return None
+    segment = (leg.get("segment") or "OPTION").upper()
+    # Futures contribute a price level rather than a premium — exclude.
+    if segment != "OPTION":
+        return None
+    symbol = (leg.get("symbol") or "").strip()
+    side = (leg.get("side") or "").upper()
+    exchange = (leg.get("exchange") or "").strip().upper()
+    if not symbol or side not in ("BUY", "SELL") or not exchange:
+        return None
+    try:
+        entry_price = float(leg.get("price") or 0)
+    except (TypeError, ValueError):
+        entry_price = 0.0
+    return {
+        "symbol": symbol,
+        "exchange": exchange,
+        "side": side,
+        "sign": 1 if side == "SELL" else -1,
+        "entry_price": entry_price,
+    }
+
+
+def get_strategy_chart_data(
+    underlying: str,
+    exchange: str,
+    legs: list[dict],
+    interval: str,
+    api_key: str,
+    days: int = 5,
+    underlying_symbol: str | None = None,
+    underlying_exchange: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+):
+    """
+    Build the Strategy Chart time series for a user-defined options strategy.
+
+    Args:
+        underlying: Underlying base symbol (e.g., "NIFTY").
+        exchange: Underlying exchange as selected in the builder header
+                  (e.g., "NSE_INDEX", "BSE_INDEX", "NFO", "BFO").
+        legs: List of leg dicts with keys
+              {symbol, exchange, side, segment, active, price}.
+              Only active OPTION legs are used.
+        interval: Candle interval (e.g., "1m", "5m").
+        api_key: OpenAlgo API key.
+        days: Calendar-day lookback window. Ignored when start_date is given.
+        start_date: Explicit IST window start, "YYYY-MM-DD". Supplied by a chart
+                    paging older history, where counting back from today cannot
+                    express the window being asked for.
+        end_date: Explicit IST window end, "YYYY-MM-DD". Defaults to today.
+
+    Returns:
+        Tuple of (success: bool, response: dict, status_code: int).
+    """
+    try:
+        ist = pytz.timezone("Asia/Kolkata")
+        try:
+            explicit = _resolve_explicit_window(start_date, end_date, ist)
+        except ValueError as exc:
+            # A window the caller can correct, not a server fault: say what is
+            # wrong with it rather than returning an opaque 500.
+            return False, {"status": "error", "message": str(exc)}, 400
+        if explicit is None:
+            start_date_str, end_date_str = _resolve_trading_window(days, ist)
+        else:
+            start_date_str, end_date_str = explicit
+
+        base_symbol = (underlying or "").strip().upper()
+        if not base_symbol:
+            return False, {"status": "error", "message": "underlying is required"}, 400
+
+        normalized_legs = [
+            normalized for normalized in (_normalize_leg(leg) for leg in (legs or [])) if normalized
+        ]
+        if not normalized_legs:
+            return (
+                False,
+                {"status": "error", "message": "No active option legs provided"},
+                400,
+            )
+
+        resolved_reference = resolve_strategy_builder_reference(
+            base_symbol,
+            exchange,
+            underlying_symbol,
+            underlying_exchange,
+        )
+        if resolved_reference is None:
+            return (
+                False,
+                {
+                    "status": "error",
+                    "message": (
+                        f"No unexpired futures found for {base_symbol} on {exchange.upper()}"
+                    ),
+                },
+                404,
+            )
+        reference_symbol, quote_exchange = resolved_reference
+
+        # ── Underlying history ────────────────────────────────────────
+        # Some brokers (e.g., Zerodha's Kite API) don't return intraday
+        # minute-level candles for INDEX tokens (NIFTY, BANKNIFTY, SENSEX).
+        # Instead of failing the whole chart, we proceed with an empty
+        # underlying series — the combined-premium / OI curves still render
+        # from the F&O leg history, which is available at all intervals.
+        underlying_missing = False
+        df_underlying: pd.DataFrame | None = None
+        success_u, resp_u, _ = get_history(
+            symbol=reference_symbol,
+            exchange=quote_exchange,
+            interval=interval,
+            start_date=start_date_str,
+            end_date=end_date_str,
+            api_key=api_key,
+        )
+        if not success_u:
+            logger.info(
+                f"Strategy chart: underlying history fetch failed for {base_symbol}/{quote_exchange} @ {interval} — continuing with legs only. Reason: {resp_u.get('message')}"
+            )
+            underlying_missing = True
+        else:
+            df_tmp = pd.DataFrame(resp_u.get("data", []))
+            if df_tmp.empty:
+                logger.info(
+                    f"Strategy chart: empty underlying history for {base_symbol}/{quote_exchange} @ {interval} {start_date_str}..{end_date_str} — broker likely doesn't return {interval} candles for this symbol; continuing with legs only."
+                )
+                underlying_missing = True
+            else:
+                df_underlying = _convert_timestamp_to_ist(df_tmp)
+                if df_underlying is None:
+                    return (
+                        False,
+                        {"status": "error", "message": "Failed to parse underlying timestamps"},
+                        500,
+                    )
+
+        # ── Per-leg history (deduped by (symbol, exchange)) ───────────
+        leg_price_lookup: dict[tuple[str, str], dict] = {}
+        unique_keys = {(leg["symbol"], leg["exchange"]) for leg in normalized_legs}
+
+        for symbol, leg_exchange in unique_keys:
+            success_l, resp_l, _ = get_history(
+                symbol=symbol,
+                exchange=leg_exchange,
+                interval=interval,
+                start_date=start_date_str,
+                end_date=end_date_str,
+                api_key=api_key,
+            )
+            prices: dict = {}
+            if success_l:
+                df_l = pd.DataFrame(resp_l.get("data", []))
+                if not df_l.empty:
+                    df_l = _convert_timestamp_to_ist(df_l)
+                    if df_l is not None:
+                        for ts, row in df_l.iterrows():
+                            try:
+                                prices[ts] = float(row["close"])
+                            except (KeyError, TypeError, ValueError):
+                                continue
+            leg_price_lookup[(symbol, leg_exchange)] = prices
+            if not prices:
+                logger.debug(
+                    f"Strategy chart: no history for leg {symbol}/{leg_exchange} — rows where it's missing will be dropped"
+                )
+
+        # ── Merge per-candle ──────────────────────────────────────────
+        # A timestamp contributes only if EVERY active option leg has a close
+        # at that timestamp — this matches straddle_chart_service's policy
+        # and prevents forward-fill artefacts on the combined series. When
+        # the underlying is missing we iterate the intersection of leg
+        # timestamps instead, and drop the underlying column from the row.
+        series: list[dict] = []
+        if df_underlying is not None:
+            ts_source = df_underlying.iterrows()
+        else:
+            # Intersect timestamps across all legs — the union would produce
+            # gaps in the combined series where any one leg was missing.
+            ts_sets = [set(prices.keys()) for prices in leg_price_lookup.values()]
+            common_ts = sorted(set.intersection(*ts_sets)) if ts_sets else []
+            ts_source = ((ts, None) for ts in common_ts)
+
+        for ts, row in ts_source:
+            spot: float | None = None
+            if row is not None:
+                try:
+                    spot = float(row["close"])
+                except (KeyError, TypeError, ValueError):
+                    continue
+
+            signed_sum = 0.0
+            ok = True
+            for leg in normalized_legs:
+                price = leg_price_lookup.get((leg["symbol"], leg["exchange"]), {}).get(ts)
+                if price is None:
+                    ok = False
+                    break
+                signed_sum += leg["sign"] * price
+            if not ok:
+                continue
+
+            point = {
+                "time": int(ts.timestamp()),
+                "net_premium": round(signed_sum, 2),
+                "combined_premium": round(abs(signed_sum), 2),
+            }
+            if spot is not None:
+                point["underlying"] = round(spot, 2)
+            series.append(point)
+
+        if not series:
+            return (
+                False,
+                {
+                    "status": "error",
+                    "message": "No overlapping history across legs — option data may be unavailable for the selected range",
+                },
+                404,
+            )
+
+        # Cap to the last N distinct trading dates that actually carry data.
+        # This gives "last N days" semantics that are correct for any market
+        # (NSE equity/F&O, MCX, CDS, crypto 24x7) without hardcoding session
+        # close times.
+        #
+        # Skipped for an explicit window: there the caller asked for a range and
+        # trimming it to the newest few dates would silently drop the older half
+        # of the answer, which for a chart paging backwards is the only half it
+        # wanted.
+        if explicit is None:
+            series = _cap_last_n_trading_dates(series, days, ist)
+
+        # ── Credit / debit classification (static, from entry premia) ─
+        entry_net = sum(leg["sign"] * leg["entry_price"] for leg in normalized_legs)
+        tag = "credit" if entry_net > 0 else ("debit" if entry_net < 0 else "flat")
+
+        # ── Latest underlying LTP for the info bar ────────────────────
+        success_q, quote_resp, _ = get_quotes(
+            symbol=reference_symbol,
+            exchange=quote_exchange,
+            api_key=api_key,
+        )
+        underlying_ltp = quote_resp.get("data", {}).get("ltp", 0) if success_q else 0
+
+        return (
+            True,
+            {
+                "status": "success",
+                "data": {
+                    "underlying": base_symbol,
+                    "underlying_ltp": underlying_ltp,
+                    "interval": interval,
+                    "tag": tag,
+                    "entry_net_premium": round(entry_net, 2),
+                    "entry_abs_premium": round(abs(entry_net), 2),
+                    "legs_used": len(normalized_legs),
+                    "underlying_available": not underlying_missing,
+                    "series": series,
+                },
+            },
+            200,
+        )
+
+    except Exception as e:
+        logger.exception(f"Error computing strategy chart data: {e}")
+        return False, {"status": "error", "message": str(e)}, 500

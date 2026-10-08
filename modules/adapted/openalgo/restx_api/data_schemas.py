@@ -1,0 +1,294 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import re
+
+from marshmallow import Schema, ValidationError, fields, validate
+from utils.constants import SUPPORTED_INTERVALS, VALID_EXCHANGES
+
+
+# Custom validator for date or timestamp string
+def validate_date_or_timestamp(data: str) -> None:
+    """
+    Validates that the input string is either in 'YYYY-MM-DD' format or a numeric timestamp.
+    """
+    date_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+    timestamp_pattern = re.compile(r"^\d{10,13}$")  # Allows for seconds or milliseconds
+    if not (isinstance(data, str) and (date_pattern.match(data) or timestamp_pattern.match(data))):
+        raise ValidationError(
+            "Field must be a string in 'YYYY-MM-DD' format or a numeric timestamp."
+        )
+
+
+# Custom validator for option offset
+def validate_option_offset(data: str) -> bool:
+    """
+    Validates option offset: ATM, ITM1-ITM50, OTM1-OTM50
+    """
+    data_upper = data.upper()
+    if data_upper == "ATM":
+        return True
+
+    # Check for ITM pattern: ITM followed by 1-50
+    itm_pattern = re.compile(r"^ITM([1-9]|[1-4][0-9]|50)$")
+    otm_pattern = re.compile(r"^OTM([1-9]|[1-4][0-9]|50)$")
+
+    if not (itm_pattern.match(data_upper) or otm_pattern.match(data_upper)):
+        raise ValidationError("Offset must be ATM, ITM1-ITM50, or OTM1-OTM50")
+
+    return True
+
+
+class QuotesSchema(Schema):
+    apikey = fields.Str(required=True, validate=validate.Length(min=1, max=256))
+    symbol = fields.Str(required=True)  # Single symbol
+    exchange = fields.Str(
+        required=True, validate=validate.OneOf(VALID_EXCHANGES)
+    )  # Exchange (e.g., NSE, BSE)
+
+
+class SymbolExchangePair(Schema):
+    symbol = fields.Str(required=True)
+    exchange = fields.Str(required=True, validate=validate.OneOf(VALID_EXCHANGES))
+
+
+class MultiQuotesSchema(Schema):
+    apikey = fields.Str(required=True, validate=validate.Length(min=1, max=256))
+    symbols = fields.List(
+        fields.Nested(SymbolExchangePair), required=True, validate=validate.Length(min=1)
+    )
+
+
+class HistorySchema(Schema):
+    apikey = fields.Str(required=True, validate=validate.Length(min=1, max=256))
+    symbol = fields.Str(required=True)
+    exchange = fields.Str(
+        required=True, validate=validate.OneOf(VALID_EXCHANGES)
+    )  # Exchange (e.g., NSE, BSE)
+    interval = fields.Str(
+        required=True,
+        validate=validate.OneOf(SUPPORTED_INTERVALS),
+    )
+    start_date = fields.Date(required=True, format="%Y-%m-%d")  # YYYY-MM-DD
+    end_date = fields.Date(required=True, format="%Y-%m-%d")  # YYYY-MM-DD
+    # Optional: Data source - 'api' (broker, default) or 'db' (DuckDB/Historify)
+    source = fields.Str(required=False, load_default="api", validate=validate.OneOf(["api", "db"]))
+    # OI is now always included by default for F&O exchanges
+
+
+class DepthSchema(Schema):
+    apikey = fields.Str(required=True, validate=validate.Length(min=1, max=256))
+    symbol = fields.Str(required=True)
+    exchange = fields.Str(
+        required=True, validate=validate.OneOf(VALID_EXCHANGES)
+    )  # Exchange (e.g., NSE, BSE)
+
+
+class IntervalsSchema(Schema):
+    apikey = fields.Str(required=True, validate=validate.Length(min=1, max=256))
+
+
+class SymbolSchema(Schema):
+    apikey = fields.Str(
+        required=True, validate=validate.Length(min=1, max=256)
+    )  # API Key for authentication
+    symbol = fields.Str(required=True)  # Symbol code (e.g., RELIANCE)
+    exchange = fields.Str(
+        required=True, validate=validate.OneOf(VALID_EXCHANGES)
+    )  # Exchange (e.g., NSE, BSE)
+
+
+class TickerSchema(Schema):
+    apikey = fields.Str(required=True, validate=validate.Length(min=1, max=256))
+    symbol = fields.Str(required=True)  # Combined exchange:symbol format
+    interval = fields.Str(
+        required=True,
+        validate=validate.OneOf(["1m", "5m", "15m", "30m", "1h", "4h", "D", "W", "M"]),
+    )  # Supported intervals: 1m, 5m, 15m, 30m, 1h, 4h, D, W, M etc.
+    from_ = fields.Str(
+        data_key="from", required=True, validate=validate_date_or_timestamp
+    )  # YYYY-MM-DD or millisecond timestamp
+    to = fields.Str(
+        required=True, validate=validate_date_or_timestamp
+    )  # YYYY-MM-DD or millisecond timestamp
+    adjusted = fields.Bool(required=False, default=True)  # Adjust for splits
+    sort = fields.Str(
+        required=False, default="asc", validate=validate.OneOf(["asc", "desc"])
+    )  # Sort direction
+
+
+class SearchSchema(Schema):
+    apikey = fields.Str(
+        required=True, validate=validate.Length(min=1, max=256)
+    )  # API Key for authentication
+    query = fields.Str(required=True)  # Search query/symbol name
+    exchange = fields.Str(
+        required=False, validate=validate.OneOf(VALID_EXCHANGES)
+    )  # Optional exchange filter (e.g., NSE, BSE)
+
+
+#: Exchanges that list derivatives. Defined once: the same list was repeated in
+#: three schemas, and NCO was added to the platform without reaching any of
+#: them, so every expiry and option-chain request for NSE commodities was
+#: rejected at the API boundary before the service ever ran. See #1748.
+F_AND_O_EXCHANGES = ["NFO", "BFO", "MCX", "CDS", "NCO", "BCD", "NCDEX", "CRYPTO"]
+
+
+class ExpirySchema(Schema):
+    apikey = fields.Str(
+        required=True, validate=validate.Length(min=1, max=256)
+    )  # API Key for authentication
+    symbol = fields.Str(required=True)  # Underlying symbol (e.g., NIFTY, BANKNIFTY)
+    exchange = fields.Str(
+        required=True, validate=validate.OneOf(F_AND_O_EXCHANGES)
+    )  # Exchange (e.g., NFO, BFO, MCX, CDS, CRYPTO)
+    instrumenttype = fields.Str(
+        required=True, validate=validate.OneOf(["futures", "options"])
+    )  # futures or options
+
+
+class OptionSymbolSchema(Schema):
+    apikey = fields.Str(
+        required=True, validate=validate.Length(min=1, max=256)
+    )  # API Key for authentication
+    strategy = fields.Str(
+        required=False, allow_none=True
+    )  # DEPRECATED: Strategy name (optional, will be removed in future versions)
+    underlying = fields.Str(required=True)  # Underlying symbol (NIFTY, RELIANCE, NIFTY28OCT25FUT)
+    exchange = fields.Str(
+        required=True, validate=validate.OneOf(VALID_EXCHANGES)
+    )  # Exchange (NSE_INDEX, NSE, NFO)
+    expiry_date = fields.Str(
+        required=False
+    )  # Expiry date in DDMMMYY format (e.g., 28OCT25). Optional if underlying includes expiry
+    strike_int = fields.Int(
+        required=False, validate=validate.Range(min=1), allow_none=True
+    )  # OPTIONAL: Strike interval. If not provided, actual strikes from database will be used (RECOMMENDED for accuracy)
+    offset = fields.Str(
+        required=True, validate=validate_option_offset
+    )  # Strike offset from ATM (ATM, ITM1-ITM50, OTM1-OTM50)
+    option_type = fields.Str(
+        required=True, validate=validate.OneOf(["CE", "PE", "ce", "pe"])
+    )  # Call or Put option
+
+
+class OptionGreeksSchema(Schema):
+    apikey = fields.Str(
+        required=True, validate=validate.Length(min=1, max=256)
+    )  # API Key for authentication
+    symbol = fields.Str(required=True)  # Option symbol (e.g., NIFTY28NOV2424000CE)
+    exchange = fields.Str(
+        required=True, validate=validate.OneOf(F_AND_O_EXCHANGES)
+    )  # Exchange (NFO, BFO, CDS, MCX, CRYPTO)
+    interest_rate = fields.Float(
+        required=False, validate=validate.Range(min=0, max=100)
+    )  # Risk-free interest rate (annualized %). Optional, defaults per exchange
+    forward_price = fields.Float(
+        required=False, validate=validate.Range(min=0)
+    )  # Optional: Custom forward/synthetic futures price. If provided, skips underlying price fetch
+    underlying_symbol = fields.Str(
+        required=False
+    )  # Optional: Specify underlying symbol (e.g., NIFTY or NIFTY28NOV24FUT)
+    underlying_exchange = fields.Str(
+        required=False
+    )  # Optional: Specify underlying exchange (NSE_INDEX, NFO, etc.)
+    expiry_time = fields.Str(
+        required=False
+    )  # Optional: Custom expiry time in HH:MM format (e.g., "15:30", "19:00"). If not provided, uses exchange defaults
+
+
+class InstrumentsSchema(Schema):
+    apikey = fields.Str(
+        required=True, validate=validate.Length(min=1, max=256)
+    )  # API Key for authentication
+    exchange = fields.Str(
+        required=False,
+        validate=validate.OneOf(VALID_EXCHANGES),
+    )  # Optional exchange filter
+    format = fields.Str(
+        required=False, validate=validate.OneOf(["json", "csv"])
+    )  # Output format (json or csv), defaults to json
+
+
+class OptionChainSchema(Schema):
+    apikey = fields.Str(
+        required=True, validate=validate.Length(min=1, max=256)
+    )  # API Key for authentication
+    underlying = fields.Str(required=True)  # Underlying symbol (e.g., NIFTY, BANKNIFTY, RELIANCE)
+    exchange = fields.Str(
+        required=True, validate=validate.OneOf(VALID_EXCHANGES)
+    )  # Exchange (NSE_INDEX, NSE, NFO, BSE_INDEX, BSE, BFO, MCX, CDS)
+    expiry_date = fields.Str(
+        required=True
+    )  # Expiry date in DDMMMYY format (e.g., 28NOV25) - MANDATORY
+    strike_count = fields.Int(
+        required=False, validate=validate.Range(min=1, max=100), allow_none=True
+    )  # Number of strikes above/below ATM. If not provided, returns entire chain
+    with_greeks = fields.Bool(
+        required=False, load_default=False
+    )  # Attach IV + delta/gamma/theta/vega to every leg, from the quotes already fetched
+    interest_rate = fields.Float(
+        required=False, validate=validate.Range(min=0, max=100), allow_none=True
+    )  # Annualized risk-free rate percentage, Greeks only. Defaults to the exchange default (0)
+
+
+class MarketHolidaysSchema(Schema):
+    apikey = fields.Str(
+        required=True, validate=validate.Length(min=1, max=256)
+    )  # API Key for authentication
+    year = fields.Int(
+        required=False, validate=validate.Range(min=2020, max=2050)
+    )  # Year to get holidays for (defaults to current year)
+
+
+class MarketTimingsSchema(Schema):
+    apikey = fields.Str(
+        required=True, validate=validate.Length(min=1, max=256)
+    )  # API Key for authentication
+    date = fields.Str(required=True)  # Date in YYYY-MM-DD format
+
+
+class OptionSymbolRequest(Schema):
+    """Schema for a single option symbol request in batch"""
+
+    symbol = fields.Str(required=True)  # Option symbol (e.g., NIFTY28NOV2424000CE)
+    exchange = fields.Str(required=True, validate=validate.OneOf(F_AND_O_EXCHANGES))
+    underlying_symbol = fields.Str(required=False)  # Optional: Specify underlying symbol
+    underlying_exchange = fields.Str(required=False)  # Optional: Specify underlying exchange
+
+
+class MultiOptionGreeksSchema(Schema):
+    """Schema for batch option greeks requests"""
+
+    apikey = fields.Str(
+        required=True, validate=validate.Length(min=1, max=256)
+    )  # API Key for authentication
+    symbols = fields.List(
+        fields.Nested(OptionSymbolRequest),
+        required=True,
+        validate=validate.Length(min=1, max=50),  # Max 50 symbols per request
+    )
+    interest_rate = fields.Float(
+        required=False, validate=validate.Range(min=0, max=100)
+    )  # Common interest rate for all
+    expiry_time = fields.Str(required=False)  # Optional: Common expiry time for all

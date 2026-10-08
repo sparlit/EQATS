@@ -1,0 +1,596 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import re
+import time
+from types import SimpleNamespace
+from typing import Any
+
+from broker.iiflcapital.api.rate_limiter import (
+    MAX_RETRIES,
+    apply_rate_limit,
+    is_rate_limited,
+    retry_delay_from_headers,
+)
+from broker.iiflcapital.baseurl import BASE_URL
+from broker.iiflcapital.mapping.transform_data import (
+    map_exchange,
+    map_product_type,
+    transform_data,
+    transform_modify_order_data,
+)
+from database.token_db import get_br_symbol, get_token
+from utils.broker_backpressure import BrokerBusyError, busy_response, cap_server_delay
+from utils.httpx_client import get_httpx_client
+from utils.logging import get_logger
+from utils.position_read import read_position_book, refuse_smart_order_on_read_failure
+
+from utils import runtime
+
+logger = get_logger(__name__)
+
+_DIRECT_ORDER_KEYS = {"instrumentId", "exchange", "transactionType", "quantity"}
+
+# What a trader reads when IIFL answers an order write with a throttle or a
+# "try after some time" reply. The write is never sent again automatically: the
+# generic EC003 reply carries that same wording, and neither it nor a 429
+# proves the first request did not reach IIFL.
+_UNCONFIRMED_WRITE_MESSAGE = (
+    "IIFL Capital did not confirm this request and asked for it to be tried again "
+    "later. OpenAlgo did not send it again, because the first one may already have "
+    "reached IIFL Capital. Check the order book before sending it again."
+)
+_SUCCESS_STATUSES = {"success", "ok"}
+_ORDER_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def _safe_order_id(orderid: Any) -> str:
+    """Validate orderid for inclusion in a URL path.
+
+    Rejects values containing '/', '?', '..', whitespace, etc. that could
+    pivot the request to a different endpoint.
+    """
+    candidate = str(orderid or "").strip()
+    if not candidate or not _ORDER_ID_PATTERN.match(candidate):
+        raise ValueError(f"Invalid orderid: {candidate!r}")
+    return candidate
+
+
+_OPEN_STATUSES = {
+    "OPEN",
+    "PENDING",
+    "TRIGGER_PENDING",
+    "PARTIALLY_FILLED",
+    "NEW",
+    "PUT ORDER REQ RECEIVED",
+}
+
+
+def _log_rejected_orders(rows: list[dict[str, Any]]) -> None:
+    for row in rows:
+        if str(row.get("orderStatus", "")).upper() != "REJECTED":
+            continue
+
+        broker_order_id = row.get("brokerOrderId") or row.get("exchangeOrderId") or "unknown"
+        symbol = row.get("tradingSymbol") or row.get("formattedInstrumentName") or "unknown"
+        rejection_reason = row.get("rejectionReason") or "No rejection reason provided by broker"
+        logger.warning(
+            "IIFL Capital rejected order %s for %s: %s",
+            broker_order_id,
+            symbol,
+            rejection_reason,
+        )
+
+
+def _headers(auth: str) -> dict:
+    return {
+        "Authorization": f"Bearer {auth}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+
+def _request(
+    endpoint: str,
+    auth: str,
+    method: str = "GET",
+    payload=None,
+    params=None,
+    _retry_count: int = 0,
+):
+    """
+    Issue an HTTP request to an IIFL Capital order/account endpoint through
+    the shared connection pool.
+
+    This is the single choke point every order_api.py HTTP call goes through
+    (place/modify/cancel order, order book, trade book, positions, holdings).
+    It keeps its own request plumbing separate from data.py's _post, but both
+    route through the same process-wide pacer (broker.iiflcapital.api.rate_limiter)
+    so order and data calls share one clock. On a rate-limit rejection (HTTP
+    429, detected primarily; a generic retry-hint message as fallback) a read
+    (GET) is retried with backoff before returning control to the caller.
+
+    Under the gthread worker an order write (POST, PUT, DELETE) is never
+    retried. A throttle reply to a write cannot be told apart from one sent
+    after IIFL accepted it, and the fallback hint also matches IIFL's generic
+    EC003 "Something went wrong, please try after some time", so a retry could
+    place, modify or cancel twice. The reply is returned with a message telling
+    the trader to check the order book first. The same rule broker/indmoney and
+    broker/upstox apply. The eventlet worker and the development server retry a
+    write as they always have: gthread is opt-in, and an install that has not
+    chosen it sees no change.
+
+    Under gthread a read whose throttle asks for a wait past the ceiling raises
+    BrokerBusyError instead of handing the throttle body back as data, because a
+    position read that came back empty would size a smart order as if flat.
+    """
+    client = get_httpx_client()
+    url = f"{BASE_URL}{endpoint}"
+
+    kind = "data" if method == "GET" else "order"
+    try:
+        apply_rate_limit(kind)
+    except BrokerBusyError as exc:
+        if kind == "data":
+            raise
+        # An order write refused by the pacer (gthread only): nothing was sent.
+        # Answered like a broker refusal so every write path reports it as one.
+        refused = SimpleNamespace(status_code=429, status=429, headers={}, text="")
+        return refused, {"status": "error", "message": str(exc)}
+
+    if method == "GET":
+        response = client.get(url, headers=_headers(auth), params=params)
+    elif method == "POST":
+        response = client.post(url, headers=_headers(auth), json=payload)
+    elif method == "PUT":
+        response = client.put(url, headers=_headers(auth), json=payload)
+    elif method == "DELETE":
+        response = client.delete(url, headers=_headers(auth), params=params)
+    else:
+        response = client.request(method, url, headers=_headers(auth), json=payload, params=params)
+
+    try:
+        data = response.json()
+    except Exception:
+        data = {"status": "error", "message": response.text}
+
+    message = data.get("message") if isinstance(data, dict) else None
+    if (
+        method != "GET"
+        and runtime.gthread_active()
+        and is_rate_limited(response.status_code, message)
+    ):
+        logger.warning(
+            f"IIFL Capital answered {method} {endpoint} with a rate-limit or retry reply "
+            f"(HTTP {response.status_code}: {message!r}). Not resending an order write."
+        )
+        return response, {"status": "error", "message": _UNCONFIRMED_WRITE_MESSAGE}
+
+    if is_rate_limited(response.status_code, message) and _retry_count < MAX_RETRIES:
+        # Under gthread a delay past the ceiling is not slept out.
+        delay = cap_server_delay(retry_delay_from_headers(response.headers, _retry_count), kind)
+        if delay is not None:
+            logger.warning(
+                f"IIFL Capital order API rate limited on {endpoint}. Retrying in "
+                f"{delay:.2f}s (attempt {_retry_count + 1}/{MAX_RETRIES})"
+            )
+            time.sleep(delay)
+            return _request(endpoint, auth, method, payload, params, _retry_count + 1)
+        if kind == "data":
+            # gthread only: cap_server_delay never answers None elsewhere.
+            raise BrokerBusyError(
+                retry_after=retry_delay_from_headers(response.headers, _retry_count)
+            )
+
+    return response, data
+
+
+def _failure_status(status_code: int) -> int:
+    """The status a failed cancel or modify answers with.
+
+    Under gthread a 200 carrying a failure becomes 400, so the service does not
+    read it as done. Elsewhere the broker's status passes through unchanged.
+    """
+    if status_code == 200 and runtime.gthread_active():
+        return 400
+    return status_code
+
+
+def _extract_rows(payload):
+    if isinstance(payload, list):
+        return payload
+
+    if not isinstance(payload, dict):
+        return []
+
+    result = payload.get("result")
+    if isinstance(result, list):
+        return result
+    if isinstance(result, dict):
+        for key in ("orders", "trades", "positions", "holdings", "data", "positionList"):
+            value = result.get(key)
+            if isinstance(value, list):
+                return value
+        return [result]
+
+    for key in ("data", "orders", "trades", "positions", "holdings"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return value
+
+    return []
+
+
+def _ok(payload: dict) -> bool:
+    status = str(payload.get("status", "")).lower()
+    if status in _SUCCESS_STATUSES:
+        return True
+
+    result = payload.get("result")
+    if isinstance(result, dict):
+        nested_status = str(result.get("status", "")).lower()
+        if nested_status in _SUCCESS_STATUSES:
+            return True
+    if isinstance(result, list) and result:
+        nested_status = str(result[0].get("status", "")).lower()
+        if nested_status in _SUCCESS_STATUSES:
+            return True
+
+    return False
+
+
+def _status_wrapper(status_code: int):
+    return SimpleNamespace(status=status_code)
+
+
+def _first_result(payload: Any) -> dict:
+    result = payload.get("result") if isinstance(payload, dict) else None
+    if isinstance(result, list) and result:
+        return result[0] if isinstance(result[0], dict) else {}
+    if isinstance(result, dict):
+        return result
+    return {}
+
+
+def _is_direct_order_payload(data: Any) -> bool:
+    if isinstance(data, list):
+        return bool(data) and all(
+            isinstance(item, dict) and _DIRECT_ORDER_KEYS.issubset(item) for item in data
+        )
+    return isinstance(data, dict) and _DIRECT_ORDER_KEYS.issubset(data)
+
+
+def _extract_message(payload: Any, default: str) -> str:
+    if isinstance(payload, dict):
+        for key in ("message", "error", "description"):
+            value = payload.get(key)
+            if value not in (None, ""):
+                return str(value)
+
+        result = payload.get("result")
+        if isinstance(result, list) and result and isinstance(result[0], dict):
+            for key in ("message", "error", "description"):
+                value = result[0].get(key)
+                if value not in (None, ""):
+                    return str(value)
+        elif isinstance(result, dict):
+            for key in ("message", "error", "description"):
+                value = result.get(key)
+                if value not in (None, ""):
+                    return str(value)
+
+    return default
+
+
+def _is_success_result(result: dict) -> bool:
+    if not isinstance(result, dict):
+        return False
+
+    status = str(result.get("status", "")).lower()
+    broker_order_id = result.get("brokerOrderId")
+    return status in _SUCCESS_STATUSES and bool(broker_order_id)
+
+
+def get_order_book(auth):
+    response, data = _request("/orders", auth)
+
+    if response.status_code == 200:
+        rows = data if isinstance(data, list) else _extract_rows(data)
+        if rows:
+            _log_rejected_orders(rows)
+        if isinstance(data, list):
+            return data
+        if rows or _ok(data):
+            return data
+
+    return {
+        "status": "error",
+        "message": _extract_message(data, "Failed to fetch order book"),
+    }
+
+
+def get_trade_book(auth):
+    response, data = _request("/trades", auth)
+
+    if response.status_code == 200:
+        if isinstance(data, list):
+            return data
+        if _extract_rows(data) or _ok(data):
+            return data
+
+    return {
+        "status": "error",
+        "message": _extract_message(data, "Failed to fetch trade book"),
+    }
+
+
+def get_positions(auth):
+    _, data = _request("/positions", auth)
+    return data
+
+
+def get_holdings(auth):
+    _, data = _request("/holdings", auth)
+    return data
+
+
+def _position_book_ok(positions_data):
+    """IIFL Capital marks success with status "Ok" or "success".
+
+    _request turns a body that would not parse into status "error".
+    """
+    if isinstance(positions_data, list):
+        return True
+    return isinstance(positions_data, dict) and _ok(positions_data)
+
+
+def get_open_position(tradingsymbol, exchange, producttype, auth):
+    positions_data = read_position_book(
+        "iiflcapital", lambda: get_positions(auth), _position_book_ok
+    )
+    rows = _extract_rows(positions_data)
+
+    br_symbol = get_br_symbol(tradingsymbol, exchange) or tradingsymbol
+    broker_exchange = map_exchange(exchange)
+    broker_product = map_product_type(producttype)
+
+    for row in rows:
+        row_symbol = row.get("tradingSymbol") or row.get("symbol")
+        row_exchange = row.get("exchange")
+        row_product = row.get("product")
+
+        symbol_matches = row_symbol in (br_symbol, tradingsymbol)
+        exchange_matches = row_exchange in (broker_exchange, None, "")
+        product_matches = row_product in (broker_product, None, "")
+
+        if symbol_matches and exchange_matches and product_matches:
+            quantity = row.get("netQuantity", row.get("quantity", 0))
+            return str(quantity)
+
+    return "0"
+
+
+def place_order_api(data, auth):
+    if _is_direct_order_payload(data):
+        order_payload = data
+    elif isinstance(data, dict):
+        token = get_token(data.get("symbol"), data.get("exchange"))
+        if not token:
+            wrapper = _status_wrapper(400)
+            return wrapper, {"status": "error", "message": "Symbol token not found"}, None
+        order_payload = transform_data(data, token)
+    else:
+        wrapper = _status_wrapper(400)
+        return wrapper, {"status": "error", "message": "Invalid order payload"}, None
+
+    payload = order_payload if isinstance(order_payload, list) else [order_payload]
+    logger.debug(f"IIFL Capital place order payload: {payload}")
+    response, response_data = _request("/orders", auth, method="POST", payload=payload)
+    logger.debug(f"IIFL Capital place order response status: {response.status_code}")
+    # Raw body may include broker order IDs / account context — debug only.
+    logger.debug(f"IIFL Capital place order raw response: {response_data}")
+
+    result = _first_result(response_data)
+    order_id = result.get("brokerOrderId")
+
+    if response.status_code == 200 and _ok(response_data) and _is_success_result(result):
+        return _status_wrapper(200), response_data, order_id
+
+    error_status = response.status_code if response.status_code != 200 else 400
+    error_message = _extract_message(response_data, "Failed to place order")
+    logger.warning(f"IIFL Capital place order failed: {error_message}")
+    error_response = {
+        "status": "error",
+        "message": error_message,
+    }
+    return _status_wrapper(error_status), error_response, None
+
+
+@refuse_smart_order_on_read_failure
+def place_smartorder_api(data, auth):
+    symbol = data.get("symbol")
+    exchange = data.get("exchange")
+    product = data.get("product")
+
+    position_size = int(float(data.get("position_size", 0) or 0))
+    try:
+        current_position = int(float(get_open_position(symbol, exchange, product, auth) or 0))
+    except BrokerBusyError as exc:
+        # The position read was refused by the pacer (gthread only), so there
+        # is no position to size an order against. Nothing was sent.
+        return busy_response(str(exc))
+
+    if position_size == current_position:
+        if int(float(data.get("quantity", 0) or 0)) == 0:
+            message = "No OpenPosition Found. Not placing Exit order."
+        else:
+            message = "No action needed. Position size matches current position"
+        return None, {"status": "success", "message": message}, None
+
+    action = None
+    quantity = 0
+
+    if position_size == 0 and current_position > 0:
+        action = "SELL"
+        quantity = abs(current_position)
+    elif position_size == 0 and current_position < 0:
+        action = "BUY"
+        quantity = abs(current_position)
+    elif current_position == 0:
+        action = "BUY" if position_size > 0 else "SELL"
+        quantity = abs(position_size)
+    elif position_size > current_position:
+        action = "BUY"
+        quantity = position_size - current_position
+    elif position_size < current_position:
+        action = "SELL"
+        quantity = current_position - position_size
+
+    if not action or quantity <= 0:
+        return (
+            None,
+            {"status": "success", "message": "No action needed. Position already aligned"},
+            None,
+        )
+
+    order_data = data.copy()
+    order_data["action"] = action
+    order_data["quantity"] = str(quantity)
+
+    return place_order_api(order_data, auth)
+
+
+def close_all_positions(current_api_key, auth):
+    positions_response = get_positions(auth)
+    rows = _extract_rows(positions_response)
+
+    if not rows:
+        return {"message": "No Open Positions Found"}, 200
+
+    attempted = 0
+    failures = 0
+
+    for row in rows:
+        net_qty = int(float(row.get("netQuantity", 0) or 0))
+        if net_qty == 0:
+            continue
+
+        attempted += 1
+
+        order_payload = {
+            "instrumentId": str(row.get("instrumentId")),
+            "exchange": row.get("exchange"),
+            "transactionType": "SELL" if net_qty > 0 else "BUY",
+            "quantity": str(abs(net_qty)),
+            "orderComplexity": "REGULAR",
+            "product": row.get("product", "NORMAL"),
+            "orderType": "MARKET",
+            "validity": "DAY",
+            "apiOrderSource": "openalgo",
+            "orderTag": "close_all_positions",
+        }
+
+        response, response_data, orderid = place_order_api(order_payload, auth)
+        if response.status != 200 or not orderid:
+            failures += 1
+
+    if attempted == 0:
+        return {"message": "No Open Positions Found"}, 200
+
+    if failures:
+        return {
+            "status": "partial_success",
+            "message": f"Closed positions attempted: {attempted}, failed: {failures}",
+        }, 207
+
+    return {"status": "success", "message": "All Open Positions Squared Off"}, 200
+
+
+def cancel_order(orderid, auth):
+    try:
+        safe_id = _safe_order_id(orderid)
+    except ValueError as exc:
+        return {"status": "error", "message": str(exc)}, 400
+
+    logger.debug(f"IIFL Capital cancel order request for {safe_id}")
+    response, response_data = _request(f"/orders/{safe_id}", auth, method="DELETE")
+    logger.debug(f"IIFL Capital cancel order response for {safe_id}: {response_data}")
+
+    if response.status_code == 200 and _ok(response_data):
+        return {"status": "success", "orderid": safe_id}, 200
+
+    # Under gthread an HTTP 200 whose body is not a success is answered as a
+    # failure: the service layer reads 200 as done, as place_order_api already
+    # accounts for. Elsewhere the status passes through as it always has.
+    return {
+        "status": "error",
+        "message": _extract_message(response_data, "Failed to cancel order"),
+    }, _failure_status(response.status_code)
+
+
+def modify_order(data, auth):
+    try:
+        safe_id = _safe_order_id(data.get("orderid"))
+    except ValueError as exc:
+        return {"status": "error", "message": str(exc)}, 400
+
+    payload = transform_modify_order_data(data)
+
+    logger.debug(f"IIFL Capital modify order payload for {safe_id}: {payload}")
+    response, response_data = _request(f"/orders/{safe_id}", auth, method="PUT", payload=payload)
+    logger.debug(f"IIFL Capital modify order response for {safe_id}: {response_data}")
+
+    if response.status_code == 200 and _ok(response_data):
+        return {"status": "success", "orderid": safe_id}, 200
+
+    # An HTTP 200 whose body is not a success (see cancel_order).
+    return {
+        "status": "error",
+        "message": _extract_message(response_data, "Failed to modify order"),
+    }, _failure_status(response.status_code)
+
+
+def cancel_all_orders_api(data, auth):
+    order_book = get_order_book(auth)
+    rows = _extract_rows(order_book)
+
+    orders_to_cancel = []
+    for row in rows:
+        status = str(row.get("orderStatus", "")).upper()
+        if status in _OPEN_STATUSES:
+            broker_order_id = row.get("brokerOrderId")
+            if broker_order_id:
+                orders_to_cancel.append(broker_order_id)
+
+    canceled_orders = []
+    failed_cancellations = []
+
+    for order_id in orders_to_cancel:
+        cancel_response, status_code = cancel_order(order_id, auth)
+        if status_code == 200:
+            canceled_orders.append(order_id)
+        else:
+            failed_cancellations.append(order_id)
+            logger.error(f"Failed to cancel order {order_id}: {cancel_response}")
+
+    return canceled_orders, failed_cancellations

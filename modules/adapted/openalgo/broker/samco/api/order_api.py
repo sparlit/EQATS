@@ -1,0 +1,557 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import json
+
+from broker.samco.mapping.transform_data import (
+    map_product_type,
+    reverse_map_product_type,
+    transform_data,
+    transform_modify_order_data,
+)
+from database.token_db import get_br_symbol, get_oa_symbol, get_token
+from utils.httpx_client import get_httpx_client
+from utils.logging import get_logger
+from utils.position_read import read_position_book, refuse_smart_order_on_read_failure
+from utils.smart_order_guard import PositionBookCache, SymbolLocks
+
+logger = get_logger(__name__)
+
+# Samco API base URL
+BASE_URL = "https://tradeapi.samco.in"
+
+
+def get_api_response(endpoint, auth, method="GET", payload=None):
+    """
+    Generic API response handler for Samco endpoints.
+    """
+    client = get_httpx_client()
+
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "x-session-token": auth,
+    }
+
+    url = f"{BASE_URL}{endpoint}"
+
+    if method == "GET":
+        response = client.get(url, headers=headers)
+    elif method == "POST":
+        response = client.post(url, headers=headers, json=payload)
+    else:
+        response = client.request(method, url, headers=headers, json=payload)
+
+    response.status = response.status_code
+
+    if not response.text:
+        return {}
+
+    try:
+        return json.loads(response.text)
+    except json.JSONDecodeError:
+        logger.error(f"Failed to parse JSON response from {endpoint}: {response.text}")
+        return {}
+
+
+def get_order_book(auth):
+    """Get order book from Samco."""
+    response = get_api_response("/order/orderBook", auth)
+    logger.debug(f"Samco order book response: {response}")
+    return response
+
+
+def get_trade_book(auth):
+    """Get trade book from Samco."""
+    response = get_api_response("/trade/tradeBook", auth)
+    logger.debug(f"Samco trade book response: {response}")
+    return response
+
+
+def get_positions(auth, position_type="DAY"):
+    """
+    Get positions from Samco.
+
+    Args:
+        auth: Session token
+        position_type: "DAY" for current-day positions, "NET" for carry-forward
+    """
+    client = get_httpx_client()
+    headers = {"Accept": "application/json", "x-session-token": auth}
+    response = client.get(
+        f"{BASE_URL}/position/getPositions",
+        headers=headers,
+        params={"positionType": position_type},
+    )
+    response_data = response.json() if response.text else {}
+    logger.debug(f"Samco {position_type} positions response: {response_data}")
+    return response_data
+
+
+def get_holdings(auth):
+    """Get holdings from Samco."""
+    response = get_api_response("/holding/getHoldings", auth)
+    logger.debug(f"Samco holdings response: {response}")
+    return response
+
+
+# --- Per-Symbol Smart Order Lock ---
+# Ensures only one smart order per symbol executes at a time.
+# Others queue and execute sequentially, each getting a fresh position book.
+# The registry forgets a symbol once nobody holds or waits on it, and under the
+# gthread worker a wait is bounded (utils/smart_order_guard.py).
+_SMART_ORDER_LOCKS = SymbolLocks()
+
+# --- Position Book Cache ---
+# Caches get_positions() for 1 second. Invalidated after each smart order placement.
+# A fetch still in flight when an order invalidates the cache is returned to its
+# own caller but never cached, so the next order cannot read the book from
+# before the previous fill (utils/smart_order_guard.py).
+_POSITION_BOOK = PositionBookCache()
+
+
+def _get_symbol_lock(symbol, exchange, product):
+    """Hold the smart order lock for one symbol, as a context manager.
+
+    Yields True while holding it. Yields False when the wait ran out, which
+    happens only under the gthread worker; the caller must then return
+    ``SymbolLocks.busy(symbol)`` without placing an order.
+    """
+    return _SMART_ORDER_LOCKS.hold(symbol, exchange, product)
+
+
+def _position_book_ok(positions_data):
+    """Samco says status "Success" for a read that worked and "Failure" otherwise.
+
+    get_positions returns {} for an empty body.
+    """
+    if not isinstance(positions_data, dict):
+        return False
+    return str(positions_data.get("status", "")).lower() == "success"
+
+
+def _get_cached_positions(auth):
+    """Get positions from cache if fresh, otherwise fetch from broker API."""
+    return _POSITION_BOOK.get(
+        auth,
+        lambda: read_position_book("samco", lambda: get_positions(auth), _position_book_ok),
+    )
+
+
+def _invalidate_position_cache(auth):
+    """Invalidate the position cache so the next queued order fetches fresh data.
+
+    Also stops a fetch that started before this order from caching the book
+    it read.
+    """
+    _POSITION_BOOK.invalidate(auth)
+
+
+def get_open_position(tradingsymbol, exchange, producttype, auth):
+    """
+    Get open position for a specific symbol.
+    Samco returns netQuantity as positive and uses transactionType to indicate direction.
+    """
+    br_symbol = get_br_symbol(tradingsymbol, exchange)
+    positions_data = _get_cached_positions(auth)
+
+    logger.debug(
+        f"Looking for position: symbol={br_symbol}, exchange={exchange}, product={producttype}"
+    )
+    logger.debug(f"Positions data: {positions_data}")
+
+    net_qty = "0"
+
+    if (
+        positions_data
+        and positions_data.get("status") == "Success"
+        and positions_data.get("positionDetails")
+    ):
+        for position in positions_data["positionDetails"]:
+            if (
+                position.get("tradingSymbol") == br_symbol
+                and position.get("exchange") == exchange
+                and position.get("productCode") == producttype
+            ):
+                qty = int(position.get("netQuantity", 0))
+                transaction_type = position.get("transactionType", "")
+                # Make quantity negative for SELL (short) positions
+                if transaction_type == "SELL" and qty > 0:
+                    qty = -qty
+                net_qty = str(qty)
+                logger.debug(
+                    f"Found position: netQuantity={qty}, transactionType={transaction_type}"
+                )
+                break
+
+    return net_qty
+
+
+def place_order_api(data, auth):
+    """
+    Place an order with Samco.
+    """
+    token = get_token(data["symbol"], data["exchange"])
+    try:
+        newdata = transform_data(data, token, auth)
+    except ValueError as e:
+        error_res = type("Response", (), {"status": 400, "status_code": 400})()
+        return error_res, {"status": "error", "orderid": None, "message": str(e)}, None
+
+    client = get_httpx_client()
+
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "x-session-token": auth,
+    }
+
+    payload = {
+        "symbolName": newdata["symbolName"],
+        "exchange": newdata["exchange"],
+        "transactionType": newdata["transactionType"],
+        "orderType": newdata["orderType"],
+        "quantity": newdata["quantity"],
+        "disclosedQuantity": newdata.get("disclosedQuantity", "0"),
+        "orderValidity": newdata.get("orderValidity", "DAY"),
+        "productType": newdata["productType"],
+        "afterMarketOrderFlag": newdata.get("afterMarketOrderFlag", "NO"),
+    }
+
+    # Add price for limit orders
+    if "price" in newdata:
+        payload["price"] = newdata["price"]
+
+    # Add trigger price for stop loss orders
+    if "triggerPrice" in newdata:
+        payload["triggerPrice"] = newdata["triggerPrice"]
+
+    # Add market protection percentage if present
+    if "marketProtection" in newdata:
+        payload["marketProtection"] = newdata["marketProtection"]
+
+    logger.debug(f"Samco place order payload: {payload}")
+
+    response = client.post(f"{BASE_URL}/order/placeOrder", headers=headers, json=payload)
+
+    response.status = response.status_code
+
+    response_data = response.json()
+    logger.debug(f"Samco place order response: {response_data}")
+
+    orderid = response_data.get("orderNumber") if response_data.get("status") == "Success" else None
+
+    return response, response_data, orderid
+
+
+@refuse_smart_order_on_read_failure
+def place_smartorder_api(data, auth):
+    """
+    Place a smart order that manages position sizing automatically.
+    """
+    res = None
+
+    symbol = data.get("symbol")
+    exchange = data.get("exchange")
+    product = data.get("product")
+    # Per-symbol lock: serialize smart orders per symbol
+    with _get_symbol_lock(symbol, exchange, product) as symbol_lock:
+        if not symbol_lock:
+            return SymbolLocks.busy(symbol)
+        position_size = int(data.get("position_size", "0"))
+
+        # Get current open position for the symbol
+        current_position = int(get_open_position(symbol, exchange, map_product_type(product), auth))
+
+        logger.debug(f"SmartOrder - Symbol: {symbol}, Exchange: {exchange}, Product: {product}")
+        logger.debug(
+            f"SmartOrder - Target position_size: {position_size}, Current position: {current_position}"
+        )
+
+        action = None
+        quantity = 0
+
+        # If both position_size and current_position are 0, place order if quantity > 0
+        if position_size == 0 and current_position == 0 and int(data["quantity"]) != 0:
+            action = data["action"]
+            quantity = data["quantity"]
+            logger.debug(f"SmartOrder - No position, placing new order: {action} {quantity}")
+            res, response, orderid = place_order_api(data, auth)
+            _invalidate_position_cache(auth)
+            return res, response, orderid
+
+        elif position_size == current_position:
+            if int(data["quantity"]) == 0:
+                response = {
+                    "status": "success",
+                    "message": "No OpenPosition Found. Not placing Exit order.",
+                }
+            else:
+                response = {
+                    "status": "success",
+                    "message": "No action needed. Position size matches current position",
+                }
+            logger.debug(f"SmartOrder - {response['message']}")
+            orderid = None
+            return res, response, orderid
+
+        # Determine action based on position_size and current_position
+        if position_size == 0 and current_position > 0:
+            action = "SELL"
+            quantity = abs(current_position)
+        elif position_size == 0 and current_position < 0:
+            action = "BUY"
+            quantity = abs(current_position)
+        elif current_position == 0:
+            action = "BUY" if position_size > 0 else "SELL"
+            quantity = abs(position_size)
+        else:
+            if position_size > current_position:
+                action = "BUY"
+                quantity = position_size - current_position
+            elif position_size < current_position:
+                action = "SELL"
+                quantity = current_position - position_size
+
+        if action:
+            logger.debug(f"SmartOrder - Calculated action: {action}, quantity: {quantity}")
+            order_data = data.copy()
+            order_data["action"] = action
+            order_data["quantity"] = str(quantity)
+
+            res, response, orderid = place_order_api(order_data, auth)
+            _invalidate_position_cache(auth)
+            logger.debug(f"SmartOrder response: {response}")
+            logger.debug(f"SmartOrder orderid: {orderid}")
+
+            return res, response, orderid
+
+
+def _collect_open_positions(auth):
+    """
+    Collect open positions across both Samco position types.
+
+    Samco splits positions into DAY (current-day) and NET (carry-forward), so
+    fetching only DAY leaves overnight NRML positions behind. Merge both and
+    de-duplicate on symbol + exchange + product, since a position that was both
+    carried forward and traded today is reported under each type.
+
+    Returns:
+        tuple: (positions, failed_types) - failed_types names the position books
+        that could not be read, so the caller never reports a complete square-off
+        when half the book is unknown.
+    """
+    merged = {}
+    failed = []
+
+    for position_type in ("DAY", "NET"):
+        try:
+            response = get_positions(auth, position_type)
+        except Exception as e:
+            logger.error(f"Failed to fetch {position_type} positions: {e}")
+            failed.append(position_type)
+            continue
+
+        if response.get("status") != "Success":
+            logger.warning(
+                f"Samco {position_type} positions returned "
+                f"{response.get('statusMessage', 'no status message')}"
+            )
+            failed.append(position_type)
+            continue
+
+        for position in response.get("positionDetails") or []:
+            key = (
+                position.get("tradingSymbol"),
+                position.get("exchange"),
+                position.get("productCode"),
+            )
+            # DAY is fetched first and reflects today's activity, so keep it and
+            # let NET only contribute positions DAY did not report.
+            merged.setdefault(key, position)
+
+    return list(merged.values()), failed
+
+
+def close_all_positions(current_api_key, auth):
+    """
+    Close all open positions.
+    """
+    positions, failed_types = _collect_open_positions(auth)
+
+    # Never claim a clean square-off on a book we could not read - a failed NET
+    # fetch would otherwise hide still-open carry-forward positions.
+    if failed_types:
+        message = (
+            f"Could not read the {' and '.join(failed_types)} position book, so positions "
+            f"may remain open. No square-off was attempted. Please retry."
+        )
+        logger.error(message)
+        return {"status": "error", "message": message}, 500
+
+    if not positions:
+        return {"message": "No Open Positions Found"}, 200
+
+    for position in positions:
+        # Get net quantity and handle Samco's direction via transactionType
+        net_qty = int(position.get("netQuantity", 0))
+        if net_qty == 0:
+            continue
+
+        transaction_type = position.get("transactionType", "")
+
+        # Samco returns positive qty with transactionType indicating direction
+        # BUY position -> SELL to close, SELL position -> BUY to close
+        if transaction_type == "SELL":
+            action = "BUY"  # Close short position
+        else:
+            action = "SELL"  # Close long position
+
+        quantity = abs(net_qty)
+
+        # Get OpenAlgo symbol using tradingSymbol and exchange
+        symbol = get_oa_symbol(position.get("tradingSymbol"), position.get("exchange"))
+        logger.debug(f"Close position: symbol={symbol}, action={action}, qty={quantity}")
+
+        place_order_payload = {
+            "apikey": current_api_key,
+            "strategy": "Squareoff",
+            "symbol": symbol,
+            "action": action,
+            "exchange": position["exchange"],
+            "pricetype": "MARKET",
+            "product": reverse_map_product_type(position.get("productCode")),
+            "quantity": str(quantity),
+        }
+
+        logger.debug(f"Close position payload: {place_order_payload}")
+
+        res, response, orderid = place_order_api(place_order_payload, auth)
+
+    return {"status": "success", "message": "All Open Positions SquaredOff"}, 200
+
+
+def cancel_order(orderid, auth):
+    """
+    Cancel an order by order ID.
+    """
+    client = get_httpx_client()
+
+    headers = {"Accept": "application/json", "x-session-token": auth}
+
+    logger.debug(f"Samco cancel order request for orderid: {orderid}")
+
+    response = client.delete(
+        f"{BASE_URL}/order/cancelOrder", headers=headers, params={"orderNumber": orderid}
+    )
+
+    response.status = response.status_code
+
+    data = json.loads(response.text) if response.text else {}
+    logger.debug(f"Samco cancel order response: {data}")
+
+    if data.get("status") == "Success":
+        return {"status": "success", "orderid": orderid}, 200
+    else:
+        return {
+            "status": "error",
+            "message": data.get("statusMessage", "Failed to cancel order"),
+        }, response.status
+
+
+def modify_order(data, auth):
+    """
+    Modify an existing order.
+    """
+    client = get_httpx_client()
+
+    orderid = data["orderid"]
+    try:
+        # auth is needed to fetch the LTP when a MARKET modify is converted to a
+        # protected LIMIT (Samco's modifyOrder documents only L and SL).
+        transformed_data = transform_modify_order_data(data, auth)
+    except ValueError as e:
+        return {"status": "error", "message": str(e)}, 400
+
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "x-session-token": auth,
+    }
+
+    logger.debug(f"Samco modify order payload: {transformed_data}")
+
+    response = client.put(
+        f"{BASE_URL}/order/modifyOrder/{orderid}", headers=headers, json=transformed_data
+    )
+
+    response.status = response.status_code
+
+    response_data = json.loads(response.text) if response.text else {}
+    logger.debug(f"Samco modify order response: {response_data}")
+
+    if response_data.get("status") == "Success":
+        # Samco's modifyOrder response uses the lowercase key "ordernumber" (the
+        # schema table documents "orderNumber", the actual body does not). Accept
+        # either, and fall back to the order number we were given.
+        modified_orderid = (
+            response_data.get("orderNumber") or response_data.get("ordernumber") or orderid
+        )
+        return {"status": "success", "orderid": modified_orderid}, 200
+    else:
+        return {
+            "status": "error",
+            "message": response_data.get("statusMessage", "Failed to modify order"),
+        }, response.status
+
+
+def cancel_all_orders_api(data, auth):
+    """
+    Cancel all open orders.
+    """
+    order_book_response = get_order_book(auth)
+
+    if order_book_response.get("status") != "Success":
+        return [], []
+
+    # Filter orders that are in open or pending state (handle different casing)
+    orders_to_cancel = [
+        order
+        for order in order_book_response.get("orderBookDetails", [])
+        if order.get("orderStatus", "").lower() in ["open", "pending", "trigger pending"]
+    ]
+
+    logger.debug(f"Orders to cancel: {[order['orderNumber'] for order in orders_to_cancel]}")
+
+    canceled_orders = []
+    failed_cancellations = []
+
+    for order in orders_to_cancel:
+        orderid = order["orderNumber"]
+        cancel_response, status_code = cancel_order(orderid, auth)
+        if status_code == 200:
+            canceled_orders.append(orderid)
+        else:
+            failed_cancellations.append(orderid)
+
+    return canceled_orders, failed_cancellations

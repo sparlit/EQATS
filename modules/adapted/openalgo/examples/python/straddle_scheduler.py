@@ -1,0 +1,116 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import os
+import time
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from openalgo import api
+
+print("OpenAlgo Python Bot is running.")
+
+# ===============================
+# OpenAlgo Client
+# ===============================
+client = api(
+    api_key=os.getenv("OPENALGO_API_KEY"),
+    host="http://127.0.0.1:5000",
+)
+
+NIFTY_LOT = 75  # NSE Index lot size
+LOTS = 1  # Number of lots
+
+
+# ===============================
+# Function to Place Straddle
+# ===============================
+def place_nifty_straddle_0920():
+    try:
+        # Fetch NIFTY INDEX Quote (must print immediately)
+        quote = client.quotes(symbol="NIFTY", exchange="NSE_INDEX")
+        print("NIFTY QUOTE:", quote)
+
+        qty = LOTS * NIFTY_LOT
+
+        # Place optionsmultiorder short straddle
+        response = client.optionsmultiorder(
+            strategy="NIFTY_09DEC25_STRADDLE_0920",
+            underlying="NIFTY",
+            exchange="NSE_INDEX",
+            expiry_date="30JUN26",  # FIXED EXPIRY
+            legs=[
+                {
+                    "offset": "ATM",
+                    "option_type": "CE",
+                    "action": "SELL",
+                    "quantity": qty,
+                    "product": "NRML",
+                },
+                {
+                    "offset": "ATM",
+                    "option_type": "PE",
+                    "action": "SELL",
+                    "quantity": qty,
+                    "product": "NRML",
+                },
+            ],
+        )
+
+        print("ORDER RESPONSE:", response)
+
+    except Exception as e:
+        print("Error:", e)
+
+
+# ===============================
+# Schedule the Job at 09:20 IST
+# ===============================
+def schedule_straddle():
+    ist = pytz.timezone("Asia/Kolkata")
+
+    scheduler = BackgroundScheduler(timezone=ist)
+
+    scheduler.add_job(
+        place_nifty_straddle_0920,
+        trigger="cron",
+        day_of_week="mon-sun",
+        hour=9,
+        minute=20,
+        id="nifty_0920_straddle",
+    )
+
+    scheduler.start()
+    print("Scheduled NIFTY 09DEC25 ATM Straddle for 09:20 IST (Mon–Sun).")
+
+    return scheduler
+
+
+if __name__ == "__main__":
+    scheduler = schedule_straddle()
+
+    # Keep script alive
+    try:
+        while True:
+            time.sleep(1)
+    except (KeyboardInterrupt, SystemExit):
+        scheduler.shutdown()

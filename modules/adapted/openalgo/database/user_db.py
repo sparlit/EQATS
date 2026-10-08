@@ -1,0 +1,287 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+# database/user_db.py
+
+import os
+
+import pyotp
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
+from sqlalchemy import Boolean, Column, Integer, String, create_engine
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy.pool import NullPool
+from utils.logging import get_logger
+from utils.thread_safe_cache import MISSING, LockedTTLCache
+
+logger = get_logger(__name__)
+
+# Initialize Argon2 hasher
+ph = PasswordHasher()
+
+# Database connection details
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Security: Require API_KEY_PEPPER environment variable (fail fast if missing)
+# Pepper must be at least 32 bytes (64 hex characters) for cryptographic security
+_pepper_value = os.getenv("API_KEY_PEPPER")
+if not _pepper_value:
+    raise RuntimeError(
+        "CRITICAL: API_KEY_PEPPER environment variable is not set. "
+        "This is required for secure password hashing. "
+        'Generate one using: python -c "import secrets; print(secrets.token_hex(32))"'
+    )
+if len(_pepper_value) < 32:
+    raise RuntimeError(
+        f"CRITICAL: API_KEY_PEPPER must be at least 32 characters (got {len(_pepper_value)}). "
+        'Generate a secure pepper using: python -c "import secrets; print(secrets.token_hex(32))"'
+    )
+PASSWORD_PEPPER = _pepper_value
+
+# Engine and session setup
+# Conditionally create engine based on DB type
+if DATABASE_URL and "sqlite" in DATABASE_URL:
+    # SQLite: Use NullPool to prevent connection pool exhaustion
+    engine = create_engine(
+        DATABASE_URL, echo=False, poolclass=NullPool, connect_args={"check_same_thread": False}
+    )
+else:
+    # For other databases like PostgreSQL, use connection pooling
+    engine = create_engine(
+        DATABASE_URL, echo=False, pool_size=50, max_overflow=100, pool_timeout=10
+    )
+db_session = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
+Base = declarative_base()
+Base.query = db_session.query_property()
+
+# Define a cache for the usernames with a max size and a 30-second TTL
+username_cache = LockedTTLCache(maxsize=1024, ttl=30)
+
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True)
+    username = Column(String(80), unique=True, nullable=False)
+    email = Column(String(120), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)  # Increased length for Argon2 hash
+    # Widened from 32 -> 255 to fit Fernet ciphertext (~100 chars).
+    # SQLite ignores VARCHAR length so existing rows are unaffected; the
+    # change matters only on Postgres/MySQL.
+    totp_secret = Column(String(255), nullable=False)  # Fernet-encrypted at rest
+    is_admin = Column(Boolean, default=False)
+
+    # ----- 2FA (TOTP) controls -----
+    # ``totp_enabled`` is the master switch. When False, every per-purpose
+    # flag below is ignored and the install behaves exactly as it did
+    # before this feature landed (password-only login, existing reset
+    # options, no extra MCP gate). When True, the user picks which
+    # purposes the second factor applies to.
+    #
+    # Defaults are False so existing installs are not silently locked out.
+    # The settings UI surfaces the three purpose toggles together when the
+    # master is on; flipping master off does NOT clear the purpose flags
+    # so the user's preferences are remembered if they re-enable later.
+    totp_enabled = Column(Boolean, default=False, nullable=False)
+    totp_required_for_login = Column(Boolean, default=False, nullable=False)
+    totp_required_for_mcp = Column(Boolean, default=False, nullable=False)
+    totp_required_for_password_reset = Column(Boolean, default=False, nullable=False)
+
+    def is_totp_required_for(self, purpose: str) -> bool:
+        """Return True if 2FA is enabled AND required for this purpose.
+
+        ``purpose`` must be one of: ``"login"``, ``"mcp"``,
+        ``"password_reset"``. Unknown purposes return False (fail-open
+        for purposes the caller hasn't explicitly opted in — defense
+        against drift between callers and config).
+        """
+        if not self.totp_enabled:
+            return False
+        flag = {
+            "login": self.totp_required_for_login,
+            "mcp": self.totp_required_for_mcp,
+            "password_reset": self.totp_required_for_password_reset,
+        }.get(purpose, False)
+        return bool(flag)
+
+    def get_totp_secret(self):
+        """Return the user's TOTP secret in plaintext.
+
+        Encrypted-at-rest with auth_db Fernet (PBKDF2 over API_KEY_PEPPER).
+        Pre-migration plaintext rows are transparently handled by
+        safe_decrypt_token's fallback. This is the only correct way to read
+        the secret — never use ``self.totp_secret`` directly outside this
+        class, since that returns the raw column value (ciphertext or stale
+        plaintext).
+        """
+        from database.auth_db import safe_decrypt_token
+
+        return safe_decrypt_token(self.totp_secret) or self.totp_secret
+
+    def set_password(self, password):
+        """Hash password using Argon2 with pepper"""
+        peppered_password = password + PASSWORD_PEPPER
+        self.password_hash = ph.hash(peppered_password)
+
+    def check_password(self, password):
+        """Verify password using Argon2 with pepper"""
+        peppered_password = password + PASSWORD_PEPPER
+        try:
+            ph.verify(self.password_hash, peppered_password)
+            # Check if the hash needs to be updated
+            if ph.check_needs_rehash(self.password_hash):
+                self.set_password(password)
+                db_session.commit()
+            return True
+        except VerifyMismatchError:
+            return False
+
+    def get_totp_uri(self):
+        """Get the TOTP URI for QR code generation"""
+        return pyotp.totp.TOTP(self.get_totp_secret()).provisioning_uri(
+            name=self.email, issuer_name="OpenAlgo"
+        )
+
+    def verify_totp(self, token):
+        """Verify TOTP token"""
+        totp = pyotp.TOTP(self.get_totp_secret())
+        return totp.verify(token)
+
+
+def init_db():
+    """Initialize the user database tables.
+
+    Creates the ``users`` table if it does not already exist,
+    using the shared ``db_init_helper`` for consistent startup
+    logging.
+    """
+    from database.db_init_helper import init_db_with_logging
+
+    init_db_with_logging(Base, engine, "User DB", logger)
+
+
+def add_user(username, email, password, is_admin=False):
+    """Create a new user with a securely hashed password.
+
+    Hashes the provided password, generates a two-factor authentication
+    secret, and persists the new user record to the database.
+
+    Args:
+        username: Unique username for the new account.
+        email: Unique email address for the new account.
+        password: Plaintext password (will be hashed before storage).
+        is_admin: Whether the user should have administrator privileges.
+
+    Returns:
+        The newly created ``User`` instance on success, or ``None``
+        if a user with the same username or email already exists.
+    """
+    try:
+        # Generate TOTP secret and store it encrypted at rest using the
+        # auth_db Fernet (same pattern used for broker tokens, API keys).
+        # See _totp_plaintext() for the read path.
+        from database.auth_db import encrypt_token
+
+        totp_secret = pyotp.random_base32()
+        user = User(
+            username=username,
+            email=email,
+            totp_secret=encrypt_token(totp_secret),
+            is_admin=is_admin,
+        )
+        user.set_password(password)
+        db_session.add(user)
+        db_session.commit()
+        return user  # Return the user object instead of True
+    except IntegrityError:
+        db_session.rollback()
+        return None  # Return None instead of False
+
+
+def _password_matches(password_hash, password) -> bool:
+    """Verify ``password`` against a stored Argon2 hash, as check_password does."""
+    try:
+        ph.verify(password_hash, password + PASSWORD_PEPPER)
+        return True
+    except VerifyMismatchError:
+        return False
+
+
+def authenticate_user(username, password):
+    """Authenticate user with Argon2 hashed password.
+
+    A successful login caches the user's password hash for a few seconds, not
+    the ``User`` row. A cached row belongs to the scoped session of the thread
+    that loaded it; once that session is removed at request teardown, reading
+    its ``password_hash`` from another request can raise DetachedInstanceError
+    or refresh through a session that is not its own.
+    """
+    cache_key = f"user-{username}"
+    cached_hash = username_cache.get(cache_key, MISSING)
+    if cached_hash is not MISSING:
+        if isinstance(cached_hash, str) and _password_matches(cached_hash, password):
+            return True
+        username_cache.pop(cache_key, None)  # Remove invalid cache entry
+        return False
+
+    generation = username_cache.generation
+    user = User.query.filter_by(username=username).first()
+    if user and user.check_password(password):
+        username_cache.fill(cache_key, user.password_hash, generation)
+        return True
+    return False
+
+
+def find_user_by_email(email):
+    """Find user by email for password reset"""
+    return User.query.filter_by(email=email).first()
+
+
+def find_user_by_username():
+    """Find admin user"""
+    return User.query.filter_by(is_admin=True).first()
+
+
+def find_user_by_exact_username(username):
+    """Look up a user by exact username match. Returns None if not found."""
+    if not username:
+        return None
+    return User.query.filter_by(username=username).first()
+
+
+def rehash_all_passwords():
+    """
+    Utility function to rehash all existing passwords with Argon2.
+    This should be called once when upgrading from the old hashing method.
+    Requires knowing the original passwords or having users reset them.
+    """
+    users = User.query.all()
+    for user in users:
+        if user.password_hash.startswith("pbkdf2:sha256"):  # Old Werkzeug format
+            # At this point, you would either:
+            # 1. Have users reset their passwords
+            # 2. Or if you have access to original passwords (during migration):
+            #    user.set_password(original_password)
+            pass
+    db_session.commit()

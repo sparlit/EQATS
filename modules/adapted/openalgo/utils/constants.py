@@ -1,0 +1,222 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""
+Constants used throughout the application.
+Reference: https://docs.openalgo.in/api-documentation/v1/order-constants
+"""
+
+# Exchange Types
+EXCHANGE_NSE = "NSE"  # NSE Equity
+EXCHANGE_NFO = "NFO"  # NSE Futures & Options
+EXCHANGE_CDS = "CDS"  # NSE Currency
+EXCHANGE_BSE = "BSE"  # BSE Equity
+EXCHANGE_BFO = "BFO"  # BSE Futures & Options
+EXCHANGE_BCD = "BCD"  # BSE Currency
+EXCHANGE_MCX = "MCX"  # MCX Commodity
+EXCHANGE_NCDEX = "NCDEX"  # NCDEX Commodity
+EXCHANGE_NCO = "NCO"  # NSE Commodities (futures + options)
+EXCHANGE_NSE_INDEX = "NSE_INDEX"  # NSE Index
+EXCHANGE_BSE_INDEX = "BSE_INDEX"  # BSE Index
+EXCHANGE_MCX_INDEX = "MCX_INDEX"  # MCX Index (declared by Angel + Zerodha plugins)
+EXCHANGE_GLOBAL_INDEX = "GLOBAL_INDEX"  # Global indices (US30, JAPAN225, HANGSENG, GIFTNIFTY, etc.)
+EXCHANGE_CRYPTO = "CRYPTO"  # Crypto Exchanges (broker-agnostic; brexchange carries broker name)
+
+# Set of all crypto-family exchanges.
+# Use `exchange in CRYPTO_EXCHANGES` instead of `exchange == "CRYPTO"` so that
+# onboarding a second crypto exchange (e.g. BINANCE, BYBIT) is a one-line change here.
+CRYPTO_EXCHANGES: set[str] = {EXCHANGE_CRYPTO}
+
+# Set of broker names that map to crypto exchanges.
+# Used to select the correct download cutoff timezone (UTC vs IST).
+# Add new crypto brokers here — the smart download logic picks this up automatically.
+CRYPTO_BROKERS: set[str] = {"deltaexchange"}
+
+# Instrument type for crypto perpetual futures (used in symbol DB queries).
+INSTRUMENT_PERPFUT: str = "PERPFUT"
+
+# Default quote-currency suffix for crypto perpetual instruments.
+# e.g. BTCUSDT = BTC + CRYPTO_QUOTE_CURRENCY — update here if/when USDC or INR is added.
+CRYPTO_QUOTE_CURRENCY: str = "USDT"
+
+# Set of all derivative-capable exchanges (FNO + Crypto).
+# Use `exchange in FNO_EXCHANGES` instead of maintaining local sets in each service.
+# Adding a new exchange family is a one-line change here.
+FNO_EXCHANGES: set[str] = {
+    EXCHANGE_NFO,
+    EXCHANGE_BFO,
+    EXCHANGE_MCX,
+    EXCHANGE_CDS,
+    EXCHANGE_BCD,
+    EXCHANGE_NCDEX,
+    EXCHANGE_NCO,
+} | CRYPTO_EXCHANGES
+
+VALID_EXCHANGES = [
+    EXCHANGE_NSE,
+    EXCHANGE_NFO,
+    EXCHANGE_CDS,
+    EXCHANGE_BSE,
+    EXCHANGE_BFO,
+    EXCHANGE_BCD,
+    EXCHANGE_MCX,
+    EXCHANGE_NCDEX,
+    EXCHANGE_NCO,
+    EXCHANGE_NSE_INDEX,
+    EXCHANGE_BSE_INDEX,
+    EXCHANGE_MCX_INDEX,
+    EXCHANGE_GLOBAL_INDEX,
+    EXCHANGE_CRYPTO,
+]
+
+# Product Types
+PRODUCT_CNC = "CNC"  # Cash & Carry for equity
+PRODUCT_NRML = "NRML"  # Normal for futures and options
+PRODUCT_MIS = "MIS"  # Intraday Square off
+
+VALID_PRODUCT_TYPES = [PRODUCT_CNC, PRODUCT_NRML, PRODUCT_MIS]
+
+# Price Types
+PRICE_TYPE_MARKET = "MARKET"  # Market Order
+PRICE_TYPE_LIMIT = "LIMIT"  # Limit Order
+PRICE_TYPE_SL = "SL"  # Stop Loss Limit Order
+PRICE_TYPE_SLM = "SL-M"  # Stop Loss Market Order
+
+VALID_PRICE_TYPES = [PRICE_TYPE_MARKET, PRICE_TYPE_LIMIT, PRICE_TYPE_SL, PRICE_TYPE_SLM]
+
+# Order Actions
+ACTION_BUY = "BUY"  # Buy
+ACTION_SELL = "SELL"  # Sell
+
+VALID_ACTIONS = [ACTION_BUY, ACTION_SELL]
+
+# Exchange Badge Colors (for UI)
+EXCHANGE_BADGE_COLORS = {
+    EXCHANGE_NSE: "badge-accent",
+    EXCHANGE_NFO: "badge-secondary",
+    EXCHANGE_CDS: "badge-info",
+    EXCHANGE_BSE: "badge-neutral",
+    EXCHANGE_BFO: "badge-warning",
+    EXCHANGE_BCD: "badge-error",
+    EXCHANGE_MCX: "badge-primary",
+    EXCHANGE_NCDEX: "badge-success",
+    EXCHANGE_NCO: "badge-success",
+    EXCHANGE_NSE_INDEX: "badge-accent",
+    EXCHANGE_BSE_INDEX: "badge-neutral",
+    EXCHANGE_MCX_INDEX: "badge-primary",
+    EXCHANGE_GLOBAL_INDEX: "badge-info",
+    EXCHANGE_CRYPTO: "badge-primary",
+}
+
+# Required Fields for Order Placement
+REQUIRED_ORDER_FIELDS = ["apikey", "strategy", "symbol", "exchange", "action", "quantity"]
+
+# Required Fields for Smart Order Placement
+REQUIRED_SMART_ORDER_FIELDS = [
+    "apikey",
+    "strategy",
+    "symbol",
+    "exchange",
+    "action",
+    "quantity",
+    "position_size",
+]
+
+# Required Fields for Cancel Order
+REQUIRED_CANCEL_ORDER_FIELDS = ["apikey", "strategy", "orderid"]
+
+# Required Fields for Cancel All Orders
+REQUIRED_CANCEL_ALL_ORDER_FIELDS = ["apikey", "strategy"]
+
+# Required Fields for Close Position
+REQUIRED_CLOSE_POSITION_FIELDS = ["apikey", "strategy"]
+
+# Required Fields for Modify Order
+REQUIRED_MODIFY_ORDER_FIELDS = [
+    "apikey",
+    "strategy",
+    "symbol",
+    "action",
+    "exchange",
+    "orderid",
+    "product",
+    "pricetype",
+    "price",
+    "quantity",
+    "disclosed_quantity",
+    "trigger_price",
+]
+
+# Every interval the history API accepts, and therefore the only ones any
+# endpoint may advertise.
+#
+# Two endpoints have to agree about this and did not. `/api/v1/history`
+# validates against this list, while `/api/v1/intervals` advertised whatever
+# keys the broker's own timeframe map happened to hold. A broker map often
+# carries an alias for a resolution it already has: Zerodha maps both "60m" and
+# "1h" to Kite's "60minute". So `/intervals` offered "60m", the chart put it in
+# its timeframe dropdown, a user picked it, and every history request from then
+# on returned 400.
+#
+# That failure is worse than it sounds, because the choice is remembered. The
+# chart reloads, asks for the same rejected interval, fails again, and shows no
+# symbol and no bars, so there is no obvious way back to a working state.
+#
+# An alias outside this set stays usable as input to a broker module; it is
+# simply never offered. `services.intervals_service` filters on it.
+SUPPORTED_INTERVALS = [
+    # Seconds
+    "1s",
+    "5s",
+    "10s",
+    "15s",
+    "30s",
+    "45s",
+    # Minutes
+    "1m",
+    "2m",
+    "3m",
+    "5m",
+    "10m",
+    "15m",
+    "20m",
+    "30m",
+    # Hours
+    "1h",
+    "2h",
+    "3h",
+    "4h",
+    # Daily and longer
+    "D",
+    "W",
+    "M",
+    "Q",
+    "Y",
+]
+
+# Default Values for Optional Fields
+DEFAULT_PRODUCT_TYPE = PRODUCT_MIS
+DEFAULT_PRICE_TYPE = PRICE_TYPE_MARKET
+DEFAULT_PRICE = "0"
+DEFAULT_TRIGGER_PRICE = "0"
+DEFAULT_DISCLOSED_QUANTITY = "0"

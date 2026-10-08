@@ -1,0 +1,360 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+# blueprints/broker_credentials.py
+"""
+Broker credentials management API.
+Handles reading and updating broker credentials in the .env file.
+"""
+
+import os
+import re
+
+from flask import Blueprint, jsonify, request
+from utils.env_check import update_env_values
+from utils.logging import get_logger
+from utils.session import check_session_validity
+
+logger = get_logger(__name__)
+
+broker_credentials_bp = Blueprint("broker_credentials_bp", __name__, url_prefix="/api/broker")
+
+
+def get_env_path():
+    """Get the absolute path to the .env file."""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.normpath(os.path.join(base_dir, "..", ".env"))
+
+
+def get_env_value(key: str) -> str:
+    """Get a value from the .env file."""
+    return os.getenv(key, "")
+
+
+def mask_secret(value: str, show_chars: int = 4) -> str:
+    """Mask a secret value, showing only the first few characters.
+
+    Returns a FIXED-length output (``prefix + '*' * 8``) regardless of the
+    original secret's length. This intentionally hides the secret's true
+    length so an over-the-shoulder viewer (or a screenshot) cannot infer
+    "this is a 64-char Zerodha API secret" vs "this is a 32-char Fyers
+    secret" from the asterisk count.
+
+    The fixed-length mask also keeps the rendered value bounded so a long
+    secret (some brokers issue 80+ char tokens) cannot overflow the
+    Profile UI's column layout — the bug originally reported in the
+    Current Configuration card where the asterisks ran past the right
+    edge of the card.
+
+    For empty values, returns "" so the frontend can detect "not set" and
+    show its placeholder copy.
+    """
+    if not value:
+        return ""
+    if len(value) <= show_chars:
+        # Edge case: secret shorter than the prefix budget. Show only the
+        # mask suffix to avoid revealing the entire short value.
+        return "*" * 8
+    return value[:show_chars] + "*" * 8
+
+
+def get_broker_from_redirect_url(redirect_url: str) -> str:
+    """Extract broker name from redirect URL."""
+    try:
+        match = re.search(r"/([^/]+)/callback$", redirect_url)
+        if match:
+            return match.group(1).lower()
+    except Exception:
+        pass
+    return ""
+
+
+@broker_credentials_bp.route("/credentials", methods=["GET"])
+@check_session_validity
+def get_credentials():
+    """Get current broker credentials (masked)."""
+    try:
+        # Get current values from environment
+        broker_api_key = get_env_value("BROKER_API_KEY")
+        broker_api_secret = get_env_value("BROKER_API_SECRET")
+        broker_api_key_market = get_env_value("BROKER_API_KEY_MARKET")
+        broker_api_secret_market = get_env_value("BROKER_API_SECRET_MARKET")
+        redirect_url = get_env_value("REDIRECT_URL")
+        valid_brokers = get_env_value("VALID_BROKERS")
+        ngrok_allow = get_env_value("NGROK_ALLOW")
+        host_server = get_env_value("HOST_SERVER")
+        websocket_url = get_env_value("WEBSOCKET_URL")
+
+        # Get port configuration
+        flask_host = get_env_value("FLASK_HOST_IP") or "127.0.0.1"
+        flask_port = get_env_value("FLASK_PORT") or "5000"
+        websocket_host = get_env_value("WEBSOCKET_HOST") or "127.0.0.1"
+        websocket_port = get_env_value("WEBSOCKET_PORT") or "8765"
+        zmq_host = get_env_value("ZMQ_HOST") or "127.0.0.1"
+        zmq_port = get_env_value("ZMQ_PORT") or "5555"
+
+        # Get current broker from redirect URL
+        current_broker = get_broker_from_redirect_url(redirect_url)
+
+        # Parse valid brokers list
+        brokers_list = [b.strip() for b in valid_brokers.split(",") if b.strip()]
+
+        return jsonify(
+            {
+                "status": "success",
+                "data": {
+                    "broker_api_key": mask_secret(broker_api_key, 6),
+                    "broker_api_key_raw_length": len(broker_api_key),
+                    "broker_api_secret": mask_secret(broker_api_secret, 4),
+                    "broker_api_secret_raw_length": len(broker_api_secret),
+                    "broker_api_key_market": mask_secret(broker_api_key_market, 6),
+                    "broker_api_key_market_raw_length": len(broker_api_key_market),
+                    "broker_api_secret_market": mask_secret(broker_api_secret_market, 4),
+                    "broker_api_secret_market_raw_length": len(broker_api_secret_market),
+                    "redirect_url": redirect_url,
+                    "current_broker": current_broker,
+                    "valid_brokers": brokers_list,
+                    "ngrok_allow": ngrok_allow.upper() == "TRUE",
+                    "host_server": host_server,
+                    "websocket_url": websocket_url,
+                    # Server status info
+                    "server_status": {
+                        "flask": {"host": flask_host, "port": flask_port},
+                        "websocket": {"host": websocket_host, "port": websocket_port},
+                        "zmq": {"host": zmq_host, "port": zmq_port},
+                    },
+                },
+            }
+        )
+    except Exception as e:
+        logger.exception(f"Error getting broker credentials: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@broker_credentials_bp.route("/credentials", methods=["POST"])
+@check_session_validity
+def update_credentials():
+    """Update broker credentials in .env file."""
+    try:
+        # Support both JSON and form data
+        if request.is_json:
+            data = request.get_json() or {}
+            broker_api_key = data.get("broker_api_key", "").strip()
+            broker_api_secret = data.get("broker_api_secret", "").strip()
+            broker_api_key_market = data.get("broker_api_key_market", "").strip()
+            broker_api_secret_market = data.get("broker_api_secret_market", "").strip()
+            redirect_url = data.get("redirect_url", "").strip()
+            ngrok_allow = data.get("ngrok_allow", "")
+            host_server = data.get("host_server", "").strip()
+            websocket_url = data.get("websocket_url", "").strip()
+            has_ngrok_key = "ngrok_allow" in data
+        else:
+            # Form data
+            broker_api_key = request.form.get("broker_api_key", "").strip()
+            broker_api_secret = request.form.get("broker_api_secret", "").strip()
+            broker_api_key_market = request.form.get("broker_api_key_market", "").strip()
+            broker_api_secret_market = request.form.get("broker_api_secret_market", "").strip()
+            redirect_url = request.form.get("redirect_url", "").strip()
+            ngrok_allow = request.form.get("ngrok_allow", "").strip()
+            host_server = request.form.get("host_server", "").strip()
+            websocket_url = request.form.get("websocket_url", "").strip()
+            has_ngrok_key = "ngrok_allow" in request.form
+
+        # Validate redirect URL format
+        if redirect_url:
+            if not re.match(r"^https?://.+/[^/]+/callback$", redirect_url):
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": "Invalid redirect URL format. Must end with /<broker>/callback",
+                    }
+                ), 400
+
+            # Validate broker name
+            broker_name = get_broker_from_redirect_url(redirect_url)
+            valid_brokers_str = get_env_value("VALID_BROKERS")
+            valid_brokers = {b.strip().lower() for b in valid_brokers_str.split(",") if b.strip()}
+
+            if broker_name and broker_name not in valid_brokers:
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": f"Invalid broker '{broker_name}'. Valid brokers: {', '.join(sorted(valid_brokers))}",
+                    }
+                ), 400
+
+            # Validate broker-specific API key formats
+            if broker_name == "fivepaisa" and broker_api_key:
+                if ":::" not in broker_api_key or broker_api_key.count(":::") != 2:
+                    return jsonify(
+                        {
+                            "status": "error",
+                            "message": "5paisa API key must be in format: 'User_Key:::User_ID:::client_id'",
+                        }
+                    ), 400
+
+            elif broker_name == "flattrade" and broker_api_key:
+                if ":::" not in broker_api_key or broker_api_key.count(":::") != 1:
+                    return jsonify(
+                        {
+                            "status": "error",
+                            "message": "Flattrade API key must be in format: 'client_id:::api_key'",
+                        }
+                    ), 400
+
+            elif broker_name == "dhan" and broker_api_key:
+                if ":::" not in broker_api_key or broker_api_key.count(":::") != 1:
+                    return jsonify(
+                        {
+                            "status": "error",
+                            "message": "Dhan API key must be in format: 'client_id:::api_key'",
+                        }
+                    ), 400
+
+        env_path = get_env_path()
+        if not os.path.exists(env_path):
+            return jsonify(
+                {
+                    "status": "error",
+                    "message": "Failed to read .env file: Environment file not found",
+                }
+            ), 500
+
+        # Collect the new values (only if provided - empty string means keep
+        # existing). Nothing is written until every value has been validated,
+        # and then all of them go to .env in one locked read-modify-write.
+        updates = {}
+
+        if broker_api_key:
+            updates["BROKER_API_KEY"] = broker_api_key
+
+        if broker_api_secret:
+            updates["BROKER_API_SECRET"] = broker_api_secret
+
+        if broker_api_key_market:
+            updates["BROKER_API_KEY_MARKET"] = broker_api_key_market
+
+        if broker_api_secret_market:
+            updates["BROKER_API_SECRET_MARKET"] = broker_api_secret_market
+
+        if redirect_url:
+            updates["REDIRECT_URL"] = redirect_url
+
+        # Check for ngrok_allow by key presence, not value truthiness
+        # This allows setting it to FALSE (disabling ngrok)
+        if has_ngrok_key:
+            ngrok_allow_str = str(ngrok_allow).strip().upper()
+            ngrok_value = "TRUE" if ngrok_allow_str == "TRUE" else "FALSE"
+            updates["NGROK_ALLOW"] = ngrok_value
+
+        if host_server:
+            # Validate host_server URL format
+            if not re.match(r"^https?://.+", host_server):
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": "Invalid HOST_SERVER format. Must start with http:// or https://",
+                    }
+                ), 400
+            updates["HOST_SERVER"] = host_server
+
+        if websocket_url:
+            # Validate websocket_url format
+            if not re.match(r"^wss?://.+", websocket_url):
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": "Invalid WEBSOCKET_URL format. Must start with ws:// or wss://",
+                    }
+                ), 400
+            updates["WEBSOCKET_URL"] = websocket_url
+
+        if not updates:
+            return jsonify({"status": "error", "message": "No credentials provided to update"}), 400
+
+        updated_fields = list(updates)
+
+        # A line break inside a value would start a new line in .env, which
+        # corrupts it or smuggles in another setting, so it is refused here.
+        for key, value in updates.items():
+            if "\n" in value or "\r" in value:
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": f"The value for {key} contains a line break. "
+                        "Paste it again as a single line.",
+                    }
+                ), 400
+
+        # Write every value in one read-modify-write under the lock all .env
+        # writers share, through an atomic replace. Two saves at once used to
+        # read the same file and the second write dropped the first one's
+        # values, and a save interrupted mid-write left .env truncated.
+        try:
+            update_env_values(env_path, updates)
+            logger.info(f"Updated broker credentials: {', '.join(updated_fields)}")
+        except Exception as e:
+            logger.exception(f"Error writing .env file: {e}")
+            return jsonify({"status": "error", "message": f"Failed to write .env file: {e}"}), 500
+
+        return jsonify(
+            {
+                "status": "success",
+                "message": f"Credentials updated successfully. Updated: {', '.join(updated_fields)}",
+                "updated_fields": updated_fields,
+                "restart_required": True,
+            }
+        )
+
+    except Exception as e:
+        logger.exception(f"Error updating broker credentials: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@broker_credentials_bp.route("/capabilities", methods=["GET"])
+@check_session_validity
+def get_capabilities():
+    """Return broker capabilities (supported exchanges, type, features) from cached plugin.json."""
+    from flask import session
+    from utils.plugin_loader import get_broker_capabilities
+
+    broker = session.get("broker")
+    if not broker:
+        return jsonify({"status": "error", "message": "No broker in session"}), 400
+
+    capabilities = get_broker_capabilities(broker)
+    if not capabilities:
+        # Fallback for brokers without plugin.json capabilities
+        return jsonify(
+            {
+                "status": "success",
+                "data": {
+                    "broker_name": broker,
+                    "broker_type": "IN_stock",
+                    "supported_exchanges": [],
+                    "leverage_config": False,
+                },
+            }
+        )
+
+    return jsonify({"status": "success", "data": capabilities})

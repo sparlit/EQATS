@@ -1,0 +1,361 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+from database.token_db import get_oa_symbol, get_symbol
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+def _to_float(value, default=0.0):
+    """Angel's SmartAPI returns numeric fields (netqty, avgnetprice, ltp, pnl, ...)
+    as JSON strings. Coerce to float so downstream arithmetic (e.g. summing P&L)
+    doesn't silently fall back to string concatenation.
+    """
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _to_int(value, default=0):
+    return int(_to_float(value, default))
+
+
+def map_order_data(order_data):
+    """
+    Processes and modifies a list of order dictionaries based on specific conditions.
+
+    Parameters:
+    - order_data: A list of dictionaries, where each dictionary represents an order.
+
+    Returns:
+    - The modified order_data with updated 'tradingsymbol' and 'product' fields.
+    """
+    # Check if order_data is empty or doesn't have 'data' key
+    if not order_data or "data" not in order_data or order_data["data"] is None:
+        # Handle the case where there is no data
+        # For example, you might want to display a message to the user
+        # or pass an empty list or dictionary to the template.
+        logger.info("No data available.")
+        order_data = []  # Return empty list as the functions expect a list
+    else:
+        order_data = order_data["data"]
+        logger.info(f"{order_data}")
+
+    if order_data:
+        for order in order_data:
+            # Extract the instrument_token and exchange for the current order
+            symboltoken = order["symboltoken"]
+            exchange = order["exchange"]
+
+            # Use the get_symbol function to fetch the symbol from the database
+            symbol_from_db = get_symbol(symboltoken, exchange)
+
+            # Check if a symbol was found; if so, update the trading_symbol in the current order
+            if symbol_from_db:
+                order["tradingsymbol"] = symbol_from_db
+                if (order["exchange"] == "NSE" or order["exchange"] == "BSE") and order[
+                    "producttype"
+                ] == "DELIVERY":
+                    order["producttype"] = "CNC"
+
+                elif order["producttype"] == "INTRADAY":
+                    order["producttype"] = "MIS"
+
+                elif (
+                    order["exchange"] in ["NFO", "MCX", "BFO", "CDS"]
+                    and order["producttype"] == "CARRYFORWARD"
+                ):
+                    order["producttype"] = "NRML"
+            else:
+                logger.info(
+                    f"Symbol not found for token {symboltoken} and exchange {exchange}. Keeping original trading symbol."
+                )
+
+    return order_data
+
+
+def calculate_order_statistics(order_data):
+    """
+    Calculates statistics from order data, including totals for buy orders, sell orders,
+    completed orders, open orders, and rejected orders.
+
+    Parameters:
+    - order_data: A list of dictionaries, where each dictionary represents an order.
+
+    Returns:
+    - A dictionary containing counts of different types of orders.
+    """
+    # Initialize counters
+    total_buy_orders = total_sell_orders = 0
+    total_completed_orders = total_open_orders = total_rejected_orders = 0
+
+    if order_data:
+        for order in order_data:
+            # Count buy and sell orders
+            if order["transactiontype"] == "BUY":
+                total_buy_orders += 1
+            elif order["transactiontype"] == "SELL":
+                total_sell_orders += 1
+
+            # Count orders based on their status
+            if order["status"] == "complete":
+                total_completed_orders += 1
+            elif order["status"] == "open":
+                total_open_orders += 1
+            elif order["status"] == "rejected":
+                total_rejected_orders += 1
+
+    # Compile and return the statistics
+    return {
+        "total_buy_orders": total_buy_orders,
+        "total_sell_orders": total_sell_orders,
+        "total_completed_orders": total_completed_orders,
+        "total_open_orders": total_open_orders,
+        "total_rejected_orders": total_rejected_orders,
+    }
+
+
+def transform_order_data(orders):
+    # Directly handling a dictionary assuming it's the structure we expect
+    if isinstance(orders, dict):
+        # Convert the single dictionary into a list of one dictionary
+        orders = [orders]
+
+    transformed_orders = []
+
+    for order in orders:
+        # Make sure each item is indeed a dictionary
+        if not isinstance(order, dict):
+            logger.warning(
+                f"Warning: Expected a dict, but found a {type(order)}. Skipping this item."
+            )
+            continue
+
+        ordertype = order.get("ordertype", "")
+        if ordertype == "STOPLOSS_LIMIT":
+            ordertype = "SL"
+        if ordertype == "STOPLOSS_MARKET":
+            ordertype = "SL-M"
+
+        transformed_order = {
+            "symbol": order.get("tradingsymbol", ""),
+            "exchange": order.get("exchange", ""),
+            "action": order.get("transactiontype", ""),
+            "quantity": order.get("quantity", 0),
+            "price": order.get("averageprice", 0.0) or order.get("price", 0.0),
+            "trigger_price": order.get("triggerprice", 0.0),
+            "pricetype": ordertype,
+            "product": order.get("producttype", ""),
+            "orderid": order.get("orderid", ""),
+            "order_status": order.get("status", ""),
+            "timestamp": order.get("updatetime", ""),
+        }
+
+        transformed_orders.append(transformed_order)
+
+    return transformed_orders
+
+
+def map_trade_data(trade_data):
+    """
+    Processes and modifies a list of order dictionaries based on specific conditions.
+
+    Parameters:
+    - order_data: A list of dictionaries, where each dictionary represents an order.
+
+    Returns:
+    - The modified order_data with updated 'tradingsymbol' and 'product' fields.
+    """
+    # Check if 'data' is None
+    if trade_data["data"] is None:
+        # Handle the case where there is no data
+        # For example, you might want to display a message to the user
+        # or pass an empty list or dictionary to the template.
+        logger.info("No data available.")
+        trade_data = {}  # or set it to an empty list if it's supposed to be a list
+    else:
+        trade_data = trade_data["data"]
+
+    if trade_data:
+        for order in trade_data:
+            # Extract the instrument_token and exchange for the current order
+            symbol = order["tradingsymbol"]
+            exchange = order["exchange"]
+
+            # Use the get_symbol function to fetch the symbol from the database
+            symbol_from_db = get_oa_symbol(symbol, exchange)
+
+            # Check if a symbol was found; if so, update the trading_symbol in the current order
+            if symbol_from_db:
+                order["tradingsymbol"] = symbol_from_db
+                if (order["exchange"] == "NSE" or order["exchange"] == "BSE") and order[
+                    "producttype"
+                ] == "DELIVERY":
+                    order["producttype"] = "CNC"
+
+                elif order["producttype"] == "INTRADAY":
+                    order["producttype"] = "MIS"
+
+                elif (
+                    order["exchange"] in ["NFO", "MCX", "BFO", "CDS"]
+                    and order["producttype"] == "CARRYFORWARD"
+                ):
+                    order["producttype"] = "NRML"
+            else:
+                logger.info(
+                    f"Unable to find the symbol {symbol} and exchange {exchange}. Keeping original trading symbol."
+                )
+
+    return trade_data
+
+
+def transform_tradebook_data(tradebook_data):
+    transformed_data = []
+    for trade in tradebook_data:
+        transformed_trade = {
+            "symbol": trade.get("tradingsymbol", ""),
+            "exchange": trade.get("exchange", ""),
+            "product": trade.get("producttype", ""),
+            "action": trade.get("transactiontype", ""),
+            "quantity": trade.get("quantity", 0),
+            "average_price": trade.get("fillprice", 0.0),
+            "trade_value": trade.get("tradevalue", 0),
+            "orderid": trade.get("orderid", ""),
+            "timestamp": trade.get("filltime", ""),
+        }
+        transformed_data.append(transformed_trade)
+    return transformed_data
+
+
+def map_position_data(position_data):
+    return map_order_data(position_data)
+
+
+def transform_positions_data(positions_data):
+    transformed_data = []
+    for position in positions_data:
+        transformed_position = {
+            "symbol": position.get("tradingsymbol", ""),
+            "exchange": position.get("exchange", ""),
+            "product": position.get("producttype", ""),
+            "quantity": _to_int(position.get("netqty", 0)),
+            "average_price": _to_float(position.get("avgnetprice", 0.0)),
+            "ltp": _to_float(position.get("ltp", 0.0)),
+            "pnl": _to_float(position.get("pnl", 0.0)),
+        }
+        transformed_data.append(transformed_position)
+    return transformed_data
+
+
+def transform_holdings_data(holdings_data):
+    transformed_data = []
+    # An account with nothing in demat comes back as holdings: null, not [].
+    for holdings in (holdings_data or {}).get("holdings") or []:
+        transformed_position = {
+            "symbol": holdings.get("tradingsymbol", ""),
+            "exchange": holdings.get("exchange", ""),
+            "quantity": _to_int(holdings.get("quantity", 0)),
+            "product": holdings.get("product", ""),
+            # Angel reports both on every holding; dropping them left the
+            # holdings page showing a dash for average and LTP, and gave the
+            # portfolio analytics a zero investment value to weight by.
+            "average_price": _to_float(holdings.get("averageprice", 0.0)),
+            "ltp": _to_float(holdings.get("ltp", 0.0)),
+            "pnl": _to_float(holdings.get("profitandloss", 0.0)),
+            "pnlpercent": _to_float(holdings.get("pnlpercentage", 0.0)),
+        }
+        transformed_data.append(transformed_position)
+    return transformed_data
+
+
+def map_portfolio_data(portfolio_data):
+    """
+    Processes and modifies a list of Portfolio dictionaries based on specific conditions and
+    ensures both holdings and totalholding parts are transmitted in a single response.
+
+    Parameters:
+    - portfolio_data: A dictionary, where keys are 'holdings' and 'totalholding',
+                      and values are lists/dictionaries representing the portfolio information.
+
+    Returns:
+    - The modified portfolio_data with 'product' fields changed for 'holdings' and 'totalholding' included.
+    """
+    # Check if 'data' is None or doesn't contain 'holdings'
+    if portfolio_data.get("data") is None or "holdings" not in portfolio_data["data"]:
+        logger.info("No data available.")
+        # Shaped like a real -- but empty -- portfolio. Returning a bare {} made
+        # the callers downstream raise KeyError and turned "no holdings" into a
+        # 500 for every account with an empty demat.
+        return {"holdings": [], "totalholding": None}
+
+    # Directly work with 'data' for clarity and simplicity
+    data = portfolio_data["data"]
+
+    # Modify 'product' field for each holding if applicable
+    if data.get("holdings"):
+        for portfolio in data["holdings"]:
+            symbol = portfolio["tradingsymbol"]
+            exchange = portfolio["exchange"]
+            symbol_from_db = get_oa_symbol(symbol, exchange)
+
+            # Check if a symbol was found; if so, update the trading_symbol in the current order
+            if symbol_from_db:
+                portfolio["tradingsymbol"] = symbol_from_db
+            if portfolio.get("product") != "DELIVERY":
+                logger.info(
+                    "AngelOne Portfolio - unexpected product %r, mapping to CNC.",
+                    portfolio.get("product"),
+                )
+            # Holdings live in the demat account, so CNC regardless of what
+            # Angel labels them -- an unmapped value would not match any
+            # product OpenAlgo understands.
+            portfolio["product"] = "CNC"
+
+    # The function already works with 'data', which includes 'holdings' and 'totalholding',
+    # so we can return 'data' directly without additional modifications.
+    return data
+
+
+def calculate_portfolio_statistics(holdings_data):
+    if (holdings_data or {}).get("totalholding") is None:
+        totalholdingvalue = 0
+        totalinvvalue = 0
+        totalprofitandloss = 0
+        totalpnlpercentage = 0
+    else:
+        totalholding = holdings_data["totalholding"]
+        totalholdingvalue = _to_float(totalholding.get("totalholdingvalue", 0))
+        totalinvvalue = _to_float(totalholding.get("totalinvvalue", 0))
+        totalprofitandloss = _to_float(totalholding.get("totalprofitandloss", 0))
+
+        # Angel computes this itself, so there is no division to guard here.
+        totalpnlpercentage = _to_float(totalholding.get("totalpnlpercentage", 0))
+
+    return {
+        "totalholdingvalue": totalholdingvalue,
+        "totalinvvalue": totalinvvalue,
+        "totalprofitandloss": totalprofitandloss,
+        "totalpnlpercentage": totalpnlpercentage,
+    }

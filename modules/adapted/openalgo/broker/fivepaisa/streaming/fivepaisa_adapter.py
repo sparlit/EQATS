@@ -1,0 +1,893 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import os
+import re
+import sys
+import threading
+import time
+from collections import deque
+from datetime import datetime
+from typing import Any
+
+from broker.fivepaisa.streaming.fivepaisa_websocket import FivePaisaWebSocket
+from database.auth_db import get_auth_token
+from utils.logging import get_logger
+
+# Add parent directory to path to allow imports
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../"))
+
+from websocket_proxy.base_adapter import BaseBrokerWebSocketAdapter
+from websocket_proxy.mapping import SymbolMapper
+
+from .fivepaisa_mapping import FivePaisaCapabilityRegistry, FivePaisaExchangeMapper
+
+
+class FivepaisaWebSocketAdapter(BaseBrokerWebSocketAdapter):
+    """5Paisa-specific implementation of the WebSocket adapter"""
+
+    # Subscription batching: 5Paisa accepts an array of scrips per
+    # MarketFeedV3 / MarketDepthService frame, so coalesce scrips of the SAME
+    # method into one frame instead of one frame per symbol.
+    MAX_SCRIPS_PER_SUBSCRIBE = 50
+    # Delay between successive batch frames (server prefers fewer, larger frames
+    # with breathing room; only applied when more batches remain).
+    SUBSCRIPTION_DELAY = 0.5
+    # Collect window opened by the first queued scrip, before the first frame is
+    # sent — the same fixed window Zerodha's adapter opens on its batch timer.
+    #
+    # Callers subscribe one symbol at a time (an option chain fires ~50 separate
+    # subscribe() calls), and without this the drain thread sent the very first
+    # scrip immediately, found the queue momentarily empty, exited, and was then
+    # restarted by the next enqueue — one 1-scrip frame per symbol, with the
+    # SUBSCRIPTION_DELAY throttle never engaging because the queue was always
+    # briefly empty right after a send. A 25-strike chain cost 50 frames in
+    # quote mode. Waiting once here lets the burst accumulate so it leaves as
+    # one frame per method.
+    SUBSCRIPTION_COLLECT_WINDOW = 0.5
+
+    def __init__(self):
+        super().__init__()
+        self.logger = get_logger("fivepaisa_websocket")
+        self.ws_client = None
+        self.user_id = None
+        self.client_code = None
+        self.broker_name = "fivepaisa"
+        self.reconnect_delay = 5  # Initial delay in seconds
+        self.max_reconnect_delay = 60  # Maximum delay in seconds
+        self.reconnect_attempts = 0
+        self.max_reconnect_attempts = 10
+        self.running = False
+        self.lock = threading.Lock()
+        # Single reconnect driver: only one _connect_with_retry thread may be
+        # alive at a time so two run_forever sockets can never overlap.
+        self._connect_thread = None
+        # Subscription batch queue: items are (method, scrip_dict). A single
+        # processor thread drains it into coalesced multi-scrip frames.
+        self.pending_subscriptions = deque()
+        self._sub_thread = None
+        self._stop_event = threading.Event()
+        self.last_snapshot = {}  # Store last known values for each token
+
+    def initialize(
+        self, broker_name: str, user_id: str, auth_data: dict[str, str] | None = None
+    ) -> None:
+        """
+        Initialize connection with 5Paisa WebSocket API
+
+        Args:
+            broker_name: Name of the broker (always 'fivepaisa' in this case)
+            user_id: Client ID/user ID
+            auth_data: If provided, use these credentials instead of fetching from DB
+
+        Raises:
+            ValueError: If required authentication tokens are not found
+        """
+        self.user_id = user_id
+        self.broker_name = broker_name
+
+        # Get tokens from database if not provided
+        if not auth_data:
+            # Fetch authentication token from database
+            access_token = get_auth_token(user_id, bypass_cache=True)
+
+            if not access_token:
+                self.logger.error(f"No authentication token found for user {user_id}")
+                raise ValueError(f"No authentication token found for user {user_id}")
+
+            # Get client_id from BROKER_API_KEY environment variable
+            # Format: api_key:::user_id:::client_id
+            client_code = self._resolve_client_code(user_id)
+        else:
+            # Use provided tokens
+            access_token = auth_data.get("access_token")
+            client_code = auth_data.get("client_code", user_id)
+
+            if not access_token:
+                self.logger.error("Missing required authentication data")
+                raise ValueError("Missing required authentication data")
+
+        # Store client_code so reconnection can rebuild the client/URL with a
+        # fresh token without re-parsing BROKER_API_KEY.
+        self.client_code = client_code
+
+        # Create FivePaisaWebSocket instance
+        self.ws_client = FivePaisaWebSocket(access_token=access_token, client_code=client_code)
+
+        # Set callbacks
+        self.ws_client.on_open = self._on_open
+        self.ws_client.on_data = self._on_data
+        self.ws_client.on_error = self._on_error
+        self.ws_client.on_close = self._on_close
+        self.ws_client.on_message = self._on_message
+
+        self.running = True
+
+    def _resolve_client_code(self, user_id: str) -> str:
+        """Resolve the 5Paisa client_code from BROKER_API_KEY, falling back to
+        user_id. Format: api_key:::user_id:::client_id"""
+        broker_api_key = os.getenv("BROKER_API_KEY")
+        if broker_api_key:
+            try:
+                parts = broker_api_key.split(":::")
+                if len(parts) >= 3:
+                    client_code = parts[2]  # client_id is the third part
+                    self.logger.debug(f"Using client_code from BROKER_API_KEY: {client_code}")
+                    return client_code
+                self.logger.warning("BROKER_API_KEY format incorrect, using user_id as client_code")
+            except Exception as e:
+                self.logger.error(f"Error parsing BROKER_API_KEY: {e}")
+            return user_id
+        self.logger.warning("BROKER_API_KEY not found, using user_id as client_code")
+        return user_id
+
+    def _rebuild_client_with_fresh_token(self) -> None:
+        """Re-read a fresh auth token from the DB and rebuild the WebSocket
+        client/URL. Indian broker tokens roll over daily (~3 AM IST); the URL
+        bakes the token at connect time, so a reconnect must use a fresh token
+        or the feed stays dead until process restart. If no fresh token is
+        available, keep the existing client and log a warning."""
+        if not self.user_id:
+            return
+
+        fresh_token = get_auth_token(self.user_id, bypass_cache=True)
+        if not fresh_token:
+            self.logger.warning("No fresh auth token found on reconnect; reusing existing token")
+            return
+
+        with self.lock:
+            client_code = self.client_code or self._resolve_client_code(self.user_id)
+            try:
+                new_client = FivePaisaWebSocket(access_token=fresh_token, client_code=client_code)
+                new_client.on_open = self._on_open
+                new_client.on_data = self._on_data
+                new_client.on_error = self._on_error
+                new_client.on_close = self._on_close
+                new_client.on_message = self._on_message
+
+                # Close the previous client before dropping the reference so its
+                # socket/ping thread are released now rather than waiting on GC
+                # (which is not guaranteed to close the underlying socket).
+                old_client = self.ws_client
+                self.ws_client = new_client
+                if old_client is not None:
+                    try:
+                        old_client.close_connection()
+                    except Exception as e:
+                        self.logger.debug(f"Error closing previous WebSocket client: {e}")
+
+                self.logger.info("Rebuilt 5Paisa WebSocket client with fresh auth token")
+            except Exception as e:
+                self.logger.error(f"Failed to rebuild client with fresh token: {e}")
+
+    def connect(self) -> None:
+        """Establish connection to 5Paisa WebSocket"""
+        if not self.ws_client:
+            self.logger.error("WebSocket client not initialized. Call initialize() first.")
+            return
+
+        with self.lock:
+            # Reset run/backoff state so an adapter reused after disconnect() or
+            # after a prior max-attempts giveup will actually reconnect.
+            self.running = True
+            self.reconnect_attempts = 0
+            self._stop_event.clear()
+            if self._connect_thread and self._connect_thread.is_alive():
+                self.logger.debug("Connect thread already running; not starting another.")
+                return
+            self._connect_thread = threading.Thread(target=self._connect_with_retry, daemon=True)
+            self._connect_thread.start()
+
+    def _connect_with_retry(self) -> None:
+        """Single reconnection driver for the 5Paisa WebSocket.
+
+        ws_client.connect() blocks in run_forever() until the socket closes;
+        when it returns we loop and reconnect (with exponential backoff) as long
+        as we're still running. This is the ONLY code path that opens a socket,
+        so two connections can never overlap. reconnect_attempts is reset in
+        _on_open once a connection actually succeeds, so backoff grows only
+        across consecutive failures.
+
+        The exit decision is taken at the top of the loop under self.lock and
+        clears self._connect_thread there, so connect() cannot race us into a
+        state where running=True but no driver thread is alive: if connect() set
+        running=True first we observe it and keep going; otherwise we clear the
+        handle before connect()'s guard inspects it and it starts a fresh driver.
+        """
+        while True:
+            with self.lock:
+                if not self.running:
+                    self._connect_thread = None
+                    return
+                if self.reconnect_attempts >= self.max_reconnect_attempts:
+                    self.logger.error("Max reconnection attempts reached. Giving up.")
+                    self._connect_thread = None
+                    return
+
+            try:
+                # Re-read a fresh token before every connect attempt so a
+                # daily-rolled token doesn't leave the feed permanently dead.
+                self._rebuild_client_with_fresh_token()
+
+                self.logger.info(
+                    f"Connecting to 5Paisa WebSocket (attempt {self.reconnect_attempts + 1})"
+                )
+                # Blocks until the socket closes (clean drop or error).
+                self.ws_client.connect()
+            except Exception as e:
+                self.logger.error(f"Connection error: {e}")
+
+            # Socket closed; count this attempt and back off before the next one.
+            # The top-of-loop locked check handles running / max-attempts exit.
+            self.reconnect_attempts += 1
+            if self.reconnect_attempts < self.max_reconnect_attempts:
+                delay = min(
+                    self.reconnect_delay * (2**self.reconnect_attempts),
+                    self.max_reconnect_delay,
+                )
+                self.logger.warning(
+                    f"5Paisa WebSocket disconnected; reconnecting in {delay} seconds..."
+                )
+                # Interruptible: disconnect() sets _stop_event so we wake immediately
+                # instead of lingering in a non-interruptible sleep.
+                self._stop_event.wait(delay)
+
+        if self.reconnect_attempts >= self.max_reconnect_attempts:
+            self.logger.error("Max reconnection attempts reached. Giving up.")
+
+    def disconnect(self) -> None:
+        """Disconnect from 5Paisa WebSocket"""
+        self.running = False
+        # Wake the batch processor out of any inter-batch wait and drop queued work.
+        self._stop_event.set()
+        with self.lock:
+            self.pending_subscriptions.clear()
+            # Held prices belong to the session that is ending. Keeping them
+            # would both hold memory for an adapter nobody is using and let a
+            # price from before the daily token rollover be merged into a tick
+            # after it. Deliberately NOT cleared on an ordinary reconnect: the
+            # snapshot exists to carry LastRate onto depth frames that lack it
+            # (see _methods_for_mode), and dropping it there would reopen the
+            # 0.00 window it was added to close.
+            self.last_snapshot.clear()
+
+        if hasattr(self, "ws_client") and self.ws_client:
+            self.ws_client.close_connection()
+
+        # Clean up ZeroMQ resources
+        self.cleanup_zmq()
+
+    def _enqueue_subscriptions(self, items: list) -> None:
+        """Queue (method, scrip) items for batched sending and ensure the batch
+        processor thread is running."""
+        if not items:
+            return
+        with self.lock:
+            self.pending_subscriptions.extend(items)
+            if self._sub_thread is None or not self._sub_thread.is_alive():
+                self._sub_thread = threading.Thread(
+                    target=self._process_pending_subscriptions, daemon=True
+                )
+                self._sub_thread.start()
+
+    def _process_pending_subscriptions(self) -> None:
+        """Drain the pending queue into coalesced 5Paisa subscribe frames.
+
+        Scrips are grouped by method (MarketFeedV3 vs MarketDepthService cannot
+        share a frame) and sent up to MAX_SCRIPS_PER_SUBSCRIBE per frame, with a
+        throttle between frames. Failed batches are re-queued. This replaces the
+        previous one-frame-per-symbol flood on bulk subscribe / resubscribe.
+        """
+        consecutive_failures = 0
+
+        # Collect window: let the rest of the burst land before the first frame
+        # goes out (see SUBSCRIPTION_COLLECT_WINDOW). Interruptible, so a
+        # disconnect during the window doesn't stall shutdown.
+        if self._stop_event.wait(self.SUBSCRIPTION_COLLECT_WINDOW):
+            with self.lock:
+                self._sub_thread = None
+            return
+
+        while self.running and not self._stop_event.is_set():
+            # Decide whether to exit on an EMPTY queue under the same lock that
+            # _enqueue_subscriptions holds when it appends work and checks our
+            # liveness. Doing the emptiness test outside the lock is a lost-wakeup
+            # race: an enqueue could add an item and observe this thread still
+            # alive (so skip starting a new one) in the instant between our
+            # unlocked test and our return, stranding that item until the next
+            # enqueue/reconnect. Clearing _sub_thread here closes that window.
+            with self.lock:
+                if not self.pending_subscriptions:
+                    self._sub_thread = None
+                    return
+
+            if not (self.connected and self.ws_client):
+                # Not connected yet; _on_open re-queues everything on connect,
+                # so just back off briefly and re-check (interruptible).
+                consecutive_failures += 1
+                if consecutive_failures > 5:
+                    self.logger.warning(
+                        "Batch processor: not connected after retries; pausing queue."
+                    )
+                    break
+                if self._stop_event.wait(min(2 * consecutive_failures, 10)):
+                    break
+                continue
+            consecutive_failures = 0
+
+            # Pull a batch of same-method scrips. The method is taken from the
+            # head of the queue, but matching scrips are then gathered from
+            # ANYWHERE in it — depth subscriptions enqueue two methods per symbol
+            # (MarketDepthService + MarketFeedV3, see _methods_for_mode), so a
+            # front-run-only scan would alternate methods every item and emit
+            # one-scrip frames, which is exactly the flood this batching exists
+            # to prevent. Order within a method is preserved.
+            batch_method = None
+            batch_scrips = []
+            with self.lock:
+                if self.pending_subscriptions:
+                    batch_method = self.pending_subscriptions[0][0]
+                    remaining = deque()
+                    for method, scrip in self.pending_subscriptions:
+                        if (
+                            method == batch_method
+                            and len(batch_scrips) < self.MAX_SCRIPS_PER_SUBSCRIBE
+                        ):
+                            batch_scrips.append(scrip)
+                        else:
+                            remaining.append((method, scrip))
+                    self.pending_subscriptions = remaining
+
+            if not batch_scrips:
+                continue
+
+            try:
+                self.ws_client.subscribe(batch_method, batch_scrips)
+                self.logger.info(
+                    f"Sent batched subscription: {len(batch_scrips)} scrips via {batch_method}"
+                )
+            except Exception as e:
+                self.logger.error(f"Batch subscription failed ({batch_method}): {e}")
+                # Re-queue the failed batch (front, preserving order) for retry.
+                with self.lock:
+                    for scrip in reversed(batch_scrips):
+                        self.pending_subscriptions.appendleft((batch_method, scrip))
+                if self._stop_event.wait(self.SUBSCRIPTION_DELAY * 2):
+                    break
+                continue
+
+            # Throttle only when more work remains, so a single-symbol subscribe
+            # (the common UI case) isn't penalized with a wait it doesn't need.
+            if self.pending_subscriptions:
+                if self._stop_event.wait(self.SUBSCRIPTION_DELAY):
+                    break
+
+        # Loop exited via stop/pause (not the empty-queue return above): clear the
+        # handle so a later _enqueue_subscriptions starts a fresh processor.
+        with self.lock:
+            self._sub_thread = None
+
+    def subscribe(
+        self, symbol: str, exchange: str, mode: int = 2, depth_level: int = 5
+    ) -> dict[str, Any]:
+        """
+        Subscribe to market data with 5Paisa-specific implementation
+
+        Args:
+            symbol: Trading symbol (e.g., 'RELIANCE')
+            exchange: Exchange code (e.g., 'NSE', 'BSE', 'NFO')
+            mode: Subscription mode - 1:LTP, 2:Quote, 3:Depth
+            depth_level: Market depth level (5 for 5Paisa)
+
+        Returns:
+            Dict: Response with status and error message if applicable
+        """
+        # Validate the mode
+        if mode not in [1, 2, 3]:
+            return self._create_error_response(
+                "INVALID_MODE", f"Invalid mode {mode}. Must be 1 (LTP), 2 (Quote), or 3 (Depth)"
+            )
+
+        # If depth mode, check if supported depth level
+        if mode == 3 and depth_level not in [5]:
+            return self._create_error_response(
+                "INVALID_DEPTH", f"Invalid depth level {depth_level}. 5Paisa only supports 5 levels"
+            )
+
+        # Map symbol to token using symbol mapper
+        token_info = SymbolMapper.get_token_from_symbol(symbol, exchange)
+        if not token_info:
+            return self._create_error_response(
+                "SYMBOL_NOT_FOUND", f"Symbol {symbol} not found for exchange {exchange}"
+            )
+
+        token = token_info["token"]
+        brexchange = token_info["brexchange"]
+
+        # Get 5Paisa-specific exchange code and type
+        exch_code = FivePaisaExchangeMapper.get_exchange_code(brexchange)
+        exch_type = FivePaisaExchangeMapper.get_exchange_type(brexchange)
+
+        # Create scrip data for 5Paisa API
+        scrip_data = [{"Exch": exch_code, "ExchType": exch_type, "ScripCode": int(token)}]
+
+        # Get the appropriate method(s) for the mode
+        methods = self._methods_for_mode(mode)
+        method = methods[0]
+
+        # Generate unique correlation ID
+        correlation_id = f"{symbol}_{exchange}_{mode}"
+        if mode == 3:
+            correlation_id = f"{correlation_id}_{depth_level}"
+
+        # Store subscription for reconnection, and work out what actually needs
+        # sending: a method another subscription on this token already holds is
+        # live on the server, so re-sending it is pure redundant traffic (a
+        # quote subscription upgraded to depth would otherwise re-subscribe
+        # MarketFeedV3). Computed BEFORE inserting, so the new subscription does
+        # not mask itself, and mirrored by _methods_still_needed() on the way out.
+        with self.lock:
+            already_live = self._methods_still_needed(token)
+            self.subscriptions[correlation_id] = {
+                "symbol": symbol,
+                "exchange": exchange,
+                "brexchange": brexchange,
+                "token": token,
+                "mode": mode,
+                "depth_level": depth_level,
+                "method": method,
+                "methods": methods,
+                "scrip_data": scrip_data,
+            }
+        to_send = [m for m in methods if m not in already_live]
+
+        # Queue for batched sending when connected. When not connected, _on_open
+        # re-queues every stored subscription on (re)connect, so we skip here to
+        # avoid double-enqueuing the same scrip.
+        if self.connected and self.ws_client and to_send:
+            self.logger.debug(
+                f"Queueing subscription for {symbol} ({exchange}/{brexchange}) - "
+                f"Token: {token}, Methods: {to_send}, Exch: {exch_code}, Type: {exch_type}"
+            )
+            self._enqueue_subscriptions([(m, scrip_data[0]) for m in to_send])
+
+        # Return success
+        return self._create_success_response(
+            "Subscription requested",
+            symbol=symbol,
+            exchange=exchange,
+            mode=mode,
+            depth_level=depth_level,
+        )
+
+    def _methods_for_mode(self, mode: int) -> list[str]:
+        """Subscription method(s) a mode needs.
+
+        Depth needs TWO. 5Paisa's MarketDepthService frame carries only the
+        order book — Exch, ExchType, Token, TBidQ, TOffQ, Details, Time — and no
+        last-traded price at all (see the sample frame in
+        broker-api-docs/fivepaisa-api-docs/10-market-data-websocket.md). The
+        traded price lives exclusively on MarketFeedV3's `LastRate`.
+
+        Subscribing depth alone therefore published ltp=0 on every DEPTH tick,
+        and because the option chain merges live ticks over its REST snapshot,
+        that zero overwrote the correct REST LTP and the whole chain read 0.00.
+
+        Adding MarketFeedV3 alongside makes LastRate arrive for the same token;
+        _on_data fans every frame out to all subscriptions for that token, so
+        _apply_snapshot records LastRate and carries it onto the depth frames
+        that lack it.
+        """
+        method = FivePaisaCapabilityRegistry.get_method_for_mode(mode)
+        if mode == 3:
+            feed = FivePaisaCapabilityRegistry.get_method_for_mode(2)
+            if feed != method:
+                return [method, feed]
+        return [method]
+
+    def _methods_still_needed(self, token: str) -> set:
+        """Methods still required by the remaining subscriptions for `token`.
+
+        Callers hold self.lock. Used so unsubscribing a depth stream does not
+        tear down MarketFeedV3 while another subscription on the same token
+        (another mode, or another client's depth stream) still needs it.
+        """
+        needed = set()
+        for sub in self.subscriptions.values():
+            if str(sub["token"]) == str(token):
+                needed.update(sub.get("methods") or [sub["method"]])
+        return needed
+
+    def unsubscribe(self, symbol: str, exchange: str, mode: int = 2) -> dict[str, Any]:
+        """
+        Unsubscribe from market data
+
+        Args:
+            symbol: Trading symbol
+            exchange: Exchange code
+            mode: Subscription mode
+
+        Returns:
+            Dict: Response with status
+        """
+        # Map symbol to token
+        token_info = SymbolMapper.get_token_from_symbol(symbol, exchange)
+        if not token_info:
+            return self._create_error_response(
+                "SYMBOL_NOT_FOUND", f"Symbol {symbol} not found for exchange {exchange}"
+            )
+
+        token = token_info["token"]
+        brexchange = token_info["brexchange"]
+
+        # Get 5Paisa-specific exchange code and type
+        exch_code = FivePaisaExchangeMapper.get_exchange_code(brexchange)
+        exch_type = FivePaisaExchangeMapper.get_exchange_type(brexchange)
+
+        # Create scrip data
+        scrip_data = [{"Exch": exch_code, "ExchType": exch_type, "ScripCode": int(token)}]
+
+        # Method(s) this subscription pulled in (depth also pulls MarketFeedV3)
+        methods = self._methods_for_mode(mode)
+
+        # Generate correlation ID
+        correlation_id = f"{symbol}_{exchange}_{mode}"
+
+        # Remove from subscriptions and cancel any still-queued subscribe for the
+        # same (method, scrip). Without this, a quick subscribe->unsubscribe would
+        # send Unsubscribe now but leave the batched Subscribe in the queue, which
+        # the processor then sends afterwards — resurrecting a stale server-side
+        # subscription and unwanted feed traffic.
+        with self.lock:
+            # The stored correlation_id carries the depth level for mode 3, so
+            # match on the prefix rather than requiring the caller to know it.
+            for key in [
+                k
+                for k in self.subscriptions
+                if k == correlation_id or k.startswith(f"{correlation_id}_")
+            ]:
+                del self.subscriptions[key]
+
+            # Only drop methods no remaining subscription on this token needs —
+            # MarketFeedV3 may still be feeding another mode (or another depth
+            # stream) for the same scrip.
+            still_needed = self._methods_still_needed(token)
+            to_unsubscribe = [m for m in methods if m not in still_needed]
+
+            # Release this token's held-last-value snapshot. Nothing used to
+            # remove these, so the dict grew for the life of the worker - one
+            # entry per (token, mode) that ever ticked, in a process that never
+            # restarts. The staleness matters as much as the size: _apply_snapshot
+            # merges a remembered non-zero value over any field the current tick
+            # reports as 0, so an entry left behind by an unsubscribe can surface
+            # hours later on a re-subscribe as a price that never traded.
+            #
+            # Keyed by (token, mode), and another mode on the same scrip keeps
+            # its own entry - so check for a remaining subscription on this exact
+            # pair rather than on the token alone.
+            if not any(
+                str(sub["token"]) == str(token) and sub["mode"] == mode
+                for sub in self.subscriptions.values()
+            ):
+                self.last_snapshot.pop(f"{token}_{mode}", None)
+
+            if self.pending_subscriptions:
+                targets = {(m, tuple(sorted(scrip_data[0].items()))) for m in to_unsubscribe}
+                self.pending_subscriptions = deque(
+                    item
+                    for item in self.pending_subscriptions
+                    if (item[0], tuple(sorted(item[1].items()))) not in targets
+                )
+
+        # Unsubscribe if connected
+        if self.connected and self.ws_client:
+            for m in to_unsubscribe:
+                try:
+                    self.ws_client.unsubscribe(m, scrip_data)
+                except Exception as e:
+                    self.logger.error(f"Error unsubscribing from {symbol}.{exchange}: {e}")
+                    return self._create_error_response("UNSUBSCRIPTION_ERROR", str(e))
+
+        return self._create_success_response(
+            f"Unsubscribed from {symbol}.{exchange}", symbol=symbol, exchange=exchange, mode=mode
+        )
+
+    def _on_open(self, wsapp) -> None:
+        """Callback when connection is established"""
+        self.logger.info("Connected to 5Paisa WebSocket")
+        self.connected = True
+        # Connection succeeded; reset backoff so the next drop retries promptly.
+        self.reconnect_attempts = 0
+
+        # Resubscribe to existing subscriptions via the batch queue (coalesced
+        # into multi-scrip frames) rather than one frame per symbol.
+        with self.lock:
+            # Depth subscriptions carry two methods (see _methods_for_mode), so
+            # resubscribe every one of them or LTP goes back to 0 after a
+            # reconnect. Older stored entries only have "method".
+            #
+            # Deduped on (method, token): several subscriptions can share a
+            # scrip - a quote and a depth stream on the same token both need
+            # MarketFeedV3 - and the server only needs told once.
+            items = []
+            seen = set()
+            for sub in self.subscriptions.values():
+                for m in sub.get("methods") or [sub["method"]]:
+                    key = (m, str(sub["token"]))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    items.append((m, sub["scrip_data"][0]))
+        if items:
+            self.logger.info(f"Resubscribing {len(items)} subscription(s) in batches")
+            self._enqueue_subscriptions(items)
+
+    def _on_error(self, wsapp, error) -> None:
+        """Callback for WebSocket errors"""
+        self.logger.error(f"5Paisa WebSocket error: {error}")
+
+    def _on_close(self, wsapp) -> None:
+        """Callback when connection is closed.
+
+        Reconnection is driven solely by the _connect_with_retry loop: when the
+        socket closes, run_forever() returns there and that loop reconnects. We
+        must NOT spawn another connect thread here, or two sockets could run
+        concurrently (FD/thread leak).
+        """
+        self.logger.info("5Paisa WebSocket connection closed")
+        self.connected = False
+
+    def _on_message(self, wsapp, message) -> None:
+        """Callback for text messages from the WebSocket"""
+        self.logger.debug(f"Received message: {message}")
+
+    def _on_data(self, wsapp, message: dict) -> None:
+        """Callback for market data from the WebSocket"""
+        try:
+            self.logger.debug(f"RAW 5PAISA DATA: {message}")
+
+            # Extract token from message
+            token = str(message.get("Token"))
+
+            # Find ALL subscriptions that match this token
+            # Fivepaisa sends one message that should update all modes subscribed to that token
+            matching_subscriptions = []
+            with self.lock:
+                for sub in self.subscriptions.values():
+                    if str(sub["token"]) == token:
+                        matching_subscriptions.append(sub)
+
+            if not matching_subscriptions:
+                self.logger.warning(f"Received data for unsubscribed token: {token}")
+                return
+
+            # Publish data to ALL matching subscriptions
+            for subscription in matching_subscriptions:
+                # Create topic for ZeroMQ
+                symbol = subscription["symbol"]
+                exchange = subscription["exchange"]
+                mode = subscription["mode"]
+
+                mode_str = {1: "LTP", 2: "QUOTE", 3: "DEPTH"}[mode]
+                topic = f"{exchange}_{symbol}_{mode_str}"
+
+                # Apply snapshot logic - merge current message with last known values
+                token_key = f"{token}_{mode}"
+                message_with_snapshot = self._apply_snapshot(message, token_key)
+
+                # Normalize the data based on the mode
+                market_data = self._normalize_market_data(message_with_snapshot, mode)
+
+                # Add metadata
+                market_data.update(
+                    {
+                        "symbol": symbol,
+                        "exchange": exchange,
+                        "mode": mode,
+                        "timestamp": int(time.time() * 1000),  # Current timestamp in ms
+                    }
+                )
+
+                # Log the market data we're sending
+                self.logger.debug(
+                    f"Publishing to topic '{topic}': symbol={symbol}, exchange={exchange}, mode={mode}, ltp={market_data.get('ltp', 'N/A')}"
+                )
+                self.logger.debug(f"Full market data: {market_data}")
+
+                # Publish to ZeroMQ
+                self.publish_market_data(topic, market_data)
+
+        except Exception as e:
+            self.logger.error(f"Error processing market data: {e}", exc_info=True)
+
+    def _apply_snapshot(self, message: dict, token_key: str) -> dict[str, Any]:
+        """
+        Apply snapshot logic - merge current message with last known values.
+        If current value is 0, use the last known non-zero value.
+
+        Args:
+            message: Current market data message
+            token_key: Unique key for this token and mode combination
+
+        Returns:
+            Dict: Message with snapshot values applied
+        """
+        # Fields that should use snapshot logic (hold last value if current is 0)
+        snapshot_fields = [
+            "LastRate",
+            "OpenRate",
+            "High",
+            "Low",
+            "PClose",
+            "BidRate",
+            "OffRate",
+            "AvgRate",
+        ]
+
+        # Get last snapshot for this token
+        last_snapshot = self.last_snapshot.get(token_key, {})
+
+        # Create new message with snapshot values
+        merged_message = message.copy()
+
+        for field in snapshot_fields:
+            current_value = message.get(field, 0)
+
+            # If current value is 0 or None, use last known value
+            if current_value == 0 or current_value is None:
+                if field in last_snapshot and last_snapshot[field] != 0:
+                    merged_message[field] = last_snapshot[field]
+                    self.logger.debug(f"Using snapshot value for {field}: {last_snapshot[field]}")
+            else:
+                # Update snapshot with new non-zero value
+                last_snapshot[field] = current_value
+
+        # Store updated snapshot
+        self.last_snapshot[token_key] = last_snapshot
+
+        return merged_message
+
+    def _normalize_market_data(self, message: dict, mode: int) -> dict[str, Any]:
+        """
+        Normalize broker-specific data format to a common format
+
+        Args:
+            message: The raw message from the broker
+            mode: Subscription mode
+
+        Returns:
+            Dict: Normalized market data
+        """
+        if mode == 1:  # LTP mode
+            return {
+                "ltp": message.get("LastRate", 0),
+                "ltt": self._parse_fivepaisa_time(message.get("TickDt", "")),
+            }
+        elif mode == 2:  # Quote mode
+            return {
+                "ltp": message.get("LastRate", 0),
+                "ltt": self._parse_fivepaisa_time(message.get("TickDt", "")),
+                "volume": message.get("TotalQty", 0),
+                "open": message.get("OpenRate", 0),
+                "high": message.get("High", 0),
+                "low": message.get("Low", 0),
+                "close": message.get("PClose", 0),
+                "last_trade_quantity": message.get("LastQty", 0),
+                "average_price": message.get("AvgRate", 0),
+                "total_buy_quantity": message.get("TBidQ", 0),
+                "total_sell_quantity": message.get("TOffQ", 0),
+                "bid_price": message.get("BidRate", 0),
+                "bid_quantity": message.get("BidQty", 0),
+                "ask_price": message.get("OffRate", 0),
+                "ask_quantity": message.get("OffQty", 0),
+            }
+        elif mode == 3:  # Depth mode (MarketDepthService)
+            result = {
+                "ltp": message.get("LastRate", 0),
+                "total_buy_quantity": message.get("TBidQ", 0),
+                "total_sell_quantity": message.get("TOffQ", 0),
+                "timestamp": message.get("Time", ""),
+            }
+
+            # Add depth data if available
+            if "Details" in message:
+                result["depth"] = self._extract_depth_data(message["Details"])
+
+            return result
+        else:
+            return {}
+
+    def _extract_depth_data(self, details: list[dict]) -> dict[str, list[dict[str, Any]]]:
+        """
+        Extract depth data from 5Paisa's message format
+
+        Args:
+            details: List of market depth details
+
+        Returns:
+            Dict: Dictionary with 'buy' and 'sell' depth arrays
+        """
+        buy_depth = []
+        sell_depth = []
+
+        for detail in details:
+            flag = detail.get("BbBuySellFlag", 0)
+            depth_item = {
+                "price": detail.get("Price", 0),
+                "quantity": detail.get("Quantity", 0),
+                "orders": detail.get("NumberOfOrders", 0),
+            }
+
+            # BbBuySellFlag: 66 (ASCII 'B') = Buy, 83 (ASCII 'S') = Sell
+            if flag == 66:  # Buy
+                buy_depth.append(depth_item)
+            elif flag == 83:  # Sell
+                sell_depth.append(depth_item)
+
+        return {
+            "buy": buy_depth[:5],  # Limit to 5 levels
+            "sell": sell_depth[:5],  # Limit to 5 levels
+        }
+
+    def _parse_fivepaisa_time(self, time_str: str) -> int:
+        """
+        Parse Fivepaisa's Microsoft JSON date format to Unix timestamp in milliseconds
+
+        Args:
+            time_str: Time string in format '/Date(1759900055000)/' or '/Date(1759900055000+0530)/'
+
+        Returns:
+            int: Unix timestamp in milliseconds, or 0 if parsing fails
+        """
+        if not time_str:
+            return 0
+
+        try:
+            # Extract timestamp from /Date(timestamp)/ format
+            match = re.search(r"/Date\((\d+)", time_str)
+            if match:
+                return int(match.group(1))
+            return 0
+        except Exception as e:
+            self.logger.error(f"Error parsing time {time_str}: {e}")
+            return 0
