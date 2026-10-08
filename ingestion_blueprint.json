@@ -1,5 +1,5 @@
 {
-  "current_index": 241,
+  "current_index": 242,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1933,7 +1933,7 @@
       "name": "nseindexoptionsdata",
       "target": "nagarajugunda/nseindexoptionsdata",
       "url": "https://github.com/nagarajugunda/nseindexoptionsdata",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
