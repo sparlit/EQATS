@@ -1,5 +1,5 @@
 {
-  "current_index": 243,
+  "current_index": 244,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1949,9 +1949,9 @@
       "name": "nautilus_trader",
       "target": "nautechsystems/nautilus_trader",
       "url": "https://github.com/nautechsystems/nautilus_trader",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3197",
+      "merged": true
     },
     {
       "name": "nse-top500-realtime-screener",
