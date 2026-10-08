@@ -1782,8 +1782,8 @@
       "target": "meanalgo/meanalgo.github.io",
       "url": "https://github.com/meanalgo/meanalgo.github.io",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3175",
+      "merged": true
     },
     {
       "name": "ai_driven_algorithmic_trading",
