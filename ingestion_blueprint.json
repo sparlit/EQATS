@@ -1,5 +1,5 @@
 {
-  "current_index": 227,
+  "current_index": 228,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1821,7 +1821,7 @@
       "name": "pm-hftbacktest",
       "target": "mileswangs/pm-hftbacktest",
       "url": "https://github.com/mileswangs/pm-hftbacktest",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
