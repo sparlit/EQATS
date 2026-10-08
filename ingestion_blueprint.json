@@ -1846,8 +1846,8 @@
       "target": "mlfreerl/pynse",
       "url": "https://github.com/mlfreerl/pynse",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3183",
+      "merged": true
     },
     {
       "name": "rust-trailer",

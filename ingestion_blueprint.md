@@ -233,7 +233,7 @@ Total Repositories: 424 | Current Index: 231
 | 228 | mileswangs/pm-hftbacktest | Processed | https://github.com/sparlit/EQATS/pull/3180 |
 | 229 | mineralres/rust-share | Processed | https://github.com/sparlit/EQATS/pull/3181 |
 | 230 | mkshibu2/breadth-radar | Processed | https://github.com/sparlit/EQATS/pull/3182 |
-| 231 | mlfreerl/pynse | Processed | None |
+| 231 | mlfreerl/pynse | Processed | https://github.com/sparlit/EQATS/pull/3183 |
 | 232 | monomadic/rust-trailer | pending | None |
 | 233 | mortdeus/solana-copy-sniper-mev-trading-bot | pending | None |
 | 234 | mrappipramod/nse-data-analysis | pending | None |
