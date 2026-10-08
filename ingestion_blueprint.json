@@ -1694,8 +1694,8 @@
       "target": "manishn32/option_chain_analyzer",
       "url": "https://github.com/manishn32/option_chain_analyzer",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3164",
+      "merged": true
     },
     {
       "name": "nse-mcp",
