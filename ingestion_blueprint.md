@@ -221,7 +221,7 @@ Total Repositories: 424 | Current Index: 219
 | 216 | marketcalls/openchart | Processed | https://github.com/sparlit/EQATS/pull/3168 |
 | 217 | marketcalls/sector-rotation-map | Processed | https://github.com/sparlit/EQATS/pull/3169 |
 | 218 | mathiswellmann/lfest-rs | Processed | https://github.com/sparlit/EQATS/pull/3170 |
-| 219 | mathiswellmann/trade_aggregation-rs | Processed | None |
+| 219 | mathiswellmann/trade_aggregation-rs | Processed | https://github.com/sparlit/EQATS/pull/3171 |
 | 220 | maverick14303/stock-news-monitor | pending | None |
 | 221 | mchsl/tastytrade-rs | pending | None |
 | 222 | me-imfhd/velocity | pending | None |
