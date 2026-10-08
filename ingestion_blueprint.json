@@ -1,5 +1,5 @@
 {
-  "current_index": 229,
+  "current_index": 230,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1837,9 +1837,9 @@
       "name": "breadth-radar",
       "target": "mkshibu2/breadth-radar",
       "url": "https://github.com/mkshibu2/breadth-radar",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3182",
+      "merged": true
     },
     {
       "name": "pynse",
