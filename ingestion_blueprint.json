@@ -1862,8 +1862,8 @@
       "target": "mortdeus/solana-copy-sniper-mev-trading-bot",
       "url": "https://github.com/mortdeus/solana-copy-sniper-mev-trading-bot",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3185",
+      "merged": true
     },
     {
       "name": "nse-data-analysis",

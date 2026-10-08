@@ -235,7 +235,7 @@ Total Repositories: 424 | Current Index: 233
 | 230 | mkshibu2/breadth-radar | Processed | https://github.com/sparlit/EQATS/pull/3182 |
 | 231 | mlfreerl/pynse | Processed | https://github.com/sparlit/EQATS/pull/3183 |
 | 232 | monomadic/rust-trailer | Processed | https://github.com/sparlit/EQATS/pull/3184 |
-| 233 | mortdeus/solana-copy-sniper-mev-trading-bot | Processed | None |
+| 233 | mortdeus/solana-copy-sniper-mev-trading-bot | Processed | https://github.com/sparlit/EQATS/pull/3185 |
 | 234 | mrappipramod/nse-data-analysis | pending | None |
 | 235 | mrimahajan/nse-market-app | pending | None |
 | 236 | mrinaljhunjhunwala-ui/nse-smart-investor | pending | None |
