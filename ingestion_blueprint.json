@@ -1,5 +1,5 @@
 {
-  "current_index": 235,
+  "current_index": 236,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1885,7 +1885,7 @@
       "name": "nse-smart-investor",
       "target": "mrinaljhunjhunwala-ui/nse-smart-investor",
       "url": "https://github.com/mrinaljhunjhunwala-ui/nse-smart-investor",
-      "status": "pending",
+      "status": "Skipped: Private/Non-Existent (404/403)",
       "pr_url": null,
       "merged": false
     },
