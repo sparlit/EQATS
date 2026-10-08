@@ -1,5 +1,5 @@
 {
-  "current_index": 214,
+  "current_index": 215,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1717,9 +1717,9 @@
       "name": "openalgo",
       "target": "marketcalls/openalgo",
       "url": "https://github.com/marketcalls/openalgo",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3167",
+      "merged": true
     },
     {
       "name": "openchart",

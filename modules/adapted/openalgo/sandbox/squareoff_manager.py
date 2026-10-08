@@ -1,0 +1,455 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+# sandbox/squareoff_manager.py
+"""
+Square-Off Manager - Handles automatic position closure at exchange-specific times
+
+Features:
+- Auto square-off for MIS positions at configured times
+- Exchange-specific timings (NSE/BSE: 3:15 PM, CDS/BCD: 4:45 PM, MCX: 11:30 PM, NCDEX: 5:00 PM)
+- Market order creation for position closure
+- Background scheduler for automatic execution
+- Configurable square-off times
+"""
+
+import os
+import sys
+import threading
+from datetime import datetime, time
+
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from database.sandbox_db import SandboxPositions, get_config
+from sandbox.position_manager import PositionManager
+from utils.logging import get_logger
+from utils.runtime import gthread_active
+
+logger = get_logger(__name__)
+
+#: Longest a sweep waits for one already running before it gives up, under the
+#: gthread worker only. The backup job runs every minute, so a sweep skipped
+#: here is retried within one.
+SWEEP_WAIT_SECONDS = 120.0
+
+#: One square-off sweep at a time in this process. The exchange's own job and
+#: the one-minute backup both fire at the square-off minute on two scheduler
+#: threads (max_instances is per job, not per function), and two sweeps side
+#: by side each loaded the same MIS positions and each sent a closing order.
+#: Taken only by scheduler threads, which are green under eventlet, so a
+#: plain lock is the right kind.
+_sweep_lock = threading.Lock()
+
+
+class SquareOffManager:
+    """Manages automatic square-off of MIS positions"""
+
+    def __init__(self):
+        self.ist = pytz.timezone("Asia/Kolkata")
+
+        # Load square-off times from config
+        self.square_off_times = {
+            "NSE": self._parse_time(get_config("nse_bse_square_off_time", "15:15")),
+            "BSE": self._parse_time(get_config("nse_bse_square_off_time", "15:15")),
+            "NFO": self._parse_time(get_config("nse_bse_square_off_time", "15:15")),
+            "BFO": self._parse_time(get_config("nse_bse_square_off_time", "15:15")),
+            "CDS": self._parse_time(get_config("cds_bcd_square_off_time", "16:45")),
+            "BCD": self._parse_time(get_config("cds_bcd_square_off_time", "16:45")),
+            "MCX": self._parse_time(get_config("mcx_square_off_time", "23:30")),
+            "NCDEX": self._parse_time(get_config("ncdex_square_off_time", "17:00")),
+        }
+
+    def _parse_time(self, time_str):
+        """Parse time string (HH:MM) to time object"""
+        try:
+            hour, minute = map(int, time_str.split(":"))
+            return time(hour=hour, minute=minute)
+        except Exception as e:
+            logger.exception(f"Error parsing time '{time_str}': {e}")
+            return time(15, 15)  # Default to 3:15 PM
+
+    def check_and_square_off(self):
+        """
+        Check if it's time to square-off positions and execute
+        Should be called frequently (e.g., every minute)
+
+        Sweeps run one after another, never side by side: a sweep that finds
+        another running waits for it and then works from what that one left,
+        so each due position is closed by exactly one of them.
+        """
+        # Bounded under gthread only; elsewhere a sweep waits as long as the
+        # one before it takes, so it is never skipped where it used to run.
+        wait = SWEEP_WAIT_SECONDS if gthread_active() else -1
+        if not _sweep_lock.acquire(timeout=wait):
+            logger.warning(
+                "Square-off sweep skipped: the previous sweep is still running; "
+                "the next scheduled check retries"
+            )
+            return
+        try:
+            self._check_and_square_off()
+        finally:
+            _sweep_lock.release()
+
+    def _check_and_square_off(self):
+        try:
+            now = datetime.now(self.ist)
+            current_time = now.time()
+
+            # Step 1: Cancel all open MIS orders past square-off time
+            cancelled_count = self._cancel_open_mis_orders(current_time)
+
+            # Step 1b: Cancel open orders on expired F&O contracts. Expired
+            # POSITIONS are settled by position_manager, but an unfilled
+            # LIMIT/SL order on an expired contract had no reaper: it sat
+            # "open" forever, kept its margin blocked, and its symbol -- gone
+            # from the master contract after the daily refresh -- made the
+            # WebSocket engine log token-lookup errors on every boot.
+            cancelled_count += self._cancel_expired_contract_orders()
+
+            # Step 1c: Settle positions on expired F&O contracts. Runs the
+            # same cleanup the boot catch-up uses, so expiry settlement is
+            # proactive (every minute via the backup job) instead of waiting
+            # for someone to open the positionbook. Cheap when nothing has
+            # expired: one query, no matches, return. Timing (expiry-day
+            # close vs next day) and option settlement price are governed by
+            # the expiry_settlement_timing / option_expiry_settlement configs.
+            try:
+                from sandbox.position_manager import cleanup_expired_contracts
+
+                cleanup_expired_contracts()
+            except Exception as e:
+                logger.exception(f"Error settling expired positions: {e}")
+
+            # Step 2: Get all open MIS positions (quantity != 0)
+            mis_positions = (
+                SandboxPositions.query.filter_by(product="MIS")
+                .filter(SandboxPositions.quantity != 0)
+                .all()
+            )
+
+            positions_to_close = []
+            if mis_positions:
+                # Check each position against its exchange's square-off time
+                for position in mis_positions:
+                    exchange = position.exchange
+                    square_off_time = self.square_off_times.get(exchange)
+
+                    if not square_off_time:
+                        logger.warning(f"No square-off time configured for exchange {exchange}")
+                        continue
+
+                    # Check if current time has passed square-off time
+                    if current_time >= square_off_time:
+                        positions_to_close.append(position)
+            else:
+                logger.debug("No MIS positions to square-off")
+
+            if positions_to_close:
+                logger.info(f"Found {len(positions_to_close)} MIS positions to square-off")
+                self._square_off_positions(positions_to_close)
+            else:
+                logger.debug(f"No positions due for square-off at {current_time.strftime('%H:%M')}")
+
+            # Notify UI if anything changed. The per-position close goes through
+            # _execute_order (already publishes SandboxOrderFilledEvent), so
+            # Positions/OrderBook will refresh per-fill. But the auto-cancel
+            # path bypasses the service layer entirely, so without this emit
+            # OrderBook would miss the cancellations until manual refresh.
+            if cancelled_count or positions_to_close:
+                try:
+                    from events import SandboxAutoSquareOffEvent
+                    from utils.event_bus import bus
+
+                    bus.publish(
+                        SandboxAutoSquareOffEvent(
+                            mode="analyze",
+                            api_type="sandbox.auto_squareoff",
+                            cancelled_orders=cancelled_count,
+                            closed_positions=len(positions_to_close),
+                        )
+                    )
+                except Exception as pub_err:
+                    logger.debug(f"Failed to publish SandboxAutoSquareOffEvent: {pub_err}")
+
+        except Exception as e:
+            logger.exception(f"Error checking square-off conditions: {e}")
+
+    def _cancel_expired_contract_orders(self):
+        """Cancel open orders whose F&O contract has expired.
+
+        Mirrors _check_and_close_expired_positions (which settles expired
+        positions) for the order book. Cancelling via OrderManager.cancel_order
+        releases the blocked margin, exactly like the MIS auto-cancel above.
+        Equity orders (no parseable expiry) are never touched.
+
+        Returns the number of orders cancelled.
+        """
+        cancelled_count = 0
+        try:
+            from database.sandbox_db import SandboxOrders
+            from sandbox.order_manager import OrderManager
+            from sandbox.position_manager import (
+                get_contract_expiry,
+                is_contract_expired_now,
+            )
+
+            open_orders = SandboxOrders.query.filter(
+                SandboxOrders.order_status.in_(["open", "trigger pending"])
+            ).all()
+
+            for order in open_orders:
+                expiry_date = get_contract_expiry(order.symbol, order.exchange)
+                # Same timing rule as position settlement: with the default
+                # expiry_day_close config an order dies at the closing bell of
+                # expiry day, not the following midnight.
+                if not is_contract_expired_now(expiry_date, order.exchange):
+                    continue
+
+                try:
+                    order_manager = OrderManager(order.user_id)
+                    success, response, status_code = order_manager.cancel_order(order.orderid)
+                    if success:
+                        logger.info(
+                            f"Auto-cancelled order {order.orderid} for {order.symbol}: "
+                            f"contract expired {expiry_date}"
+                        )
+                        cancelled_count += 1
+                    else:
+                        logger.error(
+                            f"Failed to cancel expired-contract order {order.orderid}: "
+                            f"{response.get('message', 'Unknown error')}"
+                        )
+                except Exception as e:
+                    logger.exception(
+                        f"Error cancelling expired-contract order {order.orderid}: {e}"
+                    )
+
+            if cancelled_count > 0:
+                logger.info(f"Auto-cancelled {cancelled_count} open orders on expired contracts")
+        except Exception as e:
+            logger.exception(f"Error in _cancel_expired_contract_orders: {e}")
+
+        return cancelled_count
+
+    def _cancel_open_mis_orders(self, current_time):
+        """Cancel all open MIS orders past their exchange's square-off time.
+
+        Returns the number of orders successfully cancelled, so the caller
+        can decide whether to emit a UI-refresh event.
+        """
+        cancelled_count = 0
+        try:
+            from database.sandbox_db import SandboxOrders
+            from sandbox.order_manager import OrderManager
+
+            # Get all open MIS orders - "open" and "trigger pending" (SL/SL-M
+            # still resting in the Stop-Loss book) both need square-off
+            open_orders = SandboxOrders.query.filter(
+                SandboxOrders.product == "MIS",
+                SandboxOrders.order_status.in_(["open", "trigger pending"]),
+            ).all()
+
+            if not open_orders:
+                return 0
+
+            for order in open_orders:
+                exchange = order.exchange
+                square_off_time = self.square_off_times.get(exchange)
+
+                if not square_off_time:
+                    continue
+
+                # Check if current time has passed square-off time for this exchange
+                if current_time >= square_off_time:
+                    try:
+                        order_manager = OrderManager(order.user_id)
+                        success, response, status_code = order_manager.cancel_order(order.orderid)
+
+                        if success:
+                            logger.info(
+                                f"Auto-cancelled MIS order {order.orderid} for {order.symbol} past square-off time"
+                            )
+                            cancelled_count += 1
+                        else:
+                            logger.error(
+                                f"Failed to cancel MIS order {order.orderid}: {response.get('message', 'Unknown error')}"
+                            )
+
+                    except Exception as e:
+                        logger.exception(f"Error cancelling MIS order {order.orderid}: {e}")
+
+            if cancelled_count > 0:
+                logger.info(
+                    f"Auto-cancelled {cancelled_count} open MIS orders past square-off time"
+                )
+
+        except Exception as e:
+            logger.exception(f"Error in _cancel_open_mis_orders: {e}")
+
+        return cancelled_count
+
+    def _square_off_positions(self, positions):
+        """Square-off a list of positions"""
+        success_count = 0
+        error_count = 0
+
+        for position in positions:
+            try:
+                pm = PositionManager(position.user_id)
+                success, response, status_code = pm.close_position(
+                    position.symbol, position.exchange, position.product
+                )
+
+                if success:
+                    logger.info(
+                        f"Auto square-off: {position.symbol} for user {position.user_id} - "
+                        f"OrderID: {response.get('orderid', 'N/A')}"
+                    )
+                    success_count += 1
+                else:
+                    logger.error(
+                        f"Failed to square-off {position.symbol} for user {position.user_id}: "
+                        f"{response.get('message', 'Unknown error')}"
+                    )
+                    error_count += 1
+
+            except Exception as e:
+                logger.exception(f"Error squaring-off position {position.symbol}: {e}")
+                error_count += 1
+
+        logger.info(f"Square-off completed: {success_count} successful, {error_count} failed")
+
+    def force_square_off_all_mis(self):
+        """Force square-off all MIS positions immediately"""
+        # Same one-at-a-time rule as the scheduled sweep it would otherwise race.
+        with _sweep_lock:
+            return self._force_square_off_all_mis()
+
+    def _force_square_off_all_mis(self):
+        try:
+            mis_positions = (
+                SandboxPositions.query.filter_by(product="MIS")
+                .filter(SandboxPositions.quantity != 0)
+                .all()
+            )
+
+            if not mis_positions:
+                logger.info("No MIS positions to force square-off")
+                return True, "No positions to square-off"
+
+            logger.warning(f"Force squaring-off {len(mis_positions)} MIS positions")
+            self._square_off_positions(mis_positions)
+
+            return True, f"Force square-off initiated for {len(mis_positions)} positions"
+
+        except Exception as e:
+            logger.exception(f"Error force squaring-off positions: {e}")
+            return False, f"Error: {str(e)}"
+
+    def get_time_to_square_off(self, exchange):
+        """Get time remaining until square-off for an exchange"""
+        try:
+            square_off_time = self.square_off_times.get(exchange)
+
+            if not square_off_time:
+                return None
+
+            now = datetime.now(self.ist)
+            current_time = now.time()
+
+            # Create datetime objects for comparison
+            square_off_dt = datetime.combine(now.date(), square_off_time)
+            current_dt = datetime.combine(now.date(), current_time)
+
+            # Calculate time difference
+            time_diff = square_off_dt - current_dt
+
+            # If time has passed, return 0 or negative
+            return time_diff.total_seconds()
+
+        except Exception as e:
+            logger.exception(f"Error calculating time to square-off: {e}")
+            return None
+
+    def get_square_off_status(self):
+        """Get status of square-off times for all exchanges"""
+        try:
+            now = datetime.now(self.ist)
+            current_time = now.time()
+
+            status = {}
+
+            for exchange, square_off_time in self.square_off_times.items():
+                time_to_square_off = self.get_time_to_square_off(exchange)
+
+                status[exchange] = {
+                    "square_off_time": square_off_time.strftime("%H:%M"),
+                    "current_time": current_time.strftime("%H:%M"),
+                    "time_remaining_seconds": int(time_to_square_off) if time_to_square_off else 0,
+                    "is_past_square_off": current_time >= square_off_time,
+                }
+
+            return status
+
+        except Exception as e:
+            logger.exception(f"Error getting square-off status: {e}")
+            return {}
+
+
+def run_square_off_check():
+    """Run one cycle of square-off check"""
+    som = SquareOffManager()
+    som.check_and_square_off()
+
+
+if __name__ == "__main__":
+    """Run square-off manager in standalone mode"""
+    import time as time_module
+
+    logger.info("Starting Sandbox Square-Off Manager")
+
+    from database.sandbox_db import init_db
+
+    init_db()
+
+    som = SquareOffManager()
+
+    # Display square-off times
+    status = som.get_square_off_status()
+    logger.info("Configured square-off times:")
+    for exchange, info in status.items():
+        logger.info(f"  {exchange}: {info['square_off_time']} IST")
+
+    # Run check every minute
+    check_interval = 60  # 1 minute
+
+    try:
+        while True:
+            run_square_off_check()
+            time_module.sleep(check_interval)
+    except KeyboardInterrupt:
+        logger.info("Square-off manager stopped by user")
+    except Exception as e:
+        logger.exception(f"Square-off manager error: {e}")

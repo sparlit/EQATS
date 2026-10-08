@@ -1,0 +1,156 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import importlib
+from typing import Any
+
+from database.auth_db import get_auth_token_broker
+from utils.constants import SUPPORTED_INTERVALS
+from utils.logging import get_logger
+
+# Initialize logger
+logger = get_logger(__name__)
+
+
+def import_broker_module(broker_name: str) -> Any | None:
+    """
+    Dynamically import the broker-specific data module.
+
+    Args:
+        broker_name: Name of the broker
+
+    Returns:
+        The imported module or None if import fails
+    """
+    try:
+        module_path = f"broker.{broker_name}.api.data"
+        broker_module = importlib.import_module(module_path)
+        return broker_module
+    except ImportError as error:
+        logger.error(f"Error importing broker module '{module_path}': {error}")
+        return None
+
+
+def get_intervals_with_auth(auth_token: str, broker: str) -> tuple[bool, dict[str, Any], int]:
+    """
+    Get supported intervals for the broker using provided auth token.
+
+    Args:
+        auth_token: Authentication token for the broker API
+        broker: Name of the broker
+
+    Returns:
+        Tuple containing:
+        - Success status (bool)
+        - Response data (dict)
+        - HTTP status code (int)
+    """
+    broker_module = import_broker_module(broker)
+    if broker_module is None:
+        return False, {"status": "error", "message": "Broker-specific module not found"}, 404
+
+    try:
+        # Initialize broker's data handler
+        data_handler = broker_module.BrokerData(auth_token)
+
+        # Get supported intervals from the timeframe map with proper numerical sorting
+        def sort_intervals(interval_list):
+            """Sort intervals numerically instead of alphabetically"""
+
+            def extract_number(interval):
+                """Extract numeric value from interval string for proper sorting"""
+                import re
+
+                match = re.match(r"(\d+)", interval)
+                return int(match.group(1)) if match else 0
+
+            return sorted(interval_list, key=extract_number)
+
+        # Only what the history API will actually accept. A broker map often
+        # carries an alias for a resolution it already has (Zerodha maps both
+        # "60m" and "1h" to "60minute"), and advertising the one history rejects
+        # hands the caller a timeframe that 400s the moment it is used. Worse,
+        # the choice is remembered, so a chart that picked it stays broken across
+        # reloads. The alias keeps working as input; it is just not offered.
+        offered = [k for k in data_handler.timeframe_map if k in SUPPORTED_INTERVALS]
+        dropped = [k for k in data_handler.timeframe_map if k not in SUPPORTED_INTERVALS]
+        if dropped:
+            logger.debug(
+                "Not advertising broker intervals the history API rejects: %s",
+                ", ".join(sorted(dropped)),
+            )
+
+        intervals = {
+            "seconds": sort_intervals([k for k in offered if k.endswith("s")]),
+            "minutes": sort_intervals([k for k in offered if k.endswith("m")]),
+            "hours": sort_intervals([k for k in offered if k.endswith("h")]),
+            "days": sorted([k for k in offered if k == "D"]),
+            "weeks": sorted([k for k in offered if k == "W"]),
+            "months": sorted([k for k in offered if k == "M"]),
+        }
+
+        return True, {"status": "success", "data": intervals}, 200
+    except Exception as e:
+        logger.exception(f"Error getting supported intervals: {e}")
+        return False, {"status": "error", "message": str(e)}, 500
+
+
+def get_intervals(
+    api_key: str | None = None, auth_token: str | None = None, broker: str | None = None
+) -> tuple[bool, dict[str, Any], int]:
+    """
+    Get supported intervals for the broker.
+    Supports both API-based authentication and direct internal calls.
+
+    Args:
+        api_key: OpenAlgo API key (for API-based calls)
+        auth_token: Direct broker authentication token (for internal calls)
+        broker: Direct broker name (for internal calls)
+
+    Returns:
+        Tuple containing:
+        - Success status (bool)
+        - Response data (dict)
+        - HTTP status code (int)
+    """
+    # Case 1: API-based authentication
+    if api_key and not (auth_token and broker):
+        AUTH_TOKEN, broker_name = get_auth_token_broker(api_key)
+        if AUTH_TOKEN is None:
+            return False, {"status": "error", "message": "Invalid openalgo apikey"}, 403
+        return get_intervals_with_auth(AUTH_TOKEN, broker_name)
+
+    # Case 2: Direct internal call with auth_token and broker
+    elif auth_token and broker:
+        return get_intervals_with_auth(auth_token, broker)
+
+    # Case 3: Invalid parameters
+    else:
+        return (
+            False,
+            {
+                "status": "error",
+                "message": "Either api_key or both auth_token and broker must be provided",
+            },
+            400,
+        )

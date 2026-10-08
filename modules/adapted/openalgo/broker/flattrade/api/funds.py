@@ -1,0 +1,145 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+# api/funds.py
+
+import json
+import os
+import time
+
+from broker.flattrade.api.rate_limit import DATA_LIMITER, rate_limit_retry_delay
+from utils.httpx_client import get_httpx_client
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+def calculate_pnl(entry):
+    """Calculate realized and unrealized PnL for a given entry."""
+    # Use broker-provided values directly for more accurate calculation
+    unrealized_pnl = float(entry.get("urmtom", 0))
+    realized_pnl = float(entry.get("rpnl", 0))
+
+    # Fallback calculation if broker values aren't available
+    if unrealized_pnl == 0 and float(entry.get("netqty", 0)) != 0:
+        price_factor = float(entry.get("prcftr", 1))
+        unrealized_pnl = (
+            (float(entry.get("lp", 0)) - float(entry.get("netavgprc", 0)))
+            * float(entry.get("netqty", 0))
+            * price_factor
+        )
+
+    return realized_pnl, unrealized_pnl
+
+
+def fetch_data(endpoint, payload, headers, client, retry_count=0):
+    """Send a POST request and return the parsed JSON response using httpx."""
+    # Limits/PositionBook are non-order endpoints and share the data window with
+    # data.py and order_api.py — get_margin_data is called on every dashboard
+    # refresh, so it has to be counted (issue #1806).
+    DATA_LIMITER.acquire()
+    url = f"https://piconnect.flattrade.in{endpoint}"
+    response = client.post(url, content=payload, headers=headers)
+    parsed = response.json()
+
+    # A funds call can be the first request to meet a lower ceiling. Without
+    # this it returns a rejection that get_margin_data reads as empty funds and
+    # zero PnL, while the cap stays too high for every later call.
+    delay = rate_limit_retry_delay(parsed, DATA_LIMITER, retry_count, endpoint)
+    if delay is not None:
+        time.sleep(delay)
+        return fetch_data(endpoint, payload, headers, client, retry_count + 1)
+
+    return parsed
+
+
+def get_margin_data(auth_token):
+    """Fetch and process margin and position data."""
+    full_api_key = os.getenv("BROKER_API_KEY")
+    userid = full_api_key.split(":::")[0]
+    actid = userid
+
+    # Prepare payload
+    data = {"uid": userid, "actid": actid}
+    payload = f"jData={json.dumps(data)}&jKey={auth_token}"
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+    # Get the shared httpx client
+    client = get_httpx_client()
+
+    # Fetch margin data
+    margin_data = fetch_data("/PiConnectAPI/Limits", payload, headers, client)
+
+    # Check if the request was successful
+    if margin_data.get("stat") != "Ok":
+        # Log the error or return an empty dictionary to indicate failure
+        logger.info(f"Error fetching margin data: {margin_data.get('emsg')}")
+        return {}
+
+    # Fetch position data
+    position_data = fetch_data("/PiConnectAPI/PositionBook", payload, headers, client)
+
+    total_realised = 0
+    total_unrealised = 0
+
+    # Process position data if it's a list
+    if isinstance(position_data, list):
+        for entry in position_data:
+            realized_pnl, unrealized_pnl = calculate_pnl(entry)
+            total_realised += realized_pnl
+            total_unrealised += unrealized_pnl
+
+    try:
+        # Calculate total_available_margin as the sum of 'cash' and 'payin'
+        total_available_margin = (
+            float(margin_data.get("cash", 0))
+            + float(margin_data.get("payin", 0))
+            - float(margin_data.get("marginused", 0))
+        )
+        # Pledged holdings arrive as "collateral" ("Collateral from uploaded
+        # holdings" in the Flattrade API docs), which is the figure the
+        # Flattrade app shows as "Holdings Collateral". "brkcollamt" is a
+        # different number, the pre-valued collateral amount, and reads 0.00 on
+        # an ordinary pledged account -- so reading only that reported a funded
+        # collateral position as no collateral at all (issue #1936).
+        #
+        # brkcollamt is kept as a fallback rather than added: the two overlap,
+        # and summing them would double count wherever both are populated.
+        total_collateral = float(margin_data.get("collateral") or 0)
+        if total_collateral == 0:
+            total_collateral = float(margin_data.get("brkcollamt") or 0)
+        total_used_margin = float(margin_data.get("marginused", 0))
+
+        # Construct and return the processed margin data
+        processed_margin_data = {
+            "availablecash": f"{total_available_margin:.2f}",
+            "collateral": f"{total_collateral:.2f}",
+            "m2munrealized": f"{total_unrealised:.2f}",
+            "m2mrealized": f"{total_realised:.2f}",
+            "utiliseddebits": f"{total_used_margin:.2f}",
+        }
+        return processed_margin_data
+    except KeyError as e:
+        # Log the exception and return an empty dictionary if there's an unexpected error
+        logger.error(f"Error processing margin data: {e}")
+        return {}

@@ -1,0 +1,119 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import os
+
+from broker.deltaexchange.api.baseurl import get_auth_headers, get_url
+from broker.deltaexchange.api.rate_limiter import PRIVATE, consume
+from utils.httpx_client import get_httpx_client
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+def authenticate_broker(code):
+    """
+    Authenticate with Delta Exchange using API Key + Secret (HMAC-SHA256).
+
+    Delta Exchange does NOT use an OAuth flow — credentials are provided once
+    via environment variables.  This function validates that both vars are
+    present and then makes a signed GET /v2/profile call to confirm the key
+    is valid and active.
+
+    Args:
+        code: Not used for Delta Exchange (kept for interface compatibility).
+
+    Returns:
+        (api_key, None)         on success
+        (None, error_message)   on failure
+    """
+    try:
+        api_key = os.getenv("BROKER_API_KEY", "").strip()
+        api_secret = os.getenv("BROKER_API_SECRET", "").strip()
+
+        if not api_key:
+            return None, "BROKER_API_KEY is not set in environment variables"
+        if not api_secret:
+            return None, "BROKER_API_SECRET is not set in environment variables"
+
+        # Verify credentials with a live signed request to GET /v2/profile
+        path = "/v2/profile"
+        # consume() before signing: it can block on the quota window and Delta
+        # rejects signatures older than 5 seconds ("SignatureExpired").
+        consume(path, method="GET", bucket=PRIVATE)
+        headers = get_auth_headers(
+            method="GET",
+            path=path,
+            query_string="",
+            payload="",
+            api_key=api_key,
+            api_secret=api_secret,
+        )
+
+        url = get_url(path)
+        client = get_httpx_client()
+
+        logger.info("Verifying Delta Exchange credentials via GET /v2/profile")
+        response = client.get(url, headers=headers)
+
+        logger.debug(f"Profile response status: {response.status_code}")
+        logger.debug(f"Profile response body: {response.text}")
+
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("success"):
+                user = data.get("result", {})
+                logger.info(
+                    f"Delta Exchange authentication successful for user: "
+                    f"{user.get('email', 'unknown')}"
+                )
+                return api_key, None
+            else:
+                error = data.get("error", {})
+                msg = f"Delta Exchange API error: {error}"
+                logger.error(msg)
+                return None, msg
+
+        elif response.status_code == 401:
+            msg = "Invalid API key or signature — check BROKER_API_KEY and BROKER_API_SECRET"
+            logger.error(msg)
+            return None, msg
+
+        elif response.status_code == 403:
+            msg = (
+                "Request forbidden by Delta Exchange CDN. "
+                "This may be an IP whitelist issue — verify your IP is whitelisted "
+                "for this API key in the Delta Exchange dashboard."
+            )
+            logger.error(msg)
+            return None, msg
+
+        else:
+            msg = f"Unexpected HTTP {response.status_code} from Delta Exchange: {response.text}"
+            logger.error(msg)
+            return None, msg
+
+    except Exception as e:
+        msg = f"An exception occurred during Delta Exchange authentication: {str(e)}"
+        logger.exception(msg)
+        return None, msg

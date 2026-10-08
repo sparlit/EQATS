@@ -1,0 +1,475 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+# sandbox/squareoff_thread.py
+"""
+Square-Off Manager Thread
+
+Manages the square-off manager as a separate daemon thread using APScheduler that:
+- Runs scheduled jobs at configured square-off times for each exchange
+- Uses IST (Asia/Kolkata) timezone for all scheduling
+- Cancels pending MIS orders at square-off time
+- Closes open MIS positions at square-off time
+- Reads all configuration from sandbox database config
+"""
+
+import logging
+import threading
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from database.sandbox_db import get_config
+from utils.db_sessions import releases_scoped_sessions
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+# Reduce APScheduler logging verbosity
+# APScheduler logs every job execution at INFO level which is too noisy
+# Set it to WARNING to only see errors and warnings
+logging.getLogger("apscheduler.scheduler").setLevel(logging.WARNING)
+logging.getLogger("apscheduler.executors.default").setLevel(logging.WARNING)
+
+# Global scheduler instance
+_scheduler = None
+_scheduler_lock = threading.Lock()
+
+# IST timezone
+IST = pytz.timezone("Asia/Kolkata")
+
+
+def _schedule_square_off_jobs(scheduler):
+    """Schedule square-off jobs for all exchanges based on config"""
+    from sandbox.squareoff_manager import SquareOffManager
+
+    som = SquareOffManager()
+
+    # Every job releases its thread's database sessions when it finishes. A
+    # scheduler thread otherwise kept its connection, and the rows it had
+    # loaded, from one run to the next.
+    square_off = releases_scoped_sessions(som.check_and_square_off)
+
+    # Get configured times from database
+    square_off_configs = {
+        "NSE_BSE": get_config("nse_bse_square_off_time", "15:15"),
+        "CDS_BCD": get_config("cds_bcd_square_off_time", "16:45"),
+        "MCX": get_config("mcx_square_off_time", "23:30"),
+        "NCDEX": get_config("ncdex_square_off_time", "17:00"),
+    }
+
+    logger.debug("Scheduling MIS square-off jobs (IST timezone):")
+
+    for config_name, time_str in square_off_configs.items():
+        try:
+            hour, minute = map(int, time_str.split(":"))
+
+            # Create cron trigger for the specific time in IST
+            trigger = CronTrigger(hour=hour, minute=minute, timezone=IST)
+
+            # Schedule the job
+            job = scheduler.add_job(
+                func=square_off,
+                trigger=trigger,
+                id=f"squareoff_{config_name}",
+                name=f"MIS Square-off {config_name}",
+                replace_existing=True,
+                misfire_grace_time=300,  # Allow 5 minutes grace time
+            )
+
+            logger.debug(f"  {config_name}: {time_str} IST (Job ID: {job.id})")
+
+        except Exception as e:
+            logger.exception(f"Failed to schedule square-off for {config_name}: {e}")
+
+    # Add a backup job that runs every minute to catch any missed executions
+    # This provides a safety net in case:
+    # - System was restarted during square-off time
+    # - Primary cron job failed to execute
+    # - There were timing issues or delays
+    # Note: The check_and_square_off() function is smart - it only squares off
+    # positions if current time is past the configured square-off time
+    backup_job = scheduler.add_job(
+        func=square_off,
+        trigger="interval",
+        minutes=1,
+        id="squareoff_backup",
+        name="MIS Square-off Backup Check",
+        replace_existing=True,
+        timezone=IST,
+    )
+
+    logger.debug(f"  Backup check: Every 1 minute (Job ID: {backup_job.id})")
+    logger.debug("  Note: APScheduler logs have been set to WARNING level to reduce verbosity")
+
+    # Schedule T+1 settlement job at midnight (00:00 IST)
+    # This moves CNC positions to holdings after market close
+    try:
+        from sandbox.holdings_manager import process_all_t1_settlements
+
+        settlement_trigger = CronTrigger(hour=0, minute=0, timezone=IST)
+
+        settlement_job = scheduler.add_job(
+            func=releases_scoped_sessions(process_all_t1_settlements),
+            trigger=settlement_trigger,
+            id="t1_settlement",
+            name="T+1 Settlement (CNC to Holdings)",
+            replace_existing=True,
+            misfire_grace_time=300,
+        )
+
+        logger.debug(f"  T+1 Settlement: 00:00 IST (Job ID: {settlement_job.id})")
+
+    except Exception as e:
+        logger.exception(f"Failed to schedule T+1 settlement: {e}")
+
+    # Schedule auto-reset job based on configured reset day and time
+    # This resets all user funds to starting capital on the configured day/time
+    try:
+        from sandbox.fund_manager import reset_all_user_funds
+
+        reset_day = get_config("reset_day", "Never")
+        reset_time_str = get_config("reset_time", "00:00")
+
+        # Check if auto-reset is disabled
+        if reset_day.lower() == "never":
+            logger.debug("  Auto-Reset: Disabled (reset_day = Never)")
+        else:
+            reset_hour, reset_minute = map(int, reset_time_str.split(":"))
+
+            # Map day names to APScheduler day_of_week values
+            day_mapping = {
+                "Monday": 0,
+                "Tuesday": 1,
+                "Wednesday": 2,
+                "Thursday": 3,
+                "Friday": 4,
+                "Saturday": 5,
+                "Sunday": 6,
+            }
+
+            reset_trigger = CronTrigger(
+                day_of_week=day_mapping.get(reset_day, 6),  # Default to Sunday
+                hour=reset_hour,
+                minute=reset_minute,
+                timezone=IST,
+            )
+
+            reset_job = scheduler.add_job(
+                func=releases_scoped_sessions(reset_all_user_funds),
+                trigger=reset_trigger,
+                id="auto_reset",
+                name=f"Auto-Reset Funds ({reset_day} {reset_time_str})",
+                replace_existing=True,
+                misfire_grace_time=300,
+            )
+
+            logger.debug(f"  Auto-Reset: {reset_day} {reset_time_str} IST (Job ID: {reset_job.id})")
+
+    except Exception as e:
+        logger.exception(f"Failed to schedule auto-reset: {e}")
+
+    # Schedule daily P&L snapshot at 23:59 IST (before session boundary reset)
+    # This captures the end-of-day P&L for historical reporting
+    try:
+        import os
+        from datetime import date
+        from decimal import Decimal
+
+        def capture_daily_pnl_snapshot():
+            """Capture end-of-day P&L snapshot for all users"""
+            try:
+                from database.market_calendar_db import is_market_holiday
+                from database.sandbox_db import (
+                    SandboxDailyPnL,
+                    SandboxFunds,
+                    SandboxHoldings,
+                    SandboxPositions,
+                    db_session,
+                )
+
+                today = date.today()
+
+                # Skip weekends and market holidays (issue #876): the cron
+                # fires every day, and on a non-trading day nothing has moved,
+                # so the snapshot just clones the previous session's numbers
+                # into a new dated row -- the "PnL copied to Saturday/Sunday"
+                # duplication. is_market_holiday covers weekends, exchange
+                # holidays, and correctly stays False for special sessions
+                # (e.g. Muhurat trading on a Saturday).
+                if is_market_holiday(today):
+                    logger.debug(f"Skipping daily P&L snapshot for {today}: not a trading day")
+                    return
+
+                # Get all users with funds
+                all_funds = SandboxFunds.query.all()
+
+                for funds in all_funds:
+                    user_id = funds.user_id
+
+                    # Calculate positions unrealized P&L
+                    positions = (
+                        SandboxPositions.query.filter_by(user_id=user_id)
+                        .filter(SandboxPositions.quantity != 0)
+                        .all()
+                    )
+                    positions_unrealized = sum(Decimal(str(p.pnl or 0)) for p in positions)
+
+                    # Calculate holdings unrealized P&L
+                    holdings = (
+                        SandboxHoldings.query.filter_by(user_id=user_id)
+                        .filter(SandboxHoldings.quantity != 0)
+                        .all()
+                    )
+                    holdings_unrealized = sum(Decimal(str(h.pnl or 0)) for h in holdings)
+
+                    # Get today's realized P&L
+                    realized_pnl = Decimal(str(funds.today_realized_pnl or 0))
+
+                    # Total MTM = Realized + Unrealized (positions + holdings)
+                    total_unrealized = positions_unrealized + holdings_unrealized
+                    total_mtm = realized_pnl + total_unrealized
+
+                    # Portfolio value
+                    portfolio_value = Decimal(str(funds.available_balance or 0)) + Decimal(
+                        str(funds.used_margin or 0)
+                    )
+
+                    # Check if snapshot already exists for today
+                    existing = SandboxDailyPnL.query.filter_by(user_id=user_id, date=today).first()
+
+                    if existing:
+                        # Update existing snapshot
+                        existing.realized_pnl = realized_pnl
+                        existing.positions_unrealized_pnl = positions_unrealized
+                        existing.holdings_unrealized_pnl = holdings_unrealized
+                        existing.total_mtm = total_mtm
+                        existing.available_balance = funds.available_balance
+                        existing.used_margin = funds.used_margin
+                        existing.portfolio_value = portfolio_value
+                    else:
+                        # Create new snapshot
+                        snapshot = SandboxDailyPnL(
+                            user_id=user_id,
+                            date=today,
+                            realized_pnl=realized_pnl,
+                            positions_unrealized_pnl=positions_unrealized,
+                            holdings_unrealized_pnl=holdings_unrealized,
+                            total_mtm=total_mtm,
+                            available_balance=funds.available_balance,
+                            used_margin=funds.used_margin,
+                            portfolio_value=portfolio_value,
+                        )
+                        db_session.add(snapshot)
+
+                db_session.commit()
+                logger.info(f"Daily P&L snapshot captured for {len(all_funds)} users")
+
+            except Exception as e:
+                db_session.rollback()
+                logger.exception(f"Error capturing daily P&L snapshot: {e}")
+
+        # Schedule snapshot at 23:59 IST (before midnight reset)
+        snapshot_trigger = CronTrigger(hour=23, minute=59, timezone=IST)
+
+        snapshot_job = scheduler.add_job(
+            func=releases_scoped_sessions(capture_daily_pnl_snapshot),
+            trigger=snapshot_trigger,
+            id="daily_pnl_snapshot",
+            name="Daily PnL Snapshot (23:59 IST)",
+            replace_existing=True,
+            misfire_grace_time=300,
+        )
+
+        logger.debug(f"  Daily PnL Snapshot: 23:59 IST (Job ID: {snapshot_job.id})")
+
+    except Exception as e:
+        logger.exception(f"Failed to schedule daily PnL snapshot: {e}")
+
+    # Schedule daily P&L reset at SESSION_EXPIRY_TIME (default 03:00 IST)
+    # This resets today_realized_pnl for all users at session boundary
+    try:
+
+        def reset_daily_pnl():
+            """Reset today_realized_pnl for all users at session boundary"""
+            try:
+                from database.sandbox_db import SandboxFunds, SandboxPositions, db_session
+
+                # Reset funds - today_realized_pnl
+                funds_count = SandboxFunds.query.update({"today_realized_pnl": Decimal("0.00")})
+
+                # Reset positions - today_realized_pnl
+                positions_count = SandboxPositions.query.update(
+                    {"today_realized_pnl": Decimal("0.00")}
+                )
+
+                db_session.commit()
+                logger.info(
+                    f"Daily P&L reset completed: {funds_count} funds, {positions_count} positions reset"
+                )
+
+            except Exception as e:
+                db_session.rollback()
+                logger.exception(f"Error in daily P&L reset: {e}")
+
+        # Get reset time from SESSION_EXPIRY_TIME env variable
+        session_expiry_str = os.getenv("SESSION_EXPIRY_TIME", "03:00")
+        reset_hour, reset_minute = map(int, session_expiry_str.split(":"))
+
+        pnl_reset_trigger = CronTrigger(hour=reset_hour, minute=reset_minute, timezone=IST)
+
+        pnl_reset_job = scheduler.add_job(
+            func=releases_scoped_sessions(reset_daily_pnl),
+            trigger=pnl_reset_trigger,
+            id="daily_pnl_reset",
+            name=f"Daily PnL Reset ({session_expiry_str} IST)",
+            replace_existing=True,
+            misfire_grace_time=300,
+        )
+
+        logger.debug(f"  Daily PnL Reset: {session_expiry_str} IST (Job ID: {pnl_reset_job.id})")
+
+    except Exception as e:
+        logger.exception(f"Failed to schedule daily PnL reset: {e}")
+
+
+def start_squareoff_scheduler():
+    """
+    Start the square-off scheduler daemon thread
+    Thread-safe - only one instance will run
+    """
+    global _scheduler
+
+    with _scheduler_lock:
+        if _scheduler is not None and _scheduler.running:
+            logger.debug("Square-off scheduler already running")
+            return True, "Square-off scheduler already running"
+
+        try:
+            # Create background scheduler with IST timezone
+            _scheduler = BackgroundScheduler(
+                timezone=IST,
+                daemon=True,
+                job_defaults={
+                    "coalesce": True,  # Combine missed executions
+                    "max_instances": 1,  # Only one instance of each job at a time
+                },
+            )
+
+            # Schedule all square-off jobs
+            _schedule_square_off_jobs(_scheduler)
+
+            # Start the scheduler
+            _scheduler.start()
+
+            logger.debug("Square-off scheduler started successfully")
+            return True, "Square-off scheduler started"
+
+        except Exception as e:
+            logger.exception(f"Failed to start square-off scheduler: {e}")
+            return False, f"Failed to start square-off scheduler: {str(e)}"
+
+
+def stop_squareoff_scheduler(wait: bool = True):
+    """
+    Stop the square-off scheduler gracefully
+
+    Args:
+        wait: Block until a square-off already running has finished. True is
+            right for an operator stopping the engine, because the job in
+            flight is closing sandbox positions. The Ctrl+C path passes
+            False: a signal handler that waits on a broker call is how a
+            stopped process stays alive, and every writer it was holding
+            keeps its database open (issue #2031).
+    """
+    global _scheduler
+
+    with _scheduler_lock:
+        if _scheduler is None or not _scheduler.running:
+            logger.debug("Square-off scheduler not running")
+            return True, "Square-off scheduler not running"
+
+        try:
+            logger.info("Stopping square-off scheduler...")
+            _scheduler.shutdown(wait=wait)
+            _scheduler = None
+            logger.info("Square-off scheduler stopped successfully")
+            return True, "Square-off scheduler stopped"
+
+        except Exception as e:
+            logger.exception(f"Error stopping square-off scheduler: {e}")
+            return False, f"Error stopping square-off scheduler: {str(e)}"
+
+
+def is_squareoff_scheduler_running():
+    """Check if square-off scheduler is running"""
+    global _scheduler
+    return _scheduler is not None and _scheduler.running
+
+
+def get_squareoff_scheduler_status():
+    """Get status information about the square-off scheduler"""
+    global _scheduler
+
+    if _scheduler is None or not _scheduler.running:
+        return {"running": False, "jobs": []}
+
+    jobs_info = []
+    for job in _scheduler.get_jobs():
+        next_run = job.next_run_time
+        jobs_info.append(
+            {
+                "id": job.id,
+                "name": job.name,
+                "next_run": next_run.strftime("%Y-%m-%d %H:%M:%S %Z") if next_run else "N/A",
+            }
+        )
+
+    return {"running": True, "timezone": str(IST), "jobs": jobs_info}
+
+
+def reload_squareoff_schedule():
+    """
+    Reload square-off schedule from config
+    Useful when config is updated
+    """
+    global _scheduler
+
+    if _scheduler is None or not _scheduler.running:
+        logger.warning("Cannot reload schedule - scheduler not running")
+        return False, "Scheduler not running"
+
+    try:
+        logger.info("Reloading square-off schedule from config...")
+
+        # Remove all existing jobs
+        _scheduler.remove_all_jobs()
+
+        # Re-schedule jobs with new config
+        _schedule_square_off_jobs(_scheduler)
+
+        logger.info("Square-off schedule reloaded successfully")
+        return True, "Schedule reloaded"
+
+    except Exception as e:
+        logger.exception(f"Error reloading schedule: {e}")
+        return False, f"Error reloading schedule: {str(e)}"

@@ -1,0 +1,359 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""
+SocketIO subscriber — emits the correct socketio event for each order event.
+
+Reproduces the exact event names and payload structures from the original code.
+Called directly from the EventBus thread pool — socketio.emit() is thread-safe
+with async_mode="threading" and avoids greenlet errors under eventlet.
+"""
+
+from extensions import socketio
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+def on_order_placed(event):
+    """Emit order_event (live) or analyzer_update (analyze)."""
+    if event.mode == "analyze":
+        _emit_analyzer_update(event)
+    else:
+        socketio.emit(
+            "order_event",
+            {
+                "symbol": event.symbol,
+                "action": event.action,
+                "orderid": event.orderid,
+                "exchange": event.exchange,
+                "price_type": event.pricetype,
+                "product_type": event.product,
+                "mode": "live",
+            },
+        )
+
+
+def on_order_failed(event):
+    """Emit analyzer_update (analyze) — live failures have no socketio event in original code."""
+    if event.mode == "analyze":
+        _emit_analyzer_update(event)
+
+
+def on_smart_order_no_action(event):
+    """Emit order_notification (live) or analyzer_update (analyze)."""
+    if event.mode == "analyze":
+        _emit_analyzer_update(event)
+    else:
+        socketio.emit(
+            "order_notification",
+            {
+                "symbol": event.symbol,
+                "status": "info",
+                "message": event.message,
+            },
+        )
+
+
+def on_order_modified(event):
+    """Emit modify_order_event (live) or analyzer_update (analyze)."""
+    if event.mode == "analyze":
+        _emit_analyzer_update(event)
+    else:
+        socketio.emit(
+            "modify_order_event",
+            {
+                "status": "success",
+                "orderid": event.orderid,
+                "mode": "live",
+            },
+        )
+
+
+def on_order_modify_failed(event):
+    """Emit analyzer_update (analyze) — live failures have no socketio event."""
+    if event.mode == "analyze":
+        _emit_analyzer_update(event)
+
+
+def on_order_cancelled(event):
+    """Emit cancel_order_event (live) or analyzer_update (analyze)."""
+    if event.mode == "analyze":
+        _emit_analyzer_update(event)
+    else:
+        socketio.emit(
+            "cancel_order_event",
+            {
+                "status": event.status,
+                "orderid": event.orderid,
+                "mode": "live",
+            },
+        )
+
+
+def on_order_cancel_failed(event):
+    """Emit analyzer_update (analyze) — live failures have no socketio event."""
+    if event.mode == "analyze":
+        _emit_analyzer_update(event)
+
+
+def on_all_orders_cancelled(event):
+    """Emit cancel_order_event batch (live) or analyzer_update (analyze)."""
+    if event.mode == "analyze":
+        _emit_analyzer_update(event)
+    else:
+        socketio.emit(
+            "cancel_order_event",
+            {
+                "status": "success",
+                "orderid": f"{event.canceled_count} orders canceled",
+                "mode": "live",
+                "batch_order": True,
+                "is_last_order": True,
+                "canceled_count": event.canceled_count,
+                "failed_count": event.failed_count,
+            },
+        )
+
+
+def on_position_closed(event):
+    """Emit close_position_event (live) or analyzer_update (analyze)."""
+    if event.mode == "analyze":
+        _emit_analyzer_update(event)
+    else:
+        socketio.emit(
+            "close_position_event",
+            {
+                "status": "success",
+                "message": event.message or "All Open Positions Squared Off",
+                "mode": "live",
+            },
+        )
+
+
+def on_basket_completed(event):
+    """Emit order_event batch summary (live) or analyzer_update (analyze)."""
+    if event.mode == "analyze":
+        _emit_analyzer_update(event)
+    else:
+        socketio.emit(
+            "order_event",
+            {
+                "symbol": event.strategy or "Basket",
+                "action": f"{event.successful}/{event.total} orders",
+                "orderid": f"basket_{event.successful}",
+                "exchange": "MULTI",
+                "price_type": "BASKET",
+                "product_type": "BASKET",
+                "mode": "live",
+                "batch_order": True,
+                "is_last_order": True,
+            },
+        )
+
+
+def on_split_completed(event):
+    """Emit order_event batch summary (live) or analyzer_update (analyze)."""
+    if event.mode == "analyze":
+        _emit_analyzer_update(event)
+    else:
+        socketio.emit(
+            "order_event",
+            {
+                "symbol": event.symbol or "Split",
+                "action": event.action or "SPLIT",
+                "orderid": f"{event.successful}/{event.total} orders",
+                "exchange": event.exchange or "Unknown",
+                "price_type": event.pricetype or "MARKET",
+                "product_type": event.product or "MIS",
+                "mode": "live",
+                "batch_order": True,
+                "is_last_order": True,
+            },
+        )
+
+
+def on_options_completed(event):
+    """Emit order_event batch summary (live) or analyzer_update (analyze)."""
+    if event.mode == "analyze":
+        _emit_analyzer_update(event)
+    else:
+        socketio.emit(
+            "order_event",
+            {
+                "symbol": event.symbol,
+                "action": event.action,
+                "orderid": f"{event.successful}/{event.total} orders",
+                "exchange": event.exchange,
+                "price_type": event.pricetype or "MARKET",
+                "product_type": event.product or "MIS",
+                "mode": "live",
+                "batch_order": True,
+                "is_last_order": True,
+            },
+        )
+
+
+def on_multiorder_completed(event):
+    """Emit order_event batch summary (live) or analyzer_update (analyze)."""
+    if event.mode == "analyze":
+        _emit_analyzer_update(event)
+    else:
+        socketio.emit(
+            "order_event",
+            {
+                "symbol": event.underlying,
+                "action": event.strategy or "Multi-Order",
+                "orderid": f"{event.successful_legs}/{event.total} legs",
+                "exchange": event.exchange,
+                "price_type": "MULTI",
+                "product_type": "OPTIONS",
+                "mode": "live",
+                "batch_order": True,
+                "is_last_order": True,
+                "multiorder_summary": True,
+                "successful_legs": event.successful_legs,
+                "failed_legs": event.failed_legs,
+            },
+        )
+
+
+def on_analyzer_error(event):
+    """Emit analyzer_update only for analyze-mode errors."""
+    if event.mode == "analyze":
+        _emit_analyzer_update(event)
+
+
+def on_sandbox_order_filled(event):
+    """Emit analyzer_update so OrderBook / TradeBook / Positions auto-refresh
+    when a pending sandbox order fills via live LTP."""
+    _emit_analyzer_update(event)
+
+
+def on_sandbox_auto_squareoff(event):
+    """Emit analyzer_update after the sandbox auto-square-off cycle so
+    OrderBook (cancelled MIS orders) and Positions (closed MIS) refresh."""
+    _emit_analyzer_update(event)
+
+
+def on_sandbox_t1_settlement(event):
+    """Emit analyzer_update after T+1 settlement so Positions and Holdings
+    pages refresh."""
+    _emit_analyzer_update(event)
+
+
+def on_order_update(event):
+    """Emit order_update for asynchronous order status changes (broker
+    postback/order-WS fills+rejections, or sandbox engine-internal
+    transitions). Global emit — matches every other socketio event in this
+    file (single-user-per-deployment, no rooms needed)."""
+    socketio.emit(
+        "order_update",
+        {
+            "mode": event.mode,
+            "broker": event.broker,
+            "orderid": event.orderid,
+            "symbol": event.symbol,
+            "exchange": event.exchange,
+            "action": event.action,
+            "quantity": event.quantity,
+            "price": event.price,
+            "trigger_price": event.trigger_price,
+            "pricetype": event.pricetype,
+            "product": event.product,
+            "order_status": event.order_status,
+            "filled_quantity": event.filled_quantity,
+            "pending_quantity": event.pending_quantity,
+            "average_price": event.average_price,
+            "rejection_reason": event.rejection_reason,
+        },
+    )
+
+
+def _emit_analyzer_update(event):
+    """Helper to emit the analyzer_update socketio event."""
+    socketio.emit(
+        "analyzer_update",
+        {"request": event.request_data, "response": event.response_data},
+    )
+
+
+# --- GTT ------------------------------------------------------------------
+
+
+def _emit_gtt_event(event, name):
+    """Emit a GTT event to the UI, or an analyzer update in analyze mode.
+
+    Analyze mode reuses analyzer_update so the analyzer view refreshes the same
+    way it does for orders; live mode gets its own gtt_event so the GTT tab can
+    refresh without reloading the whole orderbook.
+    """
+    if event.mode == "analyze":
+        _emit_analyzer_update(event)
+        return
+    try:
+        socketio.emit(
+            "gtt_event",
+            {
+                "event": name,
+                "symbol": getattr(event, "symbol", ""),
+                "exchange": getattr(event, "exchange", ""),
+                "trigger_id": getattr(event, "trigger_id", ""),
+                "triggered_order_id": getattr(event, "triggered_order_id", ""),
+                "mode": "live",
+            },
+        )
+    except Exception as e:
+        logger.exception(f"Error emitting gtt_event {name}: {e}")
+
+
+def on_gtt_placed(event):
+    _emit_gtt_event(event, "placed")
+
+
+def on_gtt_failed(event):
+    _emit_gtt_event(event, "failed")
+
+
+def on_gtt_modified(event):
+    _emit_gtt_event(event, "modified")
+
+
+def on_gtt_modify_failed(event):
+    _emit_gtt_event(event, "modify_failed")
+
+
+def on_gtt_cancelled(event):
+    _emit_gtt_event(event, "cancelled")
+
+
+def on_gtt_cancel_failed(event):
+    _emit_gtt_event(event, "cancel_failed")
+
+
+def on_gtt_triggered(event):
+    _emit_gtt_event(event, "triggered")
+
+
+def on_gtt_expired(event):
+    _emit_gtt_event(event, "expired")

@@ -1,0 +1,1075 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import contextlib
+import hashlib
+import json
+import ssl
+import threading
+import time
+from datetime import datetime, timedelta
+
+import websocket
+from utils.httpx_client import get_httpx_client
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+class AliceBlueWebSocket:
+    """
+    WebSocket client for AliceBlue broker's market data API.
+    Handles connection to the WebSocket server, authentication, subscription,
+    and message parsing for market data.
+    """
+
+    # WebSocket endpoints
+    PRIMARY_URL = "wss://ws1.aliceblueonline.com/NorenWS/"
+    ALTERNATE_URL = "wss://ws2.aliceblueonline.com/NorenWS/"
+
+    # REST API base URL for WebSocket session management (V2 API)
+    BASE_URL = "https://a3.aliceblueonline.com/"
+
+    # Backoff ceiling for reconnection. There is deliberately NO attempt cap:
+    # this feed has to survive a full trading session, and a hard limit meant a
+    # single transient blip mid-session left market data dead until someone
+    # restarted the process. Retry forever, but never faster than this.
+    MAX_RECONNECT_BACKOFF_SECONDS = 30
+
+    # Kept for compatibility with callers that read it; no longer a stop
+    # condition, only the point at which backoff has fully ramped.
+    MAX_RECONNECT_ATTEMPTS = 5
+
+    # AliceBlue closes connections that neither send nor receive for a while.
+    # Docs (11-websocket.md): "Send heartbeat once in every 50 seconds" -
+    # without it, a book of illiquid symbols that prints no ticks gets dropped
+    # server-side, which is exactly the long-session failure. Payload is
+    # {"k": "", "t": "h"} and draws no response.
+    HEARTBEAT_INTERVAL_SECONDS = 50
+
+    #: How many subscribe() calls currently want each "exchange|token" key.
+    #: None until the first subscribe(); a key with no count is released by
+    #: its first unsubscribe(), which is how every key behaved before counting.
+    _subscription_refs: dict | None = None
+
+    def __init__(self, user_id: str, session_id: str):
+        """
+        Initialize the AliceBlue WebSocket client.
+
+        Args:
+            user_id (str): AliceBlue user ID
+            session_id (str): Session ID obtained from authentication
+        """
+        self.user_id = user_id
+        self.session_id = session_id
+        self.ws = None
+        self.is_connected = False
+        self.reconnect_count = 0
+        self.lock = threading.Lock()
+        self.last_message_time = datetime.now()
+        self.subscribed_tokens = set()
+        self.subscriptions = {}  # Dictionary to track subscribed instruments: exchange|token -> instrument object
+        self.last_quotes = {}  # Dictionary to store quote data: exchange:token -> quote data
+        self.last_depth = {}  # Dictionary to store depth data: exchange:token -> depth data
+        self._subscription_refs = {}  # exchange|token -> subscribers still reading it
+        self._connect_thread = None
+        self._reconnect_thread = None
+        self._stop_event = threading.Event()
+        self._heartbeat_thread = None
+        self._heartbeat_stop = threading.Event()
+
+        # Generate the encrypted token as required by AliceBlue
+        sha256_encryption1 = hashlib.sha256(session_id.encode("utf-8")).hexdigest()
+        self.enc_token = hashlib.sha256(sha256_encryption1.encode("utf-8")).hexdigest()
+
+    def _get_auth_header(self) -> dict:
+        """Get authorization header for REST API calls."""
+        return {
+            "Authorization": f"Bearer {self.session_id}",
+            "Content-Type": "application/json",
+        }
+
+    def _invalidate_socket_session(self) -> bool:
+        """
+        Invalidate any existing WebSocket session.
+        Must be called before creating a new WebSocket session.
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            url = self.BASE_URL + "open-api/od/v1/profile/invalidateWsSess"
+            payload = {"source": "API", "userId": self.user_id}
+
+            client = get_httpx_client()
+            response = client.post(url, json=payload, headers=self._get_auth_header(), timeout=10)
+
+            if response.status_code == 200:
+                data = response.json()
+                logger.info(f"Invalidate socket session response: {data}")
+                # Accept both 'Ok' and 'Not_Ok' as valid responses (Not_Ok means no session to invalidate)
+                return True
+            else:
+                logger.warning(f"Failed to invalidate socket session: {response.status_code}")
+                return True  # Continue anyway
+
+        except Exception as e:
+            logger.warning(f"Error invalidating socket session: {str(e)}")
+            return True  # Continue anyway, this is not critical
+
+    def _create_socket_session(self) -> bool:
+        """
+        Create a new WebSocket session.
+        Must be called before connecting to WebSocket.
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            url = self.BASE_URL + "open-api/od/v1/profile/createWsSess"
+            payload = {"source": "API", "userId": self.user_id}
+
+            client = get_httpx_client()
+            response = client.post(url, json=payload, headers=self._get_auth_header(), timeout=10)
+
+            if response.status_code == 200:
+                data = response.json()
+                logger.info(f"Create socket session response: {data}")
+
+                # Check for success
+                if data.get("status") == "Ok":
+                    logger.info("WebSocket session created successfully")
+                    return True
+                else:
+                    error_msg = data.get("emsg", "Unknown error")
+                    logger.error(f"Failed to create socket session: {error_msg}")
+                    return False
+            else:
+                logger.error(f"Failed to create socket session: HTTP {response.status_code}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error creating socket session: {str(e)}")
+            return False
+
+    def connect(self):
+        """
+        Establishes the WebSocket connection and starts the connection thread.
+        Must first create a WebSocket session via REST API before connecting.
+        """
+        with self.lock:
+            if self._connect_thread and self._connect_thread.is_alive():
+                logger.info("WebSocket connection thread is already running")
+                return
+
+            # Reset the stop event
+            self._stop_event.clear()
+
+        try:
+            # Step 1: Invalidate any existing WebSocket session
+            logger.info("Invalidating existing WebSocket session...")
+            self._invalidate_socket_session()
+
+            # Step 2: Create a new WebSocket session
+            logger.info("Creating new WebSocket session...")
+            if not self._create_socket_session():
+                logger.error("Failed to create WebSocket session. Cannot connect.")
+                self._stop_event.set()
+                return
+
+            # Step 3: Start the connection in a separate thread
+            self._connect_thread = threading.Thread(target=self._connect_with_retry)
+            self._connect_thread.daemon = True
+            self._connect_thread.start()
+        except Exception as e:
+            logger.error(f"Error during connect: {e}")
+            self._stop_event.set()
+
+    def _connect_with_retry(self):
+        """
+        Attempts to connect to the WebSocket with exponential backoff retry logic.
+        """
+        urls = [self.PRIMARY_URL, self.ALTERNATE_URL]
+        attempt = 0
+
+        # No attempt cap: the feed must survive a whole trading session, and a
+        # limit meant one blip killed market data until a manual restart.
+        while not self._stop_event.is_set():
+            # Try each URL in sequence
+            for url in urls:
+                if self._stop_event.is_set():
+                    break
+
+                try:
+                    logger.info(f"Connecting to AliceBlue WebSocket: {url}")
+
+                    # Close any previous WebSocket before creating a new one
+                    if self.ws:
+                        with contextlib.suppress(Exception):
+                            self.ws.close()
+
+                    websocket.enableTrace(False)
+                    self.ws = websocket.WebSocketApp(
+                        url,
+                        on_open=self.on_open,
+                        on_message=self.on_message,
+                        on_error=self.on_error,
+                        on_close=self.on_close,
+                    )
+
+                    # Reset reconnect count on successful connection attempt
+                    self.reconnect_count = 0
+
+                    # Run the WebSocket connection with proper SSL context
+                    self.ws.run_forever(sslopt={"cert_reqs": ssl.CERT_NONE})
+
+                    # If we're here, the connection was closed
+                    if self.is_connected:
+                        # If it was a clean disconnect, break the retry loop
+                        break
+
+                except Exception as e:
+                    logger.error(f"Error connecting to {url}: {str(e)}")
+
+            # If we should stop or connection was successful, break the retry loop
+            if self._stop_event.is_set() or self.is_connected:
+                break
+
+            # Exponential backoff, ramping to MAX_RECONNECT_BACKOFF_SECONDS
+            # and then holding there for as long as the outage lasts.
+            attempt += 1
+            sleep_time = min(2**attempt, self.MAX_RECONNECT_BACKOFF_SECONDS)
+            # Log the first few loudly, then only every 20th, so an hour-long
+            # broker outage does not bury the rest of the log.
+            if attempt <= 5 or attempt % 20 == 0:
+                logger.warning(
+                    f"AliceBlue WebSocket reconnect attempt {attempt} failed; "
+                    f"retrying in {sleep_time}s"
+                )
+            # Sleep in 1s slices so disconnect() is not blocked for 30s.
+            for _ in range(sleep_time):
+                if self._stop_event.is_set():
+                    break
+                time.sleep(1)
+
+    def disconnect(self):
+        """
+        Disconnects from the WebSocket and stops the connection thread.
+        """
+        self._stop_event.set()
+        self._heartbeat_stop.set()
+
+        if self.ws:
+            logger.info("Closing AliceBlue WebSocket connection")
+            self.ws.close()
+
+        # Wait for threads to finish so they don't leak. The heartbeat is in
+        # here too: one per connection, and over a long session with repeated
+        # reconnects an unjoined thread each time is a slow leak.
+        for thr in (self._connect_thread, self._reconnect_thread, self._heartbeat_thread):
+            if thr and thr.is_alive():
+                thr.join(timeout=5)
+
+        self._connect_thread = None
+        self._reconnect_thread = None
+        self._heartbeat_thread = None
+        self.is_connected = False
+        logger.info("AliceBlue WebSocket disconnected")
+
+    def on_open(self, ws):
+        """
+        Called when the WebSocket connection is established.
+        Sends authentication message to initialize the session.
+
+        Args:
+            ws: WebSocket instance
+        """
+        logger.info("AliceBlue WebSocket connection opened")
+
+        # This is the format required by AliceBlue for authentication
+        auth_message = {
+            "susertoken": self.enc_token,
+            "t": "c",
+            "actid": f"{self.user_id}_API",
+            "uid": f"{self.user_id}_API",
+            "source": "API",
+        }
+
+        try:
+            # Send authentication message
+            ws.send(json.dumps(auth_message))
+            logger.info("AliceBlue WebSocket authentication message sent")
+        except Exception as e:
+            logger.error(f"Error sending authentication message: {str(e)}")
+
+        self._start_heartbeat(ws)
+
+    def _start_heartbeat(self, ws):
+        """Keep the connection alive across quiet periods.
+
+        AliceBlue closes a socket that neither sends nor receives for a while,
+        so a book of illiquid symbols that prints no ticks gets dropped
+        server-side - the classic "worked all morning, died after lunch"
+        failure. The docs ask for {"k": "", "t": "h"} every 50 seconds and send
+        no reply, so this is fire-and-forget.
+
+        One thread per connection, replacing any previous one, stopped by the
+        same _stop_event as everything else and by the send failing once the
+        socket is gone. It is a daemon so it can never hold up shutdown.
+        """
+        existing = getattr(self, "_heartbeat_thread", None)
+        if existing and existing.is_alive():
+            self._heartbeat_stop.set()
+            existing.join(timeout=2)
+
+        self._heartbeat_stop = threading.Event()
+        stop = self._heartbeat_stop
+
+        def beat():
+            while not stop.is_set() and not self._stop_event.is_set():
+                # Sleep in 1s slices so shutdown is not delayed by up to 50s.
+                for _ in range(self.HEARTBEAT_INTERVAL_SECONDS):
+                    if stop.is_set() or self._stop_event.is_set():
+                        return
+                    time.sleep(1)
+                try:
+                    ws.send(json.dumps({"k": "", "t": "h"}))
+                    logger.debug("AliceBlue WebSocket heartbeat sent")
+                except Exception as exc:
+                    # Socket already gone; the reconnect loop owns recovery.
+                    logger.debug(f"Heartbeat send stopped: {exc}")
+                    return
+
+        self._heartbeat_thread = threading.Thread(
+            target=beat, daemon=True, name="aliceblue-ws-heartbeat"
+        )
+        self._heartbeat_thread.start()
+
+    def on_message(self, ws, message):
+        """
+        Called when a message is received from the WebSocket.
+        Parses the message and updates the last quotes and depth data.
+
+        Args:
+            ws: WebSocket instance
+            message: Message received from the WebSocket
+        """
+        try:
+            self.last_message_time = datetime.now()
+            # Log raw message for debugging
+            logger.debug(
+                f"Received raw WebSocket message: {message[:100]}"
+                + ("..." if len(message) > 100 else "")
+            )
+
+            data = json.loads(message)
+            logger.debug(f"Parsed WebSocket message: {json.dumps(data, indent=2)}")
+
+            # Debug log for OI values if present
+            if "oi" in data:
+                logger.info(
+                    f"Raw OI data from AliceBlue: oi='{data.get('oi')}' (type: {type(data.get('oi'))}) for token {data.get('tk', 'unknown')}"
+                )
+
+            # Authentication response
+            if "s" in data and data["s"] == "OK":
+                with self.lock:
+                    self.is_connected = True
+                logger.info("AliceBlue WebSocket authenticated successfully")
+
+                # Resubscribe to any tokens that were subscribed before
+                if self.subscribed_tokens:
+                    logger.info(
+                        f"Resubscribing to {len(self.subscribed_tokens)} tokens after authentication"
+                    )
+                    self._resubscribe()
+
+            # Connection feedback message
+            elif "t" in data and data.get("t") == "cf":
+                status = data.get("k", "unknown")
+                logger.info(f"AliceBlue WebSocket connection feedback: {status}")
+
+                if status == "OK":
+                    with self.lock:
+                        self.is_connected = True
+                    logger.info("AliceBlue WebSocket connection confirmed")
+                else:
+                    logger.error(f"AliceBlue WebSocket connection failed with status: {status}")
+
+            # Market data acknowledgment (tick data acknowledgment)
+            elif "t" in data and data.get("t") == "tk":
+                logger.info(
+                    f"Received tick acknowledgment for {data.get('e', 'unknown')}:{data.get('tk', 'unknown')}"
+                )
+                self._process_tick_data(data)
+
+            # Market data feed (tick data feed)
+            elif "t" in data and data.get("t") == "tf":
+                logger.debug(
+                    f"Received tick feed for {data.get('e', 'unknown')}:{data.get('tk', 'unknown')}"
+                )
+                # Process as tick data
+                self._process_tick_data(data)
+
+            # Market depth acknowledgment
+            elif "t" in data and data.get("t") == "dk":
+                logger.info(
+                    f"Received depth acknowledgment for {data.get('e', 'unknown')}:{data.get('tk', 'unknown')}"
+                )
+                self._process_depth_data(data)
+
+            # Market depth feed
+            elif "t" in data and data.get("t") == "df":
+                logger.debug(
+                    f"Received depth feed for {data.get('e', 'unknown')}:{data.get('tk', 'unknown')}"
+                )
+                # Process as depth data
+                self._process_depth_data(data)
+
+        except json.JSONDecodeError:
+            logger.warning(f"Received non-JSON message: {message[:100]}...")
+        except Exception as e:
+            logger.error(f"Error processing WebSocket message: {str(e)}")
+
+    def _process_tick_data(self, data):
+        """
+        Process tick data message from WebSocket.
+
+        Args:
+            data (dict): Tick data from WebSocket
+        """
+        try:
+            # Extract token and exchange
+            token = data.get("tk", "")
+            exchange = data.get("e", "")
+
+            # Look up the original subscription to get the correct symbol
+            subscription_key = f"{exchange}|{token}"
+            original_instrument = None
+            with self.lock:
+                original_instrument = self.subscriptions.get(subscription_key)
+
+            # Use subscription symbol if available, otherwise use broker symbol from data
+            if original_instrument and hasattr(original_instrument, "symbol"):
+                symbol = original_instrument.symbol
+                logger.info(f"Using subscription symbol: {symbol} for {subscription_key}")
+            else:
+                # Fallback to broker symbol from AliceBlue data
+                symbol = data.get("ts", f"TOKEN_{token}")
+                logger.debug(
+                    f"Using broker symbol: {symbol} for {subscription_key} (subscription not found)"
+                )
+                logger.debug(f"Available subscriptions: {list(self.subscriptions.keys())}")
+
+            # Use consistent key format for data storage: exchange:token
+            key = f"{exchange}:{token}"
+
+            # Message type can be 'tk' (acknowledgment) or 'tf' (feed)
+            message_type = data.get("t", "unknown")
+
+            # For 'tk' message, we get full data. For 'tf', we get updates, which we need to merge with existing data
+            if message_type == "tk":
+                # Format the data in a standardized structure for full acknowledgment data
+                quote = {
+                    "exchange": exchange,
+                    "token": token,
+                    "ltp": float(data.get("lp", 0)),
+                    "open": float(data.get("o", 0)),
+                    "high": float(data.get("h", 0)),
+                    "low": float(data.get("l", 0)),
+                    "close": float(data.get("c", 0)),
+                    "volume": int(data.get("v", 0)),
+                    "last_trade_time": data.get("ft", ""),
+                    "last_trade_quantity": int(data.get("ltq", 0)),
+                    "average_trade_price": float(data.get("ap", 0)),
+                    "open_interest": int(float(data.get("oi", 0))) if data.get("oi") else 0,
+                    "prev_open_interest": int(float(data.get("poi", 0))) if data.get("poi") else 0,
+                    "total_buy_quantity": int(data.get("tbq", 0)),
+                    "total_sell_quantity": int(data.get("tsq", 0)),
+                    "bid": float(data.get("bp1", 0)),
+                    "ask": float(data.get("sp1", 0)),
+                    "bid_qty": int(data.get("bq1", 0)),
+                    "ask_qty": int(data.get("sq1", 0)),
+                    "symbol": symbol,  # Use OpenAlgo symbol from subscription
+                    "broker_symbol": data.get("ts", ""),  # Keep broker symbol for reference
+                    "timestamp": datetime.now().isoformat(),
+                }
+
+                logger.debug(
+                    f"Processed full tick data for {exchange}:{token} - LTP: {quote['ltp']}"
+                )
+
+            elif message_type == "tf":
+                # For feed updates, update only the fields that are present in the message
+                with self.lock:
+                    # Get existing quote or create a new one
+                    existing_quote = self.last_quotes.get(key, {})
+
+                    # Create updated quote by merging existing data with new data
+                    quote = existing_quote.copy()
+                    quote.update(
+                        {
+                            "exchange": exchange,
+                            "token": token,
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    )
+
+                    # Update specific fields if they exist in the feed
+                    if "lp" in data:
+                        quote["ltp"] = float(data.get("lp", 0))
+                    if "pc" in data:
+                        quote["percent_change"] = float(data.get("pc", 0))
+                    if "v" in data:
+                        quote["volume"] = int(data.get("v", 0))
+                    if "ft" in data:
+                        quote["last_trade_time"] = data.get("ft", "")
+                    if "ltq" in data:
+                        quote["last_trade_quantity"] = int(data.get("ltq", 0))
+                    if "bp1" in data:
+                        quote["bid"] = float(data.get("bp1", 0))
+                    if "sp1" in data:
+                        quote["ask"] = float(data.get("sp1", 0))
+                    if "bq1" in data:
+                        quote["bid_qty"] = int(data.get("bq1", 0))
+                    if "sq1" in data:
+                        quote["ask_qty"] = int(data.get("sq1", 0))
+                    if "tbq" in data:
+                        quote["total_buy_quantity"] = int(data.get("tbq", 0))
+                    if "tsq" in data:
+                        quote["total_sell_quantity"] = int(data.get("tsq", 0))
+                    if "oi" in data:
+                        quote["open_interest"] = (
+                            int(float(data.get("oi", 0))) if data.get("oi") else 0
+                        )
+                    if "poi" in data:
+                        quote["prev_open_interest"] = (
+                            int(float(data.get("poi", 0))) if data.get("poi") else 0
+                        )
+
+                    logger.debug(
+                        f"Updated tick data for {exchange}:{token} - LTP: {quote.get('ltp', 'N/A')}"
+                    )
+            else:
+                logger.warning(f"Unknown message type for tick data: {message_type}")
+                return
+
+            # Update the last quotes dictionary
+            with self.lock:
+                self.last_quotes[key] = quote
+
+            logger.info(
+                f"Stored quote data for {key} with LTP {quote.get('ltp', 'N/A')}, Symbol: {quote.get('symbol', 'N/A')}, OI: {quote.get('open_interest', 'N/A')}"
+            )
+
+            # Log the first time we get data for a token
+            if message_type == "tk":
+                logger.info(
+                    f"Received first quote for {exchange}:{token} - LTP: {quote.get('ltp', 'N/A')}"
+                )
+
+        except Exception as e:
+            logger.error(f"Error processing tick data: {str(e)}")
+
+    def _process_depth_data(self, data):
+        """
+        Process market depth data message from WebSocket.
+
+        Args:
+            data (dict): Market depth data from WebSocket
+        """
+        try:
+            # Extract token and exchange
+            token = data.get("tk", "")
+            exchange = data.get("e", "")
+
+            # Look up the original subscription to get the correct symbol
+            subscription_key = f"{exchange}|{token}"
+            original_instrument = None
+            with self.lock:
+                original_instrument = self.subscriptions.get(subscription_key)
+
+            # Use subscription symbol if available, otherwise use broker symbol from data
+            if original_instrument and hasattr(original_instrument, "symbol"):
+                symbol = original_instrument.symbol
+                logger.info(f"Using subscription symbol: {symbol} for {subscription_key}")
+            else:
+                # Fallback to broker symbol from AliceBlue data
+                symbol = data.get("ts", f"TOKEN_{token}")
+                logger.debug(
+                    f"Using broker symbol: {symbol} for {subscription_key} (subscription not found)"
+                )
+                logger.debug(f"Available subscriptions: {list(self.subscriptions.keys())}")
+
+            # Use consistent key format for data storage: exchange:token
+            key = f"{exchange}:{token}"
+
+            # Message type can be 'dk' (acknowledgment) or 'df' (feed)
+            message_type = data.get("t", "unknown")
+
+            # For 'dk' message, we get full data. For 'df', we get updates, which we need to merge with existing data
+            if message_type == "dk":
+                # Parse bid and ask data for full depth
+                bids = []
+                asks = []
+
+                # AliceBlue provides 5 levels of market depth
+                for i in range(1, 6):
+                    # Bid data - price, quantity, orders
+                    bid_price = float(data.get(f"bp{i}", 0))
+                    bid_qty = int(data.get(f"bq{i}", 0))
+                    bid_orders = int(data.get(f"bo{i}", 0))
+
+                    if bid_price > 0:
+                        bids.append({"price": bid_price, "quantity": bid_qty, "orders": bid_orders})
+
+                    # Ask data - price, quantity, orders
+                    ask_price = float(data.get(f"sp{i}", 0))
+                    ask_qty = int(data.get(f"sq{i}", 0))
+                    ask_orders = int(data.get(f"so{i}", 0))
+
+                    if ask_price > 0:
+                        asks.append({"price": ask_price, "quantity": ask_qty, "orders": ask_orders})
+
+                # Format the full market depth data
+                depth = {
+                    "exchange": exchange,
+                    "token": token,
+                    "bids": bids,
+                    "asks": asks,
+                    "open": float(data.get("o", 0)),
+                    "high": float(data.get("h", 0)),
+                    "low": float(data.get("l", 0)),
+                    "close": float(data.get("c", 0)),
+                    "volume": int(data.get("v", 0)),
+                    "last_trade_quantity": int(data.get("ltq", 0)),
+                    "total_buy_quantity": int(data.get("tbq", 0)),
+                    "total_sell_quantity": int(data.get("tsq", 0)),
+                    "ltp": float(data.get("lp", 0)),
+                    "open_interest": int(float(data.get("oi", 0))) if data.get("oi") else 0,
+                    "prev_open_interest": int(float(data.get("poi", 0))) if data.get("poi") else 0,
+                    "symbol": symbol,  # Use OpenAlgo symbol from subscription
+                    "broker_symbol": data.get("ts", ""),  # Keep broker symbol for reference
+                    "timestamp": datetime.now().isoformat(),
+                }
+
+                logger.debug(
+                    f"Processed full market depth for {exchange}:{token} - Bid levels: {len(bids)}, Ask levels: {len(asks)}"
+                )
+
+            elif message_type == "df":
+                # For feed updates, update only the fields that are present in the message
+                with self.lock:
+                    # Get existing depth or create a new one
+                    existing_depth = self.last_depth.get(key, {"bids": [], "asks": []})
+
+                    # Create updated depth by copying existing data
+                    depth = existing_depth.copy()
+                    depth.update(
+                        {
+                            "exchange": exchange,
+                            "token": token,
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    )
+
+                    # Update specific fields if they exist in the feed
+                    if "lp" in data:
+                        depth["ltp"] = float(data.get("lp", 0))
+                    if "o" in data:
+                        depth["open"] = float(data.get("o", 0))
+                    if "h" in data:
+                        depth["high"] = float(data.get("h", 0))
+                    if "l" in data:
+                        depth["low"] = float(data.get("l", 0))
+                    if "c" in data:
+                        depth["close"] = float(data.get("c", 0))
+                    if "v" in data:
+                        depth["volume"] = int(data.get("v", 0))
+                    if "pc" in data:
+                        depth["percent_change"] = float(data.get("pc", 0))
+                    if "ft" in data:
+                        depth["last_trade_time"] = data.get("ft", "")
+                    if "ltq" in data:
+                        depth["last_trade_quantity"] = int(data.get("ltq", 0))
+                    if "tbq" in data:
+                        depth["total_buy_quantity"] = int(data.get("tbq", 0))
+                    if "tsq" in data:
+                        depth["total_sell_quantity"] = int(data.get("tsq", 0))
+                    if "oi" in data:
+                        depth["open_interest"] = (
+                            int(float(data.get("oi", 0))) if data.get("oi") else 0
+                        )
+                    if "poi" in data:
+                        depth["prev_open_interest"] = (
+                            int(float(data.get("poi", 0))) if data.get("poi") else 0
+                        )
+
+                    # Update bid/ask levels if provided in the update
+                    for i in range(1, 6):
+                        # Update bid price, quantity, orders if provided
+                        if f"bp{i}" in data or f"bq{i}" in data or f"bo{i}" in data:
+                            # Check if we have enough bid levels
+                            while len(depth["bids"]) < i:
+                                depth["bids"].append({"price": 0, "quantity": 0, "orders": 0})
+
+                            # Update the bid level
+                            if f"bp{i}" in data:
+                                depth["bids"][i - 1]["price"] = float(data.get(f"bp{i}", 0))
+                            if f"bq{i}" in data:
+                                depth["bids"][i - 1]["quantity"] = int(data.get(f"bq{i}", 0))
+                            if f"bo{i}" in data:
+                                depth["bids"][i - 1]["orders"] = int(data.get(f"bo{i}", 0))
+
+                        # Update ask price, quantity, orders if provided
+                        if f"sp{i}" in data or f"sq{i}" in data or f"so{i}" in data:
+                            # Check if we have enough ask levels
+                            while len(depth["asks"]) < i:
+                                depth["asks"].append({"price": 0, "quantity": 0, "orders": 0})
+
+                            # Update the ask level
+                            if f"sp{i}" in data:
+                                depth["asks"][i - 1]["price"] = float(data.get(f"sp{i}", 0))
+                            if f"sq{i}" in data:
+                                depth["asks"][i - 1]["quantity"] = int(data.get(f"sq{i}", 0))
+                            if f"so{i}" in data:
+                                depth["asks"][i - 1]["orders"] = int(data.get(f"so{i}", 0))
+
+                    logger.debug(f"Updated market depth for {exchange}:{token}")
+            else:
+                logger.warning(f"Unknown message type for depth data: {message_type}")
+                return
+
+            # Update the last depth dictionary
+            with self.lock:
+                self.last_depth[key] = depth
+
+            logger.info(
+                f"Stored depth data for {key} with {len(depth.get('bids', []))} bid levels and {len(depth.get('asks', []))} ask levels, Symbol: {depth.get('symbol', 'N/A')}, OI: {depth.get('open_interest', 'N/A')}"
+            )
+
+            # Log the first time we get data for a token
+            if message_type == "dk":
+                logger.info(
+                    f"Received first market depth for {exchange}:{token} - LTP: {depth.get('ltp', 'N/A')}"
+                )
+
+        except Exception as e:
+            logger.error(f"Error processing market depth data: {str(e)}")
+
+    def on_error(self, ws, error):
+        """
+        Called when an error occurs in the WebSocket connection.
+
+        Args:
+            ws: WebSocket instance
+            error: Error information
+        """
+        logger.error(f"AliceBlue WebSocket error: {str(error)}")
+        with self.lock:
+            self.is_connected = False
+
+    def on_close(self, ws, close_status_code, close_msg):
+        """
+        Called when the WebSocket connection is closed.
+
+        Args:
+            ws: WebSocket instance
+            close_status_code: Status code for the close
+            close_msg: Close message
+        """
+        logger.info(f"AliceBlue WebSocket connection closed: {close_status_code}, {close_msg}")
+
+        with self.lock:
+            self.is_connected = False
+
+            # Only attempt to reconnect if we didn't explicitly stop
+            if self._stop_event.is_set():
+                return
+
+            self.reconnect_count += 1
+
+        # Reconnection is owned solely by _connection_loop, which already
+        # retries with exponential backoff and stops at MAX_RECONNECT_ATTEMPTS.
+        #
+        # This handler used to spawn its own delayed_reconnect -> connect()
+        # thread as well, and the two owners fed each other: connect() begins by
+        # calling invalidateWsSess, so the second reconnect tore down the socket
+        # the first had just established, which fired on_close again. The result
+        # was a self-sustaining storm - "Connection to remote host was lost"
+        # every few hundred ms, "WebSocket connection thread is already running"
+        # as threads piled up, and "Reconnection attempt 1/5" forever, because
+        # each freshly spawned loop started its own attempt counter at zero so
+        # the cap was never reached.
+        logger.info(
+            f"Connection closed (close #{self.reconnect_count}); _connection_loop owns the retry"
+        )
+
+    def subscribe(self, instruments, is_depth=False):
+        """Subscribe to market data for given instruments
+
+        Args:
+            instruments: List of instrument objects with exchange and token attributes
+            is_depth: Whether to subscribe to market depth (True) or just ticks (False)
+
+        Returns:
+            bool: True if subscription was successful, False otherwise
+        """
+        if not self.is_connected:
+            logger.error("Cannot subscribe: WebSocket is not connected")
+            return False
+
+        if not instruments:
+            logger.warning("No instruments to subscribe")
+            return False
+
+        # Add instruments to subscriptions mapping: exchange|token -> instrument,
+        # and count this subscriber, so another request's unsubscribe of the
+        # same instrument cannot end the feed (and erase the tick) this one is
+        # still waiting on. The socket is pooled across concurrent requests.
+        with self.lock:
+            refs = self._subscription_refs
+            if refs is None:
+                refs = self._subscription_refs = {}
+            for instrument in instruments:
+                subscription_key = f"{instrument.exchange}|{instrument.token}"
+                self.subscriptions[subscription_key] = instrument
+                self.subscribed_tokens.add(subscription_key)
+                refs[subscription_key] = refs.get(subscription_key, 0) + 1
+        for instrument in instruments:
+            logger.info(
+                f"Storing subscription: {instrument.exchange}|{instrument.token} -> "
+                f"{getattr(instrument, 'symbol', 'Unknown')}"
+            )
+
+        # Format according to AliceBlue API documentation: {"k":"NFO|54957#MCX|239484","t":"t"}
+        # For depth: {"k":"NFO|54957#MCX|239484","t":"d"}
+        # Prepare the subscription key string with proper format
+        subscription_keys = []
+        for instrument in instruments:
+            subscription_keys.append(f"{instrument.exchange}|{instrument.token}")
+
+        if subscription_keys:
+            # Create the subscription message with the correct format
+            # Join multiple instruments with # as specified in the API docs
+            subscription_key = "#".join(subscription_keys)
+            message = {
+                "t": "d" if is_depth else "t",  # d for depth, t for tick data
+                "k": subscription_key,  # Format: "NFO|54957#MCX|239484"
+            }
+
+            logger.info(
+                f"Sending {'depth' if is_depth else 'tick'} subscription message: {json.dumps(message)}"
+            )
+
+            try:
+                self.ws.send(json.dumps(message))
+            except Exception as e:
+                logger.error(f"Failed to send subscription message: {e}")
+                # The caller will not unsubscribe what it never got, so take
+                # back this call's counts rather than pin the keys for good.
+                self._release(instruments)
+                return False
+
+            logger.info(
+                f"Subscribed to {len(instruments)} instruments for {'market depth' if is_depth else 'tick data'}"
+            )
+            return True
+        else:
+            logger.warning("No valid subscription keys generated")
+            return False
+
+    def _release(self, instruments):
+        """Drop one subscriber from each instrument; return the keys now unwanted.
+
+        A key whose last subscriber this was leaves the subscription maps, and
+        its cached tick and depth go with it. Those caches are keyed
+        "exchange:token" while subscriptions are keyed "exchange|token", and
+        unsubscribe once cleared only the latter, so every option-chain sweep
+        left ~80 quote entries behind for good on a pooled, long-lived socket
+        in a worker that never restarts. A key another request still reads
+        keeps both its subscription and its cached data.
+
+        All of it under self.lock, the lock the message thread writes the
+        caches under.
+
+        Returns:
+            list[str]: The "exchange|token" keys nobody subscribes to any more.
+        """
+        released = []
+        with self.lock:
+            refs = self._subscription_refs
+            for instrument in instruments:
+                subscription_key = f"{instrument.exchange}|{instrument.token}"
+                remaining = (refs.get(subscription_key, 0) if refs is not None else 0) - 1
+                if remaining > 0:
+                    refs[subscription_key] = remaining
+                    continue
+                if refs is not None:
+                    refs.pop(subscription_key, None)
+                self.subscriptions.pop(subscription_key, None)
+                self.subscribed_tokens.discard(subscription_key)
+                cache_key = f"{instrument.exchange}:{instrument.token}"
+                self.last_quotes.pop(cache_key, None)
+                self.last_depth.pop(cache_key, None)
+                released.append(subscription_key)
+        return released
+
+    def unsubscribe(self, instruments, is_depth=False):
+        """Unsubscribe from market data for specified instruments.
+
+        Only instruments no other request is still reading are unsubscribed at
+        the broker; the rest just lose this caller's claim on them. The
+        bookkeeping happens even on a dropped connection, so a socket that
+        reconnects does not resubscribe what nobody wants.
+        """
+        if not instruments:
+            logger.warning("No instruments to unsubscribe")
+            return False
+
+        subscription_keys = self._release(instruments)
+        for subscription_key in subscription_keys:
+            logger.info(f"Removed subscription: {subscription_key}")
+
+        if not self.is_connected:
+            logger.error("Cannot unsubscribe: WebSocket is not connected")
+            return False
+
+        if not subscription_keys:
+            logger.debug("Every instrument is still wanted by another request; nothing to send")
+            return True
+
+        # Format according to AliceBlue API documentation: {"k":"NFO|54957#MCX|239484","t":"u"}
+        subscription_key = "#".join(subscription_keys)
+        message = {
+            "t": "u",  # t = Type of request, u for unsubscription
+            "k": subscription_key,  # Format: "NFO|54957#MCX|239484"
+        }
+
+        logger.info(f"Sending unsubscription message: {json.dumps(message)}")
+
+        # Send the message
+        try:
+            self.ws.send(json.dumps(message))
+        except Exception as e:
+            logger.error(f"Failed to send unsubscription message: {e}")
+            return False
+
+        logger.info(f"Unsubscribed from {len(subscription_keys)} instruments")
+        return True
+
+    def _resubscribe(self):
+        """
+        Resubscribes to all previously subscribed tokens after reconnection.
+        """
+        if not self.subscribed_tokens:
+            return
+
+        logger.info(f"Resubscribing to {len(self.subscribed_tokens)} instruments")
+
+        tokens_list = list(self.subscribed_tokens)
+        subscription_key = "#".join(tokens_list)
+
+        # First resubscribe to tick data
+        tick_message = {"k": subscription_key, "t": "t"}
+
+        # Then to market depth if needed
+        depth_message = {"k": subscription_key, "t": "d"}
+
+        try:
+            # Send tick subscription
+            self.ws.send(json.dumps(tick_message))
+            logger.info(f"Resubscribed to tick data for {len(tokens_list)} instruments")
+
+            # Send depth subscription
+            self.ws.send(json.dumps(depth_message))
+            logger.info(f"Resubscribed to market depth for {len(tokens_list)} instruments")
+        except Exception as e:
+            logger.error(f"Error resubscribing to instruments: {str(e)}")
+
+    def is_websocket_connected(self):
+        """
+        Checks if the WebSocket connection is currently active.
+        Also verifies that messages have been received recently.
+
+        Returns:
+            bool: True if connected and receiving messages, False otherwise
+        """
+        with self.lock:
+            if not self.is_connected:
+                return False
+
+            # Check if we've received messages in the last minute
+            if self.last_message_time is None:
+                return False
+
+            time_since_last_message = datetime.now() - self.last_message_time
+            return time_since_last_message < timedelta(minutes=1)
+
+    def get_quote(self, exchange, token):
+        """
+        Get the latest quote for an instrument.
+
+        Args:
+            exchange (str): Exchange code (NSE, BSE, NFO, etc.)
+            token (str): Instrument token
+
+        Returns:
+            dict: Latest quote data or None if not available
+        """
+        key = f"{exchange}:{token}"
+        with self.lock:
+            quote = self.last_quotes.get(key)
+            if quote:
+                logger.debug(
+                    f"Retrieved quote for {key} - LTP: {quote.get('ltp', 'N/A')}, Symbol: {quote.get('symbol', 'N/A')}"
+                )
+            else:
+                logger.debug(f"No quote data available for {key}")
+                logger.debug(f"Available quote keys: {list(self.last_quotes.keys())}")
+            return quote
+
+    def get_market_depth(self, exchange, token):
+        """
+        Get the latest market depth for an instrument.
+
+        Args:
+            exchange (str): Exchange code (NSE, BSE, NFO, etc.)
+            token (str): Instrument token
+
+        Returns:
+            dict: Latest market depth data or None if not available
+        """
+        key = f"{exchange}:{token}"
+        with self.lock:
+            depth = self.last_depth.get(key)
+            if depth:
+                bid_levels = len(depth.get("bids", []))
+                ask_levels = len(depth.get("asks", []))
+                logger.debug(
+                    f"Retrieved market depth for {key} - Bid levels: {bid_levels}, Ask levels: {ask_levels}, Symbol: {depth.get('symbol', 'N/A')}"
+                )
+            else:
+                logger.debug(f"No market depth data available for {key}")
+                logger.debug(f"Available depth keys: {list(self.last_depth.keys())}")
+            return depth

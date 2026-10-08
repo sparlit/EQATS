@@ -1,0 +1,590 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import json
+import urllib.parse
+
+import httpx
+from broker.kotak.mapping.transform_data import (
+    map_exchange,
+    map_product_type,
+    reverse_map_exchange,
+    reverse_map_product_type,
+    transform_data,
+    transform_modify_order_data,
+)
+from database.token_db import get_br_symbol, get_symbol, get_token
+from utils.httpx_client import get_httpx_client
+from utils.logging import get_logger
+from utils.position_read import read_position_book, refuse_smart_order_on_read_failure
+from utils.smart_order_guard import PositionBookCache, SymbolLocks
+
+logger = get_logger(__name__)
+
+
+def get_api_response(endpoint, auth_token, method="GET", payload=""):
+    """
+    Updated for Kotak Neo API v2 - uses dynamic baseUrl, httpx connection pooling, and new header structure
+    """
+    session_token, session_sid, base_url, access_token = auth_token.split(":::")[:4]
+
+    # Debug logging for baseUrl
+    logger.debug(f"ORDER API - Using baseUrl: {base_url}")
+
+    # Get the shared httpx client with connection pooling
+    client = get_httpx_client()
+
+    headers = {
+        "accept": "application/json",
+        "Sid": session_sid,
+        "Auth": session_token,
+        "neo-fin-key": "neotradeapi",
+    }
+
+    # Construct full URL
+    url = f"{base_url}{endpoint}"
+
+    # Make request using httpx
+    response = client.request(method, url, headers=headers, content=payload if payload else None)
+
+    logger.debug(f"ORDER API Response: {response.text}")
+
+    return json.loads(response.text)
+
+
+def get_order_book(auth_token):
+    return get_api_response("/quick/user/orders", auth_token)
+
+
+def get_trade_book(auth_token):
+    return get_api_response("/quick/user/trades", auth_token)
+
+
+def _backfill_ltp(response, auth_token):
+    """Kotak's positions payload never includes a live price field at all,
+    for an open position or a closed one - confirmed against the raw
+    endpoint response and against Kotak's own SDK docs, whose "Profit N
+    Loss" formula treats LTP as an external input the caller must supply,
+    not something this endpoint returns. Zerodha's equivalent positions API
+    does return one (`last_price`, straight from Kite) - transform_positions_data
+    just reads it - so this is a Kotak-specific gap, not a display bug in
+    any consumer.
+
+    Batch-fetches one quote per distinct position via the same multiquotes
+    endpoint the option chain/quotes routes already use, and stamps each
+    raw row with an "_ltp" scratch field for transform_positions_data to
+    pick up. Deliberately not the final "ltp" key: this runs before
+    map_position_data's exchange/symbol resolution, so trdSym/exSeg here
+    are still Kotak's raw broker-native values, not OpenAlgo's - resolving
+    them again independently (not mutating the row) keeps get_positions()'s
+    contract of returning raw, unmapped data intact for its other caller
+    (map_position_data itself, called right after this by
+    services/positionbook_service.py).
+
+    Best-effort and non-fatal: any failure here (a bad auth token, the
+    quotes endpoint being down, a symbol that can't be resolved) just
+    leaves positions without a price, exactly as before this function
+    existed - it must never break the positions endpoint itself.
+    """
+    try:
+        # Inside the try, not ahead of it: this is the one statement that can
+        # reach a payload Kotak did not shape as an object (an error body that
+        # decodes to a list, say), and the docstring's promise that positions
+        # never break on our account has to cover it too.
+        positions = response.get("data")
+        if not positions:
+            return
+
+        from broker.kotak.api.data import BrokerData
+        from broker.kotak.mapping.order_data import _openalgo_symbol
+
+        resolved = []
+        for position in positions:
+            oa_exchange = map_exchange(position.get("exSeg", ""))
+            oa_symbol = _openalgo_symbol(position, oa_exchange) or position.get("trdSym", "")
+            if oa_symbol:
+                resolved.append((position, oa_symbol, oa_exchange))
+        if not resolved:
+            return
+
+        broker_data = BrokerData(auth_token)
+        # One quote per *distinct* instrument. The same symbol is routinely
+        # held under two products (MIS and NRML), and one entry per position
+        # would send it twice in the same request - wasted room against a
+        # batch cap that get_multiquotes splits at 25. dict.fromkeys keeps
+        # the first-seen order; the price is matched back per position below,
+        # so both rows still get stamped.
+        symbols = [
+            {"symbol": s, "exchange": e} for s, e in dict.fromkeys((s, e) for _, s, e in resolved)
+        ]
+        # One batched call for every position (get_multiquotes splits at
+        # Kotak's own sub-50 cap internally, 25 per request since #1961) -
+        # not one call per position, which is the per-symbol-latency concern
+        # that stalled an earlier, unrelated Kotak P&L PR (#1224).
+        quotes = broker_data.get_multiquotes(symbols)
+
+        ltp_by_key = {}
+        for item in quotes or []:
+            data = item.get("data") or {}
+            ltp = data.get("ltp")
+            if ltp:
+                ltp_by_key[(item.get("symbol"), item.get("exchange"))] = float(ltp)
+
+        for position, oa_symbol, oa_exchange in resolved:
+            ltp = ltp_by_key.get((oa_symbol, oa_exchange))
+            if ltp:
+                position["_ltp"] = ltp
+    except Exception as e:
+        logger.warning(f"Could not backfill LTP for positions: {e}")
+
+
+def get_positions(auth_token):
+    response = get_api_response("/quick/user/positions", auth_token)
+    if not isinstance(response, dict):
+        # Every caller indexes this as an object - the positionbook mapping,
+        # the smart-order position lookup, close_all_positions - so a payload
+        # that is not one can only fail. Failing here names it; letting it
+        # through surfaced as "list indices must be integers" from inside the
+        # mapping layer, several frames from the cause.
+        #
+        # Deliberately NOT normalized to an empty book. close_all_positions
+        # reads a response with no positions in it as "No Open Positions Found"
+        # and returns 200, which close_position_service reports as a successful
+        # square-off - so quietly standing in for a failed read would tell an
+        # operator their positions were closed while the broker still held them.
+        # A read that did not work has to say so.
+        raise Exception(
+            f"Kotak returned a positions payload that is not an object: {type(response).__name__}"
+        )
+    _backfill_ltp(response, auth_token)
+    return response
+
+
+def get_holdings(auth_token):
+    return get_api_response("/portfolio/v1/holdings", auth_token)
+
+
+# --- Per-Symbol Smart Order Lock ---
+# Ensures only one smart order per symbol executes at a time.
+# Others queue and execute sequentially, each getting a fresh position book.
+# The registry forgets a symbol once nobody holds or waits on it, and under the
+# gthread worker a wait is bounded (utils/smart_order_guard.py).
+_SMART_ORDER_LOCKS = SymbolLocks()
+
+# --- Position Book Cache ---
+# Caches get_positions() for 1 second. Invalidated after each smart order placement.
+# A fetch still in flight when an order invalidates the cache is returned to its
+# own caller but never cached, so the next order cannot read the book from
+# before the previous fill (utils/smart_order_guard.py).
+_POSITION_BOOK = PositionBookCache()
+
+
+def _get_symbol_lock(symbol, exchange, product):
+    """Hold the smart order lock for one symbol, as a context manager.
+
+    Yields True while holding it. Yields False when the wait ran out, which
+    happens only under the gthread worker; the caller must then return
+    ``SymbolLocks.busy(symbol)`` without placing an order.
+    """
+    return _SMART_ORDER_LOCKS.hold(symbol, exchange, product)
+
+
+def _position_book_ok(positions_data):
+    """Kotak marks a read that worked with stat "Ok".
+
+    Its failures say "Not_Ok", and a rejected session answers with no stat.
+    """
+    if not isinstance(positions_data, dict):
+        return False
+    return str(positions_data.get("stat", "")).lower() == "ok"
+
+
+def _get_cached_positions(auth):
+    """Get positions from cache if fresh, otherwise fetch from broker API."""
+    return _POSITION_BOOK.get(
+        auth,
+        lambda: read_position_book("kotak", lambda: get_positions(auth), _position_book_ok),
+    )
+
+
+def _invalidate_position_cache(auth):
+    """Invalidate the position cache so the next queued order fetches fresh data.
+
+    Also stops a fetch that started before this order from caching the book
+    it read.
+    """
+    _POSITION_BOOK.invalidate(auth)
+
+
+def get_open_position(tradingsymbol, exchange, producttype, auth_token):
+    # Convert Trading Symbol from OpenAlgo Format to Broker Format Before Search in OpenPosition
+    tradingsymbol = get_br_symbol(tradingsymbol, exchange)
+    positions_data = _get_cached_positions(auth_token)
+    logger.debug(f"{positions_data}")
+
+    net_qty = "0"
+    exchange = reverse_map_exchange(exchange)
+
+    if positions_data.get("data"):
+        for position in positions_data["data"]:
+            if (
+                position.get("trdSym") == tradingsymbol
+                and position.get("exSeg") == exchange
+                and position.get("prod") == producttype
+            ):
+                net_qty = (int(position.get("flBuyQty", 0)) - int(position.get("flSellQty", 0))) + (
+                    int(position.get("cfBuyQty", 0)) - int(position.get("cfSellQty", 0))
+                )
+                break  # Assuming you need the first match
+
+    return net_qty
+
+
+def place_order_api(data, auth_token):
+    session_token, session_sid, base_url, access_token = auth_token.split(":::")[:4]
+
+    # Debug logging for baseUrl
+    logger.debug(f"PLACE ORDER API - Using baseUrl: {base_url}")
+
+    # Get the shared httpx client with connection pooling
+    client = get_httpx_client()
+
+    # Payload construction can reject the order before any network call — an
+    # SL-M with no trigger, or one whose tick size is unresolvable (see
+    # mapping/transform_data.py::_slm_protected_price). Return the same error
+    # shape as the request failures below instead of raising past the caller.
+    try:
+        token_id = get_token(data["symbol"], data["exchange"])
+        newdata = transform_data(data, token_id)
+    except Exception as e:
+        logger.error(f"Error building Kotak order payload: {e}")
+        return None, {"stat": "Not_Ok", "emsg": str(e)}, None
+
+    json_string = json.dumps(newdata)
+    payload = f"jData={urllib.parse.quote(json_string)}"
+
+    headers = {
+        "accept": "application/json",
+        "Sid": session_sid,
+        "Auth": session_token,
+        "neo-fin-key": "neotradeapi",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+
+    # Construct full URL
+    url = f"{base_url}/quick/order/rule/ms/place"
+
+    try:
+        response = client.post(url, headers=headers, content=payload)
+        logger.info(f"PLACE ORDER API Response: {response.status_code} {response.text}")
+
+        # Add status attribute for compatibility with the existing codebase
+        response.status = response.status_code
+
+        response_data = json.loads(response.text)
+
+        orderid = response_data["nOrdNo"] if response_data["stat"] == "Ok" else None
+        return response, response_data, orderid
+    except httpx.HTTPError as e:
+        logger.error(f"HTTP error in place_order_api: {e}")
+        return None, {"stat": "NotOk", "error": str(e)}, None
+    except Exception as e:
+        logger.error(f"Error in place_order_api: {e}")
+        return None, {"stat": "NotOk", "error": str(e)}, None
+
+
+@refuse_smart_order_on_read_failure
+def place_smartorder_api(data, auth_token):
+    # If no API call is made in this function then res will return None
+
+    # Extract necessary info from data
+    symbol = data.get("symbol")
+    exchange = data.get("exchange")
+    product = data.get("product")
+
+    # Per-symbol lock: serialize smart orders per symbol
+    with _get_symbol_lock(symbol, exchange, product) as symbol_lock:
+        if not symbol_lock:
+            return SymbolLocks.busy(symbol)
+        return _place_smartorder_locked_kotak(data, auth_token, symbol, exchange, product)
+
+
+def _place_smartorder_locked_kotak(data, auth_token, symbol, exchange, product):
+    """Inner smart order logic for kotak, called under per-symbol lock."""
+    res = None
+    position_size = int(data.get("position_size", "0"))
+
+    # Get current open position for the symbol
+    current_position = int(
+        get_open_position(symbol, exchange, map_product_type(product), auth_token)
+    )
+
+    logger.debug(f"position_size : {position_size}")
+    logger.debug(f"Open Position : {current_position}")
+
+    # Determine action based on position_size and current_position
+    action = None
+    quantity = 0
+
+    # If both position_size and current_position are 0, do nothing
+    if position_size == 0 and current_position == 0 and int(data["quantity"]) != 0:
+        action = data["action"]
+        quantity = data["quantity"]
+        # logger.debug(f"action : {action}")
+        # logger.debug(f"Quantity : {quantity}")
+        res, response, orderid = place_order_api(data, auth_token)
+        _invalidate_position_cache(auth_token)
+
+        return res, response, orderid
+
+    elif position_size == current_position:
+        if int(data["quantity"]) == 0:
+            response = {
+                "status": "success",
+                "message": "No OpenPosition Found. Not placing Exit order.",
+            }
+        else:
+            response = {
+                "status": "success",
+                "message": "No action needed. Position size matches current position",
+            }
+        orderid = None
+        return res, response, orderid  # res remains None as no API call was made
+
+    if position_size == 0 and current_position > 0:
+        action = "SELL"
+        quantity = abs(current_position)
+    elif position_size == 0 and current_position < 0:
+        action = "BUY"
+        quantity = abs(current_position)
+    elif current_position == 0:
+        action = "BUY" if position_size > 0 else "SELL"
+        quantity = abs(position_size)
+    else:
+        if position_size > current_position:
+            action = "BUY"
+            quantity = position_size - current_position
+            # logger.debug(f"smart buy quantity : {quantity}")
+        elif position_size < current_position:
+            action = "SELL"
+            quantity = current_position - position_size
+            # logger.debug(f"smart sell quantity : {quantity}")
+
+    if action:
+        # Prepare data for placing the order
+        order_data = data.copy()
+        order_data["action"] = action
+        order_data["quantity"] = str(quantity)
+
+        # logger.debug(f"{order_data}")
+        # Place the order
+        res, response, orderid = place_order_api(order_data, auth_token)
+        _invalidate_position_cache(auth_token)
+        logger.debug(f"{response}")
+        logger.debug(f"{orderid}")
+
+        return res, response, orderid
+
+
+def close_all_positions(current_api_key, auth_token):
+    # Fetch the current open positions
+    positions_response = get_positions(auth_token)
+    # logger.debug(f"{positions_response}")
+    # Check if the positions data is null or empty
+    if positions_response["data"] is None or not positions_response["data"]:
+        return {"message": "No Open Positions Found"}, 200
+
+    if positions_response["data"]:
+        # Loop through each position to close
+        for position in positions_response["data"]:
+            # Skip if net quantity is zero
+            net_qty = (int(position.get("flBuyQty", 0)) - int(position.get("flSellQty", 0))) + (
+                int(position.get("cfBuyQty", 0)) - int(position.get("cfSellQty", 0))
+            )
+            if net_qty == 0:
+                continue
+
+            # Determine action based on net quantity
+            action = "SELL" if net_qty > 0 else "BUY"
+            quantity = abs(net_qty)
+
+            # get openalgo symbol to send to placeorder function
+            symboltoken = position["tok"]
+            exchange = map_exchange(position["exSeg"])
+            position["exSeg"] = exchange
+
+            # Use the get_symbol function to fetch the symbol from the database
+            symbol = get_symbol(symboltoken, exchange)
+
+            logger.debug(f"The Symbol is {symbol}")
+
+            # Prepare the order payload
+            place_order_payload = {
+                "apikey": current_api_key,
+                "strategy": "Squareoff",
+                "symbol": symbol,
+                "action": action,
+                "exchange": position["exSeg"],
+                "pricetype": "MARKET",
+                "product": reverse_map_product_type(position["prod"]),
+                "quantity": str(quantity),
+            }
+
+            logger.debug(f"{place_order_payload}")
+
+            # Place the order to close the position
+            res, response, orderid = place_order_api(place_order_payload, auth_token)
+
+            # logger.debug(f"{res}")
+            logger.debug(f"{response}")
+            # logger.debug(f"{orderid}")
+
+            # Note: Ensure place_order_api handles any errors and logs accordingly
+
+    return {"status": "success", "message": "All Open Positions SquaredOff"}, 200
+
+
+def cancel_order(orderid, auth_token):
+    session_token, session_sid, base_url, access_token = auth_token.split(":::")[:4]
+
+    # Get the shared httpx client with connection pooling
+    client = get_httpx_client()
+
+    payload = f"jData={urllib.parse.quote(json.dumps({'on': orderid, 'am': 'NO'}))}"
+
+    headers = {
+        "accept": "application/json",
+        "Sid": session_sid,
+        "Auth": session_token,
+        "neo-fin-key": "neotradeapi",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+
+    # Construct full URL
+    url = f"{base_url}/quick/order/cancel"
+
+    try:
+        response = client.post(url, headers=headers, content=payload)
+        response_data = json.loads(response.text)
+
+        if response_data.get("stat") == "Ok":
+            return {"status": "success", "orderid": response_data.get("nOrdNo")}, 200
+        return {
+            "status": "error",
+            "message": response_data.get("emsg", "Failed to cancel order"),
+        }, response.status_code
+    except httpx.HTTPError as e:
+        logger.error(f"HTTP error in cancel_order: {e}")
+        return {"status": "error", "message": str(e)}, 500
+    except Exception as e:
+        logger.error(f"Error in cancel_order: {e}")
+        return {"status": "error", "message": str(e)}, 500
+
+
+def modify_order(data, auth_token):
+    session_token, session_sid, base_url, access_token = auth_token.split(":::")[:4]
+
+    # Debug logging for baseUrl
+    logger.debug(f"MODIFY ORDER API - Using baseUrl: {base_url}")
+
+    # Get the shared httpx client with connection pooling
+    client = get_httpx_client()
+
+    # Same pre-flight rejection as placement (SL-M without a usable trigger or
+    # tick size) — surface it as an error response, not an exception.
+    try:
+        token_id = get_token(data["symbol"], data["exchange"])
+        newdata = transform_modify_order_data(data, token_id)
+    except Exception as e:
+        logger.error(f"Error building Kotak modify payload: {e}")
+        return {"status": "error", "message": str(e)}, 400
+
+    logger.debug(f"MODIFY ORDER - Transformed data: {newdata}")
+
+    payload = f"jData={urllib.parse.quote(json.dumps(newdata))}"
+
+    headers = {
+        "accept": "application/json",
+        "Sid": session_sid,
+        "Auth": session_token,
+        "neo-fin-key": "neotradeapi",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+
+    # Construct full URL
+    url = f"{base_url}/quick/order/vr/modify"
+
+    logger.debug(f"MODIFY ORDER - Making POST request to: {url}")
+
+    try:
+        response = client.post(url, headers=headers, content=payload)
+
+        logger.debug(f"MODIFY ORDER - Response status: {response.status_code}")
+        logger.debug(f"MODIFY ORDER - Response: {response.text}")
+
+        response_data = json.loads(response.text)
+
+        if response_data.get("stat") == "Ok":
+            return {"status": "success", "orderid": response_data["nOrdNo"]}, 200
+        return {
+            "status": "error",
+            "message": response_data.get("emsg", "Failed to modify order"),
+        }, response.status_code
+    except httpx.HTTPError as e:
+        logger.error(f"HTTP error in modify_order: {e}")
+        return {"status": "error", "message": f"HTTP error: {str(e)}"}, 500
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decode error in modify_order: {e}")
+        return {"status": "error", "message": f"JSON decode error: {str(e)}"}, 500
+    except Exception as e:
+        logger.error(f"Error in modify_order: {e}")
+        return {"status": "error", "message": str(e)}, 500
+
+
+def cancel_all_orders_api(data, auth_token):
+    # Get the order book
+    order_book_response = get_order_book(auth_token)
+
+    if order_book_response["data"] is None:
+        return [], []  # Return empty lists indicating failure to retrieve the order book
+
+    # Filter orders that are in 'open' or 'trigger_pending' state
+    orders_to_cancel = [
+        order
+        for order in order_book_response.get("data", [])
+        if order["ordSt"] in ["open", "trigger pending"]
+    ]
+    # logger.debug(f"{orders_to_cancel}")
+    canceled_orders = []
+    failed_cancellations = []
+    logger.debug(f"{orders_to_cancel}")
+    # Cancel the filtered orders
+    for order in orders_to_cancel:
+        orderid = order["nOrdNo"]
+        cancel_response, status_code = cancel_order(orderid, auth_token)
+        if status_code == 200:
+            canceled_orders.append(orderid)
+        else:
+            failed_cancellations.append(orderid)
+
+    return canceled_orders, failed_cancellations

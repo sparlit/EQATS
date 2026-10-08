@@ -1,0 +1,1249 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+# sandbox/execution_engine.py
+"""
+Execution Engine - Monitors and executes pending orders
+
+Features:
+- Background order monitoring (every 5 seconds configurable)
+- Real-time quote fetching from broker
+- Order execution based on price type (MARKET, LIMIT, SL, SL-M)
+- Trade creation and position updates
+- Rate limit compliance (10 orders/second, 50 API calls/second)
+- Batch processing for efficiency
+"""
+
+import os
+import sys
+import threading
+import time
+import uuid
+from datetime import datetime
+from decimal import Decimal
+
+from sqlalchemy import update
+
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from database.sandbox_db import (
+    SandboxOrders,
+    SandboxPositions,
+    SandboxTrades,
+    db_session,
+)
+from database.token_db import get_symbol_info
+from sandbox.fund_manager import FundManager, reconcile_margin, validate_margin_consistency
+from services.quotes_service import get_multiquotes, get_quotes
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+#: Order statuses in which an order still rests and can be filled, cancelled
+#: or modified. Every transition out of them is a conditional UPDATE on this
+#: set, so exactly one of a fill, a cancel and a trigger release wins an order.
+PENDING_ORDER_STATUSES = ("open", "trigger pending")
+
+
+def claim_order_fill(order, execution_price, now):
+    """Mark an order complete if, and only if, it is still pending.
+
+    The fill decision used to be a check (no trade exists yet) followed by an
+    insert and a status write made on the caller's in-memory object. The
+    websocket dispatch thread, the polling engine, its fallback thread and a
+    request placing a marketable order can all reach the same order, and two
+    of them could both pass the check and both insert a trade: one order,
+    filled twice, with the position and margin doubled. The order row is now
+    the claim: one conditional UPDATE, which SQLite serialises, and only the
+    caller whose UPDATE matched the pending row goes on to write the trade.
+
+    Nothing is committed here. The UPDATE starts this session's write
+    transaction, so nothing else can change the row until the caller commits
+    or rolls back.
+
+    Args:
+        order: The SandboxOrders row being filled.
+        execution_price: The fill price.
+        now: The timestamp to record.
+
+    Returns:
+        True if this caller owns the fill.
+    """
+    result = db_session.execute(
+        update(SandboxOrders)
+        .where(
+            SandboxOrders.id == order.id,
+            SandboxOrders.order_status.in_(PENDING_ORDER_STATUSES),
+        )
+        .values(
+            order_status="complete",
+            average_price=execution_price,
+            filled_quantity=SandboxOrders.quantity,
+            pending_quantity=0,
+            update_timestamp=now,
+        ),
+        execution_options={"synchronize_session": False},
+    )
+    return result.rowcount == 1
+
+
+def _order_terms(order):
+    """What a fill decision was evaluated against, to detect a modify in between."""
+    return (order.quantity, order.price, order.trigger_price, order.price_type, order.action)
+
+
+def quote_looks_stale(quote) -> bool:
+    """Return True when a quote's LTP contradicts its own OHLC range.
+
+    Guards against filling at a stale last-traded price (issue #1638): for a
+    symbol that has not printed a fresh tick, the broker's REST quote can carry
+    a last_price that is days or weeks old while the same payload's day-OHLC is
+    current. Observed fill at 1047.60 against a day low of 1262 -- a fake +22%
+    P&L. An LTP outside the day's own [low, high] is the broker contradicting
+    itself, so the fill is deferred until a coherent quote arrives.
+
+    Deliberately conservative: when high/low are missing or zero (symbol has
+    not traded this session, or a WebSocket tick-built quote with no OHLC)
+    there is nothing to cross-check and this returns False -- a tick-built
+    quote is live by construction, and blocking every pre-first-trade fill
+    would stall legitimate orders. The truly-untraded stale case needs quote
+    timestamps, which the broker quote contract does not carry today.
+    """
+    try:
+        ltp = Decimal(str(quote.get("ltp", 0)))
+        high = Decimal(str(quote.get("high", 0)))
+        low = Decimal(str(quote.get("low", 0)))
+    except Exception:
+        return False
+    if ltp <= 0 or high <= 0 or low <= 0:
+        return False
+    return not (low <= ltp <= high)
+
+
+class ExecutionEngine:
+    """Executes pending orders based on market data"""
+
+    def __init__(self):
+        # Read rate limits from .env (same as API protection)
+        self.order_rate_limit = int(os.getenv("ORDER_RATE_LIMIT", "10 per second").split()[0])
+        self.api_rate_limit = int(os.getenv("API_RATE_LIMIT", "50 per second").split()[0])
+        self.batch_delay = 1.0  # 1 second between batches
+
+    # Class-level lock (issue #1808). Each placeorder request constructs a fresh
+    # ExecutionEngine() inside OrderManager.place_order, so an instance-level
+    # lock would give every request its own mutex and the race would remain.
+    # A class attribute is shared across every instance in this process and
+    # therefore serializes the position RMW for them. Multi-process deployments
+    # would still need a DB-level lock.
+    _position_lock = threading.Lock()
+
+    def check_and_execute_pending_orders(self):
+        """
+        Main execution loop - checks all pending orders and executes if conditions met
+        Respects rate limits through batch processing
+        """
+        try:
+            # Get all pending orders - "open" (resting in the regular book) and
+            # "trigger pending" (SL/SL-M resting in the exchange's Stop-Loss
+            # book, not yet released) both need tick-by-tick monitoring.
+            pending_orders = SandboxOrders.query.filter(
+                SandboxOrders.order_status.in_(["open", "trigger pending"])
+            ).all()
+
+            if not pending_orders:
+                logger.debug("No pending orders to process")
+                return
+
+            logger.info(f"Processing {len(pending_orders)} pending orders")
+
+            # Group orders by user and symbol for efficient quote fetching
+            orders_by_symbol = {}
+            for order in pending_orders:
+                key = (order.symbol, order.exchange)
+                if key not in orders_by_symbol:
+                    orders_by_symbol[key] = []
+                orders_by_symbol[key].append(order)
+
+            # Fetch quotes using multiquotes (more efficient - single API call)
+            # Falls back to individual quotes if multiquotes fails
+            quote_cache = {}
+            symbols_list = list(orders_by_symbol.keys())
+
+            # Fetch quotes using multiquotes only (no individual quote fallback to avoid rate limiting)
+            # WebSocket is the primary data source; multiquotes is the fallback
+            quote_cache = self._fetch_quotes_batch(symbols_list)
+
+            # Log symbols that couldn't be fetched (don't retry individually to avoid rate limits)
+            failed_symbols = [
+                s for s in symbols_list if s not in quote_cache or quote_cache[s] is None
+            ]
+            if failed_symbols:
+                logger.debug(
+                    f"{len(failed_symbols)} symbols not available via multiquotes, waiting for WebSocket data"
+                )
+
+            # Deliberately unpaced (issue #1768). Every quote this cycle needs
+            # was already fetched above in the single _fetch_quotes_batch call,
+            # so this loop only does dict lookups, local DB writes and async
+            # EventBus publishes -- there is no broker call left to throttle.
+            #
+            # This used to sleep 1s after every ORDER_RATE_LIMIT (10) orders,
+            # which is an *inbound API* limit being reused to rate-limit local
+            # work. That made a cycle cost ceil(N/10)-1 seconds purely as a
+            # function of queue depth -- 14s behind 150 resting orders, and it
+            # was paid even when nothing was fillable at all. Fills queued
+            # behind unrelated resting orders, and it compounded: a slower cycle
+            # stranded more orders, which slowed the next one. Measured on the
+            # old code, one order's time-to-fill went 4.6s -> 34.8s as the
+            # backlog grew from 0 to 150.
+            orders_processed = 0
+            for position, order in enumerate(pending_orders, start=1):
+                quote = quote_cache.get((order.symbol, order.exchange))
+                if quote:
+                    self._process_order(order, quote)
+                    orders_processed += 1
+
+                # Yield to the hub periodically. Under gunicorn's eventlet
+                # worker this loop shares one green thread with request
+                # handling, so a long backlog must not hold it uninterrupted.
+                # Under the gthread worker and the dev server this is a real
+                # thread, and the sleep only gives up the GIL for a moment.
+                if position % self.order_rate_limit == 0:
+                    time.sleep(0)
+
+            logger.info(f"Processed {orders_processed} orders")
+
+        except Exception as e:
+            logger.exception(f"Error in execution engine: {e}")
+
+        # GTTs are evaluated on every tick regardless of whether there were
+        # regular orders: a GTT is the only thing resting in the book when a
+        # user has no open orders, which is the common case.
+        try:
+            self._check_pending_gtts()
+        except Exception as e:
+            logger.exception(f"Error checking pending GTTs: {e}")
+
+    def _check_pending_gtts(self):
+        """Fire any GTT leg whose trigger the market has crossed.
+
+        Reclaims stranded claims first: a leg left in ``triggering`` by a killed
+        worker is invisible to the pending scan below, so without this it would
+        never fire again.
+        """
+        from sandbox import gtt_manager
+
+        gtt_manager.reclaim_stranded_legs()
+
+        rows = gtt_manager.get_active_legs()
+        if not rows:
+            return
+
+        symbols = list({(gtt.symbol, gtt.exchange) for _leg, gtt in rows})
+        quote_cache = self._fetch_quotes_batch(symbols)
+
+        for leg, gtt in rows:
+            quote = quote_cache.get((gtt.symbol, gtt.exchange))
+            if not quote:
+                continue
+            ltp = quote.get("ltp")
+            if not gtt_manager.leg_is_triggered_by(leg.trigger_direction, leg.trigger_price, ltp):
+                continue
+
+            # The claim is what makes this safe to run alongside the WebSocket
+            # engine and the catch-up scan: exactly one of them wins the leg.
+            if gtt_manager.try_claim_trigger(leg.id):
+                gtt_manager.fire_leg(leg.id, execution_price=ltp)
+
+    def _fetch_quote(self, symbol, exchange):
+        """
+        Fetch real-time quote for a symbol using API key
+        Returns dict with ltp, high, low, open, close, etc.
+        Returns None if quote cannot be fetched (permission error, API error, etc.)
+        """
+        try:
+            # Get any user's API key for fetching quotes
+            from database.auth_db import ApiKeys, decrypt_token
+
+            api_key_obj = ApiKeys.query.first()
+
+            if not api_key_obj:
+                logger.debug("No API keys found for fetching quotes")
+                return None
+
+            # Decrypt the API key
+            api_key = decrypt_token(api_key_obj.api_key_encrypted)
+
+            # Use quotes service with API key authentication
+            success, response, status_code = get_quotes(
+                symbol=symbol, exchange=exchange, api_key=api_key
+            )
+
+            if success and "data" in response:
+                quote_data = response["data"]
+                logger.debug(f"Fetched quote for {symbol}: LTP={quote_data.get('ltp', 0)}")
+                return quote_data
+            else:
+                # Log at debug level to avoid spam for permission errors
+                logger.debug(
+                    f"Could not fetch quote for {symbol}: {response.get('message', 'Unknown error')}"
+                )
+                return None
+
+        except Exception as e:
+            # Handle all exceptions gracefully - don't stop execution engine
+            logger.debug(f"Exception fetching quote for {symbol}: {str(e)}")
+            return None
+
+    def _fetch_quotes_batch(self, symbols_list):
+        """
+        Fetch quotes for multiple symbols in a single API call using multiquotes.
+        Returns dict mapping (symbol, exchange) to quote data.
+        Returns empty dict if multiquotes fails completely.
+        """
+        quote_cache = {}
+
+        if not symbols_list:
+            return quote_cache
+
+        try:
+            # Get any user's API key for fetching quotes
+            from database.auth_db import ApiKeys, decrypt_token
+
+            api_key_obj = ApiKeys.query.first()
+
+            if not api_key_obj:
+                logger.debug("No API keys found for fetching multiquotes")
+                return quote_cache
+
+            # Decrypt the API key
+            api_key = decrypt_token(api_key_obj.api_key_encrypted)
+
+            # Prepare symbols list for multiquotes API
+            symbols_payload = [
+                {"symbol": symbol, "exchange": exchange} for symbol, exchange in symbols_list
+            ]
+
+            # Use multiquotes service
+            success, response, status_code = get_multiquotes(
+                symbols=symbols_payload, api_key=api_key
+            )
+
+            if success and "results" in response:
+                results = response["results"]
+                successful_count = 0
+
+                for result in results:
+                    symbol = result.get("symbol")
+                    exchange = result.get("exchange")
+
+                    # Check if this result has data or error
+                    if "data" in result and result["data"]:
+                        quote_data = result["data"]
+                        quote_cache[(symbol, exchange)] = quote_data
+                        logger.debug(f"Multiquotes: {symbol} LTP={quote_data.get('ltp', 0)}")
+                        successful_count += 1
+                    elif "error" in result:
+                        logger.debug(f"Multiquotes error for {symbol}: {result['error']}")
+
+                logger.info(
+                    f"Multiquotes fetched {successful_count}/{len(symbols_list)} symbols successfully"
+                )
+            else:
+                logger.debug(f"Multiquotes failed: {response.get('message', 'Unknown error')}")
+
+        except Exception as e:
+            logger.debug(f"Exception in multiquotes fetch: {str(e)}")
+
+        return quote_cache
+
+    def _publish_fill_event(
+        self,
+        orderid,
+        tradeid,
+        symbol,
+        exchange,
+        action,
+        quantity,
+        price,
+        product,
+        strategy,
+        user_id=None,
+        pricetype="",
+        trigger_price=0.0,
+    ):
+        """Emit SandboxOrderFilledEvent so the analyzer-mode UI auto-refreshes,
+        and OrderUpdateEvent so the real-time order-update channel (socketio +
+        websocket_proxy relay) picks it up too.
+
+        Logged at INFO so it's visible in server logs and confirms the
+        event-bus path was reached (any breakage in registration or imports
+        would suppress the log too).
+        """
+        try:
+            from events import OrderUpdateEvent, SandboxOrderFilledEvent
+            from utils.event_bus import bus
+
+            bus.publish(
+                SandboxOrderFilledEvent(
+                    mode="analyze",
+                    api_type="sandbox.fill",
+                    orderid=orderid,
+                    tradeid=tradeid,
+                    symbol=symbol,
+                    exchange=exchange,
+                    action=action,
+                    quantity=quantity,
+                    price=price,
+                    product=product,
+                    strategy=strategy,
+                )
+            )
+            bus.publish(
+                OrderUpdateEvent(
+                    mode="analyze",
+                    api_type="sandbox.fill",
+                    request_data={"user_id": user_id} if user_id else {},
+                    broker="sandbox",
+                    orderid=orderid,
+                    symbol=symbol,
+                    exchange=exchange,
+                    action=action,
+                    quantity=quantity,
+                    price=price,
+                    pricetype=pricetype,
+                    trigger_price=trigger_price,
+                    product=product,
+                    order_status="complete",
+                    filled_quantity=quantity,
+                    pending_quantity=0,
+                    average_price=price,
+                )
+            )
+            logger.info(
+                f"[sandbox-fill] Published SandboxOrderFilledEvent for {orderid} "
+                f"({symbol} {action} {quantity} @ {price})"
+            )
+        except Exception as pub_err:
+            # Never let event-bus failures break order execution
+            logger.debug(f"Failed to publish SandboxOrderFilledEvent: {pub_err}")
+
+    def _process_order(self, order, quote):
+        """
+        Process a single order based on current quote
+        Determines if order should be executed based on price type
+        """
+        try:
+            # Check if this order already has a trade (prevent duplicates)
+            # This can happen with MARKET orders that are executed immediately on placement
+            # but the order status hasn't been updated to 'complete' yet due to race condition
+            existing_trade = SandboxTrades.query.filter_by(orderid=order.orderid).first()
+            if existing_trade:
+                logger.debug(
+                    f"Order {order.orderid} already has trade {existing_trade.tradeid}, skipping execution"
+                )
+                # Update order status to complete if it's still open (race condition cleanup)
+                if order.order_status == "open":
+                    # Conditional, so two engines that both find the orphan
+                    # trade complete the order (and announce the fill) once.
+                    cleaned = db_session.execute(
+                        update(SandboxOrders)
+                        .where(SandboxOrders.id == order.id, SandboxOrders.order_status == "open")
+                        .values(
+                            order_status="complete",
+                            average_price=existing_trade.price,
+                            filled_quantity=SandboxOrders.quantity,
+                            pending_quantity=0,
+                            update_timestamp=datetime.now(pytz.timezone("Asia/Kolkata")),
+                        ),
+                        execution_options={"synchronize_session": False},
+                    )
+                    if cleaned.rowcount != 1:
+                        db_session.rollback()
+                        return
+                    db_session.commit()
+                    logger.info(
+                        f"Updated order {order.orderid} status to complete (was in race condition)"
+                    )
+                    # Race-condition cleanup transitions an order to complete
+                    # without going through _execute_order, so emit here too.
+                    self._publish_fill_event(
+                        orderid=order.orderid,
+                        tradeid=existing_trade.tradeid,
+                        symbol=order.symbol,
+                        exchange=order.exchange,
+                        action=order.action,
+                        quantity=int(order.quantity),
+                        price=float(existing_trade.price),
+                        product=order.product,
+                        strategy=order.strategy or "",
+                        user_id=order.user_id,
+                        pricetype=order.price_type or "",
+                        trigger_price=float(order.trigger_price or 0),
+                    )
+                return
+
+            ltp = Decimal(str(quote.get("ltp", 0)))
+            bid = Decimal(str(quote.get("bid", 0)))
+            ask = Decimal(str(quote.get("ask", 0)))
+
+            if ltp <= 0:
+                logger.warning(f"Invalid LTP for order {order.orderid}: {ltp}")
+                return
+
+            # Stale-quote guard (issue #1638): defer, don't fill. The order
+            # stays open and fills on a later cycle once a coherent quote
+            # arrives. Covers every path into a fill -- immediate MARKET
+            # execution at placement and the polling loop both come through
+            # here.
+            if quote_looks_stale(quote):
+                logger.warning(
+                    f"Deferring order {order.orderid} ({order.symbol}): quote LTP {ltp} "
+                    f"is outside its own day range [{quote.get('low')}, {quote.get('high')}] "
+                    f"-- treating as stale (see issue #1638)"
+                )
+                return
+
+            # SL/SL-M orders resting in "trigger pending" (the Stop-Loss book,
+            # not the regular book) only ever get a trigger check here - never
+            # the full open-order price-type logic below, which assumes an
+            # order that is already live in the regular book.
+            if order.order_status == "trigger pending":
+                self._process_trigger_pending_order(order, ltp)
+                return
+
+            # Determine if order should be executed based on price type
+            should_execute = False
+            execution_price = None
+
+            if order.price_type == "MARKET":
+                # Market orders execute immediately at bid/ask (more realistic)
+                # BUY: Execute at ask price (pay seller's asking price)
+                # SELL: Execute at bid price (receive buyer's bid price)
+                # If bid/ask is 0, fall back to LTP
+                should_execute = True
+                if order.action == "BUY":
+                    execution_price = ask if ask > 0 else ltp
+                else:  # SELL
+                    execution_price = bid if bid > 0 else ltp
+
+            elif order.price_type == "LIMIT":
+                # Limit BUY: Execute if LTP <= Limit Price, fill at limit price
+                # Limit SELL: Execute if LTP >= Limit Price, fill at limit price
+                # In real exchanges, limit orders sit on the book at the limit price
+                # and fill at that price when the market crosses through
+                if (
+                    order.action == "BUY"
+                    and ltp <= order.price
+                    or order.action == "SELL"
+                    and ltp >= order.price
+                ):
+                    should_execute = True
+                    execution_price = order.price  # Fill at limit price
+
+            elif order.price_type == "SL":
+                # Stop Loss Limit order
+                # SL BUY: When LTP >= trigger price, order activates. Execute at LTP if LTP <= limit price
+                # SL SELL: When LTP <= trigger price, order activates. Execute at LTP if LTP >= limit price
+                if order.action == "BUY" and ltp >= order.trigger_price:
+                    if ltp <= order.price:
+                        should_execute = True
+                        execution_price = ltp  # Execute at current market price (LTP)
+                elif order.action == "SELL" and ltp <= order.trigger_price:
+                    if ltp >= order.price:
+                        should_execute = True
+                        execution_price = ltp  # Execute at current market price (LTP)
+
+            elif order.price_type == "SL-M":
+                # Stop Loss Market order
+                # BUY: Execute at market when LTP >= trigger price
+                # SELL: Execute at market when LTP <= trigger price
+                if (
+                    order.action == "BUY"
+                    and ltp >= order.trigger_price
+                    or order.action == "SELL"
+                    and ltp <= order.trigger_price
+                ):
+                    should_execute = True
+                    execution_price = ltp
+
+            # Execute the order if conditions are met
+            if should_execute:
+                self._execute_order(order, execution_price)
+
+        except Exception as e:
+            logger.exception(f"Error processing order {order.orderid}: {e}")
+
+    def _process_trigger_pending_order(self, order, ltp):
+        """
+        Check an SL/SL-M order resting in "trigger pending" against the
+        current LTP and release it from the Stop-Loss book once triggered.
+
+        SL-M has no resting phase once triggered: a real exchange converts it
+        straight to a market order, so it goes directly to "complete" here.
+
+        SL only fills immediately if the limit price is ALSO satisfiable on
+        this same tick (mirrors the "trigger already met at placement" fast
+        path in order_manager.py's place_order - both places treat a
+        simultaneous trigger+limit match as an instant fill rather than an
+        observable middle state). Otherwise it transitions to "open" - now
+        resting live in the regular order book, unfilled - and the unmodified
+        SL branch in _process_order picks it up on subsequent ticks exactly
+        like any other open SL order (re-checking the trigger condition there
+        is safe: once crossed, BUY prices staying at/above trigger, or SELL
+        prices staying at/below it, keep satisfying the same comparison).
+        """
+        try:
+            trigger_met = False
+            if (
+                order.action == "BUY"
+                and ltp >= order.trigger_price
+                or order.action == "SELL"
+                and ltp <= order.trigger_price
+            ):
+                trigger_met = True
+
+            if not trigger_met:
+                return  # Still resting in the Stop-Loss book, nothing to do
+
+            if order.price_type == "SL-M":
+                logger.info(
+                    f"SL-M order {order.orderid} triggered at LTP {ltp} "
+                    f"(trigger={order.trigger_price}) - executing at market"
+                )
+                self._execute_order(order, ltp)
+                return
+
+            # SL: triggered - check whether the limit price is also
+            # satisfiable right now, same tick.
+            limit_met = (order.action == "BUY" and ltp <= order.price) or (
+                order.action == "SELL" and ltp >= order.price
+            )
+            if limit_met:
+                logger.info(
+                    f"SL order {order.orderid} triggered and limit satisfied at LTP {ltp} "
+                    f"(trigger={order.trigger_price}, limit={order.price}) - executing"
+                )
+                self._execute_order(order, ltp)
+                return
+
+            logger.info(
+                f"SL order {order.orderid} triggered at LTP {ltp} "
+                f"(trigger={order.trigger_price}) but limit {order.price} not yet "
+                f"satisfiable - now resting open in the regular book"
+            )
+            # Only from "trigger pending": written from a stale copy, this used
+            # to put back "open" on an order another thread had just filled or
+            # cancelled.
+            released = db_session.execute(
+                update(SandboxOrders)
+                .where(
+                    SandboxOrders.id == order.id,
+                    SandboxOrders.order_status == "trigger pending",
+                )
+                .values(
+                    order_status="open",
+                    update_timestamp=datetime.now(pytz.timezone("Asia/Kolkata")),
+                ),
+                execution_options={"synchronize_session": False},
+            )
+            if released.rowcount != 1:
+                db_session.rollback()
+                logger.info(
+                    f"SL order {order.orderid} left the Stop-Loss book elsewhere; not reopening it"
+                )
+                return
+            db_session.commit()
+            self._publish_order_update_event(order, order_status="open")
+
+        except Exception as e:
+            logger.exception(f"Error processing trigger-pending order {order.orderid}: {e}")
+
+    def _execute_order(self, order, execution_price):
+        """
+        Execute an order - create trade, update positions, release/adjust margin
+
+        The fill is claimed on the order row first (see claim_order_fill), so an
+        order another thread has already filled, or a user has cancelled, is
+        left alone instead of being filled a second time.
+        """
+        fill_committed = False
+        try:
+            logger.info(
+                f"Executing order {order.orderid}: {order.symbol} {order.action} {order.quantity} @ {execution_price}"
+            )
+
+            # Generate trade ID
+            tradeid = self._generate_trade_id()
+
+            evaluated_terms = _order_terms(order)
+            if not claim_order_fill(
+                order, execution_price, datetime.now(pytz.timezone("Asia/Kolkata"))
+            ):
+                db_session.rollback()
+                logger.info(
+                    f"Order {order.orderid} is no longer open (filled or cancelled "
+                    "elsewhere); not filling it again"
+                )
+                return
+
+            # The claim holds the write lock, so this is the row as it will be
+            # committed. A modify that landed after the fill was decided would
+            # otherwise fill new terms at a price chosen for the old ones:
+            # undo the claim and let the next tick decide again.
+            db_session.refresh(order)
+            if _order_terms(order) != evaluated_terms:
+                db_session.rollback()
+                logger.info(
+                    f"Order {order.orderid} was modified while its fill was being "
+                    "decided; re-evaluating on the next price"
+                )
+                return
+
+            # Create trade record
+            trade = SandboxTrades(
+                tradeid=tradeid,
+                orderid=order.orderid,
+                user_id=order.user_id,
+                symbol=order.symbol,
+                exchange=order.exchange,
+                action=order.action,
+                quantity=order.quantity,
+                price=execution_price,
+                product=order.product,
+                strategy=order.strategy,
+                trade_timestamp=datetime.now(pytz.timezone("Asia/Kolkata")),
+            )
+
+            db_session.add(trade)
+
+            db_session.commit()
+            fill_committed = True
+
+            # Update position
+            self._update_position(order, execution_price)
+
+            logger.info(f"Order {order.orderid} executed successfully. Trade ID: {tradeid}")
+
+            # Notify UI subscribers (OrderBook / TradeBook / Positions auto-refresh).
+            # Engine-internal fills don't go through the service layer, so the
+            # service-layer publish points (place_order_service etc.) never see
+            # them — without this the analyzer UI sits stale until manual refresh.
+            self._publish_fill_event(
+                orderid=order.orderid,
+                tradeid=tradeid,
+                symbol=order.symbol,
+                exchange=order.exchange,
+                action=order.action,
+                quantity=int(order.quantity),
+                price=float(execution_price),
+                product=order.product,
+                strategy=order.strategy or "",
+                user_id=order.user_id,
+                pricetype=order.price_type or "",
+                trigger_price=float(order.trigger_price or 0),
+            )
+
+        except Exception as e:
+            db_session.rollback()
+            logger.exception(f"Error executing order {order.orderid}: {e}")
+
+            # Mark order as rejected
+            rejection_reason = f"Execution error: {str(e)}"
+            try:
+                if fill_committed:
+                    # This call owns the row: it committed the fill itself.
+                    order.order_status = "rejected"
+                    order.rejection_reason = rejection_reason
+                    order.update_timestamp = datetime.now(pytz.timezone("Asia/Kolkata"))
+                    db_session.commit()
+                else:
+                    # Only while still pending: another thread may have filled
+                    # or cancelled it, and that outcome must stand.
+                    rejected = db_session.execute(
+                        update(SandboxOrders)
+                        .where(
+                            SandboxOrders.id == order.id,
+                            SandboxOrders.order_status.in_(PENDING_ORDER_STATUSES),
+                        )
+                        .values(
+                            order_status="rejected",
+                            rejection_reason=rejection_reason,
+                            update_timestamp=datetime.now(pytz.timezone("Asia/Kolkata")),
+                        ),
+                        execution_options={"synchronize_session": False},
+                    )
+                    db_session.commit()
+                    if rejected.rowcount != 1:
+                        return
+            except Exception:
+                db_session.rollback()
+
+            self._publish_order_update_event(
+                order, order_status="rejected", rejection_reason=rejection_reason
+            )
+
+    def _publish_order_update_event(self, order, order_status, rejection_reason=""):
+        """Publish OrderUpdateEvent for a sandbox order transition that isn't
+        a fill (rejection, cancellation) — mirrors _publish_fill_event's
+        never-break-the-caller error isolation.
+        """
+        try:
+            from events import OrderUpdateEvent
+            from utils.event_bus import bus
+
+            bus.publish(
+                OrderUpdateEvent(
+                    mode="analyze",
+                    api_type="sandbox.order_update",
+                    request_data={"user_id": order.user_id} if order.user_id else {},
+                    broker="sandbox",
+                    orderid=order.orderid,
+                    symbol=order.symbol,
+                    exchange=order.exchange,
+                    action=order.action,
+                    quantity=int(order.quantity),
+                    price=float(order.price or 0),
+                    pricetype=order.price_type or "",
+                    trigger_price=float(order.trigger_price or 0),
+                    product=order.product,
+                    order_status=order_status,
+                    rejection_reason=rejection_reason,
+                )
+            )
+        except Exception as pub_err:
+            logger.debug(f"Failed to publish OrderUpdateEvent for {order.orderid}: {pub_err}")
+
+    def _update_position(self, order, execution_price):
+        """
+        Update or create position after trade execution
+        Handle netting for opposite positions
+
+        Note: Margin was already blocked when order was placed (for pending orders like LIMIT/SL/SL-M)
+        or during immediate execution (for MARKET orders). We only need to release margin when
+        positions are closed/reduced.
+        """
+        # Serialize the position RMW (issue #1808). Without this lock two
+        # concurrent same-symbol fills can both read the same old_quantity,
+        # each compute old + its own delta, and last-write-wins -- silently
+        # losing one increment. The lock is released even when the function
+        # raises or rolls back its transaction.
+        feed_change = None
+        self._position_lock.acquire()
+        try:
+            fund_manager = FundManager(order.user_id)
+
+            # A CNC SELL takes the same route as every other fill: it nets
+            # against any open position and, beyond that, leaves a negative CNC
+            # carry-forward position. T+1 settlement then reduces the holding and
+            # credits the proceeds (holdings_manager.process_t1_settlement, which
+            # already handles negative positions).
+            #
+            # It deliberately does NOT reduce the holding at fill time. Real
+            # delivery selling settles on T+1, and the buy side already behaves
+            # that way. Reducing instantly made the two halves of one product
+            # disagree.
+            #
+            # Issue #1640 was the opposite failure: a short was opened for shares
+            # the user owned AND the holding was left untouched, so nothing could
+            # square it off. What makes the negative position safe now is that
+            # settlement nets it against the holding, and order validation counts
+            # the signed position so the same shares cannot be sold twice.
+            effective_qty = order.quantity
+
+            # Check if position exists
+            position = SandboxPositions.query.filter_by(
+                user_id=order.user_id,
+                symbol=order.symbol,
+                exchange=order.exchange,
+                product=order.product,
+            ).first()
+
+            if not position:
+                # Create new position
+                # Store the exact margin that was blocked at order placement time
+                order_margin = (
+                    order.margin_blocked
+                    if hasattr(order, "margin_blocked") and order.margin_blocked
+                    else Decimal("0.00")
+                )
+                position = SandboxPositions(
+                    user_id=order.user_id,
+                    symbol=order.symbol,
+                    exchange=order.exchange,
+                    product=order.product,
+                    quantity=effective_qty if order.action == "BUY" else -effective_qty,
+                    average_price=execution_price,
+                    ltp=execution_price,
+                    pnl=Decimal("0.00"),
+                    pnl_percent=Decimal("0.00"),
+                    accumulated_realized_pnl=Decimal("0.00"),
+                    margin_blocked=order_margin,  # Store exact margin from order
+                    created_at=datetime.now(pytz.timezone("Asia/Kolkata")),
+                )
+                db_session.add(position)
+                logger.info(
+                    f"Created new position: {order.symbol} {order.action} {order.quantity} (margin blocked: ₹{order_margin})"
+                )
+
+            else:
+                # Update existing position (netting logic)
+                old_quantity = position.quantity
+                new_quantity = effective_qty if order.action == "BUY" else -effective_qty
+                final_quantity = old_quantity + new_quantity
+
+                # Special case: Reopening a closed position (old_quantity = 0)
+                if old_quantity == 0:
+                    # Keep accumulated realized P&L from previous trades, start fresh unrealized P&L
+                    position.quantity = new_quantity
+                    position.average_price = execution_price
+                    position.ltp = execution_price
+                    position.pnl = Decimal("0.00")  # Reset current P&L (will be updated by MTM)
+                    position.pnl_percent = Decimal("0.00")
+                    # accumulated_realized_pnl stays as is from previous closed trades
+                    # today_realized_pnl: Keep current value (already reset at session boundary)
+                    # Store the exact margin that was blocked at order placement time
+                    order_margin = (
+                        order.margin_blocked
+                        if hasattr(order, "margin_blocked") and order.margin_blocked
+                        else Decimal("0.00")
+                    )
+                    position.margin_blocked = order_margin
+                    logger.info(
+                        f"Reopened position: {order.symbol} {order.action} {order.quantity} (accumulated realized P&L: ₹{position.accumulated_realized_pnl}) (margin blocked: ₹{order_margin})"
+                    )
+
+                elif final_quantity == 0:
+                    # Position closed completely
+                    # Calculate realized P&L
+                    _sym_cv_info = get_symbol_info(order.symbol, order.exchange)
+                    _cv = (
+                        float(_sym_cv_info.contract_value)
+                        if _sym_cv_info and _sym_cv_info.contract_value
+                        else 1.0
+                    )
+                    realized_pnl = self._calculate_realized_pnl(
+                        old_quantity,
+                        position.average_price,
+                        abs(new_quantity),
+                        execution_price,
+                        contract_value=_cv,
+                    )
+
+                    # Release the EXACT margin that was stored in the position
+                    # This prevents over-release when execution price differs from order placement price
+                    margin_to_release = (
+                        position.margin_blocked
+                        if hasattr(position, "margin_blocked") and position.margin_blocked
+                        else Decimal("0.00")
+                    )
+
+                    if margin_to_release > 0:
+                        fund_manager.release_margin(
+                            margin_to_release, realized_pnl, f"Position closed: {order.symbol}"
+                        )
+                        logger.info(
+                            f"Released exact margin ₹{margin_to_release} for closed position (from position.margin_blocked)"
+                        )
+
+                    # Keep position with 0 quantity to show it was closed
+                    # Add realized P&L to accumulated realized P&L (all-time)
+                    position.accumulated_realized_pnl += realized_pnl
+                    # Add realized P&L to today's realized P&L (resets daily at session boundary)
+                    position.today_realized_pnl = (
+                        position.today_realized_pnl or Decimal("0.00")
+                    ) + realized_pnl
+
+                    position.quantity = 0
+                    position.margin_blocked = Decimal(
+                        "0.00"
+                    )  # Reset margin to 0 when position fully closed
+                    position.ltp = execution_price
+                    position.pnl = (
+                        position.today_realized_pnl
+                    )  # Display today's realized P&L for closed positions
+                    position.pnl_percent = Decimal("0.00")
+                    logger.info(
+                        f"Position closed: {order.symbol}, Realized P&L: ₹{realized_pnl}, Today's Realized P&L: ₹{position.today_realized_pnl}"
+                    )
+
+                elif (old_quantity > 0 and final_quantity > old_quantity) or (
+                    old_quantity < 0 and final_quantity < old_quantity
+                ):
+                    # Adding to existing position (same direction, position size increasing)
+                    # Calculate new average price
+                    total_value = (abs(old_quantity) * position.average_price) + (
+                        abs(new_quantity) * execution_price
+                    )
+                    total_quantity = abs(old_quantity) + abs(new_quantity)
+                    new_average_price = total_value / total_quantity
+
+                    position.quantity = final_quantity
+                    position.average_price = new_average_price
+                    position.ltp = execution_price
+
+                    # Accumulate margin - add the margin blocked for this order to existing position margin
+                    order_margin = (
+                        order.margin_blocked
+                        if hasattr(order, "margin_blocked") and order.margin_blocked
+                        else Decimal("0.00")
+                    )
+                    position.margin_blocked = (
+                        position.margin_blocked
+                        if hasattr(position, "margin_blocked") and position.margin_blocked
+                        else Decimal("0.00")
+                    ) + order_margin
+                    logger.info(
+                        f"Added to position: {order.symbol}, New qty: {final_quantity}, Avg: {new_average_price} (total margin blocked: ₹{position.margin_blocked})"
+                    )
+
+                else:
+                    # Reducing position (opposite direction) or position reversal
+                    reduced_quantity = min(abs(old_quantity), abs(new_quantity))
+
+                    # Calculate realized P&L for reduced portion
+                    _sym_cv_info = get_symbol_info(order.symbol, order.exchange)
+                    _cv = (
+                        float(_sym_cv_info.contract_value)
+                        if _sym_cv_info and _sym_cv_info.contract_value
+                        else 1.0
+                    )
+                    realized_pnl = self._calculate_realized_pnl(
+                        old_quantity,
+                        position.average_price,
+                        reduced_quantity,
+                        execution_price,
+                        contract_value=_cv,
+                    )
+
+                    # Add realized P&L to accumulated realized P&L (all-time)
+                    # This tracks all partial closes
+                    position.accumulated_realized_pnl = (
+                        position.accumulated_realized_pnl or Decimal("0.00")
+                    ) + realized_pnl
+                    # Add realized P&L to today's realized P&L (resets daily at session boundary)
+                    position.today_realized_pnl = (
+                        position.today_realized_pnl or Decimal("0.00")
+                    ) + realized_pnl
+
+                    # Release margin PROPORTIONALLY for reduced quantity
+                    # Use exact margin stored in position, release proportionally
+                    current_margin = (
+                        position.margin_blocked
+                        if hasattr(position, "margin_blocked") and position.margin_blocked
+                        else Decimal("0.00")
+                    )
+
+                    if abs(old_quantity) > 0:
+                        # Calculate proportion of position being reduced
+                        reduction_proportion = Decimal(str(reduced_quantity)) / Decimal(
+                            str(abs(old_quantity))
+                        )
+                        margin_to_release = current_margin * reduction_proportion
+                    else:
+                        margin_to_release = Decimal("0.00")
+
+                    if margin_to_release > 0:
+                        fund_manager.release_margin(
+                            margin_to_release, realized_pnl, f"Position reduced: {order.symbol}"
+                        )
+                        logger.info(
+                            f"Released proportional margin ₹{margin_to_release} for reduced position ({reduction_proportion * 100:.1f}% of ₹{current_margin})"
+                        )
+
+                    # Update remaining margin after proportional release
+                    remaining_margin = current_margin - margin_to_release
+
+                    # If position reversed, set margin for new reversed position
+                    if abs(new_quantity) > abs(old_quantity):
+                        # Position reversed - remaining quantity creates opposite position
+                        remaining_quantity = abs(new_quantity) - abs(old_quantity)
+                        position.quantity = (
+                            remaining_quantity if order.action == "BUY" else -remaining_quantity
+                        )
+                        position.average_price = execution_price
+
+                        # For reversed position, the new margin comes from the excess quantity in the order
+                        # The old position's margin was fully released, new position gets fresh margin
+                        # Note: order.margin_blocked contains margin for the FULL order quantity
+                        # We need to calculate what portion corresponds to the excess quantity
+                        if abs(new_quantity) > 0:
+                            excess_proportion = Decimal(str(remaining_quantity)) / Decimal(
+                                str(abs(new_quantity))
+                            )
+                            order_margin = (
+                                order.margin_blocked
+                                if hasattr(order, "margin_blocked") and order.margin_blocked
+                                else Decimal("0.00")
+                            )
+                            new_position_margin = order_margin * excess_proportion
+                            position.margin_blocked = new_position_margin
+                            logger.info(
+                                f"Position reversed: {order.symbol}, New qty: {position.quantity} (new margin: ₹{new_position_margin})"
+                            )
+                        else:
+                            position.margin_blocked = Decimal("0.00")
+                    else:
+                        # Position reduced but not reversed - keep remaining margin
+                        position.quantity = final_quantity
+                        position.margin_blocked = remaining_margin
+                        logger.info(
+                            f"Position reduced: {order.symbol}, New qty: {final_quantity}, Remaining margin: ₹{remaining_margin}"
+                        )
+
+                    position.ltp = execution_price
+                    logger.info(
+                        f"Partial close: {order.symbol}, New qty: {final_quantity}, Realized P&L: ₹{realized_pnl}"
+                    )
+
+            db_session.commit()
+
+            # Event-driven MTM: keep the WS engine's position-feed refs in
+            # sync with the position book. After any fill, either the symbol
+            # has open quantity (subscribe so MarketDataService stays warm and
+            # the MTM loop reads ticks instead of REST) or it just went flat
+            # (release the subscription). Never allowed to break a fill.
+            # Decided here, sent after the lock is released: a subscribe can
+            # wait many seconds on the feed, and every other sandbox fill in
+            # the process would wait behind it.
+            feed_change = self._position_feed_change(order)
+
+            # Validate margin consistency after position update
+            is_consistent, discrepancy = validate_margin_consistency(order.user_id)
+            if not is_consistent:
+                logger.warning(
+                    f"Margin inconsistency detected after position update for {order.symbol}: "
+                    f"discrepancy={discrepancy}. Auto-reconciling..."
+                )
+                # Auto-reconcile to prevent margin leaks
+                reconcile_margin(order.user_id, auto_fix=True)
+
+        except Exception as e:
+            db_session.rollback()
+            logger.exception(f"Error updating position for order {order.orderid}: {e}")
+            raise
+        finally:
+            self._position_lock.release()
+            if feed_change is not None:
+                self._apply_position_feed_change(order, *feed_change)
+
+    @staticmethod
+    def _position_feed_change(order):
+        """Work out, from the committed book, which feed notice this fill needs.
+
+        Returns:
+            ``(engine, has_open)`` when a running websocket engine exists, else
+            None. Never raises: the feed is an enhancement, not part of a fill.
+        """
+        try:
+            from sandbox.websocket_execution_engine import peek_websocket_execution_engine
+
+            # peek, not get: a fill must never create an engine, least of all
+            # while the engine is being stopped.
+            ws_engine = peek_websocket_execution_engine()
+            if ws_engine is None:
+                return None
+            has_open = (
+                SandboxPositions.query.filter_by(
+                    user_id=order.user_id,
+                    symbol=order.symbol,
+                    exchange=order.exchange,
+                )
+                .filter(SandboxPositions.quantity != 0)
+                .count()
+                > 0
+            )
+            return ws_engine, has_open
+        except Exception:
+            logger.debug("Position feed notify failed (non-fatal)", exc_info=True)
+            return None
+
+    @staticmethod
+    def _apply_position_feed_change(order, ws_engine, has_open):
+        """Send the feed notice decided under the lock. Never raises."""
+        try:
+            if has_open:
+                ws_engine.notify_position_opened(order.user_id, order.symbol, order.exchange)
+            else:
+                ws_engine.notify_position_closed(order.user_id, order.symbol, order.exchange)
+        except Exception:
+            logger.debug("Position feed notify failed (non-fatal)", exc_info=True)
+
+    def _calculate_realized_pnl(
+        self, old_quantity, avg_price, close_quantity, close_price, contract_value=1.0
+    ):
+        """Calculate realized P&L for closed positions, multiplied by contract_value (e.g. 0.01 for ETHUSD.P)."""
+        try:
+            avg_price = Decimal(str(avg_price))
+            close_price = Decimal(str(close_price))
+            close_quantity = Decimal(str(close_quantity))
+            cv = Decimal(str(contract_value))
+
+            if old_quantity > 0:
+                # Long position closed
+                pnl = (close_price - avg_price) * close_quantity * cv
+            else:
+                # Short position closed
+                pnl = (avg_price - close_price) * close_quantity * cv
+
+            return pnl
+
+        except Exception as e:
+            logger.exception(f"Error calculating realized P&L: {e}")
+            return Decimal("0.00")
+
+    def _generate_trade_id(self):
+        """Generate unique trade ID"""
+        now = datetime.now(pytz.timezone("Asia/Kolkata"))
+        timestamp = now.strftime("%Y%m%d-%H%M%S")
+        unique_id = str(uuid.uuid4())[:8]
+        return f"TRADE-{timestamp}-{unique_id}"
+
+
+def run_execution_engine_once():
+    """Run one cycle of the execution engine"""
+    engine = ExecutionEngine()
+    engine.check_and_execute_pending_orders()
+
+
+if __name__ == "__main__":
+    """Run execution engine in standalone mode for testing"""
+    logger.info("Starting Sandbox Execution Engine")
+
+    # Get check interval from config
+    from database.sandbox_db import get_config, init_db
+
+    init_db()
+
+    check_interval = int(get_config("order_check_interval", "5"))
+    logger.info(f"Order check interval: {check_interval} seconds")
+
+    try:
+        while True:
+            run_execution_engine_once()
+            time.sleep(check_interval)
+    except KeyboardInterrupt:
+        logger.info("Execution engine stopped by user")
+    except Exception as e:
+        logger.exception(f"Execution engine error: {e}")

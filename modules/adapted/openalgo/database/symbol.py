@@ -1,0 +1,473 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import os
+
+from sqlalchemy import Column, Float, Index, Integer, Sequence, String, and_, create_engine, or_
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy.pool import NullPool
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+def _escape_like(term: str) -> str:
+    """Escape LIKE wildcard characters to prevent unintended broad matching."""
+    return term.replace("%", r"\%").replace("_", r"\_")
+
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+# Conditionally create engine based on DB type
+if DATABASE_URL and "sqlite" in DATABASE_URL:
+    # SQLite: Use NullPool to prevent connection pool exhaustion
+    engine = create_engine(
+        DATABASE_URL, poolclass=NullPool, connect_args={"check_same_thread": False}
+    )
+else:
+    # For other databases like PostgreSQL, use connection pooling
+    engine = create_engine(DATABASE_URL, pool_size=50, max_overflow=100, pool_timeout=10)
+db_session = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
+Base = declarative_base()
+Base.query = db_session.query_property()
+
+
+class SymToken(Base):
+    __tablename__ = "symtoken"
+    id = Column(Integer, Sequence("symtoken_id_seq"), primary_key=True)
+    symbol = Column(String, nullable=False, index=True)
+    brsymbol = Column(String, nullable=False, index=True)
+    name = Column(String)
+    exchange = Column(String, index=True)
+    brexchange = Column(String, index=True)
+    token = Column(String, index=True)
+    expiry = Column(String)
+    strike = Column(Float)
+    lotsize = Column(Integer)
+    instrumenttype = Column(String)
+    tick_size = Column(Float)
+    contract_value = Column(Float)
+
+    # Composite indices for improved search performance
+    __table_args__ = (
+        Index("idx_symbol_exchange", "symbol", "exchange"),
+        Index("idx_symbol_name", "symbol", "name"),
+        Index("idx_brsymbol_exchange", "brsymbol", "exchange"),
+    )
+
+
+def enhanced_search_symbols(
+    query: str | None, exchange: str | None = None, limit: int | None = None
+) -> list[SymToken]:
+    """
+    Enhanced search function that searches across multiple fields
+    and supports partial matching with multiple terms.
+
+    If both query and exchange are empty, returns no results to avoid full-table scans.
+    If query is empty/None but exchange is provided, returns all rows for that exchange
+    (subject to limit) — useful for "show me everything in NSE" workflows.
+
+    Args:
+        query: Search query string (may be None/empty for exchange-only search)
+        exchange: Exchange to filter by
+        limit: Optional cap on number of results (None = no cap)
+
+    Returns:
+        List[SymToken]: List of matching SymToken objects
+    """
+    try:
+        # Split the query into terms and clean them
+        terms = [term.strip().upper() for term in (query or "").split() if term.strip()]
+
+        # Refuse to scan the full table without any filter — caller must scope by exchange
+        # if there is no query.
+        if not terms and not exchange:
+            return []
+
+        # Base query
+        base_query = SymToken.query
+
+        # If exchange is specified, filter by it
+        if exchange:
+            base_query = base_query.filter(SymToken.exchange == exchange)
+
+        # Create conditions for each term
+        all_conditions = []
+        for term in terms:
+            safe_term = _escape_like(term)
+            # Number detection for more accurate strike price and token searches
+            try:
+                num_term = float(term)
+                term_conditions = or_(
+                    SymToken.symbol.ilike(f"%{safe_term}%", escape="\\"),
+                    SymToken.brsymbol.ilike(f"%{safe_term}%", escape="\\"),
+                    SymToken.name.ilike(f"%{safe_term}%", escape="\\"),
+                    SymToken.token.ilike(f"%{safe_term}%", escape="\\"),
+                    SymToken.strike == num_term,
+                )
+            except ValueError:
+                term_conditions = or_(
+                    SymToken.symbol.ilike(f"%{safe_term}%", escape="\\"),
+                    SymToken.brsymbol.ilike(f"%{safe_term}%", escape="\\"),
+                    SymToken.name.ilike(f"%{safe_term}%", escape="\\"),
+                    SymToken.token.ilike(f"%{safe_term}%", escape="\\"),
+                )
+            all_conditions.append(term_conditions)
+
+        # Combine all conditions with AND
+        final_query = base_query.filter(and_(*all_conditions)) if all_conditions else base_query
+
+        # Execute query — apply limit if caller specified one
+        if limit is not None and limit > 0:
+            results = final_query.limit(limit).all()
+        else:
+            results = final_query.all()
+        return results
+
+    except Exception as e:
+        logger.exception(f"Error in enhanced search: {str(e)}")
+        return []
+
+
+def fno_search_symbols_db(
+    query: str = None,
+    exchange: str = None,
+    expiry: str = None,
+    instrumenttype: str = None,  # "FUT", "CE", or "PE"
+    strike_min: float = None,
+    strike_max: float = None,
+    underlying: str = None,
+    limit: int = 10000,
+) -> list[dict]:
+    """
+    FNO-specific search function using direct database queries.
+    This is the fallback when cache is not available.
+
+    Can search with just filters (no query required) - useful for:
+    - "Show all NIFTY futures" (underlying=NIFTY, instrumenttype=FUT)
+    - "Show all weekly expiry options" (expiry=26-DEC-24)
+
+    Args:
+        query (str, optional): Search query string (optional if filters are provided)
+        exchange (str, optional): Exchange to filter by (NFO, BFO, MCX, CDS)
+        expiry (str, optional): Expiry date filter (e.g., "26-DEC-24")
+        instrumenttype (str, optional): "FUT" for futures, "CE" for calls, "PE" for puts
+        strike_min (float, optional): Minimum strike price
+        strike_max (float, optional): Maximum strike price
+        underlying (str, optional): Underlying symbol name (e.g., "NIFTY")
+        limit (int, optional): Maximum results to return (default 500)
+
+    Returns:
+        List[dict]: List of matching symbol dictionaries
+    """
+    try:
+        # Base query
+        base_query = SymToken.query
+
+        # Filter by exchange
+        if exchange:
+            base_query = base_query.filter(SymToken.exchange == exchange)
+
+        # Filter by underlying name
+        if underlying:
+            base_query = base_query.filter(SymToken.name.ilike(underlying.strip().upper()))
+
+        # Filter by expiry date
+        if expiry:
+            base_query = base_query.filter(SymToken.expiry == expiry.strip())
+
+        # Filter by instrument type (FUT, CE, PE) - based on symbol suffix
+        if instrumenttype:
+            inst_type = instrumenttype.strip().upper()
+            if inst_type == "FUT":
+                # Symbol ends with FUT (e.g., NIFTY26DEC24FUT)
+                base_query = base_query.filter(SymToken.symbol.ilike("%FUT"))
+            elif inst_type == "CE":
+                # Symbol ends with CE (e.g., NIFTY26DEC2424000CE)
+                base_query = base_query.filter(SymToken.symbol.ilike("%CE"))
+            elif inst_type == "PE":
+                # Symbol ends with PE (e.g., NIFTY26DEC2424000PE)
+                base_query = base_query.filter(SymToken.symbol.ilike("%PE"))
+
+        # Filter by strike price range (for options)
+        if strike_min is not None:
+            base_query = base_query.filter(SymToken.strike >= strike_min)
+        if strike_max is not None:
+            base_query = base_query.filter(SymToken.strike <= strike_max)
+
+        # Create conditions for each search term (if query provided)
+        primary_term = None
+        if query:
+            terms = [term.strip().upper() for term in query.split() if term.strip()]
+            primary_term = terms[0] if terms else None
+            all_conditions = []
+            for term in terms:
+                safe_term = _escape_like(term)
+                try:
+                    num_term = float(term)
+                    term_conditions = or_(
+                        SymToken.symbol.ilike(f"%{safe_term}%", escape="\\"),
+                        SymToken.brsymbol.ilike(f"%{safe_term}%", escape="\\"),
+                        SymToken.name.ilike(f"%{safe_term}%", escape="\\"),
+                        SymToken.token.ilike(f"%{safe_term}%", escape="\\"),
+                        SymToken.strike == num_term,
+                    )
+                except ValueError:
+                    term_conditions = or_(
+                        SymToken.symbol.ilike(f"%{safe_term}%", escape="\\"),
+                        SymToken.brsymbol.ilike(f"%{safe_term}%", escape="\\"),
+                        SymToken.name.ilike(f"%{safe_term}%", escape="\\"),
+                        SymToken.token.ilike(f"%{safe_term}%", escape="\\"),
+                    )
+                all_conditions.append(term_conditions)
+
+            # Combine all conditions with AND
+            if all_conditions:
+                base_query = base_query.filter(and_(*all_conditions))
+
+        # Apply database-level ordering and limit for performance
+        # Order by symbol for consistent results
+        base_query = base_query.order_by(SymToken.symbol)
+
+        # Apply limit at database level - critical for performance with large datasets
+        if limit:
+            base_query = base_query.limit(limit)
+
+        # Execute query with limit already applied
+        results = base_query.all()
+
+        # Import freeze qty function (uses in-memory cache, fast)
+        from database.qty_freeze_db import get_freeze_qty_for_option
+
+        # Convert to dictionaries - now only processing limited results
+        results_dicts = [
+            {
+                "symbol": r.symbol,
+                "brsymbol": r.brsymbol,
+                "name": r.name,
+                "exchange": r.exchange,
+                "brexchange": r.brexchange,
+                "token": r.token,
+                "expiry": r.expiry,
+                "strike": r.strike,
+                "lotsize": r.lotsize,
+                "instrumenttype": r.instrumenttype,
+                "tick_size": r.tick_size,
+                "freeze_qty": get_freeze_qty_for_option(r.symbol, r.exchange),
+            }
+            for r in results
+        ]
+
+        # Only apply Python-level sorting if there's a search query
+        # For filter-only queries (FNO chain discovery), DB ordering is sufficient
+        if primary_term:
+
+            def sort_key(r):
+                """Sort results by relevance: exact match, prefix match, then alphabetical."""
+                name = r["name"] or ""
+                symbol = r["symbol"] or ""
+                # Priority 1: Exact match on name/underlying
+                name_exact = 0 if name.upper() == primary_term else 1
+                # Priority 2: Name starts with search term
+                name_starts = 0 if name.upper().startswith(primary_term) else 1
+                # Priority 3: Symbol starts with search term
+                symbol_starts = 0 if symbol.upper().startswith(primary_term) else 1
+                # Priority 4: Alphabetical by symbol
+                return (name_exact, name_starts, symbol_starts, symbol)
+
+            results_dicts.sort(key=sort_key)
+
+        return results_dicts
+
+    except Exception as e:
+        logger.exception(f"Error in FNO search: {str(e)}")
+        return []
+
+
+def get_distinct_expiries(
+    exchange: str = None, underlying: str = None, instrumenttype: str = None
+) -> list[str]:
+    """
+    Get distinct expiry dates for FNO symbols.
+
+    Args:
+        exchange (str, optional): Exchange to filter by (NFO, BFO, MCX, CDS)
+        underlying (str, optional): Underlying symbol name (e.g., "NIFTY")
+        instrumenttype (str, optional): "options" for CE/PE only, "futures" for
+            FUT only. Unset returns every expiry, which is right for a symbol
+            browser and wrong for an option chain: on MCX the two calendars
+            differ - GOLDM futures expire 05-AUG while its options expire
+            28-AUG - so a mixed list offers an options expiry that has no
+            strikes behind it.
+
+    Returns:
+        List[str]: List of distinct expiry dates sorted chronologically
+    """
+    try:
+        from datetime import datetime
+
+        from sqlalchemy import distinct
+
+        query = db_session.query(distinct(SymToken.expiry))
+
+        if exchange:
+            query = query.filter(SymToken.exchange == exchange)
+
+        if underlying:
+            query = query.filter(SymToken.name.ilike(underlying.strip().upper()))
+
+        if instrumenttype:
+            wanted = instrumenttype.strip().lower()
+            if wanted in ("options", "option"):
+                query = query.filter(SymToken.instrumenttype.in_(["CE", "PE"]))
+            elif wanted in ("futures", "future", "fut"):
+                query = query.filter(SymToken.instrumenttype == "FUT")
+
+        # Only get non-null expiries
+        query = query.filter(SymToken.expiry.isnot(None))
+        query = query.filter(SymToken.expiry != "")
+
+        results = query.all()
+        expiries = [r[0] for r in results if r[0]]
+
+        # Sort expiries chronologically
+        def parse_expiry(exp_str):
+            """Parse an expiry date string into a datetime for chronological sorting."""
+            try:
+                return datetime.strptime(exp_str, "%d-%b-%y")
+            except ValueError:
+                try:
+                    return datetime.strptime(exp_str, "%d-%b-%Y")
+                except ValueError:
+                    return datetime.max
+
+        expiries.sort(key=parse_expiry)
+        return expiries
+
+    except Exception as e:
+        logger.exception(f"Error fetching distinct expiries: {str(e)}")
+        return []
+
+
+def get_distinct_underlyings(exchange: str = None) -> list[str]:
+    """
+    Get distinct underlying names for FNO symbols.
+
+    Args:
+        exchange (str, optional): Exchange to filter by (NFO, BFO, MCX, CDS)
+
+    Returns:
+        List[str]: List of distinct underlying names sorted alphabetically
+    """
+    try:
+        from sqlalchemy import distinct
+
+        query = db_session.query(distinct(SymToken.name))
+
+        if exchange:
+            query = query.filter(SymToken.exchange == exchange)
+
+        # Only get non-null names
+        query = query.filter(SymToken.name.isnot(None))
+        query = query.filter(SymToken.name != "")
+
+        results = query.all()
+        underlyings = sorted([r[0] for r in results if r[0]])
+        return underlyings
+
+    except Exception as e:
+        logger.exception(f"Error fetching distinct underlyings: {str(e)}")
+        return []
+
+
+def normalize_derivative_underlyings() -> int:
+    """Rewrite `name` to the underlying root on derivative rows. Returns the count changed.
+
+    For FUT/CE/PE rows `name` is meant to hold the underlying root ("NIFTY"),
+    and every lookup that resolves an underlying depends on it: the Options
+    Order lot size, the scalping terminal's MCX/CDS chain, expiry lists, and the
+    options tools' underlying dropdown. Whether it actually holds that is up to
+    each broker's master contract, and they disagree - Fyers ships the contract
+    description ("NIFTY 11 Aug 26 24450 CE") in every column that could carry
+    one, so on Fyers none of those lookups matched and the dropdown was offered
+    76,981 descriptions in place of ~190 underlyings.
+
+    Correcting that in each of 35+ broker plugins does not scale and leaves the
+    next broker to repeat it, so normalize once here, on the one path every
+    broker's download already runs through. The root is derived from the
+    OpenAlgo symbol - normalized by OpenAlgo itself, so it reads the same
+    everywhere - with the same extractor that builds the dropdown, which is what
+    makes the value offered and the value resolved agree.
+
+    EQUITY and INDEX rows are untouched: there `name` is the company or index
+    name that powers search-by-name.
+
+    Rows are only written where the derived root differs from what is stored, so
+    on a broker that already populates `name` correctly this is a read-only pass.
+    A row whose symbol cannot be parsed keeps whatever it had, rather than being
+    blanked.
+    """
+    from database.token_db_enhanced import extract_underlying_from_symbol
+    from utils.constants import FNO_EXCHANGES
+
+    updates = []
+    try:
+        rows = (
+            db_session.query(SymToken.id, SymToken.symbol, SymToken.exchange, SymToken.name)
+            .filter(SymToken.exchange.in_(FNO_EXCHANGES))
+            .yield_per(5000)
+        )
+        for row_id, symbol, exchange, name in rows:
+            derived = extract_underlying_from_symbol(symbol, exchange)
+            if derived and derived != name:
+                updates.append({"id": row_id, "name": derived})
+
+        for start in range(0, len(updates), 5000):
+            db_session.bulk_update_mappings(SymToken, updates[start : start + 5000])
+        db_session.commit()
+
+        if updates:
+            logger.info(
+                f"Master contract: normalized the underlying on {len(updates)} derivative row(s)"
+            )
+        return len(updates)
+    except Exception:
+        db_session.rollback()
+        # A failure here leaves `name` as the broker supplied it, which is what
+        # every release before this behaved like - worth logging, not worth
+        # failing the login over.
+        logger.exception("Could not normalize derivative underlyings")
+        return 0
+    finally:
+        db_session.remove()
+
+
+def init_db():
+    """Initialize the master contract database tables.
+
+    Creates the ``symtoken`` table if it does not already exist,
+    using the shared ``db_init_helper`` for consistent startup logging.
+    """
+    from database.db_init_helper import init_db_with_logging
+
+    init_db_with_logging(Base, engine, "Master Contract DB", logger)

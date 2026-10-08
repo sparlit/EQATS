@@ -1,0 +1,360 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import importlib
+import time
+from typing import Any
+
+import pandas as pd
+from database.auth_db import get_auth_token_broker
+from database.token_db import get_token
+from services.broker_busy import BrokerBusyError, broker_busy_result
+from utils.broker_backpressure import check_queue_wait
+from utils.constants import VALID_EXCHANGES
+from utils.logging import get_logger
+
+from utils import real_threading
+
+# Initialize logger
+logger = get_logger(__name__)
+
+# Rate limiter: max 3 broker history API requests per second, evenly spaced.
+#
+# Each caller books the next free start time under a lock and then sleeps until
+# it arrives, so concurrent callers are spaced one interval apart. The previous
+# version read the time of the last call, slept, and wrote it back, all
+# unlocked: callers arriving together computed their sleep from the same stale
+# value, woke together, and reached the broker as a burst it rejects.
+#
+# The lock is a real one because the agent's tools reach this from a real OS
+# thread. It guards two float operations; the sleep happens after it is released.
+_MIN_HISTORY_INTERVAL = 0.35  # 350ms between calls (~3 req/sec, evenly spaced)
+_next_history_slot: float = 0.0
+_history_slot_lock = real_threading.Lock()
+
+
+def _enforce_rate_limit(*, background: bool = False):
+    """Wait for this request's turn (~3 per second).
+
+    Raises:
+        BrokerBusyError: Only under the gthread worker, when the turn would
+            come later than the market-data queue ceiling. The check runs
+            before the slot is booked, so a refused request delays nobody.
+    """
+    global _next_history_slot
+    with _history_slot_lock:
+        now = time.monotonic()
+        slot = max(now, _next_history_slot)
+        wait = slot - now
+        # Historify workers are not Gunicorn request threads.  They must share
+        # the booking queue (and therefore the broker's 3 req/s limit), but a
+        # queued background download must be allowed to wait for its turn.
+        if not background:
+            check_queue_wait(wait, kind="data")
+        _next_history_slot = slot + _MIN_HISTORY_INTERVAL
+    if wait > 0:
+        time.sleep(wait)
+
+
+def validate_symbol_exchange(symbol: str, exchange: str) -> tuple[bool, str | None]:
+    """
+    Validate that a symbol exists for the given exchange.
+
+    Args:
+        symbol: Trading symbol
+        exchange: Exchange (e.g., NSE, NFO)
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    # Validate exchange
+    exchange_upper = exchange.upper()
+    if exchange_upper not in VALID_EXCHANGES:
+        return False, f"Invalid exchange '{exchange}'. Must be one of: {', '.join(VALID_EXCHANGES)}"
+
+    # Validate symbol exists in master contract
+    token = get_token(symbol, exchange_upper)
+    if token is None:
+        return (
+            False,
+            f"Symbol '{symbol}' not found for exchange '{exchange}'. Please verify the symbol name and ensure master contracts are downloaded.",
+        )
+
+    return True, None
+
+
+def import_broker_module(broker_name: str) -> Any | None:
+    """
+    Dynamically import the broker-specific data module.
+
+    Args:
+        broker_name: Name of the broker
+
+    Returns:
+        The imported module or None if import fails
+    """
+    try:
+        module_path = f"broker.{broker_name}.api.data"
+        broker_module = importlib.import_module(module_path)
+        return broker_module
+    except ImportError as error:
+        logger.error(f"Error importing broker module '{module_path}': {error}")
+        return None
+
+
+def get_history_with_auth(
+    auth_token: str,
+    feed_token: str | None,
+    broker: str,
+    symbol: str,
+    exchange: str,
+    interval: str,
+    start_date: str,
+    end_date: str,
+) -> tuple[bool, dict[str, Any], int]:
+    """
+    Get historical data for a symbol using provided auth tokens.
+
+    Args:
+        auth_token: Authentication token for the broker API
+        feed_token: Feed token for market data (if required by broker)
+        broker: Name of the broker
+        symbol: Trading symbol
+        exchange: Exchange (e.g., NSE, BSE)
+        interval: Time interval (e.g., 1m, 5m, 15m, 1h, 1d)
+        start_date: Start date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format
+
+    Returns:
+        Tuple containing:
+        - Success status (bool)
+        - Response data (dict)
+        - HTTP status code (int)
+    """
+    # Validate symbol and exchange before making broker API call
+    is_valid, error_msg = validate_symbol_exchange(symbol, exchange)
+    if not is_valid:
+        return False, {"status": "error", "message": error_msg}, 400
+
+    broker_module = import_broker_module(broker)
+    if broker_module is None:
+        return False, {"status": "error", "message": "Broker-specific module not found"}, 404
+
+    try:
+        # Initialize broker's data handler based on broker's requirements
+        if hasattr(broker_module.BrokerData.__init__, "__code__"):
+            # Check number of parameters the broker's __init__ accepts
+            param_count = broker_module.BrokerData.__init__.__code__.co_argcount
+            if param_count > 2:  # More than self and auth_token
+                data_handler = broker_module.BrokerData(auth_token, feed_token)
+            else:
+                data_handler = broker_module.BrokerData(auth_token)
+        else:
+            # Fallback to just auth token if we can't inspect
+            data_handler = broker_module.BrokerData(auth_token)
+
+        # Call the broker's get_history method
+        df = data_handler.get_history(symbol, exchange, interval, start_date, end_date)
+
+        if not isinstance(df, pd.DataFrame):
+            raise ValueError("Invalid data format returned from broker")
+
+        # Ensure all responses include 'oi' field, set to 0 if not present
+        if "oi" not in df.columns:
+            df["oi"] = 0
+
+        return True, {"status": "success", "data": df.to_dict(orient="records")}, 200
+    except BrokerBusyError as e:
+        return broker_busy_result(e, f"History request for {exchange}:{symbol}")
+    except Exception as e:
+        logger.exception(f"Error in broker_module.get_history: {e}")
+        return False, {"status": "error", "message": str(e)}, 500
+
+
+def get_history_from_db(
+    symbol: str, exchange: str, interval: str, start_date: str, end_date: str
+) -> tuple[bool, dict[str, Any], int]:
+    """
+    Get historical data from DuckDB/Historify database.
+
+    Args:
+        symbol: Trading symbol
+        exchange: Exchange (e.g., NSE, BSE)
+        interval: Time interval (e.g., 1m, 5m, 15m, 1h, D, W, M, Q, Y)
+        start_date: Start date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format
+
+    Returns:
+        Tuple containing:
+        - Success status (bool)
+        - Response data (dict)
+        - HTTP status code (int)
+    """
+    try:
+        from datetime import date, datetime
+
+        from database.historify_db import get_ohlcv
+
+        # Convert dates to timestamps (handle both string and date objects)
+        if isinstance(start_date, date):
+            start_dt = datetime.combine(start_date, datetime.min.time())
+        else:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+
+        if isinstance(end_date, date):
+            end_dt = datetime.combine(end_date, datetime.min.time())
+        else:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+
+        # Set end_date to end of day
+        end_dt = end_dt.replace(hour=23, minute=59, second=59)
+
+        start_timestamp = int(start_dt.timestamp())
+        end_timestamp = int(end_dt.timestamp())
+
+        # Get data from DuckDB
+        df = get_ohlcv(
+            symbol=symbol,
+            exchange=exchange,
+            interval=interval,
+            start_timestamp=start_timestamp,
+            end_timestamp=end_timestamp,
+        )
+
+        if df.empty:
+            return (
+                False,
+                {
+                    "status": "error",
+                    "message": f"No data found for {symbol}:{exchange} interval {interval} in local database. Download data first using Historify.",
+                },
+                404,
+            )
+
+        # Ensure 'oi' column exists
+        if "oi" not in df.columns:
+            df["oi"] = 0
+
+        # Reorder columns to match API response format
+        columns = ["timestamp", "open", "high", "low", "close", "volume", "oi"]
+        df = df[columns]
+
+        return True, {"status": "success", "data": df.to_dict(orient="records")}, 200
+
+    except Exception as e:
+        logger.exception(f"Error fetching history from DB: {e}")
+        return False, {"status": "error", "message": str(e)}, 500
+
+
+def get_history(
+    symbol: str,
+    exchange: str,
+    interval: str,
+    start_date: str,
+    end_date: str,
+    api_key: str | None = None,
+    auth_token: str | None = None,
+    feed_token: str | None = None,
+    broker: str | None = None,
+    source: str = "api",
+    background: bool = False,
+) -> tuple[bool, dict[str, Any], int]:
+    """
+    Get historical data for a symbol.
+    Supports both API-based authentication and direct internal calls.
+
+    Args:
+        symbol: Trading symbol
+        exchange: Exchange (e.g., NSE, BSE)
+        interval: Time interval (e.g., 1m, 5m, 15m, 1h, D, W, M, Q, Y)
+        start_date: Start date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format
+        api_key: OpenAlgo API key (for API-based calls)
+        auth_token: Direct broker authentication token (for internal calls)
+        feed_token: Direct broker feed token (for internal calls)
+        broker: Direct broker name (for internal calls)
+        source: Data source - 'api' (broker, default) or 'db' (DuckDB/Historify).
+            Unsupported values return 400 before a provider is called.
+
+    Returns:
+        Tuple containing:
+        - Success status (bool)
+        - Response data (dict)
+        - HTTP status code (int)
+
+        Unsupported source values return a 400 error before either provider is called.
+    """
+    if not isinstance(source, str) or source not in {"api", "db"}:
+        return (
+            False,
+            {"status": "error", "message": "Source must be either 'api' or 'db'."},
+            400,
+        )
+
+    # Source: 'db' - Fetch from DuckDB/Historify database
+    if source == "db":
+        return get_history_from_db(
+            symbol=symbol,
+            exchange=exchange,
+            interval=interval,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+    # Source: 'api' (default) - Fetch from broker API
+    # Enforce 3 requests/second rate limit for broker history calls
+    try:
+        if background:
+            _enforce_rate_limit(background=True)
+        else:
+            _enforce_rate_limit()
+    except BrokerBusyError as e:
+        return broker_busy_result(e, f"History request for {exchange}:{symbol}")
+
+    # Case 1: API-based authentication
+    if api_key and not (auth_token and broker):
+        AUTH_TOKEN, FEED_TOKEN, broker_name = get_auth_token_broker(
+            api_key, include_feed_token=True
+        )
+        if AUTH_TOKEN is None:
+            return False, {"status": "error", "message": "Invalid openalgo apikey"}, 403
+        return get_history_with_auth(
+            AUTH_TOKEN, FEED_TOKEN, broker_name, symbol, exchange, interval, start_date, end_date
+        )
+
+    # Case 2: Direct internal call with auth_token and broker
+    elif auth_token and broker:
+        return get_history_with_auth(
+            auth_token, feed_token, broker, symbol, exchange, interval, start_date, end_date
+        )
+
+    # Case 3: Invalid parameters
+    else:
+        return (
+            False,
+            {
+                "status": "error",
+                "message": "Either api_key or both auth_token and broker must be provided",
+            },
+            400,
+        )

@@ -1,0 +1,225 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+#!/usr/bin/env python3
+"""
+OpenAlgo Master Migration Script
+
+This script runs ALL migrations in the correct order.
+Each migration is idempotent - it skips if already applied.
+
+Usage:
+    cd upgrade
+    uv run migrate_all.py
+
+    # Or from project root:
+    uv run upgrade/migrate_all.py
+
+Works for:
+- Fresh installations (runs all migrations)
+- Existing users on any version (skips already applied migrations)
+"""
+
+import argparse
+import os
+import subprocess
+import sys
+import time
+
+# Set UTF-8 encoding for output to handle Unicode characters on Windows
+if sys.platform == "win32":
+    import io
+
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
+# Get the upgrade directory path
+UPGRADE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(UPGRADE_DIR)
+
+# Migration scripts in order of execution
+# Each migration is idempotent - safe to run multiple times
+#
+# DO NOT add destructive migrations here.
+# In particular, upgrade/rotate_pepper.py is intentionally absent from this
+# list. It rotates API_KEY_PEPPER and re-encrypts every PEPPER-derived
+# ciphertext, which invalidates Argon2 password hashes and forces a one-time
+# password reset for every user. That is operator-controlled work, not
+# something to run unattended on every update. Operators run it explicitly:
+#   cd upgrade && uv run rotate_pepper.py
+#
+# upgrade/migrate_drop_legacy_strategy.py is absent for the same reason. It
+# drops the retired `strategies` and `strategy_symbol_mappings` tables, whose
+# rows are user-authored trading configuration: which symbols a strategy
+# traded, at what quantity, with what product. It exports every row to JSON
+# before dropping and refuses to drop if that export fails, but an export is
+# not consent. Deleting a user's saved configuration during a routine upgrade
+# is exactly the class of surprise this list exists to prevent, so the operator
+# runs it when they have decided they no longer need the data:
+#   cd upgrade && uv run migrate_drop_legacy_strategy.py --status
+#   cd upgrade && uv run migrate_drop_legacy_strategy.py
+MIGRATIONS = [
+    # Legacy migrations (for users upgrading from older versions)
+    ("add_feed_token.py", "Feed Token Support"),
+    ("add_user_id.py", "User ID Column"),
+    # Core feature migrations
+    ("migrate_telegram_bot.py", "Telegram Bot Integration"),
+    ("migrate_smtp_simple.py", "SMTP Configuration"),
+    ("migrate_security_columns.py", "Security Columns"),
+    ("migrate_sandbox.py", "Sandbox Mode"),
+    ("migrate_order_mode.py", "Order Mode & Action Center"),
+    ("migrate_sandbox_pnl.py", "Sandbox Day-wise PnL Tracking"),
+    ("migrate_sandbox_trigger_pending.py", "Sandbox Trigger-Pending Order Status"),
+    ("migrate_gtt.py", "GTT Order Support"),
+    # Performance migrations
+    ("migrate_indexes.py", "Database Performance Indexes"),
+    # Feature migrations
+    ("migrate_historify.py", "Historify DuckDB Setup"),
+    ("migrate_historify_scheduler.py", "Historify Scheduler Tables"),
+    ("migrate_flow.py", "Flow Workflow Automation"),
+    ("migrate_health_process_details.py", "Health Metrics Process Details"),
+    ("migrate_master_contract_stats.py", "Master Contract Smart Download"),
+    ("migrate_contract_value.py", "Contract Value Column for Crypto"),
+    ("migrate_market_holidays.py", "2026 Market Holiday Calendar Update"),
+    ("migrate_leverage.py", "Leverage Configuration for Crypto"),
+    ("migrate_samco_auth.py", "Samco 2FA Authentication"),
+    ("migrate_zerodha_new_exchanges.py", "Zerodha NCO/GLOBAL_INDEX & GIFTNIFTY Cleanup"),
+    ("add_totp_purpose_flags.py", "Per-Purpose 2FA Flags (login/MCP/reset)"),
+    ("migrate_gtt_sandbox.py", "Sandbox GTT Support & CAS F&O Close (15:40)"),
+    ("migrate_historify_drop_indexes.py", "Historify Unused Index Removal (#1779)"),
+    ("migrate_historify_sequences.py", "Historify ID Sequences"),
+    ("migrate_watchlist.py", "Charting Terminal Watchlists"),
+    ("migrate_strategy_module.py", "Strategy Module (multi-leg options + RMS)"),
+    ("migrate_strategy_universe_tab.py", "Strategy Module Universe Tab Normalization"),
+    ("migrate_agent.py", "Agent Module (LLM chat and chart surfaces)"),
+    ("migrate_agent_voice.py", "Agent Voice Surface Settings"),
+    ("migrate_agent_voice_phrase_removal.py", "Agent Voice Approval Phrase Removal"),
+    ("migrate_alert_log.py", "Chart Alert Log (/trading alerts history)"),
+]
+
+# Legacy migrations historically used non-zero exits for best-effort warnings,
+# so changing every entry to fail-stop would break established upgrades. New
+# required schema migrations are listed explicitly: their failure must reach
+# this runner's summary and process exit code instead of being reported as a
+# successful warning.
+REQUIRED_MIGRATIONS = frozenset({"migrate_strategy_module.py", "migrate_strategy_universe_tab.py"})
+
+
+def run_migration(script_name, description):
+    """Run a single migration script"""
+    script_path = os.path.join(UPGRADE_DIR, script_name)
+
+    # Check if script exists
+    if not os.path.exists(script_path):
+        if script_name in REQUIRED_MIGRATIONS:
+            print(f"  [X] {script_name} - Required script not found")
+            return False
+        print(f"  [SKIP] {script_name} - Script not found")
+        return True  # Not an error, might be removed in future
+
+    print(f"\n{'=' * 60}")
+    print(f"Running: {description}")
+    print(f"Script: {script_name}")
+    print("=" * 60)
+
+    try:
+        # Run the migration script
+        result = subprocess.run(
+            [sys.executable, script_path], cwd=PROJECT_ROOT, capture_output=False, text=True
+        )
+
+        if result.returncode == 0:
+            print(f"[OK] {description} - Completed")
+            return True
+        if script_name in REQUIRED_MIGRATIONS:
+            print(f"[X] {description} - Failed (exit code {result.returncode})")
+            return False
+
+        print(f"[!] {description} - Completed with warnings")
+        return True  # Preserve legacy best-effort migration behavior.
+
+    except Exception as e:
+        print(f"[X] {description} - Error: {e}")
+        return False
+
+
+def main():
+    """Run all migrations"""
+    parser = argparse.ArgumentParser(
+        description="Run every OpenAlgo migration. This command has no status/preview mode."
+    )
+    parser.parse_args()
+
+    print()
+    print("#" * 60)
+    print("#" + " " * 58 + "#")
+    print("#" + "       OpenAlgo Master Migration Script".center(58) + "#")
+    print("#" + " " * 58 + "#")
+    print("#" * 60)
+    print()
+    print("This script will run all migrations in order.")
+    print("Already applied migrations will be automatically skipped.")
+    print()
+
+    start_time = time.time()
+    success_count = 0
+    fail_count = 0
+
+    for script_name, description in MIGRATIONS:
+        if run_migration(script_name, description):
+            success_count += 1
+        else:
+            fail_count += 1
+
+    elapsed = time.time() - start_time
+
+    # Summary
+    print()
+    print("#" * 60)
+    print("#" + " " * 58 + "#")
+    print("#" + "              Migration Summary".center(58) + "#")
+    print("#" + " " * 58 + "#")
+    print("#" * 60)
+    print()
+    print(f"  Total migrations: {len(MIGRATIONS)}")
+    print(f"  Successful: {success_count}")
+    print(f"  Failed: {fail_count}")
+    print(f"  Time elapsed: {elapsed:.1f} seconds")
+    print()
+
+    if fail_count == 0:
+        print("[OK] All migrations completed successfully!")
+        print()
+        print("Next steps:")
+        print("  cd ..")
+        print("  uv run app.py")
+        print()
+        return 0
+    else:
+        print("[!] Some migrations had issues. Check the output above.")
+        print()
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
