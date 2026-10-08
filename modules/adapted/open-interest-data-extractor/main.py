@@ -205,7 +205,12 @@ def fmt_oi(value: int) -> str:
 
 def print_header(label: str, last: float, nearest: int) -> None:
     print(c("purple", label.ljust(12, " ") + " => "), end="")
-    print(c("lpurple", "Last Price: ") + bold(str(last)) + c("lpurple", " Nearest Strike: ") + bold(str(nearest)))
+    print(
+        c("lpurple", "Last Price: ")
+        + bold(str(last))
+        + c("lpurple", " Nearest Strike: ")
+        + bold(str(nearest))
+    )
 
 
 def print_hr() -> None:
