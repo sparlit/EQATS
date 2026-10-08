@@ -1,5 +1,5 @@
 {
-  "current_index": 236,
+  "current_index": 237,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1893,9 +1893,9 @@
       "name": "nsemodule",
       "target": "muepsilon/nsemodule",
       "url": "https://github.com/muepsilon/nsemodule",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3190",
+      "merged": true
     },
     {
       "name": "nse-bot",
