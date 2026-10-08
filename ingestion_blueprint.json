@@ -1934,8 +1934,8 @@
       "target": "nagarajugunda/nseindexoptionsdata",
       "url": "https://github.com/nagarajugunda/nseindexoptionsdata",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3195",
+      "merged": true
     },
     {
       "name": "openlimits",
