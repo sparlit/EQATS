@@ -1,0 +1,75 @@
+use crate::{
+    mock_exchange_linear,
+    prelude::*,
+};
+
+#[test]
+fn cancel_limit_order() {
+    let mut exchange = mock_exchange_linear();
+    exchange
+        .update_state(&Bba {
+            bid: QuoteCurrency::new(100, 0),
+            ask: QuoteCurrency::new(101, 0),
+            timestamp_exchange_ns: 0.into(),
+        })
+        .unwrap();
+
+    let limit_price = QuoteCurrency::new(100, 0);
+    let qty = BaseCurrency::one();
+    let order = LimitOrder::new(Side::Buy, limit_price, qty).unwrap();
+
+    exchange.submit_limit_order(order.clone()).unwrap();
+
+    let order_id: OrderId = 0.into();
+    let meta = ExchangeOrderMeta::new(order_id, 0.into());
+    let expected_order = order.into_pending(meta);
+
+    assert_eq!(exchange.account().active_limit_orders().num_active(), 1);
+    assert_eq!(
+        exchange
+            .account()
+            .active_limit_orders()
+            .get_by_id(order_id, Side::Buy)
+            .unwrap(),
+        &expected_order
+    );
+    assert_eq!(
+        exchange.account().balances(),
+        &Balances::builder()
+            .equity(QuoteCurrency::new(1_000, 0))
+            .total_fees_paid(QuoteCurrency::zero())
+            .build()
+    );
+    assert!(exchange.account().position_margin().is_zero());
+    assert_eq!(
+        exchange.account().order_margin(),
+        QuoteCurrency::new(100, 0)
+    );
+    // 1000 equity - 100 order margin - 0.02 reserved maker fee.
+    assert_eq!(
+        exchange.account().available_balance(),
+        QuoteCurrency::new(89_998_000, 5)
+    );
+
+    exchange
+        .cancel_limit_order(CancelBy::OrderId(order_id))
+        .unwrap();
+    assert!(exchange.account().active_limit_orders().is_empty());
+    assert_eq!(
+        exchange.account().balances(),
+        &Balances::builder()
+            .equity(QuoteCurrency::new(1000, 0))
+            .total_fees_paid(QuoteCurrency::zero())
+            .build()
+    );
+    assert_eq!(exchange.account().position_margin(), Zero::zero());
+    assert_eq!(exchange.account().order_margin(), Zero::zero());
+
+    let invalid_id: OrderId = 0.into();
+    assert_eq!(
+        exchange.cancel_limit_order(CancelBy::OrderId(invalid_id)),
+        Err(CancelLimitOrderError::OrderIdNotFound(
+            OrderIdNotFound::OrderId(invalid_id)
+        ))
+    );
+}
