@@ -1910,8 +1910,8 @@
       "target": "muthuvenki/stock",
       "url": "https://github.com/muthuvenki/stock",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3192",
+      "merged": true
     },
     {
       "name": "mutxri-terminal",
