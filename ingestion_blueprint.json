@@ -1,5 +1,5 @@
 {
-  "current_index": 228,
+  "current_index": 229,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1829,9 +1829,9 @@
       "name": "rust-share",
       "target": "mineralres/rust-share",
       "url": "https://github.com/mineralres/rust-share",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3181",
+      "merged": true
     },
     {
       "name": "breadth-radar",
