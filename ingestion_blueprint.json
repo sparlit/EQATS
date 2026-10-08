@@ -1,5 +1,5 @@
 {
-  "current_index": 231,
+  "current_index": 232,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1853,9 +1853,9 @@
       "name": "rust-trailer",
       "target": "monomadic/rust-trailer",
       "url": "https://github.com/monomadic/rust-trailer",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3184",
+      "merged": true
     },
     {
       "name": "solana-copy-sniper-mev-trading-bot",
