@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 424 | Current Index: 239
+Total Repositories: 424 | Current Index: 240
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -242,7 +242,7 @@ Total Repositories: 424 | Current Index: 239
 | 237 | muepsilon/nsemodule | Completed | https://github.com/sparlit/EQATS/pull/3190 |
 | 238 | muokapwambua/nse-bot | Processed | https://github.com/sparlit/EQATS/pull/3191 |
 | 239 | muthuvenki/stock | Processed | https://github.com/sparlit/EQATS/pull/3192 |
-| 240 | mutxri/mutxri-terminal | pending | None |
+| 240 | mutxri/mutxri-terminal | Processed | None |
 | 241 | nabrahma/shortcircuit | pending | None |
 | 242 | nagarajugunda/nseindexoptionsdata | pending | None |
 | 243 | nash-io/openlimits | pending | None |

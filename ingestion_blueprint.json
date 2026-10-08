@@ -1,5 +1,5 @@
 {
-  "current_index": 239,
+  "current_index": 240,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1917,7 +1917,7 @@
       "name": "mutxri-terminal",
       "target": "mutxri/mutxri-terminal",
       "url": "https://github.com/mutxri/mutxri-terminal",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
