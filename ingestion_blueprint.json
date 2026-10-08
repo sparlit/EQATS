@@ -1,5 +1,5 @@
 {
-  "current_index": 212,
+  "current_index": 213,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1701,7 +1701,7 @@
       "name": "nse-mcp",
       "target": "manitgupta/nse-mcp",
       "url": "https://github.com/manitgupta/nse-mcp",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
