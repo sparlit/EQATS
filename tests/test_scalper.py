@@ -76,6 +76,8 @@ class TestScalperBrainAndConnector(unittest.TestCase):
     def setUp(self) -> None:
         import config
         self.orig_db = config.DB_PATH
+        self.orig_active_strategy = getattr(config, 'ACTIVE_STRATEGY', 'AUTO')
+        self.orig_trading_style = getattr(config, 'TRADING_STYLE', 'AUTO')
         for db_file in ['test_scalper_brain.db', 'test_scalper_brain.db-wal', 'test_scalper_brain.db-shm']:
             if os.path.exists(db_file):
                 try:
@@ -83,12 +85,16 @@ class TestScalperBrainAndConnector(unittest.TestCase):
                 except Exception:
                     pass
         config.DB_PATH = 'test_scalper_brain.db'
+        config.ACTIVE_STRATEGY = 'AUTO'
+        config.TRADING_STYLE = 'AUTO'
         self._reset_global_state()
         database.init_db()
 
     def tearDown(self) -> None:
         import config
         config.DB_PATH = getattr(self, 'orig_db', 'scalper_brain.db')
+        config.ACTIVE_STRATEGY = getattr(self, 'orig_active_strategy', 'AUTO')
+        config.TRADING_STYLE = getattr(self, 'orig_trading_style', 'AUTO')
         for db_file in ['test_scalper_brain.db', 'test_scalper_brain.db-wal', 'test_scalper_brain.db-shm']:
             if os.path.exists(db_file):
                 try:
