@@ -92,7 +92,7 @@ State ledger tracking in `ingestion_blueprint.json` tracks a total of **424 open
 
 - **Unit & Integration Test Suite**:
   - `PYTHONPATH=src /app/venv/bin/python3 -m pytest tests/`
-  - **Result**: **683 passed, 4 warnings in 209s (100% pass rate)**.
+  - **Result**: **683 passed, 4 warnings in 138s (100% pass rate)**.
 - **Terminal Path Validation Security Suite**:
   - `PYTHONPATH=src /app/venv/bin/python3 -m pytest tests/test_terminal_path_validation.py`
   - **Result**: **8 passed in 2.75s**.
