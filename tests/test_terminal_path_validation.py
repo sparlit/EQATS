@@ -35,7 +35,7 @@ def test_validate_terminal_path_rejects_arbitrary_executables() -> None:
     for path in malicious_paths:
         try:
             result = database.validate_terminal_path(path)
-            pytest.fail(f'Malicious path was incorrectly accepted: {path}')
+            pytest.fail(f'Malicious path was incorrectly accepted: {path} -> {result}')
         except ValueError as e:
             assert 'Invalid MT5 terminal filename' in str(e) or 'terminal filename' in str(e).lower()
             print(f'✓ Malicious path rejected: {path} - {e}')
@@ -56,7 +56,7 @@ def test_validate_terminal_path_rejects_directory_traversal() -> None:
     for path in traversal_paths:
         try:
             result = database.validate_terminal_path(path)
-            pytest.fail(f'Directory traversal path was incorrectly accepted: {path}')
+            pytest.fail(f'Directory traversal path was incorrectly accepted: {path} -> {result}')
         except ValueError as e:
             assert 'directory traversal' in str(e).lower() or 'invalid' in str(e).lower()
             print(f'✓ Directory traversal rejected: {path} - {e}')
@@ -132,7 +132,7 @@ def test_connector_validates_terminal_path() -> None:
         assert 'calc.exe' in creds['terminal_path'].lower(), 'Test setup failed: malicious path not in database'
         try:
             validated = database.validate_terminal_path(creds['terminal_path'])
-            pytest.fail('Connector should have rejected malicious path from database')
+            pytest.fail(f'Connector should have rejected malicious path from database, got: {validated}')
         except ValueError as e:
             assert 'Invalid MT5 terminal filename' in str(e)
             print('✓ Connector validation correctly rejects malicious path from database')
