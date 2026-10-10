@@ -1,5 +1,5 @@
 {
-  "current_index": 276,
+  "current_index": 277,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2213,9 +2213,9 @@
       "name": "nse_bse_downloader",
       "target": "pparesh25/nse_bse_downloader",
       "url": "https://github.com/pparesh25/nse_bse_downloader",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3246",
+      "merged": true
     },
     {
       "name": "nse-ml-2021",
