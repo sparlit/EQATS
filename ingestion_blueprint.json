@@ -1,5 +1,5 @@
 {
-  "current_index": 256,
+  "current_index": 257,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2053,7 +2053,7 @@
       "name": "hftbacktest",
       "target": "nkaz001/hftbacktest",
       "url": "https://github.com/nkaz001/hftbacktest",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
