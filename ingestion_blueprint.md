@@ -274,7 +274,7 @@ Total Repositories: 424 | Current Index: 272
 | 269 | pec-css/stock-watchlist | Processed | https://github.com/sparlit/EQATS/pull/3238 |
 | 270 | perunnial/tickertrackbot | Processed | https://github.com/sparlit/EQATS/pull/3239 |
 | 271 | pishangujeniya/kite-helper | Processed | https://github.com/sparlit/EQATS/pull/3240 |
-| 272 | pishangujeniya/nse-stocks-data-scrapper | Processed | None |
+| 272 | pishangujeniya/nse-stocks-data-scrapper | Processed | https://github.com/sparlit/EQATS/pull/3241 |
 | 273 | pkjmesra/nseta | pending | None |
 | 274 | pkjmesra/pknsetools | pending | None |
 | 275 | pkjmesra/pkscreener | pending | None |

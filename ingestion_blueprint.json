@@ -2174,8 +2174,8 @@
       "target": "pishangujeniya/nse-stocks-data-scrapper",
       "url": "https://github.com/pishangujeniya/nse-stocks-data-scrapper",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3241",
+      "merged": true
     },
     {
       "name": "nseta",
