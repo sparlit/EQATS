@@ -1,5 +1,5 @@
 {
-  "current_index": 245,
+  "current_index": 246,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1965,7 +1965,7 @@
       "name": "mftool",
       "target": "nayakwadis/mftool",
       "url": "https://github.com/nayakwadis/mftool",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
