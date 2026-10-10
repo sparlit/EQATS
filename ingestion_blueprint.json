@@ -1,5 +1,5 @@
 {
-  "current_index": 281,
+  "current_index": 282,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2253,9 +2253,9 @@
       "name": "nsekit-mcp",
       "target": "prasad1612/nsekit-mcp",
       "url": "https://github.com/prasad1612/nsekit-mcp",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3251",
+      "merged": true
     },
     {
       "name": "nse-scanner",
