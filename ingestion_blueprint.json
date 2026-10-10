@@ -2254,8 +2254,8 @@
       "target": "prasad1612/nsekit-mcp",
       "url": "https://github.com/prasad1612/nsekit-mcp",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3251",
+      "merged": true
     },
     {
       "name": "nse-scanner",
