@@ -413,6 +413,7 @@ class AutonomousScalper:
         Parallel worker to perform indicator calculation, research scraping,
         regime selection, and strategy evaluations for a single symbol.
         """
+        _ = active_positions
         history = self.conn.get_history(symbol, 220)
         if not history:
             return {
