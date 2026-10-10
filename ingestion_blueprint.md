@@ -272,7 +272,7 @@ Total Repositories: 424 | Current Index: 270
 | 267 | paul-folbrecht/algo-trading | Processed | https://github.com/sparlit/EQATS/pull/3236 |
 | 268 | pawan941394/nse-option-chain---llm-project | Completed | https://github.com/sparlit/EQATS/pull/3237 |
 | 269 | pec-css/stock-watchlist | Processed | https://github.com/sparlit/EQATS/pull/3238 |
-| 270 | perunnial/tickertrackbot | Processed | None |
+| 270 | perunnial/tickertrackbot | Processed | https://github.com/sparlit/EQATS/pull/3239 |
 | 271 | pishangujeniya/kite-helper | pending | None |
 | 272 | pishangujeniya/nse-stocks-data-scrapper | pending | None |
 | 273 | pkjmesra/nseta | pending | None |

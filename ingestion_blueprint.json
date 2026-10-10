@@ -2158,8 +2158,8 @@
       "target": "perunnial/tickertrackbot",
       "url": "https://github.com/perunnial/tickertrackbot",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3239",
+      "merged": true
     },
     {
       "name": "kite-helper",
