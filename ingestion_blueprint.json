@@ -1,5 +1,5 @@
 {
-  "current_index": 261,
+  "current_index": 262,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2093,9 +2093,9 @@
       "name": "fund",
       "target": "oscmcompany/fund",
       "url": "https://github.com/oscmcompany/fund",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3231",
+      "merged": true
     },
     {
       "name": "nse_indices",
