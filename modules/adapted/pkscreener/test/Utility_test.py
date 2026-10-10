@@ -1,0 +1,569 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""
+    The MIT License (MIT)
+
+    Copyright (c) 2023 pkjmesra
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+"""
+import datetime
+import os
+import platform
+import warnings
+from unittest.mock import ANY, Mock, patch
+
+import pytest
+
+warnings.simplefilter("ignore", DeprecationWarning)
+warnings.simplefilter("ignore", FutureWarning)
+import pandas as pd
+from PKDevTools.classes import Archiver
+from PKDevTools.classes.ColorText import colorText
+from PKDevTools.classes.PKDateUtilities import PKDateUtilities
+from pkscreener.classes.AssetsManager import PKAssetsManager
+from pkscreener.classes.ConsoleMenuUtility import PKConsoleMenuTools
+from pkscreener.classes.ConsoleUtility import PKConsoleTools
+from pkscreener.classes.ImageUtility import PKImageTools
+from pkscreener.classes.Utility import tools
+
+
+# Positive test case for clearScreen() function
+@pytest.mark.skip(reason="API has changed")
+def test_clearScreen():
+    # Mocking the os.system() function
+    with patch("os.system") as mock_os_system:
+        PKConsoleTools.clearScreen(clearAlways=True)
+        # Assert that os.system() is called with the correct argument
+        if platform.system() == "Windows":
+            # mock_os_system.assert_called_with("color 0f")
+            mock_os_system.assert_called_with("cls")
+        else:
+            mock_os_system.assert_called_with("clear")
+
+
+# Positive test case for showDevInfo() function
+def test_showDevInfo():
+    # Mocking the input() function
+    with (
+        patch("builtins.input", return_value="Y") as mock_input,
+        patch(
+            "pkscreener.classes.OtaUpdater.OTAUpdater.showWhatsNew",
+            return_value="Some exciting new features!",
+        ),
+    ):
+        from PKDevTools.classes.OutputControls import OutputControls
+
+        prevValue = OutputControls().enableUserInput
+        OutputControls().enableUserInput = True
+        result = PKConsoleTools.showDevInfo()
+        OutputControls().enableUserInput = prevValue
+        # Assert that input() is called with the correct argument
+        mock_input.assert_called_once_with(
+            colorText.FAIL + "  [+] Press <Enter> to continue!" + colorText.END
+        )
+        # Assert that the result is not None
+        assert result is not None
+
+
+# Positive test case for setLastScreenedResults() function
+def test_setLastScreenedResults():
+    # Mocking the pd.DataFrame.to_pickle() function
+    mock_df = pd.DataFrame([{"Stock": "StockName"}])
+    with patch("pandas.DataFrame.to_pickle") as mock_to_pickle:
+        with patch("pandas.DataFrame.sort_values") as mock_sort_values:
+            PKConsoleTools.setLastScreenedResults(mock_df)
+            mock_sort_values.assert_called_once()
+            # Assert that pd.DataFrame.to_pickle() is called with the correct argument
+            mock_to_pickle.assert_called_once_with(
+                os.path.join(Archiver.get_user_data_dir(), "last_screened_results.pkl")
+            )
+
+
+# Positive test case for getLastScreenedResults() function
+def test_getLastScreenedResults():
+    # Mocking the pd.read_pickle() function
+    with patch("pandas.read_pickle") as mock_read_pickle, patch("builtins.input"):
+        PKConsoleTools.getLastScreenedResults()
+        # Assert that pd.read_pickle() is called with the correct argument
+        mock_read_pickle.assert_called_once_with(
+            os.path.join(Archiver.get_user_data_dir(), "last_screened_results.pkl")
+        )
+
+
+# Positive test case for formatRatio() function
+def test_formatRatio():
+    ratio = 2.0
+    volumeRatio = 1.5
+    result = tools.formatRatio(ratio, volumeRatio)
+    # Assert that the result is formatted correctly
+    assert result == "\x1b[32m2.0x\x1b[0m"
+
+
+# Positive test case for removeAllColorStyles() function
+def test_removeAllColorStyles():
+    styledText = "\033[94mHello World!\033[0m"
+    result = PKImageTools.removeAllColorStyles(styledText)
+    # Assert that the result is the original text without any color styles
+    assert result == "Hello World!"
+
+
+# Positive test case for getCellColor() function
+def test_getCellColors():
+    cellStyledValue = "\033[92mHello World!\033[0m"
+    result = PKImageTools.getCellColors(cellStyledValue)
+    # Assert that the result is the correct cell fill color and cleaned up styled value
+    assert result == (["darkgreen"], ["Hello World!"])
+    result = PKImageTools.getCellColors(cellStyledValue, defaultCellFillColor="white")
+    assert result == (["darkgreen"], ["Hello World!"])
+
+
+# Positive test case for tradingDate() function
+def test_tradingDate():
+    # Mocking the datetime.datetime.now() function
+    with patch("PKDevTools.classes.PKDateUtilities.PKDateUtilities.currentDateTime") as mock_now:
+        mock_now.return_value = datetime.datetime(2023, 1, 1)
+        result = PKDateUtilities.tradingDate()
+        # Assert that the result is the correct trading date
+        assert result == datetime.date(2022, 12, 30)
+
+
+# Positive test case for currentDateTime() function
+def test_currentDateTime():
+    curr = datetime.datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%d-%m-%y_%H.%M.%S")
+    result = PKDateUtilities.currentDateTime().strftime("%d-%m-%y_%H.%M.%S")
+    # Assert that the result is the correct current date and time
+    assert result == curr
+
+
+# Positive test case for isTradingTime() function
+def test_isTradingTime():
+    # Mocking the tools.currentDateTime() function
+    with patch(
+        "PKDevTools.classes.PKDateUtilities.PKDateUtilities.currentDateTime"
+    ) as mock_currentDateTime:
+        mock_currentDateTime.return_value = datetime.datetime(2023, 1, 3, 10, 30)
+        result = PKDateUtilities.isTradingTime()
+        # Assert that the result is True
+        assert result is True
+
+
+# Positive test case for isTradingWeekday() function
+def test_isTradingWeekday():
+    # Mocking the tools.currentDateTime() function
+    with patch(
+        "PKDevTools.classes.PKDateUtilities.PKDateUtilities.currentDateTime"
+    ) as mock_currentDateTime:
+        mock_currentDateTime.return_value = datetime.datetime(2023, 1, 1, 10, 30)
+        result = PKDateUtilities.isTradingWeekday()
+        # Assert that the result is False
+        assert result is False
+
+
+# Positive test case for ispreMarketTime() function
+def test_ispreMarketTime():
+    # Mocking the tools.currentDateTime() function
+    with patch(
+        "PKDevTools.classes.PKDateUtilities.PKDateUtilities.currentDateTime"
+    ) as mock_currentDateTime:
+        mock_currentDateTime.return_value = datetime.datetime(2023, 1, 3, 8, 30)
+        result = PKDateUtilities.ispreMarketTime()
+        # Assert that the result is True
+        assert result is True
+
+
+# Positive test case for ispostMarketTime() function
+def test_ispostMarketTime():
+    # Mocking the tools.currentDateTime() function
+    with patch(
+        "PKDevTools.classes.PKDateUtilities.PKDateUtilities.currentDateTime"
+    ) as mock_currentDateTime:
+        mock_currentDateTime.return_value = datetime.datetime(2023, 1, 4, 16, 30)
+        result = PKDateUtilities.ispostMarketTime()
+        # Assert that the result is True
+        assert result is True
+
+
+# Positive test case for isClosingHour() function
+def test_isClosingHour():
+    # Mocking the tools.currentDateTime() function
+    with patch(
+        "PKDevTools.classes.PKDateUtilities.PKDateUtilities.currentDateTime"
+    ) as mock_currentDateTime:
+        mock_currentDateTime.return_value = datetime.datetime(2023, 1, 4, 15, 30)
+        result = PKDateUtilities.isClosingHour()
+        # Assert that the result is True
+        assert result is True
+
+
+# Positive test case for secondsAfterCloseTime() function
+def test_secondsAfterCloseTime():
+    # Mocking the tools.currentDateTime() function
+    with patch(
+        "PKDevTools.classes.PKDateUtilities.PKDateUtilities.currentDateTime"
+    ) as mock_currentDateTime:
+        mock_currentDateTime.return_value = datetime.datetime(2023, 1, 4, 15, 35)
+        result = PKDateUtilities.secondsAfterCloseTime()
+        # Assert that the result is the correct number of seconds
+        assert result == 300
+
+
+# Positive test case for secondsBeforeOpenTime() function
+def test_secondsBeforeOpenTime():
+    # Mocking the tools.currentDateTime() function
+    with patch(
+        "PKDevTools.classes.PKDateUtilities.PKDateUtilities.currentDateTime"
+    ) as mock_currentDateTime:
+        mock_currentDateTime.return_value = datetime.datetime(2023, 1, 5, 9, 10)
+        result = PKDateUtilities.secondsBeforeOpenTime()
+        # Assert that the result is the correct number of seconds
+        assert result == -300
+
+
+# Positive test case for nextRunAtDateTime() function
+def test_nextRunAtDateTime():
+    # Mocking the tools.currentDateTime() function
+    with patch(
+        "PKDevTools.classes.PKDateUtilities.PKDateUtilities.currentDateTime"
+    ) as mock_currentDateTime:
+        mock_currentDateTime.return_value = datetime.datetime(2023, 1, 3, 10, 30)
+        result = PKDateUtilities.nextRunAtDateTime()
+        # Assert that the result is the correct next run datetime
+        assert result == datetime.datetime(2023, 1, 3, 10, 35)
+
+
+# Positive test case for afterMarketStockDataExists() function
+def test_afterMarketStockDataExists():
+    # Mocking the tools.currentDateTime() function
+    with patch(
+        "PKDevTools.classes.PKDateUtilities.PKDateUtilities.currentDateTime"
+    ) as mock_currentDateTime:
+        mock_currentDateTime.return_value = datetime.datetime(2023, 1, 2, 16, 30)
+        curr = mock_currentDateTime.return_value
+        weekday = curr.weekday()
+        cache_date = curr
+        if weekday == 5 or weekday == 6:  # for saturday and sunday
+            cache_date = curr - datetime.timedelta(days=weekday - 4)
+        cache_date = cache_date.strftime("%d%m%y")
+        cache_file = "stock_data_" + str(cache_date) + ".pkl"
+        result = PKAssetsManager.afterMarketStockDataExists()
+        # Assert that the result is True and the cache file name is correct
+        assert result == (False, cache_file)
+
+
+# Positive test case for saveStockData() function
+def test_saveStockData():
+    stockDict = {"AAPL": 100, "GOOG": 200}
+    configManager = Mock()
+    loadCount = 2
+    try:
+        os.remove(os.path.join(Archiver.get_user_data_dir(), "stock_data_1.pkl"))
+    except Exception:  # pragma: no cover
+        pass
+    with patch(
+        "pkscreener.classes.AssetsManager.PKAssetsManager.afterMarketStockDataExists"
+    ) as mock_data:
+        mock_data.return_value = False, "stock_data_1.pkl"
+        mock_pickle = Mock()
+        with patch("pickle.dump", mock_pickle) as mock_dump:
+            PKAssetsManager.saveStockData(stockDict, configManager, loadCount)
+            # Assert that pickle.dump() is called with the correct arguments
+            mock_dump.assert_called_once()
+    os.remove(os.path.join(Archiver.get_user_data_dir(), "stock_data_1.pkl"))
+
+
+# Positive test case for loadStockData() function
+def test_loadStockData():
+    # Mocking the pickle.load() function
+    mock_pickle = Mock()
+    pd.DataFrame().to_pickle(os.path.join(Archiver.get_user_data_dir(), "stock_data_2.pkl"))
+    with patch("pickle.load", mock_pickle) as mock_load:
+        mock_load.return_value = []
+        with (
+            patch(
+                "pkscreener.classes.AssetsManager.PKAssetsManager.afterMarketStockDataExists"
+            ) as mock_data,
+            patch(
+                "pkscreener.classes.AssetsManager.PKAssetsManager.downloadLatestData"
+            ) as mock_downloadmethod,
+            patch(
+                "PKDevTools.classes.PKDateUtilities.PKDateUtilities.isTradingTime"
+            ) as mock_trading,
+        ):
+            mock_trading.return_value = False
+            mock_downloadmethod.return_value = {}, []
+            mock_data.return_value = True, "stock_data_2.pkl"
+            stockDict = {}
+            configManager = Mock()
+            downloadOnly = False
+            defaultAnswer = "Y"
+            PKAssetsManager.loadStockData(stockDict, configManager, downloadOnly, defaultAnswer)
+            # Assert that pickle.load() is called
+            mock_load.assert_called_once()
+    os.remove(os.path.join(Archiver.get_user_data_dir(), "stock_data_2.pkl"))
+
+
+# Positive test case for promptSaveResults() function
+def test_promptSaveResults():
+    # Mocking the pd.DataFrame.to_excel() function
+    mock_df = pd.DataFrame()
+    with patch("pandas.DataFrame.to_excel") as mock_to_excel:
+        result = PKAssetsManager.promptSaveResults("testsheetname", mock_df, defaultAnswer="Y")
+        # Assert that pd.DataFrame.to_excel() is called with the correct argument
+        mock_to_excel.assert_called_once_with(ANY, sheet_name="testsheetname")
+        # Assert that the result is not None
+        assert result is not None
+
+
+# Positive test case for promptFileExists() function
+def test_promptFileExists():
+    # Mocking the input() function
+    with patch("builtins.input", return_value="Y") as mock_input:
+        result = PKAssetsManager.promptFileExists()
+        # Assert input() is called correct argument
+        mock_input.assert_called_once_with(
+            colorText.WARN
+            + "[>] stock_data_*.pkl already exists. Do you want to replace this? [Y/N] (Default: Y): "
+        )
+        # Assert that the result is "Y"
+        assert result == "Y"
+
+
+# Positive test case for promptRSIValues() function
+def test_promptRSIValues():
+    # Mocking the input() function
+    with patch("builtins.input", side_effect=["30", "70"]) as mock_input:
+        result = PKConsoleMenuTools.promptRSIValues()
+        # Assert that input() is called twice with the correct arguments
+        mock_input.assert_called_with(
+            colorText.WARN + "  [+] Enter Max RSI value (Default=68): " + colorText.END
+        )
+        # Assert that the result is the correct tuple
+        assert result == (30, 70)
+
+
+# Positive test case for promptCCIValues() function
+def test_promptCCIValues():
+    # Mocking the input() function
+    with patch("builtins.input", side_effect=["-100", "100"]) as mock_input:
+        result = PKConsoleMenuTools.promptCCIValues()
+        # Assert that input() is called twice with the correct arguments
+        mock_input.assert_called_with(
+            colorText.WARN + "  [+] Enter Max CCI value (Default=300): " + colorText.END
+        )
+        # Assert that the result is the correct tuple
+        assert result == (-100, 100)
+
+
+# Positive test case for promptVolumeMultiplier() function
+def test_promptVolumeMultiplier():
+    # Mocking the input() function
+    with patch("builtins.input", return_value="2") as mock_input:
+        result = PKConsoleMenuTools.promptVolumeMultiplier()
+        # Assert that input() is called with the correct argument
+        mock_input.assert_called_once_with(
+            colorText.WARN
+            + "\n  [+] Enter Min Volume ratio value (Default = 2.5): "
+            + colorText.END
+        )
+        # Assert that the result is 2
+        assert result == 2
+
+
+# Positive test case for promptReversalScreening() function
+def test_promptReversalScreening():
+    # Mocking the input() function
+    from pkscreener.classes.Utility import configManager
+
+    defaultMALength = 9 if configManager.duration.endswith("m") else 50
+    with patch("builtins.input", side_effect=["4", "50"]) as mock_input:
+        # Assert that input() is called with the correct argument
+        result = PKConsoleMenuTools.promptReversalScreening()
+        mock_input.assert_called_with(
+            colorText.WARN
+            + f"\n  [+] Enter MA Length (E.g. 9,10,20,50 or 200) (Default={defaultMALength}): "
+            + colorText.END
+        )
+        # Assert that the result is the correct tuple
+        assert result == (4, 50)
+
+
+def test_promptReversalScreening_4x_Does_not_raise_value_error():
+    # Mocking the input() function
+    with patch("builtins.input", side_effect=["4", "x", "\n"]) as mock_input:
+        from PKDevTools.classes.OutputControls import OutputControls
+
+        prevValue = OutputControls().enableUserInput
+        OutputControls().enableUserInput = True
+        result = PKConsoleMenuTools.promptReversalScreening()
+        OutputControls().enableUserInput = prevValue
+        # Assert that input() is called with the correct argument
+        mock_input.assert_called_with(
+            colorText.FAIL
+            + "\n  [+] Invalid Option Selected. Press <Enter> to try again..."
+            + colorText.END
+        )
+        # Assert that the result is the correct tuple
+        assert result == (None, None)
+
+
+def test_promptReversalScreening_Input6():
+    # Mocking the input() function
+    with patch("builtins.input", side_effect=["6", "7"]) as mock_input:
+        result = PKConsoleMenuTools.promptReversalScreening()
+        # Assert that input() is called with the correct argument
+        mock_input.assert_called_with(
+            colorText.WARN
+            + "\n  [+] Enter NR timeframe [Integer Number] (E.g. 4, 7, etc.) (Default=4): "
+            + colorText.END
+        )
+        # Assert that the result is the correct tuple
+        assert result == (6, 7)
+
+
+def test_promptReversalScreening_Input1():
+    # Mocking the input() function
+    with patch("builtins.input", side_effect=["1"]) as mock_input:
+        result = PKConsoleMenuTools.promptReversalScreening()
+        # Assert that input() is called with the correct argument
+        mock_input.assert_called_with(colorText.WARN + """  [+] Select Option:""" + colorText.END)
+        # Assert that the result is the correct tuple
+        assert result == (1, None)
+
+
+# Positive test case for promptChartPatterns() function
+def test_promptChartPatterns():
+    # Mocking the input() function
+    with patch("builtins.input", side_effect=["4"]) as mock_input:
+        result = PKConsoleMenuTools.promptChartPatterns()
+        # Assert that input() is called with the correct arguments
+        mock_input.assert_called_with(colorText.WARN + "  [+] Select Option:" + colorText.END)
+        # Assert that the result is the correct tuple
+        assert result == (4, 0)
+
+
+def test_promptChartPatterns_Input1():
+    # Mocking the input() function
+    with patch("builtins.input", side_effect=["1", "3"]) as mock_input:
+        result = PKConsoleMenuTools.promptChartPatterns()
+        # Assert that input() is called with the correct arguments
+        mock_input.assert_called_with(
+            colorText.WARN
+            + "\n  [+] How many candles (TimeFrame) to look back Inside Bar formation? (Default=3): "
+            + colorText.END
+        )
+        # Assert that the result is the correct tuple
+        assert result == (1, 3)
+
+
+def test_promptChartPatterns_Input3():
+    # Mocking the input() function
+    with patch("builtins.input", side_effect=["3", "2"]) as mock_input:
+        result = PKConsoleMenuTools.promptChartPatterns()
+        # Assert that input() is called with the correct arguments
+        mock_input.assert_called_with(
+            colorText.WARN
+            + "\n  [+] Enter Percentage within which all MA/EMAs should be (Ideal: 0.1-2%)? (Default=0.8): "
+            + colorText.END
+        )
+        # Assert that the result is the correct tuple
+        assert result == (3, 0.02)
+
+
+# Positive test case for getProgressbarStyle() function
+def test_getProgressbarStyle():
+    result = tools.getProgressbarStyle()
+    # Assert that the result is the correct tuple
+    if "Windows" in platform.platform():
+        assert result == ("classic2", "dots_recur")
+    else:
+        assert result == ("smooth", "waves")
+
+
+# Positive test case for getNiftyModel() function
+def test_getNiftyModel():
+    # Mocking the os.path.isfile() function
+    with patch("os.path.isfile", return_value=True) as mock_isfile:
+        # Mocking the keras.models.load_model() function
+        mock_load_model = Mock()
+        m1 = str(mock_load_model)
+        f = open(os.path.join(Archiver.get_user_data_dir(), "nifty_model_v2.h5"), "wb")
+        f.close()
+        pd.DataFrame().to_pickle(os.path.join(Archiver.get_user_data_dir(), "nifty_model_v2.pkl"))
+        with patch(
+            "keras.models.load_model", return_value=mock_load_model
+        ) as mock_keras_load_model:
+            # Mocking the joblib.load() function
+            mock_joblib_load = Mock()
+            m2 = str(mock_joblib_load)
+            with patch("joblib.load", return_value=mock_joblib_load) as mock_joblib_load:
+                result = tools.getNiftyModel(retrial=True)
+                # Assert that os.path.isfile called twice with the correct argument
+                mock_isfile.assert_called_with(
+                    os.path.join(Archiver.get_user_data_dir(), "nifty_model_v2.pkl")
+                )
+                # Assert that keras.models.load_model() is called with the correct argument
+                mock_keras_load_model.assert_called_with(
+                    os.path.join(Archiver.get_user_data_dir(), "nifty_model_v2.h5")
+                )
+                # Assert that joblib.load() is called with the correct argument
+                mock_joblib_load.assert_called_with(
+                    os.path.join(Archiver.get_user_data_dir(), "nifty_model_v2.pkl")
+                )
+                # Assert that the result is the correct tuple
+                assert (str(result[0]), str(result[1])) == (m1, m2)
+
+
+# Positive test case for getSigmoidConfidence() function
+def test_getSigmoidConfidence():
+    x = 0.7
+    result = tools.getSigmoidConfidence(x)
+    # Assert that the result is the correct sigmoid confidence value
+    assert result == 39.999
+
+
+# Positive test case for alertSound() function
+def test_alertSound():
+    # Mocking the print() function
+    with patch("builtins.print") as mock_print:
+        tools.alertSound(1)
+        # Assert that print() is called with the correct argument
+        mock_print.assert_called_once_with("\a", sep=" ", end="\n", flush=False)

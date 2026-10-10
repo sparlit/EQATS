@@ -1,5 +1,5 @@
 {
-  "current_index": 274,
+  "current_index": 275,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2197,7 +2197,7 @@
       "name": "pkscreener",
       "target": "pkjmesra/pkscreener",
       "url": "https://github.com/pkjmesra/pkscreener",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },

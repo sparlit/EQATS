@@ -1,0 +1,782 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""
+    The MIT License (MIT)
+
+    Copyright (c) 2023 pkjmesra
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+"""
+import os
+import warnings
+
+warnings.simplefilter("ignore", DeprecationWarning)
+warnings.simplefilter("ignore", FutureWarning)
+import unittest
+from unittest import mock
+from unittest.mock import ANY, MagicMock, patch
+
+import pandas as pd
+import pytest
+from PKDevTools.classes.Fetcher import StockDataEmptyException
+from pkscreener.classes import ConfigManager
+from pkscreener.classes.Fetcher import screenerStockDataFetcher
+from pkscreener.classes.PKTask import PKTask
+from requests.exceptions import ConnectTimeout, ReadTimeout
+from urllib3.exceptions import ReadTimeoutError
+
+
+@pytest.fixture
+def configManager():
+    return ConfigManager.tools()
+
+
+@pytest.fixture
+def tools_instance(configManager):
+    return screenerStockDataFetcher(configManager)
+
+
+def cleanup():
+    try:
+        os.remove("watchlist.xlsx")
+        os.remove("watchlist_template.xlsx")
+    except:
+        pass
+
+
+def test_fetchCodes_positive(configManager, tools_instance):
+    with (
+        patch("requests_cache.CachedSession.get") as mock_get,
+        patch(
+            "pkscreener.classes.Fetcher.screenerStockDataFetcher.savedFileContents"
+        ) as mock_contents,
+    ):
+        mock_contents.return_value = None, "contents.txt", None
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.text = "SYMBOL\nAAPL\nGOOG\n"
+        result = tools_instance.fetchNiftyCodes(12)
+        mock_get.assert_called_once_with(
+            "https://archives.nseindia.com/content/equities/EQUITY_L.csv",
+            params=None,
+            proxies=None,
+            stream=False,
+            timeout=ANY,
+            headers=ANY,
+        )
+        assert result == ["AAPL", "GOOG"]
+
+
+def test_fetchCodes_positive_proxy(configManager, tools_instance):
+    with (
+        patch("requests_cache.CachedSession.get") as mock_get,
+        patch("pkscreener.classes.Fetcher.screenerStockDataFetcher._getProxyServer") as mock_proxy,
+        patch(
+            "pkscreener.classes.Fetcher.screenerStockDataFetcher.savedFileContents"
+        ) as mock_contents,
+    ):
+        mock_contents.return_value = None, "contents.txt", None
+        mock_proxy.return_value = {"https": "127.0.0.1:8080"}
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.text = "SYMBOL\nAAPL\nGOOG\n"
+        result = tools_instance.fetchNiftyCodes(12)
+        assert result == ["AAPL", "GOOG"]
+        mock_get.assert_called_once_with(
+            "https://archives.nseindia.com/content/equities/EQUITY_L.csv",
+            params=None,
+            proxies={"https": "127.0.0.1:8080"},
+            stream=False,
+            timeout=ANY,
+            headers=ANY,
+        )
+
+
+def test_fetchCodes_negative(configManager, tools_instance):
+    with (
+        patch("requests_cache.CachedSession.get") as mock_get,
+        patch("pkscreener.classes.Fetcher.screenerStockDataFetcher._getProxyServer") as mock_proxy,
+    ):
+        mock_proxy.return_value = {"https": "127.0.0.1:8080"}
+        mock_get.side_effect = Exception("Error fetching data")
+        with pytest.raises(Exception):
+            result = tools_instance.fetchNiftyCodes(12)
+            assert result == []
+            mock_get.assert_called_once_with(
+                "https://archives.nseindia.com/content/equities/EQUITY_L.csv",
+                roxies=mock_proxy.return_value,
+                stream=False,
+                timeout=ANY,
+            )
+
+
+def test_fetchCodes_ReadTimeoutError_negative(configManager, tools_instance):
+    with patch("requests_cache.CachedSession.get") as mock_get:
+        mock_get.side_effect = ReadTimeoutError(None, None, "Error fetching data")
+        result = tools_instance.fetchNiftyCodes(12)
+        assert len(result) >= 0
+        1 < mock_get.call_count <= int(configManager.maxNetworkRetryCount)
+
+
+def test_fetchCodes_Exception_negative(configManager, tools_instance):
+    with patch("requests_cache.CachedSession.get") as mock_get:
+        mock_get.side_effect = Exception(
+            "sqlite3.OperationalError: attempt to write a readonly database"
+        )
+        result = tools_instance.fetchURL("https://exampl.ecom/someresource/", stream=True)
+        assert result is None
+        1 < mock_get.call_count <= int(configManager.maxNetworkRetryCount)
+
+
+def test_fetchCodes_Exception_fallback_requests(configManager, tools_instance):
+    with patch("requests_cache.CachedSession.get") as mock_get:
+        with patch("requests.get") as mock_fallback_get:
+            mock_get.side_effect = Exception(
+                "sqlite3.OperationalError: attempt to write a readonly database"
+            )
+            result = tools_instance.fetchURL("https://exampl.ecom/someresource/", stream=True)
+            assert result is not None  # because mock_fallback_get will be assigned
+            mock_fallback_get.assert_called()
+            1 < mock_get.call_count <= int(configManager.maxNetworkRetryCount)
+
+
+def test_fetchStockCodes_positive(configManager, tools_instance):
+    with patch(
+        "pkscreener.classes.Fetcher.screenerStockDataFetcher.fetchNiftyCodes"
+    ) as mock_fetchCodes:
+        mock_fetchCodes.return_value = [
+            "AAPL",
+            "GOOG",
+            "AAPL",
+            "GOOG",
+            "AAPL",
+            "GOOG",
+            "AAPL",
+            "GOOG",
+            "AAPL",
+            "GOOG",
+            "AAPL",
+            "GOOG",
+        ]
+        result = tools_instance.fetchStockCodes(1)
+        assert len(result) == len(
+            [
+                "AAPL",
+                "GOOG",
+                "AAPL",
+                "GOOG",
+                "AAPL",
+                "GOOG",
+                "AAPL",
+                "GOOG",
+                "AAPL",
+                "GOOG",
+                "AAPL",
+                "GOOG",
+            ]
+        )
+        mock_fetchCodes.assert_called_once_with(1)
+
+
+def test_fetchStockCodes_positive_proxy(configManager, tools_instance):
+    with patch("pkscreener.classes.Fetcher.screenerStockDataFetcher._getProxyServer") as mock_proxy:
+        with patch("requests_cache.CachedSession.get") as mock_get:
+            with patch(
+                "pkscreener.classes.Fetcher.screenerStockDataFetcher.savedFileContents"
+            ) as mock_contents:
+                mock_contents.return_value = None, "contents.txt", None
+                mock_proxy.return_value = {"https": "127.0.0.1:8080"}
+                mock_get.return_value.status_code = 200
+                mock_get.return_value.text = "\n".join(
+                    [
+                        ",,,",
+                        ",,AAPL",
+                        ",,GOOG",
+                        ",,AAPL",
+                        ",,GOOG",
+                        ",,AAPL",
+                        ",,GOOG",
+                        ",,AAPL",
+                        ",,GOOG",
+                        ",,AAPL",
+                        ",,GOOG",
+                        ",,AAPL",
+                        ",,GOOG",
+                    ]
+                )
+                result = tools_instance.fetchStockCodes(1)
+                assert len(result) == len(
+                    [
+                        "AAPL",
+                        "GOOG",
+                        "AAPL",
+                        "GOOG",
+                        "AAPL",
+                        "GOOG",
+                        "AAPL",
+                        "GOOG",
+                        "AAPL",
+                        "GOOG",
+                        "AAPL",
+                        "GOOG",
+                    ]
+                )
+                mock_get.assert_called_with(
+                    ANY,
+                    proxies=mock_proxy.return_value,
+                    params=None,
+                    stream=False,
+                    timeout=ANY,
+                    headers=ANY,
+                )
+
+
+def test_fetchStockCodes_negative(configManager, tools_instance):
+    with patch(
+        "pkscreener.classes.Fetcher.screenerStockDataFetcher.fetchNiftyCodes"
+    ) as mock_fetchCodes:
+        mock_fetchCodes.side_effect = Exception("Error fetching stock codes")
+        with pytest.raises(Exception):
+            result = tools_instance.fetchStockCodes(1)
+            assert result == []
+            mock_fetchCodes.assert_called_once_with(1)
+
+
+@pytest.mark.skip(reason="Fetcher API has changed - returns None")
+def test_fetchStockData_positive(configManager, tools_instance):
+    with patch("yfinance.download") as mock_download:
+        mock_download.return_value = pd.DataFrame({"close": [100, 200, 300]})
+        result = tools_instance.fetchStockData("AAPL", "1d", "1m", None, 0, 0, 1)
+        assert result.equals(pd.DataFrame({"close": [100, 200, 300]}))
+        mock_download.assert_called_once_with(
+            tickers="AAPL.NS",
+            period="1d",
+            interval="1m",
+            proxy=None,
+            progress=False,
+            rounding=True,
+            group_by="ticker",
+            timeout=0.5,
+            start=None,
+            end=None,
+            auto_adjust=True,
+            threads=True,
+            session=yf_session,
+        )
+
+
+@pytest.mark.skip(reason="Fetcher API has changed")
+def test_fetchStockData_negative(configManager, tools_instance):
+    with patch("yfinance.download") as mock_download:
+        with pytest.raises(StockDataEmptyException):
+            mock_download.return_value = pd.DataFrame()
+            tools_instance.fetchStockData("AAPL", "1d", "1m", None, 0, 0, 1, printCounter=True)
+            mock_download.assert_called_once_with(
+                tickers="AAPL.NS",
+                period="1d",
+                interval="1m",
+                proxy=None,
+                progress=False,
+                timeout=configManager.generalTimeout / 4,
+                rounding=True,
+                group_by="ticker",
+                start=None,
+                end=None,
+            )
+        yfd_df = pd.DataFrame({"A": [1, 2, 3]})
+        mock_download.return_value = yfd_df
+        result = tools_instance.fetchStockData("AAPL", "1d", "1m", None, 0, 0, 1, printCounter=True)
+        pd.testing.assert_frame_equal(result.reset_index(drop=True), yfd_df.reset_index(drop=True))
+
+
+@pytest.mark.skip(reason="Fetcher API has changed")
+def test_fetchLatestNiftyDaily_positive(configManager, tools_instance):
+    with patch("yfinance.download") as mock_download:
+        mock_download.return_value = pd.DataFrame({"close": [100, 200, 300]})
+        result = tools_instance.fetchLatestNiftyDaily()
+        assert result.equals(pd.DataFrame({"close": [100, 200, 300]}))
+        mock_download.assert_called_once_with(
+            tickers="^NSEI",
+            period="5d",
+            interval="1d",
+            proxy=None,
+            progress=False,
+            timeout=configManager.longTimeout,
+        )
+
+
+@pytest.mark.skip(reason="Fetcher API has changed")
+def test_fetchFiveEmaData_positive(configManager, tools_instance):
+    with patch("yfinance.download") as mock_download:
+        mock_download.side_effect = [
+            pd.DataFrame({"close": [100, 200, 300]}),
+            pd.DataFrame({"close": [400, 500, 600]}),
+            pd.DataFrame({"close": [700, 800, 900]}),
+            pd.DataFrame({"close": [1000, 1100, 1200]}),
+        ]
+        r1, r2, r3, r4 = tools_instance.fetchFiveEmaData()
+        r1_diff = pd.concat([r1, pd.DataFrame({"close": [700, 800, 900]})]).drop_duplicates(
+            keep=False
+        )
+        r2_diff = pd.concat([r2, pd.DataFrame({"close": [1000, 1100, 1200]})]).drop_duplicates(
+            keep=False
+        )
+        r3_diff = pd.concat([r3, pd.DataFrame({"close": [100, 200, 300]})]).drop_duplicates(
+            keep=False
+        )
+        r4_diff = pd.concat([r4, pd.DataFrame({"close": [400, 500, 600]})]).drop_duplicates(
+            keep=False
+        )
+        assert r1_diff.empty is True
+        assert r2_diff.empty is True
+        assert r3_diff.empty is True
+        assert r4_diff.empty is True
+        mock_download.assert_has_calls(
+            [
+                mock.call(
+                    tickers="^NSEI",
+                    period="5d",
+                    interval="5m",
+                    proxy=None,
+                    progress=False,
+                    timeout=configManager.longTimeout,
+                ),
+                mock.call(
+                    tickers="^NSEBANK",
+                    period="5d",
+                    interval="5m",
+                    proxy=None,
+                    progress=False,
+                    timeout=configManager.longTimeout,
+                ),
+                mock.call(
+                    tickers="^NSEI",
+                    period="5d",
+                    interval="15m",
+                    proxy=None,
+                    progress=False,
+                    timeout=configManager.longTimeout,
+                ),
+                mock.call(
+                    tickers="^NSEBANK",
+                    period="5d",
+                    interval="15m",
+                    proxy=None,
+                    progress=False,
+                    timeout=configManager.longTimeout,
+                ),
+            ]
+        )
+
+
+def test_fetchWatchlist_positive(tools_instance):
+    with patch("pandas.read_excel") as mock_read_excel:
+        mock_read_excel.return_value = pd.DataFrame({"Stock Code": ["AAPL", "GOOG"]})
+        result = tools_instance.fetchWatchlist()
+        assert result == ["AAPL", "GOOG"]
+        mock_read_excel.assert_called_once_with("watchlist.xlsx")
+    cleanup()
+
+
+def test_fetchWatchlist_negative(tools_instance):
+    with patch("pandas.read_excel") as mock_read_excel:
+        mock_read_excel.side_effect = FileNotFoundError("File not found")
+        result = tools_instance.fetchWatchlist()
+        assert result is None
+        mock_read_excel.assert_called_once_with("watchlist.xlsx")
+    cleanup()
+
+
+def test_fetchWatchlist_Actual_file(tools_instance):
+    sample = {"Stock Code": ["SBIN", "INFY", "TATAMOTORS", "ITC"]}
+    sample_data = pd.DataFrame(sample, columns=["Stock Code"])
+    sample_data.to_excel("watchlist.xlsx", index=False, header=True)
+    result = tools_instance.fetchWatchlist()
+    assert result == ["SBIN", "INFY", "TATAMOTORS", "ITC"]
+    cleanup()
+
+
+def test_postURL_positive(tools_instance):
+    url = "https://example.com"
+    data = {"key": "value"}
+    headers = {"Content-Type": "application/json"}
+    response = MagicMock()
+    response.status_code = 200
+    with patch("requests_cache.CachedSession.post", return_value=response) as mock_post:
+        result = tools_instance.postURL(url, data=data, headers=headers)
+        mock_post.assert_called_once_with(
+            url, proxies=None, data=data, headers=headers, timeout=2, params=None
+        )
+        assert result == response
+
+
+def test_postURL_connect_timeout(tools_instance):
+    url = "https://example.com"
+    data = {"key": "value"}
+    headers = {"Content-Type": "application/json"}
+    with patch("requests_cache.CachedSession.post", side_effect=ConnectTimeout) as mock_post:
+        tools_instance.postURL(url, data=data, headers=headers)
+        mock_post.assert_called_with(
+            url, proxies=None, data=data, headers=headers, params=None, timeout=2
+        )
+
+
+def test_postURL_read_timeout(tools_instance):
+    url = "https://example.com"
+    data = {"key": "value"}
+    headers = {"Content-Type": "application/json"}
+    with patch("requests_cache.CachedSession.post", side_effect=ReadTimeout) as mock_post:
+        tools_instance.postURL(url, data=data, headers=headers)
+        mock_post.assert_called_with(
+            url, proxies=None, data=data, headers=headers, params=None, timeout=2
+        )
+
+
+def test_postURL_other_exception(tools_instance):
+    url = "https://example.com"
+    data = {"key": "value"}
+    headers = {"Content": "application/json"}
+    with patch("requests_cache.CachedSession.post", side_effect=Exception) as mock_post:
+        tools_instance.postURL(url, data=data, headers=headers)
+        mock_post.assert_called_with(
+            url, proxies=None, data=data, headers=headers, params=None, timeout=2
+        )
+
+
+def test_postURL_retry_connect_timeout(tools_instance):
+    url = "https://example.com"
+    data = {"key": "value"}
+    headers = {"Content-Type": "application/json"}
+    response = MagicMock()
+    response.status_code = 200
+    with patch(
+        "requests_cache.CachedSession.post", side_effect=[ConnectTimeout, response]
+    ) as mock_post:
+        result = tools_instance.postURL(url, data=data, headers=headers)
+        mock_post.assert_called_with(
+            url, proxies=None, data=data, headers=headers, params=None, timeout=2
+        )
+        assert result == response
+
+
+def test_postURL_retry_read_timeout(tools_instance):
+    url = "https://example.com"
+    data = {"key": "value"}
+    headers = {"Content-Type": "application/json"}
+    response = MagicMock()
+    response.status_code = 200
+    with patch(
+        "requests_cache.CachedSession.post", side_effect=[ReadTimeout, response]
+    ) as mock_post:
+        result = tools_instance.postURL(url, data=data, headers=headers)
+        mock_post.assert_called_with(
+            url, proxies=None, data=data, headers=headers, params=None, timeout=2
+        )
+        assert result == response
+
+
+def test_postURL_retry_other_exception(tools_instance):
+    url = "https://example.com"
+    data = {"key": "value"}
+    headers = {"Content-Type": "application/json"}
+    response = MagicMock()
+    response.status_code = 200
+    with patch("requests_cache.CachedSession.post", side_effect=[Exception, response]) as mock_post:
+        result = tools_instance.postURL(url, data=data, headers=headers)
+        mock_post.assert_called_with(
+            url, proxies=None, data=data, headers=headers, params=None, timeout=2
+        )
+        assert result == response
+
+
+def test_postURL_retry_max_retries(tools_instance, configManager):
+    url = "https://example.com"
+    data = {"key": "value"}
+    headers = {"Content-Type": "application/json"}
+    response = MagicMock()
+    response.status_code = 200
+    configManager.maxNetworkRetryCount = 4
+    with patch("requests_cache.CachedSession.post", side_effect=[ConnectTimeout]):
+        with patch("requests.post") as mock_post_later:
+            tools_instance.postURL(url, data=data, headers=headers)
+            mock_post_later.assert_called_with(
+                url, proxies=None, data=data, headers=headers, params=None, timeout=2
+            )
+
+
+def test_postURL_retry_enable_cache_restart(tools_instance, configManager):
+    url = "https://example.com"
+    data = {"key": "value"}
+    headers = {"Content-Type": "application/json"}
+    response = MagicMock()
+    response.status_code = 200
+    configManager.maxNetworkRetryCount = 3
+    with (
+        patch("requests_cache.CachedSession.post", side_effect=[ConnectTimeout, response]),
+        patch("requests_cache.is_installed", return_value=False),
+        patch("pkscreener.classes.ConfigManager.tools.restartRequestsCache") as mock_restart_cache,
+    ):
+        tools_instance.postURL(url, data=data, headers=headers, trial=2)
+        mock_restart_cache.assert_called_once()
+
+
+def test_postURL_retry_enable_cache_uninstall(tools_instance, configManager):
+    url = "https://example.com"
+    data = {"key": "value"}
+    headers = {"Content-Type": "application/json"}
+    response = MagicMock()
+    response.status_code = 200
+    configManager.maxNetworkRetryCount = 3
+    with patch("requests.post", side_effect=[Exception, response]):
+        with patch("requests_cache.is_installed", return_value=True):
+            with patch("requests_cache.uninstall_cache") as mock_uninstall_cache:
+                tools_instance.postURL(url, data=data, headers=headers, trial=2)
+                mock_uninstall_cache.assert_called_once()
+
+
+# def test_postURL_retry_enable_cache_clear(tools_instance, configManager):
+#     url = "https://example.com"
+#     data = {"key": "value"}
+#     headers = {"Content-Type": "application/json"}
+#     response = MagicMock()
+#     response.status_code = 200
+#     configManager.maxNetworkRetryCount = 3
+#     with patch("requests_cache.CachedSession.post", side_effect=[ConnectTimeout, response]) as mock_post:
+#         with patch("requests_cache.is_installed", return_value=True) as mock_is_installed:
+#             with patch("requests_cache.clear") as mock_clear_cache:
+#                 result = tools_instance.postURL(url, data=data, headers=headers)
+#                 mock_post.assert_called_with(url, proxies=None, data=data, headers=headers, timeout=6)
+#                 mock_is_installed.assert_called_once()
+#                 mock_clear_cache.assert_called_once()
+#                 assert result == response
+
+# def test_postURL_retry_enable_cache_restart_uninstall_clear(tools_instance, configManager):
+#     url = "https://example.com"
+#     data = {"key": "value"}
+#     headers = {"Content-Type": "application/json"}
+#     response = MagicMock()
+#     response.status_code = 200
+#     configManager.maxNetworkRetryCount = 3
+#     with patch("requests_cache.CachedSession.post", side_effect=[ConnectTimeout, response]) as mock_post:
+#         with patch("requests_cache.is_installed", return_value=False) as mock_is_installed:
+#             with patch("tools.restartRequestsCache") as mock_restart_cache:
+#                 with patch("requests_cache.uninstall_cache") as mock_uninstall_cache:
+#                     with patch("requests_cache.clear") as mock_clear_cache:
+#                         result = tools_instance.postURL(url, data=data, headers=headers)
+#                         mock_post.assert_called_with(url, proxies=None, data=data, headers=headers, timeout=6)
+#                         mock_is_installed.assert_called_once()
+#                         mock_restart_cache.assert_called_once()
+#                         mock_uninstall_cache.assert_called_once()
+#                         mock_clear_cache.assert_called_once()
+#                         assert result == response
+
+# def test_postURL_retry_enable_cache_restart_uninstall_clear_max_retries(tools_instance, configManager):
+#     url = "https://example.com"
+#     data = {"key": "value"}
+#     headers = {"Content-Type": "application/json"}
+#     configManager.maxNetwork = 1
+#     with patch("requests_cache.CachedSession.post", side_effect=ConnectTimeout):
+#         with patch("postURL.requests_cache.is_installed", return_value=False) as mock_is_installed:
+#             with patch("postURL.tools.restartRequestsCache") as mock_restart_cache:
+#                 with patch("postURL.requests_cache.uninstall_cache") as mock_uninstall_cache:
+#                     with patch("postURL.requests_cache.clear") as mock_clear_cache:
+#                         with pytest.raises(ConnectTimeout):
+#                             tools_instance.postURL(url, data=data, headers=headers)
+#                         mock_is_installed.assert_called_once()
+#                         mock_restart_cache.assert_not_called()
+#                         mock_uninstall_cache.assert_not_called()
+#                         mock_clear_cache.assert_not_called()
+
+
+@pytest.mark.skip(reason="Fetcher API has changed")
+class TestStockDataFetcher1(unittest.TestCase):
+    @patch("yfinance.Tickers")
+    def test_get_stats_valid_ticker(self, mock_tickers):
+        # Arrange
+        ticker = "AAPL"
+        mock_fast_info = MagicMock()
+        mock_fast_info.market_cap = 2000000000
+        mock_tickers.return_value.tickers[ticker].fast_info = mock_fast_info
+
+        # Act
+        fetcher = screenerStockDataFetcher()
+        fetcher.get_stats(ticker)
+
+        # Assert
+        self.assertEqual(screenerStockDataFetcher._tickersInfoDict[ticker]["marketCap"], 2000000000)
+
+    @patch("yfinance.Tickers")
+    def test_get_stats_invalid_ticker(self, mock_tickers):
+        # Arrange
+        ticker = "INVALID_TICKER"
+        mock_tickers.return_value.tickers[ticker].fast_info = None
+
+        # Act
+        fetcher = screenerStockDataFetcher()
+        fetcher.get_stats(ticker)
+
+        # Assert
+        self.assertIn(ticker, screenerStockDataFetcher._tickersInfoDict)
+
+    def test_fetchAdditionalTickerInfo_valid_list(self):
+        # Arrange
+        ticker_list = ["AAPL", "MSFT"]
+        fetcher = screenerStockDataFetcher()
+
+        # Act
+        with patch.object(fetcher, "get_stats") as mock_get_stats:
+            mock_get_stats.side_effect = lambda x: screenerStockDataFetcher._tickersInfoDict.update(
+                {x: {"marketCap": 2000000000}}
+            )
+            result = fetcher.fetchAdditionalTickerInfo(ticker_list)
+
+        # Assert
+        self.assertEqual(len(result), 2)
+        self.assertIn("AAPL.NS", result)
+        self.assertIn("MSFT.NS", result)
+
+    def test_fetchAdditionalTickerInfo_invalid_input(self):
+        # Arrange
+        invalid_ticker = "AAPL"
+        fetcher = screenerStockDataFetcher()
+
+        # Act & Assert
+        with self.assertRaises(TypeError):
+            fetcher.fetchAdditionalTickerInfo(invalid_ticker)
+
+    def test_fetchAdditionalTickerInfo_empty_list(self):
+        # Arrange
+        ticker_list = []
+        fetcher = screenerStockDataFetcher()
+
+        # Act
+        result = fetcher.fetchAdditionalTickerInfo(ticker_list)
+
+        # Assert
+        self.assertEqual(result, {})
+
+    def test_fetchAdditionalTickerInfo_with_exchange_suffix(self):
+        # Arrange
+        ticker_list = ["AAPL", "MSFT"]
+        exchangeSuffix = ".NS"
+        fetcher = screenerStockDataFetcher()
+
+        # Act
+        with patch.object(fetcher, "get_stats") as mock_get_stats:
+            mock_get_stats.side_effect = lambda x: screenerStockDataFetcher._tickersInfoDict.update(
+                {x: {"marketCap": 2000000000}}
+            )
+            result = fetcher.fetchAdditionalTickerInfo(ticker_list, exchangeSuffix)
+
+        # Assert
+        self.assertIn("AAPL.NS", result)
+        self.assertIn("MSFT.NS", result)
+
+
+class TestScreenerStockDataFetcher2(unittest.TestCase):
+    @patch.object(screenerStockDataFetcher, "fetchStockData")
+    def test_fetchStockDataWithArgs_without_task(self, mock_fetchStockData):
+        mock_fetchStockData.return_value = {"price": 100}
+
+        fetcher = screenerStockDataFetcher()
+        result = fetcher.fetchStockDataWithArgs("AAPL", "1d", "1mo", "NS")
+
+        mock_fetchStockData.assert_called_once_with(
+            "AAPL", "1d", "1mo", None, 0, 0, 0, exchangeSuffix="NS", printCounter=False
+        )
+        self.assertEqual(result, {"price": 100})
+
+    @patch.object(screenerStockDataFetcher, "fetchStockData")
+    def test_fetchStockDataWithArgs_with_task(self, mock_fetchStockData):
+        mock_fetchStockData.return_value = {"price": 200}
+
+        task = PKTask(1, MagicMock(), ("AAPL", "1d", "1mo", "NS"), MagicMock())
+        task.progressStatusDict = {}
+        task.resultsDict = {}
+        fetcher = screenerStockDataFetcher()
+        result = fetcher.fetchStockDataWithArgs(task)
+
+        mock_fetchStockData.assert_called_once_with(
+            "AAPL", "1d", "1mo", None, 0, 0, 0, exchangeSuffix="NS", printCounter=False
+        )
+        self.assertEqual(result, {"price": 200})
+        self.assertEqual(task.result, {"price": 200})
+        self.assertEqual(task.progressStatusDict[0], {"progress": 1, "total": 1})
+        self.assertEqual(task.resultsDict[0], {"price": 200})
+
+
+@pytest.mark.skip(reason="Fetcher API has changed")
+class TestScreenerStockDataFetcher3(unittest.TestCase):
+    @patch("yfinance.download")
+    def test_fetchStockData_success(self, mock_yf_download):
+        mock_df = pd.DataFrame({"open": [100], "close": [105]})
+        mock_yf_download.return_value = mock_df
+
+        fetcher = screenerStockDataFetcher()
+        data = fetcher.fetchStockData("AAPL", "1d", "1m")
+
+        self.assertFalse(data.empty)
+        self.assertIn("open", data.columns)
+        self.assertIn("close", data.columns)
+
+    @patch("yfinance.download")
+    def test_fetchStockData_no_data(self, mock_yf_download):
+        mock_yf_download.return_value = pd.DataFrame()
+
+        fetcher = screenerStockDataFetcher()
+        with self.assertRaises(StockDataEmptyException):
+            fetcher.fetchStockData("AAPL", "1d", "1m", printCounter=True)
+
+    @patch("yfinance.download")
+    def test_fetchStockData_list_of_tickers(self, mock_yf_download):
+        mock_df = pd.DataFrame({("AAPL", "open"): [100], ("AAPL", "close"): [105]})
+        mock_df.columns = pd.MultiIndex.from_tuples(mock_df.columns)
+        mock_yf_download.return_value = mock_df
+
+        fetcher = screenerStockDataFetcher()
+        data = fetcher.fetchStockData(["AAPL", "MSFT"], "1d", "1m")
+
+        self.assertFalse(data.empty)
+
+    @patch("yfinance.download", side_effect=Exception("Download failed"))
+    def test_fetchStockData_exception(self, mock_yf_download):
+        fetcher = screenerStockDataFetcher()
+        data = fetcher.fetchStockData("AAPL", "1d", "1m")
+
+        self.assertIsNone(data)
