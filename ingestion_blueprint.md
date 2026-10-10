@@ -267,7 +267,7 @@ Total Repositories: 424 | Current Index: 265
 | 262 | oscmcompany/fund | Processed | https://github.com/sparlit/EQATS/pull/3231 |
 | 263 | p0w/nse_indices | Completed | https://github.com/sparlit/EQATS/pull/3232 |
 | 264 | parmar-m/nse_trader | Processed | https://github.com/sparlit/EQATS/pull/3233 |
-| 265 | parthsamani/nsestockf-oalert | Completed | None |
+| 265 | parthsamani/nsestockf-oalert | Completed | https://github.com/sparlit/EQATS/pull/3234 |
 | 266 | patrick-weiss/portfoliosorts_nse | pending | None |
 | 267 | paul-folbrecht/algo-trading | pending | None |
 | 268 | pawan941394/nse-option-chain---llm-project | pending | None |
