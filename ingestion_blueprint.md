@@ -276,7 +276,7 @@ Total Repositories: 424 | Current Index: 274
 | 271 | pishangujeniya/kite-helper | Processed | https://github.com/sparlit/EQATS/pull/3240 |
 | 272 | pishangujeniya/nse-stocks-data-scrapper | Processed | https://github.com/sparlit/EQATS/pull/3241 |
 | 273 | pkjmesra/nseta | Completed | https://github.com/sparlit/EQATS/pull/3242 |
-| 274 | pkjmesra/pknsetools | Completed | None |
+| 274 | pkjmesra/pknsetools | Completed | https://github.com/sparlit/EQATS/pull/3243 |
 | 275 | pkjmesra/pkscreener | pending | None |
 | 276 | pmjangid90/stockmarket_project | pending | None |
 | 277 | pparesh25/nse_bse_downloader | pending | None |
