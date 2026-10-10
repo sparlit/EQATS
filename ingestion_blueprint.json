@@ -1,5 +1,5 @@
 {
-  "current_index": 245,
+  "current_index": 246,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1965,9 +1965,9 @@
       "name": "mftool",
       "target": "nayakwadis/mftool",
       "url": "https://github.com/nayakwadis/mftool",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3215",
+      "merged": true
     },
     {
       "name": "nse-neuron",
