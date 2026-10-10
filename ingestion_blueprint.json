@@ -2078,8 +2078,8 @@
       "target": "omerhalid/trading_engine_rust",
       "url": "https://github.com/omerhalid/trading_engine_rust",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3229",
+      "merged": true
     },
     {
       "name": "nse_eod",

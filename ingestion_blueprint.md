@@ -262,7 +262,7 @@ Total Repositories: 424 | Current Index: 260
 | 257 | nkaz001/hftbacktest | Processed | https://github.com/sparlit/EQATS/pull/3226 |
 | 258 | nsedownload/nsedownload | Completed | https://github.com/sparlit/EQATS/pull/3227 |
 | 259 | nvegupta1/securitywisensedata | Processed | https://github.com/sparlit/EQATS/pull/3228 |
-| 260 | omerhalid/trading_engine_rust | Processed | None |
+| 260 | omerhalid/trading_engine_rust | Processed | https://github.com/sparlit/EQATS/pull/3229 |
 | 261 | opmashin/nse_eod | pending | None |
 | 262 | oscmcompany/fund | pending | None |
 | 263 | p0w/nse_indices | pending | None |
