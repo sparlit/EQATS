@@ -1,5 +1,5 @@
 {
-  "current_index": 267,
+  "current_index": 268,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2141,9 +2141,9 @@
       "name": "nse-option-chain---llm-project",
       "target": "pawan941394/nse-option-chain---llm-project",
       "url": "https://github.com/pawan941394/nse-option-chain---llm-project",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3237",
+      "merged": true
     },
     {
       "name": "stock-watchlist",
