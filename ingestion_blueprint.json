@@ -1,5 +1,5 @@
 {
-  "current_index": 257,
+  "current_index": 258,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2061,7 +2061,7 @@
       "name": "nsedownload",
       "target": "nsedownload/nsedownload",
       "url": "https://github.com/nsedownload/nsedownload",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
