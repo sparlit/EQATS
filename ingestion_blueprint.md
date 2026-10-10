@@ -278,7 +278,7 @@ Total Repositories: 424 | Current Index: 276
 | 273 | pkjmesra/nseta | Completed | https://github.com/sparlit/EQATS/pull/3242 |
 | 274 | pkjmesra/pknsetools | Completed | https://github.com/sparlit/EQATS/pull/3243 |
 | 275 | pkjmesra/pkscreener | Completed | https://github.com/sparlit/EQATS/pull/3244 |
-| 276 | pmjangid90/stockmarket_project | Processed | None |
+| 276 | pmjangid90/stockmarket_project | Processed | https://github.com/sparlit/EQATS/pull/3245 |
 | 277 | pparesh25/nse_bse_downloader | pending | None |
 | 278 | pradeepjindal/nse-ml-2021 | pending | None |
 | 279 | pradyumnac/excel-tools-indian-stock-market | pending | None |
