@@ -1,5 +1,5 @@
 {
-  "current_index": 269,
+  "current_index": 270,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2157,9 +2157,9 @@
       "name": "tickertrackbot",
       "target": "perunnial/tickertrackbot",
       "url": "https://github.com/perunnial/tickertrackbot",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3239",
+      "merged": true
     },
     {
       "name": "kite-helper",
