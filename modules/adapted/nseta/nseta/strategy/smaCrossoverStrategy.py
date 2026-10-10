@@ -1,0 +1,218 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+# SMA Crossover Strategy
+
+# BUY
+# SMA(10) or SMA(20) calculated with a shorter period crosses
+# above the SMA calculated with a longer period :SMA(50).
+# IF SMA(10) > SMA(50) => BUY
+
+# SELL
+# SMA(50) calculated with a longer period crosses
+# above the SMA calculates with a shorter period: SMA(10) or SMA(20).
+# IF SMA(50) > SMA(10) => SELL
+
+import datetime
+import math
+
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+# from tenacity import retry
+from termcolor import colored as cl
+
+plt.style.use("fivethirtyeight")
+plt.rcParams["figure.figsize"] = (15, 8)
+
+from nseta.resources.resources import *
+
+__all__ = ["sma_crossover_strategy"]
+
+
+def sma_crossover_strategy(df):
+    df.set_index("Date")
+    df.index = pd.to_datetime(df.index)
+    df = update_sma_indicator_values(df)
+    strategy = update_strategy_position(df)
+    symbol = df.loc[:, "Symbol"].iloc[0]
+    if calculate_roi(strategy, symbol):
+        plot_strategy(strategy, symbol)
+
+
+def sma(data, n):
+    sma = data.rolling(window=n).mean()
+    return pd.DataFrame(sma)
+
+
+def update_sma_indicator_values(df):
+    n = [20, 50]
+    for i in n:
+        df[f"sma_{i}"] = sma(df["close"], i)
+    return df
+
+
+def run_sma_crossover_strategy(data, short_window, long_window):
+    sma1 = short_window
+    sma2 = long_window
+    buy_price = []
+    sell_price = []
+    sma_signal = []
+    signal = 0
+
+    for i in range(len(data)):
+        if sma1[i] > sma2[i]:
+            if signal != 1:
+                buy_price.append(data[i])
+                sell_price.append(np.nan)
+                signal = 1
+                sma_signal.append(signal)
+            else:
+                buy_price.append(np.nan)
+                sell_price.append(np.nan)
+                sma_signal.append(0)
+        elif sma2[i] > sma1[i]:
+            if signal != -1:
+                buy_price.append(np.nan)
+                sell_price.append(data[i])
+                signal = -1
+                sma_signal.append(-1)
+            else:
+                buy_price.append(np.nan)
+                sell_price.append(np.nan)
+                sma_signal.append(0)
+        else:
+            buy_price.append(np.nan)
+            sell_price.append(np.nan)
+            sma_signal.append(0)
+
+    return buy_price, sell_price, sma_signal
+
+
+def update_strategy_position(df):
+    buy_price, sell_price, signal = run_sma_crossover_strategy(
+        df["close"], df["sma_20"], df["sma_50"]
+    )
+    position = []
+    for i in range(len(signal)):
+        if signal[i] > 1:
+            position.append(0)
+        else:
+            position.append(1)
+
+    for i in range(len(df["close"])):
+        if signal[i] == 1:
+            position[i] = 1
+        elif signal[i] == -1:
+            position[i] = 0
+        else:
+            position[i] = position[i - 1]
+
+    # CONSOLIDATING LISTS TO DATAFRAME
+    sma_20 = pd.DataFrame(df["sma_20"]).rename(columns={0: "sma_20"})
+    sma_50 = pd.DataFrame(df["sma_50"]).rename(columns={0: "sma_50"})
+    close_price = df["close"]
+    date = df["Date"]
+    buy_price = pd.DataFrame(buy_price).rename(columns={0: "buy_price"}).set_index(df.index)
+    sell_price = pd.DataFrame(sell_price).rename(columns={0: "sell_price"}).set_index(df.index)
+    signal = pd.DataFrame(signal).rename(columns={0: "sma_signal"}).set_index(df.index)
+    position = pd.DataFrame(position).rename(columns={0: "sma_position"}).set_index(df.index)
+
+    signal = signal.loc[~signal.index.duplicated(keep="first")]
+    position = position.loc[~position.index.duplicated(keep="first")]
+    date = date.loc[~date.index.duplicated(keep="first")]
+    buy_price = buy_price.loc[~buy_price.index.duplicated(keep="first")]
+    sell_price = sell_price.loc[~sell_price.index.duplicated(keep="first")]
+    close_price = close_price.loc[~close_price.index.duplicated(keep="first")]
+    sma_20 = sma_20.loc[~sma_20.index.duplicated(keep="first")]
+    sma_50 = sma_50.loc[~sma_50.index.duplicated(keep="first")]
+
+    frames = [date, close_price, sma_20, sma_50, buy_price, sell_price, signal, position]
+    strategy = pd.concat(frames, join="inner", axis=1)
+    strategy.reset_index(drop=True, inplace=True)
+    return strategy
+
+
+def calculate_roi(strategy, symbol):
+    strategy_copy = strategy.copy(deep=True)
+    strategy_copy = strategy_copy.dropna(subset=["buy_price", "sell_price"], how="all")
+    if len(strategy_copy) <= 0:
+        print("Not enough data yet")
+        return False
+    strategy_copy = strategy_copy.loc[:, ["Date", "close", "sma_signal", "sma_position"]]
+    strategy_copy["Symbol"] = symbol
+    df_ret = pd.DataFrame(np.diff(strategy_copy["close"])).rename(columns={0: "returns"})
+
+    strategy_copy.loc[:, "sma_margin"] = 0
+    strategy_copy.loc[:, "sma_returns"] = 0
+    investment_value_initial = resources.backtest().init_cash
+    investment_value = investment_value_initial
+
+    for i in range(len(df_ret)):
+        returns = df_ret.loc[:, "returns"].iloc[i] * strategy_copy.loc[:, "sma_position"].iloc[i]
+        strategy_copy.loc[:, "sma_margin"].iloc[i + 1] = returns
+        number_of_stocks = math.floor(investment_value / strategy_copy.loc[:, "close"].iloc[i])
+        returns = number_of_stocks * strategy_copy.loc[:, "sma_margin"].iloc[i + 1]
+        strategy_copy.loc[:, "sma_returns"].iloc[i + 1] = returns
+        investment_value = investment_value + returns
+
+    print(f"\n{strategy_copy.to_string(index=False)}\n")
+    total_investment_ret = round(sum(strategy_copy["sma_returns"]), 2)
+    profit_percentage = round((total_investment_ret / investment_value_initial) * 100, 3)
+    print(
+        cl(
+            f"\nProfit gained from the SMA strategy by investing INR 100k in {symbol} : {total_investment_ret}\n",
+            attrs=["bold"],
+        )
+    )
+    print(cl(f"\nProfit percentage of the SMA strategy : {profit_percentage} %\n", attrs=["bold"]))
+    return True
+
+
+def plot_strategy(df, symbol):
+    # PLOTTING SMA TRADE SIGNALS
+    xAxisFmt = mdates.DateFormatter("%Y-%m-%d")
+    df.set_index("Date", inplace=True)
+    today = datetime.datetime.today().strftime("%Y-%m-%d")
+    intraday_df = df[df.index >= today]
+    if len(intraday_df) > 1:
+        xAxisFmt = mdates.DateFormatter("%H:%M")
+    else:
+        df.index = pd.to_datetime(df.index)
+        plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=5))
+    plt.gca().xaxis.set_major_formatter(xAxisFmt)
+
+    plt.plot(df["close"], label=f"{symbol} Close Prices", linewidth=5, alpha=0.3)
+    plt.plot(df["sma_20"], alpha=0.6, label="SMA 20")
+    plt.plot(df["sma_50"], alpha=0.6, label="SMA 50")
+    plt.scatter(df.index, df["buy_price"], marker="^", s=200, color="darkblue", label="BUY SIGNAL")
+    plt.scatter(df.index, df["sell_price"], marker="v", s=200, color="crimson", label="SELL SIGNAL")
+    plt.legend(loc="best")
+    plt.title(f"{symbol} SMA CROSSOVER TRADING SIGNALS")
+    plt.ylabel(f"{symbol} Stock Closing Prices")
+    plt.xlabel("Date/Time")
+    plt.grid(True)
+    plt.gcf().autofmt_xdate()
+    plt.show()
