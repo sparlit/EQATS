@@ -1,5 +1,5 @@
 {
-  "current_index": 251,
+  "current_index": 252,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2013,9 +2013,9 @@
       "name": "algorithmic-trading-python",
       "target": "nickmccullum/algorithmic-trading-python",
       "url": "https://github.com/nickmccullum/algorithmic-trading-python",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3221",
+      "merged": true
     },
     {
       "name": "ninjabook",
