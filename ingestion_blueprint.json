@@ -2070,8 +2070,8 @@
       "target": "nvegupta1/securitywisensedata",
       "url": "https://github.com/nvegupta1/securitywisensedata",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3228",
+      "merged": true
     },
     {
       "name": "trading_engine_rust",
