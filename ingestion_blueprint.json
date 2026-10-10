@@ -1,5 +1,5 @@
 {
-  "current_index": 249,
+  "current_index": 250,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1997,9 +1997,9 @@
       "name": "hummingboss",
       "target": "nethermindeth/hummingboss",
       "url": "https://github.com/nethermindeth/hummingboss",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3219",
+      "merged": true
     },
     {
       "name": "nsei_mcp_server",
