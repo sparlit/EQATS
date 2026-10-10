@@ -2022,8 +2022,8 @@
       "target": "ninja-quant/ninjabook",
       "url": "https://github.com/ninja-quant/ninjabook",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3222",
+      "merged": true
     },
     {
       "name": "pump-fun-sdk",
