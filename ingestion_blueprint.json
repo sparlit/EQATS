@@ -1998,8 +1998,8 @@
       "target": "nethermindeth/hummingboss",
       "url": "https://github.com/nethermindeth/hummingboss",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3219",
+      "merged": true
     },
     {
       "name": "nsei_mcp_server",
