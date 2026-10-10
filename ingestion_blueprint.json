@@ -1,5 +1,5 @@
 {
-  "current_index": 257,
+  "current_index": 258,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2061,9 +2061,9 @@
       "name": "nsedownload",
       "target": "nsedownload/nsedownload",
       "url": "https://github.com/nsedownload/nsedownload",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3227",
+      "merged": true
     },
     {
       "name": "securitywisensedata",

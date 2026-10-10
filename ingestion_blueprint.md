@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 424 | Current Index: 257
+Total Repositories: 424 | Current Index: 258
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -260,7 +260,7 @@ Total Repositories: 424 | Current Index: 257
 | 255 | nitin-bhawarkar/nse_livedata_from_excel_extraction | Processed | https://github.com/sparlit/EQATS/pull/3224 |
 | 256 | nived15/nse-stock-fetcher | Processed | https://github.com/sparlit/EQATS/pull/3225 |
 | 257 | nkaz001/hftbacktest | Processed | https://github.com/sparlit/EQATS/pull/3226 |
-| 258 | nsedownload/nsedownload | pending | None |
+| 258 | nsedownload/nsedownload | Completed | https://github.com/sparlit/EQATS/pull/3227 |
 | 259 | nvegupta1/securitywisensedata | pending | None |
 | 260 | omerhalid/trading_engine_rust | pending | None |
 | 261 | opmashin/nse_eod | pending | None |

@@ -21,18 +21,21 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import setuptools
+import time
+import unittest
 
-setuptools.setup(
-    name="NSEDownload",
-    version="5.0.6",
-    author="Jinit",
-    description="Download Stocks data from NSE",
-    packages=setuptools.find_packages(),
-    classifiers=[
-        "Programming Language :: Python :: 2.7",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-    ],
-    install_requires=["beautifulsoup4", "requests", "pandas", "numpy", "timedelta", "fuzzywuzzy"],
-)
+import NSEDownload.stocks as stocks
+import pandas as pd
+
+
+class Test_stocks(unittest.TestCase):
+    def test_get_data(self):
+        for stock in ["RELIANCE", "ITC", "HDFC", "HDFCBANK"]:
+            df = stocks.get_data(stock_symbol=stock, start_date="15-9-2021", end_date="1-10-2021")
+            df_actual = pd.read_csv(f"./tests/stocks_data/{stock}.csv", index_col="Date")
+            assert (df == df_actual).all().all()
+            time.sleep(10)
+
+
+if __name__ == "__main__":
+    unittest.main()
