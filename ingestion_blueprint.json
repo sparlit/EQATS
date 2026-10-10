@@ -2198,8 +2198,8 @@
       "target": "pkjmesra/pkscreener",
       "url": "https://github.com/pkjmesra/pkscreener",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3244",
+      "merged": true
     },
     {
       "name": "stockmarket_project",
