@@ -1,5 +1,5 @@
 {
-  "current_index": 279,
+  "current_index": 280,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2237,9 +2237,9 @@
       "name": "express-option-chain",
       "target": "pramakrishn/express-option-chain",
       "url": "https://github.com/pramakrishn/express-option-chain",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3249",
+      "merged": true
     },
     {
       "name": "screeni-py",
