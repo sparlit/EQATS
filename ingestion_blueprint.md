@@ -253,7 +253,7 @@ Total Repositories: 424 | Current Index: 251
 | 248 | neha01/automate-scrap-nse-data | Processed | https://github.com/sparlit/EQATS/pull/3217 |
 | 249 | neilghosh/nse-historical-data | Processed | https://github.com/sparlit/EQATS/pull/3218 |
 | 250 | nethermindeth/hummingboss | Processed | https://github.com/sparlit/EQATS/pull/3219 |
-| 251 | ngm9/nsei_mcp_server | Processed | None |
+| 251 | ngm9/nsei_mcp_server | Processed | https://github.com/sparlit/EQATS/pull/3220 |
 | 252 | nickmccullum/algorithmic-trading-python | pending | None |
 | 253 | ninja-quant/ninjabook | pending | None |
 | 254 | nirholas/pump-fun-sdk | pending | None |

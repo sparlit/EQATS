@@ -2006,8 +2006,8 @@
       "target": "ngm9/nsei_mcp_server",
       "url": "https://github.com/ngm9/nsei_mcp_server",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3220",
+      "merged": true
     },
     {
       "name": "algorithmic-trading-python",
