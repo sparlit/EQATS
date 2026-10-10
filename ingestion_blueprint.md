@@ -283,7 +283,7 @@ Total Repositories: 424 | Current Index: 281
 | 278 | pradeepjindal/nse-ml-2021 | Completed | https://github.com/sparlit/EQATS/pull/3247 |
 | 279 | pradyumnac/excel-tools-indian-stock-market | Processed | https://github.com/sparlit/EQATS/pull/3248 |
 | 280 | pramakrishn/express-option-chain | Completed | https://github.com/sparlit/EQATS/pull/3249 |
-| 281 | pranjal-joshi/screeni-py | Completed | None |
+| 281 | pranjal-joshi/screeni-py | Completed | https://github.com/sparlit/EQATS/pull/3250 |
 | 282 | prasad1612/nsekit-mcp | pending | None |
 | 283 | praveen-mannem/nse-scanner | pending | None |
 | 284 | pujanm/stockx | pending | None |

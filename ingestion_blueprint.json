@@ -2246,8 +2246,8 @@
       "target": "pranjal-joshi/screeni-py",
       "url": "https://github.com/pranjal-joshi/screeni-py",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3250",
+      "merged": true
     },
     {
       "name": "nsekit-mcp",
