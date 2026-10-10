@@ -2142,8 +2142,8 @@
       "target": "pawan941394/nse-option-chain---llm-project",
       "url": "https://github.com/pawan941394/nse-option-chain---llm-project",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3237",
+      "merged": true
     },
     {
       "name": "stock-watchlist",
