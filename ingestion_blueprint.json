@@ -2222,8 +2222,8 @@
       "target": "pradeepjindal/nse-ml-2021",
       "url": "https://github.com/pradeepjindal/nse-ml-2021",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3247",
+      "merged": true
     },
     {
       "name": "excel-tools-indian-stock-market",
