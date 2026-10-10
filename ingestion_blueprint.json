@@ -1,5 +1,5 @@
 {
-  "current_index": 271,
+  "current_index": 272,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2173,9 +2173,9 @@
       "name": "nse-stocks-data-scrapper",
       "target": "pishangujeniya/nse-stocks-data-scrapper",
       "url": "https://github.com/pishangujeniya/nse-stocks-data-scrapper",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3241",
+      "merged": true
     },
     {
       "name": "nseta",
