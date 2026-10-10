@@ -14,7 +14,7 @@
 #### 1. Current System Architecture
 TradingOS is an institutional-grade, multi-asset algorithmic trading and autonomous risk platform engineered for high-frequency execution across global interbank, forex, equities (NSE/BSE), and derivative markets.
 - **Backend Core**: Modular Python monolith coupled with high-performance Rust core acceleration (`eqats_rust_core`) for L2/L5 order book depth, market impact, slippage calculation, and ultra-low latency matching.
-- **Communication Matrix**: 3-Way 6-Port matrix operating within the dedicated `50000–60000` port matrix:
+- **Communication Matrix**: 3-Way 6-Port matrix operating strictly within the dedicated `50000–60000` port matrix:
   - Port `50001`: MT5 -> Rust Data Feed Bridge
   - Port `50002`: Rust -> MT5 Order Execution Pipeline
   - Port `50003`: MT5 <-> Rust Trade Management & Telemetry
@@ -71,7 +71,7 @@ State ledger tracking in `ingestion_blueprint.json` tracks a total of **424 open
    - Integrated `ZoneInfo("Asia/Kolkata")` time checks validating Indian market operating hours (09:15–15:30 IST) to prevent off-session market order rejections.
 
 3. **Mypy Strict Parity Compliance**:
-   - Enforced exact method parameter signature parity for `SEBIBrokerAdapter` subclasses (`get_history`, `close_order`, `modify_order`), resulting in **0 Mypy type errors across 214 source files**.
+   - Enforced exact method parameter signature parity for `SEBIBrokerAdapter` subclasses (`get_history`, `close_order`, `modify_order`), resulting in **0 Mypy type errors across 215 source files**.
 
 ---
 
@@ -92,7 +92,7 @@ State ledger tracking in `ingestion_blueprint.json` tracks a total of **424 open
 
 - **Unit & Integration Test Suite**:
   - `PYTHONPATH=src /app/venv/bin/python3 -m pytest tests/`
-  - **Result**: **690 passed, 4 warnings in 135s (100% pass rate)**.
+  - **Result**: **690 passed, 4 warnings in 147.25s (100% pass rate)**.
 - **Terminal Path Validation Security Suite**:
   - `PYTHONPATH=src /app/venv/bin/python3 -m pytest tests/test_terminal_path_validation.py`
   - **Result**: **8 passed in 2.75s**.
