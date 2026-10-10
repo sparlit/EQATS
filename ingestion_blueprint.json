@@ -2030,8 +2030,8 @@
       "target": "nirholas/pump-fun-sdk",
       "url": "https://github.com/nirholas/pump-fun-sdk",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3223",
+      "merged": true
     },
     {
       "name": "nse_livedata_from_excel_extraction",
