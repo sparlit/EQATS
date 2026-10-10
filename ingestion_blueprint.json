@@ -1,5 +1,5 @@
 {
-  "current_index": 250,
+  "current_index": 251,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2005,9 +2005,9 @@
       "name": "nsei_mcp_server",
       "target": "ngm9/nsei_mcp_server",
       "url": "https://github.com/ngm9/nsei_mcp_server",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3220",
+      "merged": true
     },
     {
       "name": "algorithmic-trading-python",
