@@ -1,5 +1,5 @@
 {
-  "current_index": 283,
+  "current_index": 284,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2269,9 +2269,9 @@
       "name": "stockx",
       "target": "pujanm/stockx",
       "url": "https://github.com/pujanm/stockx",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3253",
+      "merged": true
     },
     {
       "name": "mmb",
