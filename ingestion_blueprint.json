@@ -1,5 +1,5 @@
 {
-  "current_index": 259,
+  "current_index": 260,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2077,9 +2077,9 @@
       "name": "trading_engine_rust",
       "target": "omerhalid/trading_engine_rust",
       "url": "https://github.com/omerhalid/trading_engine_rust",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3229",
+      "merged": true
     },
     {
       "name": "nse_eod",
