@@ -2102,8 +2102,8 @@
       "target": "p0w/nse_indices",
       "url": "https://github.com/p0w/nse_indices",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3232",
+      "merged": true
     },
     {
       "name": "nse_trader",
