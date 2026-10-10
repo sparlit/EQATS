@@ -2278,8 +2278,8 @@
       "target": "purefinance/mmb",
       "url": "https://github.com/purefinance/mmb",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3254",
+      "merged": true
     },
     {
       "name": "lean.datasource.zerodha",
