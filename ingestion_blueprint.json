@@ -1,5 +1,5 @@
 {
-  "current_index": 258,
+  "current_index": 259,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2069,9 +2069,9 @@
       "name": "securitywisensedata",
       "target": "nvegupta1/securitywisensedata",
       "url": "https://github.com/nvegupta1/securitywisensedata",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3228",
+      "merged": true
     },
     {
       "name": "trading_engine_rust",
