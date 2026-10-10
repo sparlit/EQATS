@@ -13,7 +13,7 @@ Magic Number: 9100103
 import logging
 import math
 import zoneinfo
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
@@ -41,7 +41,7 @@ def validate_ist_market_session(dt: datetime | None = None) -> bool:
     if dt is None:
         dt = datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata"))
     elif dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc).astimezone(zoneinfo.ZoneInfo("Asia/Kolkata"))
+        dt = dt.replace(tzinfo=UTC).astimezone(zoneinfo.ZoneInfo("Asia/Kolkata"))
 
     if dt.weekday() in (5, 6):
         return False
@@ -74,7 +74,9 @@ class MFToolEngine:
         q = query.lower()
         return {code: name for code, name in self._scheme_codes.items() if q in name.lower()}
 
-    def calculate_nav_metrics(self, nav_series: list[float], period_years: float = 1.0) -> dict[str, float]:
+    def calculate_nav_metrics(
+        self, nav_series: list[float], period_years: float = 1.0
+    ) -> dict[str, float]:
         """
         Computes CAGR, annual volatility, Max Drawdown, and Sharpe Ratio from a historical NAV series.
         """
@@ -98,7 +100,10 @@ class MFToolEngine:
             cagr = 0.0
 
         # Daily Returns & Volatility
-        returns = [(nav_series[i] - nav_series[i - 1]) / nav_series[i - 1] for i in range(1, len(nav_series))]
+        returns = [
+            (nav_series[i] - nav_series[i - 1]) / nav_series[i - 1]
+            for i in range(1, len(nav_series))
+        ]
         mean_ret = sum(returns) / len(returns) if returns else 0.0
         variance = sum((r - mean_ret) ** 2 for r in returns) / len(returns) if returns else 0.0
         daily_vol = math.sqrt(variance)
@@ -133,8 +138,20 @@ class MFToolEngine:
         Aggregates equity, debt, and cash allocation percentages across mutual fund scheme holdings.
         """
         total_weight = sum(h.get("weight", 0.0) for h in scheme_holdings) or 1.0
-        equity_pct = sum(h.get("weight", 0.0) for h in scheme_holdings if h.get("type", "").lower() == "equity") / total_weight
-        debt_pct = sum(h.get("weight", 0.0) for h in scheme_holdings if h.get("type", "").lower() == "debt") / total_weight
+        equity_pct = (
+            sum(
+                h.get("weight", 0.0)
+                for h in scheme_holdings
+                if h.get("type", "").lower() == "equity"
+            )
+            / total_weight
+        )
+        debt_pct = (
+            sum(
+                h.get("weight", 0.0) for h in scheme_holdings if h.get("type", "").lower() == "debt"
+            )
+            / total_weight
+        )
         cash_pct = max(0.0, 1.0 - (equity_pct + debt_pct))
 
         return {
