@@ -1,5 +1,5 @@
 {
-  "current_index": 252,
+  "current_index": 253,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2021,9 +2021,9 @@
       "name": "ninjabook",
       "target": "ninja-quant/ninjabook",
       "url": "https://github.com/ninja-quant/ninjabook",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3222",
+      "merged": true
     },
     {
       "name": "pump-fun-sdk",
