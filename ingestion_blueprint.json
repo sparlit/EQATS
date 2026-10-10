@@ -1,5 +1,5 @@
 {
-  "current_index": 246,
+  "current_index": 247,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1973,9 +1973,9 @@
       "name": "nse-neuron",
       "target": "nayakwadis/nse-neuron",
       "url": "https://github.com/nayakwadis/nse-neuron",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3216",
+      "merged": true
     },
     {
       "name": "automate-scrap-nse-data",

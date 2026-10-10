@@ -1,0 +1,372 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.utils.class_weight import compute_class_weight
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.layers import LSTM as KerasLSTM
+from tensorflow.keras.layers import Bidirectional, Dense, Dropout
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.utils import to_categorical
+
+from config import (
+    ATR_PERIOD,
+    BB_PERIOD,
+    CLASSIFIER_BATCH_SIZE,
+    CLASSIFIER_DENSE_UNITS,
+    CLASSIFIER_DROPOUT,
+    CLASSIFIER_EPOCHS,
+    CLASSIFIER_LSTM_UNITS_1,
+    CLASSIFIER_LSTM_UNITS_2,
+    CLASSIFIER_MIN_DELTA,
+    CLASSIFIER_PATIENCE,
+    CLASSIFIER_THRESHOLD,
+    CLASSIFIER_TIME_STEP,
+    CLASSIFIER_TRAIN_SPLIT,
+    EMA_FAST,
+    EMA_MID,
+    EMA_SLOW,
+    FORECAST_DAYS,
+    MACD_FAST,
+    MACD_SIGNAL,
+    MACD_SLOW,
+    RSI_PERIOD,
+    SIGNAL_COLORS,
+    SIGNAL_LABELS,
+    SIGNAL_MARKERS,
+    STOCH_D_PERIOD,
+    STOCH_K_PERIOD,
+    WILLIAMS_R_PERIOD,
+)
+from utils import model_registry
+
+SIGNAL_COLORS = SIGNAL_COLORS
+SIGNAL_LABELS = SIGNAL_LABELS
+SIGNAL_MARKERS = SIGNAL_MARKERS
+
+
+# ─────────────────────────── indicator helpers ────────────────────────────────
+def _rsi(series, period=None):
+    if period is None:
+        period = RSI_PERIOD
+    delta = series.diff()
+    gain = delta.clip(lower=0).rolling(period).mean()
+    loss = (-delta.clip(upper=0)).rolling(period).mean()
+    return 100 - (100 / (1 + gain / (loss + 1e-9)))
+
+
+def _macd(series, fast=None, slow=None, sig=None):
+    fast = fast or MACD_FAST
+    slow = slow or MACD_SLOW
+    sig = sig or MACD_SIGNAL
+    ema_f = series.ewm(span=fast, adjust=False).mean()
+    ema_s = series.ewm(span=slow, adjust=False).mean()
+    line = ema_f - ema_s
+    signal = line.ewm(span=sig, adjust=False).mean()
+    return line, signal
+
+
+def _bollinger_pct(series, period=None):
+    period = period or BB_PERIOD
+    sma = series.rolling(period).mean()
+    std = series.rolling(period).std()
+    upper = sma + 2 * std
+    lower = sma - 2 * std
+    return (series - lower) / ((upper - lower).replace(0, np.nan))
+
+
+def _stochastic(high, low, close, k=None, d=None):
+    k = k or STOCH_K_PERIOD
+    d = d or STOCH_D_PERIOD
+    lowest_low = low.rolling(k).min()
+    highest_high = high.rolling(k).max()
+    k_pct = 100 * (close - lowest_low) / (highest_high - lowest_low + 1e-9)
+    d_pct = k_pct.rolling(d).mean()
+    return k_pct, d_pct
+
+
+def _atr(high, low, close, period=None):
+    period = period or ATR_PERIOD
+    tr = pd.concat(
+        [high - low, (high - close.shift(1)).abs(), (low - close.shift(1)).abs()], axis=1
+    ).max(axis=1)
+    return tr.rolling(period).mean() / (close + 1e-9)
+
+
+def _williams_r(high, low, close, period=None):
+    period = period or WILLIAMS_R_PERIOD
+    hh = high.rolling(period).max()
+    ll = low.rolling(period).min()
+    return -100 * (hh - close) / (hh - ll + 1e-9)
+
+
+def _build_features(df):
+    c = df["close"]
+    h = df["high"]
+    l = df["low"]
+
+    f = pd.DataFrame(index=df.index)
+
+    f["ema_9"] = c.ewm(span=EMA_FAST, adjust=False).mean()
+    f["ema_21"] = c.ewm(span=EMA_MID, adjust=False).mean()
+    f["ema_50"] = c.ewm(span=EMA_SLOW, adjust=False).mean()
+    f["ema_diff"] = f["ema_9"] - f["ema_21"]
+
+    f["rsi_14"] = _rsi(c, 14)
+    macd, macd_sig = _macd(c)
+    f["macd"] = macd
+    f["macd_sig"] = macd_sig
+    f["macd_hist"] = macd - macd_sig
+
+    stoch_k, stoch_d = _stochastic(h, l, c)
+    f["stoch_k"] = stoch_k
+    f["stoch_d"] = stoch_d
+
+    f["williams_r"] = _williams_r(h, l, c, 14)
+    f["bb_pct"] = _bollinger_pct(c, 20)
+    f["atr"] = _atr(h, l, c, 14)
+
+    f["ret_1"] = c.pct_change(1)
+    f["ret_3"] = c.pct_change(3)
+    f["ret_5"] = c.pct_change(5)
+
+    f["hl_spread"] = (h - l) / (c + 1e-9)
+
+    return f.dropna()
+
+
+def _make_labels(close_series, threshold=None):
+    nr = close_series.pct_change(1).shift(-1)
+    return pd.Series(
+        np.where(nr > threshold, 2, np.where(nr < -threshold, 0, 1)), index=close_series.index
+    )
+
+
+# ─────────────────────────── main function ────────────────────────────────────
+def bilstm_classifier(df, pred_prices, symbol=None, force_retrain=False):
+    """
+    Train a Bidirectional LSTM BUY/SELL/HOLD classifier on technical indicators,
+    then predict one signal per forecast day.
+
+    Parameters
+    ----------
+    df            : full historical OHLC DataFrame (from getData)
+    pred_prices   : np.ndarray (FORECAST_DAYS, 4)  — [high, low, close, prev_close] per day
+    symbol        : NSE symbol — enables the per-symbol classifier weight cache
+    force_retrain : ignore cached weights and train from scratch
+
+    Returns
+    -------
+    signals : list of dicts with label, signal, confidence, probs, color, marker
+    """
+
+    # ── 1. Clean OHLC ────────────────────────────────────────────────────────
+    raw = df[["close", "high", "low"]].copy()
+    for col in raw.columns:
+        raw[col] = pd.to_numeric(
+            raw[col].astype(str).str.replace(",", "", regex=False), errors="coerce"
+        )
+    raw = raw.dropna().reset_index(drop=True)
+
+    # ── 2. Build features ────────────────────────────────────────────────────
+    feat_df = _build_features(raw)
+    feat_columns = list(feat_df.columns)
+
+    # ── 3. Labels ────────────────────────────────────────────────────────────
+    close_aligned = raw["close"].loc[feat_df.index]
+    labels = _make_labels(close_aligned, threshold=CLASSIFIER_THRESHOLD)
+
+    feat_vals = feat_df.values.astype(np.float32)
+    label_vals = labels.values.astype(int)
+
+    X_for_train = feat_vals[:-1]
+    y_for_train = label_vals[:-1]
+
+    unique, counts = np.unique(y_for_train, return_counts=True)
+    label_dist = dict(zip([SIGNAL_LABELS[u] for u in unique], counts, strict=False))
+    print(f"\n  [BiLSTM Classifier] Label distribution: {label_dist}")
+
+    # ── 4. Weight cache lookup ───────────────────────────────────────────────
+    time_step = CLASSIFIER_TIME_STEP
+
+    cache_sig = model_registry.build_signature(
+        "BiLSTM-CLF",
+        df,
+        {
+            "time_step": time_step,
+            "feat_columns": feat_columns,
+            "threshold": CLASSIFIER_THRESHOLD,
+            "units": [CLASSIFIER_LSTM_UNITS_1, CLASSIFIER_LSTM_UNITS_2],
+            "dense": CLASSIFIER_DENSE_UNITS,
+            "dropout": CLASSIFIER_DROPOUT,
+            "split": CLASSIFIER_TRAIN_SPLIT,
+            "arch": "bilstm-classifier",
+        },
+    )
+    cached_model, cached_scaler, cache_status, _meta = model_registry.load(
+        symbol, "BiLSTM-CLF", cache_sig, force_retrain=force_retrain
+    )
+
+    # ── 5. Scale — cached weights and cached scaler must always travel together
+    if cache_status == "miss":
+        feat_scaler = MinMaxScaler(feature_range=(0, 1))
+        feat_scaler.fit(X_for_train)
+    else:
+        feat_scaler = cached_scaler
+    X_scaled_train = feat_scaler.transform(X_for_train)
+
+    # ── 6. Sequences ─────────────────────────────────────────────────────────
+
+    def make_sequences(X, y, ts):
+        Xs, ys = [], []
+        for i in range(len(X) - ts):
+            Xs.append(X[i : i + ts])
+            ys.append(y[i + ts])
+        return np.array(Xs), np.array(ys)
+
+    X_seq, y_seq = make_sequences(X_scaled_train, y_for_train, time_step)
+
+    print(f"  [BiLSTM Classifier] Total sequences: {len(X_seq)}")
+
+    # ── 7. Train / val split ─────────────────────────────────────────────────
+    split = int(len(X_seq) * CLASSIFIER_TRAIN_SPLIT)
+    Xtr, Xval = X_seq[:split], X_seq[split:]
+    ytr, yval = y_seq[:split], y_seq[split:]
+
+    ytr_cat = to_categorical(ytr, num_classes=3)
+    yval_cat = to_categorical(yval, num_classes=3)
+
+    cw = compute_class_weight("balanced", classes=np.array([0, 1, 2]), y=ytr)
+    cw_dict = {0: float(cw[0]), 1: float(cw[1]), 2: float(cw[2])}
+
+    print(f"  [BiLSTM Classifier] Train: {len(Xtr)}  Val: {len(Xval)}")
+    print(
+        f"  [BiLSTM Classifier] Class weights — SELL:{cw[0]:.2f}  HOLD:{cw[1]:.2f}  BUY:{cw[2]:.2f}\n"
+    )
+
+    # ── 8. Build / load Bidirectional LSTM model ─────────────────────────────
+    n_feat = X_seq.shape[2]
+
+    if cache_status == "miss":
+        model = Sequential(
+            [
+                Bidirectional(
+                    KerasLSTM(CLASSIFIER_LSTM_UNITS_1, return_sequences=True),
+                    input_shape=(time_step, n_feat),
+                ),
+                Dropout(CLASSIFIER_DROPOUT),
+                Bidirectional(KerasLSTM(CLASSIFIER_LSTM_UNITS_2)),
+                Dropout(CLASSIFIER_DROPOUT),
+                Dense(CLASSIFIER_DENSE_UNITS, activation="relu"),
+                Dense(3, activation="softmax"),
+            ]
+        )
+        model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
+
+        early_stop = EarlyStopping(
+            monitor="val_loss",
+            patience=CLASSIFIER_PATIENCE,
+            restore_best_weights=True,
+            verbose=1,
+            min_delta=CLASSIFIER_MIN_DELTA,
+        )
+
+        model.fit(
+            Xtr,
+            ytr_cat,
+            validation_data=(Xval, yval_cat),
+            epochs=CLASSIFIER_EPOCHS,
+            batch_size=CLASSIFIER_BATCH_SIZE,
+            verbose=1,
+            class_weight=cw_dict,
+            callbacks=[early_stop],
+        )
+    else:
+        model = cached_model
+        if cache_status == "warm":
+            print("  [Cache] Warm-starting BiLSTM classifier on newest sequences…")
+            model_registry.warm_start(
+                model,
+                X_seq,
+                to_categorical(y_seq, num_classes=3),
+                batch_size=CLASSIFIER_BATCH_SIZE,
+                class_weight=cw_dict,
+            )
+        else:
+            print("  [Cache] Using cached BiLSTM classifier weights as-is (no training).")
+
+    if cache_status != "fresh":
+        model_registry.save(symbol, "BiLSTM-CLF", model, feat_scaler, cache_sig)
+
+    # ── 9. Rolling 5-day signal forecast ─────────────────────────────────────
+    x_seed = X_scaled_train[-time_step:].copy()
+    ohlc_hist = raw[["close", "high", "low"]].copy().reset_index(drop=True)
+    signals = []
+
+    for i in range(FORECAST_DAYS):
+        probs = model.predict(x_seed.reshape(1, time_step, n_feat), verbose=0)[0]
+        signal_idx = int(np.argmax(probs))
+        confidence = float(probs[signal_idx]) * 100
+
+        print(
+            f"  [BiLSTM Classifier] Day {i + 1} probs — "
+            f"SELL:{probs[0] * 100:.1f}%  HOLD:{probs[1] * 100:.1f}%  BUY:{probs[2] * 100:.1f}%"
+            f"  → {SIGNAL_LABELS[signal_idx]}"
+        )
+
+        signals.append(
+            {
+                "label": SIGNAL_LABELS[signal_idx],
+                "signal": signal_idx,
+                "confidence": round(confidence, 1),
+                "probs": {
+                    "SELL": round(float(probs[0]) * 100, 1),
+                    "HOLD": round(float(probs[1]) * 100, 1),
+                    "BUY": round(float(probs[2]) * 100, 1),
+                },
+                "color": SIGNAL_COLORS[signal_idx],
+                "marker": SIGNAL_MARKERS[signal_idx],
+            }
+        )
+
+        # Roll window forward with predicted OHLC
+        p_close = float(pred_prices[i, 2])
+        p_high = float(pred_prices[i, 0])
+        p_low = float(pred_prices[i, 1])
+
+        new_row = pd.DataFrame(
+            {"close": [p_close], "high": [p_high], "low": [p_low]}, index=[ohlc_hist.index[-1] + 1]
+        )
+        ohlc_hist = pd.concat([ohlc_hist, new_row])
+
+        feat_ext = _build_features(ohlc_hist)
+        if feat_ext.empty:
+            continue
+
+        new_row_ind = feat_ext[feat_columns].iloc[-1].values.astype(np.float32).reshape(1, -1)
+        new_scaled = feat_scaler.transform(new_row_ind)[0]
+        x_seed = np.vstack([x_seed[1:], new_scaled])
+
+    return signals
