@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 424 | Current Index: 244
+Total Repositories: 424 | Current Index: 245
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -247,8 +247,8 @@ Total Repositories: 424 | Current Index: 244
 | 242 | nagarajugunda/nseindexoptionsdata | Processed | https://github.com/sparlit/EQATS/pull/3195 |
 | 243 | nash-io/openlimits | Processed | https://github.com/sparlit/EQATS/pull/3196 |
 | 244 | nautechsystems/nautilus_trader | Completed | https://github.com/sparlit/EQATS/pull/3197 |
-| 245 | nawin383/nse-top500-realtime-screener | pending | None |
-| 246 | nayakwadis/mftool | pending | None |
+| 245 | nawin383/nse-top500-realtime-screener | Skipped: Private/Non-Existent (404/403) | None |
+| 246 | nayakwadis/mftool | Completed | https://github.com/sparlit/EQATS/pull/3198 |
 | 247 | nayakwadis/nse-neuron | pending | None |
 | 248 | neha01/automate-scrap-nse-data | pending | None |
 | 249 | neilghosh/nse-historical-data | pending | None |
