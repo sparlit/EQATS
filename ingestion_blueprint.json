@@ -2094,8 +2094,8 @@
       "target": "oscmcompany/fund",
       "url": "https://github.com/oscmcompany/fund",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3231",
+      "merged": true
     },
     {
       "name": "nse_indices",
