@@ -1,5 +1,5 @@
 {
-  "current_index": 270,
+  "current_index": 271,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2165,9 +2165,9 @@
       "name": "kite-helper",
       "target": "pishangujeniya/kite-helper",
       "url": "https://github.com/pishangujeniya/kite-helper",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3240",
+      "merged": true
     },
     {
       "name": "nse-stocks-data-scrapper",
