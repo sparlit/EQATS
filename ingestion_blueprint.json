@@ -1,5 +1,5 @@
 {
-  "current_index": 263,
+  "current_index": 264,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2109,7 +2109,7 @@
       "name": "nse_trader",
       "target": "parmar-m/nse_trader",
       "url": "https://github.com/parmar-m/nse_trader",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
