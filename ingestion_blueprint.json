@@ -2230,8 +2230,8 @@
       "target": "pradyumnac/excel-tools-indian-stock-market",
       "url": "https://github.com/pradyumnac/excel-tools-indian-stock-market",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3248",
+      "merged": true
     },
     {
       "name": "express-option-chain",
