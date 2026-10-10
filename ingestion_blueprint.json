@@ -2054,8 +2054,8 @@
       "target": "nkaz001/hftbacktest",
       "url": "https://github.com/nkaz001/hftbacktest",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3226",
+      "merged": true
     },
     {
       "name": "nsedownload",
