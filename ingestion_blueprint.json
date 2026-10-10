@@ -1,5 +1,5 @@
 {
-  "current_index": 248,
+  "current_index": 249,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1989,7 +1989,7 @@
       "name": "nse-historical-data",
       "target": "neilghosh/nse-historical-data",
       "url": "https://github.com/neilghosh/nse-historical-data",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
