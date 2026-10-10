@@ -1,5 +1,5 @@
 {
-  "current_index": 266,
+  "current_index": 267,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2133,9 +2133,9 @@
       "name": "algo-trading",
       "target": "paul-folbrecht/algo-trading",
       "url": "https://github.com/paul-folbrecht/algo-trading",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3236",
+      "merged": true
     },
     {
       "name": "nse-option-chain---llm-project",
