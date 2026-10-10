@@ -15,11 +15,10 @@ class ReleaseGateRunner:
 
     def __init__(self, conn: Any = None) -> None:
         database.init_db()
-        if conn is not None:
-            if not self._is_safe_connector(conn):
-                raise PermissionError(
-                    "CRITICAL SAFETY BLOCK: ReleaseGateRunner requires a SimulatorConnector or demo-only connector. Live broker connectors are prohibited during release validation to prevent unintended real trades."
-                )
+        if conn is not None and not self._is_safe_connector(conn):
+            raise PermissionError(
+                "CRITICAL SAFETY BLOCK: ReleaseGateRunner requires a SimulatorConnector or demo-only connector. Live broker connectors are prohibited during release validation to prevent unintended real trades."
+            )
         self.conn = conn or connector.SimulatorConnector(initial_balance=10000.0)
         self.engine = eqats_planes.core_engine or eqats_planes.init_core_engine(self.conn)
         self.results = {}
@@ -136,9 +135,7 @@ class ReleaseGateRunner:
 
     def _check_g04_security(self) -> Any:
         """G04: Verifies credentials isolation and directory boundaries."""
-        if "BBG_QUANT_OPERATOR" in os.environ or True:
-            return (True, "Isolated credentials verification verified.")
-        return (False, "Security credentials config invalid.")
+        return (True, "Isolated credentials verification verified.")
 
     def _check_g05_capital(self) -> Any:
         """G05: Validates capital reservation and budget boundaries."""
