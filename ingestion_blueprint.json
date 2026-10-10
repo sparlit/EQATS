@@ -1,5 +1,5 @@
 {
-  "current_index": 270,
+  "current_index": 271,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2165,7 +2165,7 @@
       "name": "kite-helper",
       "target": "pishangujeniya/kite-helper",
       "url": "https://github.com/pishangujeniya/kite-helper",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
