@@ -1,5 +1,5 @@
 {
-  "current_index": 272,
+  "current_index": 273,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2181,9 +2181,9 @@
       "name": "nseta",
       "target": "pkjmesra/nseta",
       "url": "https://github.com/pkjmesra/nseta",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3242",
+      "merged": true
     },
     {
       "name": "pknsetools",
