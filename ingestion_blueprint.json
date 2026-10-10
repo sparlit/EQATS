@@ -1,5 +1,5 @@
 {
-  "current_index": 274,
+  "current_index": 275,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2197,9 +2197,9 @@
       "name": "pkscreener",
       "target": "pkjmesra/pkscreener",
       "url": "https://github.com/pkjmesra/pkscreener",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3244",
+      "merged": true
     },
     {
       "name": "stockmarket_project",
