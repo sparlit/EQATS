@@ -285,7 +285,7 @@ Total Repositories: 424 | Current Index: 283
 | 280 | pramakrishn/express-option-chain | Completed | https://github.com/sparlit/EQATS/pull/3249 |
 | 281 | pranjal-joshi/screeni-py | Completed | https://github.com/sparlit/EQATS/pull/3250 |
 | 282 | prasad1612/nsekit-mcp | Processed | https://github.com/sparlit/EQATS/pull/3251 |
-| 283 | praveen-mannem/nse-scanner | Processed | None |
+| 283 | praveen-mannem/nse-scanner | Processed | https://github.com/sparlit/EQATS/pull/3252 |
 | 284 | pujanm/stockx | pending | None |
 | 285 | purefinance/mmb | pending | None |
 | 286 | quantconnect/lean.datasource.zerodha | pending | None |

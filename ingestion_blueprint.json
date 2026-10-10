@@ -2262,8 +2262,8 @@
       "target": "praveen-mannem/nse-scanner",
       "url": "https://github.com/praveen-mannem/nse-scanner",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3252",
+      "merged": true
     },
     {
       "name": "stockx",
