@@ -1,5 +1,5 @@
 {
-  "current_index": 248,
+  "current_index": 249,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1989,9 +1989,9 @@
       "name": "nse-historical-data",
       "target": "neilghosh/nse-historical-data",
       "url": "https://github.com/neilghosh/nse-historical-data",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3218",
+      "merged": true
     },
     {
       "name": "hummingboss",

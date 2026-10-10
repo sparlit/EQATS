@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 424 | Current Index: 248
+Total Repositories: 424 | Current Index: 249
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -251,7 +251,7 @@ Total Repositories: 424 | Current Index: 248
 | 246 | nayakwadis/mftool | Completed | https://github.com/sparlit/EQATS/pull/3215 |
 | 247 | nayakwadis/nse-neuron | Completed | https://github.com/sparlit/EQATS/pull/3216 |
 | 248 | neha01/automate-scrap-nse-data | Processed | https://github.com/sparlit/EQATS/pull/3217 |
-| 249 | neilghosh/nse-historical-data | pending | None |
+| 249 | neilghosh/nse-historical-data | Processed | https://github.com/sparlit/EQATS/pull/3218 |
 | 250 | nethermindeth/hummingboss | pending | None |
 | 251 | ngm9/nsei_mcp_server | pending | None |
 | 252 | nickmccullum/algorithmic-trading-python | pending | None |
