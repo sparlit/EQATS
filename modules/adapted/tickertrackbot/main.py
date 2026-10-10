@@ -1,0 +1,51 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import os
+import time
+
+import schedule
+import telepot
+import tickertracker
+from dotenv import load_dotenv
+from telepot.delegate import create_open, pave_event_space, per_chat_id
+from telepot.loop import MessageLoop
+
+load_dotenv()
+bot = telepot.DelegatorBot(
+    os.environ["TT_BOT_TOKEN"],
+    [
+        pave_event_space()(
+            per_chat_id(),
+            create_open,
+            tickertracker.TickerTracker,
+            timeout=300,
+        ),
+    ],
+)
+
+
+MessageLoop(bot).run_as_thread()
+while True:
+    schedule.run_pending()  # poll for market close job
+    time.sleep(10)
