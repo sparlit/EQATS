@@ -1,5 +1,5 @@
 {
-  "current_index": 273,
+  "current_index": 274,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2189,7 +2189,7 @@
       "name": "pknsetools",
       "target": "pkjmesra/pknsetools",
       "url": "https://github.com/pkjmesra/pknsetools",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
