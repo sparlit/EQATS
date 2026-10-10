@@ -2150,8 +2150,8 @@
       "target": "pec-css/stock-watchlist",
       "url": "https://github.com/pec-css/stock-watchlist",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3238",
+      "merged": true
     },
     {
       "name": "tickertrackbot",
