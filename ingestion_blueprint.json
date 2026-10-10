@@ -1,5 +1,5 @@
 {
-  "current_index": 260,
+  "current_index": 261,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2085,7 +2085,7 @@
       "name": "nse_eod",
       "target": "opmashin/nse_eod",
       "url": "https://github.com/opmashin/nse_eod",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
