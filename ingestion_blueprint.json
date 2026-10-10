@@ -1,5 +1,5 @@
 {
-  "current_index": 253,
+  "current_index": 254,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2029,9 +2029,9 @@
       "name": "pump-fun-sdk",
       "target": "nirholas/pump-fun-sdk",
       "url": "https://github.com/nirholas/pump-fun-sdk",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3223",
+      "merged": true
     },
     {
       "name": "nse_livedata_from_excel_extraction",
