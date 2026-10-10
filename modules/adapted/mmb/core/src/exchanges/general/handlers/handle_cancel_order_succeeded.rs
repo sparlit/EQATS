@@ -1,0 +1,323 @@
+use crate::exchanges::general::exchange::Exchange;
+use crate::exchanges::general::handlers::should_ignore_event;
+use chrono::Utc;
+use function_name::named;
+use mmb_domain::events::EventSourceType;
+use mmb_domain::order::event::OrderEventType;
+use mmb_domain::order::pool::OrderRef;
+use mmb_domain::order::snapshot::Amount;
+use mmb_domain::order::snapshot::ClientOrderId;
+use mmb_domain::order::snapshot::ExchangeOrderId;
+use mmb_domain::order::snapshot::OrderStatus;
+use mmb_utils::infrastructure::WithExpect;
+
+impl Exchange {
+    #[named]
+    pub(crate) fn handle_cancel_order_succeeded(
+        &self,
+        client_order_id: Option<&ClientOrderId>,
+        exchange_order_id: &ExchangeOrderId,
+        filled_amount: Option<Amount>,
+        source_type: EventSourceType,
+    ) {
+        log::trace!(
+            concat!(
+                "started ",
+                function_name!(),
+                " {:?} {:?} {:?} filled amount {:?}"
+            ),
+            client_order_id,
+            exchange_order_id,
+            source_type,
+            filled_amount,
+        );
+
+        let args_to_log = (
+            self.exchange_account_id,
+            exchange_order_id,
+            self.features.allowed_cancel_event_source_type,
+            source_type,
+        );
+
+        if should_ignore_event(self.features.allowed_cancel_event_source_type, source_type) {
+            log::info!("Ignoring fill {args_to_log:?}");
+            return;
+        }
+
+        if exchange_order_id.is_empty() {
+            panic!("Received HandleOrderFilled with an empty exchangeOrderId {args_to_log:?}",);
+        }
+
+        match self.orders.cache_by_exchange_id.get(exchange_order_id) {
+            None => {
+                self.buffered_canceled_orders_manager
+                    .lock()
+                    .add_order(self.exchange_account_id, exchange_order_id.clone());
+
+                match client_order_id {
+                    Some(client_order_id) => self.raise_order_created(client_order_id, exchange_order_id, source_type),
+                    None => log::error!("cancel_order_succeeded was received for an order which is not in the system {} {exchange_order_id:?}", self.exchange_account_id),
+                }
+            }
+            Some(order_ref) => {
+                self.update_local_order(&order_ref, filled_amount, source_type, exchange_order_id)
+            }
+        }
+    }
+
+    fn order_already_closed(
+        &self,
+        status: OrderStatus,
+        client_order_id: &ClientOrderId,
+        exchange_order_id: &ExchangeOrderId,
+    ) -> bool {
+        match status {
+            OrderStatus::Canceled | OrderStatus::Completed => {
+                log::warn!("CancelOrderSucceeded received for {status:?} order {client_order_id} {:?} {exchange_order_id}", self.exchange_account_id);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn update_local_order(
+        &self,
+        order: &OrderRef,
+        filled_amount: Option<Amount>,
+        source_type: EventSourceType,
+        exchange_order_id: &ExchangeOrderId,
+    ) {
+        let client_order_id = order.client_order_id();
+        let status = order.status();
+
+        if self.order_already_closed(status, &client_order_id, exchange_order_id) {
+            log::trace!("handle_cancel_order_succeeded order_already_closed {status:?}, {client_order_id}, {exchange_order_id:?}");
+            return;
+        }
+
+        if source_type == EventSourceType::RestFallback {
+            // TODO some metrics
+        }
+
+        let is_canceling_from_wait_cancel_order = order.fn_mut(|x| {
+            x.set_status(OrderStatus::Canceled, Utc::now());
+            x.internal_props.filled_amount_after_cancellation = filled_amount;
+            x.internal_props.cancellation_event_source_type = Some(source_type);
+            x.internal_props.is_canceling_from_wait_cancel_order
+        });
+
+        // Here we cover the situation with MakerOnly orders
+        // As soon as we created an order, it was automatically canceled
+        // Usually we raise CancelOrderSucceeded in WaitCancelOrder after a check for fills via fallback
+        // but in this particular case the cancellation is triggered by exchange itself, so WaitCancelOrder was never called
+        if !is_canceling_from_wait_cancel_order {
+            log::info!("Adding CancelOrderSucceeded event from handle_cancel_order_succeeded() {client_order_id:?} {exchange_order_id:?} on {}", self.exchange_account_id);
+
+            // Sometimes we start WaitCancelOrder at about the same time when as get an "order was refused/canceled" notification from an exchange (i. e. MakerOnly),
+            // and we can Add CancelOrderSucceeded event here (outside WaitCancelOrder) and later from WaitCancelOrder as
+            // when we check order.WasFinished in the beginning on WaitCancelOrder, the status is not set to Canceled yet
+            // To avoid this situation we set CanceledNotFromWaitCancelOrder to true and then don't raise an event in WaitCancelOrder for the 2nd time
+            order.fn_mut(|x| x.internal_props.canceled_not_from_wait_cancel_order = true);
+
+            self.add_event_on_order_change(order, OrderEventType::CancelOrderSucceeded)
+                .with_expect(|| format!("Failed to add event CancelOrderSucceeded on order change {client_order_id}"));
+        }
+
+        log::info!(
+            "Order was successfully cancelled {client_order_id:?} {exchange_order_id:?} on {}",
+            self.exchange_account_id
+        );
+
+        self.event_recorder
+            .save(&mut order.deep_clone())
+            .expect("Failure save order");
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::exchanges::general::test_helper;
+    use mmb_domain::events::ExchangeEvent;
+    use mmb_domain::market::CurrencyPair;
+    use mmb_domain::order::snapshot::{OrderRole, OrderSide};
+    use rstest::rstest;
+    use rust_decimal_macros::dec;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[should_panic(expected = "Received HandleOrderFilled with an empty exchangeOrderId")]
+    async fn empty_exchange_order_id() {
+        let (exchange, _rx) = test_helper::get_test_exchange(false);
+
+        let client_order_id = ClientOrderId::unique_id();
+        let exchange_order_id = ExchangeOrderId::new("".into());
+        let filled_amount = dec!(1);
+        let source_type = EventSourceType::Rest;
+
+        exchange.handle_cancel_order_succeeded(
+            Some(&client_order_id),
+            &exchange_order_id,
+            Some(filled_amount),
+            source_type,
+        );
+    }
+
+    #[rstest]
+    #[case(OrderStatus::Completed, true)]
+    #[case(OrderStatus::Canceled, true)]
+    #[case(OrderStatus::Creating, false)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn order_already_closed(#[case] status: OrderStatus, #[case] expected: bool) {
+        let (exchange, _rx) = test_helper::get_test_exchange(false);
+
+        let client_order_id = ClientOrderId::unique_id();
+        let exchange_order_id = ExchangeOrderId::new("".into());
+
+        let already_closed =
+            exchange.order_already_closed(status, &client_order_id, &exchange_order_id);
+
+        assert_eq!(already_closed, expected);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn return_if_order_already_closed() {
+        let (exchange, _rx) = test_helper::get_test_exchange(false);
+
+        let client_order_id = ClientOrderId::unique_id();
+        let currency_pair = CurrencyPair::from_codes("PHB".into(), "BTC".into());
+        let order_side = OrderSide::Buy;
+        let order_amount = dec!(12);
+        let order_role = OrderRole::Maker;
+        let fill_price = dec!(0.8);
+
+        let order_ref = test_helper::create_order_ref(
+            &client_order_id,
+            Some(order_role),
+            exchange.exchange_account_id,
+            currency_pair,
+            fill_price,
+            order_amount,
+            order_side,
+        );
+        order_ref.fn_mut(|order| order.set_status(OrderStatus::Completed, Utc::now()));
+
+        test_helper::try_add_snapshot_by_exchange_id(&exchange, &order_ref);
+
+        let exchange_order_id = ExchangeOrderId::new("".into());
+        let filled_amount = Some(dec!(5));
+        let source_type = EventSourceType::Rest;
+        exchange.update_local_order(&order_ref, filled_amount, source_type, &exchange_order_id);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn order_filled_amount_cancellation_updated() {
+        let (exchange, _rx) = test_helper::get_test_exchange(false);
+
+        let client_order_id = ClientOrderId::unique_id();
+        let currency_pair = CurrencyPair::from_codes("PHB".into(), "BTC".into());
+        let order_side = OrderSide::Buy;
+        let order_amount = dec!(12);
+        let order_role = OrderRole::Maker;
+        let fill_price = dec!(0.8);
+
+        let order_ref = test_helper::create_order_ref(
+            &client_order_id,
+            Some(order_role),
+            exchange.exchange_account_id,
+            currency_pair,
+            fill_price,
+            order_amount,
+            order_side,
+        );
+
+        test_helper::try_add_snapshot_by_exchange_id(&exchange, &order_ref);
+
+        let exchange_order_id = ExchangeOrderId::new("".into());
+        let filled_amount = Some(dec!(5));
+        let source_type = EventSourceType::Rest;
+        exchange.update_local_order(&order_ref, filled_amount, source_type, &exchange_order_id);
+
+        let changed_amount =
+            order_ref.fn_ref(|x| x.internal_props.filled_amount_after_cancellation);
+        let expected = filled_amount;
+        assert_eq!(changed_amount, expected);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn order_status_updated() {
+        let (exchange, _rx) = test_helper::get_test_exchange(false);
+
+        let client_order_id = ClientOrderId::unique_id();
+        let currency_pair = CurrencyPair::from_codes("PHB".into(), "BTC".into());
+        let order_side = OrderSide::Buy;
+        let order_amount = dec!(12);
+        let order_role = OrderRole::Maker;
+        let fill_price = dec!(0.8);
+
+        let order_ref = test_helper::create_order_ref(
+            &client_order_id,
+            Some(order_role),
+            exchange.exchange_account_id,
+            currency_pair,
+            fill_price,
+            order_amount,
+            order_side,
+        );
+
+        test_helper::try_add_snapshot_by_exchange_id(&exchange, &order_ref);
+
+        let exchange_order_id = ExchangeOrderId::new("".into());
+        let filled_amount = Some(dec!(5));
+        let source_type = EventSourceType::Rest;
+        exchange.update_local_order(&order_ref, filled_amount, source_type, &exchange_order_id);
+
+        let order_status = order_ref.status();
+        assert_eq!(order_status, OrderStatus::Canceled);
+
+        let order_event_source_type = order_ref
+            .fn_ref(|x| x.internal_props.cancellation_event_source_type)
+            .expect("in test");
+        assert_eq!(order_event_source_type, source_type);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn canceled_not_from_wait_cancel_order() {
+        let (exchange, mut event_receiver) = test_helper::get_test_exchange(false);
+
+        let client_order_id = ClientOrderId::unique_id();
+        let currency_pair = CurrencyPair::from_codes("PHB".into(), "BTC".into());
+        let order_side = OrderSide::Buy;
+        let order_amount = dec!(12);
+        let order_role = OrderRole::Maker;
+        let fill_price = dec!(0.8);
+
+        let order_ref = test_helper::create_order_ref(
+            &client_order_id,
+            Some(order_role),
+            exchange.exchange_account_id,
+            currency_pair,
+            fill_price,
+            order_amount,
+            order_side,
+        );
+
+        test_helper::try_add_snapshot_by_exchange_id(&exchange, &order_ref);
+
+        let exchange_order_id = ExchangeOrderId::new("".into());
+        let filled_amount = Some(dec!(5));
+        let source_type = EventSourceType::Rest;
+        exchange.update_local_order(&order_ref, filled_amount, source_type, &exchange_order_id);
+
+        let canceled_not_from_wait_cancel_order =
+            order_ref.fn_ref(|x| x.internal_props.canceled_not_from_wait_cancel_order);
+        assert!(canceled_not_from_wait_cancel_order);
+
+        let event = match event_receiver.try_recv().expect("Event was not received") {
+            ExchangeEvent::OrderEvent(v) => v,
+            _ => panic!("Should be OrderEvent"),
+        };
+
+        let gotten_id = event.order.client_order_id();
+        assert_eq!(gotten_id, client_order_id);
+    }
+}

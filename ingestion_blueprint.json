@@ -1,5 +1,5 @@
 {
-  "current_index": 284,
+  "current_index": 285,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2277,9 +2277,9 @@
       "name": "mmb",
       "target": "purefinance/mmb",
       "url": "https://github.com/purefinance/mmb",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3254",
+      "merged": true
     },
     {
       "name": "lean.datasource.zerodha",
