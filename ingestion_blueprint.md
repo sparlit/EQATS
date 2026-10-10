@@ -286,7 +286,7 @@ Total Repositories: 424 | Current Index: 284
 | 281 | pranjal-joshi/screeni-py | Completed | https://github.com/sparlit/EQATS/pull/3250 |
 | 282 | prasad1612/nsekit-mcp | Processed | https://github.com/sparlit/EQATS/pull/3251 |
 | 283 | praveen-mannem/nse-scanner | Processed | https://github.com/sparlit/EQATS/pull/3252 |
-| 284 | pujanm/stockx | Completed | None |
+| 284 | pujanm/stockx | Completed | https://github.com/sparlit/EQATS/pull/3253 |
 | 285 | purefinance/mmb | pending | None |
 | 286 | quantconnect/lean.datasource.zerodha | pending | None |
 | 287 | quantmechanics/nse-premarket-data | pending | None |

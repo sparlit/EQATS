@@ -2270,8 +2270,8 @@
       "target": "pujanm/stockx",
       "url": "https://github.com/pujanm/stockx",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3253",
+      "merged": true
     },
     {
       "name": "mmb",
