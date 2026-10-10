@@ -327,7 +327,7 @@
 - [ ] nash-io/openlimits
 - [ ] nautechsystems/nautilus_trader
 - [ ] nawin383/nse-top500-realtime-screener
-- [ ] NayakwadiS/mftool
+- [x] NayakwadiS/mftool
 - [ ] NayakwadiS/NSE-Neuron
 - [ ] neha01/Automate-Scrap-Nse-Data
 - [ ] neilghosh/nse-historical-data
@@ -628,3 +628,8 @@
   - Dual-exchange quote parsing (NSE & BSE), price spread computation, option chain Put-Call Ratio (PCR) & Max Pain strike calculation, top gainers/losers classification adapted into `src/institutional_integrations/nse_bse_api_bshada_engine.py`.
   - Registered in `IndianBrokerPluginRegistry` under `NSE_BSE_API_BSHADA`.
   - Unit tests added to `tests/test_nse_bse_api_bshada_engine.py` with 100% pass rate.
+
+- [x] **Repo 086: NayakwadiS/mftool (Magic Number: 9100103)**
+  - Indian Mutual Fund NAV history analytics, scheme search, CAGR/Sharpe ratio calculations, portfolio asset allocation matrix, 0.05 INR price tick rounding, and IST market session safeguards adapted into `src/institutional_integrations/mftool_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `MFTOOL` and `MFTOOL_MUTUAL_FUND_ENGINE`.
+  - Unit tests added to `tests/test_mftool_engine.py` with 100% pass rate.

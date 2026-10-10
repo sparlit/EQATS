@@ -1,5 +1,5 @@
 {
-  "current_index": 244,
+  "current_index": 245,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1957,7 +1957,7 @@
       "name": "nse-top500-realtime-screener",
       "target": "nawin383/nse-top500-realtime-screener",
       "url": "https://github.com/nawin383/nse-top500-realtime-screener",
-      "status": "pending",
+      "status": "Skipped: Private/Non-Existent (404/403)",
       "pr_url": null,
       "merged": false
     },

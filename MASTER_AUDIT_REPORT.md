@@ -35,7 +35,7 @@ State ledger tracking in `ingestion_blueprint.json` tracks a total of **424 open
 - `src/database.py`: Fully operational schema initialization, user authentication, credential manager, terminal path validation, circuit breaker state tracking, and thread-safe WAL locking.
 - `src/credential_manager.py`: Standalone CLI and Tkinter GUI credential management for admin `QUANT_OPERATOR` and broker API keys.
 - `src/connector.py`: MT5 zero-stub connector, order execution engine, position manager, and simulation fallback with strict volume pre-normalization.
-- `src/institutional_integrations/`: Institutional engines including `kronos_model.py` (Magic Number 9100100), `institutional_order_router.py` (9100101), `options_greeks_hedge_engine.py` (9100102), `ai_native_sdlc_governor.py` (9100089), `open_terminal_ui_engine.py` (9100086), `phil_self_improving_trader_engine.py` (9100087), `jev_ai_decision_engine.py` (9100088), `automated_trading_tool_engine.py` (9100090), and `zen-tradings` suites (9100090–9100099). All subclassing `SEBIBrokerAdapter` in `IndianBrokerPluginRegistry`.
+- `src/institutional_integrations/`: Institutional engines including `kronos_model.py` (Magic Number 9100100), `institutional_order_router.py` (9100101), `options_greeks_hedge_engine.py` (9100102), `mftool_engine.py` (9100103), `ai_native_sdlc_governor.py` (9100089), `open_terminal_ui_engine.py` (9100086), `phil_self_improving_trader_engine.py` (9100087), `jev_ai_decision_engine.py` (9100088), `automated_trading_tool_engine.py` (9100090), and `zen-tradings` suites (9100090–9100099). All subclassing `SEBIBrokerAdapter` in `IndianBrokerPluginRegistry`.
 
 ---
 
@@ -92,7 +92,7 @@ State ledger tracking in `ingestion_blueprint.json` tracks a total of **424 open
 
 - **Unit & Integration Test Suite**:
   - `PYTHONPATH=src /app/venv/bin/python3 -m pytest tests/`
-  - **Result**: **683 passed, 4 warnings in 145s (100% pass rate)**.
+  - **Result**: **690 passed, 4 warnings in 135s (100% pass rate)**.
 - **Terminal Path Validation Security Suite**:
   - `PYTHONPATH=src /app/venv/bin/python3 -m pytest tests/test_terminal_path_validation.py`
   - **Result**: **8 passed in 2.75s**.
@@ -101,7 +101,7 @@ State ledger tracking in `ingestion_blueprint.json` tracks a total of **424 open
   - **Result**: **8 passed in 2.08s**.
 - **Static Type Checking**:
   - `PYTHONPATH=src /app/venv/bin/python3 -m mypy src/ --ignore-missing-imports`
-  - **Result**: **Success: no issues found in 214 source files**.
+  - **Result**: **Success: no issues found in 215 source files**.
 
 ---
 
