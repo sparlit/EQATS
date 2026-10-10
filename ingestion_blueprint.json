@@ -1,5 +1,5 @@
 {
-  "current_index": 282,
+  "current_index": 283,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2261,9 +2261,9 @@
       "name": "nse-scanner",
       "target": "praveen-mannem/nse-scanner",
       "url": "https://github.com/praveen-mannem/nse-scanner",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3252",
+      "merged": true
     },
     {
       "name": "stockx",

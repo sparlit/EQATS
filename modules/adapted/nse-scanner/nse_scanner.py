@@ -21,989 +21,1167 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
+#!/usr/bin/env python3
 """
-nse_scanner.py — Core Stock Scanner (v5 — Weekly Tier + Market Cap + Situation)
-================================================================================
-WHAT CHANGED FROM v4:
+NSE Inside Bar Scanner — local Python version, writes results into Google Sheets.
 
-  1. WEEKLY HMA TWO-TIER FILTER (new — via nse_technical_filters v3)
-     Tier 3 stocks (weekly HMA20 < HMA55) are HARD REMOVED
-     Tier 1 (bullish) → eligible for PRIME ENTRY
-     Tier 2 (neutral/pullback) → capped at WATCH CLOSELY
+WHAT IT DOES
+    Scans NSE symbols (no price cap — every symbol is eligible) while
+    skipping low-liquidity names using --min-avg-volume and
+    --min-turnover-lakhs, for the "inside bar" pattern on either a daily or
+    hourly timeframe, and writes color-coded signals into a worksheet tab of
+    your Google Sheet:
+        WATCH              -> latest candle is an inside bar (amber). No
+                               trade yet, a name to watch for the next
+                               candle's breakout.
+        BULLISH (green)    -> previous candle was an inside bar, and the
+        BEARISH (red)         LATEST candle closed beyond the mother bar's
+                               high/low (close-based confirmation).
+    Confirmed breakouts get scored 0-3 against false-breakout filters:
+        trend  - close on the correct side of the 50-period EMA
+        volume - breakout candle volume >= 1.5x the prior 20-period average
+        RSI    - RSI(14) in a sane momentum band, not already at an extreme
+    Entry / Stop Loss / Target are computed off the mother bar's range:
+        BULLISH: entry = mother high, stop = mother low,
+                 target = mother high + (mother high - mother low)
+        BEARISH: entry = mother low,  stop = mother high,
+                 target = mother low  - (mother high - mother low)
+        WATCH:   both potential trigger levels are shown; direction isn't
+                 known yet so no stop/target until it actually breaks out.
 
-  2. MARKET CAP FILTER (now enforced)
-     MIN_MARKET_CAP ≥ ₹500 Cr (was in config but not applied)
-     Estimated from: market_cap ≈ close × shares_approx
-     Where shares_approx = avg_daily_turnover / avg_price / 0.02
-     (assumes ~2% of shares trade daily — conservative NSE estimate)
-     If no turnover data: filter skipped gracefully
+PATTERN LOGIC (3-candle window, newest = candle[-1]):
+    candle[-3] = mother bar candidate (for confirmed breakout check)
+    candle[-2] = inside bar candidate (must be inside candle[-3] high/low)
+    candle[-1] = breakout/signal candle:
+        - If candle[-2] was inside candle[-3] AND candle[-1] closes
+          beyond candle[-3] high/low => BULLISH / BEARISH
+        - If candle[-1] is inside candle[-2]  => WATCH (fresh inside bar)
 
-  3. TURNOVER FILTER (new)
-     MIN_TURNOVER ≥ ₹2 Cr daily (turnover_lacs ≥ 200)
-     Ensures sufficient liquidity for entry/exit without slippage
-     Already in config.MIN_TURNOVER — now enforced here
+TWO-STAGE SCAN (keeps this fast even across the whole NSE list)
+    Stage 1: a quick liquidity check on every symbol (~1 month of daily
+             data) to drop anything that isn't actively traded — average
+             volume and average rupee turnover both have to clear your
+             --min-avg-volume / --min-turnover-lakhs thresholds — before
+             doing any real work. There is no price cap; a stock can be at
+             any price as long as it trades enough volume/turnover.
+    Stage 2: full historical fetch + indicator calc, only on what's left.
+             analyze_symbol() re-checks the same liquidity thresholds
+             against the timeframe-specific data, so Stage 1 is purely a
+             speed optimization, not the source of truth.
 
-  4. SITUATION ASSIGNMENT (new — integrated from nse_telegram_handler)
-     Each stock gets a situation label before saving
-     Weekly tier feeds into situation:
-       Tier 2 stock → cannot be PRIME even if score ≥ 7
+SECTOR COLUMN
+    Once a symbol produces a signal (WATCH/BULLISH/BEARISH), its sector is
+    looked up via yfinance's `Ticker.info` and written into the sheet. This
+    lookup only happens for the (small) list of symbols with signals, not
+    the whole NSE universe, since per-symbol `.info` calls are slow.
 
-  5. WEEKLY TIER COLUMNS in output
-     weekly_tier, weekly_label added to result_df
-     Used by Telegram handler to cap situation
+DATA SOURCE
+    Yahoo Finance via the `yfinance` package (SYMBOL.NS). Free, no key.
+    60-minute intraday data is typically ~15 min delayed and can be patchy
+    for illiquid names — treat it as "near-live" for spotting setups, not
+    as a tick-accurate execution feed.
 
-Expected stock counts with all filters:
-  ~1800 NSE EQ stocks
-  → ~1200 after blacklist + price ≥ ₹50
-  → ~600  after volume + delivery
-  → ~400  after turnover ≥ ₹2 Cr
-  → ~300  after 3M return > 0 (uptrend gate)
-  → ~150  after weekly Tier 3 removed
-  → ~25   after forward score ≥ 4
-  → 2-4   PRIME ENTRY (Tier 1 + score ≥ 7)
-  → 5-8   WATCH CLOSELY (Tier 2 or score 4-6)
+SYMBOL UNIVERSE (fixed — see load_symbols)
+    NSE's archives host (nsearchives.nseindia.com) blocks plain scripted
+    requests without a warmed-up session/cookies, which used to cause a
+    SILENT fallback to a 47-stock Nifty-50 list — meaning most of the NSE
+    universe (incl. mid/small caps like ELGIEQUIP) was never scanned, with
+    no obvious error. load_symbols() now:
+        1. Warms up a requests.Session against nseindia.com to collect the
+           cookies NSE expects, then requests the CSV with proper headers.
+        2. Retries a few times with backoff before giving up.
+        3. Falls back to the NSE company master API as a second source.
+        4. Falls back to a bundled/cached local symbol file if you keep one
+           (--symbols-file always wins if you pass it).
+        5. Only as an absolute last resort does it use the 47-stock
+           Nifty-50 list — and when it does, it now prints a loud WARNING
+           (not a quiet stderr note) and requires --allow-fallback-list to
+           proceed, so you can never silently under-scan again.
+
+USAGE
+    python nse_scanner.py --timeframe daily
+    python nse_scanner.py --timeframe hourly
+    python nse_scanner.py --timeframe daily --min-avg-volume 200000 --min-turnover-lakhs 100
+    python nse_scanner.py --timeframe daily --symbols-file my_symbols.txt
+
+See SETUP.md for one-time Google Sheets credential setup and how to
+schedule this with cron so it runs automatically, hourly and daily.
 """
 
 import argparse
-import json
-import logging
-import os
-import sqlite3
+import csv
 import sys
-from datetime import date, datetime, timedelta
+import time
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pandas as pd
-from nse_lifecycle_tracker import apply_lifecycle
-
-try:
-    import config
-except ImportError:
-    print("ERROR: config.py not found.")
-    sys.exit(1)
-
-try:
-    from nse_technical_filters import (
-        CATEGORY_META,
-        CATEGORY_ORDER,
-        TIER_HIGH_CONVICTION,
-        TIER_WATCHLIST,
-        WEEKLY_TIER_BEARISH,
-        WEEKLY_TIER_BULLISH,
-        WEEKLY_TIER_NEUTRAL,
-        assign_categories_bulk,
-        format_score_breakdown,
-        get_weekly_tier_label,
-        score_all_stocks,
-    )
-
-    TECH_FILTERS_AVAILABLE = True
-except ImportError:
-    print("WARNING: nse_technical_filters.py not found. Momentum-only mode.")
-    TECH_FILTERS_AVAILABLE = False
-    CATEGORY_META = {
-        "rising": {"icon": "📈", "label": "Consistently Rising"},
-        "uptrend": {"icon": "🚀", "label": "Clear Uptrend Confirmed"},
-        "peak": {"icon": "🔝", "label": "Close to Their Peak"},
-        "recovering": {"icon": "📉", "label": "Recovering from a Fall"},
-        "safer": {"icon": "🛡️", "label": "Safer Bets with Good Reward"},
-    }
-    CATEGORY_ORDER = ["uptrend", "rising", "peak", "safer", "recovering"]
-    WEEKLY_TIER_BULLISH = 1
-    WEEKLY_TIER_NEUTRAL = 2
-    WEEKLY_TIER_BEARISH = 3
-
-    def get_weekly_tier_label(t):
-        return "Weekly ?"
-
-
-try:
-    from nse_telegram_handler import assign_situation, save_scan_results
-
-    _HANDLER_OK = True
-except ImportError:
-    save_scan_results = None
-    _HANDLER_OK = False
-
-    def assign_situation(stock, streak=0):
-        return "watch"
-
-
-DAYS_1M = 22
-DAYS_2M = 44
-DAYS_3M = 66
-DAYS_6M = 126
-DAYS_12M = 252
-LOOKBACK = 400
-
-os.makedirs(config.LOG_DIR, exist_ok=True)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(levelname)s  %(message)s",
-    handlers=[
-        logging.FileHandler(os.path.join(config.LOG_DIR, "scanner.log")),
-        logging.StreamHandler(),
-    ],
-)
-log = logging.getLogger(__name__)
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# DATA LOADING
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-def load_data_for_date(scan_date):
-    """Load price history, blacklist, and 52W data from SQLite."""
-    conn = sqlite3.connect(config.DB_PATH)
-    start_date = scan_date - timedelta(days=LOOKBACK + 30)
-
-    prices_df = pd.read_sql_query(
-        f"""
-        SELECT symbol, date, open, high, low, close,
-               volume, delivery_pct, avg_price, turnover_lacs
-        FROM daily_prices
-        WHERE date >= '{start_date}' AND date <= '{scan_date}'
-        ORDER BY symbol, date
-    """,
-        conn,
-    )
-    prices_df["date"] = pd.to_datetime(prices_df["date"])
-
-    blacklist_df = pd.read_sql_query(
-        f"""
-        SELECT symbol FROM blacklist WHERE date = '{scan_date}'
-    """,
-        conn,
-    )
-
-    w52_df = pd.read_sql_query(
-        f"""
-        SELECT symbol, week52_high, week52_low FROM week52
-        WHERE date = (
-            SELECT MAX(date) FROM week52
-            WHERE date <= '{scan_date}'
-        )
-    """,
-        conn,
-    )
-
-    if w52_df.empty:
-        print("  ⚠️  No week52 data — 'Close to Peak' category disabled")
-    else:
-        print(f"  ✅  week52 loaded: {len(w52_df)} stocks")
-
-    w52_map = {
-        row["symbol"]: (row["week52_high"], row["week52_low"]) for _, row in w52_df.iterrows()
-    }
-
-    conn.close()
-    return {
-        "prices": prices_df,
-        "blacklist": set(blacklist_df["symbol"].tolist()),
-        "w52_map": w52_map,
-        "scan_date": scan_date,
-    }
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# RETURN CALCULATION
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-def calculate_returns(prices_df, scan_date):
-    """
-    Calculate 1M/2M/3M/6M/12M returns + long-term trend references.
-    Returns are for DISPLAY and uptrend gate only — not for ranking.
-    """
-    if prices_df.empty:
-        return pd.DataFrame()
-
-    recent = prices_df[prices_df["date"] <= pd.Timestamp(scan_date)].copy()
-    recent["symbol"] = recent["symbol"].astype(str).str.strip()
-    recent = recent.dropna(subset=["symbol", "date", "close"])
-    recent = recent.sort_values(["symbol", "date"])
-    results = []
-
-    for symbol, grp in recent.groupby("symbol"):
-        grp = grp.tail(DAYS_12M + 5)
-        if len(grp) < DAYS_1M:
-            continue
-        current_close = grp.iloc[-1]["close"]
-
-        def ret(n):
-            if len(grp) >= n and grp.iloc[-n]["close"] > 0:
-                return (current_close - grp.iloc[-n]["close"]) / grp.iloc[-n]["close"]
-            return 0.0
-
-        latest = grp.iloc[-1]
-        avg_vol = grp.tail(22)["volume"].mean()
-        # Average daily turnover over last 22 days (in lacs)
-        avg_turnover = (
-            grp.tail(22)["turnover_lacs"].mean() if "turnover_lacs" in grp.columns else 0.0
-        )
-        ma50 = grp.tail(50)["close"].mean() if len(grp) >= 50 else current_close
-        ma200 = grp.tail(200)["close"].mean() if len(grp) >= 200 else current_close
-
-        results.append(
-            {
-                "symbol": str(symbol).strip(),
-                "close": current_close,
-                "open": latest.get("open", 0),
-                "high": latest.get("high", 0),
-                "low": latest.get("low", 0),
-                "volume": latest.get("volume", 0),
-                "avg_volume": avg_vol,
-                "delivery_pct": latest.get("delivery_pct", 0),
-                "avg_price": latest.get("avg_price", 0),
-                "turnover_lacs": latest.get("turnover_lacs", 0),
-                "avg_turnover": avg_turnover,
-                "return_1m": ret(DAYS_1M),
-                "return_2m": ret(DAYS_2M),
-                "return_3m": ret(DAYS_3M),
-                "return_6m": ret(DAYS_6M),
-                "return_12m": ret(DAYS_12M),
-                "ma50": ma50,
-                "ma200": ma200,
-                "ma50_above_ma200": bool(ma50 > ma200),
-            }
-        )
-
-    return pd.DataFrame(results)
-
-
-def assign_horizon_actions(results_df, scan_date):
-    """Attach a stable horizon and a clear EOD action to each candidate.
-
-    These are deterministic starting rules for backtesting. The daily score
-    controls timing; 3M/6M/12M returns control the research horizon.
-    """
-    if results_df.empty:
-        return results_df
-
-    valid_until = (pd.Timestamp(scan_date) + pd.offsets.BDay(2)).date().isoformat()
-
-    def classify(row):
-        score = float(row.get("score", 0))
-        r3 = float(row.get("return_3m", 0))
-        r6 = float(row.get("return_6m", 0))
-        r12 = float(row.get("return_12m", 0))
-        close = float(row.get("close", 0))
-        ma200 = float(row.get("ma200", close))
-        ma_stack = bool(row.get("ma50_above_ma200", False))
-        overextended = bool(row.get("overextended", False))
-        daily_hull = str(row.get("daily_hull_status", "NOT_ALIGNED")) == "BULLISH"
-        daily_hma = bool(row.get("daily_hma_aligned", False))
-        weekly_hull = str(row.get("weekly_hull_status", "NOT_ALIGNED")) == "BULLISH"
-        kama_rising = bool(row.get("kama_rising", False))
-        hull_stretched = bool(row.get("hull_stretched", False))
-        hull_chop = bool(row.get("hull_chop", False))
-        compression = bool(row.get("hull_compression", False))
-        situation = str(row.get("situation", "watch"))
-
-        trend_3m = r3 > 0
-        trend_6m = r6 > 0 and close > ma200 and ma_stack
-        trend_12m = r12 > 0 and trend_6m
-        entry_ready = (
-            score >= 7
-            and situation == "prime"
-            and not overextended
-            and daily_hull
-            and daily_hma
-            and weekly_hull
-            and kama_rising
-            and not hull_stretched
-            and not hull_chop
-        )
-
-        if situation == "avoid":
-            return pd.Series(
-                {
-                    "horizon": "WATCH",
-                    "action": "AVOID",
-                    "entry_trigger": None,
-                    "entry_valid_until": valid_until,
-                    "action_reason": "Technical setup is invalid or weak.",
-                }
-            )
-        if entry_ready and not trend_6m:
-            horizon = "NEW_1M_SETUP"
-        elif trend_12m:
-            horizon = "CORE_12M"
-        elif trend_6m:
-            horizon = "DIRECT_6M"
-        elif trend_3m:
-            horizon = "DIRECT_3M"
-        else:
-            horizon = "NEW_1M_SETUP"
-
-        if entry_ready:
-            action = "BUY_TRIGGER"
-            reason = (
-                "Daily Hybrid Hull 55, HMA21/51, KAMA30 and weekly HMA trend "
-                "are aligned; price is not stretched."
-            )
-        elif hull_stretched or (horizon in ("CORE_12M", "DIRECT_6M") and overextended):
-            action = "WAIT_PULLBACK"
-            reason = "Trend is healthy, but price is stretched above Hybrid Hull support; wait for a calmer entry."
-        elif situation == "hold":
-            action = "HOLD_TRAIL"
-            reason = "Trend remains aligned; trail the existing stop rather than chase a new entry."
-        elif situation == "book":
-            action = "PARTIAL_PROFIT"
-            reason = "Move is mature or stretched; protect gains and avoid fresh entry."
-        else:
-            action = "WATCH"
-            if hull_chop:
-                reason = "Price is rotating near Hybrid Hull; wait for a clean EOD breakout from the chop zone."
-            elif compression:
-                reason = "Compression is building; wait for a close above the trigger with volume confirmation."
-            elif not weekly_hull:
-                reason = (
-                    "Daily move is improving, but the weekly HMA21/51 trend is not yet confirmed."
-                )
-            else:
-                reason = "Trend is forming; wait for full Daily Hybrid Hull and KAMA alignment."
-
-        trigger = (
-            round(float(row.get("high", close)) * 1.001, 2) if action == "BUY_TRIGGER" else None
-        )
-        return pd.Series(
-            {
-                "horizon": horizon,
-                "action": action,
-                "entry_trigger": trigger,
-                "entry_valid_until": valid_until,
-                "action_reason": reason,
-            }
-        )
-
-    action_df = results_df.apply(classify, axis=1)
-    for column in action_df.columns:
-        results_df[column] = action_df[column]
-    return results_df
-
-
-def attach_hybrid_hull_checklist(results_df):
-    """Explain the scanner's fixed Hybrid Hull(55) EOD read for each action."""
-    if results_df.empty:
-        return results_df
-
-    def checklist(row):
-        action = str(row.get("action", "WATCH"))
-        str(row.get("horizon", "WATCH"))
-        if action == "BUY_TRIGGER":
-            return pd.Series(
-                {
-                    "tv_status": "SCANNER_ALIGNED",
-                    "hybrid_hull_checks": [
-                        "Daily Hybrid Hull 55 is rising and price is above it.",
-                        "Daily HMA21 is above HMA51; KAMA30 is rising.",
-                        "Weekly HMA21/HMA51 trend is bullish.",
-                        "Enter only above trigger within two sessions.",
-                    ],
-                }
-            )
-        if action == "WAIT_PULLBACK":
-            return pd.Series(
-                {
-                    "tv_status": "WAIT_FOR_SETUP",
-                    "hybrid_hull_checks": [
-                        "Wait for price to return closer to Hybrid Hull support.",
-                        "Daily Hull 55, HMA21/51 and KAMA30 must realign.",
-                        "Weekly HMA trend must remain supportive.",
-                    ],
-                }
-            )
-        if action == "HOLD_TRAIL":
-            return pd.Series(
-                {
-                    "tv_status": "MANAGE_POSITION",
-                    "hybrid_hull_checks": [
-                        "Keep position while price stays above the daily Hybrid Hull trail.",
-                        "Reduce or exit after a confirmed daily structure break.",
-                        "A weekly HMA trend failure overrides the hold signal.",
-                    ],
-                }
-            )
-        if action in ("PARTIAL_PROFIT", "EXIT_ALERT"):
-            return pd.Series(
-                {
-                    "tv_status": "PROTECT_CAPITAL",
-                    "hybrid_hull_checks": [
-                        "Respect the current trail stop without widening it.",
-                        "Book partial profit at the planned risk milestone.",
-                        "Exit on a confirmed Hybrid Hull structure break.",
-                    ],
-                }
-            )
-        return pd.Series(
-            {
-                "tv_status": "NO_ENTRY",
-                "hybrid_hull_checks": [
-                    "No entry yet: wait for daily and weekly HMA alignment.",
-                    "Do not trade while Hybrid Hull identifies chop or a trend conflict.",
-                ],
-            }
-        )
-
-    checks_df = results_df.apply(checklist, axis=1)
-    for column in checks_df.columns:
-        results_df[column] = checks_df[column]
-    return results_df
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# FILTERS — Updated with turnover filter
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-def apply_filters(stocks_df, blacklist):
-    """
-    Apply quality filters sequentially.
-
-    NEW in v5:
-      Turnover filter: avg_turnover ≥ MIN_TURNOVER (₹2 Cr = 200 lacs)
-    """
-    print("\n" + "=" * 60)
-    print("  NSE SCANNER v5 — Applying Filters")
-    print("=" * 60)
-    print(f"Initial stocks      : {len(stocks_df):,}")
-
-    # 1. Blacklist (GSM / ASM / IRP)
-    n = len(stocks_df)
-    stocks_df = stocks_df[~stocks_df["symbol"].isin(blacklist)]
-    print(f"After blacklist     : {len(stocks_df):,}  (removed {n - len(stocks_df)} GSM/ASM/IRP)")
-
-    # 2. Price ≥ ₹50
-    n = len(stocks_df)
-    stocks_df = stocks_df[stocks_df["close"] >= config.MIN_PRICE]
-    print(
-        f"After price ≥ ₹{config.MIN_PRICE}   : {len(stocks_df):,}  "
-        f"(removed {n - len(stocks_df)} penny stocks)"
-    )
-
-    # 3. Avg volume ≥ 50,000
-    n = len(stocks_df)
-    stocks_df = stocks_df[stocks_df["avg_volume"] >= config.MIN_VOLUME]
-    print(
-        f"After volume ≥ {config.MIN_VOLUME // 1000}k  : {len(stocks_df):,}  "
-        f"(removed {n - len(stocks_df)} illiquid)"
-    )
-
-    # 4. Delivery % ≥ 35%
-    n = len(stocks_df)
-    stocks_df = stocks_df[stocks_df["delivery_pct"] >= config.MIN_DELIVERY]
-    print(
-        f"After delivery ≥ {config.MIN_DELIVERY}% : {len(stocks_df):,}  "
-        f"(removed {n - len(stocks_df)} speculative)"
-    )
-
-    # 5. Turnover ≥ ₹2 Cr per day (NEW)
-    min_turnover = getattr(config, "MIN_TURNOVER", 200)  # lacs
-    if min_turnover > 0 and "avg_turnover" in stocks_df.columns:
-        n = len(stocks_df)
-        # Allow NaN/zero to pass gracefully (not all data has turnover)
-        turnover_mask = (
-            stocks_df["avg_turnover"].isna()
-            | (stocks_df["avg_turnover"] == 0)
-            | (stocks_df["avg_turnover"] >= min_turnover)
-        )
-        stocks_df = stocks_df[turnover_mask]
-        removed = n - len(stocks_df)
-        print(
-            f"After turnover ≥ ₹{min_turnover // 100:.0f}Cr : {len(stocks_df):,}  "
-            f"(removed {removed} low-liquidity)"
-        )
-    else:
-        print("Turnover filter    : SKIPPED (no data)")
-
-    # 6. 3M return > 0 (uptrend gate — replaces old 50% ranking weight)
-    n = len(stocks_df)
-    stocks_df = stocks_df[stocks_df["return_3m"] > 0]
-    print(
-        f"After uptrend gate  : {len(stocks_df):,}  (removed {n - len(stocks_df)} downtrend stocks)"
-    )
-
-    print(f"{'─' * 60}")
-    print(f"Ready for scoring   : {len(stocks_df):,} quality stocks")
-    return stocks_df.reset_index(drop=True)
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# MOMENTUM SCORE — fallback only, not used for ranking
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-def calculate_momentum_score(stocks_df):
-    if stocks_df.empty:
-        return stocks_df
-    stocks_df["momentum_score"] = (
-        config.WEIGHT_1M * stocks_df["return_1m"]
-        + config.WEIGHT_2M * stocks_df["return_2m"]
-        + config.WEIGHT_3M * stocks_df["return_3m"]
-    )
-    return stocks_df
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# TRADE PLAN
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-def add_trade_plan(row, tech_row=None):
-    """Calculate Entry, SL, T1, T2 for one stock."""
-    entry = float(row["close"])
-
-    if (
-        tech_row is not None
-        and pd.notna(tech_row.get("stop"))
-        and float(tech_row.get("stop", 0)) > 0
-    ):
-        sl = float(tech_row["stop"])
-    else:
-        sl = round(entry * 0.93, 2)  # fallback: 7% SL
-
-    risk = max(entry - sl, entry * 0.01)
-    target1 = round(entry + risk, 2)
-    target2 = round(entry + 2 * risk, 2)
-
-    return {
-        "entry": round(entry, 2),
-        "sl": round(sl, 2),
-        "sl_pct": round(-risk / entry * 100, 1) if entry > 0 else 0,
-        "target1": target1,
-        "t1_pct": round(risk / entry * 100, 1) if entry > 0 else 0,
-        "target2": target2,
-        "t2_pct": round(risk * 2 / entry * 100, 1) if entry > 0 else 0,
-        "rr": 2.0,
-    }
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# STREAK LOADER
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-def _load_streaks():
-    """Load consecutive-day streaks from scan history."""
-    history_file = Path("scan_history.json")
-    if not history_file.exists():
-        return {}
+import requests
+import yfinance as yf
+
+# ============================== CONFIG ======================================
+SPREADSHEET_ID = "1YDfmA6wa8t8uqPsavOfsvPzM8SpOTFgxql9wp-07uKk"  # from your sheet URL
+
+CONFIG = {
+    "vol_ratio_min": 1.5,
+    # Liquidity gate — raised from the old defaults since there's no more
+    # price cap to naturally thin out illiquid penny stocks. Tune these with
+    # --min-avg-volume / --min-turnover-lakhs as needed.
+    "min_avg_volume": 150_000,
+    "min_turnover_lakhs": 100.0,
+    "rsi_bull_min": 40,
+    "rsi_bull_max": 80,
+    "rsi_bear_min": 20,
+    "rsi_bear_max": 60,
+}
+
+TIMEFRAMES = {
+    "daily": {
+        "interval": "1d",
+        "period": "6mo",
+        "min_candles": 60,
+        "sheet_name": "Scan Results - Daily",
+        "ema_trend": 50,
+        "rsi_period": 14,
+        "vol_avg_period": 20,
+        # Drop the live intraday candle? No — daily candles close EOD; scanner
+        # runs post-market (16:00 IST), so the last candle IS a closed candle.
+        "drop_live_candle": False,
+    },
+    "hourly": {
+        "interval": "60m",
+        "period": "60d",
+        "min_candles": 60,
+        "sheet_name": "Scan Results - Hourly",
+        "ema_trend": 50,
+        "rsi_period": 14,
+        "vol_avg_period": 20,
+        # yfinance always includes the LIVE (still-open) hourly candle
+        # as the last row. Checking its close for a breakout gives false signals
+        # (price may be above the mother bar intrasession but close back inside).
+        # Drop it so candle_1 is always the last COMPLETED candle.
+        "drop_live_candle": True,
+    },
+    "weekly": {
+        "interval": "1wk",
+        "period": "5y",
+        "min_candles": 60,
+        "sheet_name": "Scan Results - Weekly",
+        "ema_trend": 50,
+        "rsi_period": 14,
+        "vol_avg_period": 20,
+        # Weekly candles close on Friday; run scanner Friday post-market.
+        "drop_live_candle": False,
+    },
+}
+
+NIFTY50_FALLBACK = [
+    "RELIANCE",
+    "TCS",
+    "HDFCBANK",
+    "ICICIBANK",
+    "INFY",
+    "HINDUNILVR",
+    "ITC",
+    "SBIN",
+    "BHARTIARTL",
+    "KOTAKBANK",
+    "LT",
+    "AXISBANK",
+    "BAJFINANCE",
+    "ASIANPAINT",
+    "MARUTI",
+    "SUNPHARMA",
+    "TITAN",
+    "ULTRACEMCO",
+    "WIPRO",
+    "ONGC",
+    "NTPC",
+    "POWERGRID",
+    "NESTLEIND",
+    "HCLTECH",
+    "TATAMOTORS",
+    "TATASTEEL",
+    "ADANIENT",
+    "ADANIPORTS",
+    "JSWSTEEL",
+    "COALINDIA",
+    "BAJAJFINSV",
+    "TECHM",
+    "INDUSINDBK",
+    "DRREDDY",
+    "GRASIM",
+    "CIPLA",
+    "EICHERMOT",
+    "BRITANNIA",
+    "DIVISLAB",
+    "HEROMOTOCO",
+    "BPCL",
+    "HDFCLIFE",
+    "SBILIFE",
+    "APOLLOHOSP",
+    "TATACONSUM",
+    "UPL",
+    "BAJAJ-AUTO",
+]  # Absolute last-resort only — this is NOT full NSE coverage (mid/small caps
+# like ELGIEQUIP are NOT in this list). See load_symbols().
+
+SIGNAL_RANK = {"BULLISH": 0, "BEARISH": 1, "WATCH": 2}
+SIGNAL_COLOR = {
+    "BULLISH": {"red": 0.80, "green": 0.94, "blue": 0.80},
+    "BEARISH": {"red": 0.97, "green": 0.80, "blue": 0.80},
+    "WATCH": {"red": 1.00, "green": 0.95, "blue": 0.75},
+}
+WHITE = {"red": 1.0, "green": 1.0, "blue": 1.0}
+
+HEADER = [
+    "Symbol",
+    "Sector",
+    "Signal",
+    "Pattern",
+    "Mother High",
+    "Mother Low",
+    "Last Close",
+    "Avg Volume",
+    "Turnover (L)",
+    "Vol Ratio",
+    "Trend vs EMA",
+    "RSI",
+    "Score",
+    "Entry",
+    "Stop Loss",
+    "Target",
+    "Updated At",
+]
+
+
+# ============================ MARKET HOURS ==================================
+def is_market_hours() -> bool:
+    now = datetime.now(ZoneInfo("Asia/Kolkata"))
+    if now.weekday() >= 5:  # Sat/Sun
+        return False
+    hm = now.strftime("%H%M")
+    return "0915" <= hm <= "1530"
+
+
+# ============================ SYMBOL LIST ===================================
+NSE_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.nseindia.com/market-data/securities-available-for-trading",
+}
+
+# Local on-disk cache so a successful fetch survives NSE being unreachable
+# on a later run. Refresh automatically if older than CACHE_MAX_AGE_DAYS.
+SYMBOL_CACHE_PATH = Path(__file__).resolve().parent / "nse_symbols_cache.txt"
+CACHE_MAX_AGE_DAYS = 7
+
+
+def _nse_session() -> requests.Session:
+    """NSE's archives host rejects cold requests with no cookies. Warming up
+    against the main site first (like a real browser landing on the page
+    before the CSV downloads) is what actually earns a 200 instead of a
+    403/999 block."""
+    s = requests.Session()
+    s.headers.update(NSE_HEADERS)
     try:
-        data = json.loads(history_file.read_text(encoding="utf-8"))
-        history = data.get("history", [])
-        if not history:
-            return {}
-        today_symbols = set(history[0].get("symbols", []))
-        streaks = {}
-        for symbol in today_symbols:
-            count = 0
-            for day_entry in history:
-                if symbol in day_entry.get("symbols", []):
-                    count += 1
-                else:
-                    break
-            streaks[symbol] = count
-        return streaks
+        s.get("https://www.nseindia.com", timeout=10)
+        s.get("https://www.nseindia.com/market-data/securities-available-for-trading", timeout=10)
+    except Exception:
+        pass  # even if the warm-up fails, still attempt the real request below
+    return s
+
+
+def _fetch_equity_list_csv(session: requests.Session) -> list[str] | None:
+    url = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
+    resp = session.get(url, timeout=15)
+    if resp.status_code != 200 or not resp.text.strip():
+        return None
+    reader = csv.reader(resp.text.splitlines())
+    next(reader, None)  # header row
+    syms = [row[0].strip() for row in reader if row and row[0].strip()]
+    return syms or None
+
+
+def _fetch_equity_list_api(session: requests.Session) -> list[str] | None:
+    """Secondary source: NSE's equity master API. Different endpoint, same
+    domain — sometimes available when the archives CSV path is rate-limited."""
+    url = "https://www.nseindia.com/api/equity-master"
+    resp = session.get(url, timeout=15)
+    if resp.status_code != 200:
+        return None
+    try:
+        data = resp.json()
+    except ValueError:
+        return None
+    syms: list[str] = []
+    if isinstance(data, dict):
+        for group in data.values():
+            if isinstance(group, list):
+                syms.extend(str(s).strip() for s in group if str(s).strip())
+    return sorted(set(syms)) or None
+
+
+def _read_cache() -> list[str] | None:
+    if not SYMBOL_CACHE_PATH.exists():
+        return None
+    age_days = (time.time() - SYMBOL_CACHE_PATH.stat().st_mtime) / 86400
+    with SYMBOL_CACHE_PATH.open() as f:
+        syms = [line.strip() for line in f if line.strip()]
+    if not syms:
+        return None
+    if age_days > CACHE_MAX_AGE_DAYS:
+        print(
+            f"  (cached symbol list is {age_days:.0f} days old — using it, but "
+            f"consider refreshing with a fresh --symbols-file)",
+            file=sys.stderr,
+        )
+    return syms
+
+
+def _write_cache(symbols: list[str]) -> None:
+    try:
+        with SYMBOL_CACHE_PATH.open("w") as f:
+            f.write("\n".join(symbols))
+    except Exception:
+        pass  # cache is a nice-to-have, never fatal
+
+
+def load_symbols(
+    symbols_file: str | None, allow_fallback_list: bool, max_retries: int = 3
+) -> list[str]:
+    """
+    Resolution order (first success wins), so a full NSE scan is the default
+    and the tiny Nifty-50 list is only ever used deliberately, never silently:
+        1. --symbols-file, if given (always wins — you're explicit).
+        2. NSE archives CSV (full listed-equity universe), with a warmed-up
+           session, proper headers, and retries.
+        3. NSE equity-master API as a second live source.
+        4. Local on-disk cache from a previous successful run.
+        5. NIFTY50_FALLBACK — ONLY if --allow-fallback-list was passed;
+           otherwise this raises so you can't accidentally under-scan.
+    """
+    if symbols_file:
+        path = Path(symbols_file)
+        with path.open() as f:
+            syms = [line.strip() for line in f if line.strip()]
+        print(f"Loaded {len(syms)} symbols from {symbols_file}.")
+        return syms
+
+    session = _nse_session()
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            syms = _fetch_equity_list_csv(session)
+            if syms:
+                print(f"Fetched {len(syms)} symbols from NSE archives CSV (attempt {attempt}).")
+                _write_cache(syms)
+                return syms
+        except Exception as e:
+            print(f"  NSE CSV fetch attempt {attempt}/{max_retries} failed: {e}", file=sys.stderr)
+        if attempt < max_retries:
+            time.sleep(2 * attempt)  # backoff: 2s, 4s, ...
+
+    try:
+        syms = _fetch_equity_list_api(session)
+        if syms:
+            print(f"Fetched {len(syms)} symbols from NSE equity-master API (fallback source).")
+            _write_cache(syms)
+            return syms
     except Exception as e:
-        log.warning(f"Could not load streaks: {e}")
-        return {}
+        print(f"  NSE equity-master API fetch failed: {e}", file=sys.stderr)
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# SIMPLE CATEGORY FALLBACK
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-def _assign_category_simple(row):
-    r1m = float(row.get("return_1m", 0))
-    r3m = float(row.get("return_3m", 0))
-    dlv = float(row.get("delivery_pct", 0))
-    if r1m > r3m * 0.5 and r3m < 0.10:
-        return "recovering"
-    if dlv >= 55:
-        return "safer"
-    return "rising"
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# SITUATION ASSIGNMENT — Weekly-tier aware
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-def _assign_situation_with_weekly(stock_dict, streak, weekly_tier):
-    """
-    Assign situation with weekly tier cap applied.
-
-    Tier 2 stocks (weekly pullback) cannot be PRIME ENTRY.
-    Even if their daily score is ≥ 7, they get capped to WATCH.
-
-    Args:
-        stock_dict:  row dict from result_df
-        streak:      consecutive days in list
-        weekly_tier: 1 (bullish), 2 (neutral), 3 (bearish)
-
-    Returns:
-        situation string: prime/watch/hold/book/avoid
-    """
-    situation = assign_situation(stock_dict, streak)
-
-    # Weekly Tier 2 cap — cannot be PRIME
-    if weekly_tier == WEEKLY_TIER_NEUTRAL and situation == "prime":
-        return "watch"
-
-    # Weekly Tier 3 should not be here (already removed)
-    # but if it somehow slipped through, mark AVOID
-    if weekly_tier == WEEKLY_TIER_BEARISH:
-        return "avoid"
-
-    return situation
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# MAIN SCAN FUNCTION
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-def scan_stocks(scan_date=None, top_n=None):
-    """
-    Main scan function. Returns ranked DataFrame with full trade plan.
-
-    Pipeline:
-      1. Load 180 days of price data from SQLite
-      2. Calculate returns + avg turnover
-      3. Apply quality filters (price/volume/delivery/turnover/uptrend)
-      4. Weekly HMA two-tier filter (Tier 3 removed, Tier 2 capped)
-      5. Forward-looking signal scoring (7 signals, 0-10 pts)
-      6. Assign trade plans (Entry/SL/T1/T2)
-      7. Assign categories (display labels)
-      8. Assign situations (prime/watch/hold/book/avoid)
-         — Tier 2 stocks capped at WATCH even if score ≥ 7
-      9. Save to JSON for Telegram bot
-    """
-    if scan_date is None:
-        scan_date = date.today()
-    if top_n is None:
-        top_n = config.TOP_N_STOCKS
-
-    print(f"\n{'=' * 60}")
-    print("  NSE SCANNER v5")
-    print(f"  Date    : {scan_date.strftime('%d-%b-%Y')}")
-    print("  Ranking : FORWARD PROBABILITY SCORE")
-    print("  Weekly  : Two-tier filter (Tier 3 = hard remove)")
-    print(f"  Turnover: ≥ ₹{getattr(config, 'MIN_TURNOVER', 200) // 100:.0f} Cr daily")
-    print(f"{'=' * 60}")
-
-    # ── Step 1: Load data ─────────────────────────────────────
-    data = load_data_for_date(scan_date)
-    if data["prices"].empty:
-        print("ERROR: No price data in database.")
-        return pd.DataFrame()
-
-    # ── Step 2: Calculate returns ─────────────────────────────
-    stocks_df = calculate_returns(data["prices"], scan_date)
-    if stocks_df.empty:
-        print("ERROR: Could not calculate returns.")
-        return pd.DataFrame()
-
-    # ── Step 3: Apply quality filters ─────────────────────────
-    filtered_df = apply_filters(stocks_df, data["blacklist"])
-    if filtered_df.empty:
-        print("No stocks passed quality filters.")
-        return pd.DataFrame()
-
-    # ── Step 4 + 5: Weekly filter + Forward scoring ───────────
-    # (weekly tier calculation happens inside score_all_stocks)
-    scored_df = calculate_momentum_score(filtered_df)
-    tech_df = pd.DataFrame()
-
-    if TECH_FILTERS_AVAILABLE:
-        print("\n  Running forward-looking signal scoring...")
-        tech_df = score_all_stocks(
-            price_df=data["prices"],
-            filtered_symbols=filtered_df["symbol"].tolist(),
-            scan_date=scan_date,
-            w52_map=data["w52_map"],
+    cached = _read_cache()
+    if cached:
+        print(
+            f"NSE is unreachable right now — using {len(cached)} symbols from local cache "
+            f"({SYMBOL_CACHE_PATH})."
         )
+        return cached
 
-    if not tech_df.empty:
-        tech_df = tech_df.reset_index()
-
-        merge_cols = [
-            c
-            for c in [
-                "symbol",
-                "score",
-                "conviction",
-                "stop",
-                "target",
-                "target2",
-                "rr",
-                "rsi",
-                "pts_hma",
-                "pts_dist",
-                "pts_vol",
-                "pts_rsi",
-                "pts_macd",
-                "pts_sector",
-                "pts_rr",
-                "pen_overext",
-                "pen_decel",
-                "fresh_cross",
-                "cross_age",
-                "dist_pct",
-                "overextended",
-                "obv_dir",
-                "acc_days",
-                "dist_days",
-                "del_trend",
-                "hma_trend_up",
-                "near_52w",
-                "sector_bias",
-                # NEW: weekly tier columns
-                "weekly_tier",
-                "weekly_label",
-                # Fixed Hybrid Hull V17.3 settings (EOD confirmation layer)
-                "hybrid_hull_55",
-                "hma21",
-                "hma51",
-                "atr14",
-                "hybrid_hull_stop",
-                "kama30",
-                "daily_hull_status",
-                "daily_hma_aligned",
-                "kama_rising",
-                "weekly_hull_status",
-                "weekly_hma21",
-                "weekly_hma51",
-                "hull_distance_atr",
-                "hull_stretched",
-                "hull_critical_stretch",
-                "hull_chop",
-                "hull_compression",
-            ]
-            if c in tech_df.columns
-        ]
-
-        scored_df = scored_df.merge(
-            tech_df[merge_cols], on="symbol", how="inner"
-        )  # inner join — only keep stocks that passed weekly filter
-        scored_df["score"] = scored_df["score"].fillna(0)
-        scored_df["conviction"] = scored_df["conviction"].fillna("")
-
-        # ── Ranking: forward score, HIGH CONVICTION first ─────
-        hc = scored_df[scored_df["conviction"] == TIER_HIGH_CONVICTION].sort_values(
-            "score", ascending=False
+    if not allow_fallback_list:
+        print(
+            "\nERROR: Could not fetch the live NSE symbol list from any source "
+            "(archives CSV, equity-master API), and no local cache exists yet.\n"
+            "Refusing to silently fall back to the 47-stock Nifty-50 list, since "
+            "that would scan only large caps and miss most of NSE (mid/small caps "
+            "like ELGIEQUIP included).\n\n"
+            "Options:\n"
+            "  1. Re-run later / check your network — NSE occasionally rate-limits.\n"
+            "  2. Download EQUITY_L.csv yourself from nseindia.com in a browser and "
+            "pass it with --symbols-file EQUITY_L.csv\n"
+            "  3. Pass --allow-fallback-list to explicitly accept scanning only the "
+            "47-stock Nifty-50 starter list (NOT recommended for full coverage).\n",
+            file=sys.stderr,
         )
-        wl = scored_df[scored_df["conviction"] == TIER_WATCHLIST].sort_values(
-            "score", ascending=False
-        )
-        rest = scored_df[scored_df["conviction"] == ""].sort_values(
-            "momentum_score", ascending=False
-        )
+        sys.exit(1)
 
-        scored_df = pd.concat([hc, wl, rest], ignore_index=True)
+    print(
+        "\nWARNING: Falling back to the 47-stock Nifty-50 starter list because "
+        "--allow-fallback-list was passed. This is NOT full NSE coverage — "
+        "mid/small caps will be skipped.\n",
+        file=sys.stderr,
+    )
+    return NIFTY50_FALLBACK
 
-        t1c = (
-            (tech_df["weekly_tier"] == WEEKLY_TIER_BULLISH).sum()
-            if "weekly_tier" in tech_df.columns
-            else 0
-        )
-        t2c = (
-            (tech_df["weekly_tier"] == WEEKLY_TIER_NEUTRAL).sum()
-            if "weekly_tier" in tech_df.columns
-            else 0
-        )
 
-        print("\n  After scoring:")
-        print(f"    HIGH CONVICTION (≥7): {len(hc)} stocks")
-        print(f"    Watchlist (4-6):      {len(wl)} stocks")
-        print(f"    Weekly Tier 1:        {t1c} (PRIME eligible)")
-        print(f"    Weekly Tier 2:        {t2c} (capped at WATCH)")
+# ============================ DATA FETCH ====================================
+def chunked(lst, n):
+    for i in range(0, len(lst), n):
+        yield lst[i : i + n]
 
-    else:
-        # Fallback: momentum-only mode
-        scored_df["score"] = (scored_df["momentum_score"] * 100).round(1)
-        scored_df["conviction"] = ""
-        scored_df["stop"] = None
-        scored_df["weekly_tier"] = WEEKLY_TIER_NEUTRAL
-        scored_df["weekly_label"] = get_weekly_tier_label(WEEKLY_TIER_NEUTRAL)
-        scored_df = scored_df.sort_values("momentum_score", ascending=False)
-        log.warning("Tech filters unavailable — momentum-only mode")
 
-    # ── Step 6: Build trade plans ─────────────────────────────
-    trade_plans = []
-    for _, row in scored_df.head(top_n).iterrows():
-        tech_row = None
-        if not tech_df.empty:
-            match = tech_df[tech_df["symbol"] == row["symbol"]]
-            if not match.empty:
-                tech_row = match.iloc[0]
-        trade_plans.append(add_trade_plan(row, tech_row))
-
-    # ── Assemble result DataFrame ─────────────────────────────
-    result_df = scored_df.head(top_n).copy().reset_index(drop=True)
-    trade_df = pd.DataFrame(trade_plans)
-    for col in trade_df.columns:
-        result_df[col] = trade_df[col].values
-
-    result_df["return_1m_pct"] = (result_df["return_1m"] * 100).round(1)
-    result_df["return_2m_pct"] = (result_df["return_2m"] * 100).round(1)
-    result_df["return_3m_pct"] = (result_df["return_3m"] * 100).round(1)
-    result_df["return_6m_pct"] = (result_df["return_6m"] * 100).round(1)
-    result_df["return_12m_pct"] = (result_df["return_12m"] * 100).round(1)
-
-    # ── Step 7: Assign categories ─────────────────────────────
-    print("\n  Assigning categories...")
-    if TECH_FILTERS_AVAILABLE and not tech_df.empty:
-        result_df["category"] = assign_categories_bulk(
-            scored_df=result_df,
-            returns_df=result_df,
-            w52_map=data["w52_map"],
-        )
-    else:
-        result_df["category"] = result_df.apply(_assign_category_simple, axis=1)
-
-    cat_counts = result_df["category"].value_counts()
-    for cat, count in cat_counts.items():
-        meta = CATEGORY_META.get(cat, {})
-        print(f"    {meta.get('icon', '•')} {meta.get('label', cat)}: {count}")
-
-    # ── Step 8: Load streaks ──────────────────────────────────
-    streaks = _load_streaks()
-    result_df["streak"] = result_df["symbol"].map(lambda s: streaks.get(s, 0))
-    strong = (result_df["streak"] >= 5).sum()
-    if strong > 0:
-        print(f"  🔥 {strong} stocks with 5+ day streak")
-
-    # ── Step 9: Assign situations (weekly-tier aware) ─────────
-    print("\n  Assigning situations...")
-
-    def _get_situation(row):
-        w_tier = int(row.get("weekly_tier", WEEKLY_TIER_NEUTRAL))
-        streak = int(row.get("streak", 0))
-        return _assign_situation_with_weekly(row.to_dict(), streak, w_tier)
-
-    result_df["situation"] = result_df.apply(_get_situation, axis=1)
-
-    # Horizon explains the research role; action explains what to do now.
-    result_df = assign_horizon_actions(result_df, scan_date)
-    result_df = apply_lifecycle(result_df, scan_date)
-    result_df = attach_hybrid_hull_checklist(result_df)
-
-    # Situation summary
-    sit_counts = result_df["situation"].value_counts()
-    sit_meta = {"prime": "🎯", "hold": "💰", "watch": "👀", "book": "⚠️", "avoid": "🚫"}
-    for sit in ["prime", "hold", "watch", "book", "avoid"]:
-        count = sit_counts.get(sit, 0)
-        if count > 0:
-            print(f"    {sit_meta.get(sit, '•')} {sit.title()}: {count}")
-
-    # ── Step 10: Score breakdown for Telegram ─────────────────
-    if TECH_FILTERS_AVAILABLE and not tech_df.empty:
-        result_df["score_breakdown"] = result_df.apply(
-            lambda r: format_score_breakdown(r.to_dict()), axis=1
-        )
-
-    log.info(
-        f"Scan complete: {len(result_df)} stocks | "
-        f"prime={sit_counts.get('prime', 0)} "
-        f"watch={sit_counts.get('watch', 0)} "
-        f"hold={sit_counts.get('hold', 0)} "
-        f"book={sit_counts.get('book', 0)} "
-        f"avoid={sit_counts.get('avoid', 0)}"
+def fetch_batch(symbols: list[str], interval: str, period: str) -> pd.DataFrame:
+    tickers = [s + ".NS" for s in symbols]
+    return yf.download(
+        tickers=tickers,
+        period=period,
+        interval=interval,
+        group_by="ticker",
+        threads=True,
+        progress=False,
+        auto_adjust=False,
     )
 
-    return result_df
+
+def extract_symbol_df(data: pd.DataFrame, symbol: str, chunk_len: int) -> pd.DataFrame | None:
+    """
+    Extract per-symbol OHLCV DataFrame from a yfinance batch download result.
+
+    yfinance >= 0.2 returns a MultiIndex with (field, ticker) at the column level,
+    i.e. level-0 = field ('Open','High','Low','Close','Volume','Adj Close'),
+         level-1 = ticker ('RELIANCE.NS', ...).
+    Older versions used (ticker, field) OR flat columns when only 1 ticker was fetched.
+    We handle all three cases explicitly to avoid the most common source of false signals.
+    """
+    ticker = symbol + ".NS"
+
+    if isinstance(data.columns, pd.MultiIndex):
+        level0_vals = data.columns.get_level_values(0).unique().tolist()
+        level1_vals = data.columns.get_level_values(1).unique().tolist()
+
+        # Modern yfinance: level-0 = field, level-1 = ticker  e.g. ('Close', 'RELIANCE.NS')
+        if ticker in level1_vals:
+            df = data.xs(ticker, level=1, axis=1).copy()
+        # Legacy yfinance: level-0 = ticker, level-1 = field  e.g. ('RELIANCE.NS', 'Close')
+        elif ticker in level0_vals:
+            df = data[ticker].copy()
+        else:
+            return None
+    else:
+        # Single-ticker download — yfinance returns flat columns directly
+        df = data.copy()
+
+    if df is None or len(df) == 0:
+        return None
+
+    # If there are still nested column levels (edge-case), flatten them
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+
+    try:
+        df = df.dropna(subset=["Open", "High", "Low", "Close"])
+    except KeyError:
+        return None
+
+    return df if len(df) > 0 else None
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# CLI ENTRY POINT
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="NSE Stock Scanner v5 — Forward Probability + Weekly Filter"
-    )
-    parser.add_argument("--date", help="Scan date DD-MM-YYYY or YYYY-MM-DD")
-    parser.add_argument("--top", type=int, help="Number of stocks (default 25)")
-    args = parser.parse_args()
-
-    scan_date = None
-    if args.date:
-        for fmt in ["%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"]:
+def prefilter_by_liquidity(
+    symbols: list[str], min_avg_volume: int, min_turnover_lakhs: float, chunk_size: int
+) -> list[str]:
+    """Stage 1: quick liquidity check to drop anything that isn't actively
+    traded, before the expensive full-history fetch + indicator calc. Pulls
+    ~1 month of daily candles (cheap) and checks average volume + average
+    rupee turnover — the same two gates analyze_symbol() re-applies later
+    with timeframe-accurate data, so this is a speed filter, not the final
+    word. No price cap is applied here or anywhere else in the scanner."""
+    keep = []
+    chunks = list(chunked(symbols, chunk_size))
+    for idx, chunk in enumerate(chunks, 1):
+        try:
+            data = fetch_batch(chunk, "1d", "1mo")
+        except Exception as e:
+            print(f"  liquidity-check batch {idx}/{len(chunks)} failed: {e}", file=sys.stderr)
+            continue
+        for sym in chunk:
             try:
-                scan_date = datetime.strptime(args.date, fmt).date()
-                break
-            except ValueError:
-                pass
+                df = extract_symbol_df(data, sym, len(chunk))
+                if df is None or len(df) < 5:
+                    continue
+                avg_vol = float(df["Volume"].mean())
+                last_close = float(df["Close"].iloc[-1])
+                if pd.isna(avg_vol) or pd.isna(last_close):
+                    continue
+                turnover_lakhs = (last_close * avg_vol) / 100_000
+                if avg_vol >= min_avg_volume and turnover_lakhs >= min_turnover_lakhs:
+                    keep.append(sym)
+            except Exception:
+                continue
+        print(
+            f"  liquidity-check batch {idx}/{len(chunks)} done — {len(keep)} actively traded so far"
+        )
+        time.sleep(0.5)
+    return keep
 
-    results = scan_stocks(scan_date=scan_date, top_n=args.top)
-    if results.empty:
-        print("\nNo results.")
+
+# ============================ INDICATORS ====================================
+def calc_rsi(close: pd.Series, period: int) -> pd.Series:
+    delta = close.diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.ewm(alpha=1 / period, min_periods=period, adjust=False).mean()
+    avg_loss = loss.ewm(alpha=1 / period, min_periods=period, adjust=False).mean()
+    rs = avg_gain / avg_loss
+    return 100 - (100 / (1 + rs))
+
+
+# ============================ CORE LOGIC ====================================
+def analyze_symbol(
+    symbol: str,
+    df: pd.DataFrame,
+    tf: dict,
+    min_avg_volume: int,
+    min_turnover_lakhs: float,
+) -> dict | None:
+    """
+    Evaluate the last 3 completed candles for inside-bar breakout signals.
+
+    Candle window (newest last, after dropping any live candle for hourly TF):
+        df.iloc[-3]  = candle_3  (mother bar for confirmed-breakout check)
+        df.iloc[-2]  = candle_2  (inside bar candidate / mother bar for WATCH)
+        df.iloc[-1]  = candle_1  (the most-recently CLOSED candle)
+
+    CONFIRMED BREAKOUT  (BULLISH / BEARISH):
+        Condition:  candle_2 is fully inside candle_3 (high ≤ mother high,
+                    low ≥ mother low) AND candle_1 CLOSES beyond the MOTHER
+                    bar's range (not just the inside bar's edges).
+        Rationale:  Requiring a close outside the MOTHER bar's range filters
+                    out weak intrabar pokes that reverse by session end.
+
+    WATCH  — two sub-cases:
+        Case A (simple IB):  candle_1 is inside candle_2 (which is NOT inside
+                    candle_3).  Trigger = candle_2 high / low.
+        Case B (nested IB):  candle_2 is inside candle_3 AND candle_1 is inside
+                    candle_2.  The dominant mother bar is candle_3, so the true
+                    breakout trigger = candle_3 high / low.
+
+    Scoring (0-3, applied only to confirmed breakouts):
+        +1  trend  — close is on the correct side of the 50-period EMA
+        +1  volume — breakout-candle volume >= 1.5× the 20-period average
+        +1  RSI    — RSI(14) is in a momentum-sane band (not overbought/oversold)
+
+    Liquidity gate (applied before any pattern checks):
+        Skips stocks where the 20-period average volume < min_avg_volume OR
+        average rupee turnover < min_turnover_lakhs.
+    """
+    if df is None or len(df) < tf["min_candles"]:
+        return None
+
+    # Drop the live/incomplete candle for intraday timeframes. yfinance
+    # always appends the currently-open candle as the last row when the
+    # market is open. Checking its close for a breakout mid-session
+    # produces false BULLISH/BEARISH hits that reverse by close.
+    if tf.get("drop_live_candle", False):
+        df = df.iloc[:-1]
+        if len(df) < tf["min_candles"]:
+            return None
+
+    n = len(df)
+    closes = df["Close"]
+    ema = closes.ewm(span=tf["ema_trend"], adjust=False, min_periods=tf["ema_trend"]).mean()
+    rsi = calc_rsi(closes, tf["rsi_period"])
+    vol = df["Volume"]
+
+    ema_last = ema.iloc[-1]
+    rsi_last = rsi.iloc[-1]
+    if pd.isna(ema_last) or pd.isna(rsi_last):
+        return None
+
+    # Volume average over the 20 candles BEFORE the current one (exclude current)
+    avg_vol = vol.iloc[max(0, n - 1 - tf["vol_avg_period"]) : n - 1].mean()
+
+    # ----- 3-candle window -----
+    # candle_1 = most recent (the signal / breakout candle)
+    # candle_2 = one before that (inside bar candidate or mother bar for WATCH)
+    # candle_3 = two before that (mother bar candidate for confirmed breakout)
+    candle_1 = df.iloc[-1]
+    candle_2 = df.iloc[-2]
+    candle_3 = df.iloc[-3]
+
+    # Guard: ensure OHLC values are usable floats
+    try:
+        c1_high = float(candle_1["High"])
+        c1_low = float(candle_1["Low"])
+        c1_close = float(candle_1["Close"])
+        c1_vol = float(candle_1["Volume"])
+        c2_high = float(candle_2["High"])
+        c2_low = float(candle_2["Low"])
+        c3_high = float(candle_3["High"])
+        c3_low = float(candle_3["Low"])
+    except (TypeError, ValueError):
+        return None
+
+    if any(pd.isna(v) for v in [c1_high, c1_low, c1_close, c2_high, c2_low, c3_high, c3_low]):
+        return None
+
+    # ── Liquidity gate ──────────────────────────────────────────────────────
+    # Compute daily turnover in lakhs using last close × avg volume
+    avg_vol_safe = float(avg_vol) if (avg_vol is not None and not pd.isna(avg_vol)) else 0.0
+    turnover_lakhs = (c1_close * avg_vol_safe) / 100_000 if avg_vol_safe > 0 else 0.0
+
+    if avg_vol_safe < min_avg_volume or turnover_lakhs < min_turnover_lakhs:
+        return None
+    # ────────────────────────────────────────────────────────────────────────
+
+    result = {
+        "symbol": symbol,
+        "sector": "N/A",
+        "pattern": "",
+        "signal": "NONE",
+        "mother_high": None,
+        "mother_low": None,
+        "last_close": round(c1_close, 2),
+        "avg_volume": int(round(avg_vol_safe)),
+        "turnover_lakhs": round(turnover_lakhs, 2),
+        "vol_ratio": None,
+        "trend": "",
+        "rsi": round(float(rsi_last), 2),
+        "score": 0,
+        "entry": "",
+        "stop_loss": "",
+        "target": "",
+        "updated_at": datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M"),
+    }
+
+    # ------------------------------------------------------------------ #
+    #  Case 1: CONFIRMED BREAKOUT                                         #
+    #    candle_2 is an inside bar relative to candle_3 (mother bar),     #
+    #    AND candle_1 (current) closes beyond the mother bar's range.     #
+    # ------------------------------------------------------------------ #
+    candle_2_is_inside_candle_3 = (c2_high <= c3_high) and (c2_low >= c3_low)
+
+    # Pre-compute vol ratio for candle_1 (used in both confirmed and WATCH)
+    c1_vol_safe = c1_vol if not pd.isna(c1_vol) else 0.0
+    vol_ratio_raw = (c1_vol_safe / avg_vol_safe) if avg_vol_safe > 0 else None
+    safe_vol_ratio = (
+        round(float(vol_ratio_raw), 2)
+        if (vol_ratio_raw is not None and not pd.isna(vol_ratio_raw))
+        else None
+    )
+
+    if candle_2_is_inside_candle_3:
+        mother_high = round(c3_high, 2)
+        mother_low = round(c3_low, 2)
+        rng = round(mother_high - mother_low, 2)
+
+        if c1_close > c3_high:  # ── BULLISH breakout ──────────────
+            result.update(
+                pattern="Breakout confirmed",
+                signal="BULLISH",
+                mother_high=mother_high,
+                mother_low=mother_low,
+                entry=mother_high,
+                stop_loss=mother_low,
+                target=round(mother_high + rng, 2),
+                vol_ratio=safe_vol_ratio,
+            )
+            result["trend"] = (
+                f"above EMA{tf['ema_trend']}"
+                if c1_close > float(ema_last)
+                else f"below EMA{tf['ema_trend']}"
+            )
+            if c1_close > float(ema_last):
+                result["score"] += 1
+            if safe_vol_ratio is not None and safe_vol_ratio >= CONFIG["vol_ratio_min"]:
+                result["score"] += 1
+            if CONFIG["rsi_bull_min"] <= float(rsi_last) <= CONFIG["rsi_bull_max"]:
+                result["score"] += 1
+
+        elif c1_close < c3_low:  # ── BEARISH breakout ──────────────
+            result.update(
+                pattern="Breakout confirmed",
+                signal="BEARISH",
+                mother_high=mother_high,
+                mother_low=mother_low,
+                entry=mother_low,
+                stop_loss=mother_high,
+                target=round(mother_low - rng, 2),
+                vol_ratio=safe_vol_ratio,
+            )
+            result["trend"] = (
+                f"below EMA{tf['ema_trend']}"
+                if c1_close < float(ema_last)
+                else f"above EMA{tf['ema_trend']}"
+            )
+            if c1_close < float(ema_last):
+                result["score"] += 1
+            if safe_vol_ratio is not None and safe_vol_ratio >= CONFIG["vol_ratio_min"]:
+                result["score"] += 1
+            if CONFIG["rsi_bear_min"] <= float(rsi_last) <= CONFIG["rsi_bear_max"]:
+                result["score"] += 1
+
+    # ------------------------------------------------------------------ #
+    #  Case 2: FRESH INSIDE BAR → WATCH                                   #
+    #                                                                      #
+    #  Sub-case A (simple IB):                                            #
+    #    candle_1 is inside candle_2, and candle_2 is NOT inside candle_3 #
+    #    → trigger = candle_2 high/low (the immediate mother bar)         #
+    #                                                                      #
+    #  Sub-case B (nested IB):                                            #
+    #    candle_2 is inside candle_3 AND candle_1 is inside candle_2.     #
+    #    The dominant mother bar is candle_3. A breakout above candle_2   #
+    #    is still WITHIN candle_3's range, so the true trigger must be    #
+    #    candle_3's high/low.                                             #
+    # ------------------------------------------------------------------ #
+    if result["signal"] == "NONE":
+        candle_1_is_inside_candle_2 = (c1_high <= c2_high) and (c1_low >= c2_low)
+        if candle_1_is_inside_candle_2:
+            if candle_2_is_inside_candle_3:
+                # Nested inside bar — use the dominant (outer) mother bar's levels
+                mother_high = round(c3_high, 2)
+                mother_low = round(c3_low, 2)
+                watch_pattern = "Nested inside bar (watchlist)"
+            else:
+                # Simple inside bar — use candle_2 as the mother bar
+                mother_high = round(c2_high, 2)
+                mother_low = round(c2_low, 2)
+                watch_pattern = "Inside bar (watchlist)"
+
+            # Show vol_ratio for WATCH so the sheet shows whether the
+            # compression candle formed on low volume (healthy) or high
+            # volume (potentially suspicious reversal pressure).
+            result.update(
+                pattern=watch_pattern,
+                signal="WATCH",
+                mother_high=mother_high,
+                mother_low=mother_low,
+                entry=f"Buy>{mother_high} / Sell<{mother_low}",
+                vol_ratio=safe_vol_ratio,
+            )
+            result["trend"] = (
+                f"above EMA{tf['ema_trend']}"
+                if c1_close > float(ema_last)
+                else f"below EMA{tf['ema_trend']}"
+            )
+
+    return result if result["signal"] != "NONE" else None
+
+
+# ============================ SECTOR LOOKUP ==================================
+def attach_sectors(results: list[dict]) -> None:
+    """Look up each signal's sector via yfinance Ticker.info and fill it into
+    result['sector'] in place. Only called on the (small) final results list,
+    since .info triggers a separate network call per symbol and is too slow
+    to run across the whole NSE universe."""
+    for r in results:
+        try:
+            info = yf.Ticker(r["symbol"] + ".NS").info
+            sector = info.get("sector") or info.get("sectorDisp") or "N/A"
+            r["sector"] = sector
+        except Exception:
+            r["sector"] = "N/A"
+        time.sleep(0.2)  # polite pacing — this is a per-symbol call
+
+
+# ============================ GOOGLE SHEETS =================================
+def get_gspread_client(credentials_path: str):
+    import gspread
+    from google.oauth2.service_account import Credentials
+
+    if not Path(credentials_path).exists():
+        print(
+            f"\nCredentials file not found: {credentials_path}\n"
+            "See SETUP.md for how to create a Google service account key.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+    creds = Credentials.from_service_account_file(credentials_path, scopes=scopes)
+    return gspread.authorize(creds)
+
+
+def result_sort_key(result: dict) -> tuple:
+    """Rank actionable, liquid, high-confirmation setups first."""
+    return (
+        SIGNAL_RANK.get(result["signal"], 9),
+        -result["score"],
+        -float(result.get("vol_ratio") or 0),
+        -float(result.get("turnover_lakhs") or 0),
+        result["symbol"],
+    )
+
+
+def write_results(gc, spreadsheet_id: str, sheet_name: str, results: list[dict]):
+    import gspread
+
+    sh = gc.open_by_key(spreadsheet_id)
+    try:
+        ws = sh.worksheet(sheet_name)
+    except gspread.WorksheetNotFound:
+        ws = sh.add_worksheet(title=sheet_name, rows=2000, cols=len(HEADER) + 2)
+
+    results_sorted = sorted(results, key=result_sort_key)
+    rows = [
+        [
+            r["symbol"],
+            r["sector"],
+            r["signal"],
+            r["pattern"],
+            r["mother_high"],
+            r["mother_low"],
+            r["last_close"],
+            r["avg_volume"],
+            r["turnover_lakhs"],
+            r["vol_ratio"],
+            r["trend"],
+            r["rsi"],
+            r["score"],
+            r["entry"],
+            r["stop_loss"],
+            r["target"],
+            r["updated_at"],
+        ]
+        for r in results_sorted
+    ]
+
+    ws.clear()
+    ws.update([HEADER] + rows, "A1")
+
+    # Reset formatting, then color-code contiguous blocks of the same signal.
+    num_cols = len(HEADER)
+    requests_batch = [
+        {
+            "repeatCell": {
+                "range": {
+                    "sheetId": ws.id,
+                    "startRowIndex": 0,
+                    "endRowIndex": max(len(rows) + 1, 2),
+                    "startColumnIndex": 0,
+                    "endColumnIndex": num_cols,
+                },
+                "cell": {"userEnteredFormat": {"backgroundColor": WHITE}},
+                "fields": "userEnteredFormat.backgroundColor",
+            }
+        }
+    ]
+
+    if rows:
+        block_start = 0
+        for i in range(1, len(results_sorted) + 1):
+            changed = (
+                i == len(results_sorted)
+                or results_sorted[i]["signal"] != results_sorted[block_start]["signal"]
+            )
+            if changed:
+                signal = results_sorted[block_start]["signal"]
+                color = SIGNAL_COLOR.get(signal)
+                if color:
+                    requests_batch.append(
+                        {
+                            "repeatCell": {
+                                "range": {
+                                    "sheetId": ws.id,
+                                    "startRowIndex": block_start + 1,
+                                    "endRowIndex": i + 1,
+                                    "startColumnIndex": 0,
+                                    "endColumnIndex": num_cols,
+                                },
+                                "cell": {"userEnteredFormat": {"backgroundColor": color}},
+                                "fields": "userEnteredFormat.backgroundColor",
+                            }
+                        }
+                    )
+                block_start = i
+
+    sh.batch_update({"requests": requests_batch})
+
+
+# ============================ DEBUG ONE SYMBOL ===============================
+def debug_symbol(symbol: str, tf: dict, min_avg_volume: int, min_turnover_lakhs: float) -> None:
+    """Fetch one symbol and print exactly why it did/didn't produce a signal —
+    the last 3 candles' OHLC, liquidity numbers, and every pattern condition
+    with its true/false result. Use this instead of guessing when a stock
+    you can see breaking out on a chart isn't showing up in the sheet."""
+    print(
+        f"\n=== Debugging {symbol} on timeframe={tf['sheet_name']} "
+        f"(interval={tf['interval']}, period={tf['period']}) ===\n"
+    )
+
+    try:
+        data = fetch_batch([symbol], tf["interval"], tf["period"])
+    except Exception as e:
+        print(f"Fetch failed: {e}")
         return
 
-    # ── Console output ────────────────────────────────────────
-    sit_meta = {"prime": "🎯", "hold": "💰", "watch": "👀", "book": "⚠️", "avoid": "🚫"}
-
-    def print_section(title, df):
-        if df.empty:
-            return
-        print(f"\n{'─' * 80}\n  {title}\n{'─' * 80}")
+    df = extract_symbol_df(data, symbol, 1)
+    if df is None:
         print(
-            f"  {'#':<4} {'Symbol':<12} {'Score':>5} {'3M%':>7} "
-            f"{'Entry':>8} {'SL':>8} {'T1':>8} "
-            f"{'Cross':>7} {'Dist':>6} "
-            f"{'Weekly':<18} {'Sit'}"
+            f"No usable data returned for {symbol}.NS — check the symbol is correct "
+            f"and actually has {tf['interval']} history on Yahoo Finance."
         )
-        print("  " + "─" * 76)
-        for i, (_, row) in enumerate(df.iterrows(), 1):
-            ca = int(row.get("cross_age", 0))
-            dp = float(row.get("dist_pct", 0))
-            wl = str(row.get("weekly_label", ""))[:16]
-            sit = sit_meta.get(row.get("situation", ""), "•")
+        return
+
+    print(f"Fetched {len(df)} candles (need >= {tf['min_candles']} for indicators to warm up).")
+
+    if tf.get("drop_live_candle", False):
+        print("This timeframe drops the live/still-open candle (drop_live_candle=True).")
+        df = df.iloc[:-1]
+        print(f"{len(df)} candles remain after dropping it.")
+
+    if len(df) < tf["min_candles"]:
+        print(
+            f"NOT ENOUGH DATA: {len(df)} < {tf['min_candles']} required candles. "
+            f"This symbol will be skipped entirely regardless of pattern/liquidity."
+        )
+        return
+
+    n = len(df)
+    closes = df["Close"]
+    ema = closes.ewm(span=tf["ema_trend"], adjust=False, min_periods=tf["ema_trend"]).mean()
+    rsi = calc_rsi(closes, tf["rsi_period"])
+    vol = df["Volume"]
+    _ema_last, _rsi_last = ema.iloc[-1], rsi.iloc[-1]
+    avg_vol = vol.iloc[max(0, n - 1 - tf["vol_avg_period"]) : n - 1].mean()
+
+    c1, c2, c3 = df.iloc[-1], df.iloc[-2], df.iloc[-3]
+    c1_high, c1_low, c1_close = float(c1["High"]), float(c1["Low"]), float(c1["Close"])
+    c2_high, c2_low = float(c2["High"]), float(c2["Low"])
+    c3_high, c3_low = float(c3["High"]), float(c3["Low"])
+
+    print("\nLast 3 candles (oldest to newest):")
+    print(
+        f"  candle_3 (mother bar candidate) : idx={df.index[-3]}  "
+        f"High={c3_high:.2f}  Low={c3_low:.2f}"
+    )
+    print(
+        f"  candle_2 (inside bar candidate) : idx={df.index[-2]}  "
+        f"High={c2_high:.2f}  Low={c2_low:.2f}"
+    )
+    print(
+        f"  candle_1 (latest closed candle) : idx={df.index[-1]}  "
+        f"High={c1_high:.2f}  Low={c1_low:.2f}  Close={c1_close:.2f}"
+    )
+
+    avg_vol_safe = float(avg_vol) if avg_vol is not None and not pd.isna(avg_vol) else 0.0
+    turnover_lakhs = (c1_close * avg_vol_safe) / 100_000 if avg_vol_safe > 0 else 0.0
+    liquidity_ok = avg_vol_safe >= min_avg_volume and turnover_lakhs >= min_turnover_lakhs
+
+    print(
+        f"\nLiquidity gate (needs avg_volume >= {min_avg_volume:,} "
+        f"AND turnover >= {min_turnover_lakhs:g}L):"
+    )
+    print(
+        f"  avg_volume (20-period) = {avg_vol_safe:,.0f}   -> "
+        f"{'PASS' if avg_vol_safe >= min_avg_volume else 'FAIL'}"
+    )
+    print(
+        f"  turnover (lakhs)       = {turnover_lakhs:,.2f}   -> "
+        f"{'PASS' if turnover_lakhs >= min_turnover_lakhs else 'FAIL'}"
+    )
+    if not liquidity_ok:
+        print(
+            "  => LIQUIDITY GATE FAILS. This symbol is skipped before any pattern "
+            "check runs, regardless of what the chart shows."
+        )
+        return
+    print("  => Liquidity gate passes.")
+
+    c2_inside_c3 = (c2_high <= c3_high) and (c2_low >= c3_low)
+    c1_inside_c2 = (c1_high <= c2_high) and (c1_low >= c2_low)
+
+    print("\nPattern conditions:")
+    print(
+        f"  candle_2 fully inside candle_3?  "
+        f"(c2_high {c2_high:.2f} <= c3_high {c3_high:.2f}) AND "
+        f"(c2_low {c2_low:.2f} >= c3_low {c3_low:.2f})  -> "
+        f"{'TRUE' if c2_inside_c3 else 'FALSE'}"
+    )
+
+    if c2_inside_c3:
+        print(
+            f"  candle_1 close vs mother bar:  close={c1_close:.2f}  "
+            f"mother_high={c3_high:.2f}  mother_low={c3_low:.2f}"
+        )
+        if c1_close > c3_high:
+            print("  => BULLISH breakout condition MET (close > mother_high).")
+        elif c1_close < c3_low:
+            print("  => BEARISH breakout condition MET (close < mother_low).")
+        else:
             print(
-                f"  {i:<4} {str(row['symbol']):<12} "
-                f"{int(row.get('score', 0)):>5} "
-                f"{row.get('return_3m_pct', 0):>+7.1f}% "
-                f"{row.get('entry', 0):>8.0f} "
-                f"{row.get('sl', 0):>8.0f} "
-                f"{row.get('target1', 0):>8.0f} "
-                f"{ca:>6}d "
-                f"{dp:>5.1f}% "
-                f"{wl:<18} {sit}"
+                "  => Inside bar formed, but candle_1 has NOT yet closed beyond the "
+                "mother bar's range in either direction. No confirmed breakout signal "
+                "(it may still show as WATCH if candle_1 is inside candle_2)."
             )
+    else:
+        print(
+            "  => No confirmed-breakout signal is possible on THIS candle: candle_2 is "
+            "not fully contained within candle_3. If your chart shows a strong move that "
+            "still doesn't look like a clean 2-candle inside-bar setup by the strict "
+            "high<=high / low>=low definition, that's why — not a liquidity or symbol-list "
+            "issue."
+        )
 
-    d_str = (scan_date or date.today()).strftime("%d-%b-%Y")
-    print(f"\n{'#' * 80}")
-    print(f"  NSE SCANNER v5 — {d_str}")
-    print("  Ranked by FORWARD PROBABILITY · Weekly two-tier filter")
-    print(f"{'#' * 80}")
+    print(
+        f"\n  candle_1 inside candle_2? "
+        f"(c1_high {c1_high:.2f} <= c2_high {c2_high:.2f}) AND "
+        f"(c1_low {c1_low:.2f} >= c2_low {c2_low:.2f})  -> "
+        f"{'TRUE (WATCH-eligible)' if c1_inside_c2 else 'FALSE'}"
+    )
 
-    prime_df = results[results["situation"] == "prime"]
-    hold_df = results[results["situation"] == "hold"]
-    watch_df = results[results["situation"] == "watch"]
-    book_df = results[results["situation"] == "book"]
-    avoid_df = results[results["situation"] == "avoid"]
+    print(
+        "\nNote: only the LAST 3 candles are ever evaluated. If the breakout you're "
+        "seeing on a chart happened more than 1-2 candles ago relative to when this "
+        "scan runs, it has already scrolled out of this window and will not appear, "
+        "even though it's still visible on the chart today.\n"
+    )
 
-    print_section(f"🎯 PRIME ENTRY [{len(prime_df)}] — Enter today, TV confirms", prime_df)
-    print_section(f"💰 HOLD & TRAIL [{len(hold_df)}] — Trail your stop loss", hold_df)
-    print_section(f"👀 WATCH CLOSELY [{len(watch_df)}] — Monitor, not today", watch_df)
-    print_section(f"⚠️  BOOK PROFITS [{len(book_df)}] — Protect gains", book_df)
-    if not avoid_df.empty:
-        print_section(f"🚫 AVOID [{len(avoid_df)}] — Skip today", avoid_df)
 
-    print(f"\n  Total: {len(results)} stocks")
+# ============================== MAIN ========================================
+def main():
+    parser = argparse.ArgumentParser(description="NSE inside bar scanner")
+    parser.add_argument("--timeframe", choices=["daily", "hourly", "weekly"], required=True)
+    parser.add_argument(
+        "--symbols-file",
+        default=None,
+        help="Optional text file, one NSE symbol per line. "
+        "Default: fetch NSE's full list live (with retries/cache). "
+        "Always wins over live fetch if given.",
+    )
+    parser.add_argument(
+        "--allow-fallback-list",
+        action="store_true",
+        help="If the live NSE symbol fetch AND the local cache both fail, "
+        "allow falling back to the 47-stock Nifty-50 starter list "
+        "instead of exiting with an error. Off by default so you never "
+        "silently under-scan.",
+    )
+    parser.add_argument(
+        "--credentials",
+        default="credentials.json",
+        help="Path to the Google service account JSON key.",
+    )
+    parser.add_argument("--spreadsheet-id", default=SPREADSHEET_ID)
+    parser.add_argument(
+        "--chunk-size", type=int, default=50, help="Symbols per Yahoo Finance batch request."
+    )
+    parser.add_argument(
+        "--min-avg-volume",
+        type=int,
+        default=CONFIG["min_avg_volume"],
+        help="Only report stocks whose average volume meets this threshold. "
+        "Default 150000 shares. No price cap is applied.",
+    )
+    parser.add_argument(
+        "--min-turnover-lakhs",
+        type=float,
+        default=CONFIG["min_turnover_lakhs"],
+        help="Only report stocks whose average rupee turnover meets this threshold, "
+        "in lakhs. Default 100.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Run an hourly/weekly scan even outside market hours (for testing).",
+    )
+    parser.add_argument(
+        "--debug-symbol",
+        default=None,
+        help="Diagnose exactly why ONE symbol (e.g. ELGIEQUIP) is or isn't "
+        "producing a signal on the given --timeframe: prints the last 3 "
+        "candles' OHLC, the liquidity numbers, and each pattern condition "
+        "with its true/false result. Skips the full scan and Google Sheets "
+        "write entirely — this is a read-only lookup.",
+    )
+    args = parser.parse_args()
 
-    # Save for Telegram bot
-    if save_scan_results:
+    if args.debug_symbol:
+        debug_symbol(
+            args.debug_symbol,
+            TIMEFRAMES[args.timeframe],
+            args.min_avg_volume,
+            args.min_turnover_lakhs,
+        )
+        return
+
+    if args.timeframe == "hourly" and not args.force and not is_market_hours():
+        print(
+            "Outside NSE market hours (9:15 AM-3:30 PM IST, Mon-Fri) — skipping. "
+            "Use --force to run anyway."
+        )
+        return
+
+    # Weekly scans: only run on Friday after market close (or with --force)
+    if args.timeframe == "weekly" and not args.force:
+        from datetime import date
+
+        today = date.today()
+        now_ist = datetime.now(ZoneInfo("Asia/Kolkata"))
+        if today.weekday() != 4:  # 4 = Friday
+            print(
+                "Weekly scan only runs on Fridays after market close. "
+                "Use --force to run on any day (e.g. for testing)."
+            )
+            return
+        if now_ist.strftime("%H%M") < "1530":
+            print(
+                "Weekly scan runs after 15:30 IST to ensure weekly candle is closed. "
+                "Use --force to override."
+            )
+            return
+
+    tf = TIMEFRAMES[args.timeframe]
+    all_symbols = load_symbols(args.symbols_file, args.allow_fallback_list)
+    print(
+        f"Loaded {len(all_symbols)} symbols. No price cap — filtering to actively "
+        f"traded names (avg volume >= {args.min_avg_volume:,}, "
+        f"avg turnover >= Rs {args.min_turnover_lakhs:g}L)..."
+    )
+
+    symbols = prefilter_by_liquidity(
+        all_symbols, args.min_avg_volume, args.min_turnover_lakhs, args.chunk_size
+    )
+    print(f"{len(symbols)} actively traded symbols. Running {args.timeframe} scan...")
+
+    if not symbols:
+        print("No symbols left after the liquidity filter — nothing to scan.")
+        return
+
+    gc = get_gspread_client(args.credentials)
+
+    results = []
+    chunks = list(chunked(symbols, args.chunk_size))
+    for idx, chunk in enumerate(chunks, 1):
         try:
-            save_scan_results(results, scan_date or date.today())
-            print("\n[OK] Results saved to telegram_last_scan.json")
+            data = fetch_batch(chunk, tf["interval"], tf["period"])
         except Exception as e:
-            print(f"[WARNING] Failed to save: {e}")
+            print(f"  batch {idx}/{len(chunks)} failed to fetch: {e}", file=sys.stderr)
+            continue
+
+        for sym in chunk:
+            try:
+                df = extract_symbol_df(data, sym, len(chunk))
+                r = analyze_symbol(sym, df, tf, args.min_avg_volume, args.min_turnover_lakhs)
+                if r:
+                    results.append(r)
+            except Exception:
+                continue
+
+        print(f"  batch {idx}/{len(chunks)} done — {len(results)} signals so far")
+        time.sleep(1)  # polite pacing between batches
+
+    if results:
+        print(f"Looking up sectors for {len(results)} signals...")
+        attach_sectors(results)
+
+    write_results(gc, args.spreadsheet_id, tf["sheet_name"], results)
+    print(f"Done. {len(results)} signals written to '{tf['sheet_name']}'.")
 
 
 if __name__ == "__main__":
