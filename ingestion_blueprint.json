@@ -1,5 +1,5 @@
 {
-  "current_index": 278,
+  "current_index": 279,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2229,9 +2229,9 @@
       "name": "excel-tools-indian-stock-market",
       "target": "pradyumnac/excel-tools-indian-stock-market",
       "url": "https://github.com/pradyumnac/excel-tools-indian-stock-market",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3248",
+      "merged": true
     },
     {
       "name": "express-option-chain",
