@@ -1,5 +1,5 @@
 {
-  "current_index": 262,
+  "current_index": 263,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2101,7 +2101,7 @@
       "name": "nse_indices",
       "target": "p0w/nse_indices",
       "url": "https://github.com/p0w/nse_indices",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
