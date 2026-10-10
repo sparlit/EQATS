@@ -1,5 +1,5 @@
 {
-  "current_index": 260,
+  "current_index": 261,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2085,9 +2085,9 @@
       "name": "nse_eod",
       "target": "opmashin/nse_eod",
       "url": "https://github.com/opmashin/nse_eod",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3230",
+      "merged": true
     },
     {
       "name": "fund",
