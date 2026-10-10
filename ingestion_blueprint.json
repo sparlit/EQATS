@@ -1,5 +1,5 @@
 {
-  "current_index": 280,
+  "current_index": 281,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2245,9 +2245,9 @@
       "name": "screeni-py",
       "target": "pranjal-joshi/screeni-py",
       "url": "https://github.com/pranjal-joshi/screeni-py",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3250",
+      "merged": true
     },
     {
       "name": "nsekit-mcp",
