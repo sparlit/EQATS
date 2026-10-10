@@ -1,5 +1,5 @@
 {
-  "current_index": 264,
+  "current_index": 265,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2117,9 +2117,9 @@
       "name": "nsestockf-oalert",
       "target": "parthsamani/nsestockf-oalert",
       "url": "https://github.com/parthsamani/nsestockf-oalert",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3234",
+      "merged": true
     },
     {
       "name": "portfoliosorts_nse",
