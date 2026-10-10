@@ -1982,8 +1982,8 @@
       "target": "neha01/automate-scrap-nse-data",
       "url": "https://github.com/neha01/automate-scrap-nse-data",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3217",
+      "merged": true
     },
     {
       "name": "nse-historical-data",
