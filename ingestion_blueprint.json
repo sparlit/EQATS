@@ -1,5 +1,5 @@
 {
-  "current_index": 261,
+  "current_index": 262,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2093,7 +2093,7 @@
       "name": "fund",
       "target": "oscmcompany/fund",
       "url": "https://github.com/oscmcompany/fund",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
