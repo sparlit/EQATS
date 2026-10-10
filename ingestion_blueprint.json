@@ -2086,8 +2086,8 @@
       "target": "opmashin/nse_eod",
       "url": "https://github.com/opmashin/nse_eod",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3230",
+      "merged": true
     },
     {
       "name": "fund",
