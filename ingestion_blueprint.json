@@ -1,5 +1,5 @@
 {
-  "current_index": 265,
+  "current_index": 266,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2125,9 +2125,9 @@
       "name": "portfoliosorts_nse",
       "target": "patrick-weiss/portfoliosorts_nse",
       "url": "https://github.com/patrick-weiss/portfoliosorts_nse",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3235",
+      "merged": true
     },
     {
       "name": "algo-trading",
