@@ -2182,8 +2182,8 @@
       "target": "pkjmesra/nseta",
       "url": "https://github.com/pkjmesra/nseta",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3242",
+      "merged": true
     },
     {
       "name": "pknsetools",
