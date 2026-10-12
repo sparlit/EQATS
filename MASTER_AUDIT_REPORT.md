@@ -54,7 +54,7 @@ State ledger tracking in `ingestion_blueprint.json` tracks a total of **424 open
 ### C. Missing Components
 
 1. **Pending Repository Ingestions**:
-   - 138 remaining target repositories from `repositories.txt` are queued in `ingestion_blueprint.json` state ledger for upcoming autonomous ingestion runs via `.github/scripts/autonomous_repo_integrator.py`.
+   - 138 remaining target repositories from `repositories.txt` are queued in `ingestion_blueprint.json` state ledger for upcoming autonomous ingestion passes via `.github/scripts/autonomous_repo_integrator.py`.
 
 ---
 
@@ -87,10 +87,10 @@ State ledger tracking in `ingestion_blueprint.json` tracks a total of **424 open
 ### F. Verification
 
 - **Unit & Integration Test Suite**:
-  - `PYTHONPATH=src /app/venv/bin/python3 -m pytest tests/`
-  - **Result**: **690 passed in 276.25s (100% pass rate)**.
+  - `PYTHONPATH=src /app/venv/bin/python3 -m pytest`
+  - **Result**: **690 passed in 201.82s (100% pass rate)**.
 - **Static Type Checking**:
-  - `PYTHONPATH=src /app/venv/bin/python3 -m mypy src`
+  - `PYTHONPATH=src /app/venv/bin/python3 -m mypy --config-file mypy.ini src`
   - **Result**: **Success: no issues found in 215 source files**.
 
 ---
