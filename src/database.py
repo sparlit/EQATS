@@ -578,9 +578,10 @@ def _init_db_impl() -> None:
             conn.commit()
             conn.close()
             try:
-                import broker_database
+                if config.DB_PATH != ":memory:":
+                    import broker_database
 
-                broker_database.build_and_seed_broker_database(force_rebuild=False)
+                    broker_database.build_and_seed_broker_database(force_rebuild=False)
             except Exception as b_err:
                 _log.debug("Auto-seeding broker_database note: %s", b_err)
             return
