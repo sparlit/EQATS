@@ -33,7 +33,6 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from dotenv import load_dotenv
 
@@ -59,7 +58,11 @@ from data.market_context import build_briefing_context
 from data.news_feed import fetch_market_news
 from loguru import logger
 from plotly.subplots import make_subplots
-from reports.pdf_generator import generate_screener_pdf, generate_text_report, generate_trade_journal_pdf
+from reports.pdf_generator import (
+    generate_screener_pdf,
+    generate_text_report,
+    generate_trade_journal_pdf,
+)
 from reports.trade_log import append_trade_log, load_trade_journal
 from reports.weekly_review import generate_weekly_review
 from risk.risk import calculate_position
@@ -961,8 +964,14 @@ def candlestick_chart(df: pd.DataFrame, symbol: str) -> go.Figure:
             low=df["low"],
             close=df["close"],
             name=symbol,
-            increasing={"line": {"color": _BULL_COLOR, "width": 1}, "fillcolor": "rgba(0,214,143,0.18)"},
-            decreasing={"line": {"color": _BEAR_COLOR, "width": 1}, "fillcolor": "rgba(230,57,70,0.18)"},
+            increasing={
+                "line": {"color": _BULL_COLOR, "width": 1},
+                "fillcolor": "rgba(0,214,143,0.18)",
+            },
+            decreasing={
+                "line": {"color": _BEAR_COLOR, "width": 1},
+                "fillcolor": "rgba(230,57,70,0.18)",
+            },
         ),
         row=1,
         col=1,
@@ -1035,7 +1044,9 @@ def pnl_equity_curve(trades: pd.DataFrame) -> go.Figure:
 
 def score_bar_chart(results: pd.DataFrame) -> go.Figure:
     top = results.sort_values("score", ascending=False).head(20)
-    colors = [_BULL_COLOR if s >= 75 else _GOLD_COLOR if s >= 55 else _BEAR_COLOR for s in top["score"]]
+    colors = [
+        _BULL_COLOR if s >= 75 else _GOLD_COLOR if s >= 55 else _BEAR_COLOR for s in top["score"]
+    ]
     fig = go.Figure(
         go.Bar(
             x=top["symbol"],
@@ -1046,8 +1057,12 @@ def score_bar_chart(results: pd.DataFrame) -> go.Figure:
             textfont={"color": _CHART_TEXT, "size": 9},
         )
     )
-    fig.add_hline(y=75, line={"color": _BULL_COLOR, "dash": "dash", "width": 1}, annotation_text="GRADE A")
-    fig.add_hline(y=55, line={"color": _GOLD_COLOR, "dash": "dash", "width": 1}, annotation_text="GRADE B")
+    fig.add_hline(
+        y=75, line={"color": _BULL_COLOR, "dash": "dash", "width": 1}, annotation_text="GRADE A"
+    )
+    fig.add_hline(
+        y=55, line={"color": _GOLD_COLOR, "dash": "dash", "width": 1}, annotation_text="GRADE B"
+    )
     layout = PLOTLY_LAYOUT.copy()
     layout["title"] = {
         "text": "TARGET SCORES  ·  TOP 20 CANDIDATES",
@@ -1070,7 +1085,9 @@ def _regime_badge(regime: str) -> str:
         "BEARISH": ("badge badge-bear", "BEARISH", "THREAT: CRITICAL", "#e63946"),
         "NEUTRAL": ("badge badge-neutral", "NEUTRAL", "THREAT: ELEVATED", "#FFB300"),
     }
-    css, label, threat, t_col = config.get(regime, ("badge badge-neutral", regime, "THREAT: UNKNOWN", "#5a94bc"))
+    css, label, threat, t_col = config.get(
+        regime, ("badge badge-neutral", regime, "THREAT: UNKNOWN", "#5a94bc")
+    )
     return (
         f'<span class="{css}">{label}</span>'
         f"&nbsp;&nbsp;"
@@ -1172,7 +1189,9 @@ def _news_panel(news: list[dict]) -> str:
             f'color:var(--text-muted);margin-top:3px;letter-spacing:0.05em;">'
             f"{n['source']} · {n['published_str']}</div></a>"
         )
-    return f'<div style="max-height:430px;overflow-y:auto;padding-right:4px;">{"".join(items)}</div>'
+    return (
+        f'<div style="max-height:430px;overflow-y:auto;padding-right:4px;">{"".join(items)}</div>'
+    )
 
 
 def _calendar_panel(cal: dict) -> str:
@@ -1191,7 +1210,9 @@ def _calendar_panel(cal: dict) -> str:
                 f"</div>"
             )
     corp = cal.get("corporate", [])
-    out.append('<div class="nc-label" style="margin:12px 0 6px;">RESULTS &amp; BOARD MEETINGS</div>')
+    out.append(
+        '<div class="nc-label" style="margin:12px 0 6px;">RESULTS &amp; BOARD MEETINGS</div>'
+    )
     if corp:
         for e in corp:
             out.append(
@@ -1284,7 +1305,8 @@ def show_overview() -> None:
         mc1, mc2 = st.columns(2)
         with mc1:
             st.markdown(
-                '<div class="nc-label" style="color:#00d68f;margin-bottom:4px;">▲ GAINERS</div>', unsafe_allow_html=True
+                '<div class="nc-label" style="color:#00d68f;margin-bottom:4px;">▲ GAINERS</div>',
+                unsafe_allow_html=True,
             )
             st.markdown(
                 f'<div class="nc-card" style="padding:6px;">{_movers_table(gl.get("gainers", []), True)}</div>',
@@ -1292,7 +1314,8 @@ def show_overview() -> None:
             )
         with mc2:
             st.markdown(
-                '<div class="nc-label" style="color:#e63946;margin-bottom:4px;">▼ LOSERS</div>', unsafe_allow_html=True
+                '<div class="nc-label" style="color:#e63946;margin-bottom:4px;">▼ LOSERS</div>',
+                unsafe_allow_html=True,
             )
             st.markdown(
                 f'<div class="nc-card" style="padding:6px;">{_movers_table(gl.get("losers", []), False)}</div>',
@@ -1363,7 +1386,11 @@ def show_overview() -> None:
                 if not screener_df.empty:
                     top_picks = screener_df[screener_df["grade"].isin(["A", "B"])].head(5)
                     context["top_picks"] = top_picks[
-                        [c for c in ["symbol", "score", "grade", "rs_20d", "rs_60d", "close"] if c in top_picks.columns]
+                        [
+                            c
+                            for c in ["symbol", "score", "grade", "rs_20d", "rs_60d", "close"]
+                            if c in top_picks.columns
+                        ]
                     ].to_dict("records")
                     st.session_state["screener_results"] = screener_df
             except Exception as exc:
@@ -1395,13 +1422,15 @@ def show_overview() -> None:
                     pdf_path,
                     caption=f"📊 <b>AXIOM Morning Briefing — {now_ist().strftime('%d %b %Y')}</b>",
                 )
-            st.success("Briefing PDF sent to Telegram.") if ok else st.error(f"Telegram send failed: {err}")
+            st.success("Briefing PDF sent to Telegram.") if ok else st.error(
+                f"Telegram send failed: {err}"
+            )
 
 
 def show_screener() -> None:
     section_header("Target Acquisition — NSE Universe Scanner")
 
-    _col1, col2 = st.columns([3, 1])
+    col1, col2 = st.columns([3, 1])
     with col2:
         if st.button("◈ ACQUIRE TARGETS"):
             with st.spinner("Scanning universe..."):
@@ -1411,7 +1440,11 @@ def show_screener() -> None:
     results: pd.DataFrame = st.session_state.get("screener_results", pd.DataFrame())
 
     if not results.empty:
-        grade_a = results[results["grade"] == "A"] if "grade" in results.columns else results[results["score"] >= 75]
+        grade_a = (
+            results[results["grade"] == "A"]
+            if "grade" in results.columns
+            else results[results["score"] >= 75]
+        )
         grade_b = (
             results[results["grade"] == "B"]
             if "grade" in results.columns
@@ -1454,12 +1487,16 @@ def show_screener() -> None:
             with st.spinner(f"Loading {top_symbol}..."):
                 sym_history = fetch_symbol_history(top_symbol, period="3mo", interval="1d")
                 if not sym_history.empty:
-                    st.plotly_chart(candlestick_chart(sym_history, top_symbol), use_container_width=True)
+                    st.plotly_chart(
+                        candlestick_chart(sym_history, top_symbol), use_container_width=True
+                    )
 
         section_header("AXIOM Analyst Commentary")
         if st.button("◈ GENERATE COMMENTARY"):
             with st.spinner("AXIOM analysing candidates..."):
-                commentary = generate_screener_commentary(results.head(10).to_dict(orient="records"))
+                commentary = generate_screener_commentary(
+                    results.head(10).to_dict(orient="records")
+                )
             st.session_state["screener_commentary"] = commentary
 
         commentary = st.session_state.get("screener_commentary", "")
@@ -1480,7 +1517,9 @@ def show_screener() -> None:
             st.success(f"Saved: {pdf_path.name}")
 
         section_header("Deep Target Analysis")
-        analysis_symbol = st.selectbox("ANALYSE TARGET", results["symbol"].tolist(), key="analysis_sym")
+        analysis_symbol = st.selectbox(
+            "ANALYSE TARGET", results["symbol"].tolist(), key="analysis_sym"
+        )
         if st.button("◈ FULL ANALYSIS — 9 SECTIONS"):
             with st.spinner(f"Running analysis on {analysis_symbol}..."):
                 hist = fetch_symbol_history(analysis_symbol, period="6mo", interval="1d")
@@ -1512,14 +1551,20 @@ def show_trade_journal() -> None:
         c1, c2, c3, c4 = st.columns(4)
         symbol = c1.text_input("TARGET SYMBOL", value=prefill.get("symbol", ""))
         side = c2.selectbox("SIDE", ["LONG", "SHORT"])
-        entry_price = c3.number_input("ENTRY PRICE", value=float(prefill.get("entry_price", 0.0)), format="%.2f")
+        entry_price = c3.number_input(
+            "ENTRY PRICE", value=float(prefill.get("entry_price", 0.0)), format="%.2f"
+        )
         exit_price = c4.number_input("EXIT PRICE", value=0.0, format="%.2f")
 
         c5, c6, c7, c8 = st.columns(4)
         quantity = c5.number_input("QUANTITY", value=0, step=1)
         pnl = c6.number_input("P&L (₹)", value=0.0, format="%.2f")
-        planned_sl = c7.number_input("PLANNED SL", value=float(prefill.get("stop", 0.0)), format="%.2f")
-        planned_target = c8.number_input("PLANNED TARGET", value=float(prefill.get("target", 0.0)), format="%.2f")
+        planned_sl = c7.number_input(
+            "PLANNED SL", value=float(prefill.get("stop", 0.0)), format="%.2f"
+        )
+        planned_target = c8.number_input(
+            "PLANNED TARGET", value=float(prefill.get("target", 0.0)), format="%.2f"
+        )
 
         c9, c10, c11, c12 = st.columns(4)
         setup_type = c9.selectbox(
@@ -1606,7 +1651,9 @@ def show_trade_journal() -> None:
             if c in trades.columns
         ]
         st.dataframe(
-            trades[display_cols].sort_values("created_at", ascending=False), use_container_width=True, hide_index=True
+            trades[display_cols].sort_values("created_at", ascending=False),
+            use_container_width=True,
+            hide_index=True,
         )
 
         section_header("AXIOM Performance Review")
@@ -1666,7 +1713,9 @@ def show_watchlist() -> None:
         c3.metric("BRAVO GRADE", len(df[df["grade"] == "B"]))
 
         display_cols = [
-            c for c in ["symbol", "grade", "score", "rs_20d", "rs_60d", "close", "notes", "added_at"] if c in df.columns
+            c
+            for c in ["symbol", "grade", "score", "rs_20d", "rs_60d", "close", "notes", "added_at"]
+            if c in df.columns
         ]
         st.dataframe(df[display_cols], use_container_width=True, hide_index=True)
 
@@ -1729,7 +1778,9 @@ def show_risk_calculator() -> None:
         target = c4.number_input("TARGET PRICE (₹)", value=0.0, format="%.2f")
         capital = c5.number_input("CAPITAL (₹)", value=100000.0, format="%.0f")
         regime_input = c6.selectbox(
-            "REGIME", ["BULLISH", "NEUTRAL", "BEARISH"], index=["BULLISH", "NEUTRAL", "BEARISH"].index(regime_str)
+            "REGIME",
+            ["BULLISH", "NEUTRAL", "BEARISH"],
+            index=["BULLISH", "NEUTRAL", "BEARISH"].index(regime_str),
         )
 
         submitted = st.form_submit_button("◈ CALCULATE")
@@ -1759,7 +1810,9 @@ def show_risk_calculator() -> None:
 
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("SHARES", f"{result.shares:,}")
-        col2.metric("₹ AT RISK", f"₹{result.risk_amount:,.0f}", delta=f"{result.risk_pct:.2f}% of capital")
+        col2.metric(
+            "₹ AT RISK", f"₹{result.risk_amount:,.0f}", delta=f"{result.risk_pct:.2f}% of capital"
+        )
         col3.metric("R:R RATIO", f"{result.rr_ratio:.2f}:1")
         col4.metric("₹ REWARD", f"₹{result.reward:,.0f}")
 
@@ -1839,15 +1892,14 @@ def show_risk_calculator() -> None:
             }
         )
 
-        if result.passed:
-            if st.button("◈ OPEN IN MISSION LOG"):
-                st.session_state["prefill_trade"] = {
-                    "symbol": symbol.upper(),
-                    "entry_price": entry,
-                    "quantity": result.shares,
-                    "setup_type": "Breakout",
-                }
-                st.info("Trade pre-filled. Navigate to MISSION LOG to complete.")
+        if result.passed and st.button("◈ OPEN IN MISSION LOG"):
+            st.session_state["prefill_trade"] = {
+                "symbol": symbol.upper(),
+                "entry_price": entry,
+                "quantity": result.shares,
+                "setup_type": "Breakout",
+            }
+            st.info("Trade pre-filled. Navigate to MISSION LOG to complete.")
 
     section_header("Recent Calculations")
     history = get_risk_history(10)
@@ -1908,7 +1960,8 @@ def show_monitor() -> None:
         else:
             st.error(f"Send failed: {err}")
             st.info(
-                "**Fix:** Open Telegram, find your bot, send `/start`\nThen click **◈ FIND CHAT ID** and update .env"
+                "**Fix:** Open Telegram, find your bot, send `/start`\n"
+                "Then click **◈ FIND CHAT ID** and update .env"
             )
 
     if col_chatid.button("◈ FIND CHAT ID"):
@@ -1918,12 +1971,16 @@ def show_monitor() -> None:
         else:
             st.success(f"Token valid — Bot: **@{bot_info.get('username')}**")
             delete_webhook()
-            chat_id, err, _raw = get_updates_chat_id()
+            chat_id, err, raw = get_updates_chat_id()
             if chat_id:
-                st.success(f"Your Chat ID: **`{chat_id}`** → set `TELEGRAM_CHAT_ID={chat_id}` in .env")
+                st.success(
+                    f"Your Chat ID: **`{chat_id}`** → set `TELEGRAM_CHAT_ID={chat_id}` in .env"
+                )
             else:
                 st.warning(f"{err}")
-                st.markdown("**Steps:** Open Telegram → find your bot → send any message → click FIND CHAT ID again.")
+                st.markdown(
+                    "**Steps:** Open Telegram → find your bot → send any message → click FIND CHAT ID again."
+                )
 
     st.markdown(
         '<div style="height:1px;background:linear-gradient(90deg,transparent,'
@@ -1967,7 +2024,11 @@ def show_monitor() -> None:
             results = {}
             for sym in symbols:
                 df15 = _fetch_15m(sym)
-                results[sym] = _compute_signals(df15) if not df15.empty else {"signals": [], "error": "no data"}
+                results[sym] = (
+                    _compute_signals(df15)
+                    if not df15.empty
+                    else {"signals": [], "error": "no data"}
+                )
 
             for sym, data in results.items():
                 if sym not in st.session_state["monitor_fired"]:
@@ -2068,7 +2129,8 @@ def show_reports() -> None:
 
     with c1:
         st.markdown(
-            '<div class="nc-label" style="margin-bottom:8px;">Market Briefing PDF</div>', unsafe_allow_html=True
+            '<div class="nc-label" style="margin-bottom:8px;">Market Briefing PDF</div>',
+            unsafe_allow_html=True,
         )
         if st.button("◈ GENERATE BRIEFING PDF"):
             with st.spinner("Generating briefing..."):
@@ -2080,17 +2142,25 @@ def show_reports() -> None:
                         "date": now_ist().strftime("%d %b %Y"),
                     }
                 )
-                path = generate_text_report("Market Briefing", briefing, REPORTS_DIR / "market_briefing.pdf")
+                path = generate_text_report(
+                    "Market Briefing", briefing, REPORTS_DIR / "market_briefing.pdf"
+                )
             st.success(f"Saved to {path}")
 
     with c2:
-        st.markdown('<div class="nc-label" style="margin-bottom:8px;">Task List PDF</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="nc-label" style="margin-bottom:8px;">Task List PDF</div>',
+            unsafe_allow_html=True,
+        )
         if st.button("◈ GENERATE TASK PDF"):
             with st.spinner("Generating tasks..."):
                 tasks = get_tasks()
                 body = (
                     "\n".join(
-                        [f"[{t.get('created_at', '')}] {t.get('label', '')} — {t.get('context', '')}" for t in tasks]
+                        [
+                            f"[{t.get('created_at', '')}] {t.get('label', '')} — {t.get('context', '')}"
+                            for t in tasks
+                        ]
                     )
                     or "No tasks available."
                 )
@@ -2155,7 +2225,10 @@ def show_axiom_command() -> None:
         st.session_state["axiom_cmd_log"].append(command)
         with st.spinner("AXIOM processing command..."):
             history_ctx = "\n".join(
-                [f"User: {h['user']}\nAXIOM: {h['response']}" for h in st.session_state["axiom_history"][-6:]]
+                [
+                    f"User: {h['user']}\nAXIOM: {h['response']}"
+                    for h in st.session_state["axiom_history"][-6:]
+                ]
             )
             prompt = (
                 f"Session context (last exchanges):\n{history_ctx}\n\n"
@@ -2195,19 +2268,23 @@ def show_axiom_command() -> None:
             # Institutional report renderer
             if any(
                 kw in resp
-                for kw in ["MARKET PULSE", "NIFTY OUTLOOK", "TECHNICAL STRUCTURE", "RISK PLAN", "FINAL VERDICT"]
+                for kw in [
+                    "MARKET PULSE",
+                    "NIFTY OUTLOOK",
+                    "TECHNICAL STRUCTURE",
+                    "RISK PLAN",
+                    "FINAL VERDICT",
+                ]
             ):
                 sections = resp.split("\n")
                 rendered = ""
                 for line in sections:
                     if line.strip() and line.strip()[0].isdigit() and ". " in line[:5]:
                         rendered += f'<div style="color:#00c8ff;font-family:Share Tech Mono,monospace;font-size:0.68rem;letter-spacing:0.18em;margin-top:10px;margin-bottom:2px;">{line.strip()}</div>'
-                    elif line.startswith(("   ", "\t")):
+                    elif line.startswith("   ") or line.startswith("\t"):
                         rendered += f'<div style="font-family:Share Tech Mono,monospace;font-size:0.72rem;color:#5a94bc;padding-left:12px;">{line.strip()}</div>'
                     else:
-                        rendered += (
-                            f'<div style="font-family:Inter,sans-serif;font-size:0.76rem;color:#c8e8ff;">{line}</div>'
-                        )
+                        rendered += f'<div style="font-family:Inter,sans-serif;font-size:0.76rem;color:#c8e8ff;">{line}</div>'
                 st.markdown(
                     f'<div style="background:rgba(0,0,0,0.35);border:1px solid rgba(0,200,255,0.14);'
                     f'border-radius:6px 2px 6px 6px;padding:14px 16px;margin-bottom:12px;">{rendered}</div>',
@@ -2309,7 +2386,9 @@ def show_footprint() -> None:
 
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("POC", f"₹{fp.poc}")
-        m2.metric("NET DELTA", f"{fp.total_delta:,.0f}", delta="BUY" if fp.total_delta > 0 else "SELL")
+        m2.metric(
+            "NET DELTA", f"{fp.total_delta:,.0f}", delta="BUY" if fp.total_delta > 0 else "SELL"
+        )
         m3.metric("BARS", fp.bars)
         m4.metric("LAST", f"₹{df['close'].iloc[-1]:,.2f}")
 
@@ -2415,7 +2494,11 @@ def show_backtest() -> None:
         )
 
         section_header("Trade Ledger")
-        st.dataframe(res.trades.sort_values("entry_date", ascending=False), use_container_width=True, hide_index=True)
+        st.dataframe(
+            res.trades.sort_values("entry_date", ascending=False),
+            use_container_width=True,
+            hide_index=True,
+        )
 
 
 # ─────────────────────────────────────────────────────────────────

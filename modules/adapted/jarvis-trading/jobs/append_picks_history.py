@@ -46,7 +46,9 @@ def main() -> None:
         return
     today = datetime.now(IST).strftime("%Y-%m-%d")
     try:
-        data = json.loads(HISTORY.read_text(encoding="utf-8")) if HISTORY.exists() else {"history": {}}
+        data = (
+            json.loads(HISTORY.read_text(encoding="utf-8")) if HISTORY.exists() else {"history": {}}
+        )
     except Exception:
         data = {"history": {}}
     with WATCHLIST.open() as f:
@@ -68,7 +70,9 @@ def main() -> None:
     for k in keys[:-250]:
         del data["history"][k]
     HISTORY.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
-    logger.info("Picks history: {} dates (added {} with {} picks)", len(data["history"]), today, len(rows))
+    logger.info(
+        "Picks history: {} dates (added {} with {} picks)", len(data["history"]), today, len(rows)
+    )
 
 
 if __name__ == "__main__":

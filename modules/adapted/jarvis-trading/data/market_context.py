@@ -136,7 +136,13 @@ def _batch_fetch(tickers: list[str], period: str = "5d") -> dict[str, pd.DataFra
         return {tickers[0]: _safe_fetch(tickers[0], period)}
     try:
         data = yf.download(
-            tickers, period=period, interval="1d", group_by="ticker", auto_adjust=True, progress=False, threads=True
+            tickers,
+            period=period,
+            interval="1d",
+            group_by="ticker",
+            auto_adjust=True,
+            progress=False,
+            threads=True,
         )
     except Exception as exc:
         logger.warning("Batch download failed ({}); falling back per-ticker", exc)
@@ -210,7 +216,9 @@ def fetch_index_technicals(ticker: str) -> dict[str, float]:
     latest = float(closes.iloc[-1])
     ema20 = float(closes.ewm(span=20, adjust=False).mean().iloc[-1])
     ema50 = float(closes.ewm(span=50, adjust=False).mean().iloc[-1])
-    ema200 = float(closes.ewm(span=200, adjust=False).mean().iloc[-1]) if len(closes) >= 200 else 0.0
+    ema200 = (
+        float(closes.ewm(span=200, adjust=False).mean().iloc[-1]) if len(closes) >= 200 else 0.0
+    )
     rsi_val = float(rsi(closes, 14).iloc[-1])
     try:
         adx_val = float(adx_full(df, 14)["adx"].iloc[-1])
@@ -235,7 +243,10 @@ def fetch_index_technicals(ticker: str) -> dict[str, float]:
 def fetch_sector_performance() -> dict[str, float]:
     """1-day % change for key NSE sector proxies (batched)."""
     frames = _batch_fetch(list(SECTOR_PROXIES.values()))
-    return {sector: _pct_change(frames.get(ticker, pd.DataFrame())) for sector, ticker in SECTOR_PROXIES.items()}
+    return {
+        sector: _pct_change(frames.get(ticker, pd.DataFrame()))
+        for sector, ticker in SECTOR_PROXIES.items()
+    }
 
 
 def _gift_nifty() -> dict:

@@ -27,7 +27,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import warnings
 
-warnings.simplefilter("ignore", FutureWarning)  # quiet yfinance/pandas chained-assignment + read_html noise
+warnings.simplefilter(
+    "ignore", FutureWarning
+)  # quiet yfinance/pandas chained-assignment + read_html noise
 
 from dotenv import load_dotenv
 

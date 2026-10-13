@@ -96,7 +96,10 @@ def _prepare(df: pd.DataFrame, cfg: BacktestConfig) -> pd.DataFrame:
 
 
 def _entry_signal(row: pd.Series, cfg: BacktestConfig) -> bool:
-    if any(pd.isna(row.get(c)) for c in ["roll_high", "vol_sma", "adx", "atr", "ema_9", "ema_21", "ema_50", "ema_200"]):
+    if any(
+        pd.isna(row.get(c))
+        for c in ["roll_high", "vol_sma", "adx", "atr", "ema_9", "ema_21", "ema_50", "ema_200"]
+    ):
         return False
     if row["vol_sma"] <= 0:
         return False
@@ -109,7 +112,9 @@ def _entry_signal(row: pd.Series, cfg: BacktestConfig) -> bool:
     )
 
 
-def backtest_symbol(df: pd.DataFrame, symbol: str = "", cfg: BacktestConfig | None = None) -> BacktestResult:
+def backtest_symbol(
+    df: pd.DataFrame, symbol: str = "", cfg: BacktestConfig | None = None
+) -> BacktestResult:
     """
     Replay the breakout strategy bar-by-bar over a single symbol's daily history.
 
@@ -163,8 +168,12 @@ def backtest_symbol(df: pd.DataFrame, symbol: str = "", cfg: BacktestConfig | No
                         "exit_price": round(exit_price, 2),
                         "shares": shares,
                         "pnl": round(pnl, 2),
-                        "r_multiple": round((exit_price - entry) / init_risk, 2) if init_risk > 0 else 0.0,
-                        "return_pct": round((exit_price - entry) / entry * 100, 2) if entry > 0 else 0.0,
+                        "r_multiple": round((exit_price - entry) / init_risk, 2)
+                        if init_risk > 0
+                        else 0.0,
+                        "return_pct": round((exit_price - entry) / entry * 100, 2)
+                        if entry > 0
+                        else 0.0,
                         "bars_held": i - entry_idx,
                         "exit_reason": reason,
                     }
@@ -228,6 +237,5 @@ def backtest_portfolio(
 def run_backtest(df: pd.DataFrame) -> pd.DataFrame:
     """Legacy entry point — returns the closed-trade DataFrame for a single symbol."""
     if df.empty:
-        msg = "Input DataFrame is empty"
-        raise ValueError(msg)
+        raise ValueError("Input DataFrame is empty")
     return backtest_symbol(df).trades

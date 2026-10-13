@@ -67,7 +67,11 @@ def screen_symbols(request: ScreenerRequest) -> dict[str, Any]:
     global latest_screener_results
     latest_screener_results = results.to_dict(orient="records")
     commentary = generate_screener_commentary(latest_screener_results[:10])
-    return {"count": len(latest_screener_results), "results": latest_screener_results, "commentary": commentary}
+    return {
+        "count": len(latest_screener_results),
+        "results": latest_screener_results,
+        "commentary": commentary,
+    }
 
 
 @app.get("/screener/latest")

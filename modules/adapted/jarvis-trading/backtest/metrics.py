@@ -66,7 +66,9 @@ def max_drawdown_pct(equity: pd.Series) -> float:
     return float(abs(drawdown.min()) * 100)
 
 
-def calculate_metrics(trades: pd.DataFrame, starting_capital: float = 1_000_000.0) -> dict[str, float]:
+def calculate_metrics(
+    trades: pd.DataFrame, starting_capital: float = 1_000_000.0
+) -> dict[str, float]:
     """
     Compute summary performance metrics from a closed-trade DataFrame.
 
@@ -88,14 +90,20 @@ def calculate_metrics(trades: pd.DataFrame, starting_capital: float = 1_000_000.
     gross_profit = float(pnl[wins_mask].sum())
     gross_loss = float(abs(pnl[losses_mask].sum()))
 
-    r = trades["r_multiple"].astype(float) if "r_multiple" in trades.columns else pd.Series(dtype=float)
+    r = (
+        trades["r_multiple"].astype(float)
+        if "r_multiple" in trades.columns
+        else pd.Series(dtype=float)
+    )
 
     win_rate = (n_wins / n * 100) if n else 0.0
     avg_win = float(pnl[wins_mask].mean()) if n_wins else 0.0
     avg_loss = float(pnl[losses_mask].mean()) if n_losses else 0.0
     expectancy = float(r.mean()) if not r.empty else 0.0
     avg_rr = float(r[r > 0].mean()) if not r.empty and (r > 0).any() else 0.0
-    profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else float("inf") if gross_profit > 0 else 0.0
+    profit_factor = (
+        (gross_profit / gross_loss) if gross_loss > 0 else float("inf") if gross_profit > 0 else 0.0
+    )
 
     # Sharpe from per-trade returns (annualized by trade count proxy)
     if "return_pct" in trades.columns:
@@ -122,5 +130,7 @@ def calculate_metrics(trades: pd.DataFrame, starting_capital: float = 1_000_000.
         "max_drawdown": round(mdd, 2),
         "profit_factor": round(profit_factor, 2) if profit_factor != float("inf") else 999.0,
         "sharpe": round(sharpe, 2),
-        "avg_bars_held": round(float(trades["bars_held"].mean()), 1) if "bars_held" in trades.columns else 0.0,
+        "avg_bars_held": round(float(trades["bars_held"].mean()), 1)
+        if "bars_held" in trades.columns
+        else 0.0,
     }

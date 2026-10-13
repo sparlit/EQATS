@@ -130,7 +130,14 @@ def geocode_news(limit_headlines: int = 60) -> dict:
                     continue
                 seen.add(coord)
                 slot = agg.setdefault(
-                    coord, {"lat": coord[0], "lng": coord[1], "place": key.title(), "count": 0, "headlines": []}
+                    coord,
+                    {
+                        "lat": coord[0],
+                        "lng": coord[1],
+                        "place": key.title(),
+                        "count": 0,
+                        "headlines": [],
+                    },
                 )
                 slot["count"] += 1
                 if len(slot["headlines"]) < 5:

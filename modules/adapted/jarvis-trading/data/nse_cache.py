@@ -41,7 +41,9 @@ from loguru import logger
 from config import DATA_DIR
 
 CACHE_FILE = DATA_DIR / "nse_cache.json"
-GITHUB_RAW = "https://raw.githubusercontent.com/agrawalarnav129-ui/jarvis-trading/main/data/nse_cache.json"
+GITHUB_RAW = (
+    "https://raw.githubusercontent.com/agrawalarnav129-ui/jarvis-trading/main/data/nse_cache.json"
+)
 
 _mem: dict | None = None
 

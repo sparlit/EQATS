@@ -33,7 +33,6 @@ workflow commits it back, so dedup survives across runs.
 """
 
 import json
-from datetime import date
 from pathlib import Path
 from zoneinfo import ZoneInfo
 

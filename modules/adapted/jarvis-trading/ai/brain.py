@@ -79,7 +79,9 @@ def call_groq_stream(system: str, user: str, max_tokens: int = 900):
         **_payload_extras(max_tokens),
     }
     try:
-        with requests.post(GROQ_API_URL, headers=headers, json=payload, stream=True, timeout=60) as r:
+        with requests.post(
+            GROQ_API_URL, headers=headers, json=payload, stream=True, timeout=60
+        ) as r:
             if r.status_code != 200:
                 logger.error("Groq stream error {}: {}", r.status_code, r.text[:160])
                 yield ""
@@ -203,7 +205,9 @@ def generate_screener_commentary(candidates: list[dict[str, Any]]) -> str:
     )
     result = _call_groq(_AXIOM_SYSTEM, user, max_tokens=600)
     if not result:
-        return "\n".join([f"{c.get('symbol', '?')}: Score {c.get('score', '?')}" for c in candidates[:5]])
+        return "\n".join(
+            [f"{c.get('symbol', '?')}: Score {c.get('score', '?')}" for c in candidates[:5]]
+        )
     return result
 
 

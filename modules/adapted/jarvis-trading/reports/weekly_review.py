@@ -41,14 +41,20 @@ def generate_weekly_review(trades: pd.DataFrame) -> dict[str, float]:
 
     trades = trades.copy()
     trades["pnl"] = pd.to_numeric(trades["pnl"], errors="coerce").fillna(0.0)
-    trades["holding_period"] = pd.to_numeric(trades.get("holding_period", pd.Series(dtype="float64")), errors="coerce")
+    trades["holding_period"] = pd.to_numeric(
+        trades.get("holding_period", pd.Series(dtype="float64")), errors="coerce"
+    )
     total_trades = len(trades)
     wins = int((trades["pnl"] > 0).sum())
     losses = int((trades["pnl"] <= 0).sum())
     win_rate = float(wins / total_trades * 100) if total_trades else 0.0
     total_pnl = float(trades["pnl"].sum())
     avg_pnl = float(trades["pnl"].mean()) if total_trades else 0.0
-    avg_holding = float(trades["holding_period"].dropna().mean()) if "holding_period" in trades.columns else 0.0
+    avg_holding = (
+        float(trades["holding_period"].dropna().mean())
+        if "holding_period" in trades.columns
+        else 0.0
+    )
 
     return {
         "total_trades": total_trades,

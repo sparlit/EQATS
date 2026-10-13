@@ -70,7 +70,7 @@ def _num(x) -> float:
 def _expiry_candidates() -> list[str]:
     """Upcoming Tue/Thu (NSE weekly/monthly expiry days), nearest first."""
     today = date.today()
-    out = [today + timedelta(days=i) for i in range(45)]
+    out = [today + timedelta(days=i) for i in range(0, 45)]
     return [d.strftime("%Y-%m-%d") for d in out if d.weekday() in (1, 3)][:10]
 
 
@@ -98,7 +98,13 @@ def _parse_table(html: str) -> list[dict]:
             continue
         ce_oi, pe_oi = _num(v[0]), _num(v[10])
         rows.append(
-            {"strike": strike, "ceOI": int(ce_oi), "peOI": int(pe_oi), "ceLTP": _num(v[4]), "peLTP": _num(v[6])}
+            {
+                "strike": strike,
+                "ceOI": int(ce_oi),
+                "peOI": int(pe_oi),
+                "ceLTP": _num(v[4]),
+                "peLTP": _num(v[6]),
+            }
         )
     return [r for r in rows if r["ceOI"] or r["peOI"]]
 
@@ -109,7 +115,9 @@ def _analyse(rows: list[dict], symbol: str, spot: float, expiry: str) -> dict:
     pe_oi = sum(r["peOI"] for r in sl)
 
     def pain(at: float) -> float:
-        return sum(r["ceOI"] * max(0, at - r["strike"]) + r["peOI"] * max(0, r["strike"] - at) for r in sl)
+        return sum(
+            r["ceOI"] * max(0, at - r["strike"]) + r["peOI"] * max(0, r["strike"] - at) for r in sl
+        )
 
     max_pain = min((r["strike"] for r in sl), key=pain) if sl else None
 

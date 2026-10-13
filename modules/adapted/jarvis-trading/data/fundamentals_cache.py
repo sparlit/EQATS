@@ -86,7 +86,10 @@ def build_fundamentals_cache(max_symbols: int = 520, workers: int = 6) -> dict:
     from data.company import fetch_company
     from data.fetcher import load_universe
 
-    symbols = [s.replace(".NS", "") for s in load_universe()["symbol"].dropna().astype(str).tolist()[:max_symbols]]
+    symbols = [
+        s.replace(".NS", "")
+        for s in load_universe()["symbol"].dropna().astype(str).tolist()[:max_symbols]
+    ]
     symbols = list(dict.fromkeys(symbols))
     logger.info("Building fundamentals cache for {} symbols…", len(symbols))
 
@@ -119,6 +122,9 @@ def build_fundamentals_cache(max_symbols: int = 520, workers: int = 6) -> dict:
     with gzip.open(CACHE_FILE, "wt", encoding="utf-8") as f:
         json.dump(payload, f, separators=(",", ":"), default=str)
     logger.info(
-        "Fundamentals cache written: {} symbols → {} ({:.2f} MB)", len(out), CACHE_FILE, CACHE_FILE.stat().st_size / 1e6
+        "Fundamentals cache written: {} symbols → {} ({:.2f} MB)",
+        len(out),
+        CACHE_FILE,
+        CACHE_FILE.stat().st_size / 1e6,
     )
     return payload

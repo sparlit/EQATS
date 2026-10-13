@@ -61,7 +61,9 @@ def save_watchlist_from_screener(df: pd.DataFrame, max_symbols: int = 15) -> int
     picks = df[df["grade"].isin(["A", "B"])] if "grade" in df.columns else df
     if picks.empty:
         return 0
-    cols = [c for c in ["symbol", "grade", "score", "close", "rs_20d", "rs_60d"] if c in picks.columns]
+    cols = [
+        c for c in ["symbol", "grade", "score", "close", "rs_20d", "rs_60d"] if c in picks.columns
+    ]
     out = picks[cols].head(max_symbols).copy()
     WATCHLIST_CSV.parent.mkdir(parents=True, exist_ok=True)
     out.to_csv(WATCHLIST_CSV, index=False)

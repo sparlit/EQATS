@@ -57,7 +57,11 @@ from pydantic import BaseModel
 
 IST = ZoneInfo("Asia/Kolkata")
 
-app = FastAPI(title="AXIOM API", version="1.0", description="Advanced eXpert Intelligence for Operations in Market")
+app = FastAPI(
+    title="AXIOM API",
+    version="1.0",
+    description="Advanced eXpert Intelligence for Operations in Market",
+)
 
 # CORS — allow the Vercel frontend + local dev. Tighten ALLOWED_ORIGINS in prod via env.
 import os
@@ -114,7 +118,11 @@ def health():
 def clock():
     """Authoritative IST time for the frontend clock."""
     now = datetime.now(IST)
-    is_open = now.weekday() < 5 and (now.hour, now.minute) >= (9, 15) and (now.hour, now.minute) <= (15, 30)
+    is_open = (
+        now.weekday() < 5
+        and (now.hour, now.minute) >= (9, 15)
+        and (now.hour, now.minute) <= (15, 30)
+    )
     return {
         "iso": now.isoformat(),
         "ist": now.strftime("%H:%M:%S"),
@@ -143,8 +151,14 @@ def news():
 @app.get("/api/calendar")
 def calendar():
     cal = _cached("calendar", lambda: fetch_calendar(14))
-    corp = [{**e, "date": e["date"].isoformat() if e.get("date") else None} for e in cal.get("corporate", [])]
-    macro = [{**e, "date": e["date"].isoformat() if e.get("date") else None} for e in cal.get("macro", [])]
+    corp = [
+        {**e, "date": e["date"].isoformat() if e.get("date") else None}
+        for e in cal.get("corporate", [])
+    ]
+    macro = [
+        {**e, "date": e["date"].isoformat() if e.get("date") else None}
+        for e in cal.get("macro", [])
+    ]
     return {"corporate": corp, "macro": macro}
 
 
@@ -296,16 +310,28 @@ def scan_custom(
                 return False
             if grade and r.get("grade") != grade.upper():
                 return False
-            if above_ema200 and not (r.get("close") and r.get("ema200") and r["close"] > r["ema200"]):
-                return False
-            if ema_aligned and not (
-                r.get("ema9") and r.get("ema21") and r.get("ema50") and r["ema9"] > r["ema21"] > r["ema50"]
+            if above_ema200 and not (
+                r.get("close") and r.get("ema200") and r["close"] > r["ema200"]
             ):
                 return False
-            return True
+            return not (
+                ema_aligned
+                and not (
+                    r.get("ema9")
+                    and r.get("ema21")
+                    and r.get("ema50")
+                    and r["ema9"] > r["ema21"] > r["ema50"]
+                )
+            )
 
-        skey = sort_by if sort_by in ("score", "rs_20d", "rs_60d", "rsi", "adx", "volume_ratio") else "score"
-        rows = sorted([r for r in _full_screener() if ok(r)], key=lambda r: r.get(skey) or -999, reverse=True)
+        skey = (
+            sort_by
+            if sort_by in ("score", "rs_20d", "rs_60d", "rsi", "adx", "volume_ratio")
+            else "score"
+        )
+        rows = sorted(
+            [r for r in _full_screener() if ok(r)], key=lambda r: r.get(skey) or -999, reverse=True
+        )
         return {"count": len(rows), "results": rows[:limit]}
     except Exception as exc:
         logger.exception("Custom scan failed: {}", exc)
@@ -565,7 +591,6 @@ def company_peers(symbol: str):
 
     def _run():
         import pandas as pd
-        from data.company import fetch_company
 
         from config import DATA_DIR
 
@@ -577,7 +602,7 @@ def company_peers(symbol: str):
         industry = row.iloc[0]["Industry"]
         peers_syms = uni[uni["Industry"] == industry]["Symbol"].str.upper().tolist()
         # self first, then up to 5 peers (universe order ≈ liquidity)
-        ordered = [sym, *[s for s in peers_syms if s != sym][:5]]
+        ordered = [sym] + [s for s in peers_syms if s != sym][:5]
         rows = []
         for s in ordered:
             try:
@@ -632,7 +657,7 @@ def company_ai(symbol: str):
         c = _company_get(symbol)
         if not c.get("available"):
             return {"available": False, "note": "No company data."}
-        slim = {k: v for k, v in c.items() if k != "summary" and v is not None}
+        slim = {k: v for k, v in c.items() if k not in ("summary",) and v is not None}
         sys_p = (
             "You are AXIOM's equity analyst for an NSE swing trader. Given fundamentals, "
             "shareholding, quarterly results and technicals, give a direct read. Cite the "
@@ -706,7 +731,9 @@ def sector_constituents(sector: str):
         if members.empty:
             return {"sector": sector, "available": False, "note": "Unknown sector."}
         tickers = {str(t).upper() for t in members["yfinance_Ticker"].dropna()}
-        names = {str(r["yfinance_Ticker"]).upper(): str(r["Company_Name"]) for _, r in members.iterrows()}
+        names = {
+            str(r["yfinance_Ticker"]).upper(): str(r["Company_Name"]) for _, r in members.iterrows()
+        }
         rows = [
             dict(r, name=names.get(str(r.get("symbol", "")).upper(), ""))
             for r in _full_screener()
@@ -754,9 +781,18 @@ def sector_constituents(sector: str, limit: int = 25):
         pats = _SECTOR_INDUSTRY.get(sector, [sector])
         mask = uni["Industry"].fillna("").str.contains("|".join(pats), case=False, regex=True)
         syms = {s.upper() for s in uni[mask]["Symbol"].dropna().astype(str)}
-        rows = [r for r in _full_screener() if str(r.get("symbol", "")).replace(".NS", "").upper() in syms]
+        rows = [
+            r
+            for r in _full_screener()
+            if str(r.get("symbol", "")).replace(".NS", "").upper() in syms
+        ]
         rows.sort(key=lambda r: r.get("score") or 0, reverse=True)
-        return {"available": bool(rows), "sector": sector, "count": len(rows), "constituents": rows[:limit]}
+        return {
+            "available": bool(rows),
+            "sector": sector,
+            "count": len(rows),
+            "constituents": rows[:limit],
+        }
 
     try:
         return _keyed(_secdd_cache, f"{sector}|{limit}", _run)
@@ -956,7 +992,11 @@ def events_watch(symbols: str = "", days: int = 10):
 
         want = {s.strip().replace(".NS", "").upper() for s in symbols.split(",") if s.strip()}
         corp = fetch_corporate_events(days_ahead=days, limit=60)
-        hits = [dict(e) for e in corp if e.get("symbol", "").replace(".NS", "").upper() in want] if want else []
+        hits = (
+            [dict(e) for e in corp if e.get("symbol", "").replace(".NS", "").upper() in want]
+            if want
+            else []
+        )
         seen = {h.get("symbol", "").replace(".NS", "").upper() for h in hits}
         # merge scheduled earnings from the fundamentals cache (covers gaps in
         # the NSE calendar) + attach the playbook stats
@@ -968,13 +1008,28 @@ def events_watch(symbols: str = "", days: int = 10):
             if not st:
                 continue
             if sym not in seen and st.get("days_to") is not None and 0 <= st["days_to"] <= days:
-                hits.append({"symbol": sym, "purpose": "Results", "date_str": st.get("next_date", ""), "date": None})
+                hits.append(
+                    {
+                        "symbol": sym,
+                        "purpose": "Results",
+                        "date_str": st.get("next_date", ""),
+                        "date": None,
+                    }
+                )
                 seen.add(sym)
             for h in hits:
                 if h.get("symbol", "").replace(".NS", "").upper() == sym:
                     h["earnings"] = st
-        macro = [e for e in macro_events(days_ahead=days) if (e.get("impact") or "").upper() == "HIGH"]
-        return {"days": days, "flagged": hits, "macro": macro, "count": len(hits), "any": bool(hits or macro)}
+        macro = [
+            e for e in macro_events(days_ahead=days) if (e.get("impact") or "").upper() == "HIGH"
+        ]
+        return {
+            "days": days,
+            "flagged": hits,
+            "macro": macro,
+            "count": len(hits),
+            "any": bool(hits or macro),
+        }
     except Exception as exc:
         logger.exception("Events watch failed: {}", exc)
         return {"days": days, "flagged": [], "macro": [], "count": 0, "any": False}
@@ -1032,24 +1087,35 @@ def scan_nl(req: NLScanReq):
                 return False
             if "score_min" in clean and (r.get("score") or 0) < clean["score_min"]:
                 return False
-            if "rs20_min" in clean and (r.get("rs_20d") if r.get("rs_20d") is not None else -999) < clean["rs20_min"]:
+            if (
+                "rs20_min" in clean
+                and (r.get("rs_20d") if r.get("rs_20d") is not None else -999) < clean["rs20_min"]
+            ):
                 return False
             if clean.get("grade") and r.get("grade") != str(clean["grade"]).upper():
                 return False
-            if clean.get("above_ema200") and not (r.get("close") and r.get("ema200") and r["close"] > r["ema200"]):
-                return False
-            if clean.get("ema_aligned") and not (
-                r.get("ema9") and r.get("ema21") and r.get("ema50") and r["ema9"] > r["ema21"] > r["ema50"]
+            if clean.get("above_ema200") and not (
+                r.get("close") and r.get("ema200") and r["close"] > r["ema200"]
             ):
                 return False
-            return True
+            return not (
+                clean.get("ema_aligned")
+                and not (
+                    r.get("ema9")
+                    and r.get("ema21")
+                    and r.get("ema50")
+                    and r["ema9"] > r["ema21"] > r["ema50"]
+                )
+            )
 
         skey = (
             clean.get("sort_by")
             if clean.get("sort_by") in ("score", "rs_20d", "rs_60d", "rsi", "adx", "volume_ratio")
             else "score"
         )
-        rows = sorted([r for r in _full_screener() if ok(r)], key=lambda r: r.get(skey) or -999, reverse=True)
+        rows = sorted(
+            [r for r in _full_screener() if ok(r)], key=lambda r: r.get(skey) or -999, reverse=True
+        )
         return {"query": req.query, "filters": clean, "count": len(rows), "results": rows[:50]}
     except Exception as exc:
         logger.exception("NL scan failed: {}", exc)
@@ -1091,9 +1157,15 @@ def trade_review(t: TradeReview):
         chk("R:R ≥ 2:1", rr >= 2, f"R:R is {rr}:1")
         chk("Stop ≤ 2% of entry", stop_pct <= 2.0, f"Stop is {stop_pct}% from entry")
         chk("Risk ≤ 2% of capital", t.risk_pct <= 2.0, f"Risking {t.risk_pct}%")
-        chk("Regime allows longs", not (t.side == "long" and regime_name == "BEARISH"), f"Regime: {regime_name}")
+        chk(
+            "Regime allows longs",
+            not (t.side == "long" and regime_name == "BEARISH"),
+            f"Regime: {regime_name}",
+        )
         passed = sum(c["pass"] for c in checks)
-        verdict = "TAKE" if passed == len(checks) else "CAUTION" if passed >= len(checks) - 1 else "SKIP"
+        verdict = (
+            "TAKE" if passed == len(checks) else "CAUTION" if passed >= len(checks) - 1 else "SKIP"
+        )
 
         ai_text = ""
         try:
@@ -1178,7 +1250,12 @@ def scan_builder(req: BuilderReq):
             syms = _builder_symbols(req.universe)
             rows = run_builder(syms, req.conditions, _fetch, nifty)
             rows.sort(key=lambda r: r.get("rs_nifty") or 0, reverse=True)
-            return {"count": len(rows), "scanned": len(syms), "universe": req.universe, "results": rows}
+            return {
+                "count": len(rows),
+                "scanned": len(syms),
+                "universe": req.universe,
+                "results": rows,
+            }
 
         return _keyed(_builder_cache, key, _run)
     except HTTPException:
@@ -1254,7 +1331,9 @@ def backtest(symbol: str, period: str = "2y", rr: float = 2.5, capital: float = 
             sym += ".NS"
         df = fetch_symbol_history(sym, period=period, interval="1d")
         if df.empty or len(df) < 220:
-            raise HTTPException(status_code=422, detail="Insufficient history (need ~220+ daily bars)")
+            raise HTTPException(
+                status_code=422, detail="Insufficient history (need ~220+ daily bars)"
+            )
         cfg = BacktestConfig(rr_target=rr, starting_capital=float(capital))
         res = backtest_symbol(df, symbol=sym, cfg=cfg)
         trades = res.trades.copy()
@@ -1314,7 +1393,9 @@ def footprint(symbol: str, days: int = 1, bins: int = 30):
             sym += ".NS"
         df = fetch_intraday(sym, days=days, interval="1m")
         if df.empty:
-            raise HTTPException(status_code=422, detail="No intraday data (market closed or bad symbol)")
+            raise HTTPException(
+                status_code=422, detail="No intraday data (market closed or bad symbol)"
+            )
         fp = build_footprint(df, symbol=sym, bins=bins)
         return {
             "symbol": sym,
@@ -1366,7 +1447,11 @@ def scan():
             )
         # signals first, then by ADX
         results.sort(key=lambda r: (-len(r["signals"]), -(r.get("adx") or 0)))
-        out = {"count": len(symbols), "results": results, "ist": datetime.now(IST).strftime("%H:%M:%S")}
+        out = {
+            "count": len(symbols),
+            "results": results,
+            "ist": datetime.now(IST).strftime("%H:%M:%S"),
+        }
         _scan_cache["v"] = out
         return out
     except Exception as exc:
@@ -1415,8 +1500,7 @@ def briefing():
         context = build_briefing_context()
         text = generate_market_briefing(context)
         if not text:
-            msg = "AI unavailable"
-            raise RuntimeError(msg)
+            raise RuntimeError("AI unavailable")
         return {"briefing": text, "date": datetime.now(IST).strftime("%d %b %Y")}
 
     try:
@@ -1434,8 +1518,6 @@ class BriefingSend(BaseModel):
 def briefing_to_telegram(body: BriefingSend):
     """Render the briefing to a branded PDF and send it to Telegram."""
     try:
-        from pathlib import Path
-
         from monitors.telegram_bot import send_document
         from reports.pdf_generator import generate_text_report
 
@@ -1444,7 +1526,8 @@ def briefing_to_telegram(body: BriefingSend):
         pdf = out / f"briefing_{datetime.now(IST).strftime('%Y%m%d_%H%M')}.pdf"
         generate_text_report("AXIOM Morning Briefing", body.briefing, pdf)
         ok, err = send_document(
-            pdf, caption=f"📊 <b>AXIOM Morning Briefing — {datetime.now(IST).strftime('%d %b %Y')}</b>"
+            pdf,
+            caption=f"📊 <b>AXIOM Morning Briefing — {datetime.now(IST).strftime('%d %b %Y')}</b>",
         )
         if not ok:
             raise HTTPException(status_code=503, detail=f"Telegram send failed: {err}")
@@ -1457,7 +1540,16 @@ def briefing_to_telegram(body: BriefingSend):
 
 
 # yfinance intraday history limits → cap the requested period per interval.
-_PERIOD_DAYS = {"1d": 1, "5d": 5, "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825}
+_PERIOD_DAYS = {
+    "1d": 1,
+    "5d": 5,
+    "1mo": 30,
+    "3mo": 90,
+    "6mo": 180,
+    "1y": 365,
+    "2y": 730,
+    "5y": 1825,
+}
 _INTERVAL_MAXDAYS = {"5m": 60, "15m": 60, "30m": 60, "60m": 730, "1h": 730}
 
 
@@ -1543,7 +1635,19 @@ def analysis(symbol: str):
 
         h = history(symbol)  # reuse computed indicators
         data = {
-            k: h[k] for k in ("last", "pct", "rsi", "adx", "ema20", "ema50", "ema200", "atr", "high_52w", "low_52w")
+            k: h[k]
+            for k in (
+                "last",
+                "pct",
+                "rsi",
+                "adx",
+                "ema20",
+                "ema50",
+                "ema200",
+                "atr",
+                "high_52w",
+                "low_52w",
+            )
         }
         text = generate_stock_analysis(h["symbol"], data)
         return {"symbol": h["symbol"], "analysis": text}
@@ -1565,7 +1669,9 @@ def sectors():
     from data.market_context import fetch_sector_performance
 
     perf = fetch_sector_performance()
-    items = sorted([{"sector": k, "pct": v} for k, v in perf.items()], key=lambda x: x["pct"], reverse=True)
+    items = sorted(
+        [{"sector": k, "pct": v} for k, v in perf.items()], key=lambda x: x["pct"], reverse=True
+    )
     out = {"sectors": items}
     _sec_cache["v"] = out
     return out
@@ -1579,7 +1685,13 @@ def _quote(symbols: str) -> dict:
     if not tickers:
         return {"quotes": []}
     data = yf.download(
-        tickers, period="2d", interval="1d", group_by="ticker", auto_adjust=True, progress=False, threads=True
+        tickers,
+        period="2d",
+        interval="1d",
+        group_by="ticker",
+        auto_adjust=True,
+        progress=False,
+        threads=True,
     )
     out = []
     for s, t in zip(syms, tickers, strict=False):
@@ -1629,7 +1741,9 @@ def assistant_stream(body: AssistantBody):
         yield from call_groq_stream(_AXIOM_SYSTEM, user)
 
     return StreamingResponse(
-        gen(), media_type="text/plain; charset=utf-8", headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"}
+        gen(),
+        media_type="text/plain; charset=utf-8",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
 
 

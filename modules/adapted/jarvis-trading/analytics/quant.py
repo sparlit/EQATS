@@ -44,13 +44,10 @@ All option-derived output degrades gracefully when the snapshot is unavailable.
 
 import math
 from datetime import date, datetime
-from typing import TYPE_CHECKING
 
 import numpy as np
+import pandas as pd
 from loguru import logger
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 SQRT_252 = math.sqrt(252.0)
 RISK_FREE = 0.065  # India ~6.5%
@@ -195,7 +192,11 @@ def vol_cone(symbol: str) -> dict:
         "symbol": symbol,
         "available": bool(out),
         "cone": out,
-        "regime": "Elevated" if cur > med * 1.15 else "Compressed" if cur < med * 0.85 else "Normal",
+        "regime": "Elevated"
+        if cur > med * 1.15
+        else "Compressed"
+        if cur < med * 0.85
+        else "Normal",
     }
 
 
@@ -216,7 +217,9 @@ def expectancy_surface(symbol: str) -> dict:
     for s in stops:
         for t in targets:
             try:
-                res = backtest_symbol(df, symbol=symbol, cfg=BacktestConfig(atr_mult=s, rr_target=t))
+                res = backtest_symbol(
+                    df, symbol=symbol, cfg=BacktestConfig(atr_mult=s, rr_target=t)
+                )
                 m = res.metrics
                 cell = {
                     "stop": s,
@@ -230,7 +233,14 @@ def expectancy_surface(symbol: str) -> dict:
             cells.append(cell)
             if cell["trades"] >= 5 and (best is None or cell["expectancy"] > best["expectancy"]):
                 best = cell
-    return {"symbol": symbol, "available": True, "stops": stops, "targets": targets, "cells": cells, "best": best}
+    return {
+        "symbol": symbol,
+        "available": True,
+        "stops": stops,
+        "targets": targets,
+        "cells": cells,
+        "best": best,
+    }
 
 
 # ── Market breadth (from closes cache) ─────────────────────────────────────
@@ -284,7 +294,11 @@ def market_breadth() -> dict:
         return round(x / n * 100, 1)
 
     pct(above200 if above200 or n else above50)
-    score = round((above50 / n * 0.4 + (above200 / n if n else 0) * 0.4 + adv / max(adv + dec, 1) * 0.2) * 100, 0)
+    score = round(
+        (above50 / n * 0.4 + (above200 / n if n else 0) * 0.4 + adv / max(adv + dec, 1) * 0.2)
+        * 100,
+        0,
+    )
     health = "Risk-On" if score >= 60 else "Risk-Off" if score <= 35 else "Mixed"
     return {
         "available": True,

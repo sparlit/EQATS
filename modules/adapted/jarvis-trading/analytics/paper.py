@@ -48,7 +48,6 @@ from datetime import date
 from pathlib import Path
 
 import numpy as np
-from loguru import logger
 
 STATE = Path("data/state/paper_portfolios.json")
 START_EQUITY = 1_000_000.0
@@ -225,14 +224,19 @@ def all_portfolios() -> dict:
     state = load_state()
     pfs = state.get("portfolios", {})
     if not pfs:
-        return {"available": False, "note": "No paper portfolios yet — enable 🔔 on a Builder scan."}
+        return {
+            "available": False,
+            "note": "No paper portfolios yet — enable 🔔 on a Builder scan.",
+        }
     out = []
-    for pf in pfs.values():
+    for _name, pf in pfs.items():
         out.append(
             {
                 **portfolio_stats(pf),
                 "open": pf.get("open", []),
-                "closed": sorted(pf.get("closed", []), key=lambda t: t.get("exit_date") or "", reverse=True)[:40],
+                "closed": sorted(
+                    pf.get("closed", []), key=lambda t: t.get("exit_date") or "", reverse=True
+                )[:40],
                 "curve": pf.get("curve", [])[-120:],
             }
         )

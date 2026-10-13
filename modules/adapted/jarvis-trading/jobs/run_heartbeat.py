@@ -28,7 +28,7 @@ Daily liveness heartbeat — confirms the automation is alive.
 If this Telegram ping stops arriving, something is broken. Silence = alarm.
 """
 
-from datetime import date, datetime
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv

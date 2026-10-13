@@ -23,15 +23,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import pandas as pd
+import pandas as pd
 
 
 def rank_candidates(df: pd.DataFrame) -> pd.DataFrame:
     """Rank screened candidates by score."""
     if df.empty:
-        msg = "Input DataFrame is empty"
-        raise ValueError(msg)
+        raise ValueError("Input DataFrame is empty")
     return df.sort_values(by="score", ascending=False).reset_index(drop=True)

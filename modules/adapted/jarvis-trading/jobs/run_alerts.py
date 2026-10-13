@@ -52,7 +52,9 @@ def _watchlist_symbols(limit: int = 20) -> list[str]:
     if not WATCHLIST.exists():
         return []
     with WATCHLIST.open() as f:
-        return [r["symbol"].replace(".NS", "") for r in csv.DictReader(f) if r.get("symbol")][:limit]
+        return [r["symbol"].replace(".NS", "") for r in csv.DictReader(f) if r.get("symbol")][
+            :limit
+        ]
 
 
 def _event_lines() -> list[str]:
@@ -76,7 +78,9 @@ def _event_lines() -> list[str]:
         for e in fetch_corporate_events(days_ahead=7, limit=60):
             if e.get("symbol", "").upper() in want:
                 sym = e["symbol"].upper()
-                lines.append(f"⚠ <b>{sym}</b> — {e.get('purpose', 'event')} · {e.get('date_str', '')}{_playbook(sym)}")
+                lines.append(
+                    f"⚠ <b>{sym}</b> — {e.get('purpose', 'event')} · {e.get('date_str', '')}{_playbook(sym)}"
+                )
     except Exception as exc:
         logger.warning("corporate events failed: {}", exc)
     try:
