@@ -8,6 +8,9 @@ numpy==2.4.5
 cryptography==50.0.0
 bcrypt>=4.0.0
 pandas>=2.0.0
+xlrd>=2.0.0
+openpyxl>=3.1.0
+pdfplumber>=0.11.0
 
 # Note: On Windows with live MetaTrader 5 execution, also run:
 # pip install MetaTrader5
