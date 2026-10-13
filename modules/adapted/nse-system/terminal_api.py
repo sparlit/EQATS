@@ -33,16 +33,12 @@ import db
 import pandas as pd
 import scheduler_bg
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, status
+from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
-APP_USER = os.getenv("ADMIN_USER", "ankit")
-APP_PASS = os.getenv("ADMIN_PASS", "change_this_password")
 API_HOST = os.getenv("API_HOST", "127.0.0.1")
-security = HTTPBasic()
 
 
 @asynccontextmanager
@@ -67,18 +63,6 @@ _SWING_SCAN_STATE = {
 }
 
 
-def verify_user(credentials: HTTPBasicCredentials = Depends(security)):
-    user_ok = secrets.compare_digest(credentials.username, APP_USER)
-    pass_ok = secrets.compare_digest(credentials.password, APP_PASS)
-    if not (user_ok and pass_ok):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid login",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-    return credentials.username
-
-
 def safe_float(v, nd=2):
     try:
         if v is None:
@@ -93,12 +77,12 @@ def get_conn():
 
 
 @app.get("/")
-def root(user: str = Depends(verify_user)):
+def root():
     return FileResponse("terminal/static/index.html")
 
 
 @app.get("/api/health")
-def health(user: str = Depends(verify_user)):
+def health():
     conn = get_conn()
     try:
         n = conn.execute("SELECT COUNT(*) FROM prices_daily").fetchone()[0]
@@ -109,14 +93,14 @@ def health(user: str = Depends(verify_user)):
 
 
 @app.get("/api/sources")
-def source_health(user: str = Depends(verify_user)):
+def source_health():
     from data_sources import get_registry
 
     return {"sources": get_registry().health(), "time": dt.datetime.now().isoformat()}
 
 
 @app.get("/api/ideals")
-def ideals_index(user: str = Depends(verify_user)):
+def ideals_index():
     """Every ideal value band, so the UI can show "actual vs ideal" anywhere.
 
     Bands come from the system's own rules first (strategy_config gates,
@@ -134,7 +118,7 @@ def ideals_index(user: str = Depends(verify_user)):
 
 
 @app.get("/api/ideals/{key}")
-def ideal_one(key: str, actual: float = None, user: str = Depends(verify_user)):
+def ideal_one(key: str, actual: float = None):
     """One measure compared with its ideal. `?actual=` is optional."""
     import ideal
 
@@ -150,7 +134,7 @@ def ideal_one(key: str, actual: float = None, user: str = Depends(verify_user)):
 
 
 @app.get("/glossary", response_class=HTMLResponse)
-def glossary_page(user: str = Depends(verify_user)):
+def glossary_page():
     """Every term explained in ordinary words, generated from explain.py."""
     import glossary_ui
 
@@ -158,7 +142,7 @@ def glossary_page(user: str = Depends(verify_user)):
 
 
 @app.get("/api/explain")
-def explain_index(user: str = Depends(verify_user)):
+def explain_index():
     """List every term that can be explained, for the UI's help index."""
     import explain
 
@@ -170,7 +154,7 @@ def explain_index(user: str = Depends(verify_user)):
 
 
 @app.get("/api/explain/{key}")
-def explain_term(key: str, user: str = Depends(verify_user)):
+def explain_term(key: str):
     """Plain-language 5W1H for one term.
 
     Everything the owner sees is meant to be clickable and answerable in
@@ -195,7 +179,7 @@ def explain_term(key: str, user: str = Depends(verify_user)):
 
 
 @app.get("/api/deployment-check")
-def deployment_check(user: str = Depends(verify_user)):
+def deployment_check():
     conn = get_conn()
     out = {"checks": [], "fails": 0}
     today = dt.date.today()
@@ -277,7 +261,7 @@ def deployment_check(user: str = Depends(verify_user)):
 
 
 @app.get("/api/regime")
-def regime(user: str = Depends(verify_user)):
+def regime():
     try:
         from regime import MarketRegime
 
@@ -301,7 +285,7 @@ def regime(user: str = Depends(verify_user)):
 
 
 @app.get("/api/macro")
-def macro_flow(user: str = Depends(verify_user)):
+def macro_flow():
     import macro
 
     try:
@@ -317,7 +301,7 @@ def macro_flow(user: str = Depends(verify_user)):
 # Traders (Phase 3.5 — framework for famous-trader methods)
 # ============================================================
 @app.get("/api/traders")
-def list_traders_api(user: str = Depends(verify_user)):
+def list_traders_api():
     import traders
 
     try:
@@ -327,7 +311,7 @@ def list_traders_api(user: str = Depends(verify_user)):
 
 
 @app.get("/api/traders/{slug}")
-def get_trader_api(slug: str, user: str = Depends(verify_user)):
+def get_trader_api(slug: str):
     import traders
 
     t = traders.get_trader(slug)
@@ -343,7 +327,7 @@ def get_trader_api(slug: str, user: str = Depends(verify_user)):
 
 
 @app.get("/api/traders/{slug}/scan")
-def scan_trader_api(slug: str, limit: int = 800, user: str = Depends(verify_user)):
+def scan_trader_api(slug: str, limit: int = 800):
     import traders
 
     t = traders.get_trader(slug)
@@ -357,7 +341,7 @@ def scan_trader_api(slug: str, limit: int = 800, user: str = Depends(verify_user
 
 
 @app.get("/api/traders/matches/{symbol}")
-def trader_matches_api(symbol: str, user: str = Depends(verify_user)):
+def trader_matches_api(symbol: str):
     import re
 
     import db
@@ -495,9 +479,7 @@ def _league_mode(mode, ex):
 
 
 @app.get("/api/league/overview")
-def league_overview(
-    mode: str = "backtest", ex: str = Query("book", alias="exit"), user: str = Depends(verify_user)
-):
+def league_overview(mode: str = "backtest", ex: str = Query("book", alias="exit")):
     import trader_league as TL
 
     mode, ex = _league_mode(mode, ex)
@@ -508,12 +490,7 @@ def league_overview(
 
 
 @app.get("/api/league/player/{slug}")
-def league_player(
-    slug: str,
-    mode: str = "backtest",
-    ex: str = Query("book", alias="exit"),
-    user: str = Depends(verify_user),
-):
+def league_player(slug: str, mode: str = "backtest", ex: str = Query("book", alias="exit")):
     import trader_league as TL
 
     mode, ex = _league_mode(mode, ex)
@@ -524,7 +501,7 @@ def league_player(
 
 
 @app.get("/api/league/status")
-def league_status(user: str = Depends(verify_user)):
+def league_status():
     import trader_league as TL
 
     try:
@@ -534,7 +511,7 @@ def league_status(user: str = Depends(verify_user)):
 
 
 @app.post("/api/league/simulate")
-def league_simulate(mode: str = "backtest", user: str = Depends(verify_user)):
+def league_simulate(mode: str = "backtest"):
     import trader_league as TL
 
     mode, _ = _league_mode(mode, "book")
@@ -542,9 +519,7 @@ def league_simulate(mode: str = "backtest", user: str = Depends(verify_user)):
 
 
 @app.post("/api/league/replay")
-def league_replay(
-    years: float = 3, symbols: int = 300, workers: int = 1, user: str = Depends(verify_user)
-):
+def league_replay(years: float = 3, symbols: int = 300, workers: int = 1):
     import trader_league as TL
 
     years = min(max(float(years), 0.5), 10.0)
@@ -560,14 +535,14 @@ def league_replay(
 # Strategies
 # ============================================================
 @app.get("/api/strategies")
-def list_strategies(user: str = Depends(verify_user)):
+def list_strategies():
     import rule_engine
 
     return {"strategies": rule_engine.load_strategies()}
 
 
 @app.post("/api/strategies/seed")
-def seed_strategies(force: bool = False, user: str = Depends(verify_user)):
+def seed_strategies(force: bool = False):
     import rule_engine
 
     n = rule_engine.seed_if_empty(force=force)
@@ -575,7 +550,7 @@ def seed_strategies(force: bool = False, user: str = Depends(verify_user)):
 
 
 @app.post("/api/strategies/run-all")
-def run_all_strategies(user: str = Depends(verify_user)):
+def run_all_strategies():
     import rule_engine
 
     try:
@@ -585,7 +560,7 @@ def run_all_strategies(user: str = Depends(verify_user)):
 
 
 @app.post("/api/strategies/backtest-cache/clear")
-def clear_backtest_cache(name: str = None, user: str = Depends(verify_user)):
+def clear_backtest_cache(name: str = None):
     import strategy_backtest
 
     try:
@@ -596,7 +571,7 @@ def clear_backtest_cache(name: str = None, user: str = Depends(verify_user)):
 
 
 @app.get("/api/strategies/{name}")
-def get_strategy(name: str, user: str = Depends(verify_user)):
+def get_strategy(name: str):
     import rule_engine
 
     s = rule_engine.get_strategy(name)
@@ -606,7 +581,7 @@ def get_strategy(name: str, user: str = Depends(verify_user)):
 
 
 @app.post("/api/strategies/{name}")
-def save_strategy(name: str, payload: dict, user: str = Depends(verify_user)):
+def save_strategy(name: str, payload: dict):
     import rule_engine
 
     rule_engine.save_strategy(name, payload)
@@ -614,7 +589,7 @@ def save_strategy(name: str, payload: dict, user: str = Depends(verify_user)):
 
 
 @app.delete("/api/strategies/{name}")
-def delete_strategy(name: str, user: str = Depends(verify_user)):
+def delete_strategy(name: str):
     import rule_engine
 
     rule_engine.delete_strategy(name)
@@ -622,7 +597,7 @@ def delete_strategy(name: str, user: str = Depends(verify_user)):
 
 
 @app.get("/api/strategies/{name}/run")
-def run_strategy_api(name: str, limit: int = 30, user: str = Depends(verify_user)):
+def run_strategy_api(name: str, limit: int = 30):
     import rule_engine
 
     try:
@@ -641,7 +616,6 @@ def backtest_strategy_api(
     target_r: float = 3.0,
     hold_bars: int = 30,
     refresh: bool = False,
-    user: str = Depends(verify_user),
 ):
     import strategy_backtest
 
@@ -664,7 +638,7 @@ def backtest_strategy_api(
 # Research
 # ============================================================
 @app.get("/api/research/{symbol}")
-def research_api(symbol: str, user: str = Depends(verify_user)):
+def research_api(symbol: str):
     import research_cockpit
 
     try:
@@ -674,7 +648,7 @@ def research_api(symbol: str, user: str = Depends(verify_user)):
 
 
 @app.get("/api/research-universe")
-def research_universe_api(compute_missing: bool = False, user: str = Depends(verify_user)):
+def research_universe_api(compute_missing: bool = False):
     import research_cockpit
 
     try:
@@ -684,7 +658,7 @@ def research_universe_api(compute_missing: bool = False, user: str = Depends(ver
 
 
 @app.get("/api/research-sector")
-def research_sector_api(user: str = Depends(verify_user)):
+def research_sector_api():
     import research_cockpit
 
     try:
@@ -694,7 +668,7 @@ def research_sector_api(user: str = Depends(verify_user)):
 
 
 @app.post("/api/research-cache/clear")
-def research_cache_clear(symbol: str = None, user: str = Depends(verify_user)):
+def research_cache_clear(symbol: str = None):
     import research_cockpit
 
     try:
@@ -708,7 +682,7 @@ def research_cache_clear(symbol: str = None, user: str = Depends(verify_user)):
 # Compare
 # ============================================================
 @app.get("/api/compare")
-def compare_api(symbols: str, user: str = Depends(verify_user)):
+def compare_api(symbols: str):
     import compare_tool
 
     try:
@@ -724,14 +698,14 @@ def compare_api(symbols: str, user: str = Depends(verify_user)):
 # Patterns
 # ============================================================
 @app.get("/api/patterns/latest")
-def patterns_latest(limit: int = 100, user: str = Depends(verify_user)):
+def patterns_latest(limit: int = 100):
     import patterns
 
     return {"patterns": patterns.latest(limit=limit)}
 
 
 @app.get("/api/patterns/stats")
-def patterns_stats(user: str = Depends(verify_user)):
+def patterns_stats():
     import pattern_grader
 
     try:
@@ -741,7 +715,7 @@ def patterns_stats(user: str = Depends(verify_user)):
 
 
 @app.get("/api/patterns/history/{symbol}")
-def patterns_history(symbol: str, limit: int = 500, user: str = Depends(verify_user)):
+def patterns_history(symbol: str, limit: int = 500):
     import patterns
 
     try:
@@ -754,7 +728,7 @@ def patterns_history(symbol: str, limit: int = 500, user: str = Depends(verify_u
 
 
 @app.post("/api/patterns/scan")
-def patterns_scan(bg: BackgroundTasks, user: str = Depends(verify_user)):
+def patterns_scan(bg: BackgroundTasks):
     import patterns
 
     bg.add_task(patterns.run)
@@ -762,7 +736,7 @@ def patterns_scan(bg: BackgroundTasks, user: str = Depends(verify_user)):
 
 
 @app.get("/api/patterns/{symbol}")
-def patterns_for_symbol(symbol: str, limit: int = 50, user: str = Depends(verify_user)):
+def patterns_for_symbol(symbol: str, limit: int = 50):
     import patterns
 
     return {
@@ -776,7 +750,7 @@ def patterns_for_symbol(symbol: str, limit: int = 50, user: str = Depends(verify
 # Existing endpoints
 # ============================================================
 @app.get("/api/toppicks")
-def toppicks(user: str = Depends(verify_user)):
+def toppicks():
     import top_picks
 
     try:
@@ -787,7 +761,7 @@ def toppicks(user: str = Depends(verify_user)):
 
 
 @app.post("/api/pwin/refresh")
-def pwin_refresh(bg: BackgroundTasks, user: str = Depends(verify_user)):
+def pwin_refresh(bg: BackgroundTasks):
     import pwin_cache
 
     bg.add_task(pwin_cache.refresh_all)
@@ -795,7 +769,7 @@ def pwin_refresh(bg: BackgroundTasks, user: str = Depends(verify_user)):
 
 
 @app.get("/api/swing/signals")
-def swing_signals(limit: int = 80, user: str = Depends(verify_user)):
+def swing_signals(limit: int = 80):
     import pwin_cache
     import swing_live
 
@@ -845,7 +819,7 @@ def swing_signals(limit: int = 80, user: str = Depends(verify_user)):
 
 
 @app.post("/api/swing/scan")
-def run_swing_scan(bg: BackgroundTasks, user: str = Depends(verify_user)):
+def run_swing_scan(bg: BackgroundTasks):
     with _SWING_SCAN_LOCK:
         if _SWING_SCAN_STATE["running"]:
             return {"started": False, "already_running": True}
@@ -894,13 +868,13 @@ def _run_swing_scan_job():
 
 
 @app.get("/api/swing/scan/status")
-def swing_scan_status(user: str = Depends(verify_user)):
+def swing_scan_status():
     with _SWING_SCAN_LOCK:
         return dict(_SWING_SCAN_STATE)
 
 
 @app.get("/api/radar")
-def radar(user: str = Depends(verify_user)):
+def radar():
     import pwin_cache
 
     conn = get_conn()
@@ -946,7 +920,7 @@ def radar(user: str = Depends(verify_user)):
 
 
 @app.get("/api/trend")
-def trend_api(n: int = 50, user: str = Depends(verify_user)):
+def trend_api(n: int = 50):
     import trend_scanner
 
     try:
@@ -956,7 +930,7 @@ def trend_api(n: int = 50, user: str = Depends(verify_user)):
 
 
 @app.post("/api/trend/scan")
-def trend_scan(bg: BackgroundTasks, user: str = Depends(verify_user)):
+def trend_scan(bg: BackgroundTasks):
     import trend_scanner
 
     bg.add_task(trend_scanner.compute)
@@ -964,7 +938,7 @@ def trend_scan(bg: BackgroundTasks, user: str = Depends(verify_user)):
 
 
 @app.get("/api/templates/latest")
-def templates_latest(limit: int = 30, user: str = Depends(verify_user)):
+def templates_latest(limit: int = 30):
     conn = get_conn()
     try:
         rows = conn.execute(
@@ -985,21 +959,21 @@ def templates_latest(limit: int = 30, user: str = Depends(verify_user)):
 
 
 @app.get("/api/delivery/top")
-def delivery_top(n: int = 30, user: str = Depends(verify_user)):
+def delivery_top(n: int = 30):
     import delivery
 
     return {"rows": delivery.top(n)}
 
 
 @app.get("/api/delivery/accum")
-def delivery_accum(n: int = 30, user: str = Depends(verify_user)):
+def delivery_accum(n: int = 30):
     import delivery
 
     return {"candidates": delivery.accumulation(n)}
 
 
 @app.get("/api/delivery/{symbol}")
-def delivery_symbol(symbol: str, limit: int = 20, user: str = Depends(verify_user)):
+def delivery_symbol(symbol: str, limit: int = 20):
     import delivery
 
     return {
@@ -1010,7 +984,7 @@ def delivery_symbol(symbol: str, limit: int = 20, user: str = Depends(verify_use
 
 
 @app.get("/api/value-radar")
-def value_radar_api(n: int = 25, tier: str = None, user: str = Depends(verify_user)):
+def value_radar_api(n: int = 25, tier: str = None):
     import value_radar
 
     try:
@@ -1020,7 +994,7 @@ def value_radar_api(n: int = 25, tier: str = None, user: str = Depends(verify_us
 
 
 @app.get("/api/positional")
-def positional_api(n: int = 25, tier: str = None, user: str = Depends(verify_user)):
+def positional_api(n: int = 25, tier: str = None):
     import positional_scanner
 
     try:
@@ -1030,7 +1004,7 @@ def positional_api(n: int = 25, tier: str = None, user: str = Depends(verify_use
 
 
 @app.get("/api/strategy-runs")
-def strategy_runs_api(n: int = 20, user: str = Depends(verify_user)):
+def strategy_runs_api(n: int = 20):
     import strategy_runs
 
     try:
@@ -1040,7 +1014,7 @@ def strategy_runs_api(n: int = 20, user: str = Depends(verify_user)):
 
 
 @app.get("/api/strategy-summary")
-def strategy_summary_api(user: str = Depends(verify_user)):
+def strategy_summary_api():
     import strategy_runs
 
     try:
@@ -1095,7 +1069,7 @@ def webhook_ingest(payload: dict, x_webhook_token: str = Header(default="")):
 
 
 @app.get("/api/cockpit/{symbol}/chart")
-def cockpit_chart(symbol: str, user: str = Depends(verify_user)):
+def cockpit_chart(symbol: str):
     sym = symbol.upper()
     conn = get_conn()
     rows = conn.execute(
@@ -1174,7 +1148,7 @@ def cockpit_chart(symbol: str, user: str = Depends(verify_user)):
 
 
 @app.get("/api/cockpit/{symbol}/summary")
-def cockpit_summary(symbol: str, user: str = Depends(verify_user)):
+def cockpit_summary(symbol: str):
     sym = symbol.upper()
     conn = get_conn()
     sector = mcap = fund_score = status = None
@@ -1216,7 +1190,7 @@ def cockpit_summary(symbol: str, user: str = Depends(verify_user)):
 
 
 @app.get("/api/meta/{symbol}")
-def meta_score(symbol: str, user: str = Depends(verify_user)):
+def meta_score(symbol: str):
     import meta_model
 
     try:
@@ -1227,28 +1201,28 @@ def meta_score(symbol: str, user: str = Depends(verify_user)):
 
 
 @app.get("/api/model/runs")
-def model_runs(n: int = 10, user: str = Depends(verify_user)):
+def model_runs(n: int = 10):
     import model_report
 
     return {"runs": model_report.history(n)}
 
 
 @app.get("/api/ledger/stats")
-def ledger_stats(user: str = Depends(verify_user)):
+def ledger_stats():
     import ledger
 
     return ledger.compute_stats() or {"total_trades": 0}
 
 
 @app.get("/api/ledger/trades")
-def ledger_trades(limit: int = 100, user: str = Depends(verify_user)):
+def ledger_trades(limit: int = 100):
     import ledger
 
     return {"trades": ledger.get_trades(limit)}
 
 
 @app.get("/api/validate/latest")
-def validate_latest(user: str = Depends(verify_user)):
+def validate_latest():
     conn = get_conn()
     try:
         rows = conn.execute(
@@ -1268,13 +1242,7 @@ def validate_latest(user: str = Depends(verify_user)):
 
 
 @app.get("/api/sizing/{symbol}")
-def sizing(
-    symbol: str,
-    trigger: float = None,
-    stop: float = None,
-    shape: float = None,
-    user: str = Depends(verify_user),
-):
+def sizing(symbol: str, trigger: float = None, stop: float = None, shape: float = None):
     import sizing as sz
 
     try:
@@ -1284,7 +1252,7 @@ def sizing(
 
 
 @app.post("/api/sizing/capital")
-def sizing_capital(payload: dict, user: str = Depends(verify_user)):
+def sizing_capital(payload: dict):
     import sizing as sz
 
     try:
@@ -1297,7 +1265,7 @@ def sizing_capital(payload: dict, user: str = Depends(verify_user)):
 
 
 @app.get("/api/screener/scan")
-def screener_scan(limit: int = 40, user: str = Depends(verify_user)):
+def screener_scan(limit: int = 40):
     import screener_engine
 
     try:
@@ -1309,7 +1277,7 @@ def screener_scan(limit: int = 40, user: str = Depends(verify_user)):
 
 
 @app.get("/api/screener/{symbol}")
-def screener_check(symbol: str, user: str = Depends(verify_user)):
+def screener_check(symbol: str):
     import screener_engine
 
     try:
