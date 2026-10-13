@@ -4157,6 +4157,17 @@ class ScalperGui:
             relief=tk.FLAT,
             command=self._refresh_broker_tree,
         ).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            b_btn_box,
+            text="🔍 LOOKUP SEBI BROKER",
+            font=("Consolas", 8, "bold"),
+            bg="#059669",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+            relief=tk.FLAT,
+            command=self._lookup_registered_sebi_broker,
+        ).pack(side=tk.LEFT, padx=5)
         self.tab_cfg_feats = tk.Frame(self.cfg_notebook, bg=self.bg_dark, padx=20, pady=15)
         self.cfg_notebook.add(self.tab_cfg_feats, text="User Controls & Feature Permissions")
         f_frame = tk.Frame(
@@ -4426,6 +4437,52 @@ class ScalperGui:
                         self.cfg_bpath_ent.delete(0, tk.END)
                         self.cfg_bpath_ent.insert(0, b.get("terminal_path", ""))
                         break
+
+    def _lookup_registered_sebi_broker(self) -> None:
+        from tkinter import simpledialog
+
+        import broker_database
+
+        query_str = simpledialog.askstring(
+            "SEBI Broker Directory Lookup",
+            "Enter SEBI Registration Number or Company Name (e.g., INZ000173137 or 5paisa):",
+            parent=self.root,
+        )
+        if not query_str or not query_str.strip():
+            return
+
+        q = query_str.strip()
+        broker = broker_database.get_registered_broker(q)
+        if broker:
+            details = (
+                f"Name: {broker.get('name')}\n"
+                f"Registration No: {broker.get('registration_no')}\n"
+                f"Trade Name: {broker.get('trade_name')}\n"
+                f"Contact Person: {broker.get('contact_person')}\n"
+                f"Email: {broker.get('email')}\n"
+                f"Phone: {broker.get('phone')}\n"
+                f"City: {broker.get('city')}, State: {broker.get('state')}\n"
+                f"Exchange: {broker.get('exchange')}\n"
+                f"Segments: {', '.join(broker.get('segments', []))}\n"
+                f"Verification Status: {broker.get('verification_status')}"
+            )
+            messagebox.showinfo("SEBI Registered Broker Found", details)
+        else:
+            matches = broker_database.search_registered_brokers(keyword=q, limit=5)
+            if matches:
+                names = "\n".join(
+                    [
+                        f"- {m.get('name')} ({m.get('registration_no') or 'No Reg No'})"
+                        for m in matches
+                    ]
+                )
+                messagebox.showinfo(
+                    "Closest Matches Found", f"No exact match for '{q}'. Similar brokers:\n\n{names}"
+                )
+            else:
+                messagebox.showwarning(
+                    "Not Found", f"No registered SEBI broker found matching '{q}'."
+                )
 
     def _browse_terminal_path(self) -> None:
         selected_file = filedialog.askopenfilename(

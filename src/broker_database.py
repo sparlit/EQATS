@@ -522,7 +522,9 @@ def get_registered_broker(query_str: str) -> dict[str, Any] | None:
     WHERE norm_key = ? OR norm_key = ? OR LOWER(name) = LOWER(?) OR LOWER(registration_no) = LOWER(?)
     LIMIT 1
     """
-    row = database._fetch_with_retry(query, (norm, norm_reg, cleaned, cleaned), fetch_all=False)
+    row = database._fetch_with_retry(
+        query, (norm, norm_reg, cleaned, cleaned), fetch_all=False
+    )
     if row:
         res = dict(row)
         res["member_codes"] = json.loads(res.get("member_codes", "[]"))
