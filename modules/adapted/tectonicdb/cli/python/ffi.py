@@ -22,7 +22,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import ctypes
-import os
 from ctypes import *
 from os import path
 
@@ -40,11 +39,11 @@ def __csv_to_df(raw_data):
     df = pd.read_csv(
         csv,
         dtype={
-            "ts": float,
+            "ts": np.float,
             "seq": np.int16,
             "is_trade": np.bool,
             "is_bid": np.bool,
-            "price": float,
+            "price": np.float,
             "size": np.float32,
         },
     )
@@ -80,7 +79,9 @@ class Update(Structure):
     ]
 
     def __repr__(self):
-        return f"Update<{self.ts},{self.seq},{self.is_trade},{self.is_bid},{self.price},{self.size}>"
+        return (
+            f"Update<{self.ts},{self.seq},{self.is_trade},{self.is_bid},{self.price},{self.size}>"
+        )
 
     def to_dict(self):
         return {
