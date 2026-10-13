@@ -16,6 +16,12 @@ pub enum ExecCommand {
     Control(ExecControl),
     Event(ExecEvent),
     ReloadWallet(Arc<ExchangeClient>),
+    ReconcilePosition {
+        position: Option<OpenPositionLocal>,
+        snapshot_time: u64,
+    },
+    Activate,
+    UpdateStrategy(String),
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -188,7 +194,7 @@ pub enum ExecControl {
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub enum ExecEvent {
     Fill(TradeFillInfo),
-    Funding(f64),
+    Funding { amount: f64, time: u64 },
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -265,6 +271,10 @@ pub struct TradeFillInfo {
     pub side: Side,
     pub intent: PositionOp,
     pub fill_type: FillType,
+    #[serde(default)]
+    pub time: u64,
+    #[serde(default)]
+    pub tid: Option<u64>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
@@ -293,12 +303,38 @@ pub enum FillType {
     Liquidation,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum TradeOrigin {
+    Manual,
+    Algo,
+    Mixed,
+}
+
+impl TradeOrigin {
+    pub fn combine(self, other: Self) -> Self {
+        if self == other { self } else { Self::Mixed }
+    }
+}
+
+/// Historical costs and opening time are unknown for a snapshot adoption.
+/// Funding in the local position only includes payments after this snapshot.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AdoptionInfo {
+    pub time: u64,
+    pub unrealized_pnl: f64,
+    pub funding_since_open: f64,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct FillInfo {
-    pub time: u64,
+    pub time: Option<u64>,
     pub price: f64,
-    pub fill_type: FillType,
+    pub fill_type: Option<FillType>,
+    #[serde(default)]
+    pub origin: Option<TradeOrigin>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -313,9 +349,18 @@ pub struct TradeInfo {
     pub funding: f64,
     pub open: FillInfo,
     pub close: FillInfo,
-    /// Stamped by Bot when relaying through MarketState; None at Executor level.
+    /// Strategy responsible for the closing order, captured when submitted.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub strategy: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adoption: Option<AdoptionInfo>,
+}
+
+impl TradeInfo {
+    /// Excludes price gains/losses that existed before the bot adopted exposure.
+    pub fn managed_pnl(&self) -> f64 {
+        self.pnl - self.adoption.map_or(0.0, |a| a.unrealized_pnl)
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -336,20 +381,34 @@ pub struct RestingOrderLocal {
 #[derive(Debug, Copy, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenPositionLocal {
-    pub open_time: u64,
+    pub open_time: Option<u64>,
     pub size: f64,
     pub entry_px: f64,
     pub side: Side,
     pub fees: f64,
     pub funding: f64,
     pub realised_pnl: f64,
-    pub fill_type: FillType,
+    pub fill_type: Option<FillType>,
+    #[serde(default)]
+    pub origin: Option<TradeOrigin>,
+    #[serde(default)]
+    pub adoption: Option<AdoptionInfo>,
+    #[serde(default)]
+    pub closed_size: f64,
+    #[serde(default)]
+    pub closed_value: f64,
+    #[serde(default)]
+    pub close_origin: Option<TradeOrigin>,
 }
 
 impl OpenPositionLocal {
     pub fn new(fill: TradeFillInfo) -> Self {
         Self {
-            open_time: get_time_now(),
+            open_time: Some(if fill.time == 0 {
+                get_time_now()
+            } else {
+                fill.time
+            }),
             size: fill.sz,
             entry_px: fill.price,
             side: fill.side,
@@ -357,7 +416,12 @@ impl OpenPositionLocal {
             realised_pnl: -fill.fee,
             fees: fill.fee,
             funding: 0.0,
-            fill_type: fill.fill_type,
+            fill_type: Some(fill.fill_type),
+            origin: Some(TradeOrigin::Algo),
+            adoption: None,
+            closed_size: 0.0,
+            closed_value: 0.0,
+            close_origin: None,
         }
     }
 
@@ -379,7 +443,16 @@ impl OpenPositionLocal {
         fill: &TradeFillInfo,
         sz_decimals: u32,
     ) -> Option<TradeInfo> {
-        let close_sz = fill.sz;
+        self.apply_close_fill_with_origin(fill, sz_decimals, TradeOrigin::Algo)
+    }
+
+    pub fn apply_close_fill_with_origin(
+        &mut self,
+        fill: &TradeFillInfo,
+        sz_decimals: u32,
+        origin: TradeOrigin,
+    ) -> Option<TradeInfo> {
+        let close_sz = fill.sz.min(self.size);
 
         let price_diff = match self.side {
             Side::Long => fill.price - self.entry_px,
@@ -387,28 +460,27 @@ impl OpenPositionLocal {
         };
 
         let partial_pnl = price_diff * close_sz;
-        let net_chunk = partial_pnl - fill.fee;
+        let fee = fill.fee * close_sz / fill.sz;
+        let net_chunk = partial_pnl - fee;
 
         self.realised_pnl += net_chunk;
         self.size -= close_sz;
-        self.fees += fill.fee;
+        self.fees += fee;
+        self.closed_size += close_sz;
+        self.closed_value += close_sz * fill.price;
+        self.close_origin = Some(self.close_origin.map_or(origin, |old| old.combine(origin)));
 
         // still partially open
         if roundf!(self.size, sz_decimals) > 0.0 {
             return None;
         }
 
-        //derive VWAP close price
-        let gross_pnl = self.realised_pnl + self.fees;
-        let avg_close_px = match self.side {
-            Side::Long => self.entry_px + gross_pnl / close_sz,
-            Side::Short => self.entry_px - gross_pnl / close_sz,
-        };
+        let avg_close_px = self.closed_value / self.closed_size;
 
         let total_pnl = self.realised_pnl + self.funding;
         Some(TradeInfo {
             side: self.side,
-            size: close_sz,
+            size: self.closed_size,
             pnl: total_pnl,
             total_pnl,
             fees: self.fees,
@@ -417,13 +489,20 @@ impl OpenPositionLocal {
                 time: self.open_time,
                 price: self.entry_px,
                 fill_type: self.fill_type,
+                origin: self.origin,
             },
             close: FillInfo {
-                time: get_time_now(),
+                time: Some(if fill.time == 0 {
+                    get_time_now()
+                } else {
+                    fill.time
+                }),
                 price: avg_close_px,
-                fill_type: fill.fill_type,
+                fill_type: Some(fill.fill_type),
+                origin: self.close_origin,
             },
             strategy: None,
+            adoption: self.adoption,
         })
     }
 
@@ -432,7 +511,11 @@ impl OpenPositionLocal {
             side: self.side,
             size: self.size,
             entry_px: self.entry_px,
-            open_time: self.open_time,
+            // Strategies measure holding time from adoption when history is absent.
+            open_time: self
+                .open_time
+                .or(self.adoption.map(|a| a.time))
+                .unwrap_or(0),
         }
     }
 }
@@ -509,6 +592,10 @@ impl TryFrom<Vec<HLTradeInfo>> for TradeFillInfo {
                 }
             } else if d.contains("Close") {
                 PositionOp::Close
+            } else if d == "Long > Short" {
+                PositionOp::OpenShort
+            } else if d == "Short > Long" {
+                PositionOp::OpenLong
             } else {
                 return Err(Error::GenericParse(format!("Unknown dir value: {}", d)));
             }
@@ -552,6 +639,8 @@ impl TryFrom<Vec<HLTradeInfo>> for TradeFillInfo {
 
         Ok(TradeFillInfo {
             oid: first.oid,
+            time: fills.iter().map(|f| f.time).max().unwrap_or(0),
+            tid: (fills.len() == 1).then_some(first.tid),
             side,
             intent,
             price: weighted_px / total_sz,
