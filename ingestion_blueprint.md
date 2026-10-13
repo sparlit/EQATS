@@ -10,7 +10,7 @@ Total Repositories: 424 | Current Index: 8
 | 5 | 0xtan1319/hyperliquid-trading-bot-rust | Processed | https://github.com/sparlit/EQATS/pull/3293 |
 | 6 | 85599/banknifty-golden-ratio-strategy | Processed | https://github.com/sparlit/EQATS/pull/3294 |
 | 7 | aadityatamrakar/option_chain_analysis | Processed | https://github.com/sparlit/EQATS/pull/3295 |
-| 8 | aaryansinha16/ai-trader | Completed | None |
+| 8 | aaryansinha16/ai-trader | Completed | https://github.com/sparlit/EQATS/pull/3296 |
 | 9 | abhiwalia15/ai-for-finance-stocks-real-time-analysis- | pending | None |
 | 10 | abuhurairalakdawala/indian-share-market | pending | None |
 | 11 | adavarski/devsecops-full-integration-chain | pending | None |
