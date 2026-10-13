@@ -1,5 +1,5 @@
 {
-  "current_index": 290,
+  "current_index": 291,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2325,9 +2325,9 @@
       "name": "trading_expiry",
       "target": "rahulghuge94/trading_expiry",
       "url": "https://github.com/rahulghuge94/trading_expiry",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "getnsestockprice",
