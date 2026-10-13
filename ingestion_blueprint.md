@@ -295,6 +295,7 @@ Total Repositories: 424 | Current Index: 292
 | 290 | rahlumin/nseeod | Processed | None |
 | 291 | rahulghuge94/trading_expiry | Completed | None |
 | 292 | rajaramsrinivas/getnsestockprice | Completed | https://github.com/sparlit/EQATS/pull/3287 |
+| 292 | rajaramsrinivas/getnsestockprice | pending | None |
 | 293 | rajeshkolhe110/nse-clock-data | pending | None |
 | 294 | rajeshsivadasan/alice-blue-futures | pending | None |
 | 295 | rajeshsivadasan/alice-blue-options-buying | pending | None |
