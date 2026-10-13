@@ -1,5 +1,5 @@
 {
-  "current_index": 67,
+  "current_index": 68,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -541,7 +541,7 @@
       "name": "nse-options-data-collector",
       "target": "barathgb007/nse-options-data-collector",
       "url": "https://github.com/barathgb007/nse-options-data-collector",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
