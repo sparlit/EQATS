@@ -41,7 +41,7 @@ Usage:
 import argparse
 import os
 import sys
-from datetime import date, datetime
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv
@@ -50,7 +50,9 @@ load_dotenv()
 
 import numpy as np
 import pandas as pd
+from config.risk_profiles import _PROFILE, RiskLevel, apply_risk_profile
 from data.news_sentiment import NewsSentimentEngine
+from database.db import read_sql
 from features.option_chain_features import OptionChainFeatureEngine
 from models.predict import Predictor
 from models.rl_exit_agent import RLExitAgent
@@ -60,16 +62,21 @@ from strategy.regime_detector import RegimeDetector
 from strategy.vol_surface import VolSurfaceModel
 from utils.logger import get_logger
 
-from config.risk_profiles import _PROFILE, RiskLevel, apply_risk_profile
-from database.db import read_sql
-
 logger = get_logger("forward_test")
 
 
 def compute_metrics(trades: list, label: str) -> dict:
     """Compute standardised performance metrics from a trade list."""
     if not trades:
-        return {"label": label, "trades": 0, "pnl": 0, "wr": 0, "rr": 0, "max_dd": 0, "avg_per_day": 0}
+        return {
+            "label": label,
+            "trades": 0,
+            "pnl": 0,
+            "wr": 0,
+            "rr": 0,
+            "max_dd": 0,
+            "avg_per_day": 0,
+        }
 
     pnls = [t["pnl"] for t in trades]
     wins = [p for p in pnls if p > 0]
@@ -112,7 +119,11 @@ def print_comparison(is_metrics: dict, oos_metrics: dict):
         ("Days replayed", is_metrics["days"], oos_metrics["days"]),
         ("Total trades", is_metrics["trades"], oos_metrics["trades"]),
         ("Total P&L", f"₹{is_metrics['pnl']:+,.0f}", f"₹{oos_metrics['pnl']:+,.0f}"),
-        ("Avg P&L / day", f"₹{is_metrics['avg_per_day']:+,.0f}", f"₹{oos_metrics['avg_per_day']:+,.0f}"),
+        (
+            "Avg P&L / day",
+            f"₹{is_metrics['avg_per_day']:+,.0f}",
+            f"₹{oos_metrics['avg_per_day']:+,.0f}",
+        ),
         ("Win rate", f"{is_metrics['wr']}%", f"{oos_metrics['wr']}%"),
         ("Avg winner", f"₹{is_metrics['avg_win']:+,.0f}", f"₹{oos_metrics['avg_win']:+,.0f}"),
         ("Avg loser", f"₹{is_metrics['avg_loss']:+,.0f}", f"₹{oos_metrics['avg_loss']:+,.0f}"),
@@ -123,7 +134,7 @@ def print_comparison(is_metrics: dict, oos_metrics: dict):
     print(f"  {'Metric':<22} {'IN-SAMPLE':>18} {'OUT-OF-SAMPLE':>18}")
     print(f"  {'-' * 22} {'-' * 18} {'-' * 18}")
     for row in rows:
-        print(f"  {row[0]:<22} {row[1]!s:>18} {row[2]!s:>18}")
+        print(f"  {row[0]:<22} {str(row[1]):>18} {str(row[2]):>18}")
     print("=" * 65)
 
     # Overfitting signal
@@ -148,7 +159,9 @@ def print_comparison(is_metrics: dict, oos_metrics: dict):
 def main():
     parser = argparse.ArgumentParser(description="Out-of-sample forward test")
     parser.add_argument("--risk", choices=["low", "medium", "high"], default="medium")
-    parser.add_argument("--split", default="2026-03-18", help="First OOS date (everything before = in-sample)")
+    parser.add_argument(
+        "--split", default="2026-03-18", help="First OOS date (everything before = in-sample)"
+    )
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
 
@@ -178,7 +191,11 @@ def main():
     except Exception:
         oc_engine = None
 
-    vol_model = VolSurfaceModel(max_strike_offset=_PROFILE.max_strike_offset) if _PROFILE.use_vol_surface else None
+    vol_model = (
+        VolSurfaceModel(max_strike_offset=_PROFILE.max_strike_offset)
+        if _PROFILE.use_vol_surface
+        else None
+    )
 
     rl_agent = RLExitAgent()
     if not rl_agent.load():
@@ -213,7 +230,9 @@ def main():
     def run_period(days, label):
         trades = []
         wm = warmup.copy()
-        print(f"\n  ── {label} ({'×'.join(str(d) for d in days[:2])}{'...' if len(days) > 2 else ''}) ──")
+        print(
+            f"\n  ── {label} ({'×'.join(str(d) for d in days[:2])}{'...' if len(days) > 2 else ''}) ──"
+        )
         for d in days:
             day_trades = replay_day(
                 replay_date=d,
@@ -253,7 +272,9 @@ def main():
     all_trades = is_trades + oos_trades
     if all_trades:
         df = pd.DataFrame(all_trades)
-        df["period"] = df["entry_time"].apply(lambda t: "OOS" if pd.to_datetime(str(t)).date() >= split_date else "IS")
+        df["period"] = df["entry_time"].apply(
+            lambda t: "OOS" if pd.to_datetime(str(t)).date() >= split_date else "IS"
+        )
         out = f"backtest_results/forward_test_{args.risk}_{args.split}.csv"
         df.to_csv(out, index=False)
         print(f"  Results saved → {out}")

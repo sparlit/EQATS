@@ -179,10 +179,10 @@ def dump_table(table: str, out_dir: Path, creds: dict) -> tuple[bool, int]:
             return (False, 0)
         return (True, out.stat().st_size if out.exists() else 0)
     except FileNotFoundError:
-        logger.exception("psql not found — install postgresql client tools")
+        logger.error("psql not found — install postgresql client tools")
         return (False, 0)
     except subprocess.TimeoutExpired:
-        logger.exception(f"COPY {table} timed out")
+        logger.error(f"COPY {table} timed out")
         return (False, 0)
 
 
@@ -389,7 +389,10 @@ def verify_previous_snapshot(dest_root: Path) -> tuple[bool, str]:
                 bad.append(f"{p.relative_to(prev_dir)} ({e})")
 
     if bad:
-        return (False, f"prev snapshot {prev_dir.name}: {len(bad)}/{checked} files corrupt: {bad[:3]}")
+        return (
+            False,
+            f"prev snapshot {prev_dir.name}: {len(bad)}/{checked} files corrupt: {bad[:3]}",
+        )
     return (True, f"prev snapshot {prev_dir.name}: {checked} gz files OK")
 
 
@@ -422,10 +425,10 @@ def mirror_to_extra_dest(snap_dir: Path, extra_dest: Path) -> tuple[bool, int]:
     try:
         subprocess.run(cmd, check=True, capture_output=True, timeout=1800)
     except subprocess.CalledProcessError as e:
-        logger.exception(f"mirror failed: {e.stderr.decode(errors='ignore')}")
+        logger.error(f"mirror failed: {e.stderr.decode(errors='ignore')}")
         return (False, 0)
     except subprocess.TimeoutExpired:
-        logger.exception("mirror timed out")
+        logger.error("mirror timed out")
         return (False, 0)
 
     # Compute size
@@ -439,7 +442,10 @@ def mirror_to_extra_dest(snap_dir: Path, extra_dest: Path) -> tuple[bool, int]:
 def main():
     parser = argparse.ArgumentParser(description="Snapshot DB tables + models + backtest results")
     parser.add_argument(
-        "--dest", type=Path, default=DEFAULT_DEST, help=f"Primary backup root (default: {DEFAULT_DEST})"
+        "--dest",
+        type=Path,
+        default=DEFAULT_DEST,
+        help=f"Primary backup root (default: {DEFAULT_DEST})",
     )
     parser.add_argument(
         "--extra-dest",
@@ -451,9 +457,13 @@ def main():
         "Skipped if parent does not exist (e.g. unmounted drive).",
     )
     parser.add_argument("--no-db", action="store_true", help="Skip DB dump (files only)")
-    parser.add_argument("--rotate", type=int, default=0, help="Delete snapshots older than N days from PRIMARY dest")
     parser.add_argument(
-        "--skip-integrity-check", action="store_true", help="Skip the gunzip -t check on the previous snapshot"
+        "--rotate", type=int, default=0, help="Delete snapshots older than N days from PRIMARY dest"
+    )
+    parser.add_argument(
+        "--skip-integrity-check",
+        action="store_true",
+        help="Skip the gunzip -t check on the previous snapshot",
     )
     args = parser.parse_args()
 
@@ -477,7 +487,9 @@ def main():
         print(f"  {'✓' if ok else '✗'} {msg}")
         integrity_msg = msg
         if not ok:
-            print("\n  ! Previous snapshot has corruption — proceeding anyway, but inspect manually.")
+            print(
+                "\n  ! Previous snapshot has corruption — proceeding anyway, but inspect manually."
+            )
     else:
         integrity_msg = "skipped (--skip-integrity-check)"
 

@@ -51,7 +51,6 @@ Docs: https://kite.trade/docs/connect/v3/
 
 import os
 from datetime import datetime
-from typing import Optional
 
 from utils.logger import get_logger
 
@@ -59,7 +58,6 @@ from broker.base_adapter import (
     BrokerAdapter,
     OrderRequest,
     OrderResponse,
-    OrderSide,
     OrderStatus,
     OrderType,
     Position,
@@ -119,7 +117,7 @@ class ZerodhaAdapter(BrokerAdapter):
         try:
             from kiteconnect import KiteConnect
         except ImportError:
-            logger.exception("kiteconnect package not installed. Run: pip install kiteconnect")
+            logger.error("kiteconnect package not installed. Run: pip install kiteconnect")
             return False
 
         self._kite = KiteConnect(api_key=self._api_key)
@@ -134,7 +132,7 @@ class ZerodhaAdapter(BrokerAdapter):
                 logger.info(f"Zerodha authenticated: {self._user_id}")
                 return True
             except Exception as e:
-                logger.exception(f"Zerodha access_token invalid: {e}")
+                logger.error(f"Zerodha access_token invalid: {e}")
                 self._connected = False
                 return False
         else:
@@ -179,7 +177,7 @@ class ZerodhaAdapter(BrokerAdapter):
             logger.info(f"Zerodha OAuth complete: user={self._user_id}, token set")
             return True
         except Exception as e:
-            logger.exception(f"Zerodha OAuth failed: {e}")
+            logger.error(f"Zerodha OAuth failed: {e}")
             return False
 
     @property
@@ -231,7 +229,9 @@ class ZerodhaAdapter(BrokerAdapter):
 
         except Exception as e:
             error_msg = str(e)
-            logger.exception(f"Zerodha order FAILED: {request.symbol} {request.side.value} — {error_msg}")
+            logger.error(
+                f"Zerodha order FAILED: {request.symbol} {request.side.value} — {error_msg}"
+            )
 
             # Detect specific rejection reasons
             status = OrderStatus.REJECTED
@@ -273,7 +273,7 @@ class ZerodhaAdapter(BrokerAdapter):
             return OrderResponse(order_id=order_id, status=OrderStatus.OPEN, message="Modified")
 
         except Exception as e:
-            logger.exception(f"Zerodha MODIFY failed: {order_id} — {e}")
+            logger.error(f"Zerodha MODIFY failed: {order_id} — {e}")
             return OrderResponse(order_id=order_id, status=OrderStatus.ERROR, message=str(e))
 
     def cancel_order(self, order_id: str) -> OrderResponse:
@@ -283,9 +283,11 @@ class ZerodhaAdapter(BrokerAdapter):
         try:
             self._kite.cancel_order(variety="regular", order_id=order_id)
             logger.info(f"Zerodha CANCEL: {order_id}")
-            return OrderResponse(order_id=order_id, status=OrderStatus.CANCELLED, message="Cancelled")
+            return OrderResponse(
+                order_id=order_id, status=OrderStatus.CANCELLED, message="Cancelled"
+            )
         except Exception as e:
-            logger.exception(f"Zerodha CANCEL failed: {order_id} — {e}")
+            logger.error(f"Zerodha CANCEL failed: {order_id} — {e}")
             return OrderResponse(order_id=order_id, status=OrderStatus.ERROR, message=str(e))
 
     # ── Position & Order Queries ──────────────────────────────────────
@@ -312,7 +314,7 @@ class ZerodhaAdapter(BrokerAdapter):
                     )
             return positions
         except Exception as e:
-            logger.exception(f"Zerodha get_positions failed: {e}")
+            logger.error(f"Zerodha get_positions failed: {e}")
             return []
 
     def get_order_status(self, order_id: str) -> OrderResponse:
@@ -322,7 +324,9 @@ class ZerodhaAdapter(BrokerAdapter):
         try:
             history = self._kite.order_history(order_id)
             if not history:
-                return OrderResponse(order_id=order_id, status=OrderStatus.ERROR, message="No history")
+                return OrderResponse(
+                    order_id=order_id, status=OrderStatus.ERROR, message="No history"
+                )
 
             latest = history[-1]
             status_map = {
@@ -341,7 +345,7 @@ class ZerodhaAdapter(BrokerAdapter):
                 raw=latest,
             )
         except Exception as e:
-            logger.exception(f"Zerodha order_status failed: {order_id} — {e}")
+            logger.error(f"Zerodha order_status failed: {order_id} — {e}")
             return OrderResponse(order_id=order_id, status=OrderStatus.ERROR, message=str(e))
 
     def get_orders_today(self) -> list[OrderResponse]:
@@ -362,7 +366,7 @@ class ZerodhaAdapter(BrokerAdapter):
                 for o in orders
             ]
         except Exception as e:
-            logger.exception(f"Zerodha get_orders failed: {e}")
+            logger.error(f"Zerodha get_orders failed: {e}")
             return []
 
     # ── Safety ────────────────────────────────────────────────────────
@@ -389,9 +393,9 @@ class ZerodhaAdapter(BrokerAdapter):
                         self._kite.cancel_order(variety="regular", order_id=o["order_id"])
                         logger.warning(f"KILL: cancelled order {o['order_id']}")
                     except Exception as e:
-                        logger.exception(f"KILL: cancel {o['order_id']} failed: {e}")
+                        logger.error(f"KILL: cancel {o['order_id']} failed: {e}")
         except Exception as e:
-            logger.exception(f"KILL: fetch orders failed: {e}")
+            logger.error(f"KILL: fetch orders failed: {e}")
 
         # 2. Close all open positions
         try:
@@ -419,7 +423,7 @@ class ZerodhaAdapter(BrokerAdapter):
                     )
                     responses.append(resp)
         except Exception as e:
-            logger.exception(f"KILL: close positions failed: {e}")
+            logger.error(f"KILL: close positions failed: {e}")
 
         logger.warning(f"KILL SWITCH COMPLETE: {len(responses)} exit orders placed")
         return responses
@@ -433,5 +437,5 @@ class ZerodhaAdapter(BrokerAdapter):
         try:
             return self._kite.margins()
         except Exception as e:
-            logger.exception(f"Margins fetch failed: {e}")
+            logger.error(f"Margins fetch failed: {e}")
             return {}

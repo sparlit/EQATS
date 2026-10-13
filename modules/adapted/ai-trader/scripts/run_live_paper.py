@@ -44,7 +44,6 @@ Run: python scripts/run_live_paper.py
 
 import os
 import sys
-import threading
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -58,27 +57,23 @@ load_dotenv()
 import numpy as np
 import pandas as pd
 from backtest.option_resolver import get_days_to_expiry, get_nearest_expiry
+from config.settings import (
+    SCAN_INTERVAL_SECONDS,
+    SCORE_THRESHOLD,
+    WEIGHT_ML_PROBABILITY,
+    WEIGHT_OPTIONS_FLOW,
+    WEIGHT_TECHNICAL_STRENGTH,
+)
 from data.aggregator import AggregationEngine
 from data.tick_collector import TickCollector
 from data.truedata_adapter import TrueDataAdapter
+from database.db import read_sql, write_df
 from features.indicators import compute_all_macro_indicators
-from features.micro_features import compute_micro_features
 from models.predict import Predictor
 from models.strategy_models import StrategyPredictor
 from strategy.regime_detector import RegimeDetector, get_strategies_for_regime
 from strategy.signal_generator import generate_signals
 from utils.logger import get_logger
-
-from config.settings import (
-    SCAN_INTERVAL_SECONDS,
-    SCORE_THRESHOLD,
-    SYMBOLS,
-    TD_INDEX_SYMBOLS,
-    WEIGHT_ML_PROBABILITY,
-    WEIGHT_OPTIONS_FLOW,
-    WEIGHT_TECHNICAL_STRENGTH,
-)
-from database.db import get_engine, read_sql, write_df
 
 logger = get_logger("live_paper")
 
@@ -186,7 +181,7 @@ class LivePaperTrader:
         try:
             write_df(new_row, "minute_candles")
         except Exception as e:
-            logger.exception(f"Failed to persist candle: {e}")
+            logger.error(f"Failed to persist candle: {e}")
 
         # Run the trading pipeline
         self._run_pipeline(candle)
@@ -230,12 +225,14 @@ class LivePaperTrader:
                 return
             latest = featured.iloc[-1].to_dict()
         except Exception as e:
-            logger.exception(f"Feature computation error: {e}")
+            logger.error(f"Feature computation error: {e}")
             return
 
         # 2. Detect regime
         try:
-            regime_window = self._candle_buffer.tail(100)[["open", "high", "low", "close", "volume"]].copy()
+            regime_window = self._candle_buffer.tail(100)[
+                ["open", "high", "low", "close", "volume"]
+            ].copy()
             self._current_regime = self.regime_detector.detect(regime_window)
             regime_strategies = get_strategies_for_regime(self._current_regime)
         except Exception:
@@ -345,13 +342,17 @@ class LivePaperTrader:
         today = date.today()
 
         try:
-            from features.feature_engine import build_macro_features
             from features.micro_features import compute_micro_features
-            from models.train_model import MacroModelTrainer, MicroModelTrainer, generate_macro_labels
+            from models.train_model import (
+                MacroModelTrainer,
+                MicroModelTrainer,
+            )
 
             # Macro: incremental train on today's 1-min data
             today_bars = read_sql(
-                "SELECT * FROM minute_candles WHERE symbol = 'NIFTY-I' AND timestamp::date = :dt ORDER BY timestamp",
+                "SELECT * FROM minute_candles "
+                "WHERE symbol = 'NIFTY-I' AND timestamp::date = :dt "
+                "ORDER BY timestamp",
                 {"dt": str(today)},
             )
             if not today_bars.empty and len(today_bars) > 50:
@@ -367,7 +368,9 @@ class LivePaperTrader:
 
             # Micro: incremental train on today's tick data
             today_ticks = read_sql(
-                "SELECT * FROM tick_data WHERE symbol = 'NIFTY-I' AND timestamp::date = :dt ORDER BY timestamp",
+                "SELECT * FROM tick_data "
+                "WHERE symbol = 'NIFTY-I' AND timestamp::date = :dt "
+                "ORDER BY timestamp",
                 {"dt": str(today)},
             )
             if not today_ticks.empty and len(today_ticks) > 100:
@@ -392,7 +395,7 @@ class LivePaperTrader:
             return pd.DataFrame()
         return pd.DataFrame(self._trade_log)
 
-    def export_trade_log(self, path: str | None = None):
+    def export_trade_log(self, path: str = None):
         """Export trade log to CSV."""
         df = self.get_trade_log()
         if df.empty:
@@ -444,7 +447,7 @@ def main():
             except KeyboardInterrupt:
                 raise
             except Exception as e:
-                logger.exception(f"Polling error: {e}")
+                logger.error(f"Polling error: {e}")
 
             time.sleep(SCAN_INTERVAL_SECONDS)
 

@@ -36,14 +36,13 @@ from datetime import date
 import numpy as np
 import pandas as pd
 from backtest.option_resolver import get_nearest_expiry
+from config.risk_profiles import RiskLevel, get_risk_profile
+from database.db import read_sql
 from features.indicators import compute_all_macro_indicators
 from models.predict import Predictor
 from models.strategy_models import StrategyPredictor
 from strategy.regime_detector import MarketRegime, RegimeDetector, get_strategies_for_regime
 from strategy.signal_generator import generate_signals
-
-from config.risk_profiles import RiskLevel, get_risk_profile
-from database.db import read_sql
 
 # Must match backend/app.py constants
 SCORE_THRESHOLD = 0.60
@@ -156,7 +155,7 @@ for sig in signals:
 
     # Flow score
     pcr = latest.get("pcr")
-    if pcr and not np.isnan(float(pcr or 0)):
+    if pcr and not np.isnan(float(pcr if pcr else 0)):
         flow_score = min(0.3 * (pcr > 1.2) + 0.2, 1.0)
         print(f"  flow_score (PCR)   : {flow_score:.4f}  PCR={pcr:.3f}")
     else:
@@ -189,7 +188,7 @@ for sig in signals:
     # Effective threshold
     if regime in (MarketRegime.SIDEWAYS, MarketRegime.LOW_VOLATILITY):
         effective_threshold = SCORE_THRESHOLD * 0.85
-    elif regime == MarketRegime.HIGH_VOLATILITY:
+    elif regime in (MarketRegime.HIGH_VOLATILITY,):
         effective_threshold = SCORE_THRESHOLD * 0.90
     else:
         effective_threshold = SCORE_THRESHOLD
@@ -199,7 +198,9 @@ for sig in signals:
     # Strategy-specific gates
     if sig.strategy == "mean_reversion":
         if regime not in (MarketRegime.SIDEWAYS, MarketRegime.LOW_VOLATILITY):
-            print(f"  ✗ BLOCKED: mean_reversion only fires in SIDEWAYS/LOW_VOL (regime={regime.value})")
+            print(
+                f"  ✗ BLOCKED: mean_reversion only fires in SIDEWAYS/LOW_VOL (regime={regime.value})"
+            )
             continue
         if directional_prob < 0.40:
             print(f"  ✗ BLOCKED: mean_reversion directional_prob {directional_prob:.3f} < 0.40")
@@ -208,7 +209,9 @@ for sig in signals:
         print(f"  threshold (mean_rev): {effective_threshold:.4f}")
     elif sig.strategy == "vwap_momentum_breakout":
         if regime not in (MarketRegime.TRENDING_BULL, MarketRegime.LOW_VOLATILITY):
-            print(f"  ✗ BLOCKED: vwap_momentum_breakout only fires in TRENDING_BULL/LOW_VOL (regime={regime.value})")
+            print(
+                f"  ✗ BLOCKED: vwap_momentum_breakout only fires in TRENDING_BULL/LOW_VOL (regime={regime.value})"
+            )
             continue
         effective_threshold = max(effective_threshold, 0.65)
         print(f"  threshold (vwap)   : {effective_threshold:.4f}")

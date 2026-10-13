@@ -44,8 +44,7 @@ Usage:
 import argparse
 import os
 import sys
-from datetime import date, timedelta
-from pathlib import Path
+from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv
@@ -61,10 +60,9 @@ from backtest.option_resolver import (
     get_nearest_expiry,
     load_option_premiums_for_day,
 )
+from database.db import read_sql
 from models.rl_exit_agent import RLExitAgent
 from utils.logger import get_logger
-
-from database.db import read_sql
 
 logger = get_logger("train_rl_exit")
 
@@ -308,7 +306,7 @@ def evaluate_agent(max_hold: int = 45):
                     exit_prem = prem
                     exit_reason = "RL_EXIT"
                     break
-                if action == "TIGHTEN":
+                elif action == "TIGHTEN":
                     if prem > entry:
                         new_sl = entry + 0.5 * (prem - entry)
                         trailing_sl = max(trailing_sl, new_sl)

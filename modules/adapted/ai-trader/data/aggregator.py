@@ -37,14 +37,12 @@ Supports two modes:
   2. Batch: aggregate historical ticks already in the database
 """
 
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from utils.logger import get_logger
-
 from database.db import read_sql, write_df
+from utils.logger import get_logger
 
 logger = get_logger("aggregator")
 
@@ -130,10 +128,10 @@ class AggregationEngine:
             df["vwap"] = self._compute_vwap(df)
 
         try:
-            write_df(df[[*required, "vwap"]], "minute_candles")
+            write_df(df[required + ["vwap"]], "minute_candles")
             logger.info(f"Ingested {len(df)} minute bars into database.")
         except Exception as e:
-            logger.exception(f"Failed to ingest minute bars: {e}")
+            logger.error(f"Failed to ingest minute bars: {e}")
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
@@ -153,7 +151,8 @@ class AggregationEngine:
             ohlcv["vwap"] = self._compute_vwap(ohlcv)
 
         ohlcv = ohlcv.reset_index()
-        return ohlcv.rename(columns={"index": "timestamp"})
+        ohlcv.rename(columns={"index": "timestamp"}, inplace=True)
+        return ohlcv
 
     def _build_and_store(self, df: pd.DataFrame, symbol: str, freq: str, table: str):
         """Resample and write to DB."""
@@ -170,7 +169,7 @@ class AggregationEngine:
             write_df(candles[cols], table)
             logger.info(f"Wrote {len(candles)} {freq} candles for {symbol} → {table}")
         except Exception as e:
-            logger.exception(f"Failed to write {freq} candles: {e}")
+            logger.error(f"Failed to write {freq} candles: {e}")
 
     @staticmethod
     def _compute_vwap(df: pd.DataFrame) -> pd.Series:
@@ -181,4 +180,5 @@ class AggregationEngine:
         typical = (df["high"] + df["low"] + df["close"]) / 3
         cum_tp_vol = (typical * df["volume"]).cumsum()
         cum_vol = df["volume"].cumsum()
-        return cum_tp_vol / cum_vol.replace(0, np.nan)
+        vwap = cum_tp_vol / cum_vol.replace(0, np.nan)
+        return vwap

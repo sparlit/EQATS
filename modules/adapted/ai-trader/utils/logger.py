@@ -48,4 +48,5 @@ logger.addHandler(_file)
 
 
 def get_logger(name: str) -> logging.Logger:
-    return logger.getChild(name)
+    child = logger.getChild(name)
+    return child

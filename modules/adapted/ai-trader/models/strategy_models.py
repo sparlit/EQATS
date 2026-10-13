@@ -38,21 +38,15 @@ the specific conditions that make its strategy work.
 """
 
 from datetime import datetime
-from pathlib import Path
-from typing import Dict, Optional
 
 import joblib
 import numpy as np
 import pandas as pd
+from config.settings import FEATURE_COLUMNS_MACRO, MODEL_DIR
 from strategy.signal_generator import (
     STRATEGY_MAP,
-    bearish_momentum,
-    mean_reversion,
-    vwap_momentum_breakout,
 )
 from utils.logger import get_logger
-
-from config.settings import FEATURE_COLUMNS_MACRO, MODEL_DIR
 
 logger = get_logger("strategy_models")
 
@@ -78,8 +72,8 @@ def _get_model(model_type: str = "xgboost", **kwargs):
         }
         defaults.update(kwargs)
         return xgb.XGBClassifier(**defaults)
-    msg = f"Unknown model type: {model_type}"
-    raise ValueError(msg)
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
 
 
 def generate_strategy_labels(
@@ -120,7 +114,7 @@ def generate_strategy_labels(
     df["_fires"] = fires
     df["_direction"] = directions
     df = df[df["_fires"]].copy()
-    df = df.drop(columns=["_fires"])
+    df.drop(columns=["_fires"], inplace=True)
 
     if df.empty:
         logger.warning(f"Strategy {strategy_name} never fires. No training data.")
@@ -164,11 +158,13 @@ def generate_strategy_labels(
         labels.append(1 if won else 0)
 
     df["target"] = labels
-    df = df.drop(columns=["_direction"], errors="ignore")
+    df.drop(columns=["_direction"], inplace=True, errors="ignore")
 
     pos = sum(labels)
     total = len(labels)
-    logger.info(f"Strategy {strategy_name}: {total} signal rows, {pos} wins ({pos / total * 100:.1f}%)")
+    logger.info(
+        f"Strategy {strategy_name}: {total} signal rows, {pos} wins ({pos / total * 100:.1f}%)"
+    )
     return df
 
 
@@ -191,7 +187,7 @@ def train_strategy_model(
     available = [c for c in FEATURE_COLUMNS_MACRO if c in df.columns]
     non_null = [c for c in available if df[c].notna().any()]
     df[non_null] = df[non_null].replace([np.inf, -np.inf], np.nan).ffill().bfill()
-    df = df.dropna(subset=[*non_null, "target"])
+    df = df.dropna(subset=non_null + ["target"])
 
     if len(df) < 50:
         logger.warning(f"After cleanup: only {len(df)} rows for {strategy_name}")
@@ -204,7 +200,9 @@ def train_strategy_model(
     neg = (y == 0).sum()
     pos = (y == 1).sum()
     spw = round(neg / pos, 2) if pos > 0 else 1
-    logger.info(f"  Samples: {len(df)}, pos: {pos} ({pos / len(df) * 100:.1f}%), scale_pos_weight: {spw}")
+    logger.info(
+        f"  Samples: {len(df)}, pos: {pos} ({pos / len(df) * 100:.1f}%), scale_pos_weight: {spw}"
+    )
 
     model = _get_model(model_type, scale_pos_weight=spw)
 
@@ -287,9 +285,11 @@ class StrategyPredictor:
                     metrics = data.get("metrics") or {}
                     auc = metrics.get("auc_roc", data.get("cv_auc", "?"))
                     n = data.get("n_samples", "?")
-                    logger.info(f"Loaded {name} model ({len(data['features'])} features, n={n}, AUC={auc})")
+                    logger.info(
+                        f"Loaded {name} model ({len(data['features'])} features, n={n}, AUC={auc})"
+                    )
                 except Exception as e:
-                    logger.exception(f"Failed to load {name} model: {e}")
+                    logger.error(f"Failed to load {name} model: {e}")
 
     def predict(self, strategy_name: str, features: dict) -> float | None:
         """Get P(strategy success) for a single feature row."""
@@ -304,7 +304,7 @@ class StrategyPredictor:
             X = df[available].fillna(0)
             return float(data["model"].predict_proba(X)[0][1])
         except Exception as e:
-            logger.exception(f"Strategy prediction error ({strategy_name}): {e}")
+            logger.error(f"Strategy prediction error ({strategy_name}): {e}")
             return None
 
     @property

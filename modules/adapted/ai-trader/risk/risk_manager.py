@@ -41,10 +41,6 @@ From the Product Vision doc (§14):
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Dict, Optional
-
-from utils.helpers import calculate_stop_loss, calculate_target
-from utils.logger import get_logger
 
 from config.settings import (
     INITIAL_CAPITAL,
@@ -52,6 +48,7 @@ from config.settings import (
     MAX_TRADES_PER_DAY,
     RISK_PER_TRADE,
 )
+from utils.logger import get_logger
 
 logger = get_logger("risk_manager")
 
@@ -198,7 +195,9 @@ class RiskManager:
             "direction": direction,
             "entry_time": datetime.now(),
         }
-        logger.info(f"Position opened: {symbol} ({self._trades_today}/{self.max_trades_per_day} today)")
+        logger.info(
+            f"Position opened: {symbol} ({self._trades_today}/{self.max_trades_per_day} today)"
+        )
 
     def register_exit(self, symbol: str, exit_price: float):
         """Record a position exit and update daily P&L."""
@@ -212,7 +211,9 @@ class RiskManager:
             pnl = (pos["entry_price"] - exit_price) * pos["quantity"]
 
         self._daily_pnl += pnl
-        logger.info(f"Position closed: {symbol} PnL=₹{pnl:.2f} (daily total: ₹{self._daily_pnl:.2f})")
+        logger.info(
+            f"Position closed: {symbol} PnL=₹{pnl:.2f} (daily total: ₹{self._daily_pnl:.2f})"
+        )
 
     # ── State ─────────────────────────────────────────────────────────────────
 
@@ -236,9 +237,7 @@ class RiskManager:
         self._reset_if_new_day()
         if self._trades_today >= self.max_trades_per_day:
             return False
-        if self._daily_pnl <= -(self.capital * self.max_daily_loss):
-            return False
-        return True
+        return not self._daily_pnl <= -(self.capital * self.max_daily_loss)
 
     def get_daily_summary(self) -> dict:
         return {

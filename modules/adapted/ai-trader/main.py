@@ -43,9 +43,8 @@ Usage:
 import sys
 import time
 
-from utils.logger import get_logger
-
 from config.settings import SCAN_INTERVAL_SECONDS, SYMBOLS
+from utils.logger import get_logger
 
 logger = get_logger("main")
 
@@ -123,14 +122,13 @@ def run_ingest():
       5. Fetch tick data (5 days) for option symbols
       6. Store in TimescaleDB and build features
     """
+    from config.settings import STRIKE_GAP, TD_INDEX_SYMBOLS
     from data.aggregator import AggregationEngine
     from data.symbol_manager import SymbolManager
     from data.tick_collector import TickCollector
     from data.truedata_adapter import TrueDataAdapter
-    from features.feature_engine import build_all_features
-
-    from config.settings import STRIKE_GAP, TD_INDEX_SYMBOLS
     from database.db import init_db
+    from features.feature_engine import build_all_features
 
     logger.info("=" * 60)
     logger.info("MODE: INGEST – loading historical data from TrueData")
@@ -142,7 +140,9 @@ def run_ingest():
     # 2. Authenticate with TrueData REST API
     td = TrueDataAdapter()
     if not td.authenticate():
-        logger.error("Cannot authenticate with TrueData. Check TRUEDATA_USER / TRUEDATA_PASSWORD in .env")
+        logger.error(
+            "Cannot authenticate with TrueData. Check TRUEDATA_USER / TRUEDATA_PASSWORD in .env"
+        )
         return
 
     # 3. Load symbol master (all F&O symbols with expiry, strike, etc.)
@@ -183,7 +183,9 @@ def run_ingest():
         if nearest_expiry:
             # Get current ATM from latest spot price
             latest_close = minute_df.iloc[-1]["close"] if not minute_df.empty else 0
-            option_syms = sym_mgr.get_option_symbols(underlying, latest_close, expiry=nearest_expiry)
+            option_syms = sym_mgr.get_option_symbols(
+                underlying, latest_close, expiry=nearest_expiry
+            )
             logger.info(
                 f"  {underlying} options: {len(option_syms)} contracts "
                 f"(ATM={sym_mgr.compute_atm(latest_close, STRIKE_GAP.get(underlying, 50))}, "
@@ -202,7 +204,8 @@ def run_ingest():
                     collector.ingest_historical_ticks(opt_ticks)
 
                 logger.info(
-                    f"    {opt.symbol} (rel={opt.relative_strike:+d}): {len(opt_bars)} bars, {len(opt_ticks)} ticks"
+                    f"    {opt.symbol} (rel={opt.relative_strike:+d}): "
+                    f"{len(opt_bars)} bars, {len(opt_ticks)} ticks"
                 )
         else:
             logger.warning(f"  No expiry found for {underlying}. Skipping options.")
@@ -309,10 +312,9 @@ def run_backtest_real():
     from datetime import datetime
 
     from backtest.backtest_engine import BacktestEngine
+    from config.settings import TD_INDEX_SYMBOLS
     from features.feature_engine import build_macro_features
     from models.predict import Predictor
-
-    from config.settings import TD_INDEX_SYMBOLS
 
     logger.info("=" * 60)
     logger.info("MODE: BACKTEST-REAL - backtesting on historical DB data with ML")
@@ -413,9 +415,8 @@ def run_live():
             continue
 
         try:
-            from features.feature_engine import build_macro_features
-
             from database.db import read_sql
+            from features.feature_engine import build_macro_features
 
             all_signals = []
             ml_probs = {}
@@ -431,7 +432,8 @@ def run_live():
 
                 # 2. Detect market regime (from 5m candles)
                 fivemin_df = read_sql(
-                    "SELECT * FROM five_minute_candles WHERE symbol = :sym ORDER BY timestamp DESC LIMIT 100",
+                    "SELECT * FROM five_minute_candles "
+                    "WHERE symbol = :sym ORDER BY timestamp DESC LIMIT 100",
                     {"sym": symbol},
                 )
                 regime = regime_detector.detect(fivemin_df)
@@ -446,7 +448,8 @@ def run_live():
 
                 # 5. Options flow
                 oc_df = read_sql(
-                    "SELECT * FROM option_chain WHERE symbol = :sym ORDER BY timestamp DESC LIMIT 100",
+                    "SELECT * FROM option_chain "
+                    "WHERE symbol = :sym ORDER BY timestamp DESC LIMIT 100",
                     {"sym": symbol},
                 )
                 if not oc_df.empty:
@@ -491,7 +494,9 @@ def run_live():
                         scored_trade.direction,
                     )
                 else:
-                    logger.info(f"Trade rejected: {scored_trade.symbol} - {risk_decision.rejection_reason}")
+                    logger.info(
+                        f"Trade rejected: {scored_trade.symbol} - {risk_decision.rejection_reason}"
+                    )
 
         except Exception as e:
             logger.error(f"Trading loop error: {e}", exc_info=True)

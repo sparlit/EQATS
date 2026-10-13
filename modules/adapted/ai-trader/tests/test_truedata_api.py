@@ -41,7 +41,6 @@ Tests:
 
 import os
 import sys
-import time
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -55,7 +54,6 @@ from io import StringIO
 
 import pandas as pd
 import requests
-
 from config.settings import (
     TD_AUTH_URL,
     TD_HISTORY_URL,
@@ -118,7 +116,11 @@ def test_auth():
         data = resp.json()
         _token = data.get("access_token")
 
-        test_result("Got access_token", _token is not None, f"Token: {_token[:50]}..." if _token else "No token")
+        test_result(
+            "Got access_token",
+            _token is not None,
+            f"Token: {_token[:50]}..." if _token else "No token",
+        )
 
         expires_in = data.get("expires_in")
         test_result("Token expiry info", expires_in is not None, f"Expires in: {expires_in}s")
@@ -179,7 +181,9 @@ def test_historical_bars():
             return
 
         df = pd.read_csv(StringIO(resp.text))
-        test_result("Got DataFrame", not df.empty, f"Shape: {df.shape}, Columns: {list(df.columns)}")
+        test_result(
+            "Got DataFrame", not df.empty, f"Shape: {df.shape}, Columns: {list(df.columns)}"
+        )
 
         if not df.empty:
             print("\n  First 3 rows:")
@@ -235,7 +239,9 @@ def test_historical_ticks():
             return
 
         df = pd.read_csv(StringIO(resp.text))
-        test_result("Got tick data", not df.empty, f"Shape: {df.shape}, Columns: {list(df.columns)}")
+        test_result(
+            "Got tick data", not df.empty, f"Shape: {df.shape}, Columns: {list(df.columns)}"
+        )
 
         if not df.empty:
             print("\n  First 3 rows:")
@@ -280,7 +286,9 @@ def test_symbol_master():
             return
 
         df = pd.read_csv(StringIO(resp.text))
-        test_result("Got symbol master", not df.empty, f"Shape: {df.shape}, Columns: {list(df.columns)}")
+        test_result(
+            "Got symbol master", not df.empty, f"Shape: {df.shape}, Columns: {list(df.columns)}"
+        )
 
         if not df.empty:
             print("\n  First 5 rows:")
@@ -304,7 +312,10 @@ def test_expiry_list():
     section("TEST 5: NIFTY Expiry List")
 
     # Try both endpoints
-    for host_name, base_url in [("api.truedata.in", TD_SYMBOL_MASTER_URL), ("history.truedata.in", TD_HISTORY_URL)]:
+    for host_name, base_url in [
+        ("api.truedata.in", TD_SYMBOL_MASTER_URL),
+        ("history.truedata.in", TD_HISTORY_URL),
+    ]:
         print(f"\n  --- Via {host_name} ---")
 
         url = f"{base_url}/getSymbolExpiryList"
@@ -326,7 +337,9 @@ def test_expiry_list():
 
         try:
             resp = requests.get(url, params=params, headers=headers, timeout=15)
-            test_result(f"HTTP status ({host_name})", resp.status_code == 200, f"Status: {resp.status_code}")
+            test_result(
+                f"HTTP status ({host_name})", resp.status_code == 200, f"Status: {resp.status_code}"
+            )
 
             if resp.status_code == 200 and resp.text.strip():
                 df = pd.read_csv(StringIO(resp.text))
@@ -393,7 +406,9 @@ def test_option_chain():
 
         if resp.status_code == 200 and resp.text.strip():
             df = pd.read_csv(StringIO(resp.text))
-            test_result("Got option chain", not df.empty, f"Shape: {df.shape}, Columns: {list(df.columns)}")
+            test_result(
+                "Got option chain", not df.empty, f"Shape: {df.shape}, Columns: {list(df.columns)}"
+            )
             if not df.empty:
                 print("\n  First 5 rows:")
                 print(df.head(5).to_string(index=False))
@@ -451,7 +466,13 @@ def test_option_symbol_bars():
     try:
         resp = requests.get(
             f"{TD_HISTORY_URL}/getlastnticks",
-            params={"symbol": "NIFTY-I", "nticks": "1", "interval": "tick", "response": "csv", "bidask": "0"},
+            params={
+                "symbol": "NIFTY-I",
+                "nticks": "1",
+                "interval": "tick",
+                "response": "csv",
+                "bidask": "0",
+            },
             headers=_auth_header(),
             timeout=10,
         )
@@ -530,11 +551,16 @@ def test_last_n():
             resp = requests.get(url, params=params, headers=_auth_header(), timeout=15)
             if resp.status_code == 200:
                 df = pd.read_csv(StringIO(resp.text))
-                test_result(f"Last 10 bars via /{endpoint}", not df.empty, f"Rows: {len(df)}, Cols: {list(df.columns)}")
+                test_result(
+                    f"Last 10 bars via /{endpoint}",
+                    not df.empty,
+                    f"Rows: {len(df)}, Cols: {list(df.columns)}",
+                )
                 if not df.empty:
                     print(f"    Latest: {df.iloc[-1].to_dict()}")
                 break
-            test_result(f"/{endpoint}", False, f"Status: {resp.status_code}")
+            else:
+                test_result(f"/{endpoint}", False, f"Status: {resp.status_code}")
         except Exception as e:
             test_result(f"/{endpoint}", False, str(e))
 
@@ -552,11 +578,17 @@ def test_last_n():
         resp2 = requests.get(url2, params=params2, headers=_auth_header(), timeout=15)
         if resp2.status_code == 200:
             df2 = pd.read_csv(StringIO(resp2.text))
-            test_result("Last 5 ticks (NIFTY-I)", not df2.empty, f"Rows: {len(df2)}, Cols: {list(df2.columns)}")
+            test_result(
+                "Last 5 ticks (NIFTY-I)",
+                not df2.empty,
+                f"Rows: {len(df2)}, Cols: {list(df2.columns)}",
+            )
             if not df2.empty:
                 print(f"    Latest: {df2.iloc[-1].to_dict()}")
         else:
-            test_result("Last N ticks", False, f"Status: {resp2.status_code}, Body: {resp2.text[:200]}")
+            test_result(
+                "Last N ticks", False, f"Status: {resp2.status_code}, Body: {resp2.text[:200]}"
+            )
     except Exception as e:
         test_result("Last N ticks", False, str(e))
 
@@ -583,7 +615,7 @@ def test_wss_streaming():
 
         # Subscribe to NIFTY 50 and capture snapshot
         snapshots = []
-        td._callbacks.append(snapshots.append)
+        td._callbacks.append(lambda t: snapshots.append(t))
         td.ws_subscribe(["NIFTY 50"])
 
         test_result("Subscribe + snapshot", len(snapshots) > 0, f"Got {len(snapshots)} snapshot(s)")

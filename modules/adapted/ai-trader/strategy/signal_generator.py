@@ -35,7 +35,6 @@ The regime detector determines which strategies are active per scan cycle.
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
 
 from utils.logger import get_logger
 
@@ -207,7 +206,7 @@ STRATEGY_MAP = {
 def generate_signals(
     row: dict,
     symbol: str = "",
-    active_strategies: list[str] | None = None,
+    active_strategies: list[str] = None,
 ) -> list[Signal]:
     """
     Run all active strategies on the latest feature row.
@@ -224,7 +223,9 @@ def generate_signals(
         sig = func(row, symbol)
         if sig is not None:
             signals.append(sig)
-            logger.info(f"Signal: {name} → {sig.direction} for {symbol} (strength={sig.technical_strength})")
+            logger.info(
+                f"Signal: {name} → {sig.direction} for {symbol} (strength={sig.technical_strength})"
+            )
 
     return signals
 

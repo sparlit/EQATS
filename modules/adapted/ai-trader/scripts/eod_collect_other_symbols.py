@@ -62,6 +62,13 @@ import argparse
 import time
 from datetime import date, datetime, timedelta
 
+from config.settings import (
+    ATM_RANGE,
+    EOD_ONLY_SYMBOLS,
+    STRIKE_GAP,
+    TD_INDEX_FUTURES_SYMBOLS,
+    TD_INDEX_SPOT_SYMBOLS,
+)
 from data.truedata_adapter import TrueDataAdapter
 from scripts._market_data_lib import (
     MIN_CANDLES_PER_DAY,
@@ -72,24 +79,13 @@ from scripts._market_data_lib import (
     candle_coverage,
     fill_candle_day,
     fill_tick_day,
-    find_missing_candle_days,
-    find_missing_tick_days,
     get_atm_strike,
     get_current_monthly_expiry,
     get_futures_close_on,
-    is_trading_day,
     tick_coverage,
     trading_days_back,
 )
 from utils.logger import get_logger
-
-from config.settings import (
-    ATM_RANGE,
-    EOD_ONLY_SYMBOLS,
-    STRIKE_GAP,
-    TD_INDEX_FUTURES_SYMBOLS,
-    TD_INDEX_SPOT_SYMBOLS,
-)
 
 logger = get_logger("eod_collect")
 
@@ -121,7 +117,9 @@ def fix_symbol_candles(td: TrueDataAdapter, sym: str, days: list[date], dry_run:
     return total
 
 
-def fix_symbol_ticks(td: TrueDataAdapter, sym: str, days: list[date], threshold: int, dry_run: bool):
+def fix_symbol_ticks(
+    td: TrueDataAdapter, sym: str, days: list[date], threshold: int, dry_run: bool
+):
     """Replace ticks for any day below threshold (TrueData REST 5-day window)."""
     today = date.today()
     window_start = today - timedelta(days=5)
@@ -142,7 +140,9 @@ def fix_symbol_ticks(td: TrueDataAdapter, sym: str, days: list[date], threshold:
     return total
 
 
-def process_underlying(td: TrueDataAdapter, underlying: str, days: list[date], atm_range: int, dry_run: bool):
+def process_underlying(
+    td: TrueDataAdapter, underlying: str, days: list[date], atm_range: int, dry_run: bool
+):
     print(f"\n{'─' * 60}")
     print(f"  {underlying}")
     print(f"{'─' * 60}")
@@ -220,19 +220,34 @@ def process_nifty_safety(td: TrueDataAdapter, days: list[date], dry_run: bool):
 def main():
     parser = argparse.ArgumentParser(description="Daily EOD incremental data collector (Plan D)")
     parser.add_argument(
-        "--lookback-days", type=int, default=5, help="How many trading days to scan/fix (default 5 = TrueData REST cap)"
+        "--lookback-days",
+        type=int,
+        default=5,
+        help="How many trading days to scan/fix (default 5 = TrueData REST cap)",
     )
     parser.add_argument(
-        "--symbols", nargs="+", default=EOD_ONLY_SYMBOLS, help=f"Underlyings to process (default: {EOD_ONLY_SYMBOLS})"
+        "--symbols",
+        nargs="+",
+        default=EOD_ONLY_SYMBOLS,
+        help=f"Underlyings to process (default: {EOD_ONLY_SYMBOLS})",
     )
     parser.add_argument(
-        "--atm-range", type=int, default=ATM_RANGE, help=f"Strikes above/below ATM (default {ATM_RANGE})"
+        "--atm-range",
+        type=int,
+        default=ATM_RANGE,
+        help=f"Strikes above/below ATM (default {ATM_RANGE})",
     )
     parser.add_argument(
-        "--include-today", action="store_true", help="Include today in the lookback (use after market close)"
+        "--include-today",
+        action="store_true",
+        help="Include today in the lookback (use after market close)",
     )
-    parser.add_argument("--also-nifty", action="store_true", help="Also run a safety backfill on NIFTY-I")
-    parser.add_argument("--dry-run", action="store_true", help="Report gaps only — no fetches or writes")
+    parser.add_argument(
+        "--also-nifty", action="store_true", help="Also run a safety backfill on NIFTY-I"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Report gaps only — no fetches or writes"
+    )
     args = parser.parse_args()
 
     days = trading_days_back(args.lookback_days, include_today=args.include_today)

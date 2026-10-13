@@ -60,18 +60,13 @@ import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from io import StringIO
-from typing import Dict, List, Optional
 
 import pandas as pd
 import requests
-from utils.logger import get_logger
-
 from config.settings import (
     SYMBOLS,
     TD_AUTH_URL,
     TD_HISTORY_URL,
-    TD_INDEX_FUTURES_SYMBOLS,
-    TD_INDEX_SPOT_SYMBOLS,
     TD_INDEX_SYMBOLS,
     TD_RATE_LIMIT_RPS,
     TD_TCP_HOST,
@@ -79,6 +74,7 @@ from config.settings import (
     TRUEDATA_PASSWORD,
     TRUEDATA_USER,
 )
+from utils.logger import get_logger
 
 logger = get_logger("truedata")
 
@@ -148,12 +144,16 @@ class TrueDataAdapter:
             return True
 
         except requests.RequestException as e:
-            logger.exception(f"TrueData authentication failed: {e}")
+            logger.error(f"TrueData authentication failed: {e}")
             return False
 
     @property
     def is_authenticated(self) -> bool:
-        return self._token is not None and self._token_expires is not None and datetime.now() < self._token_expires
+        return (
+            self._token is not None
+            and self._token_expires is not None
+            and datetime.now() < self._token_expires
+        )
 
     def _auth_header(self) -> dict:
         """Build Authorization header for REST requests."""
@@ -229,7 +229,7 @@ class TrueDataAdapter:
                 "time": "timestamp",
                 "openinterest": "oi",
             }
-            df = df.rename(columns=rename_map)
+            df.rename(columns=rename_map, inplace=True)
             df["symbol"] = symbol
             df["timestamp"] = pd.to_datetime(df["timestamp"])
 
@@ -237,7 +237,7 @@ class TrueDataAdapter:
             return df
 
         except requests.RequestException as e:
-            logger.exception(f"Error fetching bars for {symbol}: {e}")
+            logger.error(f"Error fetching bars for {symbol}: {e}")
             return pd.DataFrame()
 
     def fetch_historical_minute_bars(
@@ -256,7 +256,9 @@ class TrueDataAdapter:
         end_date = end_date or datetime.now()
         start_date = end_date - timedelta(days=days)
 
-        logger.info(f"Fetching 1m bars for {symbol}: {start_date.date()} → {end_date.date()} (chunked)")
+        logger.info(
+            f"Fetching 1m bars for {symbol}: {start_date.date()} → {end_date.date()} (chunked)"
+        )
 
         chunks: list[pd.DataFrame] = []
         chunk_start = start_date
@@ -271,9 +273,9 @@ class TrueDataAdapter:
             return pd.DataFrame()
 
         combined = pd.concat(chunks, ignore_index=True)
-        combined = combined.drop_duplicates(subset=["timestamp"], keep="last")
-        combined = combined.sort_values("timestamp")
-        combined = combined.reset_index(drop=True)
+        combined.drop_duplicates(subset=["timestamp"], keep="last", inplace=True)
+        combined.sort_values("timestamp", inplace=True)
+        combined.reset_index(drop=True, inplace=True)
 
         logger.info(f"Combined {len(chunks)} chunks → {len(combined)} bars for {symbol}")
         return combined
@@ -339,7 +341,7 @@ class TrueDataAdapter:
                 "openinterest": "oi",
                 "time": "timestamp",
             }
-            df = df.rename(columns=rename_map)
+            df.rename(columns=rename_map, inplace=True)
             df["symbol"] = symbol
             df["timestamp"] = pd.to_datetime(df["timestamp"])
 
@@ -347,7 +349,7 @@ class TrueDataAdapter:
             return df
 
         except requests.RequestException as e:
-            logger.exception(f"Error fetching ticks for {symbol}: {e}")
+            logger.error(f"Error fetching ticks for {symbol}: {e}")
             return pd.DataFrame()
 
     # ── REST: Last N Bars / Ticks ───────────────────────────────────────────
@@ -381,7 +383,7 @@ class TrueDataAdapter:
                 return pd.DataFrame()
 
             df.columns = [c.strip().lower() for c in df.columns]
-            df = df.rename(columns={"time": "timestamp", "openinterest": "oi"})
+            df.rename(columns={"time": "timestamp", "openinterest": "oi"}, inplace=True)
             df["symbol"] = symbol
             df["timestamp"] = pd.to_datetime(df["timestamp"])
 
@@ -389,7 +391,7 @@ class TrueDataAdapter:
             return df
 
         except requests.RequestException as e:
-            logger.exception(f"Error fetching last N bars for {symbol}: {e}")
+            logger.error(f"Error fetching last N bars for {symbol}: {e}")
             return pd.DataFrame()
 
     def fetch_last_n_ticks(self, symbol: str, n: int = 200, bidask: bool = True) -> pd.DataFrame:
@@ -430,7 +432,7 @@ class TrueDataAdapter:
                 "openinterest": "oi",
                 "time": "timestamp",
             }
-            df = df.rename(columns=rename_map)
+            df.rename(columns=rename_map, inplace=True)
             df["symbol"] = symbol
             df["timestamp"] = pd.to_datetime(df["timestamp"])
 
@@ -438,7 +440,7 @@ class TrueDataAdapter:
             return df
 
         except requests.RequestException as e:
-            logger.exception(f"Error fetching last N ticks for {symbol}: {e}")
+            logger.error(f"Error fetching last N ticks for {symbol}: {e}")
             return pd.DataFrame()
 
     # ── REST: Bhavcopy (EOD snapshot) ───────────────────────────────────────
@@ -472,7 +474,7 @@ class TrueDataAdapter:
             return df
 
         except requests.RequestException as e:
-            logger.exception(f"Error fetching bhavcopy: {e}")
+            logger.error(f"Error fetching bhavcopy: {e}")
             return pd.DataFrame()
 
     # ── WebSocket: Real-time Streaming ───────────────────────────────────────
@@ -495,7 +497,10 @@ class TrueDataAdapter:
         try:
             import websocket
 
-            ws_url = f"wss://{TD_TCP_HOST}:{TD_TCP_PORT}?user={TRUEDATA_USER}&password={TRUEDATA_PASSWORD}"
+            ws_url = (
+                f"wss://{TD_TCP_HOST}:{TD_TCP_PORT}"
+                f"?user={TRUEDATA_USER}&password={TRUEDATA_PASSWORD}"
+            )
             logger.info(f"Connecting to WebSocket: wss://{TD_TCP_HOST}:{TD_TCP_PORT}")
 
             self._ws = websocket.create_connection(ws_url, timeout=10)
@@ -514,14 +519,15 @@ class TrueDataAdapter:
                     f"validity={msg.get('validity')}"
                 )
                 return True
-            logger.error(f"WebSocket auth failed: {msg}")
-            return False
+            else:
+                logger.error(f"WebSocket auth failed: {msg}")
+                return False
 
         except ImportError:
-            logger.exception("websocket-client not installed. Run: pip install websocket-client")
+            logger.error("websocket-client not installed. Run: pip install websocket-client")
             return False
         except Exception as e:
-            logger.exception(f"WebSocket connection failed: {e}")
+            logger.error(f"WebSocket connection failed: {e}")
             self._ws_connected = False
             return False
 
@@ -575,12 +581,12 @@ class TrueDataAdapter:
                             try:
                                 cb(tick)
                             except Exception as e:
-                                logger.exception(f"Callback error on snapshot: {e}")
+                                logger.error(f"Callback error on snapshot: {e}")
                 logger.info(f"Symbol ID map: {len(self._symbol_id_map)} entries")
             else:
                 logger.warning(f"Subscribe response: {resp}")
         except Exception as e:
-            logger.exception(f"Error reading subscribe response: {e}")
+            logger.error(f"Error reading subscribe response: {e}")
 
     def ws_unsubscribe(self, symbols: list[str]):
         """Unsubscribe from symbols."""
@@ -622,7 +628,9 @@ class TrueDataAdapter:
         def _stream_loop():
             reconnect_delay = 5  # seconds between reconnect attempts
             max_reconnect_delay = 60
-            subscribed_symbols = list(self._subscribed_symbols) if hasattr(self, "_subscribed_symbols") else []
+            subscribed_symbols = (
+                list(self._subscribed_symbols) if hasattr(self, "_subscribed_symbols") else []
+            )
 
             while self._streaming:
                 try:
@@ -680,7 +688,7 @@ class TrueDataAdapter:
                                         try:
                                             cb(tick)
                                         except Exception as e:
-                                            logger.exception(f"Callback error: {e}")
+                                            logger.error(f"Callback error: {e}")
                             else:
                                 logger.debug(f"Unknown symbolID in trade: {sym_id}")
                         continue
@@ -696,7 +704,7 @@ class TrueDataAdapter:
                                         try:
                                             cb(tick)
                                         except Exception as e:
-                                            logger.exception(f"Callback error: {e}")
+                                            logger.error(f"Callback error: {e}")
                         else:
                             tick = self._parse_ws_tick(msg)
                             if tick:
@@ -705,7 +713,7 @@ class TrueDataAdapter:
                                     try:
                                         cb(tick)
                                     except Exception as e:
-                                        logger.exception(f"Callback error: {e}")
+                                        logger.error(f"Callback error: {e}")
                         continue
 
                     # Unknown message format — log for debugging
@@ -716,7 +724,7 @@ class TrueDataAdapter:
                 except Exception as e:
                     if not self._streaming:
                         break
-                    logger.exception(f"WebSocket stream error: {e}")
+                    logger.error(f"WebSocket stream error: {e}")
                     # ── Auto-reconnect ────────────────────────────────────
                     logger.info(f"Attempting WebSocket reconnect in {reconnect_delay}s...")
                     time.sleep(reconnect_delay)
@@ -732,16 +740,20 @@ class TrueDataAdapter:
                         if self.ws_connect():
                             # Re-subscribe to same symbols
                             subscribed_symbols = (
-                                list(self._subscribed_symbols) if hasattr(self, "_subscribed_symbols") else []
+                                list(self._subscribed_symbols)
+                                if hasattr(self, "_subscribed_symbols")
+                                else []
                             )
                             if subscribed_symbols:
                                 self.ws_subscribe(subscribed_symbols)
-                            logger.info(f"WebSocket reconnected, re-subscribed to {len(subscribed_symbols)} symbols.")
+                            logger.info(
+                                f"WebSocket reconnected, re-subscribed to {len(subscribed_symbols)} symbols."
+                            )
                             reconnect_delay = 5  # reset delay on success
                         else:
-                            logger.exception("WebSocket reconnect failed, will retry...")
+                            logger.error("WebSocket reconnect failed, will retry...")
                     except Exception as re:
-                        logger.exception(f"Reconnect attempt failed: {re}")
+                        logger.error(f"Reconnect attempt failed: {re}")
 
         self._stream_thread = threading.Thread(target=_stream_loop, daemon=True)
         self._stream_thread.start()
@@ -777,10 +789,12 @@ class TrueDataAdapter:
                 return default
 
         try:
-            return {
+            tick = {
                 "symbol": str(data[0]).strip() if len(data) > 0 else "",
                 "symbol_id": _int(data[1]) if len(data) > 1 else 0,
-                "timestamp": pd.to_datetime(str(data[2]).strip()) if len(data) > 2 and data[2] else datetime.now(),
+                "timestamp": pd.to_datetime(str(data[2]).strip())
+                if len(data) > 2 and data[2]
+                else datetime.now(),
                 "price": _float(data[3]) if len(data) > 3 else 0.0,
                 "volume": _int(data[4]) if len(data) > 4 else 0,
                 "atp": _float(data[5]) if len(data) > 5 else 0.0,
@@ -797,6 +811,7 @@ class TrueDataAdapter:
                 "ask_price": _float(data[16]) if len(data) > 16 else 0.0,
                 "ask_qty": _int(data[17]) if len(data) > 17 else 0,
             }
+            return tick
         except Exception as e:
             logger.debug(f"Failed to parse WS tick: {e} | {str(data)[:100]}")
             return None
@@ -871,7 +886,9 @@ class TrueDataAdapter:
                 all_ticks.append(tick_df)
 
         return {
-            "minute_bars": pd.concat(all_minutes, ignore_index=True) if all_minutes else pd.DataFrame(),
+            "minute_bars": pd.concat(all_minutes, ignore_index=True)
+            if all_minutes
+            else pd.DataFrame(),
             "ticks": pd.concat(all_ticks, ignore_index=True) if all_ticks else pd.DataFrame(),
         }
 

@@ -36,11 +36,9 @@ From the docs (§15):
   Stop loss should be exchange-managed.
 """
 
-from typing import Optional
-
-from utils.logger import get_logger
 
 from config.settings import KITE_ACCESS_TOKEN, KITE_API_KEY
+from utils.logger import get_logger
 
 logger = get_logger("broker_adapter")
 
@@ -63,10 +61,12 @@ class BrokerAdapter:
                 self._kite.set_access_token(KITE_ACCESS_TOKEN)
                 logger.info("Kite Connect initialized.")
             except ImportError:
-                logger.exception("kiteconnect package not installed. Install with: pip install kiteconnect")
+                logger.error(
+                    "kiteconnect package not installed. Install with: pip install kiteconnect"
+                )
                 raise
             except Exception as e:
-                logger.exception(f"Kite Connect initialization failed: {e}")
+                logger.error(f"Kite Connect initialization failed: {e}")
                 raise
         return self._kite
 
@@ -114,7 +114,7 @@ class BrokerAdapter:
             logger.info(f"Order placed: {symbol} {side} qty={qty} → {order_id}")
             return str(order_id)
         except Exception as e:
-            logger.exception(f"Order failed: {symbol} {side} qty={qty} – {e}")
+            logger.error(f"Order failed: {symbol} {side} qty={qty} – {e}")
             raise
 
     # ── Stop Loss Order (Exchange-Managed SL-M) ──────────────────────────────
@@ -148,7 +148,7 @@ class BrokerAdapter:
             logger.info(f"SL order placed: {symbol} trigger={trigger_price} → {order_id}")
             return str(order_id)
         except Exception as e:
-            logger.exception(f"SL order failed: {symbol} trigger={trigger_price} – {e}")
+            logger.error(f"SL order failed: {symbol} trigger={trigger_price} – {e}")
             raise
 
     # ── Target Order (Limit) ──────────────────────────────────────────────────
@@ -183,7 +183,7 @@ class BrokerAdapter:
             logger.info(f"Order cancelled: {order_id}")
             return True
         except Exception as e:
-            logger.exception(f"Cancel failed: {order_id} – {e}")
+            logger.error(f"Cancel failed: {order_id} – {e}")
             return False
 
     # ── Order Status ──────────────────────────────────────────────────────────
@@ -195,7 +195,7 @@ class BrokerAdapter:
             orders = kite.order_history(order_id)
             return orders[-1] if orders else {}
         except Exception as e:
-            logger.exception(f"Status fetch failed: {order_id} – {e}")
+            logger.error(f"Status fetch failed: {order_id} – {e}")
             return {}
 
     def get_positions(self) -> dict:
@@ -204,7 +204,7 @@ class BrokerAdapter:
         try:
             return kite.positions()
         except Exception as e:
-            logger.exception(f"Positions fetch failed: {e}")
+            logger.error(f"Positions fetch failed: {e}")
             return {}
 
 

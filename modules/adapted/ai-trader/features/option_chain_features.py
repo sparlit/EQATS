@@ -40,14 +40,12 @@ Usage:
 
 import math
 import re
-from datetime import date, datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from datetime import date, datetime
 
 import numpy as np
 import pandas as pd
-from utils.logger import get_logger
-
 from database.db import read_sql
+from utils.logger import get_logger
 
 logger = get_logger("option_chain_features")
 
@@ -94,7 +92,12 @@ def compute_atm_strike(spot_price: float, gap: int = STRIKE_GAP) -> float:
 
 
 def estimate_iv_from_premium(
-    premium: float, spot: float, strike: float, days_to_expiry: float, option_type: str, risk_free: float = 0.065
+    premium: float,
+    spot: float,
+    strike: float,
+    days_to_expiry: float,
+    option_type: str,
+    risk_free: float = 0.065,
 ) -> float:
     """
     Quick IV estimate using simplified Black-Scholes inversion.
@@ -118,7 +121,8 @@ def estimate_iv_from_premium(
         nd2 = 0.5 * (1 + erf(d2 / math.sqrt(2)))
         if option_type == "CE":
             return spot * nd1 - strike * math.exp(-risk_free * T) * nd2
-        return strike * math.exp(-risk_free * T) * (1 - nd2) - spot * (1 - nd1)
+        else:
+            return strike * math.exp(-risk_free * T) * (1 - nd2) - spot * (1 - nd1)
 
     # Bisection
     lo, hi = 0.01, 5.0
@@ -200,7 +204,8 @@ class OptionChainFeatureEngine:
             return pd.DataFrame()
 
         # Keep latest per symbol
-        return filtered.groupby("symbol").last().reset_index()
+        latest = filtered.groupby("symbol").last().reset_index()
+        return latest
 
     def compute_for_timestamp(
         self,
@@ -278,7 +283,10 @@ class OptionChainFeatureEngine:
         # Find nearest expiry
         expiries = sorted(df["expiry_date"].unique())
         # Filter to expiries that haven't passed
-        future_expiries = [e for e in expiries if e >= target_date] if isinstance(target_date, date) else expiries
+        if isinstance(target_date, date):
+            future_expiries = [e for e in expiries if e >= target_date]
+        else:
+            future_expiries = expiries
         nearest_expiry = future_expiries[0] if future_expiries else expiries[-1]
 
         # Filter to nearest expiry only
@@ -313,8 +321,12 @@ class OptionChainFeatureEngine:
         oi_change = total_call_oi + total_put_oi
 
         # ── Max OI strikes (relative to ATM) ───────────────────────
-        max_oi_call_strike = calls_ne.loc[calls_ne["oi"].idxmax(), "relative_strike"] if not calls_ne.empty else 0
-        max_oi_put_strike = puts_ne.loc[puts_ne["oi"].idxmax(), "relative_strike"] if not puts_ne.empty else 0
+        max_oi_call_strike = (
+            calls_ne.loc[calls_ne["oi"].idxmax(), "relative_strike"] if not calls_ne.empty else 0
+        )
+        max_oi_put_strike = (
+            puts_ne.loc[puts_ne["oi"].idxmax(), "relative_strike"] if not puts_ne.empty else 0
+        )
 
         # ── OI Skew: (put OI at ATM - call OI at ATM) / total ─────
         atm_calls = calls_ne[calls_ne["relative_strike"] == 0]
@@ -354,7 +366,9 @@ class OptionChainFeatureEngine:
         )
 
         iv_put = (
-            estimate_iv_from_premium(atm_put_prem, spot_price, atm_strike, max(dte, 1), "PE") if atm_put_prem > 0 else 0
+            estimate_iv_from_premium(atm_put_prem, spot_price, atm_strike, max(dte, 1), "PE")
+            if atm_put_prem > 0
+            else 0
         )
 
         iv_avg = (iv_call + iv_put) / 2 if (iv_call > 0 and iv_put > 0) else max(iv_call, iv_put)

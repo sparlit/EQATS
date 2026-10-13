@@ -45,28 +45,24 @@ From docs:
 
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import joblib
 import numpy as np
 import pandas as pd
+from config.settings import (
+    FEATURE_COLUMNS_MACRO,
+    FEATURE_COLUMNS_MICRO,
+    MACRO_MODEL_PATH,
+    MICRO_MODEL_PATH,
+)
 from sklearn.metrics import (
     accuracy_score,
-    classification_report,
     f1_score,
     precision_score,
     recall_score,
 )
 from sklearn.model_selection import TimeSeriesSplit
 from utils.logger import get_logger
-
-from config.settings import (
-    FEATURE_COLUMNS_MACRO,
-    FEATURE_COLUMNS_MICRO,
-    MACRO_MODEL_PATH,
-    MICRO_MODEL_PATH,
-    MODEL_DIR,
-)
 
 logger = get_logger("train_model")
 
@@ -105,7 +101,11 @@ def generate_macro_labels(
 
     pos = df["target"].sum()
     neg = len(df) - pos
-    logger.info(f"Macro labels: {len(df)} samples, {pos} positive ({pos / len(df) * 100:.1f}%), {neg} negative")
+    logger.info(
+        f"Macro labels: {len(df)} samples, "
+        f"{pos} positive ({pos / len(df) * 100:.1f}%), "
+        f"{neg} negative"
+    )
     return df
 
 
@@ -197,7 +197,7 @@ def _get_model(model_type: str = "xgboost", **kwargs):
         defaults.update(kwargs)
         return xgb.XGBClassifier(**defaults)
 
-    if model_type == "lightgbm":
+    elif model_type == "lightgbm":
         import lightgbm as lgb
 
         defaults = {
@@ -212,8 +212,8 @@ def _get_model(model_type: str = "xgboost", **kwargs):
         defaults.update(kwargs)
         return lgb.LGBMClassifier(**defaults)
 
-    msg = f"Unknown model type: {model_type}"
-    raise ValueError(msg)
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
 
 
 def _evaluate(model, X_test, y_test) -> dict:
@@ -228,13 +228,14 @@ def _evaluate(model, X_test, y_test) -> dict:
     except ValueError:
         auc = 0.0
 
-    return {
+    metrics = {
         "accuracy": round(accuracy_score(y_test, y_pred), 4),
         "precision": round(precision_score(y_test, y_pred, zero_division=0), 4),
         "recall": round(recall_score(y_test, y_pred, zero_division=0), 4),
         "f1": round(f1_score(y_test, y_pred, zero_division=0), 4),
         "auc_roc": auc,
     }
+    return metrics
 
 
 class MacroModelTrainer:
@@ -270,7 +271,7 @@ class MacroModelTrainer:
         # Replace inf/-inf with NaN, then fill remaining sporadic NaNs
         df[non_null] = df[non_null].replace([np.inf, -np.inf], np.nan)
         df[non_null] = df[non_null].ffill().bfill()
-        df = df.dropna(subset=[*non_null, "target"])
+        df = df.dropna(subset=non_null + ["target"])
         logger.info(f"Prepared {len(df)} samples with {len(non_null)} features.")
         return df
 
@@ -297,7 +298,9 @@ class MacroModelTrainer:
         pos_count = (y == 1).sum()
         if pos_count > 0 and "scale_pos_weight" not in model_kwargs:
             model_kwargs["scale_pos_weight"] = round(neg_count / pos_count, 2)
-            logger.info(f"Auto scale_pos_weight={model_kwargs['scale_pos_weight']} (neg/pos={neg_count}/{pos_count})")
+            logger.info(
+                f"Auto scale_pos_weight={model_kwargs['scale_pos_weight']} (neg/pos={neg_count}/{pos_count})"
+            )
 
         if walk_forward:
             logger.info(f"Walk-forward validation with {n_splits} splits...")
@@ -317,7 +320,9 @@ class MacroModelTrainer:
                 logger.info(f"  Split {i + 1}: {m}")
 
             # Average metrics across folds
-            self.metrics = {k: round(np.mean([m[k] for m in all_metrics]), 4) for k in all_metrics[0]}
+            self.metrics = {
+                k: round(np.mean([m[k] for m in all_metrics]), 4) for k in all_metrics[0]
+            }
             logger.info(f"Walk-forward avg metrics: {self.metrics}")
 
         # Train final model on full data
@@ -333,7 +338,7 @@ class MacroModelTrainer:
     def incremental_train(
         self,
         new_df: pd.DataFrame,
-        existing_model_path: str | None = None,
+        existing_model_path: str = None,
         **model_kwargs,
     ) -> dict:
         """
@@ -376,13 +381,15 @@ class MacroModelTrainer:
                 self.model.fit(X_new, y_new)
 
             self.metrics = _evaluate(self.model, X_new, y_new)
-            logger.info(f"Macro incremental training on {len(X_new)} samples. Metrics: {self.metrics}")
+            logger.info(
+                f"Macro incremental training on {len(X_new)} samples. Metrics: {self.metrics}"
+            )
         except Exception as e:
-            logger.exception(f"Macro incremental training failed: {e}. Keeping existing model.")
+            logger.error(f"Macro incremental training failed: {e}. Keeping existing model.")
 
         return self.metrics
 
-    def save(self, path: str | None = None):
+    def save(self, path: str = None):
         """Save trained model to disk."""
         path = path or MACRO_MODEL_PATH
         Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -398,12 +405,13 @@ class MacroModelTrainer:
             return pd.DataFrame()
 
         importance = self.model.feature_importances_
-        return pd.DataFrame(
+        fi = pd.DataFrame(
             {
                 "feature": self.feature_cols,
                 "importance": importance,
             }
         ).sort_values("importance", ascending=False)
+        return fi
 
 
 class MicroModelTrainer:
@@ -437,7 +445,7 @@ class MicroModelTrainer:
 
         df[non_null] = df[non_null].replace([np.inf, -np.inf], np.nan)
         df[non_null] = df[non_null].ffill().bfill()
-        df = df.dropna(subset=[*non_null, "target"])
+        df = df.dropna(subset=non_null + ["target"])
         logger.info(f"Prepared {len(df)} micro samples with {len(non_null)} features.")
         return df
 
@@ -476,7 +484,9 @@ class MicroModelTrainer:
                 all_metrics.append(m)
                 logger.info(f"  Micro split {i + 1}: {m}")
 
-            self.metrics = {k: round(np.mean([m[k] for m in all_metrics]), 4) for k in all_metrics[0]}
+            self.metrics = {
+                k: round(np.mean([m[k] for m in all_metrics]), 4) for k in all_metrics[0]
+            }
             logger.info(f"Micro walk-forward avg: {self.metrics}")
 
         logger.info("Training final micro model on full dataset...")
@@ -491,7 +501,7 @@ class MicroModelTrainer:
     def incremental_train(
         self,
         new_df: pd.DataFrame,
-        existing_model_path: str | None = None,
+        existing_model_path: str = None,
         **model_kwargs,
     ) -> dict:
         """
@@ -542,13 +552,16 @@ class MicroModelTrainer:
                 self.model.fit(X_new, y_new)
 
             self.metrics = _evaluate(self.model, X_new, y_new)
-            logger.info(f"Incremental training complete on {len(X_new)} new samples. Metrics: {self.metrics}")
+            logger.info(
+                f"Incremental training complete on {len(X_new)} new samples. "
+                f"Metrics: {self.metrics}"
+            )
         except Exception as e:
-            logger.exception(f"Incremental training failed: {e}. Keeping existing model.")
+            logger.error(f"Incremental training failed: {e}. Keeping existing model.")
 
         return self.metrics
 
-    def save(self, path: str | None = None):
+    def save(self, path: str = None):
         """Save trained model to disk."""
         path = path or MICRO_MODEL_PATH
         Path(path).parent.mkdir(parents=True, exist_ok=True)

@@ -146,7 +146,7 @@ def compute_micro_features(
     ].copy()
 
     result = result.reset_index()
-    result = result.rename(columns={"index": "timestamp"})
+    result.rename(columns={"index": "timestamp"}, inplace=True)
 
     logger.info(f"Computed micro features: {len(result)} second-level rows.")
     return result

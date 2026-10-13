@@ -81,7 +81,12 @@ def main():
     parser = argparse.ArgumentParser(description="Collect market news and analyze sentiment")
     parser.add_argument("--hours", type=int, default=24, help="How far back to fetch (default: 24)")
     parser.add_argument("--summary", action="store_true", help="Print sentiment summary")
-    parser.add_argument("--loop", type=int, default=0, help="Continuous mode: seconds between fetches (0=single run)")
+    parser.add_argument(
+        "--loop",
+        type=int,
+        default=0,
+        help="Continuous mode: seconds between fetches (0=single run)",
+    )
     args = parser.parse_args()
 
     engine = NewsSentimentEngine()
@@ -97,7 +102,7 @@ def main():
                 print("\n  Stopped.")
                 break
             except Exception as e:
-                logger.exception(f"Error: {e}")
+                logger.error(f"Error: {e}")
                 time.sleep(60)
     else:
         fetch_and_store(engine, args.hours, args.summary)

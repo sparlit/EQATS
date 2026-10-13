@@ -44,9 +44,8 @@ Usage:
 """
 
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from utils.logger import get_logger
@@ -187,10 +186,12 @@ class ModelMonitor:
         self._daily_reports.append(report)
         return report
 
-    def get_rolling_accuracy(self, model_type: str, window: int | None = None) -> float:
+    def get_rolling_accuracy(self, model_type: str, window: int = None) -> float:
         """Compute rolling accuracy over the last N days."""
         window = window or self.rolling_window
-        relevant = [r for r in self._daily_reports if r.model_type == model_type and r.total_predictions > 0]
+        relevant = [
+            r for r in self._daily_reports if r.model_type == model_type and r.total_predictions > 0
+        ]
         recent = relevant[-window:] if len(relevant) >= window else relevant
 
         if not recent:
@@ -210,7 +211,9 @@ class ModelMonitor:
         alerts = []
 
         # Check latest daily accuracy
-        relevant = [r for r in self._daily_reports if r.model_type == model_type and r.total_predictions > 0]
+        relevant = [
+            r for r in self._daily_reports if r.model_type == model_type and r.total_predictions > 0
+        ]
         if relevant:
             latest = relevant[-1]
             if latest.accuracy < self.min_accuracy_threshold:
@@ -252,7 +255,9 @@ class ModelMonitor:
 
     def summary(self, model_type: str = "macro") -> str:
         """Human-readable performance summary."""
-        relevant = [r for r in self._daily_reports if r.model_type == model_type and r.total_predictions > 0]
+        relevant = [
+            r for r in self._daily_reports if r.model_type == model_type and r.total_predictions > 0
+        ]
 
         if not relevant:
             return f"No predictions logged for {model_type} model."
@@ -263,10 +268,8 @@ class ModelMonitor:
 
         lines = [
             f"Model Monitor: {model_type}",
-            (
-                f"  Latest day ({latest.date}): {latest.accuracy:.1%} accuracy "
-                f"({latest.correct_predictions}/{latest.total_predictions})"
-            ),
+            f"  Latest day ({latest.date}): {latest.accuracy:.1%} accuracy "
+            f"({latest.correct_predictions}/{latest.total_predictions})",
             f"  Precision: {latest.precision:.1%}, Recall: {latest.recall:.1%}",
             f"  Rolling {self.rolling_window}-day: {rolling:.1%}",
             f"  Avg confidence: {latest.avg_confidence:.1%}",

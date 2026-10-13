@@ -39,10 +39,8 @@ From the Product Vision doc (§10):
 """
 
 from dataclasses import dataclass
-from enum import Enum, StrEnum
-from typing import Dict, List, Optional
+from enum import StrEnum
 
-import numpy as np
 import pandas as pd
 from utils.logger import get_logger
 
@@ -77,7 +75,7 @@ class OptionsFlowDetector:
         self,
         option_chain_df: pd.DataFrame,
         spot_price: float,
-        prev_spot_price: float | None = None,
+        prev_spot_price: float = None,
     ) -> FlowResult:
         """
         Analyze an option chain snapshot.
@@ -188,7 +186,10 @@ class OptionsFlowDetector:
             "price_change": round(price_change, 4) if price_change else 0,
         }
 
-        logger.info(f"Flow: {flow_signal.value} (score={score:.2f}, PCR={pcr:.2f}, max_OI_strike={max_oi_strike})")
+        logger.info(
+            f"Flow: {flow_signal.value} (score={score:.2f}, "
+            f"PCR={pcr:.2f}, max_OI_strike={max_oi_strike})"
+        )
 
         return FlowResult(
             signal=flow_signal,
@@ -245,13 +246,14 @@ def compute_flow_score(latest: dict, direction: str) -> float:
             score += 0.12
         elif mfi > 40:
             score += 0.04
-    # Low MFI = money flowing out → bullish exhaustion / reversal signal
-    elif mfi < 30:
-        score += 0.25
-    elif mfi < 40:
-        score += 0.12
-    elif mfi < 60:
-        score += 0.04
+    else:  # CALL
+        # Low MFI = money flowing out → bullish exhaustion / reversal signal
+        if mfi < 30:
+            score += 0.25
+        elif mfi < 40:
+            score += 0.12
+        elif mfi < 60:
+            score += 0.04
 
     # ── OBV slope — direction-aware (up to 0.15) ─────────────────────────────
     obv_slope = safe(latest.get("obv_slope"), 0.0)
@@ -260,10 +262,11 @@ def compute_flow_score(latest: dict, direction: str) -> float:
             score += 0.15  # falling OBV confirms bearish flow
         else:
             score += 0.05
-    elif obv_slope > 0:
-        score += 0.15  # rising OBV confirms bullish flow
-    else:
-        score += 0.05
+    else:  # CALL
+        if obv_slope > 0:
+            score += 0.15  # rising OBV confirms bullish flow
+        else:
+            score += 0.05
 
     # ── PCR + OI change bonus when available (up to 0.20) ────────────────────
     pcr_raw = latest.get("pcr")

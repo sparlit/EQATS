@@ -45,7 +45,7 @@ Usage:
 import argparse
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -56,11 +56,10 @@ load_dotenv()
 import joblib
 import numpy as np
 import pandas as pd
-from features.indicators import compute_all_macro_indicators
-from utils.logger import get_logger
-
 from config.settings import FEATURE_COLUMNS_MACRO, MODEL_DIR
 from database.db import read_sql
+from features.indicators import compute_all_macro_indicators
+from utils.logger import get_logger
 
 logger = get_logger("train_outcome_models")
 
@@ -105,12 +104,13 @@ def load_trades() -> pd.DataFrame:
             logger.warning(f"  Missing: {csv_path}")
 
     if not dfs:
-        msg = "No backtest CSVs found in backtest_results/"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError("No backtest CSVs found in backtest_results/")
 
     all_trades = pd.concat(dfs, ignore_index=True)
     before = len(all_trades)
-    all_trades = all_trades.drop_duplicates(subset=["entry_time", "symbol", "direction", "entry_premium"])
+    all_trades = all_trades.drop_duplicates(
+        subset=["entry_time", "symbol", "direction", "entry_premium"]
+    )
     logger.info(f"  Deduplicated: {before} → {len(all_trades)} trades")
     return all_trades
 
@@ -194,7 +194,6 @@ def train_strategy_outcome_model(
 ) -> dict | None:
     """Train a single strategy model on outcome-labeled features."""
     import xgboost as xgb
-    from sklearn.metrics import roc_auc_score
     from sklearn.model_selection import StratifiedKFold, cross_val_score
 
     if len(X) < min_samples:
@@ -258,7 +257,10 @@ def train_strategy_outcome_model(
 
         backup_dir = Path("models/saved/backups") / datetime.now().strftime("%Y%m%d")
         backup_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(path, backup_dir / f"{strategy_name}_pre_outcome_{datetime.now().strftime('%H%M%S')}.pkl")
+        shutil.copy2(
+            path,
+            backup_dir / f"{strategy_name}_pre_outcome_{datetime.now().strftime('%H%M%S')}.pkl",
+        )
 
     joblib.dump(
         {
@@ -312,7 +314,9 @@ def main():
         for strat, grp in trades.groupby("strategy"):
             pos = grp["label"].sum()
             neg = (grp["label"] == 0).sum()
-            print(f"    {strat}: {len(grp)} trades, {pos}W/{neg}L ({pos / len(grp) * 100:.0f}% win rate)")
+            print(
+                f"    {strat}: {len(grp)} trades, {pos}W/{neg}L ({pos / len(grp) * 100:.0f}% win rate)"
+            )
         return
 
     # 2. Parse entry times
@@ -368,9 +372,12 @@ def main():
     available_features = [
         c
         for c in available_features
-        if joined[c].notna().any() and not np.isinf(joined[c].replace([np.inf, -np.inf], np.nan)).all()
+        if joined[c].notna().any()
+        and not np.isinf(joined[c].replace([np.inf, -np.inf], np.nan)).all()
     ]
-    joined[available_features] = joined[available_features].replace([np.inf, -np.inf], np.nan).ffill().bfill()
+    joined[available_features] = (
+        joined[available_features].replace([np.inf, -np.inf], np.nan).ffill().bfill()
+    )
 
     print(f"\n  Feature columns available: {len(available_features)}")
     print("\n" + "=" * 60)
