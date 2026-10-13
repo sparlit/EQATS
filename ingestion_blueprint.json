@@ -1,5 +1,5 @@
 {
-  "current_index": 288,
+  "current_index": 289,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2309,9 +2309,9 @@
       "name": "deep-trading",
       "target": "rachnog/deep-trading",
       "url": "https://github.com/rachnog/deep-trading",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3278",
+      "merged": true
     },
     {
       "name": "nseeod",
