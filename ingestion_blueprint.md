@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 424 | Current Index: 291
+Total Repositories: 424 | Current Index: 292
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -294,7 +294,7 @@ Total Repositories: 424 | Current Index: 291
 | 289 | rachnog/deep-trading | Processed | https://github.com/sparlit/EQATS/pull/3278 |
 | 290 | rahlumin/nseeod | Processed | None |
 | 291 | rahulghuge94/trading_expiry | Completed | None |
-| 292 | rajaramsrinivas/getnsestockprice | pending | None |
+| 292 | rajaramsrinivas/getnsestockprice | Completed | None |
 | 293 | rajeshkolhe110/nse-clock-data | pending | None |
 | 294 | rajeshsivadasan/alice-blue-futures | pending | None |
 | 295 | rajeshsivadasan/alice-blue-options-buying | pending | None |
