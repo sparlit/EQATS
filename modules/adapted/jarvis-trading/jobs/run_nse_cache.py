@@ -45,7 +45,9 @@ def main() -> None:
     fii = fetch_fii_dii()
     corp = fetch_corporate_events(days_ahead=21, limit=20)
     write_cache(fii, corp)
-    logger.success("NSE cache: FII/DII available={} · {} corporate events", fii.get("available"), len(corp))
+    logger.success(
+        "NSE cache: FII/DII available={} · {} corporate events", fii.get("available"), len(corp)
+    )
 
 
 if __name__ == "__main__":

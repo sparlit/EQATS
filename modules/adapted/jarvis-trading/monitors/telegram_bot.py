@@ -118,7 +118,12 @@ def send_document(file_path, caption: str = "", parse_mode: str = "HTML") -> tup
 def send_alert(symbol: str, signal: str, price: float, details: str) -> bool:
     """Send a formatted trading alert."""
     emoji = {"BREAKOUT": "🚀", "BB_SQUEEZE_SETUP": "⚡", "MOMENTUM_CONT": "📈"}.get(signal, "🔔")
-    text = f"{emoji} <b>AXIOM ALERT — {symbol}</b>\nSignal: <b>{signal}</b>\nPrice: ₹{price:,.2f}\n{details}"
+    text = (
+        f"{emoji} <b>AXIOM ALERT — {symbol}</b>\n"
+        f"Signal: <b>{signal}</b>\n"
+        f"Price: ₹{price:,.2f}\n"
+        f"{details}"
+    )
     ok, _ = send_message(text)
     return ok
 

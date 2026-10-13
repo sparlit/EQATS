@@ -39,7 +39,6 @@ import contextlib
 from datetime import date, datetime
 
 import numpy as np
-from loguru import logger
 
 
 def earnings_stats(symbol: str, lookback_quarters: int = 8) -> dict | None:

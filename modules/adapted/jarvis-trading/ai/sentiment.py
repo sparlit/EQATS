@@ -103,7 +103,11 @@ def analyze_news_sentiment(limit: int = 40) -> dict:
         k: {
             "score": v["bull"] - v["bear"],
             "n": v["bull"] + v["bear"] + v["neutral"],
-            "label": "bull" if v["bull"] > v["bear"] else "bear" if v["bear"] > v["bull"] else "neutral",
+            "label": "bull"
+            if v["bull"] > v["bear"]
+            else "bear"
+            if v["bear"] > v["bull"]
+            else "neutral",
         }
         for k, v in by_symbol.items()
     }

@@ -27,11 +27,8 @@ import warnings
 
 warnings.filterwarnings("ignore", category=FutureWarning, module="yfinance")
 
-from pathlib import Path
-from typing import Any
 
 import pandas as pd
-import requests
 import yfinance as yf
 from loguru import logger
 
@@ -103,8 +100,7 @@ def fetch_symbol_history(symbol: str, period: str = "1y", interval: str = "1d") 
         raise
 
     if df.empty:
-        msg = f"No data returned for symbol: {symbol}"
-        raise ValueError(msg)
+        raise ValueError(f"No data returned for symbol: {symbol}")
     try:
         df.to_parquet(symbol_path)
     except Exception as exc:
@@ -112,7 +108,9 @@ def fetch_symbol_history(symbol: str, period: str = "1y", interval: str = "1d") 
     return df
 
 
-def fetch_symbols_history(symbols: list[str], period: str = "6mo", interval: str = "1d") -> dict[str, pd.DataFrame]:
+def fetch_symbols_history(
+    symbols: list[str], period: str = "6mo", interval: str = "1d"
+) -> dict[str, pd.DataFrame]:
     """
     Fetch OHLCV history for multiple symbols.
 
@@ -142,7 +140,12 @@ def fetch_symbols_history(symbols: list[str], period: str = "6mo", interval: str
     if results and misses:
         # Cache is live: don't serially hammer yfinance for stragglers (delisted
         # or newly added names) — the screener can proceed without them.
-        logger.info("OHLCV cache hit {}/{} symbols; skipping {} misses", len(results), len(symbols), len(misses))
+        logger.info(
+            "OHLCV cache hit {}/{} symbols; skipping {} misses",
+            len(results),
+            len(symbols),
+            len(misses),
+        )
         return results
 
     for symbol in misses:
@@ -156,8 +159,7 @@ def fetch_symbols_history(symbols: list[str], period: str = "6mo", interval: str
 def load_universe() -> pd.DataFrame:
     """Load the symbol universe from CSV."""
     if not UNIVERSE_CSV.exists():
-        msg = f"Universe file not found: {UNIVERSE_CSV}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Universe file not found: {UNIVERSE_CSV}")
     df = pd.read_csv(UNIVERSE_CSV)
     df.columns = df.columns.str.lower()
     # Use yfinance_ticker as symbol so .NS suffix is included for all fetches

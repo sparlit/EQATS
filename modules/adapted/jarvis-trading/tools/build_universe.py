@@ -587,7 +587,9 @@ def build() -> None:
             ]
         )
         for sym, company, sector, ticker, cap in rows:
-            writer.writerow([sym, company, sector, "", ticker, cap, 1, 1 if cap == "Mid Cap" else 0])
+            writer.writerow(
+                [sym, company, sector, "", ticker, cap, 1, 1 if cap == "Mid Cap" else 0]
+            )
 
     print(f"Universe written: {len(rows)} symbols -> {UNIVERSE_PATH}")
 

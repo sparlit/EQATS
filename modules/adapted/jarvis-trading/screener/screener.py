@@ -128,7 +128,9 @@ def _price_action_score(history: pd.DataFrame, latest: pd.Series) -> tuple[float
 
     # Range breakout
     lookback_high = (
-        history["close"].iloc[-(BREAKOUT_LOOKBACK + 1) : -1].max() if len(history) > BREAKOUT_LOOKBACK else 0
+        history["close"].iloc[-(BREAKOUT_LOOKBACK + 1) : -1].max()
+        if len(history) > BREAKOUT_LOOKBACK
+        else 0
     )
     if lookback_high > 0 and latest["close"] > lookback_high:
         score += 20
@@ -300,18 +302,29 @@ def _detect_setup_flags(history: pd.DataFrame, latest: pd.Series) -> list[str]:
 
     # BREAKOUT: close > 20D high + vol surge + ADX >= 20
     lookback_high = (
-        history["close"].iloc[-(BREAKOUT_LOOKBACK + 1) : -1].max() if len(history) > BREAKOUT_LOOKBACK else 0
+        history["close"].iloc[-(BREAKOUT_LOOKBACK + 1) : -1].max()
+        if len(history) > BREAKOUT_LOOKBACK
+        else 0
     )
     vol_ratio = (
         latest["volume"] / latest["volume_sma"]
         if pd.notna(latest.get("volume_sma")) and latest["volume_sma"] > 0
         else 0
     )
-    if lookback_high > 0 and latest["close"] > lookback_high and vol_ratio >= 1.5 and latest["adx_val"] >= 20:
+    if (
+        lookback_high > 0
+        and latest["close"] > lookback_high
+        and vol_ratio >= 1.5
+        and latest["adx_val"] >= 20
+    ):
         flags.append("BREAKOUT")
 
     # BB_SQUEEZE_SETUP: BB width < 4% of price AND RSI > 50
-    if pd.notna(latest.get("bb_upper")) and pd.notna(latest.get("bb_lower")) and latest["close"] > 0:
+    if (
+        pd.notna(latest.get("bb_upper"))
+        and pd.notna(latest.get("bb_lower"))
+        and latest["close"] > 0
+    ):
         bb_width_pct = (latest["bb_upper"] - latest["bb_lower"]) / latest["close"] * 100
         if bb_width_pct < 4.0 and pd.notna(latest.get("rsi_val")) and latest["rsi_val"] > 50:
             flags.append("BB_SQUEEZE_SETUP")
@@ -344,16 +357,14 @@ def score_symbol(
 ) -> dict[str, Any]:
     """Score a single symbol across all 5 dimensions using NSE Scanner engine."""
     if history.empty:
-        msg = "History data is empty"
-        raise ValueError(msg)
+        raise ValueError("History data is empty")
 
     history = history.copy()
     history.columns = [c.lower() for c in history.columns]
-    history = history.dropna(subset=["close", "high", "low", "volume"])
+    history.dropna(subset=["close", "high", "low", "volume"], inplace=True)
 
     if len(history) < 40:
-        msg = f"Not enough data for symbol {symbol}"
-        raise ValueError(msg)
+        raise ValueError(f"Not enough data for symbol {symbol}")
 
     # Compute all indicators
     bb = bollinger_bands(history["close"], BB_PERIOD, BB_STD_DEV)
@@ -379,7 +390,9 @@ def score_symbol(
         macd_line=macd_df["macd"],
         macd_signal=macd_df["signal"],
         macd_hist=macd_df["histogram"],
-        volume_sma=history["volume"].rolling(window=VOLUME_SMA_PERIOD, min_periods=VOLUME_SMA_PERIOD).mean(),
+        volume_sma=history["volume"]
+        .rolling(window=VOLUME_SMA_PERIOD, min_periods=VOLUME_SMA_PERIOD)
+        .mean(),
     )
 
     latest = history.iloc[-1]
@@ -387,11 +400,9 @@ def score_symbol(
     # Hard filters
     atr_pct = latest["atr_val"] / latest["close"] if latest["close"] > 0 else 0
     if latest["close"] < MIN_PRICE or latest["close"] > MAX_PRICE:
-        msg = f"Price filter failed: {latest['close']:.2f}"
-        raise ValueError(msg)
+        raise ValueError(f"Price filter failed: {latest['close']:.2f}")
     if atr_pct < MIN_ATR_PCT or atr_pct > MAX_ATR_PCT:
-        msg = f"ATR filter failed: {atr_pct:.4f}"
-        raise ValueError(msg)
+        raise ValueError(f"ATR filter failed: {atr_pct:.4f}")
 
     # Score each dimension (raw 0–100)
     pa_raw, pa_notes = _price_action_score(history, latest)
@@ -437,13 +448,17 @@ def score_symbol(
         "rsi": round(float(latest["rsi_val"]), 1) if pd.notna(latest.get("rsi_val")) else None,
         "adx": round(float(latest["adx_val"]), 1) if pd.notna(latest.get("adx_val")) else None,
         "di_plus": round(float(latest["di_plus"]), 1) if pd.notna(latest.get("di_plus")) else None,
-        "di_minus": round(float(latest["di_minus"]), 1) if pd.notna(latest.get("di_minus")) else None,
+        "di_minus": round(float(latest["di_minus"]), 1)
+        if pd.notna(latest.get("di_minus"))
+        else None,
         "atr_pct": round(float(atr_pct) * 100, 2),
         "ema9": round(float(latest["ema9"]), 2),
         "ema21": round(float(latest["ema21"]), 2),
         "ema50": round(float(latest["ema50"]), 2),
         "ema200": round(float(latest["ema200"]), 2),
-        "macd_hist": round(float(latest["macd_hist"]), 3) if pd.notna(latest.get("macd_hist")) else None,
+        "macd_hist": round(float(latest["macd_hist"]), 3)
+        if pd.notna(latest.get("macd_hist"))
+        else None,
         "setup_flags": "; ".join(setup_flags) if setup_flags else "",
         "notes": "; ".join(all_notes),
     }
@@ -464,8 +479,7 @@ def run_screener(symbols: list[str] | None = None) -> pd.DataFrame:
         symbols = universe["symbol"].tolist()
     symbols = list(dict.fromkeys(symbols))  # dedupe, keep order
     if not symbols:
-        msg = "No symbols provided for screener"
-        raise ValueError(msg)
+        raise ValueError("No symbols provided for screener")
 
     logger.info("Fetching Nifty 50 benchmark for RS calculation...")
     benchmark = _fetch_nifty_benchmark(period="6mo")

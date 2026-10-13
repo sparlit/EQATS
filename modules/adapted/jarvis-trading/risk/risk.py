@@ -34,7 +34,7 @@ Rules per CLAUDE.md:
 
 from dataclasses import dataclass
 
-from config import CAPITAL_RISK_PCT, MAX_DAILY_RISK_PCT
+from config import CAPITAL_RISK_PCT
 
 
 @dataclass

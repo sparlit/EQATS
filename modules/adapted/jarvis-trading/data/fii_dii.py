@@ -87,7 +87,13 @@ def fetch_fii_dii(timeout: int = 12) -> dict:
         if not isinstance(rows, list) or not rows:
             return {"available": False, "note": "NSE returned no FII/DII rows"}
 
-        out: dict = {"available": True, "source": "NSE provisional", "date": None, "fii": None, "dii": None}
+        out: dict = {
+            "available": True,
+            "source": "NSE provisional",
+            "date": None,
+            "fii": None,
+            "dii": None,
+        }
         for row in rows:
             cat = str(row.get("category", "")).upper()
             block = {
@@ -117,7 +123,11 @@ def fetch_fii_dii(timeout: int = 12) -> dict:
 
             cached = read_cache().get("fii_dii")
             if cached and cached.get("available"):
-                return {**cached, "source": "NSE provisional (cached)"}
+                cached = {**cached, "source": "NSE provisional (cached)"}
+                return cached
         except Exception:
             pass
-        return {"available": False, "note": f"NSE FII/DII unavailable ({type(exc).__name__}) — confirm manually"}
+        return {
+            "available": False,
+            "note": f"NSE FII/DII unavailable ({type(exc).__name__}) — confirm manually",
+        }

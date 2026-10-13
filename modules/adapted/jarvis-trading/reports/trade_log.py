@@ -23,12 +23,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+import pandas as pd
 from storage.db import append_trade, get_trades_df
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 
 def append_trade_log(trade: dict[str, Any]) -> None:

@@ -31,7 +31,6 @@ Fonts: Montserrat ExtraBold (headings) + Montserrat Light (body)
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
 from fpdf import FPDF
@@ -147,7 +146,9 @@ class NeuraCapitalPDF(FPDF):
         self._set("MontserratL", 7)
         self.set_text_color(*GREY)
         self.set_x(MARGIN)
-        self.cell(CONTENT_W / 2, 6, "Neura Capital  ·  Confidential  ·  For Internal Use Only", ln=False)
+        self.cell(
+            CONTENT_W / 2, 6, "Neura Capital  ·  Confidential  ·  For Internal Use Only", ln=False
+        )
         self.cell(CONTENT_W / 2, 6, f"Page {self.page_no()}", align="R")
 
     # ── SECTION HEADER ──
@@ -221,7 +222,9 @@ class NeuraCapitalPDF(FPDF):
         self.ln(card_h + 4)
 
     # ── TABLE ──
-    def table(self, headers: list[str], rows: list[list[str]], col_widths: list[float] | None = None) -> None:
+    def table(
+        self, headers: list[str], rows: list[list[str]], col_widths: list[float] | None = None
+    ) -> None:
         if not rows:
             self.body_text("No data available.")
             return
@@ -253,9 +256,11 @@ class NeuraCapitalPDF(FPDF):
             for cell_val, w in zip(row, widths, strict=False):
                 text = str(cell_val)[:20]
                 # Colour P&L cells
-                if text.startswith("+") or (text.startswith("₹") and "-" not in text and text != "₹0"):
+                if text.startswith("+") or (
+                    text.startswith("₹") and "-" not in text and text != "₹0"
+                ):
                     self.set_text_color(*GREEN)
-                elif text.startswith(("-", "₹-")):
+                elif text.startswith("-") or (text.startswith("₹-")):
                     self.set_text_color(*RED)
                 else:
                     self.set_text_color(*WHITE)
@@ -399,7 +404,9 @@ def generate_trade_journal_pdf(trades: pd.DataFrame, output_path: Path) -> Path:
     # ── Recent Trades Table ──
     pdf.section_header(f"Recent Trades (Last {min(20, len(trades))})")
     display = trades.tail(20).copy()
-    display["pnl_fmt"] = display["pnl"].apply(lambda x: f"+₹{x:,.0f}" if x >= 0 else f"-₹{abs(x):,.0f}")
+    display["pnl_fmt"] = display["pnl"].apply(
+        lambda x: f"+₹{x:,.0f}" if x >= 0 else f"-₹{abs(x):,.0f}"
+    )
     rows = []
     for _, r in display.iterrows():
         rows.append(

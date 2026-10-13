@@ -23,17 +23,13 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import pandas as pd
+import pandas as pd
 
 
 def score_universe(df: pd.DataFrame) -> pd.DataFrame:
     """Assign a score to each candidate symbol."""
     if df.empty:
-        msg = "Input DataFrame is empty"
-        raise ValueError(msg)
+        raise ValueError("Input DataFrame is empty")
     df = df.copy()
     df["score"] = 0
     return df

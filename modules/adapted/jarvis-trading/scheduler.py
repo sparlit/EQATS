@@ -38,7 +38,6 @@ from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from dotenv import load_dotenv
@@ -87,7 +86,9 @@ def is_market_day() -> bool:
     holidays = NSE_HOLIDAYS.get(today.year)
     if holidays is None:
         # No calendar for this year yet — fail safe: still run, but warn loudly
-        logger.warning("No NSE holiday calendar for {} — update NSE_HOLIDAYS in scheduler.py", today.year)
+        logger.warning(
+            "No NSE holiday calendar for {} — update NSE_HOLIDAYS in scheduler.py", today.year
+        )
     elif today in holidays:
         logger.info("Market closed — NSE holiday: {}", today)
         return False
@@ -122,7 +123,11 @@ def run_morning_briefing() -> None:
             if not screener_df.empty:
                 top_picks = screener_df[screener_df["grade"].isin(["A", "B"])].head(5)
                 context["top_picks"] = top_picks[
-                    [c for c in ["symbol", "score", "grade", "rs_20d", "rs_60d", "close"] if c in top_picks.columns]
+                    [
+                        c
+                        for c in ["symbol", "score", "grade", "rs_20d", "rs_60d", "close"]
+                        if c in top_picks.columns
+                    ]
                 ].to_dict("records")
                 logger.info("Screener: {} Grade A/B picks for briefing", len(top_picks))
                 # Persist watchlist to committed CSV so the serverless intraday
@@ -151,7 +156,8 @@ def run_morning_briefing() -> None:
         send_briefing(briefing_text, date_str)
         send_regime_alert(regime.regime, regime.nifty_close, regime.adx_value)
         ok, err = send_document(
-            pdf_path, caption=f"📊 <b>AXIOM Morning Briefing — {date_str}</b> | Regime: {regime.regime}"
+            pdf_path,
+            caption=f"📊 <b>AXIOM Morning Briefing — {date_str}</b> | Regime: {regime.regime}",
         )
         if ok:
             logger.success("Morning briefing PDF sent to Telegram: {}", pdf_path.name)
@@ -202,10 +208,15 @@ def run_premarket_tasks() -> None:
         # Telegram — text + PDF document
         send_message(
             f"<b>AXIOM Pre-Market Checklist — {date_str}</b>\n"
-            f"Regime: <b>{regime.regime}</b> · Nifty: {regime.nifty_close:,.0f}\n\n" + checklist[:2000]
+            f"Regime: <b>{regime.regime}</b> · Nifty: {regime.nifty_close:,.0f}\n\n"
+            + checklist[:2000]
         )
-        ok, err = send_document(pdf_path, caption=f"📋 <b>AXIOM Pre-Market Checklist — {date_str}</b>")
-        logger.success("Pre-market tasks sent") if ok else logger.error("Pre-market PDF Telegram send failed: {}", err)
+        ok, err = send_document(
+            pdf_path, caption=f"📋 <b>AXIOM Pre-Market Checklist — {date_str}</b>"
+        )
+        logger.success("Pre-market tasks sent") if ok else logger.error(
+            "Pre-market PDF Telegram send failed: {}", err
+        )
     except Exception as exc:
         logger.exception("Pre-market task pipeline failed: {}", exc)
 
@@ -237,7 +248,9 @@ def run_post_market_summary() -> None:
 
         # Telegram — text + PDF document
         send_message(f"<b>AXIOM Post-Market Checklist — {date_str}</b>\n\n" + checklist[:2000])
-        ok, err = send_document(pdf_path, caption=f"📋 <b>AXIOM Post-Market Checklist — {date_str}</b>")
+        ok, err = send_document(
+            pdf_path, caption=f"📋 <b>AXIOM Post-Market Checklist — {date_str}</b>"
+        )
         if not ok:
             logger.error("Post-market PDF Telegram send failed: {}", err)
         logger.success("Post-market checklist sent")
@@ -285,7 +298,10 @@ def _run_midday_summary() -> None:
             f"  {sym} — {', '.join(d['signals'])} | ₹{d.get('close', 0):,.0f} RSI:{d.get('rsi', '?')} ADX:{d.get('adx', '?')}"
             for sym, d in hits.items()
         )
-        send_message(f"<b>AXIOM Midday Signal Summary — {now_str}</b>\n{len(hits)} active signal(s):\n{lines}")
+        send_message(
+            f"<b>AXIOM Midday Signal Summary — {now_str}</b>\n"
+            f"{len(hits)} active signal(s):\n{lines}"
+        )
     else:
         send_message(f"<b>AXIOM Midday — {now_str}</b>\nNo active signals on watchlist.")
 

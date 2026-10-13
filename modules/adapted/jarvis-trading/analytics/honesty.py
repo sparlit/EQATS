@@ -97,7 +97,9 @@ def signal_honesty() -> dict:
         for h in HORIZONS:
             rets = agg[g].get(h, [])
             row[f"avg_{h}d"] = round(float(np.mean(rets)), 2) if rets else None
-            row[f"win_{h}d"] = round(float(np.mean([r > 0 for r in rets]) * 100), 0) if rets else None
+            row[f"win_{h}d"] = (
+                round(float(np.mean([r > 0 for r in rets]) * 100), 0) if rets else None
+            )
             row[f"n_{h}d"] = len(rets)
         grades.append(row)
 

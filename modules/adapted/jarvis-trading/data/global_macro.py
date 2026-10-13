@@ -70,7 +70,12 @@ COMMODITIES = [
     ("Copper", "HG=F"),
 ]
 CRYPTO = [("Bitcoin", "BTC-USD"), ("Ethereum", "ETH-USD"), ("Solana", "SOL-USD")]
-FX = [("USD/INR", "INR=X"), ("Dollar Index", "DX-Y.NYB"), ("EUR/USD", "EURUSD=X"), ("USD/JPY", "JPY=X")]
+FX = [
+    ("USD/INR", "INR=X"),
+    ("Dollar Index", "DX-Y.NYB"),
+    ("EUR/USD", "EURUSD=X"),
+    ("USD/JPY", "JPY=X"),
+]
 
 _ALL = INDICES + COMMODITIES + CRYPTO + FX
 
@@ -80,7 +85,9 @@ def fetch_global_macro() -> dict:
 
     tickers = [t for _, t in _ALL]
     try:
-        df = yf.download(tickers, period="5d", interval="1d", progress=False, group_by="ticker", threads=True)
+        df = yf.download(
+            tickers, period="5d", interval="1d", progress=False, group_by="ticker", threads=True
+        )
     except Exception as exc:
         logger.warning("global macro download failed: {}", exc)
         return {"available": False, "note": "Global feed temporarily unavailable."}
