@@ -26,7 +26,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 from functools import lru_cache
 
-from ..utils.validators import COINLIST_DIR
+from ..utils.validators import COINLIST_ALIASES, COINLIST_DIR
 
 
 def load_symbols(exchange: str) -> list[str]:
@@ -41,6 +41,8 @@ def load_symbols(exchange: str) -> list[str]:
 
 @lru_cache(maxsize=64)
 def _load_symbols_cached(exchange: str) -> tuple:
+    # An alias ("paris", "fra") reads its venue's file ("epa", "fwb").
+    exchange = COINLIST_ALIASES.get(exchange.strip().lower(), exchange)
     # Try multiple possible paths
     possible_paths = [
         os.path.join(COINLIST_DIR, f"{exchange}.txt"),
