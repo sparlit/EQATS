@@ -2310,8 +2310,8 @@
       "target": "rachnog/deep-trading",
       "url": "https://github.com/rachnog/deep-trading",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3278",
+      "merged": true
     },
     {
       "name": "nseeod",
