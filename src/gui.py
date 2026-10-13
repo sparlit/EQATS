@@ -4477,7 +4477,8 @@ class ScalperGui:
                     ]
                 )
                 messagebox.showinfo(
-                    "Closest Matches Found", f"No exact match for '{q}'. Similar brokers:\n\n{names}"
+                    "Closest Matches Found",
+                    f"No exact match for '{q}'. Similar brokers:\n\n{names}",
                 )
             else:
                 messagebox.showwarning(
