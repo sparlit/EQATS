@@ -23,7 +23,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import socket
 
-from django.shortcuts import render
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from visitors.service.models import Visitor
@@ -49,4 +48,5 @@ class VisitorAPI(APIView):
     @staticmethod
     def get_client_ip(request):
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-        return x_forwarded_for.split(",")[0] if x_forwarded_for else request.META.get("REMOTE_ADDR")
+        ip = x_forwarded_for.split(",")[0] if x_forwarded_for else request.META.get("REMOTE_ADDR")
+        return ip
