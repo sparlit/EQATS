@@ -45,10 +45,8 @@ Usage:
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta, timezone
-from typing import Dict, List, Optional, Tuple
+from datetime import UTC, datetime, timedelta
 
-import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 from utils.logger import get_logger
@@ -257,7 +255,11 @@ class SentimentAnalyzer:
                 elif cat == "regulatory":
                     impact = "medium"
                 else:
-                    impact = max(impact, "medium", key=["low", "medium", "high", "critical"].index)
+                    impact = max(
+                        impact,
+                        "medium",
+                        key=lambda x: ["low", "medium", "high", "critical"].index(x),
+                    )
 
         # Normalize score to [-1, 1]
         if keyword_count > 0:
@@ -335,7 +337,7 @@ class NewsFetcher:
     def _parse_rss_item(self, item: ET.Element, feed_name: str) -> dict | None:
         """Parse a single RSS item into an article dict."""
         # Extract source name from feed_name (e.g., "moneycontrol_market" -> "moneycontrol")
-        source = feed_name.split("_", maxsplit=1)[0]
+        source = feed_name.split("_")[0]
 
         title = self._get_text(item, "title")
         if not title:
@@ -457,9 +459,8 @@ class NewsSentimentEngine:
 
     def store(self, articles: list[NewsArticle]) -> int:
         """Store articles in the database. Returns count of new articles inserted."""
-        from sqlalchemy import text
-
         from database.db import get_engine
+        from sqlalchemy import text
 
         engine = get_engine()
         inserted = 0
@@ -554,7 +555,9 @@ class NewsSentimentEngine:
         # Filter for relevant symbol if specified
         if symbol:
             # Keep articles that mention the symbol OR have no specific symbol (general market news)
-            mask = df["symbols"].apply(lambda s: not s or symbol in s if isinstance(s, list) else True)
+            mask = df["symbols"].apply(
+                lambda s: not s or symbol in s if isinstance(s, list) else True
+            )
             relevant = df[mask]
             if relevant.empty:
                 relevant = df  # Fallback to all if no symbol-specific news

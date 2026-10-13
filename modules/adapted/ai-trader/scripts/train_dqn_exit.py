@@ -46,12 +46,11 @@ load_dotenv()
 
 import numpy as np
 from backtest.option_resolver import clear_cache
+from database.db import read_sql
 from models.dqn_exit_agent import DQNExitAgent
 from models.rl_exit_agent import compute_state
 from scripts.train_rl_exit import extract_premium_trajectories
 from utils.logger import get_logger
-
-from database.db import read_sql
 
 logger = get_logger("train_dqn_exit")
 
@@ -172,14 +171,16 @@ def evaluate(max_hold: int = 45):
                     exit_reason = "TARGET"
                     break
 
-                state = compute_state(entry, prem, bar_idx, max_hold, eff_sl, target, trailing_active, peak, history)
+                state = compute_state(
+                    entry, prem, bar_idx, max_hold, eff_sl, target, trailing_active, peak, history
+                )
                 action = agent.decide(state, explore=False)
 
                 if action == "EXIT":
                     exit_prem = prem
                     exit_reason = "DQN_EXIT"
                     break
-                if action == "TIGHTEN":
+                elif action == "TIGHTEN":
                     if prem > entry:
                         new_sl = entry + 0.5 * (prem - entry)
                         trailing_sl = max(trailing_sl, new_sl)

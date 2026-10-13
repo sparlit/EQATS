@@ -34,7 +34,6 @@ Usage:
   python scripts/setup_launchd.py status     # check if running
 """
 
-import os
 import subprocess
 import sys
 from pathlib import Path

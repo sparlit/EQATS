@@ -36,14 +36,12 @@ Supports:
 
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional
 
 import joblib
 import pandas as pd
-from utils.logger import get_logger
-
-from config.settings import MACRO_MODEL_PATH, MICRO_MODEL_PATH, MODEL_DIR
+from config.settings import MACRO_MODEL_PATH, MICRO_MODEL_PATH
 from database.db import execute_sql, read_sql
+from utils.logger import get_logger
 
 logger = get_logger("model_registry")
 
@@ -57,9 +55,9 @@ class ModelRegistry:
         model_type: str,
         file_path: str,
         metrics: dict,
-        train_start: str | None = None,
-        train_end: str | None = None,
-        metadata: dict | None = None,
+        train_start: str = None,
+        train_end: str = None,
+        metadata: dict = None,
         activate: bool = True,
     ) -> int:
         """
@@ -74,7 +72,8 @@ class ModelRegistry:
         """
         # Determine next version
         existing = read_sql(
-            "SELECT COALESCE(MAX(version), 0) as max_v FROM model_registry WHERE model_name = :name",
+            "SELECT COALESCE(MAX(version), 0) as max_v "
+            "FROM model_registry WHERE model_name = :name",
             {"name": model_name},
         )
         next_version = int(existing["max_v"].iloc[0]) + 1 if not existing.empty else 1
@@ -115,7 +114,9 @@ class ModelRegistry:
             },
         )
 
-        logger.info(f"Registered model: {model_name} v{next_version} (type={model_type}, active={activate})")
+        logger.info(
+            f"Registered model: {model_name} v{next_version} (type={model_type}, active={activate})"
+        )
         return next_version
 
     def get_active_model_path(self, model_type: str) -> str | None:
@@ -130,7 +131,7 @@ class ModelRegistry:
             return None
         return df["file_path"].iloc[0]
 
-    def get_history(self, model_type: str | None = None) -> pd.DataFrame:
+    def get_history(self, model_type: str = None) -> pd.DataFrame:
         """Get version history for all or a specific model type."""
         if model_type:
             return read_sql(
@@ -164,5 +165,5 @@ class ModelRegistry:
             logger.info(f"Loaded {model_type} model from {path}")
             return data
         except Exception as e:
-            logger.exception(f"Failed to load {model_type} model: {e}")
+            logger.error(f"Failed to load {model_type} model: {e}")
             return None

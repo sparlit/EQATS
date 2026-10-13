@@ -59,13 +59,12 @@ def _backup_model(path: Path):
 
 
 import pandas as pd
+from database.db import read_sql
 from features.indicators import compute_all_macro_indicators
 from features.micro_features import compute_micro_features
-from models.strategy_models import StrategyPredictor, train_all_strategy_models
+from models.strategy_models import StrategyPredictor
 from models.train_model import MacroModelTrainer, MicroModelTrainer
 from utils.logger import get_logger
-
-from database.db import read_sql
 
 logger = get_logger("incremental_train")
 
@@ -73,7 +72,10 @@ logger = get_logger("incremental_train")
 def main():
     parser = argparse.ArgumentParser(description="Incrementally train ML models with new data")
     parser.add_argument(
-        "--days", type=int, default=1, help="Number of recent days to use for incremental training (default: 1, max: 3)"
+        "--days",
+        type=int,
+        default=1,
+        help="Number of recent days to use for incremental training (default: 1, max: 3)",
     )
     parser.add_argument("--macro-only", action="store_true", help="Skip micro model training")
     parser.add_argument("--micro-only", action="store_true", help="Skip macro model training")
@@ -108,7 +110,9 @@ def main():
         else:
             candles["timestamp"] = pd.to_datetime(candles["timestamp"])
             print(f"  Candles loaded: {len(candles):,}")
-            print(f"  Date range: {candles['timestamp'].min().date()} → {candles['timestamp'].max().date()}")
+            print(
+                f"  Date range: {candles['timestamp'].min().date()} → {candles['timestamp'].max().date()}"
+            )
             print(f"  Trading days: {candles['timestamp'].dt.date.nunique()}")
 
             # ── Compute features ─────────────────────────────────────────
@@ -161,13 +165,17 @@ def main():
         else:
             ticks["timestamp"] = pd.to_datetime(ticks["timestamp"])
             print(f"  Ticks loaded: {len(ticks):,}")
-            print(f"  Date range: {ticks['timestamp'].min().date()} → {ticks['timestamp'].max().date()}")
+            print(
+                f"  Date range: {ticks['timestamp'].min().date()} → {ticks['timestamp'].max().date()}"
+            )
             print(f"  Trading days: {ticks['timestamp'].dt.date.nunique()}")
 
             print("\n  Computing micro features...")
             try:
                 micro_featured = compute_micro_features(ticks)
-                print(f"  Micro featured rows: {len(micro_featured):,}  |  columns: {len(micro_featured.columns)}")
+                print(
+                    f"  Micro featured rows: {len(micro_featured):,}  |  columns: {len(micro_featured.columns)}"
+                )
 
                 micro_trainer = MicroModelTrainer()
                 _backup_model(MICRO_MODEL_PATH_P)
@@ -200,19 +208,24 @@ def main():
         if not candles_check.empty:
             try:
                 candles_check["timestamp"] = pd.to_datetime(candles_check["timestamp"])
-                featured_check = compute_all_macro_indicators(candles_check.sort_values("timestamp"))
+                featured_check = compute_all_macro_indicators(
+                    candles_check.sort_values("timestamp")
+                )
                 featured_check = featured_check.dropna()
                 if not featured_check.empty:
                     test_row = featured_check.iloc[-1].to_dict()
                     prob = p.predict_macro(test_row)
-                    print(f"  Test macro prediction on latest data: {prob:.4f}" if prob else "  Test prediction: None")
+                    print(
+                        f"  Test macro prediction on latest data: {prob:.4f}"
+                        if prob
+                        else "  Test prediction: None"
+                    )
             except Exception as e:
                 print(f"  Verification skipped: {e}")
 
     print("\n" + "=" * 60)
     print("  INCREMENTAL TRAINING COMPLETE")
     print("=" * 60)
-    return None
 
 
 if __name__ == "__main__":

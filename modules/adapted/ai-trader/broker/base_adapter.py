@@ -36,8 +36,7 @@ Every method that touches real money has explicit safety documentation.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum, StrEnum
-from typing import Optional
+from enum import StrEnum
 
 
 class OrderSide(StrEnum):
@@ -226,7 +225,12 @@ class BrokerAdapter(ABC):
     # ── Convenience ───────────────────────────────────────────────────
 
     def buy(
-        self, symbol: str, quantity: int, price: float = 0.0, order_type: OrderType = OrderType.MARKET, tag: str = ""
+        self,
+        symbol: str,
+        quantity: int,
+        price: float = 0.0,
+        order_type: OrderType = OrderType.MARKET,
+        tag: str = "",
     ) -> OrderResponse:
         """Convenience: place a BUY order."""
         return self.place_order(
@@ -241,7 +245,12 @@ class BrokerAdapter(ABC):
         )
 
     def sell(
-        self, symbol: str, quantity: int, price: float = 0.0, order_type: OrderType = OrderType.MARKET, tag: str = ""
+        self,
+        symbol: str,
+        quantity: int,
+        price: float = 0.0,
+        order_type: OrderType = OrderType.MARKET,
+        tag: str = "",
     ) -> OrderResponse:
         """Convenience: place a SELL order."""
         return self.place_order(
@@ -255,7 +264,9 @@ class BrokerAdapter(ABC):
             )
         )
 
-    def place_sl_order(self, symbol: str, quantity: int, trigger_price: float, tag: str = "") -> OrderResponse:
+    def place_sl_order(
+        self, symbol: str, quantity: int, trigger_price: float, tag: str = ""
+    ) -> OrderResponse:
         """Convenience: place a stop-loss market order."""
         return self.place_order(
             OrderRequest(

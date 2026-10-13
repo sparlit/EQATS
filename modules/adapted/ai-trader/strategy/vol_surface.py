@@ -40,9 +40,7 @@ Usage:
       option_data=df, risk_profile=profile)
 """
 
-import math
 from datetime import date
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -123,7 +121,8 @@ class VolSurfaceModel:
         if not rows:
             return pd.DataFrame()
 
-        return pd.DataFrame(rows)
+        df = pd.DataFrame(rows)
+        return df
 
     def _score_strike(
         self,

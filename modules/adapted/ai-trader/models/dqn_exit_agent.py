@@ -49,12 +49,12 @@ import os
 import random
 from collections import deque
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
-from torch import nn, optim
+import torch.optim as optim
 from utils.logger import get_logger
 
 logger = get_logger("dqn_exit_agent")
@@ -321,7 +321,7 @@ class DQNExitAgent:
                 exit_action = "DQN_EXIT"
                 break
 
-            if action == "TIGHTEN":
+            elif action == "TIGHTEN":
                 if current_prem > entry_premium:
                     new_sl = entry_premium + 0.5 * (current_prem - entry_premium)
                     effective_sl = max(effective_sl, new_sl)
@@ -374,7 +374,7 @@ class DQNExitAgent:
         }
 
     # ── Persistence ───────────────────────────────────────────────────────────
-    def save(self, path: str | None = None):
+    def save(self, path: str = None):
         path = path or str(DQN_PATH)
         MODEL_DIR.mkdir(parents=True, exist_ok=True)
         torch.save(
@@ -390,7 +390,7 @@ class DQNExitAgent:
         )
         logger.info(f"DQN saved: {self.episodes} episodes, ε={self.epsilon:.4f} → {path}")
 
-    def load(self, path: str | None = None) -> bool:
+    def load(self, path: str = None) -> bool:
         path = path or str(DQN_PATH)
         if not os.path.exists(path):
             logger.warning(f"No DQN model at {path}")
@@ -404,10 +404,13 @@ class DQNExitAgent:
             self.episodes = ckpt.get("episodes", 0)
             self.training_steps = ckpt.get("training_steps", 0)
             self.is_loaded = True
-            logger.info(f"DQN loaded: {self.episodes} episodes, ε={self.epsilon:.4f}, steps={self.training_steps}")
+            logger.info(
+                f"DQN loaded: {self.episodes} episodes, "
+                f"ε={self.epsilon:.4f}, steps={self.training_steps}"
+            )
             return True
         except Exception as e:
-            logger.exception(f"DQN load failed: {e}")
+            logger.error(f"DQN load failed: {e}")
             return False
 
     def policy_summary(self) -> dict:

@@ -54,15 +54,6 @@ import contextlib
 import numpy as np
 import pandas as pd
 from backtest.option_resolver import get_days_to_expiry, get_nearest_expiry
-from features.indicators import compute_all_macro_indicators
-from flask import Flask, jsonify, render_template_string, request
-from flask_cors import CORS
-from models.predict import Predictor
-from models.strategy_models import StrategyPredictor
-from strategy.regime_detector import MarketRegime, RegimeDetector, get_strategies_for_regime
-from strategy.signal_generator import generate_signals
-from utils.logger import get_logger
-
 from config.settings import (
     SCORE_THRESHOLD,
     WEIGHT_ML_PROBABILITY,
@@ -70,6 +61,14 @@ from config.settings import (
     WEIGHT_TECHNICAL_STRENGTH,
 )
 from database.db import get_engine, read_sql
+from features.indicators import compute_all_macro_indicators
+from flask import Flask, jsonify, render_template_string, request
+from flask_cors import CORS
+from models.predict import Predictor
+from models.strategy_models import StrategyPredictor
+from strategy.regime_detector import RegimeDetector, get_strategies_for_regime
+from strategy.signal_generator import generate_signals
+from utils.logger import get_logger
 
 logger = get_logger("dashboard")
 
@@ -164,7 +163,7 @@ def _persist_closed_trade(pos: dict):
         _consecutive_sl_hits = 0
 
 
-def _get_mode_positions(mode: str | None = None) -> list:
+def _get_mode_positions(mode: str = None) -> list:
     """Return positions list for given mode (from request arg or explicit)."""
     if mode is None:
         mode = request.args.get("mode", "test") if request else "test"
@@ -248,7 +247,7 @@ def _lots_for_score(final_score: float) -> int:
     """Dynamic lot sizing based on signal strength."""
     if final_score >= 0.80:
         return 3
-    if final_score >= 0.70:
+    elif final_score >= 0.70:
         return 2
     return 1
 
@@ -445,7 +444,7 @@ def initialize():
             conn.execute(__import__("sqlalchemy").text("SELECT 1"))
         state["db_connected"] = True
     except Exception as e:
-        logger.exception(f"DB connection failed: {e}")
+        logger.error(f"DB connection failed: {e}")
 
     predictor.load()
     state["models_loaded"] = predictor.is_loaded
@@ -484,7 +483,6 @@ def initialize():
 
             from backtest.option_resolver import get_nearest_expiry
             from data.truedata_adapter import TrueDataAdapter
-
             from database.db import upsert_candles as _upsert
 
             td_bf = TrueDataAdapter()
@@ -492,13 +490,17 @@ def initialize():
                 logger.warning("Startup backfill: TrueData auth failed, skipping.")
                 return
 
-            logger.info(f"Startup backfill: fetching NIFTY-I candles from 09:15 to {end_dt.strftime('%H:%M')}...")
+            logger.info(
+                f"Startup backfill: fetching NIFTY-I candles from 09:15 to {end_dt.strftime('%H:%M')}..."
+            )
             bars = td_bf.fetch_historical_bars("NIFTY-I", day_start, end_dt, interval="1min")
             if not bars.empty:
                 for col in ["vwap", "oi"]:
                     if col not in bars.columns:
                         bars[col] = 0
-                bars = bars[["timestamp", "symbol", "open", "high", "low", "close", "volume", "vwap", "oi"]]
+                bars = bars[
+                    ["timestamp", "symbol", "open", "high", "low", "close", "volume", "vwap", "oi"]
+                ]
                 _upsert(bars)
                 logger.info(f"Startup backfill: upserted {len(bars)} NIFTY-I candles.")
 
@@ -526,7 +528,9 @@ def initialize():
                             expected = max(1, int((end_dt - day_start).total_seconds() / 60))
                             if cnt < expected * 0.5:
                                 try:
-                                    ob = td_bf.fetch_historical_bars(sym, day_start, end_dt, interval="1min")
+                                    ob = td_bf.fetch_historical_bars(
+                                        sym, day_start, end_dt, interval="1min"
+                                    )
                                     if not ob.empty:
                                         for col in ["vwap", "oi"]:
                                             if col not in ob.columns:
@@ -614,7 +618,8 @@ def _detect_tick_gaps_today(min_gap_secs: int = TICK_STALENESS_THRESHOLD_SECS) -
         return []
 
     df = read_sql(
-        "SELECT timestamp FROM tick_data WHERE symbol = 'NIFTY-I' AND timestamp::date = :d ORDER BY timestamp",
+        "SELECT timestamp FROM tick_data WHERE symbol = 'NIFTY-I' "
+        "AND timestamp::date = :d ORDER BY timestamp",
         {"d": today.isoformat()},
     )
 
@@ -622,7 +627,9 @@ def _detect_tick_gaps_today(min_gap_secs: int = TICK_STALENESS_THRESHOLD_SECS) -
         return [(session_start, now_ist)]
 
     # Normalize to naive IST (DB column is TIMESTAMPTZ; convert)
-    ts_series = pd.to_datetime(df["timestamp"], utc=True).dt.tz_convert("Asia/Kolkata").dt.tz_localize(None)
+    ts_series = (
+        pd.to_datetime(df["timestamp"], utc=True).dt.tz_convert("Asia/Kolkata").dt.tz_localize(None)
+    )
     ticks = ts_series.tolist()
 
     gaps: list[tuple[datetime, datetime]] = []
@@ -680,9 +687,8 @@ def _backfill_ticks_if_stale():
             return
 
         from data.truedata_adapter import TrueDataAdapter
-        from sqlalchemy import text
-
         from database.db import engine as _engine
+        from sqlalchemy import text
 
         td_bf = TrueDataAdapter()
         if not td_bf.authenticate():
@@ -710,7 +716,17 @@ def _backfill_ticks_if_stale():
 
             ticks = ticks.copy()
             ticks["symbol"] = "NIFTY-I"
-            required = ["timestamp", "symbol", "price", "volume", "oi", "bid_price", "ask_price", "bid_qty", "ask_qty"]
+            required = [
+                "timestamp",
+                "symbol",
+                "price",
+                "volume",
+                "oi",
+                "bid_price",
+                "ask_price",
+                "bid_qty",
+                "ask_qty",
+            ]
             for col in required:
                 if col not in ticks.columns:
                     ticks[col] = ticks.get("price", 0) if col in ("bid_price", "ask_price") else 0
@@ -726,14 +742,18 @@ def _backfill_ticks_if_stale():
                     ),
                     {"from_ts": from_dt_pad, "to_ts": to_dt_pad},
                 )
-                ticks.to_sql("tick_data", conn, if_exists="append", index=False, method=None, chunksize=2000)
+                ticks.to_sql(
+                    "tick_data", conn, if_exists="append", index=False, method=None, chunksize=2000
+                )
             total_inserted += len(ticks)
             # Respect TrueData REST rate limit (1 req/sec)
             _t.sleep(1.1)
 
         _last_tick_backfill_run = now
         if total_inserted:
-            logger.info(f"Tick backfill: inserted {total_inserted} NIFTY-I ticks across {len(gaps)} gap(s).")
+            logger.info(
+                f"Tick backfill: inserted {total_inserted} NIFTY-I ticks across {len(gaps)} gap(s)."
+            )
     except Exception as e:
         logger.warning(f"Tick backfill failed: {e}")
 
@@ -749,7 +769,9 @@ def _backfill_candles_if_stale():
     if not _is_market_hours():
         return
     try:
-        stale = read_sql("SELECT MAX(timestamp) as latest FROM minute_candles WHERE symbol = 'NIFTY-I'")
+        stale = read_sql(
+            "SELECT MAX(timestamp) as latest FROM minute_candles WHERE symbol = 'NIFTY-I'"
+        )
         if stale.empty or stale.iloc[0]["latest"] is None:
             return
         latest_ts = pd.to_datetime(stale.iloc[0]["latest"], utc=True)
@@ -757,7 +779,6 @@ def _backfill_candles_if_stale():
 
         from backtest.option_resolver import get_nearest_expiry
         from data.truedata_adapter import TrueDataAdapter
-
         from database.db import upsert_candles
 
         need_td = age_seconds >= 120
@@ -800,14 +821,20 @@ def _backfill_candles_if_stale():
                 for col in ["vwap", "oi"]:
                     if col not in bars.columns:
                         bars[col] = 0
-                bars = bars[["timestamp", "symbol", "open", "high", "low", "close", "volume", "vwap", "oi"]]
+                bars = bars[
+                    ["timestamp", "symbol", "open", "high", "low", "close", "volume", "vwap", "oi"]
+                ]
                 inserted = upsert_candles(bars)
                 if inserted:
-                    logger.info(f"Auto-backfill NIFTY-I: {inserted} new candles (was {age_seconds:.0f}s stale)")
+                    logger.info(
+                        f"Auto-backfill NIFTY-I: {inserted} new candles (was {age_seconds:.0f}s stale)"
+                    )
 
         # 2. Fetch missing ATM option candles
         if atm_missing_syms:
-            logger.info(f"Auto-backfill: fetching {len(atm_missing_syms)} missing ATM option symbols")
+            logger.info(
+                f"Auto-backfill: fetching {len(atm_missing_syms)} missing ATM option symbols"
+            )
             import time as _time
 
             for sym in atm_missing_syms:
@@ -817,7 +844,19 @@ def _backfill_candles_if_stale():
                         for col in ["vwap", "oi"]:
                             if col not in bars.columns:
                                 bars[col] = 0
-                        bars = bars[["timestamp", "symbol", "open", "high", "low", "close", "volume", "vwap", "oi"]]
+                        bars = bars[
+                            [
+                                "timestamp",
+                                "symbol",
+                                "open",
+                                "high",
+                                "low",
+                                "close",
+                                "volume",
+                                "vwap",
+                                "oi",
+                            ]
+                        ]
                         upsert_candles(bars)
                         logger.info(f"Auto-backfill {sym}: {len(bars)} bars")
                     _time.sleep(1.1)  # respect rate limit
@@ -855,7 +894,9 @@ def scan_market():
                 return 9999
 
         state["trade_suggestions"] = [
-            t for t in state["trade_suggestions"] if _suggestion_age_secs(t) < SUGGESTION_COOLDOWN_SECS
+            t
+            for t in state["trade_suggestions"]
+            if _suggestion_age_secs(t) < SUGGESTION_COOLDOWN_SECS
         ]
 
         # Auto-backfill if DB is stale during market hours
@@ -936,7 +977,8 @@ def scan_market():
             return
         if minutes_from_open > _prof.afternoon_cut:
             logger.info(
-                f"SKIP all signals: past afternoon_cut ({minutes_from_open}min from open > {_prof.afternoon_cut}min)"
+                f"SKIP all signals: past afternoon_cut "
+                f"({minutes_from_open}min from open > {_prof.afternoon_cut}min)"
             )
             return
 
@@ -1011,10 +1053,9 @@ def scan_market():
             #   0.75-0.80 bucket: 12 trades, 42% WR, +₹1,207
             #   0.80+ bucket:     17 trades, 76% WR, +₹34,718
             # The 0.70-0.75 range adds noise without edge — filter it out.
-            from strategy.regime_detector import MarketRegime
-
             from config.risk_profiles import RiskLevel as _RL
             from config.risk_profiles import get_risk_profile as _get_rp
+            from strategy.regime_detector import MarketRegime
 
             _med_profile = _get_rp(_RL.MEDIUM)
             effective_threshold = max(0.75, SCORE_THRESHOLD, _med_profile.put_score_threshold)
@@ -1029,7 +1070,9 @@ def scan_market():
                 close_px = float(latest.get("close", 0) or 0)
                 ema20_v = float(latest.get("ema20", 0) or 0)
                 ema50_v = float(latest.get("ema50", 0) or 0)
-                in_uptrend = close_px > 0 and ema50_v > 0 and close_px > ema50_v and ema20_v > ema50_v
+                in_uptrend = (
+                    close_px > 0 and ema50_v > 0 and close_px > ema50_v and ema20_v > ema50_v
+                )
                 if in_uptrend and directional_prob < 0.85:
                     logger.info(
                         f"SKIP bearish_momentum PUT: uptrend context "
@@ -1072,7 +1115,9 @@ def scan_market():
                     ema20_v = float(latest.get("ema20", 0) or 0)
                     ema50_v = float(latest.get("ema50", 0) or 0)
                     rsi_15m = float(latest.get("rsi_15m") or 50.0)
-                    in_uptrend = close_px > 0 and ema50_v > 0 and close_px > ema50_v and ema20_v > ema50_v
+                    in_uptrend = (
+                        close_px > 0 and ema50_v > 0 and close_px > ema50_v and ema20_v > ema50_v
+                    )
                     if in_uptrend and rsi_15m > 70.0:
                         logger.info(
                             f"SKIP mean_reversion PUT: uptrend+stretched higher-TF "
@@ -1089,7 +1134,8 @@ def scan_market():
                 if len(featured) >= 4:
                     last3 = featured.iloc[-4:-1]
                     sustained_up = bool(
-                        (last3["close"] > last3["open"]).sum() >= 2 and last3["close"].iloc[-1] > last3["close"].iloc[0]
+                        (last3["close"] > last3["open"]).sum() >= 2
+                        and last3["close"].iloc[-1] > last3["close"].iloc[0]
                     )
                     if not sustained_up:
                         continue
@@ -1254,13 +1300,18 @@ def scan_market():
                     )
                     if not row.empty:
                         candle_age = (
-                            pd.Timestamp.now(tz="UTC") - pd.to_datetime(row.iloc[0]["timestamp"], utc=True)
+                            pd.Timestamp.now(tz="UTC")
+                            - pd.to_datetime(row.iloc[0]["timestamp"], utc=True)
                         ).total_seconds()
                         if candle_age < 300:  # only use if within 5 minutes
                             opt_ltp = float(row.iloc[0]["close"])
-                            logger.debug(f"opt_ltp from DB candle ({candle_age:.0f}s old) for {opt_symbol}: {opt_ltp}")
+                            logger.debug(
+                                f"opt_ltp from DB candle ({candle_age:.0f}s old) for {opt_symbol}: {opt_ltp}"
+                            )
                         else:
-                            logger.debug(f"DB candle too stale ({candle_age:.0f}s) for {opt_symbol}, trying REST")
+                            logger.debug(
+                                f"DB candle too stale ({candle_age:.0f}s) for {opt_symbol}, trying REST"
+                            )
                 except Exception:
                     pass
 
@@ -1294,10 +1345,16 @@ def scan_market():
             # Deduplicate: if same signal fired within cooldown, refresh its timestamp
             cooldown_key = (opt_symbol, sig.direction, sig.strategy)
             last_fired = _suggestion_cooldown.get(cooldown_key)
-            if last_fired and (datetime.now() - last_fired).total_seconds() < SUGGESTION_COOLDOWN_SECS:
+            if (
+                last_fired
+                and (datetime.now() - last_fired).total_seconds() < SUGGESTION_COOLDOWN_SECS
+            ):
                 # Refresh existing suggestion with latest scores + price
                 for existing in state["trade_suggestions"]:
-                    if existing.get("symbol") == opt_symbol and existing.get("strategy") == sig.strategy:
+                    if (
+                        existing.get("symbol") == opt_symbol
+                        and existing.get("strategy") == sig.strategy
+                    ):
                         existing["time"] = datetime.now().strftime("%H:%M:%S")
                         existing["index_price"] = round(latest.get("close", 0), 1)
                         existing["ml_prob"] = round(ml_prob, 4)
@@ -1353,7 +1410,11 @@ def scan_market():
                 try:
                     import subprocess as _sp
 
-                    _sp.Popen(["afplay", "/System/Library/Sounds/Glass.aiff"], stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
+                    _sp.Popen(
+                        ["afplay", "/System/Library/Sounds/Glass.aiff"],
+                        stdout=_sp.DEVNULL,
+                        stderr=_sp.DEVNULL,
+                    )
                 except Exception:
                     pass
 
@@ -1394,7 +1455,6 @@ def _run_end_of_day():
     try:
         logger.info("EOD: Backfilling any missing candles for today...")
         from data.truedata_adapter import TrueDataAdapter
-
         from database.db import upsert_candles
 
         td_eod = TrueDataAdapter()
@@ -1406,11 +1466,13 @@ def _run_end_of_day():
                 for col in ["vwap", "oi"]:
                     if col not in bars.columns:
                         bars[col] = 0
-                bars = bars[["timestamp", "symbol", "open", "high", "low", "close", "volume", "vwap", "oi"]]
+                bars = bars[
+                    ["timestamp", "symbol", "open", "high", "low", "close", "volume", "vwap", "oi"]
+                ]
                 upsert_candles(bars)
                 logger.info(f"EOD: Upserted {len(bars)} candles for today")
     except Exception as e:
-        logger.exception(f"EOD backfill error: {e}")
+        logger.error(f"EOD backfill error: {e}")
 
     # 2. Incremental model retrain (macro + micro only — strategy models
     # are deliberately skipped here, see incremental_train.py comment for why)
@@ -1430,7 +1492,7 @@ def _run_end_of_day():
             else:
                 logger.error(f"EOD: Retrain failed: {result.stderr[:500]}")
     except Exception as e:
-        logger.exception(f"EOD retrain error: {e}")
+        logger.error(f"EOD retrain error: {e}")
 
     # 3. Outcome-based strategy model retrain (uses real backtest WIN/LOSS
     # outcomes from backtest_results/trades_*.csv). Safe to run nightly even
@@ -1452,7 +1514,7 @@ def _run_end_of_day():
             else:
                 logger.error(f"EOD: Outcome retrain failed: {result.stderr[:500]}")
     except Exception as e:
-        logger.exception(f"EOD outcome retrain error: {e}")
+        logger.error(f"EOD outcome retrain error: {e}")
 
     logger.info("=== END-OF-DAY AUTOMATION COMPLETE ===")
 
@@ -1467,7 +1529,7 @@ def background_scanner():
             try:
                 scan_market()
             except Exception as e:
-                logger.exception(f"Scanner error: {e}")
+                logger.error(f"Scanner error: {e}")
                 state["status"] = "idle"
         else:
             state["status"] = "stopped"
@@ -1477,7 +1539,7 @@ def background_scanner():
             try:
                 _run_end_of_day()
             except Exception as e:
-                logger.exception(f"EOD error: {e}")
+                logger.error(f"EOD error: {e}")
 
         # Auto-start collector during market hours
         if 9 <= now.hour < 16 and now.weekday() < 5:
@@ -1503,7 +1565,7 @@ replay_state = {
 def run_replay(replay_date: str):
     """Run tick replay for a specific date in background."""
     global replay_state
-    from backtest.option_resolver import clear_cache, get_days_to_expiry, get_nearest_expiry
+    from backtest.option_resolver import clear_cache
 
     replay_state = {
         "status": "running",
@@ -1598,7 +1660,9 @@ def run_replay(replay_date: str):
                         current_trade["pnl"] = pnl
                         current_trade["result"] = result
                         replay_state["trades"].append(current_trade)
-                        replay_state["total_pnl"] = round(sum(t["pnl"] for t in replay_state["trades"]), 2)
+                        replay_state["total_pnl"] = round(
+                            sum(t["pnl"] for t in replay_state["trades"]), 2
+                        )
                         in_trade = False
                         current_trade = None
                         option_info = None
@@ -1615,7 +1679,9 @@ def run_replay(replay_date: str):
                 "vwap": 0,
                 "oi": 0,
             }
-            candle_buffer = pd.concat([candle_buffer, pd.DataFrame([candle])], ignore_index=True).tail(500)
+            candle_buffer = pd.concat(
+                [candle_buffer, pd.DataFrame([candle])], ignore_index=True
+            ).tail(500)
 
             # Signal + ML if not in trade
             if (
@@ -1951,7 +2017,9 @@ def _update_position_price(pos: dict, live_prem: float):
 
     # After BREAKEVEN_AFTER_MIN minutes in profit, lock SL at entry (worst case: scratch trade)
     if (
-        not pos["breakeven_locked"] and pos["first_profit_time"] is not None and current_profit_pct >= 0
+        not pos["breakeven_locked"]
+        and pos["first_profit_time"] is not None
+        and current_profit_pct >= 0
     ):  # still in profit when timer fires
         try:
             first_profit_dt = datetime.fromisoformat(pos["first_profit_time"])
@@ -2010,7 +2078,8 @@ def _update_position_price(pos: dict, live_prem: float):
 
         trail_sl = round(ep + max_profit * retention, 2)
         # SL can only move up, never down
-        pos["sl"] = max(pos["sl"], trail_sl)
+        if trail_sl > pos["sl"]:
+            pos["sl"] = trail_sl
 
     # --- Auto-exit checks ---
     if live_prem <= pos["sl"]:
@@ -2060,7 +2129,9 @@ def _tick_monitor_loop():
                 time.sleep(30)
                 continue
 
-            all_positions = paper_positions_by_mode.get("test", []) + paper_positions_by_mode.get("live", [])
+            all_positions = paper_positions_by_mode.get("test", []) + paper_positions_by_mode.get(
+                "live", []
+            )
             open_positions = [p for p in all_positions if p["status"] == "OPEN"]
             if not open_positions:
                 time.sleep(1)
@@ -2116,7 +2187,10 @@ def _tick_monitor_loop():
                     last_ts = journey[-1]["ts"] if journey else None
                     nifty_price = float(cache.get("NIFTY-I", {}).get("price", 0) or 0)
                     now_ts = datetime.now().isoformat()
-                    if last_ts is None or (datetime.now() - datetime.fromisoformat(last_ts)).total_seconds() >= 5:
+                    if (
+                        last_ts is None
+                        or (datetime.now() - datetime.fromisoformat(last_ts)).total_seconds() >= 5
+                    ):
                         journey.append(
                             {
                                 "ts": now_ts,
@@ -2144,14 +2218,20 @@ def _tick_monitor_loop():
                 # Runs every 10s (down from 30s) so fast reversals get caught.
                 if live_price is not None and pos["status"] == "OPEN":
                     try:
-                        last_check = datetime.fromisoformat(pos.get("last_regime_check", "2000-01-01"))
+                        last_check = datetime.fromisoformat(
+                            pos.get("last_regime_check", "2000-01-01")
+                        )
                         if (datetime.now() - last_check).total_seconds() >= REGIME_CHECK_INTERVAL:
                             pos["last_regime_check"] = datetime.now().isoformat()
                             nifty_bid = float(
-                                cache.get("NIFTY-I", {}).get("bid", 0) or cache.get("NIFTY-I", {}).get("price", 0) or 0
+                                cache.get("NIFTY-I", {}).get("bid", 0)
+                                or cache.get("NIFTY-I", {}).get("price", 0)
+                                or 0
                             )
                             if nifty_bid > 0 and pos.get("index_price", 0) > 0:
-                                nifty_move_pct = (nifty_bid - pos["index_price"]) / pos["index_price"]
+                                nifty_move_pct = (nifty_bid - pos["index_price"]) / pos[
+                                    "index_price"
+                                ]
                                 direction = pos["direction"]
                                 # Sign adverse = move is AGAINST our direction (+ve for CALL
                                 # means bearish move, for PUT means bullish move)
@@ -2177,7 +2257,9 @@ def _tick_monitor_loop():
                                 elif adverse >= 0.0020 and live_price > pos["sl"]:
                                     # Tier 2: Tighten SL toward entry+2%. Locks a tiny
                                     # profit or caps loss at ~entry.
-                                    target_sl = round(entry_prem * 1.02, 2) if entry_prem > 0 else pos["sl"]
+                                    target_sl = (
+                                        round(entry_prem * 1.02, 2) if entry_prem > 0 else pos["sl"]
+                                    )
                                     # Don't tighten above current live price (would insta-exit)
                                     safe_sl = min(target_sl, round(live_price * 0.98, 2))
                                     if safe_sl > pos["sl"]:
@@ -2197,7 +2279,7 @@ def _tick_monitor_loop():
                         logger.debug(f"regime check failed: {_e}")
 
         except Exception as e:
-            logger.exception(f"Tick monitor error: {e}")
+            logger.error(f"Tick monitor error: {e}")
         time.sleep(1)
 
 
@@ -2205,7 +2287,9 @@ def _ensure_tick_monitor():
     """Start the tick monitor thread if not already running."""
     global _tick_monitor_thread
     if _tick_monitor_thread is None or not _tick_monitor_thread.is_alive():
-        _tick_monitor_thread = threading.Thread(target=_tick_monitor_loop, daemon=True, name="tick_monitor")
+        _tick_monitor_thread = threading.Thread(
+            target=_tick_monitor_loop, daemon=True, name="tick_monitor"
+        )
         _tick_monitor_thread.start()
 
 
@@ -2356,13 +2440,19 @@ def api_paper_enter():
 
     if not entry_premium or entry_premium <= 0:
         return jsonify(
-            {"error": "Could not determine entry premium — no DB candle, no live data, and strike parse failed"}
+            {
+                "error": "Could not determine entry premium — no DB candle, no live data, and strike parse failed"
+            }
         ), 400
 
     ep = round(float(entry_premium), 2)
     # Dynamic SL/target: use values from suggestion if provided, else derive from score
-    sl_pct = body.get("sl_pct") or (0.15 if final_score >= 0.75 else 0.15 if final_score >= 0.65 else 0.12)
-    target_pct = body.get("target_pct") or (0.70 if final_score >= 0.75 else 0.55 if final_score >= 0.65 else 0.40)
+    sl_pct = body.get("sl_pct") or (
+        0.15 if final_score >= 0.75 else 0.15 if final_score >= 0.65 else 0.12
+    )
+    target_pct = body.get("target_pct") or (
+        0.70 if final_score >= 0.75 else 0.55 if final_score >= 0.65 else 0.40
+    )
     initial_sl = round(ep * (1 - sl_pct), 2)
     lots = _lots_for_score(final_score)
     position = {
@@ -2503,7 +2593,9 @@ def api_paper_positions():
 
     total_open_pnl = sum(p["unrealised_pnl"] for p in positions if p["status"] == "OPEN")
     total_closed_pnl = sum(
-        p["realised_pnl"] for p in positions if p["status"] == "CLOSED" and p["realised_pnl"] is not None
+        p["realised_pnl"]
+        for p in positions
+        if p["status"] == "CLOSED" and p["realised_pnl"] is not None
     )
     return jsonify(
         {
@@ -2661,15 +2753,21 @@ def api_stream():
                     for m in ["test", "live"]:
                         mpos = paper_positions_by_mode.get(m, [])
                         o_pnl = sum(p["unrealised_pnl"] for p in mpos if p["status"] == "OPEN")
-                        c_pnl = sum(p.get("realised_pnl", 0) or 0 for p in mpos if p["status"] == "CLOSED")
+                        c_pnl = sum(
+                            p.get("realised_pnl", 0) or 0 for p in mpos if p["status"] == "CLOSED"
+                        )
                         payload[f"total_open_pnl_{m}"] = round(o_pnl, 2)
                         payload[f"total_closed_pnl_{m}"] = round(c_pnl, 2)
                         payload[f"total_pnl_{m}"] = round(o_pnl + c_pnl, 2)
 
                     # Also include combined for backward compat
-                    all_pos = paper_positions_by_mode.get("test", []) + paper_positions_by_mode.get("live", [])
+                    all_pos = paper_positions_by_mode.get("test", []) + paper_positions_by_mode.get(
+                        "live", []
+                    )
                     open_pnl = sum(p["unrealised_pnl"] for p in all_pos if p["status"] == "OPEN")
-                    closed_pnl = sum(p.get("realised_pnl", 0) or 0 for p in all_pos if p["status"] == "CLOSED")
+                    closed_pnl = sum(
+                        p.get("realised_pnl", 0) or 0 for p in all_pos if p["status"] == "CLOSED"
+                    )
                     payload["total_open_pnl"] = round(open_pnl, 2)
                     payload["total_closed_pnl"] = round(closed_pnl, 2)
                     payload["total_pnl"] = round(open_pnl + closed_pnl, 2)
@@ -2684,7 +2782,9 @@ def api_stream():
             _sse_client_count = max(0, _sse_client_count - 1)
 
     return Response(
-        generate(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+        generate(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
@@ -2695,7 +2795,9 @@ def api_paper_clear():
     trade_mode = body.get("mode", request.args.get("mode", "test"))
     if trade_mode not in paper_positions_by_mode:
         trade_mode = "test"
-    paper_positions_by_mode[trade_mode] = [p for p in paper_positions_by_mode[trade_mode] if p["status"] == "OPEN"]
+    paper_positions_by_mode[trade_mode] = [
+        p for p in paper_positions_by_mode[trade_mode] if p["status"] == "OPEN"
+    ]
     return jsonify({"cleared": True, "mode": trade_mode})
 
 
@@ -2744,8 +2846,6 @@ def api_set_auto_trade():
 @app.route("/api/backtest/results")
 def api_backtest_results():
     """Load saved backtest CSV results for all risk profiles."""
-    import glob
-
     _project_root = Path(__file__).resolve().parent.parent
     results = {}
     for risk in ["low", "medium", "high"]:
@@ -2784,7 +2884,7 @@ def api_backtest_results():
                     "trade_list": df.to_dict(orient="records"),
                 }
             except Exception as e:
-                logger.exception(f"Error loading {path}: {e}")
+                logger.error(f"Error loading {path}: {e}")
     return jsonify(results)
 
 
@@ -2901,7 +3001,9 @@ def api_backtest_run():
     end_date = data.get("end_date")  # YYYY-MM-DD or None
 
     if backtest_progress["running"]:
-        return jsonify({"error": "A backtest is already running", "risk": backtest_progress["risk"]}), 409
+        return jsonify(
+            {"error": "A backtest is already running", "risk": backtest_progress["risk"]}
+        ), 409
 
     def _run():
         global backtest_progress
@@ -2944,7 +3046,7 @@ def api_backtest_run():
                 except Exception:
                     pass
                 # Try ISO format as fallback
-                return datetime.fromisoformat(s).date()
+                return datetime.fromisoformat(s.replace("Z", "+00:00")).date()
 
             sd = _parse_date(start_date)
             ed = _parse_date(end_date) if end_date else date.today()
@@ -3068,7 +3170,12 @@ def api_candle_dates():
     if candle_df.empty:
         # Return tick-only dates if no candle data
         if not tick_df.empty:
-            return jsonify([{"day": str(r["day"]), "bars": 0, "ticks": int(r["ticks"])} for _, r in tick_df.iterrows()])
+            return jsonify(
+                [
+                    {"day": str(r["day"]), "bars": 0, "ticks": int(r["ticks"])}
+                    for _, r in tick_df.iterrows()
+                ]
+            )
         return jsonify([])
 
     result = []

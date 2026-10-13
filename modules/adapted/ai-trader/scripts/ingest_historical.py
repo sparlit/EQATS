@@ -57,7 +57,6 @@ Output structure:
 import json
 import os
 import sys
-import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -67,23 +66,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from io import StringIO
 
 import pandas as pd
-from data.symbol_manager import SymbolManager
-from data.truedata_adapter import TrueDataAdapter
-from utils.logger import get_logger
-
 from config.settings import (
     ATM_RANGE,
     STRIKE_GAP,
     SYMBOLS,
-    TD_AUTH_URL,
-    TD_HISTORY_URL,
-    TD_SYMBOL_MASTER_URL,
-    TRUEDATA_PASSWORD,
-    TRUEDATA_USER,
 )
+from data.symbol_manager import SymbolManager
+from data.truedata_adapter import TrueDataAdapter
+from utils.logger import get_logger
 
 logger = get_logger("ingest")
 
@@ -357,7 +349,9 @@ def main():
         for i, expiry in enumerate(hist_expiries):
             atm, strikes = compute_atm_for_expiry(index_df, expiry, underlying)
             if atm is None:
-                logger.warning(f"  [{i + 1}/{len(hist_expiries)}] Expiry {expiry}: no index data, skipping")
+                logger.warning(
+                    f"  [{i + 1}/{len(hist_expiries)}] Expiry {expiry}: no index data, skipping"
+                )
                 continue
 
             n_syms = len(strikes) * 2  # CE + PE
@@ -386,7 +380,9 @@ def main():
 
             for expiry in near_future:
                 logger.info(f"  Future expiry {expiry}: ATM={int(atm_now)}")
-                count = fetch_option_bars_for_expiry(td, sym_mgr, underlying, expiry, strikes_now, out_dir)
+                count = fetch_option_bars_for_expiry(
+                    td, sym_mgr, underlying, expiry, strikes_now, out_dir
+                )
                 total_option_files += count
 
             sym_summary["future_expiries_fetched"] = [str(e) for e in near_future]
@@ -399,7 +395,10 @@ def main():
             atm_now = round(latest_close / gap) * gap
             strikes_now = [atm_now + i * gap for i in range(-ATM_RANGE, ATM_RANGE + 1)]
 
-            logger.info(f"\n  Fetching option ticks for nearest expiry (expiry={nearest_expiry}, ATM={int(atm_now)})")
+            logger.info(
+                f"\n  Fetching option ticks for nearest expiry "
+                f"(expiry={nearest_expiry}, ATM={int(atm_now)})"
+            )
             tick_out_dir = OUTPUT_DIR / f"{underlying.lower()}_options_ticks"
             tick_count = fetch_option_ticks_for_current_week(
                 td, sym_mgr, underlying, nearest_expiry, strikes_now, tick_out_dir

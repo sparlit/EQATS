@@ -44,7 +44,6 @@ New features:
 """
 
 from datetime import date, datetime
-from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -157,7 +156,9 @@ def compute_cross_strike_features(
 
         # ── Call OI gradient (ATM → ATM+3) ──────────────────────────────
         # Rising OI at higher strikes = resistance building
-        call_oi_by_strike = ce[ce["relative_strike"] >= 0].groupby("relative_strike")["oi"].sum().sort_index()
+        call_oi_by_strike = (
+            ce[ce["relative_strike"] >= 0].groupby("relative_strike")["oi"].sum().sort_index()
+        )
         if len(call_oi_by_strike) >= 2:
             features["call_oi_gradient"] = float(
                 np.polyfit(
@@ -172,7 +173,10 @@ def compute_cross_strike_features(
         # ── Put OI gradient (ATM → ATM-3) ───────────────────────────────
         # Rising OI at lower strikes = support building
         put_oi_by_strike = (
-            pe[pe["relative_strike"] <= 0].groupby("relative_strike")["oi"].sum().sort_index(ascending=False)
+            pe[pe["relative_strike"] <= 0]
+            .groupby("relative_strike")["oi"]
+            .sum()
+            .sort_index(ascending=False)
         )
         if len(put_oi_by_strike) >= 2:
             features["put_oi_gradient"] = float(
@@ -198,7 +202,9 @@ def compute_cross_strike_features(
     if "iv" in oc.columns and has_rel:
         otm_put_iv = pe.loc[pe["relative_strike"] < 0, "iv"].mean()
         otm_call_iv = ce.loc[ce["relative_strike"] > 0, "iv"].mean()
-        features["iv_skew"] = (otm_put_iv - otm_call_iv) if pd.notna(otm_put_iv) and pd.notna(otm_call_iv) else np.nan
+        features["iv_skew"] = (
+            (otm_put_iv - otm_call_iv) if pd.notna(otm_put_iv) and pd.notna(otm_call_iv) else np.nan
+        )
     else:
         features["iv_skew"] = np.nan
 

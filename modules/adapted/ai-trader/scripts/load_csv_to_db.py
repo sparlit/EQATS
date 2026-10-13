@@ -49,10 +49,9 @@ load_dotenv()
 
 import numpy as np
 import pandas as pd
+from database.db import execute_sql, get_engine, init_db
 from sqlalchemy import text
 from utils.logger import get_logger
-
-from database.db import execute_sql, get_engine, init_db
 
 logger = get_logger("csv_to_db")
 
@@ -192,7 +191,9 @@ def main():
             stats["minute_bars_loaded"] += n
             stats["minute_files"] += 1
             if (i + 1) % 50 == 0 or (i + 1) == len(opt_files):
-                logger.info(f"    Progress: {i + 1}/{len(opt_files)} files, {stats['minute_bars_loaded']:,} total rows")
+                logger.info(
+                    f"    Progress: {i + 1}/{len(opt_files)} files, {stats['minute_bars_loaded']:,} total rows"
+                )
 
     # ── 3. Load index ticks ───────────────────────────────────────────────────
     tick_csv = DATA_DIR / "nifty_index_ticks.csv"
@@ -213,7 +214,9 @@ def main():
             stats["tick_rows_loaded"] += n
             stats["tick_files"] += 1
             if (i + 1) % 5 == 0 or (i + 1) == len(tick_files):
-                logger.info(f"    Progress: {i + 1}/{len(tick_files)} files, {stats['tick_rows_loaded']:,} total rows")
+                logger.info(
+                    f"    Progress: {i + 1}/{len(tick_files)} files, {stats['tick_rows_loaded']:,} total rows"
+                )
 
     elapsed = time.time() - t0
 
@@ -221,9 +224,13 @@ def main():
     with engine.connect() as conn:
         mc_final = conn.execute(text("SELECT COUNT(*) FROM minute_candles")).scalar()
         td_final = conn.execute(text("SELECT COUNT(*) FROM tick_data")).scalar()
-        mc_symbols = conn.execute(text("SELECT COUNT(DISTINCT symbol) FROM minute_candles")).scalar()
+        mc_symbols = conn.execute(
+            text("SELECT COUNT(DISTINCT symbol) FROM minute_candles")
+        ).scalar()
         td_symbols = conn.execute(text("SELECT COUNT(DISTINCT symbol) FROM tick_data")).scalar()
-        mc_range = conn.execute(text("SELECT MIN(timestamp), MAX(timestamp) FROM minute_candles")).fetchone()
+        mc_range = conn.execute(
+            text("SELECT MIN(timestamp), MAX(timestamp) FROM minute_candles")
+        ).fetchone()
 
     print("\n" + "=" * 60)
     print("  LOAD COMPLETE")

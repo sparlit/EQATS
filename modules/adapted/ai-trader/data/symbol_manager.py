@@ -48,15 +48,11 @@ Key design:
   - Fits well within 50-symbol plan
 """
 
-import math
-from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from datetime import date, datetime
 
 import pandas as pd
 import requests
-from utils.logger import get_logger
-
 from config.settings import (
     ATM_RANGE,
     MAX_SYMBOLS,
@@ -64,11 +60,11 @@ from config.settings import (
     SYMBOLS,
     TD_INDEX_FUTURES_SYMBOLS,
     TD_INDEX_SPOT_SYMBOLS,
-    TD_INDEX_SYMBOLS,
     TD_SYMBOL_MASTER_URL,
     TRUEDATA_PASSWORD,
     TRUEDATA_USER,
 )
+from utils.logger import get_logger
 
 logger = get_logger("symbol_manager")
 
@@ -162,7 +158,7 @@ class SymbolManager:
                     col_map[col] = "tick_size"
                 elif "underlying" in col:
                     col_map[col] = "underlying"
-            df = df.rename(columns=col_map)
+            df.rename(columns=col_map, inplace=True)
 
             # Filter to NIFTY / BANKNIFTY options only
             if "underlying" in df.columns:
@@ -197,10 +193,10 @@ class SymbolManager:
             return df
 
         except requests.RequestException as e:
-            logger.exception(f"Failed to fetch symbol master: {e}")
+            logger.error(f"Failed to fetch symbol master: {e}")
             return pd.DataFrame()
         except Exception as e:
-            logger.exception(f"Error parsing symbol master: {e}")
+            logger.error(f"Error parsing symbol master: {e}")
             return pd.DataFrame()
 
     # ── Expiry Resolution ───────────────────────────────────────────────────
@@ -272,7 +268,9 @@ class SymbolManager:
         """
         return round(spot_price / strike_gap) * strike_gap
 
-    def get_atm_strikes(self, spot_price: float, underlying: str, n_strikes: int | None = None) -> list[float]:
+    def get_atm_strikes(
+        self, spot_price: float, underlying: str, n_strikes: int = None
+    ) -> list[float]:
         """
         Generate ATM ± N strike prices.
         Returns sorted list: [ATM-3, ATM-2, ATM-1, ATM, ATM+1, ATM+2, ATM+3]
@@ -290,7 +288,9 @@ class SymbolManager:
     # ── Option Symbol Name Construction ─────────────────────────────────────
 
     @staticmethod
-    def build_option_symbol_name(underlying: str, expiry: date, strike: float, option_type: str) -> str:
+    def build_option_symbol_name(
+        underlying: str, expiry: date, strike: float, option_type: str
+    ) -> str:
         """
         Build TrueData option symbol name.
 
@@ -317,7 +317,7 @@ class SymbolManager:
         underlying: str,
         spot_price: float,
         expiry: date | None = None,
-        n_strikes: int | None = None,
+        n_strikes: int = None,
     ) -> list[OptionSymbol]:
         """
         Get all option symbols for ATM ±N strikes for both CE and PE.
@@ -376,10 +376,15 @@ class SymbolManager:
 
                 symbols.append(sym)
 
-        logger.info(f"{underlying}: ATM={atm}, expiry={expiry}, strikes={len(strikes)}, symbols={len(symbols)}")
+        logger.info(
+            f"{underlying}: ATM={atm}, expiry={expiry}, "
+            f"strikes={len(strikes)}, symbols={len(symbols)}"
+        )
         return symbols
 
-    def _find_in_master(self, underlying: str, expiry: date, strike: float, option_type: str) -> dict | None:
+    def _find_in_master(
+        self, underlying: str, expiry: date, strike: float, option_type: str
+    ) -> dict | None:
         """Look up a specific contract in the symbol master."""
         if self._master.empty:
             return None
@@ -439,7 +444,8 @@ class SymbolManager:
         # Enforce plan limit
         if len(all_symbols) > MAX_SYMBOLS:
             logger.warning(
-                f"Symbol count {len(all_symbols)} exceeds plan limit {MAX_SYMBOLS}. Truncating to {MAX_SYMBOLS}."
+                f"Symbol count {len(all_symbols)} exceeds plan limit {MAX_SYMBOLS}. "
+                f"Truncating to {MAX_SYMBOLS}."
             )
             all_symbols = all_symbols[:MAX_SYMBOLS]
 
@@ -494,7 +500,7 @@ class SymbolManager:
             return expiries
 
         except Exception as e:
-            logger.exception(f"Failed to fetch expiry list for {underlying}: {e}")
+            logger.error(f"Failed to fetch expiry list for {underlying}: {e}")
             return []
 
     # ── Fetch Option Chain Symbols via API ──────────────────────────────────
@@ -530,7 +536,7 @@ class SymbolManager:
             return df
 
         except Exception as e:
-            logger.exception(f"Failed to fetch option chain for {underlying}: {e}")
+            logger.error(f"Failed to fetch option chain for {underlying}: {e}")
             return pd.DataFrame()
 
     # ── Properties ──────────────────────────────────────────────────────────
@@ -557,7 +563,12 @@ class SymbolManager:
             expiries = self._expiry_cache.get(underlying, [])
             nearest = expiries[0] if expiries else "N/A"
             count = (
-                len(self._master[self._master.get("underlying", pd.Series()).str.upper() == underlying.upper()])
+                len(
+                    self._master[
+                        self._master.get("underlying", pd.Series()).str.upper()
+                        == underlying.upper()
+                    ]
+                )
                 if "underlying" in self._master.columns
                 else 0
             )

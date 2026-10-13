@@ -66,10 +66,6 @@ import json
 import threading
 
 import pandas as pd
-from data.tick_collector import TickCollector
-from data.truedata_adapter import TrueDataAdapter
-from utils.logger import get_logger
-
 from config.settings import (
     ATM_RANGE,
     MARKET_CLOSE_HOUR,
@@ -82,7 +78,10 @@ from config.settings import (
     TD_INDEX_FUTURES_SYMBOLS,
     TD_INDEX_SPOT_SYMBOLS,
 )
-from database.db import get_engine, read_sql, upsert_candles, write_df
+from data.tick_collector import TickCollector
+from data.truedata_adapter import TrueDataAdapter
+from database.db import get_engine, read_sql, upsert_candles
+from utils.logger import get_logger
 
 # ── Setup logging to file ────────────────────────────────────────────────────
 log_dir = Path("logs")
@@ -295,7 +294,7 @@ def on_tick(tick: dict):
                 try:
                     upsert_candles(pd.DataFrame([candle]))
                 except Exception as e:
-                    logger.exception(f"Failed to write candle for {symbol}: {e}")
+                    logger.error(f"Failed to write candle for {symbol}: {e}")
         candle_buffer[symbol] = []
         last_minute[symbol] = minute_ts
 
@@ -341,7 +340,7 @@ def main():
             conn.execute(sqlalchemy.text("SELECT 1"))
         logger.info("Database connection OK.")
     except Exception as e:
-        logger.exception(f"Database connection failed: {e}")
+        logger.error(f"Database connection failed: {e}")
         return
 
     # ── Initialize TrueData ──────────────────────────────────────────────
@@ -377,7 +376,10 @@ def main():
         current_price = float(last_bars.iloc[-1]["close"])
     else:
         # Fallback: use last known price from DB
-        db_price = read_sql("SELECT close FROM minute_candles WHERE symbol = 'NIFTY-I' ORDER BY timestamp DESC LIMIT 1")
+        db_price = read_sql(
+            "SELECT close FROM minute_candles WHERE symbol = 'NIFTY-I' "
+            "ORDER BY timestamp DESC LIMIT 1"
+        )
         current_price = float(db_price.iloc[0]["close"]) if not db_price.empty else 24000
     logger.info(f"Current NIFTY price: {current_price:.1f}")
 
@@ -477,7 +479,8 @@ def main():
         secs_since_tick = time.time() - last_tick_received_time
         if secs_since_tick > WATCHDOG_TIMEOUT:
             logger.warning(
-                f"No ticks for {secs_since_tick:.0f}s — force-closing socket; stream loop will auto-reconnect."
+                f"No ticks for {secs_since_tick:.0f}s — force-closing socket; "
+                "stream loop will auto-reconnect."
             )
             try:
                 if td._ws:
@@ -515,7 +518,8 @@ def main():
         {"dt": today_str},
     )
     candle_count = read_sql(
-        "SELECT COUNT(DISTINCT symbol) as syms, COUNT(*) as bars FROM minute_candles WHERE timestamp::date = :dt",
+        "SELECT COUNT(DISTINCT symbol) as syms, COUNT(*) as bars "
+        "FROM minute_candles WHERE timestamp::date = :dt",
         {"dt": today_str},
     )
 

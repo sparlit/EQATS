@@ -55,11 +55,9 @@ Usage:
   action = agent.decide(state_dict)  # returns "HOLD", "EXIT", or "TIGHTEN"
 """
 
-import json
 import os
 import pickle
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from utils.logger import get_logger
@@ -316,7 +314,7 @@ class RLExitAgent:
                 exit_action = "RL_EXIT"
                 break
 
-            if action == "TIGHTEN":
+            elif action == "TIGHTEN":
                 # Tighten SL: move up to 50% of current gain
                 if current_prem > entry_premium:
                     new_sl = entry_premium + 0.5 * (current_prem - entry_premium)
@@ -367,7 +365,7 @@ class RLExitAgent:
             "states_seen": len(self.q_table),
         }
 
-    def save(self, path: str | None = None):
+    def save(self, path: str = None):
         """Save Q-table to disk."""
         path = path or str(RL_MODEL_PATH)
         MODEL_DIR.mkdir(parents=True, exist_ok=True)
@@ -380,9 +378,12 @@ class RLExitAgent:
         }
         with open(path, "wb") as f:
             pickle.dump(data, f)
-        logger.info(f"Saved RL exit agent: {len(self.q_table)} states, {self.training_episodes} episodes -> {path}")
+        logger.info(
+            f"Saved RL exit agent: {len(self.q_table)} states, "
+            f"{self.training_episodes} episodes -> {path}"
+        )
 
-    def load(self, path: str | None = None) -> bool:
+    def load(self, path: str = None) -> bool:
         """Load Q-table from disk."""
         path = path or str(RL_MODEL_PATH)
         if not os.path.exists(path):
@@ -394,10 +395,13 @@ class RLExitAgent:
             self.q_table = data["q_table"]
             self.training_episodes = data.get("training_episodes", 0)
             self.is_loaded = True
-            logger.info(f"Loaded RL exit agent: {len(self.q_table)} states, {self.training_episodes} episodes")
+            logger.info(
+                f"Loaded RL exit agent: {len(self.q_table)} states, "
+                f"{self.training_episodes} episodes"
+            )
             return True
         except Exception as e:
-            logger.exception(f"Failed to load RL model: {e}")
+            logger.error(f"Failed to load RL model: {e}")
             return False
 
     def policy_summary(self) -> dict:

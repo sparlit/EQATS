@@ -35,15 +35,13 @@ From the docs (Elaborated Challenges):
   Both outputs                  → Final trade decision
 """
 
-from typing import Optional
 
 import pandas as pd
+from config.settings import FEATURE_COLUMNS_MACRO, FEATURE_COLUMNS_MICRO
+from database.db import read_sql, write_df
 from features.indicators import compute_all_macro_indicators
 from features.micro_features import compute_micro_features
 from utils.logger import get_logger
-
-from config.settings import FEATURE_COLUMNS_MACRO, FEATURE_COLUMNS_MICRO
-from database.db import read_sql, write_df
 
 logger = get_logger("feature_engine")
 
@@ -99,7 +97,7 @@ def build_macro_features(
         write_df(features_df, "features_macro", if_exists="replace")
         logger.info(f"Wrote {len(features_df)} macro feature rows for {symbol}.")
     except Exception as e:
-        logger.exception(f"Failed to write macro features: {e}")
+        logger.error(f"Failed to write macro features: {e}")
 
     return features_df
 
@@ -128,7 +126,9 @@ def build_micro_features(
         return features_df
 
     # Persist to DB (include 'price' for label generation downstream)
-    available_cols = ["timestamp", "symbol", "price"] + [c for c in FEATURE_COLUMNS_MICRO if c in features_df.columns]
+    available_cols = ["timestamp", "symbol", "price"] + [
+        c for c in FEATURE_COLUMNS_MICRO if c in features_df.columns
+    ]
     available_cols = [c for c in available_cols if c in features_df.columns]
     out = features_df[available_cols].copy()
 
@@ -136,7 +136,7 @@ def build_micro_features(
         write_df(out, "features_micro", if_exists="replace")
         logger.info(f"Wrote {len(out)} micro feature rows for {symbol}.")
     except Exception as e:
-        logger.exception(f"Failed to write micro features: {e}")
+        logger.error(f"Failed to write micro features: {e}")
 
     return out
 

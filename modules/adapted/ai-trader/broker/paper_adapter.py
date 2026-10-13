@@ -37,7 +37,6 @@ Positions are tracked in-memory and persisted to the JSONL trade log.
 
 import uuid
 from datetime import datetime
-from typing import Optional
 
 from utils.logger import get_logger
 
@@ -115,7 +114,9 @@ class PaperAdapter(BrokerAdapter):
                 product=request.product,
                 order_id=order_id,
             )
-            logger.info(f"Paper BUY: {request.symbol} ×{request.quantity} @ ₹{fill_price:.2f} [{order_id}]")
+            logger.info(
+                f"Paper BUY: {request.symbol} ×{request.quantity} @ ₹{fill_price:.2f} [{order_id}]"
+            )
         elif request.side == OrderSide.SELL:
             # Find the matching position and close it
             closed = False

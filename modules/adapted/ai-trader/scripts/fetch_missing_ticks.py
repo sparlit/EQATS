@@ -31,13 +31,12 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import argparse
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 import pandas as pd
 from data.truedata_adapter import TrueDataAdapter
+from database.db import upsert_candles, write_df
 from utils.logger import get_logger
-
-from database.db import get_engine, upsert_candles, write_df
 
 logger = get_logger("fetch_missing_ticks")
 
@@ -64,7 +63,7 @@ def fetch_ticks_for_date(td: TrueDataAdapter, symbol: str, target_date: date) ->
         return ticks
 
     except Exception as e:
-        logger.exception(f"Error fetching ticks for {symbol} on {target_date}: {e}")
+        logger.error(f"Error fetching ticks for {symbol} on {target_date}: {e}")
         return pd.DataFrame()
 
 
@@ -76,7 +75,9 @@ def fetch_candles_for_date(td: TrueDataAdapter, symbol: str, target_date: date) 
     logger.info(f"Fetching candles for {symbol} on {target_date}")
 
     try:
-        candles = td.fetch_historical_bars(symbol=symbol, start=start_dt, end=end_dt, interval="1min")
+        candles = td.fetch_historical_bars(
+            symbol=symbol, start=start_dt, end=end_dt, interval="1min"
+        )
 
         if candles.empty:
             logger.warning(f"No candles returned for {symbol} on {target_date}")
@@ -94,7 +95,7 @@ def fetch_candles_for_date(td: TrueDataAdapter, symbol: str, target_date: date) 
         return candles
 
     except Exception as e:
-        logger.exception(f"Error fetching candles for {symbol} on {target_date}: {e}")
+        logger.error(f"Error fetching candles for {symbol} on {target_date}: {e}")
         return pd.DataFrame()
 
 
@@ -104,7 +105,17 @@ def store_ticks(ticks_df: pd.DataFrame) -> int:
         return 0
 
     # Prepare columns for tick_data table
-    required_cols = ["timestamp", "symbol", "price", "volume", "oi", "bid_price", "ask_price", "bid_qty", "ask_qty"]
+    required_cols = [
+        "timestamp",
+        "symbol",
+        "price",
+        "volume",
+        "oi",
+        "bid_price",
+        "ask_price",
+        "bid_qty",
+        "ask_qty",
+    ]
 
     # Fill missing columns with defaults
     for col in required_cols:
@@ -128,7 +139,7 @@ def store_ticks(ticks_df: pd.DataFrame) -> int:
         logger.info(f"Inserted {initial_count} ticks into tick_data")
         return initial_count
     except Exception as e:
-        logger.exception(f"Error inserting ticks: {e}")
+        logger.error(f"Error inserting ticks: {e}")
         return 0
 
 
@@ -157,14 +168,17 @@ def store_candles(candles_df: pd.DataFrame) -> int:
         logger.info(f"Upserted {initial_count} candles into minute_candles")
         return initial_count
     except Exception as e:
-        logger.exception(f"Error upserting candles: {e}")
+        logger.error(f"Error upserting candles: {e}")
         return 0
 
 
 def main():
     parser = argparse.ArgumentParser(description="Fetch missing tick data from TrueData")
     parser.add_argument(
-        "--dates", nargs="+", required=True, help="Dates to fetch in YYYY-MM-DD format (e.g., 2026-03-19 2026-03-20)"
+        "--dates",
+        nargs="+",
+        required=True,
+        help="Dates to fetch in YYYY-MM-DD format (e.g., 2026-03-19 2026-03-20)",
     )
     parser.add_argument("--symbol", default="NIFTY-I", help="Symbol to fetch (default: NIFTY-I)")
 
@@ -176,7 +190,7 @@ def main():
         try:
             target_dates.append(datetime.strptime(date_str, "%Y-%m-%d").date())
         except ValueError:
-            logger.exception(f"Invalid date format: {date_str}. Use YYYY-MM-DD")
+            logger.error(f"Invalid date format: {date_str}. Use YYYY-MM-DD")
             return 1
 
     logger.info(f"Fetching data for {len(target_dates)} dates: {target_dates}")

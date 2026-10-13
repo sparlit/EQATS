@@ -38,12 +38,11 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+from database.db import read_sql
 from features.indicators import compute_all_macro_indicators
 from models.strategy_models import train_all_strategy_models
 from models.train_model import MacroModelTrainer
 from utils.logger import get_logger
-
-from database.db import read_sql
 
 logger = get_logger("retrain_full")
 

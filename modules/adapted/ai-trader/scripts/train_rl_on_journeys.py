@@ -206,7 +206,7 @@ def evaluate_agent(agent: RLExitAgent, trades: list[dict]):
                 final_pnl_pct = (prem - ep) / ep
                 agent_action = "EXIT"
                 break
-            if action == "TIGHTEN":
+            elif action == "TIGHTEN":
                 agent_action = "TIGHTEN"
                 # keep going (tighten adjusts SL but doesn't exit)
 
@@ -224,9 +224,16 @@ def evaluate_agent(agent: RLExitAgent, trades: list[dict]):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=30, help="Training passes over all journeys")
-    parser.add_argument("--evaluate", action="store_true", help="Show policy stats only, don't train")
+    parser.add_argument(
+        "--evaluate", action="store_true", help="Show policy stats only, don't train"
+    )
     parser.add_argument("--fresh", action="store_true", help="Reset Q-table and train from scratch")
-    parser.add_argument("--epsilon", type=float, default=0.10, help="Exploration rate during training (default 0.10)")
+    parser.add_argument(
+        "--epsilon",
+        type=float,
+        default=0.10,
+        help="Exploration rate during training (default 0.10)",
+    )
     args = parser.parse_args()
 
     print("=" * 60)
@@ -264,7 +271,10 @@ def main():
     else:
         agent.load()
         if agent.is_loaded:
-            print(f"\n  Loaded existing Q-table: {len(agent.q_table)} states, {agent.training_episodes} prior episodes")
+            print(
+                f"\n  Loaded existing Q-table: {len(agent.q_table)} states, "
+                f"{agent.training_episodes} prior episodes"
+            )
         else:
             print("\n  No existing model — training from scratch")
 

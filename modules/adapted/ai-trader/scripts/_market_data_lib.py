@@ -44,7 +44,6 @@ Key conventions:
 
 import os
 import sys
-from collections.abc import Iterable
 from datetime import date, datetime, timedelta
 
 import pandas as pd
@@ -54,20 +53,9 @@ from sqlalchemy import text
 # Make project root importable when called as a script
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from typing import TYPE_CHECKING
-
-from utils.logger import get_logger
-
-from config.settings import (
-    EXPIRY_CADENCE,
-    STRIKE_GAP,
-    TD_INDEX_FUTURES_SYMBOLS,
-    TD_INDEX_SPOT_SYMBOLS,
-)
+from data.truedata_adapter import TrueDataAdapter
 from database.db import engine, read_sql, upsert_candles
-
-if TYPE_CHECKING:
-    from data.truedata_adapter import TrueDataAdapter
+from utils.logger import get_logger
 
 logger = get_logger("market_data_lib")
 
@@ -122,8 +110,12 @@ def trading_days_back(n: int, end: date | None = None, include_today: bool = Fal
 
 def session_window(d: date) -> tuple[datetime, datetime]:
     return (
-        datetime.combine(d, datetime.min.time().replace(hour=MARKET_OPEN_HM[0], minute=MARKET_OPEN_HM[1])),
-        datetime.combine(d, datetime.min.time().replace(hour=MARKET_CLOSE_HM[0], minute=MARKET_CLOSE_HM[1])),
+        datetime.combine(
+            d, datetime.min.time().replace(hour=MARKET_OPEN_HM[0], minute=MARKET_OPEN_HM[1])
+        ),
+        datetime.combine(
+            d, datetime.min.time().replace(hour=MARKET_CLOSE_HM[0], minute=MARKET_CLOSE_HM[1])
+        ),
     )
 
 
@@ -233,7 +225,10 @@ def candle_coverage(symbol: str, days: list[date]) -> dict[date, int]:
             "end": datetime.combine(max(days) + timedelta(days=1), datetime.min.time()),
         },
     )
-    counts = {row["dt"] if isinstance(row["dt"], date) else row["dt"].date(): int(row["n"]) for _, row in df.iterrows()}
+    counts = {
+        row["dt"] if isinstance(row["dt"], date) else row["dt"].date(): int(row["n"])
+        for _, row in df.iterrows()
+    }
     return {d: counts.get(d, 0) for d in days}
 
 
@@ -256,11 +251,16 @@ def tick_coverage(symbol: str, days: list[date]) -> dict[date, int]:
             "end": datetime.combine(max(days) + timedelta(days=1), datetime.min.time()),
         },
     )
-    counts = {row["dt"] if isinstance(row["dt"], date) else row["dt"].date(): int(row["n"]) for _, row in df.iterrows()}
+    counts = {
+        row["dt"] if isinstance(row["dt"], date) else row["dt"].date(): int(row["n"])
+        for _, row in df.iterrows()
+    }
     return {d: counts.get(d, 0) for d in days}
 
 
-def find_missing_candle_days(symbol: str, days: list[date], min_count: int = MIN_CANDLES_PER_DAY) -> list[date]:
+def find_missing_candle_days(
+    symbol: str, days: list[date], min_count: int = MIN_CANDLES_PER_DAY
+) -> list[date]:
     """Return weekdays where the symbol has < min_count candles."""
     cov = candle_coverage(symbol, days)
     return [d for d in days if is_trading_day(d) and cov.get(d, 0) < min_count]
@@ -304,7 +304,17 @@ def replace_day_ticks(df: pd.DataFrame, symbol: str, day: date) -> int:
     out["symbol"] = symbol
     out["timestamp"] = pd.to_datetime(out["timestamp"])
 
-    required = ["timestamp", "symbol", "price", "volume", "oi", "bid_price", "ask_price", "bid_qty", "ask_qty"]
+    required = [
+        "timestamp",
+        "symbol",
+        "price",
+        "volume",
+        "oi",
+        "bid_price",
+        "ask_price",
+        "bid_qty",
+        "ask_qty",
+    ]
     for col in required:
         if col not in out.columns:
             if col in ("bid_price", "ask_price"):
@@ -318,7 +328,9 @@ def replace_day_ticks(df: pd.DataFrame, symbol: str, day: date) -> int:
     end = datetime.combine(day + timedelta(days=1), datetime.min.time())
     with engine.begin() as conn:
         conn.execute(
-            text("DELETE FROM tick_data WHERE symbol = :sym AND timestamp >= :start AND timestamp < :end"),
+            text(
+                "DELETE FROM tick_data WHERE symbol = :sym AND timestamp >= :start AND timestamp < :end"
+            ),
             {"sym": symbol, "start": start, "end": end},
         )
         # Bulk insert (no method='multi' — slower but avoids parameter limits on huge days)

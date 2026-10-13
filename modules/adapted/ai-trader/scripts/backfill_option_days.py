@@ -34,7 +34,7 @@ Usage:
 """
 import os
 import sys
-from datetime import date, datetime, timedelta
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv
@@ -43,9 +43,8 @@ load_dotenv()
 
 from backtest.option_resolver import build_option_symbol, get_nearest_expiry
 from data.truedata_adapter import TrueDataAdapter
-from utils.logger import get_logger
-
 from database.db import read_sql, upsert_candles
+from utils.logger import get_logger
 
 logger = get_logger("backfill_options")
 
@@ -57,7 +56,8 @@ STRIKE_GAP = 50
 def find_missing_option_days() -> list:
     """Find all trading days that have NIFTY-I candles but no option data."""
     candle_days = read_sql(
-        "SELECT DISTINCT timestamp::date as day FROM minute_candles WHERE symbol = 'NIFTY-I' ORDER BY 1"
+        "SELECT DISTINCT timestamp::date as day FROM minute_candles "
+        "WHERE symbol = 'NIFTY-I' ORDER BY 1"
     )
     option_days = read_sql(
         "SELECT DISTINCT timestamp::date as day FROM minute_candles "
@@ -65,7 +65,8 @@ def find_missing_option_days() -> list:
     )
     candle_set = {str(d) for d in candle_days["day"]}
     option_set = {str(d) for d in option_days["day"]}
-    return sorted(candle_set - option_set)
+    missing = sorted(candle_set - option_set)
+    return missing
 
 
 def get_nifty_close_for_date(dt_str: str) -> float:
@@ -110,7 +111,8 @@ def backfill_day(td: TrueDataAdapter, day_str: str):
 
             # Check if we already have data for this symbol+day
             existing = read_sql(
-                "SELECT COUNT(*) as cnt FROM minute_candles WHERE symbol = :sym AND timestamp::date = :dt",
+                "SELECT COUNT(*) as cnt FROM minute_candles "
+                "WHERE symbol = :sym AND timestamp::date = :dt",
                 {"sym": sym, "dt": day_str},
             )
             if not existing.empty and existing.iloc[0]["cnt"] > 0:
@@ -127,7 +129,17 @@ def backfill_day(td: TrueDataAdapter, day_str: str):
                 for col in ["vwap", "oi"]:
                     if col not in bars.columns:
                         bars[col] = 0
-                cols = ["timestamp", "symbol", "open", "high", "low", "close", "volume", "vwap", "oi"]
+                cols = [
+                    "timestamp",
+                    "symbol",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "vwap",
+                    "oi",
+                ]
                 bars = bars[[c for c in cols if c in bars.columns]]
 
                 upsert_candles(bars)
@@ -159,7 +171,9 @@ def main():
         print("ERROR: TrueData authentication failed.")
         return
 
-    print(f"\nFetching ATM±{N_STRIKES} strikes (CE+PE) = {(2 * N_STRIKES + 1) * 2} symbols per day\n")
+    print(
+        f"\nFetching ATM±{N_STRIKES} strikes (CE+PE) = {(2 * N_STRIKES + 1) * 2} symbols per day\n"
+    )
 
     grand_total = 0
     for day_str in days:

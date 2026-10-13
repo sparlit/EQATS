@@ -36,9 +36,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from data.truedata_adapter import TrueDataAdapter
-from utils.logger import get_logger
-
 from database.db import read_sql, upsert_candles
+from utils.logger import get_logger
 
 logger = get_logger("backfill")
 
@@ -62,14 +61,18 @@ def backfill_today():
     )
     if not existing.empty and existing.iloc[0]["bars"] > 0:
         last_ts = existing.iloc[0]["last"]
-        print(f"  Existing NIFTY-I candles: {int(existing.iloc[0]['bars'])} bars, last at {last_ts}")
+        print(
+            f"  Existing NIFTY-I candles: {int(existing.iloc[0]['bars'])} bars, last at {last_ts}"
+        )
     else:
         print("  No existing candles for today.")
 
     # Fetch full day bars using start=9:15, end=now
     market_open = datetime(today.year, today.month, today.day, 9, 15, 0)
     now = datetime.now()
-    print(f"  Fetching NIFTY-I 1-min bars from {market_open.strftime('%H:%M')} to {now.strftime('%H:%M')}...")
+    print(
+        f"  Fetching NIFTY-I 1-min bars from {market_open.strftime('%H:%M')} to {now.strftime('%H:%M')}..."
+    )
     bars = td.fetch_historical_bars("NIFTY-I", start=market_open, end=now, interval="1min")
     if bars.empty:
         print("  ERROR: No bars returned from TrueData.")
@@ -99,7 +102,9 @@ def backfill_today():
             if days_ahead <= 0:
                 days_ahead += 7
             expiry = today + timedelta(days=days_ahead)
-            print(f"  Expiry was expired ({expiry - timedelta(days=days_ahead)}), using next Tuesday: {expiry}")
+            print(
+                f"  Expiry was expired ({expiry - timedelta(days=days_ahead)}), using next Tuesday: {expiry}"
+            )
         if expiry:
             print(f"  Nearest expiry: {expiry}")
             symbols = []
@@ -111,7 +116,9 @@ def backfill_today():
             fetched = 0
             for sym in symbols:
                 try:
-                    opt_bars = td.fetch_historical_bars(sym, start=market_open, end=now, interval="1min")
+                    opt_bars = td.fetch_historical_bars(
+                        sym, start=market_open, end=now, interval="1min"
+                    )
                     if opt_bars.empty:
                         continue
                     opt_bars = opt_bars.copy()
@@ -131,7 +138,9 @@ def backfill_today():
     )
     if not final.empty:
         r = final.iloc[0]
-        print(f"\n  NIFTY-I candles for {today_str}: {int(r['bars'])} bars ({r['first']} → {r['last']})")
+        print(
+            f"\n  NIFTY-I candles for {today_str}: {int(r['bars'])} bars ({r['first']} → {r['last']})"
+        )
 
 
 if __name__ == "__main__":

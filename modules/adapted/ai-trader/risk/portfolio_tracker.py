@@ -38,9 +38,8 @@ Missing from the original system — added to enable:
   - Total exposure tracking
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Dict, List, Optional
 
 from utils.logger import get_logger
 
@@ -65,7 +64,8 @@ class Position:
     def unrealized_pnl(self) -> float:
         if self.direction == "CALL":
             return (self.current_price - self.entry_price) * self.quantity
-        return (self.entry_price - self.current_price) * self.quantity
+        else:
+            return (self.entry_price - self.current_price) * self.quantity
 
     @property
     def unrealized_pnl_pct(self) -> float:
@@ -148,7 +148,8 @@ class PortfolioTracker:
             order_id=order_id,
         )
         logger.info(
-            f"Position opened: {symbol} {direction} qty={quantity} entry={entry_price} SL={stop_loss} TGT={target}"
+            f"Position opened: {symbol} {direction} qty={quantity} "
+            f"entry={entry_price} SL={stop_loss} TGT={target}"
         )
 
     def close_position(self, symbol: str, exit_price: float) -> float:
@@ -168,7 +169,8 @@ class PortfolioTracker:
         self._closed_trades_today += 1
 
         logger.info(
-            f"Position closed: {symbol} exit={exit_price} PnL=₹{pnl:,.2f} (realized total: ₹{self._realized_pnl:,.2f})"
+            f"Position closed: {symbol} exit={exit_price} "
+            f"PnL=₹{pnl:,.2f} (realized total: ₹{self._realized_pnl:,.2f})"
         )
         return pnl
 

@@ -28,16 +28,13 @@ Resolves ATM option contracts from the DB for a given index price and timestamp.
 Used by the backtest engine to trade actual option premiums instead of delta approximations.
 """
 
-import re
 import time
 from datetime import date, datetime, timedelta
-from typing import Optional, Tuple
 
 import pandas as pd
+from database.db import read_sql
 from strategy.vol_surface import VolSurfaceModel
 from utils.logger import get_logger
-
-from database.db import read_sql
 
 logger = get_logger("option_resolver")
 
@@ -120,7 +117,9 @@ def _fetch_live_expiries_from_truedata() -> list[date]:
         out.sort()
         _LIVE_EXPIRIES = out
         _LIVE_EXPIRIES_FETCHED_AT = now
-        logger.info(f"Fetched {len(out)} live NIFTY expiries from TrueData REST: next 5 = {out[:5]}")
+        logger.info(
+            f"Fetched {len(out)} live NIFTY expiries from TrueData REST: next 5 = {out[:5]}"
+        )
         return out
     except Exception as e:
         logger.warning(f"Live expiry fetch failed: {e}")
@@ -300,7 +299,9 @@ def preload_option_premiums(expiry_dates: list, index_df: pd.DataFrame, strike_g
                 load_option_premiums_for_day(sym, day)
                 loaded += 1
 
-    logger.info(f"Preloaded {loaded} option-day combinations, cache size: {len(_OPTION_PREMIUM_CACHE)}")
+    logger.info(
+        f"Preloaded {loaded} option-day combinations, cache size: {len(_OPTION_PREMIUM_CACHE)}"
+    )
     return day_info
 
 
@@ -448,7 +449,7 @@ def resolve_option_with_vol_surface(
     entry_premium = float(matching.iloc[0]["premium"])
     dte = get_days_to_expiry(ref_date, expiry)
 
-    return {
+    result = {
         "symbol": sym,
         "expiry": expiry,
         "strike": selected_strike,
@@ -458,6 +459,7 @@ def resolve_option_with_vol_surface(
         "premium_df": pdf,
         "vol_surface_info": selection,
     }
+    return result
 
 
 def clear_cache():

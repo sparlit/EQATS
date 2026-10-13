@@ -48,11 +48,10 @@ from datetime import date, datetime, timedelta
 
 import pandas as pd
 from data.truedata_adapter import TrueDataAdapter
-from sqlalchemy import MetaData, Table
+from database.db import engine, read_sql
+from sqlalchemy import MetaData
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from utils.logger import get_logger
-
-from database.db import engine, read_sql
 
 logger = get_logger("backfill_ticks")
 
@@ -81,7 +80,8 @@ def get_tick_counts(from_date: date, symbols: list[str]) -> pd.DataFrame:
         GROUP BY 1, 2
         ORDER BY 1, 2
     """
-    return read_sql(sql, {"from_ts": datetime.combine(from_date, datetime.min.time())})
+    df = read_sql(sql, {"from_ts": datetime.combine(from_date, datetime.min.time())})
+    return df
 
 
 def identify_gaps(
@@ -122,7 +122,17 @@ def upsert_ticks(df: pd.DataFrame) -> int:
     if df.empty:
         return 0
 
-    required = ["timestamp", "symbol", "price", "volume", "oi", "bid_price", "ask_price", "bid_qty", "ask_qty"]
+    required = [
+        "timestamp",
+        "symbol",
+        "price",
+        "volume",
+        "oi",
+        "bid_price",
+        "ask_price",
+        "bid_qty",
+        "ask_qty",
+    ]
 
     for col in required:
         if col not in df.columns:
@@ -142,7 +152,11 @@ def upsert_ticks(df: pd.DataFrame) -> int:
     with engine.begin() as conn:
         for chunk_start in range(0, len(rows), 500):
             chunk = rows[chunk_start : chunk_start + 500]
-            stmt = pg_insert(tbl).values(chunk).on_conflict_do_nothing(index_elements=["timestamp", "symbol"])
+            stmt = (
+                pg_insert(tbl)
+                .values(chunk)
+                .on_conflict_do_nothing(index_elements=["timestamp", "symbol"])
+            )
             result = conn.execute(stmt)
             inserted += result.rowcount
 
@@ -151,10 +165,16 @@ def upsert_ticks(df: pd.DataFrame) -> int:
 
 def backfill_day(td: TrueDataAdapter, target_date: date, symbol: str) -> int:
     """Fetch a full trading day of ticks and upsert into DB. Returns inserted count."""
-    start_dt = datetime.combine(target_date, datetime.min.time().replace(hour=MARKET_OPEN[0], minute=MARKET_OPEN[1]))
-    end_dt = datetime.combine(target_date, datetime.min.time().replace(hour=MARKET_CLOSE[0], minute=MARKET_CLOSE[1]))
+    start_dt = datetime.combine(
+        target_date, datetime.min.time().replace(hour=MARKET_OPEN[0], minute=MARKET_OPEN[1])
+    )
+    end_dt = datetime.combine(
+        target_date, datetime.min.time().replace(hour=MARKET_CLOSE[0], minute=MARKET_CLOSE[1])
+    )
 
-    logger.info(f"  Fetching {symbol} on {target_date} ({start_dt.strftime('%H:%M')}–{end_dt.strftime('%H:%M')} IST)")
+    logger.info(
+        f"  Fetching {symbol} on {target_date} ({start_dt.strftime('%H:%M')}–{end_dt.strftime('%H:%M')} IST)"
+    )
 
     ticks = td.fetch_historical_ticks(symbol=symbol, start=start_dt, end=end_dt)
     if ticks.empty:
@@ -170,16 +190,22 @@ def backfill_day(td: TrueDataAdapter, target_date: date, symbol: str) -> int:
 def main():
     parser = argparse.ArgumentParser(description="Backfill missing tick data from TrueData")
     parser.add_argument(
-        "--from-date", default="2026-03-10", help="Check coverage from this date (YYYY-MM-DD, default: 2026-03-10)"
+        "--from-date",
+        default="2026-03-10",
+        help="Check coverage from this date (YYYY-MM-DD, default: 2026-03-10)",
     )
-    parser.add_argument("--symbols", nargs="+", default=["NIFTY-I"], help="Symbols to check (default: NIFTY-I)")
+    parser.add_argument(
+        "--symbols", nargs="+", default=["NIFTY-I"], help="Symbols to check (default: NIFTY-I)"
+    )
     parser.add_argument(
         "--threshold",
         type=int,
         default=DEFAULT_THRESHOLD,
         help=f"Minimum ticks/day to consider complete (default: {DEFAULT_THRESHOLD})",
     )
-    parser.add_argument("--dry-run", action="store_true", help="Report gaps only — do not fetch or insert")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Report gaps only — do not fetch or insert"
+    )
     args = parser.parse_args()
 
     from_date = datetime.strptime(args.from_date, "%Y-%m-%d").date()
@@ -206,7 +232,9 @@ def main():
             dt = row["dt"].date() if hasattr(row["dt"], "date") else row["dt"]
             status = "OK" if row["ticks"] >= args.threshold else "SPARSE"
             in_window = "(in 5d window)" if dt >= window_start else "(beyond window)"
-            logger.info(f"  {dt}  {row['symbol']:20s}  {int(row['ticks']):>7,} ticks  [{status}] {in_window}")
+            logger.info(
+                f"  {dt}  {row['symbol']:20s}  {int(row['ticks']):>7,} ticks  [{status}] {in_window}"
+            )
 
     logger.info("")
 

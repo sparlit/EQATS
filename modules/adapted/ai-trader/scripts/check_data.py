@@ -55,7 +55,8 @@ print("\n=== TICK DATA (NIFTY-I) ===")
 print(tick_summary.to_string(index=False))
 
 tick_daily = read_sql(
-    "SELECT timestamp::date as day, COUNT(*) as ticks FROM tick_data WHERE symbol = 'NIFTY-I' GROUP BY 1 ORDER BY 1"
+    "SELECT timestamp::date as day, COUNT(*) as ticks "
+    "FROM tick_data WHERE symbol = 'NIFTY-I' GROUP BY 1 ORDER BY 1"
 )
 print("\nTick data by day:")
 print(tick_daily.to_string(index=False))

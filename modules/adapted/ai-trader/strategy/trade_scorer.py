@@ -41,10 +41,6 @@ From the Product Vision doc (§12, §13):
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
-
-from strategy.signal_generator import Signal
-from utils.logger import get_logger
 
 from config.settings import (
     SCORE_THRESHOLD,
@@ -52,6 +48,8 @@ from config.settings import (
     WEIGHT_OPTIONS_FLOW,
     WEIGHT_TECHNICAL_STRENGTH,
 )
+from strategy.signal_generator import Signal
+from utils.logger import get_logger
 
 logger = get_logger("trade_scorer")
 
@@ -130,7 +128,9 @@ class TradeScorer:
         """
         tech_strength = signal.technical_strength
 
-        final_score = self.w_ml * ml_probability + self.w_flow * flow_score + self.w_tech * tech_strength
+        final_score = (
+            self.w_ml * ml_probability + self.w_flow * flow_score + self.w_tech * tech_strength
+        )
 
         return ScoredTrade(
             signal=signal,
@@ -149,8 +149,8 @@ class TradeScorer:
     def rank_trades(
         self,
         signals: list[Signal],
-        ml_probabilities: dict[str, float] | None = None,
-        flow_scores: dict[str, float] | None = None,
+        ml_probabilities: dict[str, float] = None,
+        flow_scores: dict[str, float] = None,
         regime: str = "",
     ) -> list[ScoredTrade]:
         """

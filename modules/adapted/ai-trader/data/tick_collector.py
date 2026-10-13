@@ -34,12 +34,10 @@ Central tick ingestion service. Receives ticks from any source
 
 from collections.abc import Callable
 from datetime import datetime
-from typing import Dict, List, Optional
 
 import pandas as pd
-from utils.logger import get_logger
-
 from database.db import write_df
+from utils.logger import get_logger
 
 logger = get_logger("tick_collector")
 
@@ -74,7 +72,7 @@ class TickCollector:
             try:
                 listener(tick)
             except Exception as e:
-                logger.exception(f"Tick listener error: {e}")
+                logger.error(f"Tick listener error: {e}")
 
         # Flush buffer when full
         if len(self._buffer) >= self._buffer_size:
@@ -105,7 +103,7 @@ class TickCollector:
             write_df(df[cols], "tick_data")
             logger.info(f"Flushed {len(self._buffer)} ticks to database.")
         except Exception as e:
-            logger.exception(f"Failed to flush ticks: {e}")
+            logger.error(f"Failed to flush ticks: {e}")
 
         self._buffer.clear()
 
@@ -152,4 +150,4 @@ class TickCollector:
             write_df(df[cols], "tick_data")
             logger.info(f"Ingested {len(df)} historical ticks.")
         except Exception as e:
-            logger.exception(f"Failed to ingest historical ticks: {e}")
+            logger.error(f"Failed to ingest historical ticks: {e}")

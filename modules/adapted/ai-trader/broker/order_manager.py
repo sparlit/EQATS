@@ -43,20 +43,14 @@ tracks WHAT happened (position state).
 
 import os
 import threading
-import time
 from dataclasses import dataclass, field
-from datetime import date, datetime
-from typing import Optional
+from datetime import datetime
 
 from utils.logger import get_logger
 
 from broker.base_adapter import (
     BrokerAdapter,
-    OrderResponse,
-    OrderSide,
     OrderStatus,
-    OrderType,
-    Position,
 )
 from broker.paper_adapter import PaperAdapter
 from broker.zerodha_adapter import ZerodhaAdapter
@@ -217,7 +211,10 @@ class OrderManager:
             # 3. Concurrent position limit?
             open_count = len(self.open_positions)
             if open_count >= self._max_concurrent:
-                return {"action": "rejected", "reason": f"Max concurrent positions ({self._max_concurrent}) reached"}
+                return {
+                    "action": "rejected",
+                    "reason": f"Max concurrent positions ({self._max_concurrent}) reached",
+                }
 
             # 4. Same-direction duplicate?
             for pos in self.open_positions:
@@ -239,7 +236,10 @@ class OrderManager:
                     f"Signal QUEUED for manual confirmation: {signal.get('symbol')} "
                     f"{signal.get('direction')} {signal.get('strategy')}"
                 )
-                return {"action": "queued", "reason": "Waiting for manual confirmation on dashboard"}
+                return {
+                    "action": "queued",
+                    "reason": "Waiting for manual confirmation on dashboard",
+                }
 
             # ── Execute ───────────────────────────────────────────────
             return self._execute_entry(signal)
@@ -306,15 +306,18 @@ class OrderManager:
                 "order_id": resp.order_id,
                 "fill_price": fill_price,
             }
-        logger.warning(f"ENTRY FAILED: {symbol} — {resp.message}")
-        return {"action": "rejected", "reason": f"Order failed: {resp.message}"}
+        else:
+            logger.warning(f"ENTRY FAILED: {symbol} — {resp.message}")
+            return {"action": "rejected", "reason": f"Order failed: {resp.message}"}
 
     # ── Exit ──────────────────────────────────────────────────────────
 
     def exit_position(self, order_id: str, price: float = 0, reason: str = "MANUAL") -> dict:
         """Exit a specific position by its order_id."""
         with self._lock:
-            pos = next((p for p in self._positions if p.order_id == order_id and p.status == "OPEN"), None)
+            pos = next(
+                (p for p in self._positions if p.order_id == order_id and p.status == "OPEN"), None
+            )
             if not pos:
                 return {"action": "rejected", "reason": f"No open position with ID {order_id}"}
 
@@ -335,7 +338,9 @@ class OrderManager:
                 pos.pnl = pnl
                 self._daily_pnl += pnl
 
-                logger.info(f"EXIT: {pos.symbol} ×{pos.quantity} @ ₹{fill:.2f} P&L=₹{pnl:+,.0f} [{reason}]")
+                logger.info(
+                    f"EXIT: {pos.symbol} ×{pos.quantity} @ ₹{fill:.2f} P&L=₹{pnl:+,.0f} [{reason}]"
+                )
 
                 # Check max daily loss after exit
                 if self._daily_pnl <= self._max_daily_loss:
@@ -344,8 +349,9 @@ class OrderManager:
                     logger.warning(f"HALT: {self._halt_reason}")
 
                 return {"action": "executed", "pnl": pnl, "order_id": resp.order_id}
-            logger.error(f"EXIT FAILED: {pos.symbol} — {resp.message}")
-            return {"action": "rejected", "reason": resp.message}
+            else:
+                logger.error(f"EXIT FAILED: {pos.symbol} — {resp.message}")
+                return {"action": "rejected", "reason": resp.message}
 
     # ── SL Management ─────────────────────────────────────────────────
 
@@ -396,7 +402,9 @@ class OrderManager:
             results = []
             for pos in self._positions:
                 if pos.status == "OPEN":
-                    result = self.exit_position(pos.order_id, price=pos.current_price, reason="KILL_SWITCH")
+                    result = self.exit_position(
+                        pos.order_id, price=pos.current_price, reason="KILL_SWITCH"
+                    )
                     results.append(result)
 
             # Also trigger adapter's own kill switch (catches anything we missed)
@@ -475,7 +483,11 @@ class OrderManager:
         else:
             logger.debug("Reconciliation: all positions match")
 
-        return {"discrepancies": discrepancies, "our_open": len(our_open), "broker_open": len(broker_open)}
+        return {
+            "discrepancies": discrepancies,
+            "our_open": len(our_open),
+            "broker_open": len(broker_open),
+        }
 
     # ── State for dashboard ───────────────────────────────────────────
 

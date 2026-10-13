@@ -22,10 +22,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import pandas as pd
+from config.settings import DB_URL
 from sqlalchemy import create_engine, text
 from utils.logger import logger
-
-from config.settings import DB_URL
 
 engine = create_engine(DB_URL, pool_size=5, max_overflow=10, pool_pre_ping=True)
 
@@ -38,14 +37,14 @@ def get_connection():
     return engine.connect()
 
 
-def execute_sql(sql: str, params: dict | None = None):
+def execute_sql(sql: str, params: dict = None):
     with engine.connect() as conn:
         result = conn.execute(text(sql), params or {})
         conn.commit()
         return result
 
 
-def read_sql(query: str, params: dict | None = None) -> pd.DataFrame:
+def read_sql(query: str, params: dict = None) -> pd.DataFrame:
     with engine.connect() as conn:
         return pd.read_sql(text(query), conn, params=params)
 
@@ -58,7 +57,7 @@ def upsert_candles(df: pd.DataFrame, table: str = "minute_candles"):
     """Insert candles, ignoring rows that already exist (by timestamp+symbol)."""
     if df.empty:
         return 0
-    from sqlalchemy import MetaData, Table
+    from sqlalchemy import MetaData
     from sqlalchemy.dialects.postgresql import insert as pg_insert
 
     meta = MetaData()
@@ -69,7 +68,11 @@ def upsert_candles(df: pd.DataFrame, table: str = "minute_candles"):
     with engine.begin() as conn:
         for chunk_start in range(0, len(rows), 500):
             chunk = rows[chunk_start : chunk_start + 500]
-            stmt = pg_insert(tbl).values(chunk).on_conflict_do_nothing(index_elements=["timestamp", "symbol"])
+            stmt = (
+                pg_insert(tbl)
+                .values(chunk)
+                .on_conflict_do_nothing(index_elements=["timestamp", "symbol"])
+            )
             result = conn.execute(stmt)
             inserted += result.rowcount
     return inserted
