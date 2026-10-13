@@ -1,5 +1,5 @@
 {
-  "current_index": 29,
+  "current_index": 30,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -237,7 +237,7 @@
       "name": "zerobha",
       "target": "althk/zerobha",
       "url": "https://github.com/althk/zerobha",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
