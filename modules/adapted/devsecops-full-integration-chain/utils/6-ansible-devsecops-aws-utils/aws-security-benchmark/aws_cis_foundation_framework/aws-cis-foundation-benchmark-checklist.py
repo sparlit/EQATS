@@ -128,7 +128,9 @@ def control_1_1_root_use(credreport):
     frm = "%Y-%m-%dT%H:%M:%S+00:00"
 
     try:
-        pwdDelta = datetime.strptime(now, frm) - datetime.strptime(credreport[0]["password_last_used"], frm)
+        pwdDelta = datetime.strptime(now, frm) - datetime.strptime(
+            credreport[0]["password_last_used"], frm
+        )
         if (pwdDelta.days == CONTROL_1_1_DAYS) & (pwdDelta.seconds > 0):  # Used within last 24h
             failReason = "Used within 24h"
             result = False
@@ -139,7 +141,9 @@ def control_1_1_root_use(credreport):
             print("Something went wrong")
 
     try:
-        key1Delta = datetime.strptime(now, frm) - datetime.strptime(credreport[0]["access_key_1_last_used_date"], frm)
+        key1Delta = datetime.strptime(now, frm) - datetime.strptime(
+            credreport[0]["access_key_1_last_used_date"], frm
+        )
         if (key1Delta.days == CONTROL_1_1_DAYS) & (key1Delta.seconds > 0):  # Used within last 24h
             failReason = "Used within 24h"
             result = False
@@ -149,7 +153,9 @@ def control_1_1_root_use(credreport):
         else:
             print("Something went wrong")
     try:
-        key2Delta = datetime.strptime(now, frm) - datetime.strptime(credreport[0]["access_key_2_last_used_date"], frm)
+        key2Delta = datetime.strptime(now, frm) - datetime.strptime(
+            credreport[0]["access_key_2_last_used_date"], frm
+        )
         if (key2Delta.days == CONTROL_1_1_DAYS) & (key2Delta.seconds > 0):  # Used within last 24h
             failReason = "Used within 24h"
             result = False
@@ -226,7 +232,9 @@ def control_1_3_unused_credentials(credreport):
     for i in range(len(credreport)):
         if credreport[i]["password_enabled"] == "true":
             try:
-                delta = datetime.strptime(now, frm) - datetime.strptime(credreport[i]["password_last_used"], frm)
+                delta = datetime.strptime(now, frm) - datetime.strptime(
+                    credreport[i]["password_last_used"], frm
+                )
                 # Verify password have been used in the last 90 days
                 if delta.days > 90:
                     result = False
@@ -293,7 +301,9 @@ def control_1_4_rotated_keys(credreport):
     for i in range(len(credreport)):
         if credreport[i]["access_key_1_active"] == "true":
             try:
-                delta = datetime.strptime(now, frm) - datetime.strptime(credreport[i]["access_key_1_last_rotated"], frm)
+                delta = datetime.strptime(now, frm) - datetime.strptime(
+                    credreport[i]["access_key_1_last_rotated"], frm
+                )
                 # Verify keys have rotated in the last 90 days
                 if delta.days > 90:
                     result = False
@@ -302,8 +312,12 @@ def control_1_4_rotated_keys(credreport):
             except:
                 pass
             try:
-                last_used_datetime = datetime.strptime(credreport[i]["access_key_1_last_used_date"], frm)
-                last_rotated_datetime = datetime.strptime(credreport[i]["access_key_1_last_rotated"], frm)
+                last_used_datetime = datetime.strptime(
+                    credreport[i]["access_key_1_last_used_date"], frm
+                )
+                last_rotated_datetime = datetime.strptime(
+                    credreport[i]["access_key_1_last_rotated"], frm
+                )
                 # Verify keys have been used since rotation.
                 if last_used_datetime < last_rotated_datetime:
                     result = False
@@ -313,7 +327,9 @@ def control_1_4_rotated_keys(credreport):
                 pass
         if credreport[i]["access_key_2_active"] == "true":
             try:
-                delta = datetime.strptime(now, frm) - datetime.strptime(credreport[i]["access_key_2_last_rotated"], frm)
+                delta = datetime.strptime(now, frm) - datetime.strptime(
+                    credreport[i]["access_key_2_last_rotated"], frm
+                )
                 # Verify keys have rotated in the last 90 days
                 if delta.days > 90:
                     result = False
@@ -322,8 +338,12 @@ def control_1_4_rotated_keys(credreport):
             except:
                 pass
             try:
-                last_used_datetime = datetime.strptime(credreport[i]["access_key_2_last_used_date"], frm)
-                last_rotated_datetime = datetime.strptime(credreport[i]["access_key_2_last_rotated"], frm)
+                last_used_datetime = datetime.strptime(
+                    credreport[i]["access_key_2_last_used_date"], frm
+                )
+                last_rotated_datetime = datetime.strptime(
+                    credreport[i]["access_key_2_last_rotated"], frm
+                )
                 # Verify keys have been used since rotation.
                 if last_used_datetime < last_rotated_datetime:
                     result = False
@@ -360,9 +380,10 @@ def control_1_5_password_policy_uppercase(passwordpolicy):
     if passwordpolicy is False:
         result = False
         failReason = "Account does not have a IAM password policy."
-    elif passwordpolicy["RequireUppercaseCharacters"] is False:
-        result = False
-        failReason = "Password policy does not require at least one uppercase letter"
+    else:
+        if passwordpolicy["RequireUppercaseCharacters"] is False:
+            result = False
+            failReason = "Password policy does not require at least one uppercase letter"
     return {
         "Result": result,
         "failReason": failReason,
@@ -392,9 +413,10 @@ def control_1_6_password_policy_lowercase(passwordpolicy):
     if passwordpolicy is False:
         result = False
         failReason = "Account does not have a IAM password policy."
-    elif passwordpolicy["RequireLowercaseCharacters"] is False:
-        result = False
-        failReason = "Password policy does not require at least one uppercase letter"
+    else:
+        if passwordpolicy["RequireLowercaseCharacters"] is False:
+            result = False
+            failReason = "Password policy does not require at least one uppercase letter"
     return {
         "Result": result,
         "failReason": failReason,
@@ -424,9 +446,10 @@ def control_1_7_password_policy_symbol(passwordpolicy):
     if passwordpolicy is False:
         result = False
         failReason = "Account does not have a IAM password policy."
-    elif passwordpolicy["RequireSymbols"] is False:
-        result = False
-        failReason = "Password policy does not require at least one symbol"
+    else:
+        if passwordpolicy["RequireSymbols"] is False:
+            result = False
+            failReason = "Password policy does not require at least one symbol"
     return {
         "Result": result,
         "failReason": failReason,
@@ -456,9 +479,10 @@ def control_1_8_password_policy_number(passwordpolicy):
     if passwordpolicy is False:
         result = False
         failReason = "Account does not have a IAM password policy."
-    elif passwordpolicy["RequireNumbers"] is False:
-        result = False
-        failReason = "Password policy does not require at least one number"
+    else:
+        if passwordpolicy["RequireNumbers"] is False:
+            result = False
+            failReason = "Password policy does not require at least one number"
     return {
         "Result": result,
         "failReason": failReason,
@@ -488,9 +512,10 @@ def control_1_9_password_policy_length(passwordpolicy):
     if passwordpolicy is False:
         result = False
         failReason = "Account does not have a IAM password policy."
-    elif passwordpolicy["MinimumPasswordLength"] < 14:
-        result = False
-        failReason = "Password policy does not require at least 14 characters"
+    else:
+        if passwordpolicy["MinimumPasswordLength"] < 14:
+            result = False
+            failReason = "Password policy does not require at least 14 characters"
     return {
         "Result": result,
         "failReason": failReason,
@@ -559,13 +584,14 @@ def control_1_11_password_policy_expire(passwordpolicy):
     if passwordpolicy is False:
         result = False
         failReason = "Account does not have a IAM password policy."
-    elif passwordpolicy["ExpirePasswords"] is True:
-        if 0 < passwordpolicy["MaxPasswordAge"] > 90:
+    else:
+        if passwordpolicy["ExpirePasswords"] is True:
+            if 0 < passwordpolicy["MaxPasswordAge"] > 90:
+                result = False
+                failReason = "Password policy does not expire passwords after 90 days or less"
+        else:
             result = False
             failReason = "Password policy does not expire passwords after 90 days or less"
-    else:
-        result = False
-        failReason = "Password policy does not expire passwords after 90 days or less"
     return {
         "Result": result,
         "failReason": failReason,
@@ -592,7 +618,9 @@ def control_1_12_root_key_exists(credreport):
     control = "1.12"
     description = "Ensure no root account access key exists"
     scored = True
-    if (credreport[0]["access_key_1_active"] == "true") or (credreport[0]["access_key_2_active"] == "true"):
+    if (credreport[0]["access_key_1_active"] == "true") or (
+        credreport[0]["access_key_2_active"] == "true"
+    ):
         result = False
         failReason = "Root have active access keys"
     return {
@@ -683,7 +711,9 @@ def control_1_15_security_questions_registered():
     failReason = ""
     offenders = []
     control = "1.15"
-    description = "Ensure security questions are registered in the AWS account, please verify manually"
+    description = (
+        "Ensure security questions are registered in the AWS account, please verify manually"
+    )
     scored = False
     failReason = "Control not implemented using API, please verify manually"
     return {
@@ -767,7 +797,9 @@ def control_1_18_ensure_iam_master_and_manager_roles():
     failReason = "No IAM Master or IAM Manager role created"
     offenders = []
     control = "1.18"
-    description = "Ensure IAM Master and IAM Manager roles are active. Control under review/investigation"
+    description = (
+        "Ensure IAM Master and IAM Manager roles are active. Control under review/investigation"
+    )
     scored = True
     return {
         "Result": result,
@@ -838,9 +870,7 @@ def control_1_21_ensure_iam_instance_roles_used():
     failReason = ""
     offenders = []
     control = "1.21"
-    description = (
-        "Ensure IAM instance roles are used for AWS resource access from instances, application code is not audited"
-    )
+    description = "Ensure IAM instance roles are used for AWS resource access from instances, application code is not audited"
     scored = True
     failReason = "Instance not assigned IAM role for EC2"
     client = boto3.client("ec2")
@@ -878,8 +908,14 @@ def control_1_22_ensure_incident_management_roles():
     scored = True
     offenders = []
     try:
-        response = IAM_CLIENT.list_entities_for_policy(PolicyArn="arn:aws:iam::aws:policy/AWSSupportAccess")
-        if (len(response["PolicyGroups"]) + len(response["PolicyUsers"]) + len(response["PolicyRoles"])) == 0:
+        response = IAM_CLIENT.list_entities_for_policy(
+            PolicyArn="arn:aws:iam::aws:policy/AWSSupportAccess"
+        )
+        if (
+            len(response["PolicyGroups"])
+            + len(response["PolicyUsers"])
+            + len(response["PolicyRoles"])
+        ) == 0:
             result = False
             failReason = "No user, group or role assigned AWSSupportAccess"
     except:
@@ -910,7 +946,9 @@ def control_1_23_no_active_initial_access_keys_with_iam_user(credreport):
     scored = False
     offenders = []
     for n, _ in enumerate(credreport):
-        if (credreport[n]["access_key_1_active"] or credreport[n]["access_key_2_active"] == "true") and n > 0:
+        if (
+            credreport[n]["access_key_1_active"] or credreport[n]["access_key_2_active"] == "true"
+        ) and n > 0:
             response = IAM_CLIENT.list_access_keys(UserName=str(credreport[n]["user"]))
             for m in response["AccessKeyMetadata"]:
                 if re.sub(r"\s", "T", str(m["CreateDate"])) == credreport[n]["user_creation_time"]:
@@ -1077,11 +1115,16 @@ def control_2_3_ensure_cloudtrail_bucket_not_public(cloudtrails):
                     response = S3_CLIENT.get_bucket_acl(Bucket=o["S3BucketName"])
                     for p in response["Grants"]:
                         # print("Grantee is " + str(p['Grantee']))
-                        if re.search(r"(global/AllUsers|global/AuthenticatedUsers)", str(p["Grantee"])):
+                        if re.search(
+                            r"(global/AllUsers|global/AuthenticatedUsers)", str(p["Grantee"])
+                        ):
                             result = False
                             offenders.append(str(o["TrailARN"]) + ":PublicBucket")
                             if "Publically" not in failReason:
-                                failReason = failReason + "Publically accessible CloudTrail bucket discovered."
+                                failReason = (
+                                    failReason
+                                    + "Publically accessible CloudTrail bucket discovered."
+                                )
                 except Exception as e:
                     result = False
                     if "AccessDenied" in str(e):
@@ -1170,9 +1213,7 @@ def control_2_5_ensure_config_all_regions(regions):
         try:
             if response["ConfigurationRecordersStatus"][0]["recording"] is not True:
                 result = False
-                failReason = (
-                    "Config not enabled in all regions, not capturing all/global events or delivery channel errors"
-                )
+                failReason = "Config not enabled in all regions, not capturing all/global events or delivery channel errors"
                 offenders.append(str(n) + ":NotRecording")
         except:
             result = False
@@ -1184,16 +1225,19 @@ def control_2_5_ensure_config_all_regions(regions):
         try:
             if response["ConfigurationRecorders"][0]["recordingGroup"]["allSupported"] is not True:
                 result = False
-                failReason = (
-                    "Config not enabled in all regions, not capturing all/global events or delivery channel errors"
-                )
+                failReason = "Config not enabled in all regions, not capturing all/global events or delivery channel errors"
                 offenders.append(str(n) + ":NotAllEvents")
         except:
             pass  # This indicates that Config is disabled in the region and will be captured above.
 
         # Check if region is capturing global events. Fail is verified later since only one region needs to capture them.
         try:
-            if response["ConfigurationRecorders"][0]["recordingGroup"]["includeGlobalResourceTypes"] is True:
+            if (
+                response["ConfigurationRecorders"][0]["recordingGroup"][
+                    "includeGlobalResourceTypes"
+                ]
+                is True
+            ):
                 globalConfigCapture = True
         except:
             pass
@@ -1201,20 +1245,22 @@ def control_2_5_ensure_config_all_regions(regions):
         # Verify the delivery channels
         response = configClient.describe_delivery_channel_status()
         try:
-            if response["DeliveryChannelsStatus"][0]["configHistoryDeliveryInfo"]["lastStatus"] != "SUCCESS":
+            if (
+                response["DeliveryChannelsStatus"][0]["configHistoryDeliveryInfo"]["lastStatus"]
+                != "SUCCESS"
+            ):
                 result = False
-                failReason = (
-                    "Config not enabled in all regions, not capturing all/global events or delivery channel errors"
-                )
+                failReason = "Config not enabled in all regions, not capturing all/global events or delivery channel errors"
                 offenders.append(str(n) + ":S3orSNSDelivery")
         except:
             pass  # Will be captured by earlier rule
         try:
-            if response["DeliveryChannelsStatus"][0]["configStreamDeliveryInfo"]["lastStatus"] != "SUCCESS":
+            if (
+                response["DeliveryChannelsStatus"][0]["configStreamDeliveryInfo"]["lastStatus"]
+                != "SUCCESS"
+            ):
                 result = False
-                failReason = (
-                    "Config not enabled in all regions, not capturing all/global events or delivery channel errors"
-                )
+                failReason = "Config not enabled in all regions, not capturing all/global events or delivery channel errors"
                 offenders.append(str(n) + ":SNSDelivery")
         except:
             pass  # Will be captured by earlier rule
@@ -1265,7 +1311,9 @@ def control_2_6_ensure_cloudtrail_bucket_logging(cloudtrails):
             except:
                 result = False
                 failReason = failReason + "CloudTrail S3 bucket without logging discovered"
-                offenders.append("Trail:" + str(o["TrailARN"]) + " - S3Bucket:" + str(o["S3BucketName"]))
+                offenders.append(
+                    "Trail:" + str(o["TrailARN"]) + " - S3Bucket:" + str(o["S3BucketName"])
+                )
     return {
         "Result": result,
         "failReason": failReason,
@@ -1417,7 +1465,9 @@ def control_3_2_ensure_log_metric_filter_console_signin_no_mfa(cloudtrails):
     failReason = ""
     offenders = []
     control = "3.2"
-    description = "Ensure a log metric filter and alarm exist for Management Console sign-in without MFA"
+    description = (
+        "Ensure a log metric filter and alarm exist for Management Console sign-in without MFA"
+    )
     scored = True
     failReason = "Incorrect log metric alerts for management console signin without MFA"
     for m, n in cloudtrails.iteritems():
@@ -1690,9 +1740,13 @@ def control_3_7_ensure_log_metric_disabling_scheduled_delete_of_kms_cmk(cloudtra
     failReason = ""
     offenders = []
     control = "3.7"
-    description = "Ensure a log metric filter and alarm exist for disabling or scheduling deletion of KMS CMK"
+    description = (
+        "Ensure a log metric filter and alarm exist for disabling or scheduling deletion of KMS CMK"
+    )
     scored = True
-    failReason = "Ensure a log metric filter and alarm exist for disabling or scheduling deletion of KMS CMK"
+    failReason = (
+        "Ensure a log metric filter and alarm exist for disabling or scheduling deletion of KMS CMK"
+    )
     for m, n in cloudtrails.iteritems():
         for o in n:
             try:
@@ -1801,9 +1855,13 @@ def control_3_9_ensure_log_metric_config_configuration_changes(cloudtrails):
     failReason = ""
     offenders = []
     control = "3.9"
-    description = "Ensure a log metric filter and alarm exist for for AWS Config configuration changes"
+    description = (
+        "Ensure a log metric filter and alarm exist for for AWS Config configuration changes"
+    )
     scored = True
-    failReason = "Ensure a log metric filter and alarm exist for for AWS Config configuration changes"
+    failReason = (
+        "Ensure a log metric filter and alarm exist for for AWS Config configuration changes"
+    )
     for m, n in cloudtrails.iteritems():
         for o in n:
             try:
@@ -2172,14 +2230,20 @@ def control_4_1_ensure_ssh_not_open_to_world(regions):
             if "0.0.0.0/0" in str(m["IpPermissions"]):
                 for o in m["IpPermissions"]:
                     try:
-                        if int(o["FromPort"]) <= 22 <= int(o["ToPort"]) and "0.0.0.0/0" in str(o["IpRanges"]):
+                        if int(o["FromPort"]) <= 22 <= int(o["ToPort"]) and "0.0.0.0/0" in str(
+                            o["IpRanges"]
+                        ):
                             result = False
-                            failReason = "Found Security Group with port 22 open to the world (0.0.0.0/0)"
+                            failReason = (
+                                "Found Security Group with port 22 open to the world (0.0.0.0/0)"
+                            )
                             offenders.append(str(m["GroupId"]))
                     except:
                         if str(o["IpProtocol"]) == "-1" and "0.0.0.0/0" in str(o["IpRanges"]):
                             result = False
-                            failReason = "Found Security Group with port 22 open to the world (0.0.0.0/0)"
+                            failReason = (
+                                "Found Security Group with port 22 open to the world (0.0.0.0/0)"
+                            )
                             offenders.append(str(n) + " : " + str(m["GroupId"]))
     return {
         "Result": result,
@@ -2211,14 +2275,20 @@ def control_4_2_ensure_rdp_not_open_to_world(regions):
             if "0.0.0.0/0" in str(m["IpPermissions"]):
                 for o in m["IpPermissions"]:
                     try:
-                        if int(o["FromPort"]) <= 3389 <= int(o["ToPort"]) and "0.0.0.0/0" in str(o["IpRanges"]):
+                        if int(o["FromPort"]) <= 3389 <= int(o["ToPort"]) and "0.0.0.0/0" in str(
+                            o["IpRanges"]
+                        ):
                             result = False
-                            failReason = "Found Security Group with port 3389 open to the world (0.0.0.0/0)"
+                            failReason = (
+                                "Found Security Group with port 3389 open to the world (0.0.0.0/0)"
+                            )
                             offenders.append(str(m["GroupId"]))
                     except:
                         if str(o["IpProtocol"]) == "-1" and "0.0.0.0/0" in str(o["IpRanges"]):
                             result = False
-                            failReason = "Found Security Group with port 3389 open to the world (0.0.0.0/0)"
+                            failReason = (
+                                "Found Security Group with port 3389 open to the world (0.0.0.0/0)"
+                            )
                             offenders.append(str(n) + " : " + str(m["GroupId"]))
     return {
         "Result": result,
@@ -2339,7 +2409,9 @@ def control_4_5_ensure_route_tables_are_least_access(regions):
                     if o["VpcPeeringConnectionId"]:
                         if int(str(o["DestinationCidrBlock"]).split("/", 1)[1]) < 24:
                             result = False
-                            failReason = "Large CIDR block routed to peer discovered, please investigate"
+                            failReason = (
+                                "Large CIDR block routed to peer discovered, please investigate"
+                            )
                             offenders.append(str(n) + " : " + str(m["RouteTableId"]))
                 except:
                     pass
@@ -2375,7 +2447,9 @@ def control_4_5_ensure_route_tables_are_least_access(regions):
                     if o["VpcPeeringConnectionId"]:
                         if int(str(o["DestinationCidrBlock"]).split("/", 1)[1]) < 24:
                             result = False
-                            failReason = "Large CIDR block routed to peer discovered, please investigate"
+                            failReason = (
+                                "Large CIDR block routed to peer discovered, please investigate"
+                            )
                             offenders.append(str(n) + " : " + str(m["RouteTableId"]))
                 except:
                     pass
@@ -2451,7 +2525,8 @@ def get_regions():
     """
     client = boto3.client("ec2")
     region_response = client.describe_regions()
-    return [region["RegionName"] for region in region_response["Regions"]]
+    regions = [region["RegionName"] for region in region_response["Regions"]]
+    return regions
 
 
 def get_cloudtrails(regions):
@@ -2569,7 +2644,12 @@ def json2html(controlResult, account):
     tableHeadHover = '<table class="table table-hover">'
     table.append(tableHeadOuter)  # Outer table
     for m, _ in enumerate(controlResult):
-        table.append("<tr><th>" + controlResult[m][0]["ControlId"].split(".")[0] + "</th><td>" + tableHeadInner)
+        table.append(
+            "<tr><th>"
+            + controlResult[m][0]["ControlId"].split(".")[0]
+            + "</th><td>"
+            + tableHeadInner
+        )
         for n in range(len(controlResult[m])):
             if str(controlResult[m][n]["Result"]) == "False":
                 resultStyle = ' style="background-color:#ef3d47;"'
@@ -2585,16 +2665,28 @@ def json2html(controlResult, account):
                 + "</th><td>"
                 + tableHeadHover
             )
-            table.append("<tr><th>ControlId</th><td>" + controlResult[m][n]["ControlId"] + "</td></tr>")
-            table.append("<tr><th>Description</th><td>" + controlResult[m][n]["Description"] + "</td></tr>")
-            table.append("<tr><th>failReason</th><td>" + controlResult[m][n]["failReason"] + "</td></tr>")
+            table.append(
+                "<tr><th>ControlId</th><td>" + controlResult[m][n]["ControlId"] + "</td></tr>"
+            )
+            table.append(
+                "<tr><th>Description</th><td>" + controlResult[m][n]["Description"] + "</td></tr>"
+            )
+            table.append(
+                "<tr><th>failReason</th><td>" + controlResult[m][n]["failReason"] + "</td></tr>"
+            )
             table.append(
                 "<tr><th>Offenders</th><td><ul>"
                 + str(controlResult[m][n]["Offenders"]).replace("', ", "',<br>")
                 + "</ul></td></tr>"
             )
-            table.append("<tr><th>Result</th><td>" + str(controlResult[m][n]["Result"]) + "</td></tr>")
-            table.append("<tr><th>ScoredControl</th><td>" + str(controlResult[m][n]["ScoredControl"]) + "</td></tr>")
+            table.append(
+                "<tr><th>Result</th><td>" + str(controlResult[m][n]["Result"]) + "</td></tr>"
+            )
+            table.append(
+                "<tr><th>ScoredControl</th><td>"
+                + str(controlResult[m][n]["ScoredControl"])
+                + "</td></tr>"
+            )
             table.append("</table></td></tr>")
         table.append("</table></td></tr>")
     table.append("</table>")
@@ -2612,7 +2704,13 @@ def s3report(htmlReport, account):
         TYPE: Description
     """
     if S3_WEB_REPORT_NAME_DETAILS is True:
-        reportName = "cis_report_" + str(account) + "_" + str(datetime.now().strftime("%Y%m%d_%H%M")) + ".html"
+        reportName = (
+            "cis_report_"
+            + str(account)
+            + "_"
+            + str(datetime.now().strftime("%Y%m%d_%H%M"))
+            + ".html"
+        )
     else:
         reportName = "cis_report.html"
     with tempfile.NamedTemporaryFile(delete=False) as f:
@@ -2626,9 +2724,10 @@ def s3report(htmlReport, account):
         except Exception as e:
             return "Failed to upload report to S3 because: " + str(e)
     ttl = int(S3_WEB_REPORT_EXPIRE) * 60
-    return S3_CLIENT.generate_presigned_url(
+    signedURL = S3_CLIENT.generate_presigned_url(
         "get_object", Params={"Bucket": S3_WEB_REPORT_BUCKET, "Key": reportName}, ExpiresIn=ttl
     )
+    return signedURL
 
 
 def json_output(controlResult):
@@ -2684,7 +2783,8 @@ def shortAnnotation(controlResult):
     if longAnnotation:
         annotation.append("etc")
         return '{"Failed":' + json.dumps(annotation) + "}"
-    return '{"Failed":' + json.dumps(annotation) + "}"
+    else:
+        return '{"Failed":' + json.dumps(annotation) + "}"
 
 
 def send_results_to_sns(url):
@@ -2783,7 +2883,9 @@ def lambda_handler(event, context):
     control3.append(control_3_4_ensure_log_metric_iam_policy_change(cloud_trails))
     control3.append(control_3_5_ensure_log_metric_cloudtrail_configuration_changes(cloud_trails))
     control3.append(control_3_6_ensure_log_metric_console_auth_failures(cloud_trails))
-    control3.append(control_3_7_ensure_log_metric_disabling_scheduled_delete_of_kms_cmk(cloud_trails))
+    control3.append(
+        control_3_7_ensure_log_metric_disabling_scheduled_delete_of_kms_cmk(cloud_trails)
+    )
     control3.append(control_3_8_ensure_log_metric_s3_bucket_policy_changes(cloud_trails))
     control3.append(control_3_9_ensure_log_metric_config_configuration_changes(cloud_trails))
     control3.append(control_3_10_ensure_log_metric_security_group_changes(cloud_trails))
