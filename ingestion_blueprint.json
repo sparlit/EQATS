@@ -1,5 +1,5 @@
 {
-  "current_index": 53,
+  "current_index": 54,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -429,7 +429,7 @@
       "name": "options-oi",
       "target": "ashok-kollipara/options-oi",
       "url": "https://github.com/ashok-kollipara/options-oi",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
