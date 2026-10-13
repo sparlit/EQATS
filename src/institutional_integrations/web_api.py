@@ -1,3 +1,4 @@
+import os
 from typing import Any
 
 """
@@ -161,7 +162,7 @@ class TradingOSHTTPServer:
     """
 
     def __init__(
-        self, host: str = "127.0.0.1", port: int = 50005, scalper_instance: Any = None
+        self, host: str = "127.0.0.1", port: int = int(os.environ.get("TRADINGOS_WEB_PORT", 50005)), scalper_instance: Any = None
     ) -> None:
         self.host = host
         self.port = port

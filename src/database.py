@@ -568,8 +568,8 @@ def _init_db_impl() -> None:
                     "\n                INSERT OR IGNORE INTO users (username, password_hash, pin_hash, role, mfa_enabled, created_at)\n                VALUES (?, ?, ?, ?, ?, ?)\n                ",
                     (
                         "QUANT_OPERATOR",
-                        hash_credential_secure("admin"),
-                        hash_credential_secure("741295"),
+                        hash_credential_secure(os.environ.get("TRADINGOS_ADMIN_PASS", "admin")),
+                        hash_credential_secure(os.environ.get("TRADINGOS_ADMIN_PIN", "741295")),
                         "SOVEREIGN_ADMIN",
                         1,
                         datetime.datetime.now().isoformat(),
