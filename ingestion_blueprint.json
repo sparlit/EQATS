@@ -1,5 +1,5 @@
 {
-  "current_index": 291,
+  "current_index": 292,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2337,9 +2337,9 @@
       "name": "getnsestockprice",
       "target": "rajaramsrinivas/getnsestockprice",
       "url": "https://github.com/rajaramsrinivas/getnsestockprice",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3287",
+      "merged": true
     },
     {
       "name": "nse-clock-data",
