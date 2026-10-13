@@ -32,6 +32,7 @@ import shutil
 from pathlib import Path
 
 import pandas as pd
+
 from utils import p, read_parquet_safe, write_parquet
 
 MAX_PER_INDUSTRY = 4
