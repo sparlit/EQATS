@@ -1,5 +1,5 @@
 {
-  "current_index": 28,
+  "current_index": 29,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -229,7 +229,7 @@
       "name": "raptorbt",
       "target": "alphabench/raptorbt",
       "url": "https://github.com/alphabench/raptorbt",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
