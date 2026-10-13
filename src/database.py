@@ -443,6 +443,33 @@ def _init_db_impl() -> None:
             )
             """)
 
+            # Table for storing Indian registered brokers directory extracted and cross-verified from Brokers/
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS registered_brokers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                norm_key TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                registration_no TEXT DEFAULT '',
+                trade_name TEXT DEFAULT '',
+                contact_person TEXT DEFAULT '',
+                email TEXT DEFAULT '',
+                phone TEXT DEFAULT '',
+                fax TEXT DEFAULT '',
+                address TEXT DEFAULT '',
+                city TEXT DEFAULT '',
+                state TEXT DEFAULT '',
+                pincode TEXT DEFAULT '',
+                exchange TEXT DEFAULT '',
+                valid_from TEXT DEFAULT '',
+                valid_to TEXT DEFAULT '',
+                member_codes TEXT DEFAULT '[]',
+                segments TEXT DEFAULT '[]',
+                sources TEXT DEFAULT '[]',
+                verification_status TEXT DEFAULT 'UNVERIFIED',
+                updated_at TEXT NOT NULL
+            )
+            """)
+
             # Table for storing detailed broker profiles & operational configuration parameters
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS broker_profiles (

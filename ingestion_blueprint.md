@@ -292,6 +292,7 @@ Total Repositories: 424 | Current Index: 289
 | 287 | quantmechanics/nse-premarket-data | Processed | https://github.com/sparlit/EQATS/pull/3275 |
 | 288 | quantxaashish/nse-alpha | Completed | https://github.com/sparlit/EQATS/pull/3276 |
 | 289 | rachnog/deep-trading | Processed | https://github.com/sparlit/EQATS/pull/3278 |
+| 289 | rachnog/deep-trading | pending | None |
 | 290 | rahlumin/nseeod | pending | None |
 | 291 | rahulghuge94/trading_expiry | pending | None |
 | 292 | rajaramsrinivas/getnsestockprice | pending | None |
