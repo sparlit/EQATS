@@ -2327,7 +2327,7 @@
       "url": "https://github.com/rahulghuge94/trading_expiry",
       "status": "Completed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "getnsestockprice",
