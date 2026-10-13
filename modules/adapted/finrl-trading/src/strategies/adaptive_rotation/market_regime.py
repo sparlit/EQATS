@@ -37,7 +37,6 @@ Version: 1.2.1
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -159,8 +158,7 @@ def compute_slow_regime_signals(
     vix = vix_prices[vix_prices.index <= as_of_date].copy()
 
     if len(spx) == 0 or len(vix) == 0:
-        msg = f"No data available as of {as_of_date}"
-        raise ValueError(msg)
+        raise ValueError(f"No data available as of {as_of_date}")
 
     # Current values
     spx_current = spx.iloc[-1]
@@ -192,7 +190,9 @@ def compute_slow_regime_signals(
 
     if len(vix) >= 52:  # At least 1 year
         # Compute robust Z-score
-        vix_z = robust_zscore(vix, window=min(vix_lookback_periods, len(vix)), center_metric="median")
+        vix_z = robust_zscore(
+            vix, window=min(vix_lookback_periods, len(vix)), center_metric="median"
+        )
         vix_z_current = vix_z.iloc[-1]
 
         # Handle NaN (insufficient data for Z-score)
@@ -241,18 +241,18 @@ def map_risk_score_to_regime(
             mapping.risk_on.group_cap,
             mapping.risk_on.cash_floor,
         )
-    if risk_score == 1:
+    elif risk_score == 1:
         return (
             SlowRegimeState.NEUTRAL,
             mapping.neutral.group_cap,
             mapping.neutral.cash_floor,
         )
-    # risk_score >= 2
-    return (
-        SlowRegimeState.RISK_OFF,
-        mapping.risk_off.group_cap,
-        mapping.risk_off.cash_floor,
-    )
+    else:  # risk_score >= 2
+        return (
+            SlowRegimeState.RISK_OFF,
+            mapping.risk_off.group_cap,
+            mapping.risk_off.cash_floor,
+        )
 
 
 def check_regime_persistence(
@@ -426,7 +426,9 @@ def detect_volatility_shock(
     # Compute ΔVIX Z-score
     if len(vix) >= 2:
         vix_delta = vix.diff()
-        delta_vix_z = robust_zscore(vix_delta, window=min(lookback_periods, len(vix_delta)), center_metric="median")
+        delta_vix_z = robust_zscore(
+            vix_delta, window=min(lookback_periods, len(vix_delta)), center_metric="median"
+        )
 
         delta_vix_z_current = 0.0 if pd.isna(delta_vix_z.iloc[-1]) else delta_vix_z.iloc[-1]
     else:
@@ -592,27 +594,36 @@ def update_fast_risk_off_state(
                 volatility_shock=False,
                 effective_group_cap=None,
                 effective_cash_floor=None,
-                metadata={"exit_reason": reason, "previous_trigger": current_fast_state.trigger_date},
+                metadata={
+                    "exit_reason": reason,
+                    "previous_trigger": current_fast_state.trigger_date,
+                },
             )
-        # Still active
-        days_elapsed = len(
-            spx_daily[(spx_daily.index > current_fast_state.trigger_date) & (spx_daily.index <= as_of_date)]
-        )
-        days_remaining = fro_config.behavior.duration_days - days_elapsed
+        else:
+            # Still active
+            days_elapsed = len(
+                spx_daily[
+                    (spx_daily.index > current_fast_state.trigger_date)
+                    & (spx_daily.index <= as_of_date)
+                ]
+            )
+            days_remaining = fro_config.behavior.duration_days - days_elapsed
 
-        return FastRiskOffResult(
-            is_active=True,
-            days_remaining=max(0, days_remaining),
-            trigger_date=current_fast_state.trigger_date,
-            price_shock=current_fast_state.price_shock,
-            volatility_shock=current_fast_state.volatility_shock,
-            effective_group_cap=fro_config.behavior.group_cap,
-            effective_cash_floor=fro_config.behavior.cash_floor,
-            metadata={"status": "active", "days_elapsed": days_elapsed},
-        )
+            return FastRiskOffResult(
+                is_active=True,
+                days_remaining=max(0, days_remaining),
+                trigger_date=current_fast_state.trigger_date,
+                price_shock=current_fast_state.price_shock,
+                volatility_shock=current_fast_state.volatility_shock,
+                effective_group_cap=fro_config.behavior.group_cap,
+                effective_cash_floor=fro_config.behavior.cash_floor,
+                metadata={"status": "active", "days_elapsed": days_elapsed},
+            )
 
     # Not currently active, check trigger
-    should_trigger, signal_details = check_fast_risk_off_trigger(spx_daily, qqq_daily, vix_daily, as_of_date, config)
+    should_trigger, signal_details = check_fast_risk_off_trigger(
+        spx_daily, qqq_daily, vix_daily, as_of_date, config
+    )
 
     if should_trigger:
         # Trigger fast risk-off
@@ -626,17 +637,18 @@ def update_fast_risk_off_state(
             effective_cash_floor=fro_config.behavior.cash_floor,
             metadata={"status": "triggered", "signals": signal_details},
         )
-    # Not active, not triggered
-    return FastRiskOffResult(
-        is_active=False,
-        days_remaining=0,
-        trigger_date=None,
-        price_shock=signal_details["price_shock"],
-        volatility_shock=signal_details["volatility_shock"],
-        effective_group_cap=None,
-        effective_cash_floor=None,
-        metadata={"status": "inactive", "signals": signal_details},
-    )
+    else:
+        # Not active, not triggered
+        return FastRiskOffResult(
+            is_active=False,
+            days_remaining=0,
+            trigger_date=None,
+            price_shock=signal_details["price_shock"],
+            volatility_shock=signal_details["volatility_shock"],
+            effective_group_cap=None,
+            effective_cash_floor=None,
+            metadata={"status": "inactive", "signals": signal_details},
+        )
 
 
 # ============================================================================
@@ -683,10 +695,14 @@ def detect_market_regime(
         >>> print(f"Group cap: {regime.effective_group_cap}")
     """
     # Detect slow regime
-    slow_result = detect_slow_regime(spx_weekly, vix_weekly, as_of_date, config, previous_slow_states)
+    slow_result = detect_slow_regime(
+        spx_weekly, vix_weekly, as_of_date, config, previous_slow_states
+    )
 
     # Update fast risk-off overlay
-    fast_result = update_fast_risk_off_state(spx_daily, qqq_daily, vix_daily, as_of_date, config, current_fast_state)
+    fast_result = update_fast_risk_off_state(
+        spx_daily, qqq_daily, vix_daily, as_of_date, config, current_fast_state
+    )
 
     # Compute effective constraints
     if fast_result.is_active:
@@ -721,13 +737,19 @@ if __name__ == "__main__":
     dates_daily = pd.date_range("2020-01-01", "2024-12-31", freq="B")
 
     # Simulate SPX (uptrend with volatility)
-    spx_weekly = pd.Series(2000 + np.random.randn(len(dates_weekly)).cumsum() * 50, index=dates_weekly)
+    spx_weekly = pd.Series(
+        2000 + np.random.randn(len(dates_weekly)).cumsum() * 50, index=dates_weekly
+    )
     spx_daily = pd.Series(2000 + np.random.randn(len(dates_daily)).cumsum() * 10, index=dates_daily)
 
     # Simulate VIX (mean-reverting)
-    vix_weekly = pd.Series(20 + np.random.randn(len(dates_weekly)) * 5, index=dates_weekly).clip(lower=10)
+    vix_weekly = pd.Series(20 + np.random.randn(len(dates_weekly)) * 5, index=dates_weekly).clip(
+        lower=10
+    )
 
-    vix_daily = pd.Series(20 + np.random.randn(len(dates_daily)) * 5, index=dates_daily).clip(lower=10)
+    vix_daily = pd.Series(20 + np.random.randn(len(dates_daily)) * 5, index=dates_daily).clip(
+        lower=10
+    )
 
     # QQQ similar to SPX
     qqq_daily = spx_daily * 0.8
@@ -740,7 +762,9 @@ if __name__ == "__main__":
     # Test detection
     test_date = pd.Timestamp("2024-06-30")
 
-    regime = detect_market_regime(spx_weekly, vix_weekly, spx_daily, qqq_daily, vix_daily, test_date, config)
+    regime = detect_market_regime(
+        spx_weekly, vix_weekly, spx_daily, qqq_daily, vix_daily, test_date, config
+    )
 
     print(f"\n[Test Date: {test_date.date()}]")
     print("\nSlow Regime:")

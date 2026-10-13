@@ -27,24 +27,18 @@ warnings.filterwarnings("ignore")
 import os
 
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+import contextlib
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from pandas.tseries.offsets import BDay
-from pypfopt import expected_returns, risk_models
-from pypfopt.efficient_frontier import EfficientFrontier
-from pypfopt.risk_models import CovarianceShrinkage
 
 # Try to import gymnasium instead of gym for compatibility
-try:
-    import gymnasium as gym
-except ImportError:
-    import gym
+with contextlib.suppress(ImportError):
+    pass
 
 import pickle
 import random
-import time
 
 import torch
 from finrl import config
@@ -94,7 +88,7 @@ def _safe_DRL_prediction(model, environment, deterministic=True):
 
     for i in range(n_steps):
         action, _ = model.predict(test_obs, deterministic=deterministic)
-        test_obs, _rewards, dones, _info = test_env.step(action)
+        test_obs, rewards, dones, info = test_env.step(action)
 
         # Fetch memories either at last step or when done happens early
         if (i == max_steps) or dones[0]:
@@ -290,11 +284,9 @@ def compute_and_save_performance(
         print("[DEBUG] df_daily_return head:\n", df_daily_return.head())
 
     if not isinstance(df_daily_return, pd.DataFrame) or df_daily_return.empty:
-        msg = "df_daily_return is None or empty"
-        raise ValueError(msg)
+        raise ValueError("df_daily_return is None or empty")
     if "daily_return" not in df_daily_return.columns:
-        msg = "df_daily_return must contain 'daily_return'"
-        raise ValueError(msg)
+        raise ValueError("df_daily_return must contain 'daily_return'")
     if "date" in df_daily_return.columns:
         df_daily_return = df_daily_return.sort_values("date").set_index("date")
     import os
@@ -305,7 +297,7 @@ def compute_and_save_performance(
     dr = df_daily_return.copy()
     if "date" in dr.columns:
         dr = dr.sort_values("date")
-        dr = dr.set_index("date")
+        dr.set_index("date", inplace=True)
     dr = dr[["daily_return"]].dropna()
 
     # --- Equity curve & drawdown ---
@@ -330,7 +322,9 @@ def compute_and_save_performance(
     # --- Weight sum check ---
     if df_actions is not None and not df_actions.empty:
         weights_sum = df_actions.sum(axis=1)
-        weights_sum.to_frame("weights_sum").to_csv(os.path.join(results_dir, f"{out_prefix}_weights_sum.csv"))
+        weights_sum.to_frame("weights_sum").to_csv(
+            os.path.join(results_dir, f"{out_prefix}_weights_sum.csv")
+        )
         weights_sum_min = float(weights_sum.min())
         weights_sum_max = float(weights_sum.max())
         weights_sum_mean = float(weights_sum.mean())
@@ -344,7 +338,9 @@ def compute_and_save_performance(
         dw = actions_sorted.diff().abs()
         turnover_series = dw.sum(axis=1) / 2.0
         turnover_series = turnover_series.dropna()
-        turnover_series.to_frame("turnover").to_csv(os.path.join(results_dir, f"{out_prefix}_turnover.csv"))
+        turnover_series.to_frame("turnover").to_csv(
+            os.path.join(results_dir, f"{out_prefix}_turnover.csv")
+        )
         total_turnover = float(turnover_series.sum())
         avg_daily_turnover = float(turnover_series.mean())
     else:
@@ -451,7 +447,7 @@ def main():
     print(f"Number of unique stocks: {len(df['gvkey'].unique())}")
 
     df["day"] = [x.weekday() for x in df["date"]]
-    df = df.drop_duplicates(["gvkey", "date"])
+    df.drop_duplicates(["gvkey", "date"], inplace=True)
     print(f"After removing duplicates: {df.shape}")
     selected_stock = pd.read_csv("./result/stock_selected.csv")
 
@@ -520,14 +516,20 @@ def main():
 
         earliest_date = current_trade_date - max_rolling_window
 
-        df_ = df[df["tic"].isin(p1_stock) & (df["date"] >= earliest_date) & (df["date"] < trade_date[idx])]
+        df_ = df[
+            df["tic"].isin(p1_stock)
+            & (df["date"] >= earliest_date)
+            & (df["date"] < trade_date[idx])
+        ]
         print(f"Processing trade date {idx}: {current_trade_date}")
         print(f"Data shape: {df_.shape}")
 
         if df_.empty:
             print(f"Warning: No data for trade date {current_trade_date}. Skipping...")
             continue
-        fe = FeatureEngineer(use_technical_indicator=True, use_turbulence=False, user_defined_feature=False)
+        fe = FeatureEngineer(
+            use_technical_indicator=True, use_turbulence=False, user_defined_feature=False
+        )
 
         df_ = fe.preprocess_data(df_)
 
@@ -548,7 +550,9 @@ def main():
             covs = return_lookback.cov().values
             cov_list.append(covs)
 
-        df_cov = pd.DataFrame({"date": df_.date.unique()[lookback:], "cov_list": cov_list, "return_list": return_list})
+        df_cov = pd.DataFrame(
+            {"date": df_.date.unique()[lookback:], "cov_list": cov_list, "return_list": return_list}
+        )
         df_ = df_.merge(df_cov, on="date")
         df_ = df_.sort_values(["date", "tic"]).reset_index(drop=True)
 
@@ -593,19 +597,17 @@ def main():
             df_ = check_per_date_stock_coverage(df_, stock_dimension)
             # move td3 and sac model td3_model,sac_model,
             try:
-                a2c_model, _ppo_model, _ddpg_model, best_model = run_models(
+                a2c_model, ppo_model, ddpg_model, best_model = run_models(
                     df_, "date", current_trade_date, env_kwargs, testing_window, max_rolling_window
                 )
                 print("=== DEBUG: run_models completed successfully ===")
             except Exception as run_models_error:
                 print("=== DEBUG: run_models failed ===")
-                print(f"Error in run_models: {run_models_error!s}")
+                print(f"Error in run_models: {str(run_models_error)}")
                 print(f"Error type: {type(run_models_error)}")
-                import traceback
-
                 print("Traceback:")
                 # traceback.print_exc()
-                raise
+                raise run_models_error
 
             # now df_ has 'datadate' column, use it directly
             print("=== DEBUG: Trading data ===")
@@ -616,7 +618,9 @@ def main():
 
             trade = data_split(df_, current_trade_date, trade_date[idx])
             print("=== DEBUG: After trade date data_split ===")
-            print(f"After data_split - trade shape: {trade.shape if hasattr(trade, 'shape') else 'No shape'}")
+            print(
+                f"After data_split - trade shape: {trade.shape if hasattr(trade, 'shape') else 'No shape'}"
+            )
             print(
                 f"After data_split - trade columns: {list(trade.columns) if hasattr(trade, 'columns') else 'No columns'}"
             )
@@ -634,21 +638,28 @@ def main():
             model_for_backtest = best_model if best_model is not None else a2c_model
             # print(f"best model is {best_model}")
             if model_for_backtest is None:
-                msg = "No model available for backtesting (best_model and a2c_model are both None)."
-                raise RuntimeError(msg)
+                raise RuntimeError(
+                    "No model available for backtesting (best_model and a2c_model are both None)."
+                )
 
             model_name = type(model_for_backtest).__name__
             print(f"trade date Predicting with model: {model_name}")
 
-            df_daily_return, df_actions = DRLAgent.DRL_prediction(model=model_for_backtest, environment=e_trade_gym)
+            df_daily_return, df_actions = DRLAgent.DRL_prediction(
+                model=model_for_backtest, environment=e_trade_gym
+            )
             #        df_daily_return, df_actions = DRLAgent.DRL_prediction(
             #        model=a2c_model, environment=e_trade_gym
             #        )
             print(f"tradedate  df_daily_return.shape: {df_daily_return.shape}")
             print(f"tradedatedf_actions.shape: {df_actions.shape}")
             print("=== DEBUG: DRL_prediction completed successfully ===")
-            print(f"df_actions shape: {df_actions.shape if hasattr(df_actions, 'shape') else 'No shape'}")
-            print(f"df_actions columns: {list(df_actions.columns) if hasattr(df_actions, 'columns') else 'No columns'}")
+            print(
+                f"df_actions shape: {df_actions.shape if hasattr(df_actions, 'shape') else 'No shape'}"
+            )
+            print(
+                f"df_actions columns: {list(df_actions.columns) if hasattr(df_actions, 'columns') else 'No columns'}"
+            )
 
             # weight accumulation
             for i in range(len(df_actions)):
@@ -657,7 +668,9 @@ def main():
                     df_dict["gvkey"].append(j)
                     df_dict["weights"].append(df_actions.loc[df_actions.index[i], j])
 
-            out_prefix = f"bt_{current_trade_date.strftime('%Y%m%d')}_{trade_date[idx].strftime('%Y%m%d')}"
+            out_prefix = (
+                f"bt_{current_trade_date.strftime('%Y%m%d')}_{trade_date[idx].strftime('%Y%m%d')}"
+            )
             print(f"[PERF CALL] calling compute_and_save_performance for {out_prefix}")
             print(
                 "[CHECK] df_daily_return columns before perf:",
@@ -688,8 +701,10 @@ def main():
                 print(f"[PERF ERROR] {out_prefix}: {perf_err}")
 
         except Exception as e:
-            print(f"[PERF SKIP] compute_and_save_performance skipped due to error in {current_trade_date}")
-            print(f"Error processing trade date {current_trade_date}: {e!s}")
+            print(
+                f"[PERF SKIP] compute_and_save_performance skipped due to error in {current_trade_date}"
+            )
+            print(f"Error processing trade date {current_trade_date}: {str(e)}")
 
             # Add detailed debugging information for array dimension mismatch
             if "array dimensions" in str(e) and "concatenation axis" in str(e):

@@ -21,8 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import traceback
-
 import numpy as np
 import pandas as pd
 import torch
@@ -30,29 +28,14 @@ import torch
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 USE_GPU = DEVICE == "cuda"
 
+
 import errno
 import os
-import time
 from multiprocessing import cpu_count
 
 from finrl.agents.stablebaselines3.models import DRLAgent
 from finrl.meta.env_portfolio_allocation.env_portfolio import StockPortfolioEnv
 from finrl.meta.preprocessor.preprocessors import data_split
-from lightgbm import LGBMRegressor
-from sklearn.ensemble import AdaBoostRegressor, GradientBoostingRegressor, RandomForestRegressor
-from sklearn.feature_selection import RFE
-from sklearn.linear_model import Lasso, LinearRegression, Ridge
-from sklearn.metrics import confusion_matrix
-from sklearn.model_selection import (
-    GridSearchCV,
-    RandomizedSearchCV,
-    TimeSeriesSplit,
-    cross_val_predict,
-    cross_val_score,
-    train_test_split,
-)
-from sklearn.svm import SVC, SVR
-from xgboost import XGBRegressor
 
 n_cpus = cpu_count() - 1
 
@@ -63,15 +46,12 @@ try:
     from gymnasium import spaces
     from gymnasium.utils import seeding
 except ImportError:
-    import gym
-    from gym import spaces
-    from gym.utils import seeding
+    pass
 
-import matplotlib as mpl
+import matplotlib
 
-mpl.use("Agg")
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from stable_baselines3.common.vec_env import DummyVecEnv
 
 
 # ==== ADD：Fix for crash at end of vec env ====
@@ -90,7 +70,7 @@ def _safe_DRL_prediction(model, environment, deterministic=True):
 
     for i in range(n_steps):
         action, _ = model.predict(test_obs, deterministic=deterministic)
-        test_obs, _rewards, dones, _info = test_env.step(action)
+        test_obs, rewards, dones, info = test_env.step(action)
 
         # Fetch memories either at last step or when done happens early
         if (i == max_steps) or dones[0]:
@@ -117,14 +97,21 @@ DRLAgent.DRL_prediction = staticmethod(_safe_DRL_prediction)
 def prepare_rolling_train(df, date_column, testing_window, max_rolling_window, trade_date):
     print(trade_date - max_rolling_window, trade_date - testing_window)
     # ensure using correct column name - data_split expects 'date' column
-    df_temp = df.rename(columns={"datadate": "date"}) if "datadate" in df.columns and "date" not in df.columns else df
-    return data_split(df_temp, trade_date - max_rolling_window, trade_date - testing_window)
+    if "datadate" in df.columns and "date" not in df.columns:
+        df_temp = df.rename(columns={"datadate": "date"})
+    else:
+        df_temp = df
+    train = data_split(df_temp, trade_date - max_rolling_window, trade_date - testing_window)
     # print(train)
+    return train
 
 
 def prepare_rolling_test(df, date_column, testing_window, max_rolling_window, trade_date):
     # ensure using correct column name - data_split expects 'date' column
-    df_temp = df.rename(columns={"datadate": "date"}) if "datadate" in df.columns and "date" not in df.columns else df
+    if "datadate" in df.columns and "date" not in df.columns:
+        df_temp = df.rename(columns={"datadate": "date"})
+    else:
+        df_temp = df
     test = data_split(df_temp, trade_date - testing_window, trade_date)
 
     test.reset_index()
@@ -157,12 +144,20 @@ def train_a2c(agent, USE_GPU):
     else:
         A2C_PARAMS = {"n_steps": 5, "ent_coef": 0.005, "learning_rate": 0.0002}
     model_a2c = agent.get_model(model_name="a2c", model_kwargs=A2C_PARAMS)
-    return agent.train_model(model=model_a2c, tb_log_name="a2c", total_timesteps=50000)
+    trained_a2c = agent.train_model(model=model_a2c, tb_log_name="a2c", total_timesteps=50000)
+
+    return trained_a2c
 
 
 def train_ppo(agent, USE_GPU):
     if USE_GPU:
-        PPO_PARAMS = {"n_steps": 2048, "ent_coef": 0.005, "learning_rate": 0.0001, "batch_size": 1024, "device": DEVICE}
+        PPO_PARAMS = {
+            "n_steps": 2048,
+            "ent_coef": 0.005,
+            "learning_rate": 0.0001,
+            "batch_size": 1024,
+            "device": DEVICE,
+        }
     else:
         PPO_PARAMS = {
             "n_steps": 2048,
@@ -171,18 +166,27 @@ def train_ppo(agent, USE_GPU):
             "batch_size": 128,
         }
     model_ppo = agent.get_model("ppo", model_kwargs=PPO_PARAMS)
-    return agent.train_model(model=model_ppo, tb_log_name="ppo", total_timesteps=80000)
+    trained_ppo = agent.train_model(model=model_ppo, tb_log_name="ppo", total_timesteps=80000)
+
+    return trained_ppo
 
 
 def train_ddpg(agent, USE_GPU):
     if USE_GPU:
-        DDPG_PARAMS = {"batch_size": 1024, "buffer_size": 100000, "learning_rate": 0.001, "device": DEVICE}
+        DDPG_PARAMS = {
+            "batch_size": 1024,
+            "buffer_size": 100000,
+            "learning_rate": 0.001,
+            "device": DEVICE,
+        }
     else:
         DDPG_PARAMS = {"batch_size": 128, "buffer_size": 50000, "learning_rate": 0.001}
 
     model_ddpg = agent.get_model("ddpg", model_kwargs=DDPG_PARAMS)
 
-    return agent.train_model(model=model_ddpg, tb_log_name="ddpg", total_timesteps=50000)
+    trained_ddpg = agent.train_model(model=model_ddpg, tb_log_name="ddpg", total_timesteps=50000)
+
+    return trained_ddpg
 
 
 def train_td3(agent):
@@ -190,7 +194,9 @@ def train_td3(agent):
 
     model_td3 = agent.get_model("td3", model_kwargs=TD3_PARAMS)
 
-    return agent.train_model(model=model_td3, tb_log_name="td3", total_timesteps=30000)
+    trained_td3 = agent.train_model(model=model_td3, tb_log_name="td3", total_timesteps=30000)
+
+    return trained_td3
 
 
 def train_sac(agent):
@@ -204,12 +210,18 @@ def train_sac(agent):
 
     model_sac = agent.get_model("sac", model_kwargs=SAC_PARAMS)
 
-    return agent.train_model(model=model_sac, tb_log_name="sac", total_timesteps=50000)
+    trained_sac = agent.train_model(model=model_sac, tb_log_name="sac", total_timesteps=50000)
+    return trained_sac
 
 
 def evaluate_model(model, X_test, y_test):
     # from sklearn.metrics import mean_squared_log_error
-    from sklearn.metrics import explained_variance_score, mean_absolute_error, mean_squared_error, r2_score
+    from sklearn.metrics import (
+        explained_variance_score,
+        mean_absolute_error,
+        mean_squared_error,
+        r2_score,
+    )
 
     y_predict = model.predict(X_test)
 
@@ -248,12 +260,18 @@ def run_models(df, date_column, trade_date, env_kwargs, testing_window=4, max_ro
     df_ = df.copy()
     # print(f"After copy - df_ columns: {list(df_.columns)}")
 
-    X_train = prepare_rolling_train(df_, date_column, testing_window, max_rolling_window, trade_date)
-    print(f"After prepare_rolling_train - X_train shape: {X_train.shape if hasattr(X_train, 'shape') else 'No shape'}")
+    X_train = prepare_rolling_train(
+        df_, date_column, testing_window, max_rolling_window, trade_date
+    )
+    print(
+        f"After prepare_rolling_train - X_train shape: {X_train.shape if hasattr(X_train, 'shape') else 'No shape'}"
+    )
 
     # prepare testing data
     X_test = prepare_rolling_test(df_, date_column, testing_window, max_rolling_window, trade_date)
-    print(f"After prepare_rolling_test - X_test shape: {X_test.shape if hasattr(X_test, 'shape') else 'No shape'}")
+    print(
+        f"After prepare_rolling_test - X_test shape: {X_test.shape if hasattr(X_test, 'shape') else 'No shape'}"
+    )
 
     e_train_gym = StockPortfolioEnv(df=X_train, **env_kwargs)
     env_train, _ = e_train_gym.get_sb_env()
@@ -281,7 +299,7 @@ def run_models(df, date_column, trade_date, env_kwargs, testing_window=4, max_ro
         max_return = ppo_return
         best_model = ppo_model
 
-    df_daily_return, _df_actions = DRLAgent.DRL_prediction(model=ddpg_model, environment=e_trade_gym)
+    df_daily_return, df_actions = DRLAgent.DRL_prediction(model=ddpg_model, environment=e_trade_gym)
     ddpg_return = list((df_daily_return.daily_return + 1).cumprod())[-1]
     if ddpg_return > max_return:
         max_return = ddpg_return
@@ -352,7 +370,8 @@ def calculate_sector_daily_return(daily_price, unique_ticker, trade_date):
     daily_price_pivot = daily_price_pivot[unique_ticker]
 
     daily_return = daily_price_pivot.pct_change()
-    return daily_return[daily_return.index >= trade_date[0]]
+    daily_return = daily_return[daily_return.index >= trade_date[0]]
+    return daily_return
 
 
 def calculate_sector_quarterly_return(daily_price, unique_ticker, trade_date_plus1):
@@ -363,7 +382,9 @@ def calculate_sector_quarterly_return(daily_price, unique_ticker, trade_date_plu
     quarterly_price_pivot = daily_price_pivot.ix[trade_date_plus1]
 
     quarterly_return = quarterly_price_pivot.pct_change()
-    return quarterly_return[quarterly_return.index > trade_date_plus1[0]]
+    quarterly_return = quarterly_return[quarterly_return.index > trade_date_plus1[0]]
+
+    return quarterly_return
 
 
 def pick_stocks_based_on_quantiles_old(df_predict_best):
@@ -379,14 +400,18 @@ def pick_stocks_based_on_quantiles_old(df_predict_best):
         q_75 = df_predict_best.iloc[i].quantile(0.75)
         df_predict_best.iloc[i].quantile(1)
 
-        quantile_0_25[df_predict_best.index[i]] = df_predict_best.iloc[i][df_predict_best.iloc[i] <= q_25]
+        quantile_0_25[df_predict_best.index[i]] = df_predict_best.iloc[i][
+            df_predict_best.iloc[i] <= q_25
+        ]
         quantile_25_50[df_predict_best.index[i]] = df_predict_best.iloc[i][
             (df_predict_best.iloc[i] > q_25) & (df_predict_best.iloc[i] <= q_50)
         ]
         quantile_50_75[df_predict_best.index[i]] = df_predict_best.iloc[i][
             (df_predict_best.iloc[i] > q_50) & (df_predict_best.iloc[i] <= q_75)
         ]
-        quantile_75_100[df_predict_best.index[i]] = df_predict_best.iloc[i][(df_predict_best.iloc[i] > q_75)]
+        quantile_75_100[df_predict_best.index[i]] = df_predict_best.iloc[i][
+            (df_predict_best.iloc[i] > q_75)
+        ]
     return (quantile_0_25, quantile_25_50, quantile_50_75, quantile_75_100)
 
 
@@ -400,9 +425,13 @@ def pick_stocks_based_on_quantiles(df_predict_best):
         q_30 = df_predict_best.iloc[i].quantile(0.3)
         q_70 = df_predict_best.iloc[i].quantile(0.7)
 
-        quantile_0_30[df_predict_best.index[i]] = df_predict_best.iloc[i][df_predict_best.iloc[i] <= q_30]
+        quantile_0_30[df_predict_best.index[i]] = df_predict_best.iloc[i][
+            df_predict_best.iloc[i] <= q_30
+        ]
 
-        quantile_70_100[df_predict_best.index[i]] = df_predict_best.iloc[i][(df_predict_best.iloc[i] >= q_70)]
+        quantile_70_100[df_predict_best.index[i]] = df_predict_best.iloc[i][
+            (df_predict_best.iloc[i] >= q_70)
+        ]
     return (quantile_0_30, quantile_70_100)
 
 
@@ -416,7 +445,8 @@ def calculate_portfolio_return(daily_return, trade_date_plus1, long_dict, freque
 
         # map date and tic
         long_tic_return_daily = daily_return[
-            (daily_return.index >= trade_date_plus1[i]) & (daily_return.index < trade_date_plus1[i + 1])
+            (daily_return.index >= trade_date_plus1[i])
+            & (daily_return.index < trade_date_plus1[i + 1])
         ][long_dict[trade_date_plus1[i]].index]
         # return * weight
         long_daily_return = long_tic_return_daily
@@ -445,7 +475,9 @@ def calculate_portfolio_quarterly_return(quarterly_return, trade_date_plus1, lon
     return df_portfolio_return
 
 
-def long_only_strategy_daily(df_predict_return, daily_return, trade_month_plus1, top_quantile_threshold=0.75):
+def long_only_strategy_daily(
+    df_predict_return, daily_return, trade_month_plus1, top_quantile_threshold=0.75
+):
     long_dict = {}
     for i in range(df_predict_return.shape[0]):
         top_q = df_predict_return.iloc[i].quantile(top_quantile_threshold)
@@ -453,7 +485,9 @@ def long_only_strategy_daily(df_predict_return, daily_return, trade_month_plus1,
         # Select all stocks
         # long_dict[df_predict_return.index[i]] = df_predict_return.iloc[i][~np.isnan(df_predict_return.iloc[i])]
         # Select Top 30% Stocks
-        long_dict[df_predict_return.index[i]] = df_predict_return.iloc[i][df_predict_return.iloc[i] >= top_q]
+        long_dict[df_predict_return.index[i]] = df_predict_return.iloc[i][
+            df_predict_return.iloc[i] >= top_q
+        ]
         # short_dict[df_predict_return.index[i]] = df_predict_return.iloc[i][df_predict_return.iloc[i]<=low_q]
 
     df_portfolio_return_daily = pd.DataFrame(columns=["daily_return"])
@@ -467,7 +501,8 @@ def long_only_strategy_daily(df_predict_return, daily_return, trade_month_plus1,
         # long_dict[trade_month_plus1[i]] / sum(long_dict[trade_month_plus1[i]].values)
         # map date and tic
         long_tic_return_daily = daily_return[
-            (daily_return.index >= trade_month_plus1[i]) & (daily_return.index < trade_month_plus1[i + 1])
+            (daily_return.index >= trade_month_plus1[i])
+            & (daily_return.index < trade_month_plus1[i + 1])
         ][long_dict[trade_month_plus1[i]].index]
         # return * weight
         long_daily_return = long_tic_return_daily * long_normalize_weight
@@ -484,7 +519,9 @@ def long_only_strategy_daily(df_predict_return, daily_return, trade_month_plus1,
     return df_portfolio_return_daily
 
 
-def long_only_strategy_monthly(df_predict_return, tic_monthly_return, trade_month, top_quantile_threshold=0.7):
+def long_only_strategy_monthly(
+    df_predict_return, tic_monthly_return, trade_month, top_quantile_threshold=0.7
+):
     long_dict = {}
     for i in range(df_predict_return.shape[0]):
         top_q = df_predict_return.iloc[i].quantile(top_quantile_threshold)
@@ -492,7 +529,9 @@ def long_only_strategy_monthly(df_predict_return, tic_monthly_return, trade_mont
         # Select all stocks
         # long_dict[df_predict_return.index[i]] = df_predict_return.iloc[i][~np.isnan(df_predict_return.iloc[i])]
         # Select Top 30% Stocks
-        long_dict[df_predict_return.index[i]] = df_predict_return.iloc[i][df_predict_return.iloc[i] >= top_q]
+        long_dict[df_predict_return.index[i]] = df_predict_return.iloc[i][
+            df_predict_return.iloc[i] >= top_q
+        ]
         # short_dict[df_predict_return.index[i]] = df_predict_return.iloc[i][df_predict_return.iloc[i]<=low_q]
 
     portfolio_return_dic = {}
@@ -518,7 +557,8 @@ def long_only_strategy_monthly(df_predict_return, tic_monthly_return, trade_mont
     df_portfolio_return = df_portfolio_return.reset_index()
     df_portfolio_return.columns = ["trade_month", "monthly_return"]
     df_portfolio_return.index = df_portfolio_return.trade_month
-    return df_portfolio_return["monthly_return"]
+    df_portfolio_return = df_portfolio_return["monthly_return"]
+    return df_portfolio_return
 
 
 def plot_predict_return_distribution(df_predict_best, sector_name, out_path):

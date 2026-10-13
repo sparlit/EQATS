@@ -39,16 +39,14 @@ Version: 1.2.1
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime
+from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from .config_loader import AdaptiveRotationConfig
 from .data_preprocessor import DataPreprocessor
-from .utils.calendar_utils import get_week_end_dates, is_trading_day
+from .utils.calendar_utils import get_week_end_dates
 
 # ============================================================================
 # Data Classes for Walk-Forward Results
@@ -252,12 +250,10 @@ class WalkForwardAnalyzer:
         """
         # Validate parameters
         if window_type not in ["expanding", "rolling"]:
-            msg = f"Invalid window_type: {window_type}"
-            raise ValueError(msg)
+            raise ValueError(f"Invalid window_type: {window_type}")
 
         if window_type == "rolling" and rolling_window_size is None:
-            msg = "rolling_window_size required for rolling window"
-            raise ValueError(msg)
+            raise ValueError("rolling_window_size required for rolling window")
 
         min_train_periods = min_train_periods or self.config.history.minimum_history_weeks
 
@@ -273,11 +269,14 @@ class WalkForwardAnalyzer:
             # Get month-end dates
             all_weeks = get_week_end_dates(start_date, end_date)
             rebalance_dates = pd.DatetimeIndex(
-                [d for d in all_weeks if d.is_month_end or (d + pd.Timedelta(days=7)).month != d.month]
+                [
+                    d
+                    for d in all_weeks
+                    if d.is_month_end or (d + pd.Timedelta(days=7)).month != d.month
+                ]
             )
         else:
-            msg = f"Invalid rebalance_frequency: {rebalance_frequency}"
-            raise ValueError(msg)
+            raise ValueError(f"Invalid rebalance_frequency: {rebalance_frequency}")
 
         print(f"[WalkForward] Generating {len(rebalance_dates)} periods")
         print(f"[WalkForward] Window type: {window_type}")
@@ -305,7 +304,9 @@ class WalkForwardAnalyzer:
             elif window_type == "rolling":
                 # Rolling: use fixed-size window
                 # Go back rolling_window_size periods from decision_date
-                available_dates = self.preprocessor.common_dates[self.preprocessor.common_dates <= decision_date]
+                available_dates = self.preprocessor.common_dates[
+                    self.preprocessor.common_dates <= decision_date
+                ]
 
                 if len(available_dates) >= rolling_window_size:
                     train_start = available_dates[-rolling_window_size]
@@ -319,7 +320,9 @@ class WalkForwardAnalyzer:
             test_end = rebalance_dates[i + 1] if i + 1 < len(rebalance_dates) else None
 
             # Check if sufficient history
-            available_periods = (self.preprocessor.common_dates[self.preprocessor.common_dates <= decision_date]).size
+            available_periods = (
+                self.preprocessor.common_dates[self.preprocessor.common_dates <= decision_date]
+            ).size
 
             is_valid = available_periods >= min_train_periods
 
@@ -379,14 +382,15 @@ class WalkForwardAnalyzer:
             >>> train_data = analyzer.load_period_data(period, lookback_periods=52)
         """
         if not period.is_valid:
-            msg = f"Period {period.decision_date} is not valid (insufficient history)"
-            raise ValueError(msg)
+            raise ValueError(f"Period {period.decision_date} is not valid (insufficient history)")
 
         # Get data as of decision_date
-        return self.preprocessor.get_data_as_of(
+        train_data = self.preprocessor.get_data_as_of(
             as_of_date=period.decision_date,
             lookback_periods=lookback_periods,
         )
+
+        return train_data
 
     def run_backtest(
         self,
@@ -445,7 +449,9 @@ class WalkForwardAnalyzer:
                 continue
 
             if verbose and i % 10 == 0:
-                print(f"[WalkForward] Processing period {i + 1}/{len(result.periods)}: {period.decision_date.date()}")
+                print(
+                    f"[WalkForward] Processing period {i + 1}/{len(result.periods)}: {period.decision_date.date()}"
+                )
 
             # Load data
             train_data = self.load_period_data(period)
@@ -520,8 +526,10 @@ def validate_no_lookahead(
     """
     for symbol, df in data.items():
         if df.index.max() > decision_date:
-            msg = f"Lookahead bias detected for {symbol}: data contains dates after {decision_date.date()}"
-            raise ValueError(msg)
+            raise ValueError(
+                f"Lookahead bias detected for {symbol}: "
+                f"data contains dates after {decision_date.date()}"
+            )
 
     return True
 

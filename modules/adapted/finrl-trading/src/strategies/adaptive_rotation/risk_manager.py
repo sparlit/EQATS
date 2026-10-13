@@ -37,9 +37,8 @@ Author: Adaptive Rotation Strategy Team
 Version: 1.2.1
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import timedelta
-from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -221,7 +220,9 @@ def check_position_stops(
         If both stops trigger, absolute takes priority
     """
     # Check absolute stop
-    abs_triggered, loss_from_entry = check_absolute_stop(position.entry_price, current_price, absolute_threshold)
+    abs_triggered, loss_from_entry = check_absolute_stop(
+        position.entry_price, current_price, absolute_threshold
+    )
 
     if abs_triggered:
         return StopLossSignal(
@@ -237,7 +238,9 @@ def check_position_stops(
         )
 
     # Check trailing stop
-    trail_triggered, loss_from_peak = check_trailing_stop(position.peak_price, current_price, trailing_threshold)
+    trail_triggered, loss_from_peak = check_trailing_stop(
+        position.peak_price, current_price, trailing_threshold
+    )
 
     if trail_triggered:
         return StopLossSignal(
@@ -320,7 +323,8 @@ def activate_cooldown(
     Returns:
         Cooldown expiration date
     """
-    return trigger_date + timedelta(weeks=cooldown_weeks)
+    cooldown_until = trigger_date + timedelta(weeks=cooldown_weeks)
+    return cooldown_until
 
 
 def is_symbol_in_cooldown(

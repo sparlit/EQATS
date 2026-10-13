@@ -21,13 +21,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import os
-from collections.abc import Iterable
-from typing import Dict, Optional
-
 import pandas as pd
 from strategies.base_signal import BaseSignalEngine
-from strategies.strategylogger import StrategyLogger
 
 
 class TSMOMSignalEngine(BaseSignalEngine):

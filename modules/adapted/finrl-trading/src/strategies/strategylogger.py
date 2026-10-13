@@ -117,7 +117,9 @@ class StrategyLogger:
         ✔ async 异步写入 (不阻塞主策略)
     """
 
-    def __init__(self, strategy_name="strategy", log_dir="./log", async_mode=True, flush_interval=5000):
+    def __init__(
+        self, strategy_name="strategy", log_dir="./log", async_mode=True, flush_interval=5000
+    ):
         self.strategy_name = strategy_name
         self.log_dir = os.path.join(log_dir, f"strategy_{strategy_name}")
         os.makedirs(self.log_dir, exist_ok=True)
@@ -156,20 +158,31 @@ class StrategyLogger:
         if self.async_mode:
             log_dict["category"] = category
             self.log_queue.put(log_dict)
-        # fallback to memory logs only
-        elif category == "signal":
-            self.signal_logs.append(log_dict)
-        elif category == "portfolio":
-            self.portfolio_logs.append(log_dict)
-        elif category == "universe":
-            self.universe_logs.append(log_dict)
-        elif category == "error":
-            self.error_logs.append(log_dict)
+        else:
+            # fallback to memory logs only
+            if category == "signal":
+                self.signal_logs.append(log_dict)
+            elif category == "portfolio":
+                self.portfolio_logs.append(log_dict)
+            elif category == "universe":
+                self.universe_logs.append(log_dict)
+            elif category == "error":
+                self.error_logs.append(log_dict)
 
     # ============================================================
     # Logging Methods
     # ============================================================
-    def log_signal(self, date, symbol, signal, action, old_weight, new_weight, close_only=False, cooldown_left=0):
+    def log_signal(
+        self,
+        date,
+        symbol,
+        signal,
+        action,
+        old_weight,
+        new_weight,
+        close_only=False,
+        cooldown_left=0,
+    ):
         self._push_log(
             {
                 "date": pd.Timestamp(date),

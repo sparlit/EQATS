@@ -105,7 +105,9 @@ def build_backtest_data(rankings: pd.DataFrame, buy_date: str, sell_date: str) -
         return None
 
     # --- Per-bucket top 5 picks ---
-    buckets_in_data = sorted(rankings["bucket"].unique().tolist()) if "bucket" in rankings.columns else []
+    buckets_in_data = (
+        sorted(rankings["bucket"].unique().tolist()) if "bucket" in rankings.columns else []
+    )
     bucket_picks = {}  # {bucket: [tic, ...]}
     all_pick_tics = []
     for b in buckets_in_data:
@@ -116,11 +118,13 @@ def build_backtest_data(rankings: pd.DataFrame, buy_date: str, sell_date: str) -
         print(f"  [backtest] {b}: {', '.join(picks)}")
 
     all_pick_tics = list(dict.fromkeys(all_pick_tics))  # dedupe, preserve order
-    all_tics = list(dict.fromkeys([*all_pick_tics, "SPY", "QQQ"]))
+    all_tics = list(dict.fromkeys(all_pick_tics + ["SPY", "QQQ"]))
 
     print(f"  [backtest] Downloading prices for {len(all_tics)} tickers: {buy_date} → {sell_date}")
     try:
-        prices = yf.download(all_tics, start=buy_date, end=sell_date, auto_adjust=True, progress=False)
+        prices = yf.download(
+            all_tics, start=buy_date, end=sell_date, auto_adjust=True, progress=False
+        )
     except Exception as e:
         print(f"  [backtest] yfinance download failed: {e}")
         return None
@@ -161,8 +165,12 @@ def build_backtest_data(rankings: pd.DataFrame, buy_date: str, sell_date: str) -
     else:
         combined_daily = pd.Series(0.0, index=daily_ret.index)
 
-    spy_daily = daily_ret["SPY"] if "SPY" in daily_ret.columns else pd.Series(0.0, index=daily_ret.index)
-    qqq_daily = daily_ret["QQQ"] if "QQQ" in daily_ret.columns else pd.Series(0.0, index=daily_ret.index)
+    spy_daily = (
+        daily_ret["SPY"] if "SPY" in daily_ret.columns else pd.Series(0.0, index=daily_ret.index)
+    )
+    qqq_daily = (
+        daily_ret["QQQ"] if "QQQ" in daily_ret.columns else pd.Series(0.0, index=daily_ret.index)
+    )
 
     # Cumulative returns: (1+r).cumprod() - 1
     def cum_ret(series):
@@ -242,8 +250,8 @@ def build_html(
     models: pd.DataFrame,
     features: pd.DataFrame,
     excel_path: str,
-    buy_date: str | None = None,
-    sell_date: str | None = None,
+    buy_date: str = None,
+    sell_date: str = None,
 ) -> str:
     """Build a standalone HTML dashboard string."""
 
@@ -252,13 +260,24 @@ def build_html(
     universe = basename.split("_")[0].upper() if "_" in basename else "Unknown"
     run_date = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")
     stock_count = len(rankings)
-    best_model = rankings["best_model"].iloc[0] if "best_model" in rankings.columns and len(rankings) > 0 else "N/A"
+    best_model = (
+        rankings["best_model"].iloc[0]
+        if "best_model" in rankings.columns and len(rankings) > 0
+        else "N/A"
+    )
 
     # ---- Infer dates in the data ----
     dates = sorted(rankings["datadate"].unique().tolist()) if "datadate" in rankings.columns else []
 
     # ---- All rankings for table (full dataset, not just top 20) ----
-    display_cols = ["tic", "bucket", "gsector", "best_model", "predicted_return", "pred_ensemble_avg"]
+    display_cols = [
+        "tic",
+        "bucket",
+        "gsector",
+        "best_model",
+        "predicted_return",
+        "pred_ensemble_avg",
+    ]
     has_actual = "y_return" in rankings.columns and rankings["y_return"].notna().any()
     if has_actual:
         display_cols.append("y_return")
@@ -275,14 +294,20 @@ def build_html(
             else:
                 row[c] = str(val)
         # Also include rank_best and rank_ensemble for sorting
-        row["rank_best"] = int(r["rank_best"]) if "rank_best" in r and pd.notna(r.get("rank_best")) else 999
+        row["rank_best"] = (
+            int(r["rank_best"]) if "rank_best" in r and pd.notna(r.get("rank_best")) else 999
+        )
         row["rank_ensemble"] = (
-            int(r["rank_ensemble"]) if "rank_ensemble" in r and pd.notna(r.get("rank_ensemble")) else 999
+            int(r["rank_ensemble"])
+            if "rank_ensemble" in r and pd.notna(r.get("rank_ensemble"))
+            else 999
         )
         table_rows.append(row)
 
     # ---- Bucket top picks (for summary cards) ----
-    buckets_in_data = sorted(rankings["bucket"].unique().tolist()) if "bucket" in rankings.columns else []
+    buckets_in_data = (
+        sorted(rankings["bucket"].unique().tolist()) if "bucket" in rankings.columns else []
+    )
     bucket_cards = []
     for b in buckets_in_data:
         bdf = rankings[rankings["bucket"] == b].sort_values("rank_best")
@@ -292,9 +317,11 @@ def build_html(
         bucket_cards.append(
             {
                 "bucket": str(b),
-                "count": len(bdf),
+                "count": int(len(bdf)),
                 "top_tic": str(top["tic"]),
-                "top_pred": round(float(top["predicted_return"]), 4) if pd.notna(top.get("predicted_return")) else 0,
+                "top_pred": round(float(top["predicted_return"]), 4)
+                if pd.notna(top.get("predicted_return"))
+                else 0,
                 "top_model": str(top["best_model"]) if pd.notna(top.get("best_model")) else "N/A",
             }
         )
@@ -391,7 +418,8 @@ def build_html(
 
     data_json = json.dumps(payload, default=_default)
 
-    return _HTML_TEMPLATE.replace("__DATA_JSON__", data_json)
+    html = _HTML_TEMPLATE.replace("__DATA_JSON__", data_json)
+    return html
 
 
 _HTML_TEMPLATE = r"""<!DOCTYPE html>
@@ -1149,7 +1177,9 @@ def main():
     parser.add_argument("excel_path", help="Path to the dashboard Excel file")
     parser.add_argument("--no-open", action="store_true", help="Do not auto-open in browser")
     parser.add_argument("-o", "--output", help="Output HTML path (default: same dir as Excel)")
-    parser.add_argument("--buy-date", help="Backtest buy date (YYYY-MM-DD). Default: inferred from tradedate column")
+    parser.add_argument(
+        "--buy-date", help="Backtest buy date (YYYY-MM-DD). Default: inferred from tradedate column"
+    )
     parser.add_argument("--sell-date", help="Backtest sell date (YYYY-MM-DD). Default: today")
     args = parser.parse_args()
 
@@ -1159,9 +1189,18 @@ def main():
 
     print(f"Loading: {args.excel_path}")
     rankings, models, features = load_excel(args.excel_path)
-    print(f"  Rankings: {len(rankings)} stocks, Models: {len(models)} rows, Features: {len(features)} rows")
+    print(
+        f"  Rankings: {len(rankings)} stocks, Models: {len(models)} rows, Features: {len(features)} rows"
+    )
 
-    html = build_html(rankings, models, features, args.excel_path, buy_date=args.buy_date, sell_date=args.sell_date)
+    html = build_html(
+        rankings,
+        models,
+        features,
+        args.excel_path,
+        buy_date=args.buy_date,
+        sell_date=args.sell_date,
+    )
 
     out_path = args.output or args.excel_path.replace(".xlsx", ".html")
 

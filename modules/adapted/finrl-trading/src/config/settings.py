@@ -28,9 +28,7 @@ Configuration Settings Module
 Centralized configuration management using Pydantic settings.
 """
 
-import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 from pydantic import validator
@@ -207,10 +205,11 @@ class FinRLSettings(BaseSettings):
         extra = "ignore"  # 忽略未定义的环境变量
 
     @validator("environment")
-    def validate_environment(self, v):
+    def validate_environment(cls, v):
         if v not in ["development", "testing", "staging", "production"]:
-            msg = "Environment must be one of: development, testing, staging, production"
-            raise ValueError(msg)
+            raise ValueError(
+                "Environment must be one of: development, testing, staging, production"
+            )
         return v
 
     def is_development(self) -> bool:

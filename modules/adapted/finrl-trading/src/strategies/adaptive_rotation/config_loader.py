@@ -36,7 +36,7 @@ import hashlib
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Literal, Optional
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -85,11 +85,9 @@ class DatesConfig(BaseModel):
                 datetime.strptime(v, "%Y-%m-%d")
                 return v
             except ValueError:
-                msg = f"start_date must be in YYYY-MM-DD format, got {v}"
-                raise ValueError(msg)
+                raise ValueError(f"start_date must be in YYYY-MM-DD format, got {v}")
 
-        msg = f"start_date must be a string or date object, got {type(v)}"
-        raise ValueError(msg)
+        raise ValueError(f"start_date must be a string or date object, got {type(v)}")
 
     @field_validator("end_date", mode="before")
     @classmethod
@@ -108,11 +106,9 @@ class DatesConfig(BaseModel):
                 datetime.strptime(v, "%Y-%m-%d")
                 return v
             except ValueError:
-                msg = f"end_date must be in YYYY-MM-DD format or null, got {v}"
-                raise ValueError(msg)
+                raise ValueError(f"end_date must be in YYYY-MM-DD format or null, got {v}")
 
-        msg = f"end_date must be a string or date object, got {type(v)}"
-        raise ValueError(msg)
+        raise ValueError(f"end_date must be a string or date object, got {type(v)}")
 
 
 class HistoryConfig(BaseModel):
@@ -138,11 +134,9 @@ class AssetGroupConfig(BaseModel):
     def validate_symbols(cls, v):
         """Validate symbols are non-empty and unique"""
         if not v:
-            msg = "Asset group must have at least one symbol"
-            raise ValueError(msg)
+            raise ValueError("Asset group must have at least one symbol")
         if len(v) != len(set(v)):
-            msg = "Duplicate symbols in asset group"
-            raise ValueError(msg)
+            raise ValueError("Duplicate symbols in asset group")
         return v
 
 
@@ -368,19 +362,18 @@ class AdaptiveRotationConfig(BaseModel):
         # Check that max_active_groups <= number of groups
         num_groups = len(self.asset_groups)
         if self.portfolio.max_active_groups > num_groups:
-            msg = (
-                f"max_active_groups ({self.portfolio.max_active_groups}) cannot exceed number of groups ({num_groups})"
+            raise ValueError(
+                f"max_active_groups ({self.portfolio.max_active_groups}) "
+                f"cannot exceed number of groups ({num_groups})"
             )
-            raise ValueError(msg)
 
         # Check that top_n_per_group is reasonable
         for group_name, group in self.asset_groups.items():
             if self.ranking.top_n_per_group > len(group.symbols):
-                msg = (
+                raise ValueError(
                     f"top_n_per_group ({self.ranking.top_n_per_group}) "
                     f"exceeds number of symbols in {group_name} ({len(group.symbols)})"
                 )
-                raise ValueError(msg)
 
         # Validate that cash_floor is achievable
         # Note: group_cap is per-group limit, not total allocation
@@ -392,13 +385,13 @@ class AdaptiveRotationConfig(BaseModel):
         ]:
             # Cash floor should leave room for at least some equity allocation
             if regime.cash_floor >= 1.0:
-                msg = f"{regime_name}: cash_floor must be < 1.0, got {regime.cash_floor}"
-                raise ValueError(msg)
+                raise ValueError(
+                    f"{regime_name}: cash_floor must be < 1.0, got {regime.cash_floor}"
+                )
 
             # Group cap should be reasonable
             if regime.group_cap <= 0:
-                msg = f"{regime_name}: group_cap must be > 0, got {regime.group_cap}"
-                raise ValueError(msg)
+                raise ValueError(f"{regime_name}: group_cap must be > 0, got {regime.group_cap}")
 
         return self
 
@@ -450,8 +443,7 @@ class AdaptiveRotationConfig(BaseModel):
             KeyError: If group_name not found
         """
         if group_name not in self.asset_groups:
-            msg = f"Group '{group_name}' not found in configuration"
-            raise KeyError(msg)
+            raise KeyError(f"Group '{group_name}' not found in configuration")
         return self.asset_groups[group_name].symbols
 
     def get_group_names(self) -> list[str]:
@@ -545,10 +537,8 @@ class AdaptiveRotationConfig(BaseModel):
                 f"Max Active Groups: {self.portfolio.max_active_groups}",
                 f"Top N per Group: {self.ranking.top_n_per_group}",
                 "",
-                (
-                    f"Stop-Loss: Absolute={self.stop_loss.absolute.threshold:.1%}, "
-                    f"Trailing={self.stop_loss.trailing.threshold:.1%}"
-                ),
+                f"Stop-Loss: Absolute={self.stop_loss.absolute.threshold:.1%}, "
+                f"Trailing={self.stop_loss.trailing.threshold:.1%}",
                 f"Cooldown: {self.cooldown.after_stop_days} days",
                 "",
                 f"Config Hash: {self.compute_config_hash()[:16]}...",
@@ -589,23 +579,20 @@ def load_config(yaml_path: str) -> AdaptiveRotationConfig:
     # Check file exists
     yaml_file = Path(yaml_path)
     if not yaml_file.exists():
-        msg = f"Configuration file not found: {yaml_path}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Configuration file not found: {yaml_path}")
 
     # Load YAML
     try:
         with open(yaml_file) as f:
             config_dict = yaml.safe_load(f)
     except yaml.YAMLError as e:
-        msg = f"Failed to parse YAML file {yaml_path}: {e}"
-        raise yaml.YAMLError(msg)
+        raise yaml.YAMLError(f"Failed to parse YAML file {yaml_path}: {e}")
 
     # Validate and create config object
     try:
         config = AdaptiveRotationConfig(**config_dict)
     except Exception as e:
-        msg = f"Configuration validation failed: {e}"
-        raise ValueError(msg)
+        raise ValueError(f"Configuration validation failed: {e}")
 
     return config
 

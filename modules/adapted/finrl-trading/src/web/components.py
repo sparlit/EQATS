@@ -28,12 +28,11 @@ Web Components Module
 Reusable UI components for the FinRL Trading dashboard.
 """
 
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any
 
 import numpy as np
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -89,7 +88,13 @@ def create_performance_chart(
                     )
                 )
 
-    fig.update_layout(title=title, xaxis_title="Date", yaxis_title="Value ($)", hovermode="x unified", showlegend=True)
+    fig.update_layout(
+        title=title,
+        xaxis_title="Date",
+        yaxis_title="Value ($)",
+        hovermode="x unified",
+        showlegend=True,
+    )
 
     return fig
 
@@ -98,7 +103,11 @@ def create_returns_distribution_chart(returns: pd.Series, title: str = "Returns 
     """Create returns distribution histogram."""
     fig = go.Figure()
 
-    fig.add_trace(go.Histogram(x=returns.values, nbinsx=50, name="Returns", marker_color="lightblue", opacity=0.7))
+    fig.add_trace(
+        go.Histogram(
+            x=returns.values, nbinsx=50, name="Returns", marker_color="lightblue", opacity=0.7
+        )
+    )
 
     fig.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="Break-even")
 
@@ -128,7 +137,13 @@ def create_drawdown_chart(portfolio_values: pd.Series, title: str = "Portfolio D
         )
     )
 
-    fig.update_layout(title=title, xaxis_title="Date", yaxis_title="Drawdown", yaxis_tickformat=".2%", showlegend=False)
+    fig.update_layout(
+        title=title,
+        xaxis_title="Date",
+        yaxis_title="Drawdown",
+        yaxis_tickformat=".2%",
+        showlegend=False,
+    )
 
     return fig
 
@@ -159,17 +174,24 @@ def create_risk_metrics_table(metrics: dict[str, float]):
     with col1:
         st.subheader("Performance Metrics")
         perf_df = pd.DataFrame(
-            {"Metric": list(performance_metrics.keys()), "Value": [".4f" for v in performance_metrics.values()]}
+            {
+                "Metric": list(performance_metrics.keys()),
+                "Value": [".4f" for v in performance_metrics.values()],
+            }
         )
         st.dataframe(perf_df, use_container_width=True)
 
     with col2:
         st.subheader("Risk Metrics")
-        risk_df = pd.DataFrame({"Metric": list(risk_metrics.keys()), "Value": [".4f" for v in risk_metrics.values()]})
+        risk_df = pd.DataFrame(
+            {"Metric": list(risk_metrics.keys()), "Value": [".4f" for v in risk_metrics.values()]}
+        )
         st.dataframe(risk_df, use_container_width=True)
 
 
-def create_sector_allocation_chart(positions: list[dict[str, Any]], title: str = "Sector Allocation"):
+def create_sector_allocation_chart(
+    positions: list[dict[str, Any]], title: str = "Sector Allocation"
+):
     """Create sector allocation pie chart."""
     if not positions:
         return None
@@ -189,14 +211,23 @@ def create_sector_allocation_chart(positions: list[dict[str, Any]], title: str =
         return None
 
     fig = go.Figure(
-        data=[go.Pie(labels=list(sector_data.keys()), values=list(sector_data.values()), title=title, hole=0.3)]
+        data=[
+            go.Pie(
+                labels=list(sector_data.keys()),
+                values=list(sector_data.values()),
+                title=title,
+                hole=0.3,
+            )
+        ]
     )
 
     fig.update_layout(showlegend=True)
     return fig
 
 
-def create_strategy_comparison_chart(strategies_data: dict[str, pd.Series], title: str = "Strategy Comparison"):
+def create_strategy_comparison_chart(
+    strategies_data: dict[str, pd.Series], title: str = "Strategy Comparison"
+):
     """Create strategy comparison chart."""
     fig = go.Figure()
 
@@ -214,7 +245,11 @@ def create_strategy_comparison_chart(strategies_data: dict[str, pd.Series], titl
         )
 
     fig.update_layout(
-        title=title, xaxis_title="Date", yaxis_title="Portfolio Value ($)", hovermode="x unified", showlegend=True
+        title=title,
+        xaxis_title="Date",
+        yaxis_title="Portfolio Value ($)",
+        hovermode="x unified",
+        showlegend=True,
     )
 
     return fig
@@ -244,7 +279,9 @@ def display_orders_table(orders: list[dict[str, Any]], title: str = "Recent Orde
     st.dataframe(orders_df, use_container_width=True)
 
 
-def create_correlation_heatmap(returns_data: dict[str, pd.Series], title: str = "Asset Correlation"):
+def create_correlation_heatmap(
+    returns_data: dict[str, pd.Series], title: str = "Asset Correlation"
+):
     """Create correlation heatmap."""
     if not returns_data:
         return None
@@ -294,7 +331,9 @@ def display_alerts(alerts: list[dict[str, Any]]):
             st.info(f"ℹ️ {message}")
 
 
-def create_rolling_sharpe_chart(returns: pd.Series, window: int = 252, title: str = "Rolling Sharpe Ratio"):
+def create_rolling_sharpe_chart(
+    returns: pd.Series, window: int = 252, title: str = "Rolling Sharpe Ratio"
+):
     """Create rolling Sharpe ratio chart."""
     if len(returns) < window:
         st.warning("Not enough data for rolling Sharpe calculation")
@@ -350,18 +389,20 @@ def display_data_quality_report(quality_metrics: dict[str, Any]):
         st.metric("Timeliness", ".1f")
 
     # Issues and recommendations
-    if quality_metrics.get("issues"):
+    if "issues" in quality_metrics and quality_metrics["issues"]:
         st.subheader("Issues Found")
         for issue in quality_metrics["issues"]:
             st.warning(f"• {issue}")
 
-    if quality_metrics.get("recommendations"):
+    if "recommendations" in quality_metrics and quality_metrics["recommendations"]:
         st.subheader("Recommendations")
         for rec in quality_metrics["recommendations"]:
             st.info(f"• {rec}")
 
 
-def create_factor_attribution_chart(attribution_data: dict[str, float], title: str = "Factor Attribution"):
+def create_factor_attribution_chart(
+    attribution_data: dict[str, float], title: str = "Factor Attribution"
+):
     """Create factor attribution bar chart."""
     factors = list(attribution_data.keys())
     contributions = list(attribution_data.values())
@@ -372,6 +413,8 @@ def create_factor_attribution_chart(attribution_data: dict[str, float], title: s
 
     fig.add_trace(go.Bar(x=factors, y=contributions, marker_color=colors, name="Contribution"))
 
-    fig.update_layout(title=title, xaxis_title="Factors", yaxis_title="Contribution to Return", showlegend=False)
+    fig.update_layout(
+        title=title, xaxis_title="Factors", yaxis_title="Contribution to Return", showlegend=False
+    )
 
     return fig

@@ -157,21 +157,29 @@ def build_models():
         "RF": RandomForestRegressor(n_estimators=200, max_depth=8, random_state=42, n_jobs=-1),
         "XGB": None,
         "LGBM": None,
-        "HistGBM": HistGradientBoostingRegressor(max_iter=200, max_depth=6, learning_rate=0.05, random_state=42),
-        "ExtraTrees": ExtraTreesRegressor(n_estimators=200, max_depth=8, random_state=42, n_jobs=-1),
+        "HistGBM": HistGradientBoostingRegressor(
+            max_iter=200, max_depth=6, learning_rate=0.05, random_state=42
+        ),
+        "ExtraTrees": ExtraTreesRegressor(
+            n_estimators=200, max_depth=8, random_state=42, n_jobs=-1
+        ),
         "Ridge": Ridge(alpha=1.0),
     }
     try:
         from xgboost import XGBRegressor
 
-        models["XGB"] = XGBRegressor(n_estimators=200, max_depth=6, learning_rate=0.05, random_state=42, verbosity=0)
+        models["XGB"] = XGBRegressor(
+            n_estimators=200, max_depth=6, learning_rate=0.05, random_state=42, verbosity=0
+        )
     except ImportError:
         del models["XGB"]
 
     try:
         from lightgbm import LGBMRegressor
 
-        models["LGBM"] = LGBMRegressor(n_estimators=200, max_depth=6, learning_rate=0.05, random_state=42, verbose=-1)
+        models["LGBM"] = LGBMRegressor(
+            n_estimators=200, max_depth=6, learning_rate=0.05, random_state=42, verbose=-1
+        )
     except ImportError:
         del models["LGBM"]
 
@@ -193,7 +201,11 @@ def run_bucket(bucket, bdf, feature_cols, val_cutoff="2025-12-31", val_quarters=
     else:
         val_dates = set()
 
-    train_b = bdf[(~bdf["datadate"].isin(val_dates)) & (bdf["datadate"] <= val_cutoff) & (bdf["y_return"].notna())]
+    train_b = bdf[
+        (~bdf["datadate"].isin(val_dates))
+        & (bdf["datadate"] <= val_cutoff)
+        & (bdf["y_return"].notna())
+    ]
     val_b = bdf[(bdf["datadate"].isin(val_dates)) & (bdf["y_return"].notna())]
     # Infer on quarters after val_cutoff
     infer_dates = sorted(bdf[bdf["datadate"] > val_cutoff]["datadate"].unique())
@@ -201,8 +213,10 @@ def run_bucket(bucket, bdf, feature_cols, val_cutoff="2025-12-31", val_quarters=
 
     print(f"\n{'=' * 60}")
     print(f"  Bucket: {bucket.upper()}")
-    val_date_range = f"{min(val_dates)} ~ {max(val_dates)}" if val_dates else "none"
-    print(f"  Train: {len(train_b)} | Val: {len(val_b)} ({len(val_dates)}Q: {val_date_range}) | Infer: {len(infer_b)}")
+    val_date_range = f"{sorted(val_dates)[0]} ~ {sorted(val_dates)[-1]}" if val_dates else "none"
+    print(
+        f"  Train: {len(train_b)} | Val: {len(val_b)} ({len(val_dates)}Q: {val_date_range}) | Infer: {len(infer_b)}"
+    )
     if len(infer_b) > 0:
         print(f"  Infer dates: {infer_dates} ({len(infer_dates)}Q)")
     print(f"{'=' * 60}")
@@ -318,7 +332,9 @@ def run_bucket(bucket, bdf, feature_cols, val_cutoff="2025-12-31", val_quarters=
 
     # Inverse-MSE weighted ensemble (weights from val MSE, predictions from retrained models)
     mse_map = {r["model"]: r["val_mse"] for r in model_results}
-    pred_model_cols = [c for c in infer_b.columns if c.startswith("pred_") and c != "pred_ensemble_avg"]
+    pred_model_cols = [
+        c for c in infer_b.columns if c.startswith("pred_") and c != "pred_ensemble_avg"
+    ]
     weights = {}
     for col in pred_model_cols:
         name = col.replace("pred_", "")
@@ -334,18 +350,28 @@ def run_bucket(bucket, bdf, feature_cols, val_cutoff="2025-12-31", val_quarters=
     # Print ranking per quarter
     for idate in infer_dates:
         qdf = infer_b[infer_b["datadate"] == idate].sort_values("predicted_return", ascending=False)
-        actual_col = "y_return" if "y_return" in qdf.columns and qdf["y_return"].notna().any() else None
+        actual_col = (
+            "y_return" if "y_return" in qdf.columns and qdf["y_return"].notna().any() else None
+        )
         print(f"\n  Ranking ({idate}, {len(qdf)} stocks):")
         for i, (_, r) in enumerate(qdf.head(10).iterrows()):
             marker = " ***" if i < 3 else ""
-            actual = f"  actual={r['y_return'] * 100:+.1f}%" if actual_col and pd.notna(r.get("y_return")) else ""
-            print(f"    {i + 1:2d}. {r['tic']:6s}  pred={r['predicted_return'] * 100:+6.1f}%{actual}{marker}")
+            actual = (
+                f"  actual={r['y_return'] * 100:+.1f}%"
+                if actual_col and pd.notna(r.get("y_return"))
+                else ""
+            )
+            print(
+                f"    {i + 1:2d}. {r['tic']:6s}  pred={r['predicted_return'] * 100:+6.1f}%{actual}{marker}"
+            )
 
     # Feature importance (collect from all models that expose it)
     importance_records = []
     for name, model in fitted.items():
         if hasattr(model, "feature_importances_"):
-            imp = pd.Series(model.feature_importances_, index=feature_cols).sort_values(ascending=False)
+            imp = pd.Series(model.feature_importances_, index=feature_cols).sort_values(
+                ascending=False
+            )
             for rank_idx, (feat, val) in enumerate(imp.items(), 1):
                 importance_records.append(
                     {
@@ -378,7 +404,9 @@ def run_bucket(bucket, bdf, feature_cols, val_cutoff="2025-12-31", val_quarters=
         for est in fitted["Stacking"].estimators_:
             type(est).__name__
             if hasattr(est, "feature_importances_"):
-                imp = pd.Series(est.feature_importances_, index=feature_cols).sort_values(ascending=False)
+                imp = pd.Series(est.feature_importances_, index=feature_cols).sort_values(
+                    ascending=False
+                )
                 for rank_idx, (feat, val) in enumerate(imp.items(), 1):
                     importance_records.append(
                         {
@@ -437,7 +465,9 @@ def run_dual_ensemble(df, bucket_preds, bucket_importances, val_cutoff, val_quar
         return None, [], []
 
     # ---- Merge unified + bucket predictions ----
-    u_slim = unified_preds[["tic", "datadate", "predicted_return"]].rename(columns={"predicted_return": "unified_pred"})
+    u_slim = unified_preds[["tic", "datadate", "predicted_return"]].rename(
+        columns={"predicted_return": "unified_pred"}
+    )
 
     dual = bucket_preds.copy()
     dual = dual.rename(columns={"predicted_return": "bucket_pred"})
@@ -452,7 +482,9 @@ def run_dual_ensemble(df, bucket_preds, bucket_importances, val_cutoff, val_quar
     for a in alphas:
         tag = f"a{int(a * 100):02d}"
         dual[f"score_{tag}"] = a * dual["unified_pctile"] + (1 - a) * dual["bucket_pctile"]
-        dual[f"rank_{tag}"] = dual.groupby(["bucket", "datadate"])[f"score_{tag}"].rank(ascending=False).astype(int)
+        dual[f"rank_{tag}"] = (
+            dual.groupby(["bucket", "datadate"])[f"score_{tag}"].rank(ascending=False).astype(int)
+        )
 
     # Primary ensemble
     ptag = f"a{int(alpha * 100):02d}"
@@ -491,7 +523,11 @@ def run_dual_ensemble(df, bucket_preds, bucket_importances, val_cutoff, val_quar
                         parts.append(f"{r['tic']}{r['y_return'] * 100:+.0f}%")
                     else:
                         parts.append(r["tic"])
-                avg = top5["y_return"].mean() * 100 if has_actual and top5["y_return"].notna().any() else float("nan")
+                avg = (
+                    top5["y_return"].mean() * 100
+                    if has_actual and top5["y_return"].notna().any()
+                    else float("nan")
+                )
                 avg_s = f"avg={avg:+.1f}%" if not np.isnan(avg) else ""
                 print(f"    {method_name:<22} {', '.join(parts):<50} {avg_s}")
 
@@ -522,12 +558,16 @@ def run_dual_ensemble(df, bucket_preds, bucket_importances, val_cutoff, val_quar
             if avgs:
                 overall = np.mean(avgs) * 100
                 alpha_pp = overall - spy_proxy
-                label = {0.0: "Pure Bucket", 1.0: "Pure Unified"}.get(a, f"Blend {int(a * 100)}/{int((1 - a) * 100)}")
+                label = {0.0: "Pure Bucket", 1.0: "Pure Unified"}.get(
+                    a, f"Blend {int(a * 100)}/{int((1 - a) * 100)}"
+                )
                 marker = ""
                 if overall > best_ret:
                     best_a, best_ret = a, overall
                     marker = " *"
-                print(f"  {a:<8.1f} {label:<18} {overall:>+9.1f}% {spy_proxy:>+7.1f}% {alpha_pp:>+7.1f}pp{marker}")
+                print(
+                    f"  {a:<8.1f} {label:<18} {overall:>+9.1f}% {spy_proxy:>+7.1f}% {alpha_pp:>+7.1f}pp{marker}"
+                )
         if best_a is not None:
             print(f"\n  * Best α={best_a} on this period (in-sample, not predictive)")
 
@@ -536,7 +576,11 @@ def run_dual_ensemble(df, bucket_preds, bucket_importances, val_cutoff, val_quar
     print("  FEATURE IMPORTANCE: Unified vs Bucket Models")
     print(f"{'=' * 70}")
 
-    u_best = sorted([r for r in unified_importances if r.get("is_best")], key=lambda x: x["importance"], reverse=True)
+    u_best = sorted(
+        [r for r in unified_importances if r.get("is_best")],
+        key=lambda x: x["importance"],
+        reverse=True,
+    )
     if u_best:
         print(f"\n  {'Unified Top 10':<30} {'Importance':>10}")
         print(f"  {'-' * 42}")
@@ -565,8 +609,12 @@ def main():
         default=None,
         help="Filter to a stock universe: sp500, nasdaq100, or path to CSV with 'tickers' column",
     )
-    parser.add_argument("--val-cutoff", default="2025-12-31", help="Validation end date (last val quarter)")
-    parser.add_argument("--val-quarters", type=int, default=3, help="Number of validation quarters (default: 3)")
+    parser.add_argument(
+        "--val-cutoff", default="2025-12-31", help="Validation end date (last val quarter)"
+    )
+    parser.add_argument(
+        "--val-quarters", type=int, default=3, help="Number of validation quarters (default: 3)"
+    )
     parser.add_argument("--output-dir", default=os.path.join(project_root, "data"))
     parser.add_argument(
         "--latest-snapshot",
@@ -583,7 +631,9 @@ def main():
         default=None,
         help="Reference date for actual return calculation in latest-snapshot mode (default: last quarter end)",
     )
-    parser.add_argument("--end-date", default=None, help="End date for return calculation (default: today)")
+    parser.add_argument(
+        "--end-date", default=None, help="End date for return calculation (default: today)"
+    )
     parser.add_argument(
         "--infer-date",
         default=None,
@@ -595,7 +645,10 @@ def main():
         help="Run dual model ensemble: unified + bucket-split combined via rank percentiles",
     )
     parser.add_argument(
-        "--ensemble-alpha", type=float, default=0.5, help="Ensemble weight: α×unified + (1-α)×bucket (default: 0.5)"
+        "--ensemble-alpha",
+        type=float,
+        default=0.5,
+        help="Ensemble weight: α×unified + (1-α)×bucket (default: 0.5)",
     )
     parser.add_argument(
         "--mixed-alpha",
@@ -643,11 +696,12 @@ def main():
         elif os.path.exists(args.universe):
             univ_tickers = set(pd.read_csv(args.universe)["tickers"].tolist())
         else:
-            msg = f"Unknown universe: {args.universe}"
-            raise ValueError(msg)
+            raise ValueError(f"Unknown universe: {args.universe}")
         before = len(df)
         df = df[df["tic"].isin(univ_tickers)].copy()
-        print(f"Universe filter ({args.universe}): {before} -> {len(df)} records ({df['tic'].nunique()} tickers)")
+        print(
+            f"Universe filter ({args.universe}): {before} -> {len(df)} records ({df['tic'].nunique()} tickers)"
+        )
 
     print(f"Loaded {len(df)} records, {df['tic'].nunique()} tickers")
     print(f"Date range: {df['datadate'].min()} ~ {df['datadate'].max()}")
@@ -660,7 +714,9 @@ def main():
         _hist_df = pd.read_csv(hist_csv)
         _hist_df["date"] = pd.to_datetime(_hist_df["date"])
     else:
-        print(f"WARNING: {hist_csv} not found — point-in-time filtering will be skipped for {universe_name.upper()}")
+        print(
+            f"WARNING: {hist_csv} not found — point-in-time filtering will be skipped for {universe_name.upper()}"
+        )
 
     def get_universe_at(quarter_str):
         """Return set of universe tickers at a given quarter date."""
@@ -687,7 +743,9 @@ def main():
     null_tp_mask = df["trade_price"].isna()
     if null_tp_mask.any():
         null_tickers = df.loc[null_tp_mask, "tic"].unique().tolist()
-        print(f"Filling {null_tp_mask.sum()} NULL trade_price ({len(null_tickers)} tickers) with today's price ...")
+        print(
+            f"Filling {null_tp_mask.sum()} NULL trade_price ({len(null_tickers)} tickers) with today's price ..."
+        )
         yf_tickers = [t.replace(".", "-") for t in null_tickers]
         try:
             px = yf.download(
@@ -716,12 +774,16 @@ def main():
     if args.mixed_vintage:
         infer_rows = df[df["datadate"] > args.val_cutoff].copy()
         # Find the latest inference row per ticker (the one mixed-vintage will use)
-        latest_infer = infer_rows.sort_values(["tic", "datadate"]).drop_duplicates(subset="tic", keep="last")
+        latest_infer = infer_rows.sort_values(["tic", "datadate"]).drop_duplicates(
+            subset="tic", keep="last"
+        )
         latest_infer["tic"].unique().tolist()
         # Only download for tickers whose trade_price is NOT already today's price
         stale_tics = latest_infer.loc[latest_infer["trade_price"].notna(), "tic"].unique().tolist()
         if stale_tics:
-            print(f"Mixed-vintage: aligning {len(stale_tics)} tickers' trade_price to today's price ...")
+            print(
+                f"Mixed-vintage: aligning {len(stale_tics)} tickers' trade_price to today's price ..."
+            )
             yf_mv = [t.replace(".", "-") for t in stale_tics]
             try:
                 px_mv = yf.download(
@@ -731,7 +793,10 @@ def main():
                     auto_adjust=True,
                     progress=False,
                 )
-                close_mv = px_mv["Close"] if isinstance(px_mv.columns, pd.MultiIndex) else px_mv[["Close"]]
+                if isinstance(px_mv.columns, pd.MultiIndex):
+                    close_mv = px_mv["Close"]
+                else:
+                    close_mv = px_mv[["Close"]]
                 aligned = 0
                 for tic in stale_tics:
                     yf_t = tic.replace(".", "-")
@@ -764,7 +829,9 @@ def main():
     for c in pre_accel_feats:
         df[c] = pd.to_numeric(df[c], errors="coerce")
     global_medians = df[pre_accel_feats].median()
-    df[pre_accel_feats] = df[pre_accel_feats].fillna(global_medians).replace([np.inf, -np.inf], np.nan).fillna(0)
+    df[pre_accel_feats] = (
+        df[pre_accel_feats].fillna(global_medians).replace([np.inf, -np.inf], np.nan).fillna(0)
+    )
 
     # Winsorize: clip at 1st/99th percentile to reduce outlier impact
     for c in pre_accel_feats:
@@ -797,7 +864,9 @@ def main():
 
             univ_snap = fetch_sp500_tickers()
         univ_tickers = set(univ_snap["tickers"].tolist()) if univ_snap is not None else set()
-        print(f"\nLatest-snapshot mode: {len(univ_tickers)} current {universe_name.upper()} tickers")
+        print(
+            f"\nLatest-snapshot mode: {len(univ_tickers)} current {universe_name.upper()} tickers"
+        )
 
         # For each universe ticker, take the latest available record (up to ref_date if set)
         from datetime import date
@@ -845,7 +914,12 @@ def main():
                     )
                     if rows:
                         s = pd.Series(
-                            {pd.Timestamp(r["date"]): r["adjClose"] if "adjClose" in r else r["close"] for r in rows}
+                            {
+                                pd.Timestamp(r["date"]): r["adjClose"]
+                                if "adjClose" in r
+                                else r["close"]
+                                for r in rows
+                            }
                         ).sort_index()
                         if len(s) > 0:
                             all_close[tic] = s
@@ -887,17 +961,23 @@ def main():
     # Mixed-vintage mode: for inference, keep only the latest record per ticker
     # among current universe members. Early reporters get Q1 2026 data, rest keep Q4 2025.
     if args.mixed_vintage:
-        mv_hist_csv = os.path.join(project_root, "data", f"{universe_name}_historical_constituents.csv")
+        mv_hist_csv = os.path.join(
+            project_root, "data", f"{universe_name}_historical_constituents.csv"
+        )
         if os.path.exists(mv_hist_csv):
             _hist_mv = pd.read_csv(mv_hist_csv)
             _hist_mv["date"] = pd.to_datetime(_hist_mv["date"])
             latest_members = {
                 t.strip()
-                for t in _hist_mv.loc[_hist_mv["date"] == _hist_mv["date"].max(), "tickers"].iloc[0].split(",")
+                for t in _hist_mv.loc[_hist_mv["date"] == _hist_mv["date"].max(), "tickers"]
+                .iloc[0]
+                .split(",")
             }
         else:
             # No historical CSV — fall back to current members from API
-            print(f"  No historical CSV for {universe_name.upper()}, fetching current members from API...")
+            print(
+                f"  No historical CSV for {universe_name.upper()}, fetching current members from API..."
+            )
             if universe_name == "nasdaq100":
                 from data.data_fetcher import fetch_nasdaq100_tickers
 
@@ -909,10 +989,14 @@ def main():
             latest_members = set(_mv_snap["tickers"].tolist()) if _mv_snap is not None else set()
 
         train_val_part = df[df["datadate"] <= args.val_cutoff].copy()
-        infer_part = df[(df["datadate"] > args.val_cutoff) & (df["tic"].isin(latest_members))].copy()
+        infer_part = df[
+            (df["datadate"] > args.val_cutoff) & (df["tic"].isin(latest_members))
+        ].copy()
 
         # Keep only latest datadate per ticker
-        infer_part = infer_part.sort_values(["tic", "datadate"]).drop_duplicates(subset="tic", keep="last")
+        infer_part = infer_part.sort_values(["tic", "datadate"]).drop_duplicates(
+            subset="tic", keep="last"
+        )
 
         # Tag vintage for output
         infer_part["data_vintage"] = infer_part["datadate"].apply(
@@ -921,7 +1005,9 @@ def main():
 
         n_q1 = (infer_part["data_vintage"] == "Q1_2026").sum()
         n_q4 = (infer_part["data_vintage"] == "Q4_2025").sum()
-        print(f"\nMixed-vintage mode: {len(infer_part)} current {universe_name.upper()} tickers for inference")
+        print(
+            f"\nMixed-vintage mode: {len(infer_part)} current {universe_name.upper()} tickers for inference"
+        )
         print(f"  Q1 2026 (early reporters): {n_q1}")
         print(f"  Q4 2025 (not yet reported): {n_q4}")
 
@@ -935,7 +1021,9 @@ def main():
     if args.infer_date and not args.mixed_vintage:
         before = len(df)
         df = df[(df["datadate"] <= args.val_cutoff) | (df["datadate"] == args.infer_date)].copy()
-        print(f"Infer-date filter: keep only {args.infer_date} for inference ({before} -> {len(df)} records)")
+        print(
+            f"Infer-date filter: keep only {args.infer_date} for inference ({before} -> {len(df)} records)"
+        )
 
     # ---------------------------------------------------------------
     # Point-in-time universe membership filter (Principles A, B, C)
@@ -951,13 +1039,17 @@ def main():
 
         # Map each real datadate to its tradedate
         df["_tradedate_pit"] = None
-        df.loc[real_mask, "_tradedate_pit"] = df.loc[real_mask, "datadate"].apply(datadate_to_tradedate)
+        df.loc[real_mask, "_tradedate_pit"] = df.loc[real_mask, "datadate"].apply(
+            datadate_to_tradedate
+        )
 
         # Build keep mask
         pit_keep = ~real_mask  # always keep synthetic rows (latest-snapshot / mixed-vintage)
         unique_tradedates = sorted(df.loc[real_mask, "_tradedate_pit"].dropna().unique())
 
-        print(f"\nPoint-in-time {universe_name.upper()} filter ({len(unique_tradedates)} tradedates):")
+        print(
+            f"\nPoint-in-time {universe_name.upper()} filter ({len(unique_tradedates)} tradedates):"
+        )
 
         for td in unique_tradedates:
             universe_members = get_universe_at(td)
@@ -980,11 +1072,15 @@ def main():
         for td in unique_tradedates[-4:]:
             universe_members = get_universe_at(td)
             td_rows = (df["_tradedate_pit"] == td).sum()
-            print(f"  tradedate {td}: {td_rows} stocks ({universe_name.upper()}={len(universe_members)})")
+            print(
+                f"  tradedate {td}: {td_rows} stocks ({universe_name.upper()}={len(universe_members)})"
+            )
 
         df = df.drop(columns=["_tradedate_pit"], errors="ignore")
     else:
-        print(f"\nSkipping point-in-time filter (no historical constituents for {universe_name.upper()})")
+        print(
+            f"\nSkipping point-in-time filter (no historical constituents for {universe_name.upper()})"
+        )
 
     # Sub-sector indicator features: one-hot encode gsector so models can
     # distinguish sectors within each bucket (e.g. Energy vs Real Estate).
@@ -993,7 +1089,9 @@ def main():
 
     # ---- Unified-only mode: single model, rank all stocks together ----
     if args.unified_only:
-        all_sector_cols = sorted(c for c in df.columns if c.startswith("sector_") and df[c].sum() > 0)
+        all_sector_cols = sorted(
+            c for c in df.columns if c.startswith("sector_") and df[c].sum() > 0
+        )
         unified_features = FEATURE_COLS + MOMENTUM_COLS + all_sector_cols
         print(
             f"\n  [Unified-only mode]: {len(FEATURE_COLS)} fundamental + {len(MOMENTUM_COLS)} momentum + {len(all_sector_cols)} sector = {len(unified_features)} features"
@@ -1012,8 +1110,12 @@ def main():
             return
 
         # Overall ranking (no bucket split)
-        pred_all["rank_best"] = pred_all.groupby("datadate")["predicted_return"].rank(ascending=False).astype(int)
-        pred_all["rank_ensemble"] = pred_all.groupby("datadate")["pred_ensemble_avg"].rank(ascending=False).astype(int)
+        pred_all["rank_best"] = (
+            pred_all.groupby("datadate")["predicted_return"].rank(ascending=False).astype(int)
+        )
+        pred_all["rank_ensemble"] = (
+            pred_all.groupby("datadate")["pred_ensemble_avg"].rank(ascending=False).astype(int)
+        )
 
         # Save
         os.makedirs(args.output_dir, exist_ok=True)
@@ -1027,12 +1129,16 @@ def main():
         else:
             trade_tag = pd.Timestamp.now().strftime("%Y%m%d")
 
-        pred_path = os.path.join(args.output_dir, f"{prefix}ml_unified_predictions_{trade_tag}_{timestamp}.csv")
+        pred_path = os.path.join(
+            args.output_dir, f"{prefix}ml_unified_predictions_{trade_tag}_{timestamp}.csv"
+        )
         pred_all.to_csv(pred_path, index=False)
         print(f"\nSaved: {pred_path} ({len(pred_all)} stocks)")
 
         # Excel dashboard
-        excel_path = os.path.join(args.output_dir, f"{prefix}ml_dashboard_{trade_tag}_{timestamp}.xlsx")
+        excel_path = os.path.join(
+            args.output_dir, f"{prefix}ml_dashboard_{trade_tag}_{timestamp}.xlsx"
+        )
         with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
             pred_all.sort_values("rank_best").to_excel(writer, sheet_name="Rankings", index=False)
             pd.DataFrame(all_model_results).to_excel(writer, sheet_name="Models", index=False)
@@ -1050,7 +1156,11 @@ def main():
             qdf = pred_all[pred_all["datadate"] == idate].sort_values("rank_best")
             print(f"\n  --- {idate} ({len(qdf)} stocks) ---")
             for i, (_, r) in enumerate(qdf.head(10).iterrows(), 1):
-                actual = f"  actual={r['y_return'] * 100:+.1f}%" if has_actual and pd.notna(r.get("y_return")) else ""
+                actual = (
+                    f"  actual={r['y_return'] * 100:+.1f}%"
+                    if has_actual and pd.notna(r.get("y_return"))
+                    else ""
+                )
                 print(f"    {i:>2}. {r['tic']:<8} pred={r['predicted_return'] * 100:+.1f}%{actual}")
             if has_actual and qdf.head(5)["y_return"].notna().any():
                 avg5 = qdf.head(5)["y_return"].mean() * 100
@@ -1089,10 +1199,14 @@ def main():
 
     # Per-bucket-per-quarter ranking
     pred_all["rank_best"] = (
-        pred_all.groupby(["bucket", "datadate"])["predicted_return"].rank(ascending=False).astype(int)
+        pred_all.groupby(["bucket", "datadate"])["predicted_return"]
+        .rank(ascending=False)
+        .astype(int)
     )
     pred_all["rank_ensemble"] = (
-        pred_all.groupby(["bucket", "datadate"])["pred_ensemble_avg"].rank(ascending=False).astype(int)
+        pred_all.groupby(["bucket", "datadate"])["pred_ensemble_avg"]
+        .rank(ascending=False)
+        .astype(int)
     )
 
     # ---- Actual return calculation for inference rows (ref-date → end-date) ----
@@ -1116,7 +1230,9 @@ def main():
             dl_start = (ref_dt - pd.Timedelta(days=5)).strftime("%Y-%m-%d")
             dl_end = (end_dt + pd.Timedelta(days=3)).strftime("%Y-%m-%d")
             try:
-                px = yf.download(yf_tickers, start=dl_start, end=dl_end, auto_adjust=True, progress=False)
+                px = yf.download(
+                    yf_tickers, start=dl_start, end=dl_end, auto_adjust=True, progress=False
+                )
                 close = px["Close"] if isinstance(px.columns, pd.MultiIndex) else px[["Close"]]
                 # Buy: first trading day >= ref_date
                 buy_dates = close.loc[ref_dt.strftime("%Y-%m-%d") :].index
@@ -1135,7 +1251,9 @@ def main():
                                     y_rets[tic] = (p_sell / p_buy) - 1
                             except Exception:
                                 pass
-                    pred_all.loc[infer_mask, "y_return"] = pred_all.loc[infer_mask, "tic"].map(y_rets)
+                    pred_all.loc[infer_mask, "y_return"] = pred_all.loc[infer_mask, "tic"].map(
+                        y_rets
+                    )
                     filled = pred_all.loc[infer_mask, "y_return"].notna().sum()
                     spy_ret = ""
                     if "SPY" in close.columns:
@@ -1160,17 +1278,23 @@ def main():
         else:
             trade_tag = pd.Timestamp.now().strftime("%Y%m%d")
 
-    pred_path = os.path.join(args.output_dir, f"{prefix}ml_bucket_predictions_{trade_tag}_{timestamp}.csv")
+    pred_path = os.path.join(
+        args.output_dir, f"{prefix}ml_bucket_predictions_{trade_tag}_{timestamp}.csv"
+    )
     pred_all.to_csv(pred_path, index=False)
     print(f"\nSaved: {pred_path} ({len(pred_all)} stocks)")
 
-    model_path = os.path.join(args.output_dir, f"{prefix}ml_bucket_model_results_{trade_tag}_{timestamp}.csv")
+    model_path = os.path.join(
+        args.output_dir, f"{prefix}ml_bucket_model_results_{trade_tag}_{timestamp}.csv"
+    )
     pd.DataFrame(all_model_results).to_csv(model_path, index=False)
 
     if all_importances:
         imp_df = pd.DataFrame(all_importances)
         imp_df = imp_df.sort_values(["bucket", "model", "rank"])
-        imp_path = os.path.join(args.output_dir, f"{prefix}ml_feature_importance_{trade_tag}_{timestamp}.csv")
+        imp_path = os.path.join(
+            args.output_dir, f"{prefix}ml_feature_importance_{trade_tag}_{timestamp}.csv"
+        )
         imp_df.to_csv(imp_path, index=False)
         print(f"Saved: {imp_path} ({len(imp_df)} rows)")
     print(f"Saved: {model_path} ({len(all_model_results)} rows)")
@@ -1201,12 +1325,14 @@ def main():
                 print(f"  {bucket:15s}: no data")
                 continue
             best_m = bp.iloc[0]["best_model"]
-            picks = ", ".join(f"{r['tic']}({r['predicted_return'] * 100:+.1f}%)" for _, r in bp.iterrows())
+            picks = ", ".join(
+                f"{r['tic']}({r['predicted_return'] * 100:+.1f}%)" for _, r in bp.iterrows()
+            )
             print(f"  {bucket:15s} [{best_m}]: {picks}")
 
     # ---- Dual Model Ensemble ----
     if args.dual_ensemble:
-        dual_result, _dual_model_results, _dual_importances = run_dual_ensemble(
+        dual_result, dual_model_results, dual_importances = run_dual_ensemble(
             df,
             pred_all,
             all_importances,
@@ -1215,7 +1341,9 @@ def main():
             args.ensemble_alpha,
         )
         if dual_result is not None:
-            dual_path = os.path.join(args.output_dir, f"{prefix}ml_dual_ensemble_{trade_tag}_{timestamp}.csv")
+            dual_path = os.path.join(
+                args.output_dir, f"{prefix}ml_dual_ensemble_{trade_tag}_{timestamp}.csv"
+            )
             dual_result.to_csv(dual_path, index=False)
             print(f"\nSaved dual ensemble: {dual_path} ({len(dual_result)} stocks)")
 
@@ -1233,20 +1361,25 @@ def main():
         print("  MIXED-ALPHA STRATEGY")
         print("  Per-bucket optimal α from 5-period backtest:")
         for b, a in BUCKET_ALPHA.items():
-            label = {0.0: "Pure Bucket-Split", 1.0: "Pure Unified"}.get(a, f"Dual {int(a * 100)}/{int((1 - a) * 100)}")
+            label = {0.0: "Pure Bucket-Split", 1.0: "Pure Unified"}.get(
+                a, f"Dual {int(a * 100)}/{int((1 - a) * 100)}"
+            )
             print(f"    {b:<15} α={a:.1f}  ({label})")
         print(f"{'=' * 70}")
 
         # Need unified model for buckets with α > 0
         needs_unified = any(a > 0 for a in BUCKET_ALPHA.values())
         unified_preds_df = pd.DataFrame()
+        unified_imps = []
 
         if needs_unified:
-            all_sector_cols = sorted(c for c in df.columns if c.startswith("sector_") and df[c].sum() > 0)
+            all_sector_cols = sorted(
+                c for c in df.columns if c.startswith("sector_") and df[c].sum() > 0
+            )
             unified_features = FEATURE_COLS + MOMENTUM_COLS + all_sector_cols
             print(f"\n  Training unified model ({len(unified_features)} features) ...")
 
-            unified_preds_df, _, _unified_imps = run_bucket(
+            unified_preds_df, _, unified_imps = run_bucket(
                 "unified_all",
                 df,
                 unified_features,
@@ -1274,22 +1407,29 @@ def main():
 
         # Compute within-bucket rank percentiles
         mixed["bucket_pctile"] = mixed.groupby(["bucket", "datadate"])["bucket_pred"].rank(pct=True)
-        mixed["unified_pctile"] = mixed.groupby(["bucket", "datadate"])["unified_pred"].rank(pct=True)
+        mixed["unified_pctile"] = mixed.groupby(["bucket", "datadate"])["unified_pred"].rank(
+            pct=True
+        )
 
         # Apply per-bucket α
         mixed["mixed_score"] = 0.0
         for bucket, alpha in BUCKET_ALPHA.items():
             mask = mixed["bucket"] == bucket
             mixed.loc[mask, "mixed_score"] = (
-                alpha * mixed.loc[mask, "unified_pctile"] + (1 - alpha) * mixed.loc[mask, "bucket_pctile"]
+                alpha * mixed.loc[mask, "unified_pctile"]
+                + (1 - alpha) * mixed.loc[mask, "bucket_pctile"]
             )
             mixed.loc[mask, "applied_alpha"] = alpha
 
-        mixed["rank_mixed"] = mixed.groupby(["bucket", "datadate"])["mixed_score"].rank(ascending=False).astype(int)
+        mixed["rank_mixed"] = (
+            mixed.groupby(["bucket", "datadate"])["mixed_score"].rank(ascending=False).astype(int)
+        )
 
         # Also compute uniform α=0.5 for comparison
         mixed["score_uniform"] = 0.5 * mixed["unified_pctile"] + 0.5 * mixed["bucket_pctile"]
-        mixed["rank_uniform"] = mixed.groupby(["bucket", "datadate"])["score_uniform"].rank(ascending=False).astype(int)
+        mixed["rank_uniform"] = (
+            mixed.groupby(["bucket", "datadate"])["score_uniform"].rank(ascending=False).astype(int)
+        )
 
         has_actual = "y_return" in mixed.columns and mixed["y_return"].notna().any()
         buckets = ["growth_tech", "cyclical", "real_assets", "defensive"]
@@ -1309,7 +1449,10 @@ def main():
 
                 print(f"\n  [{bucket.upper()}] α={a} ({label}), {len(bq)} stocks")
 
-                for method_name, rank_col in [("Bucket-Split", "rank_best"), ("Mixed-Alpha", "rank_mixed")]:
+                for method_name, rank_col in [
+                    ("Bucket-Split", "rank_best"),
+                    ("Mixed-Alpha", "rank_mixed"),
+                ]:
                     if rank_col not in bq.columns:
                         continue
                     top5 = bq.nsmallest(5, rank_col)
@@ -1320,7 +1463,9 @@ def main():
                         else:
                             parts.append(r["tic"])
                     avg = (
-                        top5["y_return"].mean() * 100 if has_actual and top5["y_return"].notna().any() else float("nan")
+                        top5["y_return"].mean() * 100
+                        if has_actual and top5["y_return"].notna().any()
+                        else float("nan")
                     )
                     avg_s = f"avg={avg:+.1f}%" if not np.isnan(avg) else ""
                     print(f"    {method_name:<16} {', '.join(parts):<55} {avg_s}")
@@ -1332,7 +1477,9 @@ def main():
             print(f"\n{'=' * 70}")
             print("  COMPARISON: Bucket-Split vs Mixed-Alpha vs Uniform α=0.5")
             print(f"{'=' * 70}")
-            print(f"\n  {'Bucket':<15} {'α':<6} {'Bucket-Split':>14} {'Mixed-Alpha':>14} {'Uniform 0.5':>14}")
+            print(
+                f"\n  {'Bucket':<15} {'α':<6} {'Bucket-Split':>14} {'Mixed-Alpha':>14} {'Uniform 0.5':>14}"
+            )
             print(f"  {'-' * 65}")
 
             totals = {"bs": [], "mixed": [], "uniform": []}
@@ -1359,13 +1506,17 @@ def main():
             uf_avg = np.nanmean(totals["uniform"])
             print(f"  {'-' * 65}")
             print(f"  {'OVERALL':<15} {'':6} {bs_avg:>+13.1f}% {mx_avg:>+13.1f}% {uf_avg:>+13.1f}%")
-            print(f"  {'SPY≈':<15} {'':6} {spy_proxy:>+13.1f}% {spy_proxy:>+13.1f}% {spy_proxy:>+13.1f}%")
+            print(
+                f"  {'SPY≈':<15} {'':6} {spy_proxy:>+13.1f}% {spy_proxy:>+13.1f}% {spy_proxy:>+13.1f}%"
+            )
             print(
                 f"  {'ALPHA':<15} {'':6} {bs_avg - spy_proxy:>+12.1f}pp {mx_avg - spy_proxy:>+12.1f}pp {uf_avg - spy_proxy:>+12.1f}pp"
             )
 
         # ---- Save ----
-        mixed_path = os.path.join(args.output_dir, f"{prefix}ml_mixed_alpha_{trade_tag}_{timestamp}.csv")
+        mixed_path = os.path.join(
+            args.output_dir, f"{prefix}ml_mixed_alpha_{trade_tag}_{timestamp}.csv"
+        )
         mixed.to_csv(mixed_path, index=False)
         print(f"\nSaved: {mixed_path} ({len(mixed)} stocks)")
 

@@ -39,13 +39,12 @@ import sys
 from abc import ABC
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol, Tuple
+from typing import Any, Protocol
 
 import numpy as np
 import pandas as pd
 import pandas_market_calendars as mcal
 import requests
-import yfinance as yf
 from tqdm import tqdm
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
@@ -60,7 +59,7 @@ logger = logging.getLogger(__name__)
 class DataSource(Protocol):
     """Protocol for data source implementations."""
 
-    def get_sp500_components(self, date: str | None = None) -> pd.DataFrame:
+    def get_sp500_components(self, date: str = None) -> pd.DataFrame:
         """Get S&P 500 components."""
         ...
 
@@ -94,7 +93,7 @@ class DataSource(Protocol):
 class BaseDataFetcher(ABC):
     """Base class for data fetchers with common functionality."""
 
-    def __init__(self, cache_dir: str | None = None):
+    def __init__(self, cache_dir: str = None):
         """
         Initialize base data fetcher.
 
@@ -118,7 +117,9 @@ class BaseDataFetcher(ABC):
                     df["gvkey"] = df.get("tic", df.index)  # Use ticker as gvkey if not available
                 elif col == "datadate":
                     df["datadate"] = (
-                        df.index if isinstance(df.index, pd.DatetimeIndex) else pd.to_datetime(df.get("date", df.index))
+                        df.index
+                        if isinstance(df.index, pd.DatetimeIndex)
+                        else pd.to_datetime(df.get("date", df.index))
                     )
                 elif col == "tic":
                     df["tic"] = df.get("gvkey", df.index)  # Use gvkey as tic if not available
@@ -131,7 +132,7 @@ class BaseDataFetcher(ABC):
         if "adj_close" not in df.columns and "prccd" in df.columns and "ajexdi" in df.columns:
             df["adj_close"] = df["prccd"] / df["ajexdi"]
 
-        return df[[*required_columns, "adj_close"]]
+        return df[required_columns + ["adj_close"]]
 
     def _standardize_price_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """Standardize price data format."""
@@ -154,7 +155,11 @@ class BaseDataFetcher(ABC):
         for col in required_columns:
             if col not in df.columns:
                 if col == "datadate":
-                    df["datadate"] = df.index if isinstance(df.index, pd.DatetimeIndex) else pd.to_datetime(df.index)
+                    df["datadate"] = (
+                        df.index
+                        if isinstance(df.index, pd.DatetimeIndex)
+                        else pd.to_datetime(df.index)
+                    )
                 elif col == "prccd":
                     df["prccd"] = df.get("Close", df.get("close", 100))
                 elif col == "prcod":
@@ -182,7 +187,9 @@ class BaseDataFetcher(ABC):
             else:
                 df["tic"] = "UNKNOWN"
 
-        return df[["gvkey", "datadate", "tic", "prccd", "prcod", "prchd", "prcld", "cshtrd", "adj_close"]]
+        return df[
+            ["gvkey", "datadate", "tic", "prccd", "prcod", "prchd", "prcld", "cshtrd", "adj_close"]
+        ]
 
 
 class FMPFetcher(BaseDataFetcher, DataSource):
@@ -216,7 +223,7 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                 return config.fmp.api_key.get_secret_value()
             return None
         except Exception as e:
-            logger.exception(f"Failed to get FMP API key: {e}")
+            logger.error(f"Failed to get FMP API key: {e}")
             return None
 
     def _init_sentiment_settings(self) -> None:
@@ -257,7 +264,12 @@ class FMPFetcher(BaseDataFetcher, DataSource):
         return self._openai_client
 
     def _fetch_fmp_data(
-        self, ticker: str, endpoint: str, period: str, start_date: str | None = None, end_date: str | None = None
+        self,
+        ticker: str,
+        endpoint: str,
+        period: str,
+        start_date: str | None = None,
+        end_date: str | None = None,
     ) -> list[dict[str, Any]]:
         """Helper to fetch data from FMP API with local-first strategy.
 
@@ -267,7 +279,13 @@ class FMPFetcher(BaseDataFetcher, DataSource):
 
         # Map endpoint -> payload key for raw save/load
         payload_key = None
-        if endpoint in ("income-statement", "balance-sheet-statement", "cash-flow-statement", "ratios", "profile"):
+        if endpoint in (
+            "income-statement",
+            "balance-sheet-statement",
+            "cash-flow-statement",
+            "ratios",
+            "profile",
+        ):
             payload_key = {
                 "income-statement": "income",
                 "balance-sheet-statement": "balance",
@@ -279,16 +297,23 @@ class FMPFetcher(BaseDataFetcher, DataSource):
             # 1) Local-first: if offline or data is fresh, use local store
             if start_date and end_date:
                 try:
-                    stored = self.data_store.get_raw_payload(ticker, payload_key, start_date, end_date, source="FMP")
+                    stored = self.data_store.get_raw_payload(
+                        ticker, payload_key, start_date, end_date, source="FMP"
+                    )
                     if stored:
                         return stored
                     if not self.offline_mode:
-                        latest_str = self.data_store.get_raw_payload_latest_date(ticker, payload_key, source="FMP")
+                        latest_str = self.data_store.get_raw_payload_latest_date(
+                            ticker, payload_key, source="FMP"
+                        )
                         if latest_str:
                             latest_dt = pd.to_datetime(latest_str)
                             today = pd.Timestamp.today().normalize()
                             req_end_dt = pd.to_datetime(end_date)
-                            threshold_dt = min(today - pd.DateOffset(months=3), req_end_dt - pd.DateOffset(months=3))
+                            threshold_dt = min(
+                                today - pd.DateOffset(months=3),
+                                req_end_dt - pd.DateOffset(months=3),
+                            )
                             if latest_dt >= threshold_dt:
                                 stored2 = self.data_store.get_raw_payload(
                                     ticker, payload_key, start_date, end_date, source="FMP"
@@ -300,7 +325,9 @@ class FMPFetcher(BaseDataFetcher, DataSource):
 
         # Offline mode: skip any network requests
         if self.offline_mode:
-            logger.info(f"Offline mode: skip remote fetch for {endpoint} {ticker}; using local DB if available")
+            logger.info(
+                f"Offline mode: skip remote fetch for {endpoint} {ticker}; using local DB if available"
+            )
             return []
 
         # Build URL (profile endpoint doesn't use period).
@@ -321,7 +348,9 @@ class FMPFetcher(BaseDataFetcher, DataSource):
             # Save raw payload for fundamentals endpoints
             if payload_key and start_date and end_date:
                 try:
-                    self.data_store._save_raw_payload("FMP", ticker, payload_key, start_date, end_date, data)
+                    self.data_store._save_raw_payload(
+                        "FMP", ticker, payload_key, start_date, end_date, data
+                    )
                 except Exception as se:
                     logger.debug(f"Failed to save raw FMP payload {payload_key} for {ticker}: {se}")
             return data
@@ -329,13 +358,15 @@ class FMPFetcher(BaseDataFetcher, DataSource):
             logger.warning(f"Failed to fetch {endpoint} data for {ticker}: {e}")
             return []
 
-    def get_sp500_components(self, date: str | None = None) -> pd.DataFrame:
+    def get_sp500_components(self, date: str = None) -> pd.DataFrame:
         """Get S&P 500 components from FMP."""
         if date is None:
             date = datetime.now().strftime("%Y-%m-%d")
 
         # Check database first
-        cached_tickers, cached_sectors, cached_dateFirstAdded = self.data_store.get_sp500_components(date)
+        cached_tickers, cached_sectors, cached_dateFirstAdded = (
+            self.data_store.get_sp500_components(date)
+        )
         if cached_tickers:
             logger.info(f"Loading S&P 500 components from database for {date}")
             return pd.DataFrame(
@@ -365,8 +396,7 @@ class FMPFetcher(BaseDataFetcher, DataSource):
 
         try:
             if not self.api_key:
-                msg = "FMP API key not found"
-                raise ValueError(msg)
+                raise ValueError("FMP API key not found")
 
             url = f"{self.base_url}/sp500-constituent?apikey={self.api_key}"
             response = requests.get(url)
@@ -383,16 +413,20 @@ class FMPFetcher(BaseDataFetcher, DataSource):
             dateFirstAdded_str = ",".join(dateFirstAdded)
 
             # Create DataFrame
-            df = pd.DataFrame({"tickers": tickers, "sectors": sectors, "dateFirstAdded": dateFirstAdded})
+            df = pd.DataFrame(
+                {"tickers": tickers, "sectors": sectors, "dateFirstAdded": dateFirstAdded}
+            )
 
             # Save to database
-            self.data_store.save_sp500_components(date, tickers_str, sectors_str, dateFirstAdded_str)
+            self.data_store.save_sp500_components(
+                date, tickers_str, sectors_str, dateFirstAdded_str
+            )
             logger.info(f"Saved S&P 500 components to database for {date}")
 
             return df
 
         except Exception as e:
-            logger.exception(f"Failed to fetch S&P 500 components from FMP: {e}")
+            logger.error(f"Failed to fetch S&P 500 components from FMP: {e}")
             # Fallback to whatever in DB
             latest, latest_sectors, latest_dateFirstAdded = self.data_store.get_sp500_components()
             if latest:
@@ -429,7 +463,9 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                 return {"sentiment": sentiment, "confidence": None}
         return {}
 
-    def _annotate_sentiment(self, articles: list[dict[str, Any]], sentiment_model: str | None = None) -> None:
+    def _annotate_sentiment(
+        self, articles: list[dict[str, Any]], sentiment_model: str | None = None
+    ) -> None:
         """Call GPT API to annotate sentiment for a batch of news articles."""
         if not articles:
             return
@@ -478,7 +514,12 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                 logger.debug(f"Sentiment analysis failed for news '{title}': {exc}")
 
     def _ensure_news_sentiment(
-        self, ticker: str, start_date: str, end_date: str, df: pd.DataFrame, sentiment_model: str | None = None
+        self,
+        ticker: str,
+        start_date: str,
+        end_date: str,
+        df: pd.DataFrame,
+        sentiment_model: str | None = None,
     ) -> pd.DataFrame:
         """Ensure cached rows also have sentiment when requested."""
         if df.empty or "sentiment" not in df.columns:
@@ -519,27 +560,28 @@ class FMPFetcher(BaseDataFetcher, DataSource):
     ) -> pd.DataFrame:
         """Get news from FMP with local caching and optional GPT sentiment analysis."""
         if not ticker:
-            msg = "ticker is required for get_news"
-            raise ValueError(msg)
+            raise ValueError("ticker is required for get_news")
 
         try:
             start_date = pd.to_datetime(from_date).strftime("%Y-%m-%d")
             end_date = pd.to_datetime(to_date).strftime("%Y-%m-%d")
         except Exception as exc:
-            msg = f"Invalid from/to date: {exc}"
-            raise ValueError(msg) from exc
+            raise ValueError(f"Invalid from/to date: {exc}") from exc
 
         if pd.to_datetime(start_date) > pd.to_datetime(end_date):
-            msg = "from_date must be earlier than to_date"
-            raise ValueError(msg)
+            raise ValueError("from_date must be earlier than to_date")
 
         cached = self.data_store.get_news_articles(ticker, start_date, end_date)
-        logger.info(f"Loaded {len(cached)} cached news rows for {ticker} ({start_date} -> {end_date})")
+        logger.info(
+            f"Loaded {len(cached)} cached news rows for {ticker} ({start_date} -> {end_date})"
+        )
 
         if self.offline_mode or not self.api_key:
             logger.info("Offline or missing API key: returning cached news only")
             if analyze_sentiment:
-                cached = self._ensure_news_sentiment(ticker, start_date, end_date, cached, sentiment_model)
+                cached = self._ensure_news_sentiment(
+                    ticker, start_date, end_date, cached, sentiment_model
+                )
             return cached
 
         missing_ranges = (
@@ -567,7 +609,9 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                     else:
                         news_items = []
 
-                    logger.info(f"Fetched {len(news_items)} news entries for {ticker} ({range_start}->{range_end})")
+                    logger.info(
+                        f"Fetched {len(news_items)} news entries for {ticker} ({range_start}->{range_end})"
+                    )
 
                     for item in news_items:
                         item.setdefault("symbol", ticker)
@@ -577,7 +621,9 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                     new_articles.extend(news_items)
                     completed_ranges.append((range_start, range_end, len(news_items)))
                 except requests.RequestException as exc:
-                    logger.warning(f"Failed to fetch news for {ticker} ({range_start}->{range_end}): {exc}")
+                    logger.warning(
+                        f"Failed to fetch news for {ticker} ({range_start}->{range_end}): {exc}"
+                    )
         else:
             logger.info(f"News cache already covers requested range for {ticker}")
 
@@ -592,12 +638,18 @@ class FMPFetcher(BaseDataFetcher, DataSource):
 
         result = self.data_store.get_news_articles(ticker, start_date, end_date)
         if analyze_sentiment:
-            result = self._ensure_news_sentiment(ticker, start_date, end_date, result, sentiment_model)
+            result = self._ensure_news_sentiment(
+                ticker, start_date, end_date, result, sentiment_model
+            )
 
         return result
 
     def get_fundamental_data(
-        self, tickers: pd.DataFrame, start_date: str, end_date: str, align_quarter_dates: bool = False
+        self,
+        tickers: pd.DataFrame,
+        start_date: str,
+        end_date: str,
+        align_quarter_dates: bool = False,
     ) -> pd.DataFrame:
         """Get fundamental data from FMP with extended fields and forward y_return and incremental updates.
         Adds one next quarter to compute the last forward return, then drops that extra row, and drops rows with missing y_return.
@@ -644,16 +696,24 @@ class FMPFetcher(BaseDataFetcher, DataSource):
 
         prices = self.get_price_data(tickers, extended_start_date, extended_end_date)
 
-        for ticker in tickers_to_fetch or []:
+        for ticker in tickers_to_fetch if tickers_to_fetch else []:
             try:
                 # Local-first: helper will use DB in offline mode
-                income_data = self._fetch_fmp_data(ticker, "income-statement", "quarter", start_date, end_date)
-                balance_data = self._fetch_fmp_data(ticker, "balance-sheet-statement", "quarter", start_date, end_date)
-                cashflow_data = self._fetch_fmp_data(ticker, "cash-flow-statement", "quarter", start_date, end_date)
+                income_data = self._fetch_fmp_data(
+                    ticker, "income-statement", "quarter", start_date, end_date
+                )
+                balance_data = self._fetch_fmp_data(
+                    ticker, "balance-sheet-statement", "quarter", start_date, end_date
+                )
+                cashflow_data = self._fetch_fmp_data(
+                    ticker, "cash-flow-statement", "quarter", start_date, end_date
+                )
 
                 # ratios
                 # Ratios via helper
-                ratios_data = self._fetch_fmp_data(ticker, "ratios", "quarter", start_date, end_date) or []
+                ratios_data = (
+                    self._fetch_fmp_data(ticker, "ratios", "quarter", start_date, end_date) or []
+                )
 
                 # profile for sector
                 # Profile via helper
@@ -668,13 +728,19 @@ class FMPFetcher(BaseDataFetcher, DataSource):
 
                 # price data for quarter adj_close (need next quarter too)
 
-                prices_t = prices[prices["tic"] == ticker].copy() if not prices.empty else pd.DataFrame()
+                prices_t = (
+                    prices[prices["tic"] == ticker].copy() if not prices.empty else pd.DataFrame()
+                )
                 if not prices_t.empty and "datadate" in prices_t.columns:
                     prices_t["datadate"] = pd.to_datetime(prices_t["datadate"], errors="coerce")
-                    prices_t = prices_t.dropna(subset=["datadate"]).sort_values("datadate", ascending=True)
+                    prices_t = prices_t.dropna(subset=["datadate"]).sort_values(
+                        "datadate", ascending=True
+                    )
 
                 # Index data by date for quick lookup
-                def index_by_date(items: list[dict[str, Any]]) -> dict[pd.Timestamp, dict[str, Any]]:
+                def index_by_date(
+                    items: list[dict[str, Any]],
+                ) -> dict[pd.Timestamp, dict[str, Any]]:
                     out = {}
                     for it in items or []:
                         key_ts = None
@@ -715,7 +781,9 @@ class FMPFetcher(BaseDataFetcher, DataSource):
 
                 # in-range quarter dates
                 all_quarter_dates = sorted(
-                    set(income_by_date.keys()) | set(balance_by_date.keys()) | set(cashflow_by_date.keys())
+                    set(income_by_date.keys())
+                    | set(balance_by_date.keys())
+                    | set(cashflow_by_date.keys())
                 )
                 inrange_quarters = [d for d in all_quarter_dates if start_dt <= d <= end_dt]
 
@@ -745,7 +813,12 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                         shares_out = None
 
                     # equity and income
-                    equity = balance_q.get("totalStockholdersEquity", balance_q.get("totalStockholdersEquity", 0)) or 0
+                    equity = (
+                        balance_q.get(
+                            "totalStockholdersEquity", balance_q.get("totalStockholdersEquity", 0)
+                        )
+                        or 0
+                    )
                     try:
                         equity = float(equity)
                     except Exception:
@@ -756,7 +829,9 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                     if net_income_ratio is None:
                         net_income_ratio = income_q.get("netIncomeRatio")
                     try:
-                        net_income_ratio = float(net_income_ratio) if net_income_ratio is not None else np.nan
+                        net_income_ratio = (
+                            float(net_income_ratio) if net_income_ratio is not None else np.nan
+                        )
                     except (TypeError, ValueError):
                         net_income_ratio = np.nan
 
@@ -791,7 +866,9 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                                 if not price_row_aln.empty:
                                     break
                             if price_row_aln.empty:
-                                price_row_aln = prices_t[prices_t["datadate"] <= aligned_date].tail(1)
+                                price_row_aln = prices_t[prices_t["datadate"] <= aligned_date].tail(
+                                    1
+                                )
                             if not price_row_aln.empty:
                                 float(price_row_aln.iloc[0].get("prccd", np.nan))
                                 ac_a = price_row_aln.iloc[0].get("adj_close", np.nan)
@@ -806,7 +883,11 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                     except Exception:
                         net_income = np.nan
                     if eps is None and shares_out:
-                        eps = (net_income / shares_out) if (pd.notna(net_income) and shares_out) else np.nan
+                        eps = (
+                            (net_income / shares_out)
+                            if (pd.notna(net_income) and shares_out)
+                            else np.nan
+                        )
 
                     try:
                         eps = float(eps) if eps is not None else np.nan
@@ -822,7 +903,9 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                     except (TypeError, ValueError):
                         dps = np.nan
                     if pd.isna(dps):
-                        dividends_paid = cash_q.get("commonDividendsPaid") or cash_q.get("dividendsPaid")
+                        dividends_paid = cash_q.get("commonDividendsPaid") or cash_q.get(
+                            "dividendsPaid"
+                        )
                         try:
                             dps = (
                                 (abs(float(dividends_paid)) / shares_out)
@@ -838,14 +921,20 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                         ca = balance_q.get("totalCurrentAssets")
                         cl = balance_q.get("totalCurrentLiabilities")
                         try:
-                            cur_ratio = (float(ca) / float(cl)) if (ca and cl and float(cl) != 0) else np.nan
+                            cur_ratio = (
+                                (float(ca) / float(cl))
+                                if (ca and cl and float(cl) != 0)
+                                else np.nan
+                            )
                         except Exception:
                             cur_ratio = np.nan
 
                     quick_ratio = ratio_q.get("quickRatio")
                     if quick_ratio is None:
                         ca = balance_q.get("totalCurrentAssets")
-                        inv = balance_q.get("inventory") or balance_q.get("inventoryAndOtherCurrentAssets")
+                        inv = balance_q.get("inventory") or balance_q.get(
+                            "inventoryAndOtherCurrentAssets"
+                        )
                         cl = balance_q.get("totalCurrentLiabilities")
                         try:
                             quick_ratio = (
@@ -863,11 +952,17 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                         )
                         cl = balance_q.get("totalCurrentLiabilities")
                         try:
-                            cash_ratio = (float(cash_st) / float(cl)) if (cash_st and cl and float(cl) != 0) else np.nan
+                            cash_ratio = (
+                                (float(cash_st) / float(cl))
+                                if (cash_st and cl and float(cl) != 0)
+                                else np.nan
+                            )
                         except Exception:
                             cash_ratio = np.nan
 
-                    acc_rec_turnover = ratio_q.get("receivablesTurnover") or ratio_q.get("accountsReceivableTurnover")
+                    acc_rec_turnover = ratio_q.get("receivablesTurnover") or ratio_q.get(
+                        "accountsReceivableTurnover"
+                    )
 
                     debt_ratio = ratio_q.get("debtRatio")
                     if debt_ratio is None:
@@ -898,7 +993,11 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                     pe = ratio_q.get("priceEarningsRatio")
                     if pe is None:
                         try:
-                            pe = (prccd_orig / eps) if (pd.notna(prccd_orig) and eps and eps != 0) else np.nan
+                            pe = (
+                                (prccd_orig / eps)
+                                if (pd.notna(prccd_orig) and eps and eps != 0)
+                                else np.nan
+                            )
                         except Exception:
                             pe = np.nan
 
@@ -906,12 +1005,18 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                     pb = ratio_q.get("priceToBookRatio")
                     if pb is None:
                         try:
-                            pb = (prccd_orig / bps) if (pd.notna(prccd_orig) and bps and bps != 0) else np.nan
+                            pb = (
+                                (prccd_orig / bps)
+                                if (pd.notna(prccd_orig) and bps and bps != 0)
+                                else np.nan
+                            )
                         except Exception:
                             pb = np.nan
 
                     roe = (
-                        (net_income / equity) if (pd.notna(net_income) and equity and float(equity) != 0.0) else np.nan
+                        (net_income / equity)
+                        if (pd.notna(net_income) and equity and float(equity) != 0.0)
+                        else np.nan
                     )
 
                     # --- Extract all additional ratio fields ---
@@ -989,7 +1094,9 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                         "filing_date": filing_date,
                         "accepted_date": accepted_date,
                         "adj_close_q": (
-                            adj_close_aligned if align_quarter_dates and pd.notna(adj_close_aligned) else adj_close_orig
+                            adj_close_aligned
+                            if align_quarter_dates and pd.notna(adj_close_aligned)
+                            else adj_close_orig
                         )
                         if pd.notna(adj_close_orig) or pd.notna(adj_close_aligned)
                         else np.nan,
@@ -999,7 +1106,9 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                         "cur_ratio": cur_ratio if cur_ratio is not None else np.nan,
                         "quick_ratio": quick_ratio if quick_ratio is not None else np.nan,
                         "cash_ratio": cash_ratio if cash_ratio is not None else np.nan,
-                        "acc_rec_turnover": acc_rec_turnover if acc_rec_turnover is not None else np.nan,
+                        "acc_rec_turnover": acc_rec_turnover
+                        if acc_rec_turnover is not None
+                        else np.nan,
                         "debt_ratio": debt_ratio if debt_ratio is not None else np.nan,
                         "debt_to_equity": debt_to_equity if debt_to_equity is not None else np.nan,
                         "pe": pe if pe is not None else np.nan,
@@ -1012,7 +1121,7 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                     all_records.append(record)
 
             except Exception as e:
-                logger.exception(f"Error fetching fundamentals for {ticker}: {e}")
+                logger.error(f"Error fetching fundamentals for {ticker}: {e}")
                 continue
 
         # Step 4: Process and combine data
@@ -1023,7 +1132,9 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                 df = df.sort_values(["tic", "datadate"])
                 # forward return: current quarter vs last quarter
                 # df['y_return'] = np.log(df['adj_close_q'].shift(-1) / df['adj_close_q'])
-                df["y_return"] = df.groupby("tic")["adj_close_q"].transform(lambda s: np.log(s.shift(-1) / s))
+                df["y_return"] = df.groupby("tic")["adj_close_q"].transform(
+                    lambda s: np.log(s.shift(-1) / s)
+                )
 
                 # Fill missing y_return for the last quarter of each ticker
                 # using price data (e.g., Q4 2025 y_return needs Q1 2026 price which is available even without Q1 2026 fundamentals)
@@ -1040,13 +1151,15 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                             # Determine next quarter-end date
                             next_q_end = last_qd + pd.offsets.QuarterEnd(1)
                             # Look up price near next quarter-end from price data
-                            tic_prices = prices_dt[prices_dt["tic"] == tic_name].sort_values("datadate")
+                            tic_prices = prices_dt[prices_dt["tic"] == tic_name].sort_values(
+                                "datadate"
+                            )
                             if tic_prices.empty:
                                 continue
                             # Find closest trading day to next_q_end (within 7 days before)
-                            mask_near = (tic_prices["datadate"] >= next_q_end - pd.Timedelta(days=7)) & (
-                                tic_prices["datadate"] <= next_q_end + pd.Timedelta(days=3)
-                            )
+                            mask_near = (
+                                tic_prices["datadate"] >= next_q_end - pd.Timedelta(days=7)
+                            ) & (tic_prices["datadate"] <= next_q_end + pd.Timedelta(days=3))
                             near_prices = tic_prices[mask_near]
                             if near_prices.empty:
                                 # Fallback: closest price before next_q_end
@@ -1060,12 +1173,16 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                                 ]
                                 next_price = near_prices.iloc[0].get("adj_close", np.nan)
                                 if pd.notna(next_price) and float(next_price) > 0:
-                                    df.loc[last_idx, "y_return"] = np.log(float(next_price) / cur_price)
+                                    df.loc[last_idx, "y_return"] = np.log(
+                                        float(next_price) / cur_price
+                                    )
 
                 # keep only original in-range quarters
                 start_dt = pd.to_datetime(start_date)
                 end_dt = pd.to_datetime(end_date)
-                mask_in_range = pd.to_datetime(df["datadate"]).between(start_dt, end_dt, inclusive="both")
+                mask_in_range = pd.to_datetime(df["datadate"]).between(
+                    start_dt, end_dt, inclusive="both"
+                )
                 df = df[mask_in_range].reset_index(drop=True)
                 # don't need to drop rows without y_return
                 # df = df[df['y_return'].notna()].reset_index(drop=True)
@@ -1081,32 +1198,32 @@ class FMPFetcher(BaseDataFetcher, DataSource):
     def get_active_trading_list(self) -> pd.DataFrame:
         """Get active trading list from FMP."""
         if not self.api_key:
-            msg = "FMP API key not found"
-            raise ValueError(msg)
+            raise ValueError("FMP API key not found")
         url = f"{self.base_url}/actively-trading-list?apikey={self.api_key}"
         response = requests.get(url)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        return data
 
     def get_realtime_single_price_data(self, ticker: str) -> pd.DataFrame:
         """Get realtime price data from FMP."""
         if not self.api_key:
-            msg = "FMP API key not found"
-            raise ValueError(msg)
+            raise ValueError("FMP API key not found")
         url = f"{self.base_url}/quote?symbol={ticker}&apikey={self.api_key}"
         response = requests.get(url)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        return data
 
     def get_realtime_batch_price_data(self, tickers: list[str]) -> pd.DataFrame:
         """Get realtime price data from FMP."""
         if not self.api_key:
-            msg = "FMP API key not found"
-            raise ValueError(msg)
+            raise ValueError("FMP API key not found")
         url = f"{self.base_url}/batch-quote?symbols={','.join(tickers)}&apikey={self.api_key}"
         response = requests.get(url)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        return data
 
     def get_price_data(self, tickers: pd.DataFrame, start_date: str, end_date: str) -> pd.DataFrame:
         """Get price data from FMP with incremental updates."""
@@ -1134,7 +1251,9 @@ class FMPFetcher(BaseDataFetcher, DataSource):
 
         # Offline: return existing data only
         if self.offline_mode:
-            logger.info("Offline mode: returning existing price data from database and skipping remote fetch")
+            logger.info(
+                "Offline mode: returning existing price data from database and skipping remote fetch"
+            )
             return existing_data
 
         # Step 2: Identify tickers that need to be fetched
@@ -1142,7 +1261,9 @@ class FMPFetcher(BaseDataFetcher, DataSource):
 
         # Bulk query for missing ranges to reduce overhead
         try:
-            bulk_missing = self.data_store.get_missing_price_dates_bulk(tickers, start_date, end_date, exchange="NYSE")
+            bulk_missing = self.data_store.get_missing_price_dates_bulk(
+                tickers, start_date, end_date, exchange="NYSE"
+            )
         except Exception as e:
             logger.debug(f"bulk missing ranges failed, fallback to per-ticker: {e}")
             bulk_missing = None
@@ -1154,7 +1275,9 @@ class FMPFetcher(BaseDataFetcher, DataSource):
         else:
             # Prepare per-ticker dateFirstAdded lookup
             tickers_list = (
-                tickers["tickers"].astype(str).tolist() if isinstance(tickers, pd.DataFrame) else list(tickers)
+                tickers["tickers"].astype(str).tolist()
+                if isinstance(tickers, pd.DataFrame)
+                else list(tickers)
             )
             if isinstance(tickers, pd.DataFrame) and "dateFirstAdded" in tickers.columns:
                 dfa_map = {
@@ -1170,7 +1293,11 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                     dfa = pd.to_datetime(dfa_raw, errors="coerce") if dfa_raw is not None else None
                 except Exception:
                     dfa = None
-                eff_start_dt = max(pd.to_datetime(start_date), dfa) if dfa is not None else pd.to_datetime(start_date)
+                eff_start_dt = (
+                    max(pd.to_datetime(start_date), dfa)
+                    if dfa is not None
+                    else pd.to_datetime(start_date)
+                )
                 eff_start_str = eff_start_dt.strftime("%Y-%m-%d")
 
                 missing_ranges = self.data_store.get_missing_price_dates(
@@ -1211,7 +1338,9 @@ class FMPFetcher(BaseDataFetcher, DataSource):
                     elif isinstance(data, list):
                         historical_rows = data
                     else:
-                        logger.warning(f"No historical data key in response for {ticker} ({min_date} to {max_date})")
+                        logger.warning(
+                            f"No historical data key in response for {ticker} ({min_date} to {max_date})"
+                        )
                         historical_rows = []
 
                     if historical_rows:
@@ -1232,12 +1361,18 @@ class FMPFetcher(BaseDataFetcher, DataSource):
 
                         if ticker_data:
                             all_data.extend(ticker_data)
-                            logger.debug(f"Fetched {len(ticker_data)} records for {ticker} ({min_date} to {max_date})")
+                            logger.debug(
+                                f"Fetched {len(ticker_data)} records for {ticker} ({min_date} to {max_date})"
+                            )
                         else:
-                            logger.warning(f"No historical data for {ticker} ({min_date} to {max_date})")
+                            logger.warning(
+                                f"No historical data for {ticker} ({min_date} to {max_date})"
+                            )
 
                 except Exception as e:
-                    logger.warning(f"Failed to fetch price data for {ticker} ({min_date} to {max_date}): {e}")
+                    logger.warning(
+                        f"Failed to fetch price data for {ticker} ({min_date} to {max_date}): {e}"
+                    )
         else:
             logger.warning("No price data to fetch")
             return existing_data
@@ -1251,7 +1386,9 @@ class FMPFetcher(BaseDataFetcher, DataSource):
 
         # Step 5: Return combined data from database
         final_data = self.data_store.get_price_data(
-            tickers["tickers"].astype(str).tolist() if isinstance(tickers, pd.DataFrame) else list(tickers),
+            tickers["tickers"].astype(str).tolist()
+            if isinstance(tickers, pd.DataFrame)
+            else list(tickers),
             start_date,
             end_date,
         )
@@ -1293,10 +1430,11 @@ class DataSourceManager:
                         self.current_source_name = name
                         logger.info(f"Using preferred data source: {name}")
                         return
-                    logger.warning(
-                        f"Preferred data source '{name}' is not available, falling back to automatic selection"
-                    )
-                    break
+                    else:
+                        logger.warning(
+                            f"Preferred data source '{name}' is not available, falling back to automatic selection"
+                        )
+                        break
 
         # Automatic selection (priority order)
         for name, source in self.data_sources:
@@ -1306,15 +1444,21 @@ class DataSourceManager:
                 logger.info(f"Selected data source: {name}")
                 break
 
-    def get_sp500_components(self, date: str | None = None) -> pd.DataFrame:
+    def get_sp500_components(self, date: str = None) -> pd.DataFrame:
         """Get S&P 500 components using best available source."""
         return self.current_source.get_sp500_components(date)
 
     def get_fundamental_data(
-        self, tickers: pd.DataFrame, start_date: str, end_date: str, align_quarter_dates: bool = False
+        self,
+        tickers: pd.DataFrame,
+        start_date: str,
+        end_date: str,
+        align_quarter_dates: bool = False,
     ) -> pd.DataFrame:
         """Get fundamental data using best available source."""
-        return self.current_source.get_fundamental_data(tickers, start_date, end_date, align_quarter_dates)
+        return self.current_source.get_fundamental_data(
+            tickers, start_date, end_date, align_quarter_dates
+        )
 
     def get_price_data(self, tickers: pd.DataFrame, start_date: str, end_date: str) -> pd.DataFrame:
         """Get price data using best available source."""
@@ -1332,8 +1476,7 @@ class DataSourceManager:
         """Get news data using best available source."""
         fetcher = getattr(self.current_source, "get_news", None)
         if not callable(fetcher):
-            msg = f"{self.current_source_name} does not support news retrieval"
-            raise NotImplementedError(msg)
+            raise NotImplementedError(f"{self.current_source_name} does not support news retrieval")
         return fetcher(
             ticker,
             from_date,
@@ -1347,7 +1490,9 @@ class DataSourceManager:
         """Get information about current data source."""
         return {
             "current_source": self.current_source_name,
-            "available_sources": [name for name, source in self.data_sources if source.is_available()],
+            "available_sources": [
+                name for name, source in self.data_sources if source.is_available()
+            ],
             "cache_dir": self.cache_dir,
         }
 
@@ -1357,7 +1502,9 @@ _data_manager = None
 _data_manager_config = {}
 
 
-def get_data_manager(cache_dir: str = "./data/cache", preferred_source: str | None = None) -> DataSourceManager:
+def get_data_manager(
+    cache_dir: str = "./data/cache", preferred_source: str | None = None
+) -> DataSourceManager:
     """
     Get global data source manager instance.
 
@@ -1389,7 +1536,9 @@ def get_data_manager(cache_dir: str = "./data/cache", preferred_source: str | No
 
 
 # Convenience functions for backward compatibility
-def fetch_sp500_tickers(output_path: str = "./data/sp500_tickers.csv", preferred_source="FMP") -> pd.DataFrame:
+def fetch_sp500_tickers(
+    output_path: str = "./data/sp500_tickers.csv", preferred_source="FMP"
+) -> pd.DataFrame:
     """Fetch S&P 500 tickers and save to file."""
     manager = get_data_manager(preferred_source=preferred_source)
     components = manager.get_sp500_components()
@@ -1423,7 +1572,7 @@ def fetch_nasdaq100_tickers(preferred_source="FMP") -> pd.DataFrame:
     return df
 
 
-def get_sp500_members_at_date(target_date: str, csv_path: str | None = None) -> set:
+def get_sp500_members_at_date(target_date: str, csv_path: str = None) -> set:
     """Return the set of SP500 tickers as of *target_date*.
 
     Uses the historical constituents CSV (one row per snapshot date).
@@ -1441,7 +1590,7 @@ def get_sp500_members_at_date(target_date: str, csv_path: str | None = None) -> 
     return set(row["tickers"].split(","))
 
 
-def get_all_historical_sp500_tickers(csv_path: str | None = None, start_date: str = "2015-01-01") -> set:
+def get_all_historical_sp500_tickers(csv_path: str = None, start_date: str = "2015-01-01") -> set:
     """Return every ticker that has ever been in SP500 since *start_date*."""
     if csv_path is None:
         csv_path = os.path.join(project_root, "data", "sp500_historical_constituents.csv")
@@ -1480,7 +1629,11 @@ def fetch_fundamental_data(
     manager = get_data_manager(preferred_source=preferred_source)
     if isinstance(tickers, list):
         tickers = pd.DataFrame(
-            {"tickers": tickers, "sectors": [None] * len(tickers), "dateFirstAdded": [None] * len(tickers)}
+            {
+                "tickers": tickers,
+                "sectors": [None] * len(tickers),
+                "dateFirstAdded": [None] * len(tickers),
+            }
         )
     df = manager.get_fundamental_data(tickers, start_date, end_date, align_quarter_dates)
 
@@ -1509,7 +1662,11 @@ def fetch_price_data(
     manager = get_data_manager(preferred_source=preferred_source)
     if isinstance(tickers, list):
         tickers = pd.DataFrame(
-            {"tickers": tickers, "sectors": [None] * len(tickers), "dateFirstAdded": [None] * len(tickers)}
+            {
+                "tickers": tickers,
+                "sectors": [None] * len(tickers),
+                "dateFirstAdded": [None] * len(tickers),
+            }
         )
     df = manager.get_price_data(tickers, start_date, end_date)
 
@@ -1595,7 +1752,9 @@ if __name__ == "__main__":
     # print(f"Fetched {len(prices)} price records")
 
     # Fetch news sample with情绪分析（需配置 FMP & OpenAI API Key）
-    news_df = fetch_news(ticker="NVDA", start_date="2025-01-01", end_date="2025-01-03", analyze_sentiment=True)
+    news_df = fetch_news(
+        ticker="NVDA", start_date="2025-01-01", end_date="2025-01-03", analyze_sentiment=True
+    )
     print(f"Fetched {len(news_df)} cached+fresh news rows")
     news_df.to_csv("./data/news_nvda.csv", index=False)
     if not news_df.empty:

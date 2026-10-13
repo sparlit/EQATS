@@ -33,13 +33,11 @@ Handles data preprocessing and feature engineering:
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +55,9 @@ class DataProcessor:
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
-    def process_fundamental_data(self, raw_fundamentals_path: str, processed_path: str | None = None) -> pd.DataFrame:
+    def process_fundamental_data(
+        self, raw_fundamentals_path: str, processed_path: str = None
+    ) -> pd.DataFrame:
         """
         Process raw fundamental data into ML-ready format.
 
@@ -121,7 +121,9 @@ class DataProcessor:
         df["price_growth_qtr"] = df.groupby("gvkey")["adj_price"].pct_change()
 
         # Rolling statistics
-        df["price_volatility_4q"] = df.groupby("gvkey")["adj_price"].rolling(4).std().reset_index(0, drop=True)
+        df["price_volatility_4q"] = (
+            df.groupby("gvkey")["adj_price"].rolling(4).std().reset_index(0, drop=True)
+        )
 
         return df
 
@@ -133,15 +135,19 @@ class DataProcessor:
         columns_to_drop = missing_ratios[missing_ratios > missing_threshold].index
         df = df.drop(columns=columns_to_drop)
 
-        logger.info(f"Dropped {len(columns_to_drop)} columns with >{missing_threshold * 100}% missing values")
+        logger.info(
+            f"Dropped {len(columns_to_drop)} columns with >{missing_threshold * 100}% missing values"
+        )
 
         # Fill remaining missing values with median by sector
         numeric_columns = df.select_dtypes(include=[np.number]).columns
-        df[numeric_columns] = df.groupby("sector")[numeric_columns].transform(lambda x: x.fillna(x.median()))
+        df[numeric_columns] = df.groupby("sector")[numeric_columns].transform(
+            lambda x: x.fillna(x.median())
+        )
 
         return df
 
-    def process_price_data(self, raw_prices_path: str, processed_path: str | None = None) -> pd.DataFrame:
+    def process_price_data(self, raw_prices_path: str, processed_path: str = None) -> pd.DataFrame:
         """
         Process raw price data into ML-ready format.
 
@@ -204,8 +210,12 @@ class DataProcessor:
         df = self._add_technical_indicators(df)
 
         # Volatility measures
-        df["volatility_20d"] = df.groupby("gvkey")["daily_return"].rolling(20).std().reset_index(0, drop=True)
-        df["volatility_60d"] = df.groupby("gvkey")["daily_return"].rolling(60).std().reset_index(0, drop=True)
+        df["volatility_20d"] = (
+            df.groupby("gvkey")["daily_return"].rolling(20).std().reset_index(0, drop=True)
+        )
+        df["volatility_60d"] = (
+            df.groupby("gvkey")["daily_return"].rolling(60).std().reset_index(0, drop=True)
+        )
 
         return df
 
@@ -213,13 +223,17 @@ class DataProcessor:
         """Add technical indicators to price data."""
         # Simple moving averages
         for period in [5, 10, 20, 50, 200]:
-            df[f"sma_{period}"] = df.groupby("gvkey")["adj_close"].rolling(period).mean().reset_index(0, drop=True)
+            df[f"sma_{period}"] = (
+                df.groupby("gvkey")["adj_close"].rolling(period).mean().reset_index(0, drop=True)
+            )
 
         # RSI (Relative Strength Index)
         df = self._calculate_rsi(df)
 
         # MACD
-        return self._calculate_macd(df)
+        df = self._calculate_macd(df)
+
+        return df
 
     def _calculate_rsi(self, df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
         """Calculate RSI indicator."""
@@ -275,7 +289,9 @@ class DataProcessor:
 
         # Create target variable (future returns)
         prices = prices.sort_values(["gvkey", "datadate"])
-        prices["future_return"] = prices.groupby("gvkey")["adj_close"].shift(-target_period) / prices["adj_close"] - 1
+        prices["future_return"] = (
+            prices.groupby("gvkey")["adj_close"].shift(-target_period) / prices["adj_close"] - 1
+        )
 
         # Merge with fundamentals
         merged = pd.merge_asof(
@@ -287,7 +303,11 @@ class DataProcessor:
         )
 
         # Select features
-        feature_columns = [col for col in merged.columns if col not in ["gvkey", "datadate", "future_return", "tic"]]
+        feature_columns = [
+            col
+            for col in merged.columns
+            if col not in ["gvkey", "datadate", "future_return", "tic"]
+        ]
 
         # Clean dataset
         merged = merged.dropna(subset=["future_return"])
@@ -301,7 +321,10 @@ class DataProcessor:
         return X, y
 
     def split_by_sector(
-        self, df: pd.DataFrame, sector_column: str = "sector", output_dir: str = "./data/processed/sectors"
+        self,
+        df: pd.DataFrame,
+        sector_column: str = "sector",
+        output_dir: str = "./data/processed/sectors",
     ) -> dict[str, pd.DataFrame]:
         """
         Split data by sector for sector-neutral strategies.
@@ -328,13 +351,13 @@ class DataProcessor:
 
 
 # Convenience functions
-def process_fundamentals(input_path: str, output_path: str | None = None) -> pd.DataFrame:
+def process_fundamentals(input_path: str, output_path: str = None) -> pd.DataFrame:
     """Process fundamental data."""
     processor = DataProcessor()
     return processor.process_fundamental_data(input_path, output_path)
 
 
-def process_prices(input_path: str, output_path: str | None = None) -> pd.DataFrame:
+def process_prices(input_path: str, output_path: str = None) -> pd.DataFrame:
     """Process price data."""
     processor = DataProcessor()
     return processor.process_price_data(input_path, output_path)

@@ -70,17 +70,14 @@ import logging
 import os
 import sys
 import warnings
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime
+from typing import Any
 
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
-from sklearn.linear_model import Lasso, LinearRegression, Ridge
-from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import TimeSeriesSplit, train_test_split
+from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import StandardScaler
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
@@ -89,7 +86,6 @@ sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 import contextlib
 
-from src.data.data_fetcher import fetch_fundamental_data, fetch_sp500_tickers
 from src.strategies.base_strategy import BaseStrategy, StrategyConfig, StrategyResult
 
 logger = logging.getLogger(__name__)
@@ -148,7 +144,9 @@ class MLStockSelectionStrategy(BaseStrategy):
                     under_sec = ~over_sec
                     if under_sec.any():
                         under_tot = (
-                            weights_df.loc[under_sec].groupby("sector", observed=True)["weight"].transform("sum")
+                            weights_df.loc[under_sec]
+                            .groupby("sector", observed=True)["weight"]
+                            .transform("sum")
                         )
                         room = (max_sector_weight - under_tot).clip(lower=0)
                         freed = float((sec_tot[over_sec] - max_sector_weight).sum())
@@ -171,7 +169,9 @@ class MLStockSelectionStrategy(BaseStrategy):
                 below = ~over_stock
                 below_sum = float(weights_df.loc[below, "weight"].sum())
                 if below.any() and below_sum > 0:
-                    weights_df.loc[below, "weight"] += excess * (weights_df.loc[below, "weight"] / below_sum)
+                    weights_df.loc[below, "weight"] += excess * (
+                        weights_df.loc[below, "weight"] / below_sum
+                    )
 
             if not changed:
                 break
@@ -244,7 +244,9 @@ class MLStockSelectionStrategy(BaseStrategy):
             # 最小数据点要求：至少3个观测期（可以是3个季度或3个交易日）
             min_periods = 3
             if len(returns) < min_periods:
-                self.logger.warning(f"收益率数据不足（{len(returns)}期），至少需要{min_periods}期，回退到等权重")
+                self.logger.warning(
+                    f"收益率数据不足（{len(returns)}期），至少需要{min_periods}期，回退到等权重"
+                )
                 return self._compute_equal_weights(selected_gvkeys)
 
             # 处理缺失值：只保留数据完整的股票
@@ -293,7 +295,9 @@ class MLStockSelectionStrategy(BaseStrategy):
             missing_gvkeys = set(selected_gvkeys) - set(valid_cols)
             if missing_gvkeys:
                 self.logger.info(f"以下股票无足够价格数据，权重为0: {missing_gvkeys}")
-                missing_df = pd.DataFrame({"gvkey": list(missing_gvkeys), "weight": [0.0] * len(missing_gvkeys)})
+                missing_df = pd.DataFrame(
+                    {"gvkey": list(missing_gvkeys), "weight": [0.0] * len(missing_gvkeys)}
+                )
                 weights_df = pd.concat([weights_df, missing_df], ignore_index=True)
 
             # 重新归一化以确保和为1
@@ -305,7 +309,7 @@ class MLStockSelectionStrategy(BaseStrategy):
             return weights_df
 
         except Exception as e:
-            self.logger.exception(f"最小方差权重计算失败: {e}，回退到等权重")
+            self.logger.error(f"最小方差权重计算失败: {e}，回退到等权重")
             return self._compute_equal_weights(selected_gvkeys)
 
     def _compute_equal_weights(self, selected_gvkeys: list[str]) -> pd.DataFrame:
@@ -362,7 +366,9 @@ class MLStockSelectionStrategy(BaseStrategy):
                 if "adj_close_q" in fundamentals.columns:
                     # 使用季度数据，默认回溯8个季度（2年）
                     lookback_periods = kwargs.get("lookback_periods", 8)
-                    weights_df = self._compute_min_variance_weights(selected_gvkeys, fundamentals, lookback_periods)
+                    weights_df = self._compute_min_variance_weights(
+                        selected_gvkeys, fundamentals, lookback_periods
+                    )
                 else:
                     self.logger.warning("基本面数据中缺少 adj_close_q 列，尝试使用 price_data")
                     if price_data is None or len(price_data) == 0:
@@ -371,13 +377,19 @@ class MLStockSelectionStrategy(BaseStrategy):
                     else:
                         # 使用日度数据，默认回溯252天（1年）
                         lookback_periods = kwargs.get("lookback_periods", 252)
-                        weights_df = self._compute_min_variance_weights(selected_gvkeys, price_data, lookback_periods)
+                        weights_df = self._compute_min_variance_weights(
+                            selected_gvkeys, price_data, lookback_periods
+                        )
             elif price_data is not None and len(price_data) > 0:
                 # 使用日度数据，默认回溯252天（1年）
                 lookback_periods = kwargs.get("lookback_periods", 252)
-                weights_df = self._compute_min_variance_weights(selected_gvkeys, price_data, lookback_periods)
+                weights_df = self._compute_min_variance_weights(
+                    selected_gvkeys, price_data, lookback_periods
+                )
             else:
-                self.logger.warning("min_variance 方法需要价格数据（fundamentals或price_data），回退到等权重")
+                self.logger.warning(
+                    "min_variance 方法需要价格数据（fundamentals或price_data），回退到等权重"
+                )
                 weights_df = self._compute_equal_weights(selected_gvkeys)
         elif method == "equal":
             weights_df = self._compute_equal_weights(selected_gvkeys)
@@ -387,7 +399,9 @@ class MLStockSelectionStrategy(BaseStrategy):
 
         # 合并权重到原始 DataFrame
         result = selected_stocks.copy()
-        result = result.merge(weights_df[["gvkey", "weight"]], on="gvkey", how="left", suffixes=("_old", ""))
+        result = result.merge(
+            weights_df[["gvkey", "weight"]], on="gvkey", how="left", suffixes=("_old", "")
+        )
 
         # 如果有旧的 weight 列，删除它
         if "weight_old" in result.columns:
@@ -401,8 +415,12 @@ class MLStockSelectionStrategy(BaseStrategy):
     def _build_candidate_models(self) -> dict[str, Any]:
         """Build candidate models similar to ml_model.py (rf/gbm, optional xgb/lgbm)."""
         candidates: dict[str, Any] = {
-            "rf": RandomForestRegressor(n_estimators=200, max_features="sqrt", random_state=42, n_jobs=-1),
-            "gbm": GradientBoostingRegressor(n_estimators=250, learning_rate=0.05, max_depth=3, random_state=42),
+            "rf": RandomForestRegressor(
+                n_estimators=200, max_features="sqrt", random_state=42, n_jobs=-1
+            ),
+            "gbm": GradientBoostingRegressor(
+                n_estimators=250, learning_rate=0.05, max_depth=3, random_state=42
+            ),
         }
 
         # Optional LightGBM
@@ -413,7 +431,10 @@ class MLStockSelectionStrategy(BaseStrategy):
                 n_estimators=500, learning_rate=0.05, random_state=42, n_jobs=-1, verbose=-1
             )
         except Exception:
-            logger.warning("LightGBM not installed, skipping. Please install LightGBM to use this model.")
+            logger.warning(
+                "LightGBM not installed, skipping. Please install LightGBM to use this model."
+            )
+            pass
 
         # Optional XGBoost
         try:
@@ -429,7 +450,10 @@ class MLStockSelectionStrategy(BaseStrategy):
                 n_jobs=0,
             )
         except Exception:
-            logger.warning("XGBoost not installed, skipping. Please install XGBoost to use this model.")
+            logger.warning(
+                "XGBoost not installed, skipping. Please install XGBoost to use this model."
+            )
+            pass
 
         return candidates
 
@@ -439,15 +463,15 @@ class MLStockSelectionStrategy(BaseStrategy):
         优先使用 adj_close，其次 close/prccd。
         """
         df = price_data
-        date_col = "date" if "date" in df.columns else ("datadate" if "datadate" in df.columns else None)
+        date_col = (
+            "date" if "date" in df.columns else ("datadate" if "datadate" in df.columns else None)
+        )
         if date_col is None:
-            msg = "price_data 缺少日期列 ['date' 或 'datadate']"
-            raise ValueError(msg)
+            raise ValueError("price_data 缺少日期列 ['date' 或 'datadate']")
 
         ticker_col = "gvkey" if "gvkey" in df.columns else ("tic" if "tic" in df.columns else None)
         if ticker_col is None:
-            msg = "price_data 缺少股票列 ['gvkey' 或 'tic']"
-            raise ValueError(msg)
+            raise ValueError("price_data 缺少股票列 ['gvkey' 或 'tic']")
 
         if "adj_close" in df.columns:
             px_col = "adj_close"
@@ -456,8 +480,7 @@ class MLStockSelectionStrategy(BaseStrategy):
         elif "prccd" in df.columns:
             px_col = "prccd"
         else:
-            msg = "price_data 缺少价格列 ['adj_close' 或 'close' 或 'prccd']"
-            raise ValueError(msg)
+            raise ValueError("price_data 缺少价格列 ['adj_close' 或 'close' 或 'prccd']")
 
         return date_col, ticker_col, px_col
 
@@ -581,15 +604,16 @@ class MLStockSelectionStrategy(BaseStrategy):
 
         return out, meta
 
-    def _prepare_supervised_dataset(self, fundamentals: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
+    def _prepare_supervised_dataset(
+        self, fundamentals: pd.DataFrame
+    ) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
         """Prepare X, y, and date index using real fundamentals with forward returns.
 
         Expects 'y_return' column already computed by data_fetcher.
         Returns X, y, and a pd.Series of dates aligned with X/y (datetime64).
         """
         if "y_return" not in fundamentals.columns:
-            msg = "'y_return' 缺失，请使用 data_fetcher 获取的真实基本面数据"
-            raise ValueError(msg)
+            raise ValueError("'y_return' 缺失，请使用 data_fetcher 获取的真实基本面数据")
 
         # Select numeric feature columns (exclude ids and label/date)
         exclude_cols = {
@@ -611,8 +635,7 @@ class MLStockSelectionStrategy(BaseStrategy):
                 numeric_cols.append(col)
 
         if not numeric_cols:
-            msg = "未找到可用的数值型特征列"
-            raise ValueError(msg)
+            raise ValueError("未找到可用的数值型特征列")
 
         df = fundamentals.copy()
         # Ensure datetime
@@ -660,8 +683,7 @@ class MLStockSelectionStrategy(BaseStrategy):
         # Unique quarterly dates (sorted)
         unique_dates = sorted(pd.to_datetime(fundamentals["datadate"].dropna().unique()))
         if len(unique_dates) == 0:
-            msg = "无可用季度日期"
-            raise ValueError(msg)
+            raise ValueError("无可用季度日期")
 
         # 使用传入数据中的最后一个日期作为 trade_date
         trade_date = unique_dates[-1]
@@ -669,8 +691,7 @@ class MLStockSelectionStrategy(BaseStrategy):
         i = unique_dates.index(trade_date)
         # 需要至少 test_quarters 个验证窗口，且训练窗口至少包含一个季度
         if i - test_quarters < 1:
-            msg = "历史季度不足：需要至少 1 个训练季度与 test_quarters 个验证季度"
-            raise ValueError(msg)
+            raise ValueError("历史季度不足：需要至少 1 个训练季度与 test_quarters 个验证季度")
 
         # 固定窗口：全历史训练 + 最近 test_quarters 验证 + 当前季度预测
         train_start = unique_dates[0]
@@ -704,8 +725,7 @@ class MLStockSelectionStrategy(BaseStrategy):
         gvkey_trade = gvkey_series_all.loc[trade_mask].reset_index(drop=True)
 
         if len(X_train) < 10 or len(X_trade) == 0:
-            msg = "训练或交易样本不足"
-            raise ValueError(msg)
+            raise ValueError("训练或交易样本不足")
 
         # Fit multiple candidates and choose best by validation MSE
         candidates = self._build_candidate_models()
@@ -715,7 +735,9 @@ class MLStockSelectionStrategy(BaseStrategy):
         # Fit a per-date scaler
         scaler = StandardScaler()
         X_train_scaled = np.asarray(scaler.fit_transform(X_train), dtype=float)
-        X_test_scaled = np.asarray(scaler.transform(X_test), dtype=float) if len(X_test) > 0 else None
+        X_test_scaled = (
+            np.asarray(scaler.transform(X_test), dtype=float) if len(X_test) > 0 else None
+        )
         X_trade_scaled = np.asarray(scaler.transform(X_trade), dtype=float)
 
         best_name = None
@@ -752,8 +774,7 @@ class MLStockSelectionStrategy(BaseStrategy):
                 continue
 
         if best_model is None or best_name is None:
-            msg = "无可用候选模型完成训练"
-            raise RuntimeError(msg)
+            raise RuntimeError("无可用候选模型完成训练")
 
         predicted_return = preds_trade[best_name]
         pred_df = pd.DataFrame({"gvkey": gvkey_trade.values, "predicted_return": predicted_return})
@@ -788,23 +809,19 @@ class MLStockSelectionStrategy(BaseStrategy):
         """
         df = fundamentals.copy()
         if "datadate" not in df.columns:
-            msg = "fundamentals 缺少 datadate 列"
-            raise ValueError(msg)
+            raise ValueError("fundamentals 缺少 datadate 列")
         if "y_return" not in df.columns:
-            msg = "fundamentals 缺少 y_return 列，请先构造标签"
-            raise ValueError(msg)
+            raise ValueError("fundamentals 缺少 y_return 列，请先构造标签")
 
         df["datadate"] = pd.to_datetime(df["datadate"])
         unique_dates = sorted(pd.to_datetime(df["datadate"].dropna().unique()))
         if len(unique_dates) == 0:
-            msg = "无可用季度日期"
-            raise ValueError(msg)
+            raise ValueError("无可用季度日期")
 
         # 需要：每个 trade_date 至少留出 train_quarters + test_quarters 个季度作为历史
         start_i = max(train_quarters + test_quarters, 1)
         if start_i >= len(unique_dates):
-            msg = "历史季度不足以进行滚动训练，请增大数据量或减小 test_quarters"
-            raise ValueError(msg)
+            raise ValueError("历史季度不足以进行滚动训练，请增大数据量或减小 test_quarters")
 
         all_preds: list[pd.DataFrame] = []
         all_metas: list[dict[str, Any]] = []
@@ -814,7 +831,9 @@ class MLStockSelectionStrategy(BaseStrategy):
             try:
                 # 构造窗口子集数据 [i-(train_quarters+test_quarters), i]
                 window_start = unique_dates[i - (train_quarters + test_quarters)]
-                sub_df = df[(df["datadate"] >= window_start) & (df["datadate"] <= trade_date)].copy()
+                sub_df = df[
+                    (df["datadate"] >= window_start) & (df["datadate"] <= trade_date)
+                ].copy()
                 pred_df, meta = self._rolling_train_single_date(
                     fundamentals=sub_df,
                     test_quarters=test_quarters,
@@ -843,7 +862,9 @@ class MLStockSelectionStrategy(BaseStrategy):
             logger.warning("无任何 trade date 生成有效预测结果")
             return pd.DataFrame(columns=["date", "gvkey", "predicted_return"])
 
-        return pd.concat(all_preds, ignore_index=True)
+        result_df = pd.concat(all_preds, ignore_index=True)
+
+        return result_df
 
     def generate_weights(self, data: dict[str, pd.DataFrame], **kwargs) -> StrategyResult:
         """
@@ -860,8 +881,7 @@ class MLStockSelectionStrategy(BaseStrategy):
 
         # 1) 获取真实基本面数据
         if "fundamentals" not in data or len(data["fundamentals"]) == 0:
-            msg = "必须在 data['fundamentals'] 中提供真实基本面数据（需包含 y_return）"
-            raise ValueError(msg)
+            raise ValueError("必须在 data['fundamentals'] 中提供真实基本面数据（需包含 y_return）")
         fundamentals = data["fundamentals"].copy()
 
         if len(fundamentals) == 0:
@@ -888,8 +908,7 @@ class MLStockSelectionStrategy(BaseStrategy):
                     test_quarters=test_quarters,
                 )
                 if preds_all is None or len(preds_all) == 0:
-                    msg = "rolling 模式未产生任何预测"
-                    raise ValueError(msg)
+                    raise ValueError("rolling 模式未产生任何预测")
             else:
                 # 单次（使用数据最后日期）
                 pred_df, meta = self._rolling_train_single_date(
@@ -911,7 +930,7 @@ class MLStockSelectionStrategy(BaseStrategy):
                     except Exception as e:
                         self.logger.warning(f"当日模式调整失败，将使用原始预测: {e}")
         except Exception as e:
-            self.logger.exception(f"预测失败: {e}")
+            self.logger.error(f"预测失败: {e}")
             return StrategyResult(
                 strategy_name=self.config.name,
                 weights=pd.DataFrame(columns=["gvkey", "weight"]),
@@ -958,7 +977,11 @@ class MLStockSelectionStrategy(BaseStrategy):
                 return StrategyResult(
                     strategy_name=self.config.name,
                     weights=pd.DataFrame(columns=["gvkey", "weight", "predicted_return", "date"]),
-                    metadata={"error": "no_predictions_all_dates", "mode": "rolling", "top_quantile": top_quantile},
+                    metadata={
+                        "error": "no_predictions_all_dates",
+                        "mode": "rolling",
+                        "top_quantile": top_quantile,
+                    },
                 )
 
             weights_df = pd.concat(weights_list, ignore_index=True)
@@ -968,7 +991,8 @@ class MLStockSelectionStrategy(BaseStrategy):
                 "n_trade_dates": int(weights_df["date"].nunique()),
                 "top_quantile": top_quantile,
                 "per_date_thresholds": {
-                    str(k.date() if hasattr(k, "date") else k): v for k, v in per_date_thresholds.items()
+                    str(k.date() if hasattr(k, "date") else k): v
+                    for k, v in per_date_thresholds.items()
                 },
             }
 
@@ -978,60 +1002,63 @@ class MLStockSelectionStrategy(BaseStrategy):
                 metadata=meta_out,
             )
 
-            self.logger.info(f"生成 ML 滚动权重，共 {len(weights_df)} 条、覆盖 {meta_out['n_trade_dates']} 个日期")
+            self.logger.info(
+                f"生成 ML 滚动权重，共 {len(weights_df)} 条、覆盖 {meta_out['n_trade_dates']} 个日期"
+            )
             return result
-        # 单一日期逻辑（保持原行为）
-        if pred_df.empty:
-            self.logger.warning("目标日期无可预测股票")
-            return StrategyResult(
-                strategy_name=self.config.name,
-                weights=pd.DataFrame(columns=["gvkey", "weight"]),
-                metadata={"error": "no_predictions", **meta},
-            )
-
-        threshold_raw = pred_df["predicted_return"].quantile(top_quantile)
-        threshold = max(float(threshold_raw), 0.0) if pd.notna(threshold_raw) else float("nan")
-        selected = pred_df[(pred_df["predicted_return"] >= threshold) & (pred_df["predicted_return"] > 0)][
-            ["gvkey", "predicted_return"]
-        ].copy()
-
-        if len(selected) == 0:
-            self.logger.warning("没有股票达到阈值")
-            weights_df = pd.DataFrame(columns=["gvkey", "weight", "predicted_return"])
         else:
-            # 使用新的权重分配函数（优先使用基本面数据中的价格）
-            weights_df = self.allocate_weights(
-                selected_stocks=selected,
-                method=weight_method,
-                fundamentals=fundamentals,
-                price_data=price_data,
-                **kwargs,
+            # 单一日期逻辑（保持原行为）
+            if pred_df.empty:
+                self.logger.warning("目标日期无可预测股票")
+                return StrategyResult(
+                    strategy_name=self.config.name,
+                    weights=pd.DataFrame(columns=["gvkey", "weight"]),
+                    metadata={"error": "no_predictions", **meta},
+                )
+
+            threshold_raw = pred_df["predicted_return"].quantile(top_quantile)
+            threshold = max(float(threshold_raw), 0.0) if pd.notna(threshold_raw) else float("nan")
+            selected = pred_df[
+                (pred_df["predicted_return"] >= threshold) & (pred_df["predicted_return"] > 0)
+            ][["gvkey", "predicted_return"]].copy()
+
+            if len(selected) == 0:
+                self.logger.warning("没有股票达到阈值")
+                weights_df = pd.DataFrame(columns=["gvkey", "weight", "predicted_return"])
+            else:
+                # 使用新的权重分配函数（优先使用基本面数据中的价格）
+                weights_df = self.allocate_weights(
+                    selected_stocks=selected,
+                    method=weight_method,
+                    fundamentals=fundamentals,
+                    price_data=price_data,
+                    **kwargs,
+                )
+                weights_df["date"] = meta.get("trade_date")
+
+                # 应用风控限制与归一化
+                weights_df = self.apply_risk_limits(weights_df)
+
+            result = StrategyResult(
+                strategy_name=self.config.name,
+                weights=weights_df,
+                metadata={
+                    "n_selected_stocks": len(weights_df),
+                    "selection_threshold": threshold if len(pred_df) > 0 else None,
+                    "top_quantile": top_quantile,
+                    **meta,
+                },
             )
-            weights_df["date"] = meta.get("trade_date")
 
-            # 应用风控限制与归一化
-            weights_df = self.apply_risk_limits(weights_df)
-
-        result = StrategyResult(
-            strategy_name=self.config.name,
-            weights=weights_df,
-            metadata={
-                "n_selected_stocks": len(weights_df),
-                "selection_threshold": threshold if len(pred_df) > 0 else None,
-                "top_quantile": top_quantile,
-                **meta,
-            },
-        )
-
-        self.logger.info(f"生成 ML 权重 {len(weights_df)} 只股票")
-        return result
+            self.logger.info(f"生成 ML 权重 {len(weights_df)} 只股票")
+            return result
 
 
 class SectorNeutralMLStrategy(MLStockSelectionStrategy):
     """Sector-neutral ML strategy that balances sector exposures."""
 
     def generate_weights(
-        self, data: dict[str, pd.DataFrame], target_date: str | None = None, **kwargs
+        self, data: dict[str, pd.DataFrame], target_date: str = None, **kwargs
     ) -> StrategyResult:
         """
         Per-sector training and selection, then merge selections.
@@ -1048,13 +1075,14 @@ class SectorNeutralMLStrategy(MLStockSelectionStrategy):
 
         # Validate fundamentals
         if "fundamentals" not in data or len(data["fundamentals"]) == 0:
-            msg = "必须在 data['fundamentals'] 中提供真实基本面数据（需包含 y_return）"
-            raise ValueError(msg)
+            raise ValueError("必须在 data['fundamentals'] 中提供真实基本面数据（需包含 y_return）")
         fundamentals = data["fundamentals"].copy()
 
         # Sector column
         sector_col = (
-            "sector" if "sector" in fundamentals.columns else ("gsector" if "gsector" in fundamentals.columns else None)
+            "sector"
+            if "sector" in fundamentals.columns
+            else ("gsector" if "gsector" in fundamentals.columns else None)
         )
         if sector_col is None:
             self.logger.warning("No sector/gsector column found. Fallback to base ML selection")
@@ -1138,7 +1166,7 @@ class SectorNeutralMLStrategy(MLStockSelectionStrategy):
                     selected_all.append(sel)
                 # 记录行业层面候选与平均阈值等信息（可选）
                 per_sector_meta[s] = {
-                    "n_candidates_total": len(pred_df),
+                    "n_candidates_total": int(len(pred_df)),
                     "top_quantile": top_quantile,
                 }
             else:
@@ -1176,23 +1204,33 @@ class SectorNeutralMLStrategy(MLStockSelectionStrategy):
 
                 # 使用新的权重分配函数（优先使用基本面数据中的价格）
                 g = self.allocate_weights(
-                    selected_stocks=g, method=weight_method, fundamentals=fundamentals, price_data=price_data, **kwargs
+                    selected_stocks=g,
+                    method=weight_method,
+                    fundamentals=fundamentals,
+                    price_data=price_data,
+                    **kwargs,
                 )
                 g["date"] = dt
-                g = self.apply_risk_limits(g[["gvkey", "weight", "predicted_return", "sector", "date"]])
+                g = self.apply_risk_limits(
+                    g[["gvkey", "weight", "predicted_return", "sector", "date"]]
+                )
                 weights_list.append(g)
 
             if not weights_list:
                 return StrategyResult(
                     strategy_name=self.config.name,
-                    weights=pd.DataFrame(columns=["gvkey", "weight", "predicted_return", "sector", "date"]),
+                    weights=pd.DataFrame(
+                        columns=["gvkey", "weight", "predicted_return", "sector", "date"]
+                    ),
                     metadata={"error": "no_sector_selection_all_dates", "mode": "rolling"},
                 )
 
             weights_df = pd.concat(weights_list, ignore_index=True)
             result = StrategyResult(
                 strategy_name=self.config.name,
-                weights=weights_df[["gvkey", "weight", "predicted_return", "sector", "date"]].copy(),
+                weights=weights_df[
+                    ["gvkey", "weight", "predicted_return", "sector", "date"]
+                ].copy(),
                 metadata={
                     "mode": "rolling",
                     "top_quantile": top_quantile,
@@ -1204,36 +1242,43 @@ class SectorNeutralMLStrategy(MLStockSelectionStrategy):
                 f"Generated sector-merged rolling weights: {len(weights_df)} rows across {result.metadata['n_trade_dates']} dates"
             )
             return result
-        # 单一日期：全局等权并风控归一（保持原逻辑）
-        weights_df = merged[["gvkey", "predicted_return", "sector"]].copy()
+        else:
+            # 单一日期：全局等权并风控归一（保持原逻辑）
+            weights_df = merged[["gvkey", "predicted_return", "sector"]].copy()
 
-        # 使用新的权重分配函数（优先使用基本面数据中的价格）
-        weights_df = self.allocate_weights(
-            selected_stocks=weights_df, method=weight_method, fundamentals=fundamentals, price_data=price_data, **kwargs
-        )
-        weights_df["date"] = (
-            pred_df["date"].iloc[0] if "date" in pred_df.columns and len(pred_df) > 0 else meta.get("trade_date")
-        )
-        weights_df = weights_df[["gvkey", "weight", "predicted_return", "sector", "date"]]
+            # 使用新的权重分配函数（优先使用基本面数据中的价格）
+            weights_df = self.allocate_weights(
+                selected_stocks=weights_df,
+                method=weight_method,
+                fundamentals=fundamentals,
+                price_data=price_data,
+                **kwargs,
+            )
+            weights_df["date"] = (
+                pred_df["date"].iloc[0]
+                if "date" in pred_df.columns and len(pred_df) > 0
+                else meta.get("trade_date")
+            )
+            weights_df = weights_df[["gvkey", "weight", "predicted_return", "sector", "date"]]
 
-        weights_df = self.apply_risk_limits(weights_df)
+            weights_df = self.apply_risk_limits(weights_df)
 
-        result = StrategyResult(
-            strategy_name=self.config.name,
-            weights=weights_df,
-            metadata={
-                "n_selected_stocks": len(weights_df),
-                "top_quantile": top_quantile,
-                "trade_date": weights_df["date"].iloc[0]
-                if "date" in weights_df.columns and len(weights_df) > 0
-                else None,
-                "per_sector": per_sector_meta,
-            },
-        )
-        self.logger.info(
-            f"Generated sector-merged weights for {len(weights_df)} stocks across {len(per_sector_meta)} sectors"
-        )
-        return result
+            result = StrategyResult(
+                strategy_name=self.config.name,
+                weights=weights_df,
+                metadata={
+                    "n_selected_stocks": len(weights_df),
+                    "top_quantile": top_quantile,
+                    "trade_date": weights_df["date"].iloc[0]
+                    if "date" in weights_df.columns and len(weights_df) > 0
+                    else None,
+                    "per_sector": per_sector_meta,
+                },
+            )
+            self.logger.info(
+                f"Generated sector-merged weights for {len(weights_df)} stocks across {len(per_sector_meta)} sectors"
+            )
+            return result
 
 
 if __name__ == "__main__":
@@ -1252,14 +1297,20 @@ if __name__ == "__main__":
     # fundamentals = fetch_fundamental_data(tickers, start_date, end_date)
 
     # fundamentals = pd.read_csv('./data/fundamentals.csv')
-    fundamentals = pd.read_csv(r"D:\Projects\FinRL-Trading-old\output_20250712\output_20250712\final_ratios.csv")
+    fundamentals = pd.read_csv(
+        r"D:\Projects\FinRL-Trading-old\output_20250712\output_20250712\final_ratios.csv"
+    )
     fundamentals["datadate"] = fundamentals["date"]
     fundamentals["gvkey"] = fundamentals["tic"]
 
-    fundamentals = fundamentals[(fundamentals["datadate"] <= "2025-03-01") & (fundamentals["datadate"] >= "2019-03-01")]
+    fundamentals = fundamentals[
+        (fundamentals["datadate"] <= "2025-03-01") & (fundamentals["datadate"] >= "2019-03-01")
+    ]
     # 仅保留包含 y_return 的样本
     fundamentals = (
-        fundamentals[fundamentals.get("y_return").notna()] if "y_return" in fundamentals.columns else fundamentals
+        fundamentals[fundamentals.get("y_return").notna()]
+        if "y_return" in fundamentals.columns
+        else fundamentals
     )
 
     # fundamentals.to_csv('./data/cache/fundamentals.csv', index=False)
@@ -1268,15 +1319,23 @@ if __name__ == "__main__":
 
     # 跨行业版本
     # 单次模式
-    config = StrategyConfig(name="ML Stock Selection", description="Machine learning based stock selection")
+    config = StrategyConfig(
+        name="ML Stock Selection", description="Machine learning based stock selection"
+    )
 
     # 以末期季度为目标日期进行训练与预测
-    target_date = max(pd.to_datetime(fundamentals["datadate"]).unique()) if len(fundamentals) else None
+    target_date = (
+        sorted(pd.to_datetime(fundamentals["datadate"]).unique())[-1] if len(fundamentals) else None
+    )
 
     strategy = MLStockSelectionStrategy(config)
     # 单次模式 - 等权重
     result_single = strategy.generate_weights(
-        data_dict, test_quarters=4, top_quantile=0.75, prediction_mode="single", weight_method="equal"
+        data_dict,
+        test_quarters=4,
+        top_quantile=0.75,
+        prediction_mode="single",
+        weight_method="equal",
     )
     print(f"Strategy(single-equal): {result_single.strategy_name}")
     print(f"Selected {len(result_single.weights)} stocks (single)")
@@ -1303,7 +1362,11 @@ if __name__ == "__main__":
 
     # 滚动模式（多日期）- 等权重
     result_rolling = strategy.generate_weights(
-        data_dict, test_quarters=4, top_quantile=0.75, prediction_mode="rolling", weight_method="equal"
+        data_dict,
+        test_quarters=4,
+        top_quantile=0.75,
+        prediction_mode="rolling",
+        weight_method="equal",
     )
     print(f"\nStrategy(rolling-equal): {result_rolling.strategy_name}")
     print(
@@ -1313,12 +1376,18 @@ if __name__ == "__main__":
     result_rolling.weights.to_csv(r".\data\ml_weights.csv", index=False)
 
     # 行业版本（如果有 sector/gsector 信息）
-    sector_config = StrategyConfig(name="Sector Neutral ML", description="Sector-neutral ML strategy")
+    sector_config = StrategyConfig(
+        name="Sector Neutral ML", description="Sector-neutral ML strategy"
+    )
     sector_strategy = SectorNeutralMLStrategy(sector_config)
 
     # 行业-单次 - 等权重
     sector_single = sector_strategy.generate_weights(
-        data_dict, test_quarters=4, top_quantile=0.75, prediction_mode="single", weight_method="equal"
+        data_dict,
+        test_quarters=4,
+        top_quantile=0.75,
+        prediction_mode="single",
+        weight_method="equal",
     )
     if len(sector_single.weights) > 0 and ("sector" in sector_single.weights.columns):
         print(f"\nSector-neutral(single-equal) selected {len(sector_single.weights)} stocks")
@@ -1327,7 +1396,11 @@ if __name__ == "__main__":
 
     # 行业-滚动（多日期）- 等权重
     sector_rolling = sector_strategy.generate_weights(
-        data_dict, test_quarters=4, top_quantile=0.75, prediction_mode="rolling", weight_method="equal"
+        data_dict,
+        test_quarters=4,
+        top_quantile=0.75,
+        prediction_mode="rolling",
+        weight_method="equal",
     )
     if len(sector_rolling.weights) > 0 and ("sector" in sector_rolling.weights.columns):
         print(
@@ -1353,7 +1426,7 @@ if __name__ == "__main__":
         )
         # 展示前几个日期的权重分布
         try:
-            first_date = min(sector_rolling_mv.weights["date"].unique())
+            first_date = sorted(sector_rolling_mv.weights["date"].unique())[0]
             print(f"\n第一个交易日 {first_date} 的权重分布（前10只）:")
             print(
                 sector_rolling_mv.weights[sector_rolling_mv.weights["date"] == first_date][

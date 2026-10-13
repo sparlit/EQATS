@@ -39,7 +39,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import pandas as pd
 
@@ -49,8 +49,7 @@ sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 
 try:
-    from src.strategies.base_strategy import BaseStrategy, StrategyResult
-
+    from ..strategies.base_strategy import BaseStrategy, StrategyResult
     from .alpaca_manager import AlpacaManager, OrderRequest, OrderResponse
 except ImportError:
     # Fallback for direct module testing
@@ -137,7 +136,7 @@ class TradeExecutor:
         if account_name:
             self.alpaca.set_account(account_name)
         else:
-            account_name = next(iter(self.alpaca.accounts.keys()))
+            account_name = list(self.alpaca.accounts.keys())[0]
 
         # Get portfolio state before execution
         portfolio_before = self._get_portfolio_state(account_name)
@@ -219,7 +218,7 @@ class TradeExecutor:
         if account_name:
             self.alpaca.set_account(account_name)
         else:
-            account_name = next(iter(self.alpaca.accounts.keys()))
+            account_name = list(self.alpaca.accounts.keys())[0]
 
         # Get portfolio state before execution
         portfolio_before = self._get_portfolio_state(account_name)
@@ -312,7 +311,9 @@ class TradeExecutor:
 
         return orders
 
-    def _apply_risk_checks(self, orders: list[OrderRequest], account_name: str) -> list[OrderRequest]:
+    def _apply_risk_checks(
+        self, orders: list[OrderRequest], account_name: str
+    ) -> list[OrderRequest]:
         """Apply risk checks to orders."""
         filtered_orders = []
 
@@ -336,7 +337,8 @@ class TradeExecutor:
 
         # Check portfolio turnover
         total_turnover = sum(
-            abs(order.quantity * self._get_current_price(order.symbol, account_name)) for order in filtered_orders
+            abs(order.quantity * self._get_current_price(order.symbol, account_name))
+            for order in filtered_orders
         )
 
         portfolio_value = self.alpaca.get_portfolio_value(account_name)
@@ -353,7 +355,9 @@ class TradeExecutor:
 
         return filtered_orders
 
-    def _execute_orders(self, orders: list[OrderRequest], account_name: str) -> tuple[list[OrderResponse], list[dict]]:
+    def _execute_orders(
+        self, orders: list[OrderRequest], account_name: str
+    ) -> tuple[list[OrderResponse], list[dict]]:
         """Execute orders and handle results."""
         orders_placed = []
         orders_failed = []
@@ -384,7 +388,7 @@ class TradeExecutor:
                     "timestamp": datetime.now().isoformat(),
                 }
                 orders_failed.append(error_info)
-                self.logger.exception(f"Failed to execute order for {order.symbol}: {e}")
+                self.logger.error(f"Failed to execute order for {order.symbol}: {e}")
 
         return orders_placed, orders_failed
 
@@ -402,7 +406,7 @@ class TradeExecutor:
                 "timestamp": datetime.now().isoformat(),
             }
         except Exception as e:
-            self.logger.exception(f"Could not get portfolio state: {e}")
+            self.logger.error(f"Could not get portfolio state: {e}")
             return {}
 
     def _gvkey_to_ticker(self, gvkey: str) -> str:
@@ -512,13 +516,11 @@ if __name__ == "__main__":
         # Load latest weights from data/ml_weights.csv and execute rebalance
         weights_path = Path("data/ml_weights.csv")
         if not weights_path.exists():
-            msg = f"Weights file not found: {weights_path}"
-            raise FileNotFoundError(msg)
+            raise FileNotFoundError(f"Weights file not found: {weights_path}")
 
         df = pd.read_csv(weights_path)
         if "date" not in df.columns or "gvkey" not in df.columns or "weight" not in df.columns:
-            msg = "ml_weights.csv should have columns: date, gvkey, weight"
-            raise ValueError(msg)
+            raise ValueError("ml_weights.csv should have columns: date, gvkey, weight")
 
         # Parse date and get latest
         df["date"] = pd.to_datetime(df["date"]).dt.date
@@ -530,8 +532,7 @@ if __name__ == "__main__":
         df_latest = df_latest[df_latest["weight"] > 0]
         weight_sum = df_latest["weight"].sum()
         if weight_sum <= 0:
-            msg = "Sum of weights is 0, cannot execute rebalance"
-            raise ValueError(msg)
+            raise ValueError("Sum of weights is 0, cannot execute rebalance")
         df_latest["weight"] = df_latest["weight"] / weight_sum
 
         target_weights = {row["gvkey"]: float(row["weight"]) for _, row in df_latest.iterrows()}
@@ -540,24 +541,33 @@ if __name__ == "__main__":
         print(f"Symbols count: {len(target_weights)}")
 
         # 1) Dry-run: generate order plan without submitting
-        plan = executor.alpaca.execute_portfolio_rebalance(target_weights, account_name="default", dry_run=True)
+        plan = executor.alpaca.execute_portfolio_rebalance(
+            target_weights, account_name="default", dry_run=True
+        )
         plan_sell = plan.get("orders_plan", {}).get("sell", [])
         plan_buy = plan.get("orders_plan", {}).get("buy", [])
-        print(f"Dry-run plan generated. Market open: {plan.get('market_open')} TIF: {plan.get('used_time_in_force')} ")
+        print(
+            f"Dry-run plan generated. Market open: {plan.get('market_open')} TIF: {plan.get('used_time_in_force')} "
+        )
         print(f"Planned sells: {len(plan_sell)}, buys: {len(plan_buy)}")
 
         # 2) Submit based on market status and USE_OPG env
         use_opg = os.getenv("USE_OPG", "false").lower() == "true"
         if plan.get("market_open"):
-            submit = executor.alpaca.execute_portfolio_rebalance(target_weights, account_name="default")
-            print(f"Submitted during market hours. Orders placed: {submit.get('orders_placed', 0)}")
-        elif use_opg:
             submit = executor.alpaca.execute_portfolio_rebalance(
-                target_weights, account_name="default", market_closed_action="opg"
+                target_weights, account_name="default"
             )
-            print(f"Submitted as OPG. Orders placed: {submit.get('orders_placed', 0)}")
+            print(f"Submitted during market hours. Orders placed: {submit.get('orders_placed', 0)}")
         else:
-            print("Market is closed. Skipping submission. Set USE_OPG=true to submit OPG at open.")
+            if use_opg:
+                submit = executor.alpaca.execute_portfolio_rebalance(
+                    target_weights, account_name="default", market_closed_action="opg"
+                )
+                print(f"Submitted as OPG. Orders placed: {submit.get('orders_placed', 0)}")
+            else:
+                print(
+                    "Market is closed. Skipping submission. Set USE_OPG=true to submit OPG at open."
+                )
 
     except Exception as e:
         print(f"Initialization failed: {e}")

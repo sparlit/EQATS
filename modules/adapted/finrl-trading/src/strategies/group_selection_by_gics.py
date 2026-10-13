@@ -42,7 +42,6 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 import pandas as pd
 import yaml
@@ -109,7 +108,8 @@ def _norm_sector(value: object) -> str:
     if value is None:
         return ""
     text = str(value).strip().lower()
-    return " ".join(text.split())
+    text = " ".join(text.split())
+    return text
 
 
 def map_sector_to_bucket(sector: object) -> str:
@@ -128,8 +128,7 @@ def preclassify_universe(tickers_df: pd.DataFrame) -> pd.DataFrame:
         if "symbol" in df.columns:
             df = df.rename(columns={"symbol": "tickers"})
         else:
-            msg = "SP500 universe is missing 'tickers' column"
-            raise ValueError(msg)
+            raise ValueError("SP500 universe is missing 'tickers' column")
 
     if "sectors" not in df.columns:
         df["sectors"] = None
@@ -153,12 +152,10 @@ def ensure_fundamental_schema(df: pd.DataFrame) -> pd.DataFrame:
     # y_return is required for training labels, but rows with NaN y_return may
     # still be valid trade-time candidates and should not be dropped here.
     if "y_return" not in out.columns:
-        msg = "fundamentals are missing required label column: y_return"
-        raise ValueError(msg)
+        raise ValueError("fundamentals are missing required label column: y_return")
 
     if "gvkey" not in out.columns or "datadate" not in out.columns:
-        msg = "fundamentals are missing required columns: gvkey/datadate"
-        raise ValueError(msg)
+        raise ValueError("fundamentals are missing required columns: gvkey/datadate")
 
     return out
 
@@ -170,22 +167,19 @@ def select_effective_trade_cutoff(
 ) -> pd.Timestamp:
     """Pick trade cutoff by calendar quarter lag (default: use quarter T-2)."""
     if len(fundamentals) == 0:
-        msg = "empty fundamentals"
-        raise ValueError(msg)
+        raise ValueError("empty fundamentals")
 
     d = fundamentals.copy()
     d["datadate"] = pd.to_datetime(d["datadate"], errors="coerce")
     available_dates = pd.DatetimeIndex(sorted(d["datadate"].dropna().unique()))
     if len(available_dates) == 0:
-        msg = "no valid datadate in fundamentals"
-        raise ValueError(msg)
+        raise ValueError("no valid datadate in fundamentals")
 
     lag = max(int(report_lag_quarters), 0)
     if as_of_date:
         as_of = pd.to_datetime(as_of_date, errors="coerce")
         if pd.isna(as_of):
-            msg = f"invalid as_of_date: {as_of_date}"
-            raise ValueError(msg)
+            raise ValueError(f"invalid as_of_date: {as_of_date}")
     else:
         as_of = pd.Timestamp.today().normalize()
 
@@ -236,11 +230,12 @@ def load_sp500_universe_online_first(preferred_source: str) -> pd.DataFrame:
         secondary_df = _normalize_local(pd.read_csv(secondary_local_path))
         if len(secondary_df) > 0:
             secondary_df.to_csv(local_path, index=False)
-            print("warning: primary local SP500 csv is empty, using secondary local mapping fallback")
+            print(
+                "warning: primary local SP500 csv is empty, using secondary local mapping fallback"
+            )
             return secondary_df
 
-    msg = "SP500 universe unavailable from both online source and local csv"
-    raise ValueError(msg)
+    raise ValueError("SP500 universe unavailable from both online source and local csv")
 
 
 def select_min_per_bucket(
@@ -271,7 +266,9 @@ def select_min_per_bucket(
         strict = g[(g["predicted_return"] >= threshold) & (g["predicted_return"] > 0)].copy()
 
         if len(strict) >= min_per_group:
-            selected = strict.sort_values("predicted_return", ascending=False).head(min_per_group).copy()
+            selected = (
+                strict.sort_values("predicted_return", ascending=False).head(min_per_group).copy()
+            )
             mode = "strict_quantile"
         else:
             selected = g.head(min_per_group).copy()
@@ -366,8 +363,7 @@ def replace_asset_groups_section(
     elif pattern_key_boundary.search(original_text):
         updated_text = pattern_key_boundary.sub(new_block.rstrip("\n"), original_text, count=1)
     else:
-        msg = "Could not locate asset_groups section boundaries in YAML"
-        raise ValueError(msg)
+        raise ValueError("Could not locate asset_groups section boundaries in YAML")
 
     yaml_path.write_text(updated_text, encoding="utf-8")
 
@@ -376,13 +372,17 @@ def main() -> None:
     default_data_dir = Path(project_root) / "data"
     default_data_dir.mkdir(parents=True, exist_ok=True)
 
-    parser = argparse.ArgumentParser(description="ML + GICS preclassification with YAML asset_groups auto-write")
+    parser = argparse.ArgumentParser(
+        description="ML + GICS preclassification with YAML asset_groups auto-write"
+    )
     parser.add_argument("--start-date", default="2021-01-01")
     parser.add_argument("--end-date", default="2026-04-01")
     parser.add_argument("--top-quantile", type=float, default=0.75)
     parser.add_argument("--test-quarters", type=int, default=4)
     parser.add_argument("--min-per-group", type=int, default=7)
-    parser.add_argument("--limit", type=int, default=10000, help="Universe cap; use large value for full SP500")
+    parser.add_argument(
+        "--limit", type=int, default=10000, help="Universe cap; use large value for full SP500"
+    )
     parser.add_argument(
         "--yaml-path",
         default=str(Path(project_root) / "src" / "strategies" / "AdaptiveRotationConf_v1.2.1.yaml"),
@@ -414,8 +414,7 @@ def main() -> None:
         tickers = tickers.head(args.limit).copy()
 
     if len(tickers) == 0:
-        msg = "No tickers available after universe loading and limit filtering"
-        raise ValueError(msg)
+        raise ValueError("No tickers available after universe loading and limit filtering")
 
     fundamentals = fetch_fundamental_data(
         tickers,
@@ -432,7 +431,9 @@ def main() -> None:
     )
     latest_date = pd.to_datetime(fundamentals["datadate"]).max()
     if pd.notna(latest_date) and cutoff_date < latest_date:
-        as_of_text = args.as_of_date or pd.Timestamp.today().strftime("%Y-%m-%d")
+        as_of_text = (
+            args.as_of_date if args.as_of_date else pd.Timestamp.today().strftime("%Y-%m-%d")
+        )
         print(
             f"info: as_of={as_of_text}, report_lag_quarters={args.report_lag_quarters}, "
             f"effective trade cutoff={cutoff_date.date()} (latest available={latest_date.date()})"
@@ -472,14 +473,17 @@ def main() -> None:
             pred_all = pd.DataFrame()
 
     if pred_all is None or len(pred_all) == 0:
-        msg = "No predictions generated after rolling and single fallback"
-        raise ValueError(msg)
+        raise ValueError("No predictions generated after rolling and single fallback")
 
     pred_all = pred_all.copy()
     pred_all["gvkey"] = pred_all["gvkey"].astype(str)
     pred_all["date"] = pd.to_datetime(pred_all["date"]) if "date" in pred_all.columns else pd.NaT
     pred_all = pred_all.sort_values(["gvkey", "date"])
-    pred_df = pred_all.groupby("gvkey", as_index=False).tail(1)[["gvkey", "predicted_return", "date"]].copy()
+    pred_df = (
+        pred_all.groupby("gvkey", as_index=False)
+        .tail(1)[["gvkey", "predicted_return", "date"]]
+        .copy()
+    )
     trade_date = pred_df["date"].max() if "date" in pred_df.columns else None
 
     universe_map = tickers[["tickers", "sectors", "gics_bucket"]].copy()
@@ -493,7 +497,9 @@ def main() -> None:
         sec["gvkey"] = sec["gvkey"].astype(str)
         sec = sec.dropna(subset=["gsector"]).drop_duplicates(subset=["gvkey"], keep="last")
         merged = merged.merge(sec, on="gvkey", how="left", suffixes=("", "_fund"))
-        merged["gics_bucket"] = merged["gics_bucket"].fillna(merged["gsector"].apply(map_sector_to_bucket))
+        merged["gics_bucket"] = merged["gics_bucket"].fillna(
+            merged["gsector"].apply(map_sector_to_bucket)
+        )
 
     merged = merged.dropna(subset=["gics_bucket"]).copy()
 
@@ -512,7 +518,8 @@ def main() -> None:
     selected.to_csv(out_path, index=False)
 
     symbols_by_bucket = {
-        bucket: selected[selected["gics_bucket"] == bucket]["gvkey"].astype(str).tolist() for bucket in BUCKET_ORDER
+        bucket: selected[selected["gics_bucket"] == bucket]["gvkey"].astype(str).tolist()
+        for bucket in BUCKET_ORDER
     }
 
     yaml_path = Path(args.yaml_path)
