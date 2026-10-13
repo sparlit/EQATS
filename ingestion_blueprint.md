@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 424 | Current Index: 285
+Total Repositories: 424 | Current Index: 286
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -288,7 +288,7 @@ Total Repositories: 424 | Current Index: 285
 | 283 | praveen-mannem/nse-scanner | Processed | https://github.com/sparlit/EQATS/pull/3252 |
 | 284 | pujanm/stockx | Completed | https://github.com/sparlit/EQATS/pull/3253 |
 | 285 | purefinance/mmb | Processed | https://github.com/sparlit/EQATS/pull/3254 |
-| 286 | quantconnect/lean.datasource.zerodha | pending | None |
+| 286 | quantconnect/lean.datasource.zerodha | Skipped: Private/Non-Existent (404/403) | None |
 | 287 | quantmechanics/nse-premarket-data | pending | None |
 | 288 | quantxaashish/nse-alpha | pending | None |
 | 289 | rachnog/deep-trading | pending | None |

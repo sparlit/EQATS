@@ -1,5 +1,5 @@
 {
-  "current_index": 285,
+  "current_index": 286,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2285,7 +2285,7 @@
       "name": "lean.datasource.zerodha",
       "target": "quantconnect/lean.datasource.zerodha",
       "url": "https://github.com/quantconnect/lean.datasource.zerodha",
-      "status": "pending",
+      "status": "Skipped: Private/Non-Existent (404/403)",
       "pr_url": null,
       "merged": false
     },
