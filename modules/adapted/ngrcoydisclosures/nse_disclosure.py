@@ -25,7 +25,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import configparser
 import json
-from typing import Dict, List, Union
 
 import pandas as pd
 import requests
