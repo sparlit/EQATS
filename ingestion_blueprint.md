@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 424 | Current Index: 50
+Total Repositories: 424 | Current Index: 24
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -27,32 +27,32 @@ Total Repositories: 424 | Current Index: 50
 | 22 | akshaypawar7/wods | Processed | https://github.com/sparlit/EQATS/pull/3310 |
 | 23 | akshayraje/get-nse-bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/3311 |
 | 24 | akshayz14/indian-stock-tracker | Skipped: Private/Non-Existent (404/403) | None |
-| 25 | akt114/buynsell | Processed | https://github.com/sparlit/EQATS/pull/3319 |
-| 26 | alexwan/osengine | Processed | https://github.com/sparlit/EQATS/pull/3320 |
-| 27 | algotrading-lab/ai-algotrading-agent | Completed | https://github.com/sparlit/EQATS/pull/3321 |
-| 28 | alloc7260/nse | Processed | https://github.com/sparlit/EQATS/pull/3322 |
-| 29 | alphabench/raptorbt | Processed | https://github.com/sparlit/EQATS/pull/3323 |
-| 30 | althk/zerobha | Completed | https://github.com/sparlit/EQATS/pull/3324 |
-| 31 | ameobea/tickgrinder | Processed | https://github.com/sparlit/EQATS/pull/3325 |
-| 32 | amitashwinibhagat/nse-swing-scanner | Completed | https://github.com/sparlit/EQATS/pull/3326 |
-| 33 | amv-dev/yata | Processed | https://github.com/sparlit/EQATS/pull/3327 |
-| 34 | aneesh540/vse | Processed | https://github.com/sparlit/EQATS/pull/3328 |
-| 35 | animesh4002/ai-stock-screener | Completed | https://github.com/sparlit/EQATS/pull/3329 |
-| 36 | aniruddhsujish/nsetradeagents | Completed | https://github.com/sparlit/EQATS/pull/3330 |
-| 37 | anjulgarg/sharewatch | Processed | https://github.com/sparlit/EQATS/pull/3331 |
-| 38 | ankitchaudhary6886/nse-system | Completed | https://github.com/sparlit/EQATS/pull/3332 |
-| 39 | ankitsny/nse_scrapper | Processed | https://github.com/sparlit/EQATS/pull/3333 |
-| 40 | anshulk/nse | Processed | https://github.com/sparlit/EQATS/pull/3334 |
-| 41 | anshuthopsee/nse-oi-visualizer | Processed | https://github.com/sparlit/EQATS/pull/3335 |
-| 42 | anthdm/rust-trading-engine | Processed | https://github.com/sparlit/EQATS/pull/3336 |
-| 43 | anurag-roy/kite-option-chain | Processed | https://github.com/sparlit/EQATS/pull/3337 |
-| 44 | anurag-roy/shoonya-option-chain | Processed | https://github.com/sparlit/EQATS/pull/3338 |
-| 45 | api-evangelist/nse-india | Processed | https://github.com/sparlit/EQATS/pull/3339 |
-| 46 | aravin/algo-trade | Processed | https://github.com/sparlit/EQATS/pull/3340 |
-| 47 | aravin/nse-data | Processed | https://github.com/sparlit/EQATS/pull/3341 |
-| 48 | arishhassan/nse-live_testing | Processed | https://github.com/sparlit/EQATS/pull/3342 |
-| 49 | arvchahal/kalshi-rs | Processed | https://github.com/sparlit/EQATS/pull/3344 |
-| 50 | asavinov/intelligent-trading-bot | Completed | https://github.com/sparlit/EQATS/pull/3345 |
+| 25 | akt114/buynsell | pending | None |
+| 26 | alexwan/osengine | pending | None |
+| 27 | algotrading-lab/ai-algotrading-agent | pending | None |
+| 28 | alloc7260/nse | pending | None |
+| 29 | alphabench/raptorbt | pending | None |
+| 30 | althk/zerobha | pending | None |
+| 31 | ameobea/tickgrinder | pending | None |
+| 32 | amitashwinibhagat/nse-swing-scanner | pending | None |
+| 33 | amv-dev/yata | pending | None |
+| 34 | aneesh540/vse | pending | None |
+| 35 | animesh4002/ai-stock-screener | pending | None |
+| 36 | aniruddhsujish/nsetradeagents | pending | None |
+| 37 | anjulgarg/sharewatch | pending | None |
+| 38 | ankitchaudhary6886/nse-system | pending | None |
+| 39 | ankitsny/nse_scrapper | pending | None |
+| 40 | anshulk/nse | pending | None |
+| 41 | anshuthopsee/nse-oi-visualizer | pending | None |
+| 42 | anthdm/rust-trading-engine | pending | None |
+| 43 | anurag-roy/kite-option-chain | pending | None |
+| 44 | anurag-roy/shoonya-option-chain | pending | None |
+| 45 | api-evangelist/nse-india | pending | None |
+| 46 | aravin/algo-trade | pending | None |
+| 47 | aravin/nse-data | pending | None |
+| 48 | arishhassan/nse-live_testing | pending | None |
+| 49 | arvchahal/kalshi-rs | pending | None |
+| 50 | asavinov/intelligent-trading-bot | pending | None |
 | 51 | ashayk003/nse-sentiment-analyzer | pending | None |
 | 52 | ashgen/nsedataanalytics | pending | None |
 | 53 | ashishkumar30/stock_market_live_trading_using_ai | pending | None |
