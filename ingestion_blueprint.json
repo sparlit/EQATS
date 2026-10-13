@@ -1,5 +1,5 @@
 {
-  "current_index": 58,
+  "current_index": 59,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -469,7 +469,7 @@
       "name": "tradingview-mcp",
       "target": "atilaahmettaner/tradingview-mcp",
       "url": "https://github.com/atilaahmettaner/tradingview-mcp",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
