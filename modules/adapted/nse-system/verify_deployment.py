@@ -194,7 +194,8 @@ def run_checks():
     try:
         import requests
 
-        r = requests.get("http://127.0.0.1:8000/api/health", auth=("ankit", "ankitc21"), timeout=5)
+        api_base = os.getenv("API_BASE", "http://127.0.0.1:8000")
+        r = requests.get(f"{api_base}/api/health", timeout=5)
         if r.status_code == 200:
             d = r.json()
             _check(True, "API /api/health", f"{d.get('prices_rows', 0):,} price rows")
