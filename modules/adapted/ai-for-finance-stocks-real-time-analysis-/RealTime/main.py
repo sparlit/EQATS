@@ -82,7 +82,9 @@ def main():
     st.header(
         "Article Link: https://datascienceplus.com/real-time-national-stock-exchange-nse-of-india-close-price-stocks-predictions-in-python/"
     )
-    st.header("Source Code Link: https://github.com/abhiwalia15/AI-for-Finance-Stocks-real-time-analysis-")
+    st.header(
+        "Source Code Link: https://github.com/abhiwalia15/AI-for-Finance-Stocks-real-time-analysis-"
+    )
 
     # Stock Section
     choose_stock = st.sidebar.selectbox(
