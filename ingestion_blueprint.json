@@ -2326,7 +2326,11 @@
       "target": "rahulghuge94/trading_expiry",
       "url": "https://github.com/rahulghuge94/trading_expiry",
       "status": "Completed",
+<<<<<<< HEAD
       "pr_url": null,
+=======
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3286",
+>>>>>>> integrate/trading_expiry
       "merged": true
     },
     {
