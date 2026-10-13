@@ -2294,8 +2294,8 @@
       "target": "quantmechanics/nse-premarket-data",
       "url": "https://github.com/quantmechanics/nse-premarket-data",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3275",
+      "merged": true
     },
     {
       "name": "nse-alpha",
