@@ -4,11 +4,10 @@ Checks NAV analytics, scheme search, asset allocation, 0.05 INR tick rounding,
 IST session validation, and SEBIBrokerAdapter compliance.
 """
 
-from datetime import datetime, timezone
 import zoneinfo
+from datetime import datetime
 
 from institutional_integrations.mftool_engine import (
-    MAGIC_NUMBER_MFTOOL,
     MFToolAdapter,
     MFToolEngine,
     round_tick_005,

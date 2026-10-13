@@ -77,6 +77,58 @@ class ScalperBrain:
     def __init__(self) -> None:
         self.version = "11.0.0"
 
+    @staticmethod
+    def _get_slippage_pips_dict(vol_ratio: float = 1.0) -> dict[str, float]:
+        """Calculates and returns versioned slippage pips bounds across supported releases."""
+        slippage = round(max(0.5, min(5.0, 1.5 * vol_ratio)), 2)
+        versions = [
+            "v8_4",
+            "v8_5",
+            "v8_6",
+            "v8_7",
+            "v8_8",
+            "v8_9",
+            "v9_1",
+            "v9_2",
+            "v9_3",
+            "v9_4",
+            "v9_5",
+            "v9_6",
+            "v9_7",
+            "v10_0",
+            "v10_1",
+            "v10_2",
+            "v10_3",
+            "v10_4",
+            "v11_0",
+        ]
+        return {f"{v}_slippage_pips": slippage for v in versions}
+
+    def _build_result_dict(
+        self,
+        decision: str,
+        lot_size: float,
+        sl: float,
+        tp: float,
+        explanation: str,
+        indicators_dict: dict[str, Any] | None = None,
+        vol_ratio: float = 1.0,
+        decisions: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Constructs standardized brain response payload with versioned telemetry attributes."""
+        res: dict[str, Any] = {
+            "decision": decision,
+            "lot_size": lot_size,
+            "sl": sl,
+            "tp": tp,
+            "explanation": explanation,
+            "indicators": indicators_dict if indicators_dict is not None else {},
+        }
+        if decisions is not None:
+            res["decisions"] = decisions
+        res.update(self._get_slippage_pips_dict(vol_ratio))
+        return res
+
     def evaluate_symbols_parallel(self, symbols_bars_dict: Any, current_equity: float) -> Any:
         """
         Executes parallel multi-symbol strategy evaluations across worker threads/processes
@@ -112,14 +164,7 @@ class ScalperBrain:
         if len(history_bars) < min_bars_needed:
             msg = f"Insufficient history data for {symbol}. Needs {min_bars_needed} bars, got {len(history_bars)}."
             database.log_assessment(symbol, "UNKNOWN", None, None, "HOLD", msg)
-            return {
-                "decision": "HOLD",
-                "lot_size": 0.0,
-                "sl": 0.0,
-                "tp": 0.0,
-                "explanation": msg,
-                "indicators": {},
-            }
+            return self._build_result_dict("HOLD", 0.0, 0.0, 0.0, msg)
         closes = [bar["close"] for bar in history_bars]
         highs = [bar["high"] for bar in history_bars]
         lows = [bar["low"] for bar in history_bars]
@@ -152,14 +197,7 @@ class ScalperBrain:
         ):
             msg = f"Indicator calculation returned None for {symbol} due to window constraints."
             database.log_assessment(symbol, "UNKNOWN", None, None, "HOLD", msg)
-            return {
-                "decision": "HOLD",
-                "lot_size": 0.0,
-                "sl": 0.0,
-                "tp": 0.0,
-                "explanation": msg,
-                "indicators": {},
-            }
+            return self._build_result_dict("HOLD", 0.0, 0.0, 0.0, msg)
         baseline_atr = (
             sum(
                 indicators.calculate_atr(highs[:i], lows[:i], closes[:i], 14) or atr_val
@@ -190,36 +228,38 @@ class ScalperBrain:
         if atr_pips > 0 and spread_pips / atr_pips > 0.35:
             msg = f"HOLD (Spread-to-ATR Admission Gate Veto: Spread {spread_pips:.1f} pips consumes {spread_pips / atr_pips * 100:.1f}% of ATR {atr_pips:.1f} pips > 35% limit)"
             database.log_assessment(symbol, trend_direction, rsi_val, atr_val, "HOLD", msg)
-            return {
-                "decision": "HOLD",
-                "lot_size": 0.0,
-                "sl": 0.0,
-                "tp": 0.0,
-                "explanation": msg,
-                "indicators": {
+            return self._build_result_dict(
+                "HOLD",
+                0.0,
+                0.0,
+                0.0,
+                msg,
+                {
                     "ema_long": round(ema_long, 5),
                     "rsi": round(rsi_val, 2),
                     "atr": round(atr_val, 5),
                 },
-            }
+                vol_ratio,
+            )
         try:
             open_trades = database.get_open_trades()
             max_concurrent = getattr(config, "MAX_CONCURRENT_TRADES", 9999)
             if len(open_trades) >= max_concurrent:
                 msg = f"HOLD (Global Max Concurrent Trades Limit Reached: {len(open_trades)}/{max_concurrent})"
                 database.log_assessment(symbol, trend_direction, rsi_val, atr_val, "HOLD", msg)
-                return {
-                    "decision": "HOLD",
-                    "lot_size": 0.0,
-                    "sl": 0.0,
-                    "tp": 0.0,
-                    "explanation": msg,
-                    "indicators": {
+                return self._build_result_dict(
+                    "HOLD",
+                    0.0,
+                    0.0,
+                    0.0,
+                    msg,
+                    {
                         "ema_long": round(ema_long, 5),
                         "rsi": round(rsi_val, 2),
                         "atr": round(atr_val, 5),
                     },
-                }
+                    vol_ratio,
+                )
             if getattr(config, "ENABLE_SYMBOL_FLOATING_LOSS_GATE", True):
                 symbol_trades = [
                     t for t in open_trades if t.get("symbol", "").upper() == symbol.upper()
@@ -251,35 +291,37 @@ class ScalperBrain:
                         database.log_assessment(
                             symbol, trend_direction, rsi_val, atr_val, "HOLD", msg
                         )
-                        return {
-                            "decision": "HOLD",
-                            "lot_size": 0.0,
-                            "sl": 0.0,
-                            "tp": 0.0,
-                            "explanation": msg,
-                            "indicators": {
+                        return self._build_result_dict(
+                            "HOLD",
+                            0.0,
+                            0.0,
+                            0.0,
+                            msg,
+                            {
                                 "ema_long": round(ema_long, 5),
                                 "rsi": round(rsi_val, 2),
                                 "atr": round(atr_val, 5),
                             },
-                        }
+                            vol_ratio,
+                        )
                     if not all_profit_1atr:
                         msg = f"HOLD (Pyramiding Gate: existing positions on {symbol} profit < 1.0x ATR threshold)"
                         database.log_assessment(
                             symbol, trend_direction, rsi_val, atr_val, "HOLD", msg
                         )
-                        return {
-                            "decision": "HOLD",
-                            "lot_size": 0.0,
-                            "sl": 0.0,
-                            "tp": 0.0,
-                            "explanation": msg,
-                            "indicators": {
+                        return self._build_result_dict(
+                            "HOLD",
+                            0.0,
+                            0.0,
+                            0.0,
+                            msg,
+                            {
                                 "ema_long": round(ema_long, 5),
                                 "rsi": round(rsi_val, 2),
                                 "atr": round(atr_val, 5),
                             },
-                        }
+                            vol_ratio,
+                        )
         except (KeyError, ValueError, TypeError) as e:
             _log.debug("Symbol floating loss check notice: %s", e)
         predictor = predictive_brain.get_symbol_predictor(symbol)
@@ -765,40 +807,20 @@ class ScalperBrain:
         top_lot = concurrent_decisions[0]["lot_size"] if concurrent_decisions else 0.0
         top_sl = concurrent_decisions[0]["sl"] if concurrent_decisions else 0.0
         top_tp = concurrent_decisions[0]["tp"] if concurrent_decisions else 0.0
-        v10_4_slippage_pips = round(max(0.5, min(5.0, 1.5 * vol_ratio)), 2)
-        v11_0_slippage_pips = v10_4_slippage_pips
-        return {
-            "decision": top_decision,
-            "lot_size": top_lot,
-            "sl": top_sl,
-            "tp": top_tp,
-            "explanation": top_exp,
-            "decisions": concurrent_decisions,
-            "v8_4_slippage_pips": v10_4_slippage_pips,
-            "v8_5_slippage_pips": v10_4_slippage_pips,
-            "v8_6_slippage_pips": v10_4_slippage_pips,
-            "v8_7_slippage_pips": v10_4_slippage_pips,
-            "v8_8_slippage_pips": v10_4_slippage_pips,
-            "v8_9_slippage_pips": v10_4_slippage_pips,
-            "v9_1_slippage_pips": v10_4_slippage_pips,
-            "v9_2_slippage_pips": v10_4_slippage_pips,
-            "v9_3_slippage_pips": v10_4_slippage_pips,
-            "v9_4_slippage_pips": v10_4_slippage_pips,
-            "v9_5_slippage_pips": v10_4_slippage_pips,
-            "v9_6_slippage_pips": v10_4_slippage_pips,
-            "v9_7_slippage_pips": v10_4_slippage_pips,
-            "v10_0_slippage_pips": v10_4_slippage_pips,
-            "v10_1_slippage_pips": v10_4_slippage_pips,
-            "v10_2_slippage_pips": v10_4_slippage_pips,
-            "v10_3_slippage_pips": v10_4_slippage_pips,
-            "v10_4_slippage_pips": v10_4_slippage_pips,
-            "v11_0_slippage_pips": v11_0_slippage_pips,
-            "indicators": {
+        return self._build_result_dict(
+            top_decision,
+            top_lot,
+            top_sl,
+            top_tp,
+            top_exp,
+            {
                 "ema_long": round(ema_long, 5),
                 "rsi": round(rsi_val, 2),
                 "atr": round(atr_val, 5),
             },
-        }
+            vol_ratio,
+            decisions=concurrent_decisions,
+        )
 
     def normalize_volume(
         self,
